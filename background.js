@@ -221,25 +221,66 @@ chrome.notifications.onButtonClicked.addListener((notificationId, buttonIndex) =
 // --- Meta Billing Check Logic ---
 
 const openCampaignWithDNumberScript = (dNumber) => {
-    // ... (findAllElementsInShadowDom and waitForElement helper functions remain the same) ...
+    // This script is injected into the page and must be self-contained,
+    // including all helper functions required for Shadow DOM traversal and waiting.
+
+    /**
+     * Recursively finds all elements matching a selector, piercing through Shadow DOMs.
+     * @param {string} selector - The CSS selector to search for.
+     * @param {Element|ShadowRoot} root - The root element to start the search from.
+     * @returns {Element[]} An array of all matching elements found.
+     */
+    function findAllElementsInShadowDom(selector, root = document) {
+        let results = [];
+        // Find elements in the current root's light DOM
+        results = results.concat(Array.from(root.querySelectorAll(selector)));
+
+        // Recursively search in shadow roots
+        const allElements = root.querySelectorAll('*');
+        for (const element of allElements) {
+            if (element.shadowRoot) {
+                results = results.concat(findAllElementsInShadowDom(selector, element.shadowRoot));
+            }
+        }
+        return results;
+    }
+
+    /**
+     * Waits for a specific indexed element to appear in the DOM.
+     */
+    function waitForElement(selector, index = 0, timeout = 10000) {
+        return new Promise((resolve, reject) => {
+            const intervalTime = 200;
+            let elapsedTime = 0;
+            const interval = setInterval(() => {
+                const elements = findAllElementsInShadowDom(selector);
+                if (elements.length > index) {
+                    resolve(elements[index]);
+                    clearInterval(interval);
+                    return;
+                }
+
+                elapsedTime += intervalTime;
+                if (elapsedTime >= timeout) {
+                    clearInterval(interval);
+                    reject(new Error(`Element '${selector}' at index ${index} not found within ${timeout}ms`));
+                }
+            }, intervalTime);
+        });
+    }
 
     // This is the main execution logic
     (async () => {
         console.log(`[D-Number Open - Injected] Start for D-Number: ${dNumber}`);
 
         try {
-            // FIX 1: Find and click the element that opens the quick search/recent menu (Chevron icon based on recording).
-            // Selector derived from the recording's first click: mo-banner mo-menu mo-icon.chevron-icon
+            // 1. Find and click the element that opens the quick search/recent menu (Chevron icon based on recording).
+            // Selector derived from the recording: mo-banner mo-menu mo-icon.chevron-icon
             const chevronIconSelector = 'mo-banner mo-menu mo-icon.chevron-icon';
             const initialClickElement = await waitForElement(chevronIconSelector, 0, 15000);
 
-            // We click the element itself, the recording's full selector for a successful click was deep.
-            // Clicking the icon should be sufficient to trigger the menu opening.
             initialClickElement.click();
             console.log(`[D-Number Open - Injected] Chevron icon clicked to open menu.`);
-
-            // Skip Click 2 (mo-toggle-switch) from the recording as it might be conditional/optional.
-            // We directly proceed to inputting the D-number.
 
             // 2. Wait for the native input element inside the newly opened overlay.
             // Selector: mo-banner-recent-menu-content input[type="text"]
