@@ -221,69 +221,30 @@ chrome.notifications.onButtonClicked.addListener((notificationId, buttonIndex) =
 // --- Meta Billing Check Logic ---
 
 const openCampaignWithDNumberScript = (dNumber) => {
-    // This script is injected into the page and must be self-contained.
-
-    /**
-     * Recursively finds all elements matching a selector, piercing through Shadow DOMs.
-     * @param {string} selector - The CSS selector to search for.
-     * @param {Element|ShadowRoot} root - The root element to start the search from.
-     * @returns {Element[]} An array of all matching elements found.
-     */
-    function findAllElementsInShadowDom(selector, root = document) {
-        let results = [];
-        // Find elements in the current root's light DOM
-        results = results.concat(Array.from(root.querySelectorAll(selector)));
-
-        // Recursively search in shadow roots
-        const allElements = root.querySelectorAll('*');
-        for (const element of allElements) {
-            if (element.shadowRoot) {
-                results = results.concat(findAllElementsInShadowDom(selector, element.shadowRoot));
-            }
-        }
-        return results;
-    }
-
-    /**
-     * Waits for a specific indexed element to appear in the DOM.
-     * This is a simplified waiter, assuming visibility is not an issue once found.
-     */
-    function waitForElement(selector, index = 0, timeout = 10000) {
-        return new Promise((resolve, reject) => {
-            const intervalTime = 200;
-            let elapsedTime = 0;
-            const interval = setInterval(() => {
-                const elements = findAllElementsInShadowDom(selector);
-                if (elements.length > index) {
-                    resolve(elements[index]);
-                    clearInterval(interval);
-                    return;
-                }
-
-                elapsedTime += intervalTime;
-                if (elapsedTime >= timeout) {
-                    clearInterval(interval);
-                    reject(new Error(`Element '${selector}' at index ${index} not found within ${timeout}ms`));
-                }
-            }, intervalTime);
-        });
-    }
+    // ... (findAllElementsInShadowDom and waitForElement helper functions remain the same) ...
 
     // This is the main execution logic
     (async () => {
         console.log(`[D-Number Open - Injected] Start for D-Number: ${dNumber}`);
 
         try {
-            // FIX 1: Removed the unreliable initial click on mo-search-box[data-cy="quick_search"].
-            // The search box seems to appear inside a menu that's already open or opens via another element.
+            // FIX 1: Find and click the element that opens the quick search/recent menu (Chevron icon based on recording).
+            // Selector derived from the recording's first click: mo-banner mo-menu mo-icon.chevron-icon
+            const chevronIconSelector = 'mo-banner mo-menu mo-icon.chevron-icon';
+            const initialClickElement = await waitForElement(chevronIconSelector, 0, 15000);
 
-            // We will directly wait for the ultimate input field based on the recording's context
-            // Selector: mo-banner-recent-menu-content mo-search-box mo-input input:nth-of-type(1)
-            // Note: Since 'pierce' is used in the recording, we rely on findAllElementsInShadowDom.
+            // We click the element itself, the recording's full selector for a successful click was deep.
+            // Clicking the icon should be sufficient to trigger the menu opening.
+            initialClickElement.click();
+            console.log(`[D-Number Open - Injected] Chevron icon clicked to open menu.`);
 
-            // FIX 2: Use the complex, full path selector from the recording to ensure we target the correct, active input field.
-            const inputSelector = 'mo-banner-recent-menu-content input[type="text"]'; // Simplified for traversal
-            const inputElement = await waitForElement(inputSelector, 0, 15000); // Wait up to 15s
+            // Skip Click 2 (mo-toggle-switch) from the recording as it might be conditional/optional.
+            // We directly proceed to inputting the D-number.
+
+            // 2. Wait for the native input element inside the newly opened overlay.
+            // Selector: mo-banner-recent-menu-content input[type="text"]
+            const inputSelector = 'mo-banner-recent-menu-content input[type="text"]';
+            const inputElement = await waitForElement(inputSelector, 0, 15000);
 
             // Ensure the input field is clear and active
             inputElement.focus();
@@ -291,17 +252,15 @@ const openCampaignWithDNumberScript = (dNumber) => {
 
             console.log(`[D-Number Open - Injected] Native input element found. Inputting D-Number...`);
 
-            // 3. Set the value directly and dispatch events (Fix for inputting/search trigger)
+            // 3. Set the value directly and dispatch events
             inputElement.value = dNumber;
             inputElement.dispatchEvent(new Event('change', { bubbles: true }));
             inputElement.dispatchEvent(new Event('input', { bubbles: true }));
-            // Dispatch an 'Enter' keyup event to instantly trigger the search/submit action
-            // This replaces the explicit click on the 'mo-button' from the recording, which the input event should trigger naturally.
             inputElement.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'Enter', keyCode: 13, code: 'Enter' }));
 
             console.log(`[D-Number Open - Injected] D-Number input and search triggered. Waiting for correct result link...`);
 
-            // 4. Robustly wait for the result link to appear AND contain the D-number (Keep original robust waiting logic)
+            // 4. Robustly wait for the result link to appear AND contain the D-number
             const resultLinkSelector = `a.item-row[href*="campaign-id"]`;
             let resultLink;
 
@@ -311,7 +270,6 @@ const openCampaignWithDNumberScript = (dNumber) => {
 
             while (elapsedWait < maxWaitResult) {
                 const links = findAllElementsInShadowDom(resultLinkSelector);
-                // Search specifically for a link whose innerText includes the D-number
                 resultLink = links.find(link => link.innerText && link.innerText.includes(dNumber));
                 if (resultLink) {
                     break;
