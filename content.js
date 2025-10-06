@@ -369,21 +369,25 @@ async function handleDNumberSearch(dNumber) {
     console.log(`[DNumberSearch] Attempting to search for D-Number: ${dNumber}`);
     const campaignModuleId = 'mo-banner-module-prsm-cm-spa';
     const overlayId = 'mo-overlay-4';
-    const maxRetries = 10;
+    const maxRetries = 15; // Increased retries for more patience
     let currentRetry = 0;
 
     // 1. Find and click the Campaign module to open the recent campaign menu
-    let campaignModuleButton = queryShadowDom(`#${campaignModuleId}`);
-    if (!campaignModuleButton) {
-        // Fallback: search for the generic anchor or interactive element inside the module
-        campaignModuleButton = queryShadowDom('mo-banner-module#mo-banner-module-prsm-cm-spa > mo-menu > a');
+    let campaignModuleButton;
+    while (currentRetry < maxRetries) {
+        campaignModuleButton = queryShadowDom(`#${campaignModuleId}`) || queryShadowDom('mo-banner-module#mo-banner-module-prsm-cm-spa > mo-menu > a');
+        if (campaignModuleButton) {
+            break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms before retrying
+        currentRetry++;
     }
 
     if (campaignModuleButton) {
         console.log('[DNumberSearch] Clicking Campaign module button.');
         campaignModuleButton.click();
     } else {
-        console.error('[DNumberSearch] Failed to find the Campaign module button.');
+        console.error('[DNumberSearch] Failed to find the Campaign module button after multiple retries.');
         return;
     }
 

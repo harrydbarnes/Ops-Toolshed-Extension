@@ -192,15 +192,8 @@ function handleOpenCampaignDNumber() {
         dNumberError.classList.remove('hidden');
     } else {
         dNumberError.classList.add('hidden');
-        // Send the message to the background script to orchestrate the new tab and search.
-        chrome.runtime.sendMessage({ action: "performDNumberSearch", dNumber: dNumber }, function(response) {
-            if (chrome.runtime.lastError) {
-                console.error("Error sending D-number search to background script:", chrome.runtime.lastError.message);
-                alert("An error occurred while initiating the D-number search. See the extension console for details.");
-            } else {
-                console.log("D-number search initiated via background script:", response?.status || "No response");
-            }
-        });
+        // Send the message to the background script. No callback is needed as the popup will close.
+        chrome.runtime.sendMessage({ action: "performDNumberSearch", dNumber: dNumber });
     }
 }
 

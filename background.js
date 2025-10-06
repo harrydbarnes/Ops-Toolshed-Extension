@@ -407,7 +407,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     sendResponse({ status: 'error', message: `Failed to search for D-Number: ${e.message}` });
                 }
             })();
-            return true; // Required for async sendResponse
+            return true;
         }
         // --- END MODIFIED D-NUMBER SEARCH LOGIC ---
 
@@ -480,6 +480,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     return true;  // Indicates that the response is sent asynchronously
     }); // close chrome.storage.local.get
+    return true;
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
