@@ -466,6 +466,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     } else if (request.action === "openCampaignWithDNumber") {
         (async () => {
             try {
+                // Ensure the offscreen document is ready before trying to send a message to it.
+                await createOffscreenDocument();
+
                 // FIX: Copy D-number to clipboard first using the offscreen document.
                 const copyResponse = await new Promise((resolve, reject) => {
                     chrome.runtime.sendMessage({ action: 'copyToClipboard', text: request.dNumber }, (response) => {
