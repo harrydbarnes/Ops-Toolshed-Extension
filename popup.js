@@ -192,20 +192,13 @@ function handleOpenCampaignDNumber() {
         dNumberError.classList.remove('hidden');
     } else {
         dNumberError.classList.add('hidden');
-        // Send the message to the content script of the active tab
-        chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
-            if (tabs.length > 0 && tabs[0].id) {
-                chrome.tabs.sendMessage(tabs[0].id, { action: "performDNumberSearch", dNumber: dNumber }, function(response) {
-                    if (chrome.runtime.lastError) {
-                        console.error("Error sending D-number search to content script:", chrome.runtime.lastError.message);
-                        alert("Could not communicate with the Prisma page. Please ensure the page is active and try again.");
-                    } else {
-                        console.log("D-number search initiated:", response?.status || "No response");
-                    }
-                });
+        // Send the message to the background script to orchestrate the new tab and search.
+        chrome.runtime.sendMessage({ action: "performDNumberSearch", dNumber: dNumber }, function(response) {
+            if (chrome.runtime.lastError) {
+                console.error("Error sending D-number search to background script:", chrome.runtime.lastError.message);
+                alert("An error occurred while initiating the D-number search. See the extension console for details.");
             } else {
-                console.error("Could not find active tab to send D-number search message.");
-                alert("No active Prisma tab found.");
+                console.log("D-number search initiated via background script:", response?.status || "No response");
             }
         });
     }

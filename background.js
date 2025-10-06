@@ -366,6 +366,51 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
         // If the time bomb is not active, proceed with the normal message handling.
         console.log("Received message:", request);
+
+        // --- MODIFIED D-NUMBER SEARCH LOGIC: OPEN IN NEW TAB ---
+        if (request.action === "performDNumberSearch" && request.dNumber) {
+            (async () => {
+                const PRISMA_DASHBOARD_URL = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns';
+
+                // 1. Open a new tab to the Prisma dashboard
+                const newTab = await chrome.tabs.create({ url: PRISMA_DASHBOARD_URL });
+
+                const tabId = newTab.id;
+                const dNumber = request.dNumber;
+
+                // 2. Wait for the tab to fully load
+                const tabLoaded = new Promise(resolve => {
+                    const listener = (updatedTabId, changeInfo, tab) => {
+                        // The content script loads and is ready before 'complete'
+                        // but waiting for 'complete' is safer for full DOM readiness.
+                        if (updatedTabId === tabId && changeInfo.status === 'complete') {
+                            chrome.tabs.onUpdated.removeListener(listener);
+                            resolve(tab);
+                        }
+                    };
+                    chrome.tabs.onUpdated.addListener(listener);
+                });
+                await tabLoaded;
+
+                // 3. Wait a short moment to ensure the Content Script has finished its init and loaded its listener
+                await new Promise(r => setTimeout(r, 1000));
+
+                // 4. Send the message to the content script in the new tab to perform the UI sequence
+                try {
+                    const response = await chrome.tabs.sendMessage(tabId, {
+                        action: 'performDNumberSearch',
+                        dNumber: dNumber
+                    });
+                    sendResponse({ status: 'success', message: 'D-Number search initiated successfully in new tab.' });
+                } catch (e) {
+                    console.error("Failed to execute D-Number search in new tab:", e);
+                    sendResponse({ status: 'error', message: `Failed to search for D-Number: ${e.message}` });
+                }
+            })();
+            return true; // Required for async sendResponse
+        }
+        // --- END MODIFIED D-NUMBER SEARCH LOGIC ---
+
         if (request.action === "showTimesheetNotification") {
         console.log("Showing timesheet notification");
         showTimesheetNotification();
