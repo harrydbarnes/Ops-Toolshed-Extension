@@ -220,7 +220,7 @@ chrome.notifications.onButtonClicked.addListener((notificationId, buttonIndex) =
 
 // --- Meta Billing Check Logic ---
 
-const openCampaignWithDNumberScript = () => {
+const openCampaignWithDNumberScript = (dNumber) => {
     // This script is injected into the page and must be self-contained.
 
     /**
@@ -271,37 +271,67 @@ const openCampaignWithDNumberScript = () => {
 
     // This is the main execution logic
     (async () => {
-        console.log('[D-Number Open - Injected] Start');
+        console.log(`[D-Number Open - Injected] Start for D-Number: ${dNumber}`);
 
         try {
-            // Click the main quick search box to open the overlay
-            const initialSearchBox = await waitForElement('mo-search-box[data-cy="quick_search"]');
-            initialSearchBox.click();
+            // FIX 1: Removed the unreliable initial click on mo-search-box[data-cy="quick_search"].
+            // The search box seems to appear inside a menu that's already open or opens via another element.
 
-            // Wait for the native input element inside the overlay
-            const inputSelector = 'input[type="text"][data-is-native-input]';
-            const inputElement = await waitForElement(inputSelector, 0); // Get the FIRST element
+            // We will directly wait for the ultimate input field based on the recording's context
+            // Selector: mo-banner-recent-menu-content mo-search-box mo-input input:nth-of-type(1)
+            // Note: Since 'pierce' is used in the recording, we rely on findAllElementsInShadowDom.
 
-            console.log(`[D-Number Open - Injected] Native input element found. Pasting clipboard...`);
+            // FIX 2: Use the complex, full path selector from the recording to ensure we target the correct, active input field.
+            const inputSelector = 'mo-banner-recent-menu-content input[type="text"]'; // Simplified for traversal
+            const inputElement = await waitForElement(inputSelector, 0, 15000); // Wait up to 15s
 
-            // FIX: Focus the input and use native paste command for reliable SPA input
+            // Ensure the input field is clear and active
             inputElement.focus();
-            document.execCommand('paste');
+            inputElement.value = '';
 
-            console.log(`[D-Number Open - Injected] Clipboard pasted. Waiting for result link...`);
+            console.log(`[D-Number Open - Injected] Native input element found. Inputting D-Number...`);
 
-            // Wait for the result link and navigate
-            const resultLinkSelector = 'a.item-row[href*="campaign-id"]';
-            const resultLink = await waitForElement(resultLinkSelector, 0, 5000); // Wait for first result link
+            // 3. Set the value directly and dispatch events (Fix for inputting/search trigger)
+            inputElement.value = dNumber;
+            inputElement.dispatchEvent(new Event('change', { bubbles: true }));
+            inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+            // Dispatch an 'Enter' keyup event to instantly trigger the search/submit action
+            // This replaces the explicit click on the 'mo-button' from the recording, which the input event should trigger naturally.
+            inputElement.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'Enter', keyCode: 13, code: 'Enter' }));
 
-            console.log('[D-Number Open - Injected] Result link found. Navigating.');
+            console.log(`[D-Number Open - Injected] D-Number input and search triggered. Waiting for correct result link...`);
 
-            // Always click the link to ensure SPA routing is handled correctly.
+            // 4. Robustly wait for the result link to appear AND contain the D-number (Keep original robust waiting logic)
+            const resultLinkSelector = `a.item-row[href*="campaign-id"]`;
+            let resultLink;
+
+            const maxWaitResult = 10000;
+            const checkInterval = 500;
+            let elapsedWait = 0;
+
+            while (elapsedWait < maxWaitResult) {
+                const links = findAllElementsInShadowDom(resultLinkSelector);
+                // Search specifically for a link whose innerText includes the D-number
+                resultLink = links.find(link => link.innerText && link.innerText.includes(dNumber));
+                if (resultLink) {
+                    break;
+                }
+                await new Promise(resolve => setTimeout(resolve, checkInterval));
+                elapsedWait += checkInterval;
+            }
+
+            if (!resultLink) {
+                throw new Error(`Search result link for D-number ${dNumber} not found within ${maxWaitResult}ms.`);
+            }
+
+            console.log('[D-Number Open - Injected] Correct result link found. Navigating.');
+
+            // 5. Click the link to navigate.
             resultLink.click();
 
         } catch (error) {
             console.error('[D-Number Open - Injected] Automation failed:', error);
-            alert(`Automation failed: ${error.message}`);
+            alert(`Ops Toolshed D-Number Automation Failed: ${error.message}. You may need to manually search in the quick search box or refresh the page.`);
         }
         console.log('[D-Number Open - Injected] End');
     })();
@@ -466,23 +496,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     } else if (request.action === "openCampaignWithDNumber") {
         (async () => {
             try {
-                // Ensure the offscreen document is ready before trying to send a message to it.
-                await createOffscreenDocument();
-
-                // FIX: Copy D-number to clipboard first using the offscreen document.
-                const copyResponse = await new Promise((resolve, reject) => {
-                    chrome.runtime.sendMessage({ action: 'copyToClipboard', text: request.dNumber }, (response) => {
-                        if (chrome.runtime.lastError) {
-                            return reject(new Error(chrome.runtime.lastError.message));
-                        }
-                        resolve(response);
-                    });
-                });
-
-                if (copyResponse && copyResponse.status !== 'success') {
-                    throw new Error(`Failed to copy D-Number to clipboard: ${copyResponse.message || 'Unknown error'}`);
-                }
-
                 // Open the tab.
                 const tab = await chrome.tabs.create({ url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns' });
 
@@ -491,7 +504,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     chrome.scripting.executeScript({
                         target: { tabId: tab.id },
                         func: openCampaignWithDNumberScript,
-                        // REMOVED args: dNumber is now in the clipboard.
+                        args: [request.dNumber] // Pass dNumber directly
                     });
                 }, 15000); // 15-second delay for page load.
 
