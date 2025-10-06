@@ -364,7 +364,157 @@ setInterval(() => {
     }
 }, 500);
 
-// --- Custom Reminder Functions ---
+// --- New function to handle D-Number Search (Start) ---
+async function handleDNumberSearch(dNumber) {
+    console.log(`[DNumberSearch] Attempting to search for D-Number: ${dNumber}`);
+    const campaignModuleId = 'mo-banner-module-prsm-cm-spa';
+    const overlayId = 'mo-overlay-4';
+    const maxRetries = 10;
+    let currentRetry = 0;
+
+    // 1. Find and click the Campaign module to open the recent campaign menu
+    let campaignModuleButton = queryShadowDom(`#${campaignModuleId}`);
+    if (!campaignModuleButton) {
+        // Fallback: search for the generic anchor or interactive element inside the module
+        campaignModuleButton = queryShadowDom('mo-banner-module#mo-banner-module-prsm-cm-spa > mo-menu > a');
+    }
+
+    if (campaignModuleButton) {
+        console.log('[DNumberSearch] Clicking Campaign module button.');
+        campaignModuleButton.click();
+    } else {
+        console.error('[DNumberSearch] Failed to find the Campaign module button.');
+        return;
+    }
+
+    // 2. Wait for the overlay and toggle switch to appear, then click the toggle.
+    let toggleSwitch;
+    while (currentRetry < maxRetries) {
+        try {
+            // Find the toggle switch inside the recently opened overlay
+            const overlayContent = document.querySelector(`#${overlayId} mo-banner-recent-menu-content`);
+            if (overlayContent && overlayContent.shadowRoot) {
+                // The toggle switch is the only mo-toggle-switch element inside the content.
+                toggleSwitch = overlayContent.shadowRoot.querySelector('mo-toggle-switch');
+            }
+            if (toggleSwitch) {
+                break;
+            }
+        } catch (e) {
+            // ShadowRoot might not be ready yet, continue loop
+        }
+        await new Promise(resolve => setTimeout(resolve, 300));
+        currentRetry++;
+    }
+
+    if (toggleSwitch) {
+        // Click to toggle to ID search mode (checked state)
+        if (toggleSwitch.getAttribute('aria-checked') !== 'true') {
+            console.log('[DNumberSearch] Clicking toggle switch to enable ID search.');
+            toggleSwitch.click();
+            // Wait briefly for the UI to update to ID search mode
+            await new Promise(resolve => setTimeout(resolve, 300));
+        } else {
+             console.log('[DNumberSearch] ID search mode already active (toggle already checked).');
+        }
+    } else {
+        console.error('[DNumberSearch] Failed to find the ID search mode toggle switch.');
+        const overlay = document.getElementById(overlayId);
+        if (overlay) {
+            overlay.remove();
+        }
+        return;
+    }
+
+    // 3. Find the search input in the ID search mode, paste the D-number, and trigger search
+    currentRetry = 0;
+    let searchInput;
+    while (currentRetry < maxRetries) {
+        try {
+            const overlayContent = document.querySelector(`#${overlayId} mo-banner-recent-menu-content`);
+            if (overlayContent && overlayContent.shadowRoot) {
+                // Find the search input element, traversing one layer deeper for the native input
+                const searchBox = overlayContent.shadowRoot.querySelector('mo-search-box.search-box-container');
+                if (searchBox && searchBox.shadowRoot) {
+                    // Search inside mo-input in mo-search-box shadow root
+                    const moInput = searchBox.shadowRoot.querySelector('mo-input');
+                    if(moInput && moInput.shadowRoot) {
+                       // The target input is nested inside mo-input's shadow DOM
+                       searchInput = moInput.shadowRoot.querySelector('input[type="text"]');
+                    }
+                    if (searchInput) {
+                         break;
+                    }
+                }
+            }
+        } catch (e) {
+            // ShadowRoot or element not ready, continue loop
+        }
+        await new Promise(resolve => setTimeout(resolve, 300));
+        currentRetry++;
+    }
+
+    if (searchInput) {
+        console.log('[DNumberSearch] Pasting D-Number into search input.');
+        searchInput.value = dNumber;
+
+        // Simulate native input to trigger UI framework listeners
+        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+        searchInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+        // Simulate pressing Enter to trigger the search, as described by the UI message
+        // The recording doesn't explicitly show this, but the underlying framework may need it.
+        searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
+        searchInput.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
+
+    } else {
+        console.error('[DNumberSearch] Failed to find the ID search input.');
+        const overlay = document.getElementById(overlayId);
+        if (overlay) {
+            overlay.remove();
+        }
+        return;
+    }
+
+    // 4. Wait for the search result link to appear and click it
+    // The link is inside the mo-banner-recent-menu-content shadow DOM.
+    currentRetry = 0;
+    let resultLink;
+    while (currentRetry < maxRetries) {
+        try {
+            const overlayContent = document.querySelector(`#${overlayId} mo-banner-recent-menu-content`);
+            if (overlayContent && overlayContent.shadowRoot) {
+                // Selector matches the target element from the recording's snapshot (a.item-row.false)
+                // We search for a link whose text contains the D-number to confirm it is the correct result.
+                const itemRowAnchors = Array.from(overlayContent.shadowRoot.querySelectorAll('a.item-row'));
+                resultLink = itemRowAnchors.find(a => a.textContent.includes(dNumber));
+
+                if (resultLink) {
+                    break;
+                }
+            }
+        } catch (e) {
+            // Element not ready, continue loop
+        }
+        await new Promise(resolve => setTimeout(resolve, 300));
+        currentRetry++;
+    }
+
+    if (resultLink) {
+        console.log('[DNumberSearch] Clicking search result link.');
+        resultLink.click();
+    } else {
+        console.error('[DNumberSearch] Failed to find the campaign result link for D-Number.');
+        // If not found, close the overlay for cleanup
+        const overlay = document.getElementById(overlayId);
+        if (overlay) {
+            overlay.remove();
+        }
+    }
+}
+// --- New function to handle D-Number Search (End) ---
+
+// --- Custom Reminder Functions (Rest of file remains unchanged) ---
 
 function fetchCustomReminders() {
     if (!chrome.runtime || !chrome.runtime.id) return; // Context guard
@@ -505,9 +655,8 @@ function checkCustomReminders() {
         // Moved this check inside the loop so we can log which reminder is skipped due to an existing popup
         if (document.getElementById('custom-reminder-display-popup')) {
             console.log("[ContentScript Prisma] Another custom reminder popup is already visible. Skipping reminder:", reminder.name);
-            // Since only one custom popup can be shown at a time due to the generic ID,
-            // if one is already up, we must not attempt to show another.
-            // We can break here as no other reminder can be shown.
+            // Since custom popups now use a generic ID, we should break after finding the first one to show.
+            // This prevents multiple custom reminders from trying to use the same popup ID simultaneously.
             break;
         }
 
@@ -610,7 +759,7 @@ function handleCampaignManagementFeatures() {
     });
 }
 
-// --- Approver Pasting Feature ---
+// --- Approver Pasting Feature (Rest of file remains unchanged) ---
 
 function handleApproverPasting() {
     const selectors = {
@@ -755,7 +904,7 @@ function handleManageFavouritesButton() {
     clearButton.parentNode.insertBefore(manageFavouritesButton, clearButton.nextSibling);
 }
 
-// --- End Custom Reminder Functions ---
+// --- End Custom Reminder Functions (Rest of file remains unchanged) ---
 
 function shouldReplaceLogoOnThisPage() {
     if (typeof window === 'undefined' || !window.location || !window.location.href) {
@@ -825,6 +974,11 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         shownCustomReminderIds.clear(); // Allow all reminders to be shown again as settings/list might have changed
         checkCustomReminders(); // Optional: re-check immediately after update
         sendResponse({status: "Custom reminders re-fetched and IDs reset by content script"});
+    } else if (request.action === "performDNumberSearch" && request.dNumber) { // <--- ADDED LOGIC FOR D-NUMBER SEARCH
+        handleDNumberSearch(request.dNumber)
+            .then(() => sendResponse({ status: "D-Number search initiated successfully" }))
+            .catch(error => sendResponse({ status: "D-Number search failed", error: error.message }));
+        return true; // Keep the message channel open for asynchronous response
     } else {
         console.log("[ContentScript Prisma] Unknown action received or no action taken:", request.action);
     }
