@@ -395,47 +395,136 @@ function waitForElementInShadow(selector, root = document, timeout = 10000) {
 
 
 async function handleDNumberSearch(dNumber) {
-    console.log(`[DNumberSearch] Starting search for: ${dNumber}`);
-    try {
-        // 1. Click the main search icon to open the search overlay.
-        const searchIcon = await waitForElementInShadow('mo-icon[name="search"]');
-        console.log('[DNumberSearch] Found search icon.');
-        searchIcon.click();
+    console.log(`[DNumberSearch] Attempting to search for D-Number: ${dNumber}`);
+    const maxRetries = 15;
+    let currentRetry = 0;
 
-        // 2. Wait for the search overlay to become available.
-        const searchOverlay = await waitForElementInShadow('mo-overlay[role="dialog"]');
-        console.log('[DNumberSearch] Found search overlay.');
+    // 1. Find and click the Campaign Search Icon
+    let campaignModuleButton;
+    while (currentRetry < maxRetries) {
+        // Selector remains mo-icon[name="search"] as it's the specific target.
+        campaignModuleButton = queryShadowDom('mo-icon[name="search"]');
 
-        // 3. Find the search input within the overlay's shadow DOM structure.
-        const searchInput = await waitForElementInShadow('input[data-is-native-input]', searchOverlay.shadowRoot);
-        console.log('[DNumberSearch] Found search input field.');
-
-        // 4. Input the D-Number and dispatch events to trigger the search.
-        searchInput.value = dNumber;
-        searchInput.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-        searchInput.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
-        searchInput.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true, composed: true }));
-        console.log(`[DNumberSearch] Dispatched input and events for "${dNumber}".`);
-
-        // 5. Wait for the correct result link to appear.
-        // The results are within the same overlay, so we continue searching from its shadowRoot.
-        const resultLinkSelector = `a.item-row`;
-        const resultLink = await waitForElementInShadow(resultLinkSelector, searchOverlay.shadowRoot);
-
-        // We need to be more specific if multiple links appear.
-        const allResultLinks = Array.from(searchOverlay.shadowRoot.querySelectorAll(resultLinkSelector));
-        const correctLink = allResultLinks.find(link => link.textContent.includes(dNumber));
-
-        if (correctLink) {
-            console.log('[DNumberSearch] Found correct result link. Clicking it.');
-            correctLink.click();
-        } else {
-            throw new Error(`Could not find a result link containing "${dNumber}".`);
+        if (campaignModuleButton) {
+            break;
         }
+        // FIX: Reduce initial delay for faster checks on the first element.
+        await new Promise(resolve => setTimeout(resolve, 100));
+        currentRetry++;
+    }
 
-    } catch (error) {
-        console.error('[DNumberSearch] Automation failed:', error);
-        alert(`D-Number search automation failed: ${error.message}`);
+    if (campaignModuleButton) {
+        console.log('[DNumberSearch] Clicking Campaign search trigger.');
+        campaignModuleButton.click();
+    } else {
+        console.error('[DNumberSearch] FAILED in Step 1: Could not find the Campaign search icon after multiple retries.');
+        return;
+    }
+
+    // Reset retry counter for the next steps
+    currentRetry = 0;
+
+    // 2. Wait for the menu content to appear, find the toggle switch, and click the toggle.
+    let toggleSwitch;
+    while (currentRetry < maxRetries) {
+        try {
+            // FIX APPLIED IN PREVIOUS STEP: Use queryShadowDom to robustly find the content container.
+            const overlayContent = queryShadowDom('mo-banner-recent-menu-content');
+
+            if (overlayContent && overlayContent.shadowRoot) {
+                toggleSwitch = overlayContent.shadowRoot.querySelector('mo-toggle-switch');
+            }
+            if (toggleSwitch) {
+                break;
+            }
+        } catch (e) {
+            // Error during DOM traversal, continue loop
+        }
+        await new Promise(resolve => setTimeout(resolve, 300));
+        currentRetry++;
+    }
+
+    if (toggleSwitch) {
+        // Click to toggle to ID search mode
+        if (toggleSwitch.getAttribute('aria-checked') !== 'true') {
+            console.log('[DNumberSearch] Clicking toggle switch to enable ID search.');
+            toggleSwitch.click();
+            await new Promise(resolve => setTimeout(resolve, 300));
+        } else {
+             console.log('[DNumberSearch] ID search mode already active (toggle already checked).');
+        }
+    } else {
+        console.error('[DNumberSearch] FAILED in Step 2: Could not find the ID search mode toggle switch.');
+        return;
+    }
+
+    // 3. Find the search input and paste the D-number.
+    currentRetry = 0;
+    let searchInput;
+    while (currentRetry < maxRetries) {
+        try {
+            const overlayContent = queryShadowDom('mo-banner-recent-menu-content');
+
+            if (overlayContent && overlayContent.shadowRoot) {
+                const searchBox = overlayContent.shadowRoot.querySelector('mo-search-box.search-box-container');
+                if (searchBox && searchBox.shadowRoot) {
+                    const moInput = searchBox.shadowRoot.querySelector('mo-input');
+                    if(moInput && moInput.shadowRoot) {
+                       searchInput = moInput.shadowRoot.querySelector('input[type="text"]');
+                    }
+                    if (searchInput) {
+                         break;
+                    }
+                }
+            }
+        } catch (e) {
+            // Error during DOM traversal, continue loop
+        }
+        await new Promise(resolve => setTimeout(resolve, 300));
+        currentRetry++;
+    }
+
+    if (searchInput) {
+        console.log('[DNumberSearch] Pasting D-Number into search input.');
+        searchInput.value = dNumber;
+
+        // Simulate events
+        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+        searchInput.dispatchEvent(new Event('change', { bubbles: true }));
+        searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
+        searchInput.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
+
+    } else {
+        console.error('[DNumberSearch] FAILED in Step 3: Could not find the ID search input.');
+        return;
+    }
+
+    // 4. Wait for the search result link and click it.
+    currentRetry = 0;
+    let resultLink;
+    while (currentRetry < maxRetries) {
+        try {
+            const overlayContent = queryShadowDom('mo-banner-recent-menu-content');
+            if (overlayContent && overlayContent.shadowRoot) {
+                const itemRowAnchors = Array.from(overlayContent.shadowRoot.querySelectorAll('a.item-row'));
+                resultLink = itemRowAnchors.find(a => a.textContent.includes(dNumber));
+
+                if (resultLink) {
+                    break;
+                }
+            }
+        } catch (e) {
+            // Element not ready, continue loop
+        }
+        await new Promise(resolve => setTimeout(resolve, 300));
+        currentRetry++;
+    }
+
+    if (resultLink) {
+        console.log('[DNumberSearch] Clicking search result link.');
+        resultLink.click();
+    } else {
+        console.error('[DNumberSearch] FAILED in Step 4: Could not find the campaign result link for D-Number.');
     }
 }
 
