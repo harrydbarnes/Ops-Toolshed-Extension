@@ -278,9 +278,9 @@ const openCampaignWithDNumberScript = () => {
             const initialSearchBox = await waitForElement('mo-search-box[data-cy="quick_search"]');
             initialSearchBox.click();
 
-            // Wait for the second native input element inside the overlay
+            // Wait for the native input element inside the overlay
             const inputSelector = 'input[type="text"][data-is-native-input]';
-            const inputElement = await waitForElement(inputSelector, 1); // Get the SECOND element
+            const inputElement = await waitForElement(inputSelector, 0); // Get the FIRST element
 
             console.log(`[D-Number Open - Injected] Native input element found. Pasting clipboard...`);
 
@@ -493,7 +493,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         func: openCampaignWithDNumberScript,
                         // REMOVED args: dNumber is now in the clipboard.
                     });
-                }, 10000); // 10-second delay for page load.
+                }, 15000); // 15-second delay for page load.
 
                 sendResponse({ status: "Action initiated" });
             } catch (error) {
