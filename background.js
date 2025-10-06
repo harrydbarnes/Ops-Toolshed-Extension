@@ -271,11 +271,16 @@ const openCampaignWithDNumberScript = (dNumber) => {
 
     // This is the main execution logic
     (async () => {
+        const initialDelay = ms => new Promise(res => setTimeout(res, ms));
+
         console.log(`[D-Number Open - Injected] Start for D-Number: ${dNumber}`);
 
         try {
-            // 1. Find and click the element that opens the quick search/recent menu (Chevron icon based on recording).
-            // Selector derived from the recording: mo-banner mo-menu mo-icon.chevron-icon
+            // Add a small pre-click delay just in case elements are still settling from the 20s initial wait.
+            await initialDelay(1000);
+
+            // FIX 1: Use a broader selector for the element that opens the search menu.
+            // We'll target the wrapper that contains the quick search and force a click on the chevron.
             const chevronIconSelector = 'mo-banner mo-menu mo-icon.chevron-icon';
             const initialClickElement = await waitForElement(chevronIconSelector, 0, 15000);
 
