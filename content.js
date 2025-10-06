@@ -364,139 +364,82 @@ setInterval(() => {
     }
 }, 500);
 
-async function handleDNumberSearch(dNumber) {
-    console.log(`[DNumberSearch] Starting search for D-Number: ${dNumber}`);
-    const maxRetries = 20; // Give it a bit more time
-    let currentRetry = 0;
+// --- New D-Number Search Logic ---
 
-    // 1. Find and click the Campaign module button by its text content.
-    let campaignModuleButton;
-    while (currentRetry < maxRetries) {
-        const allModules = document.querySelectorAll('mo-banner-module');
-        campaignModuleButton = Array.from(allModules).find(m => m.innerText.trim() === 'Campaigns');
-        if (campaignModuleButton) {
-            console.log('[DNumberSearch] Found Campaign module button.');
-            break;
-        }
-        await new Promise(resolve => setTimeout(resolve, 500));
-        currentRetry++;
-    }
-
-    if (campaignModuleButton) {
-        campaignModuleButton.click();
-    } else {
-        console.error('[DNumberSearch] FATAL: Could not find Campaign module button.');
-        return;
-    }
-
-    // 2. Dynamically find the newly opened overlay and its content.
-    let overlayContent;
-    currentRetry = 0;
-    while(currentRetry < maxRetries) {
-        const overlays = document.querySelectorAll('mo-overlay[role="dialog"]');
-        if (overlays.length > 0) {
-            const lastOverlay = overlays[overlays.length - 1];
-            overlayContent = lastOverlay.querySelector('mo-banner-recent-menu-content');
-            if (overlayContent) {
-                console.log('[DNumberSearch] Found active search overlay content.');
-                break;
-            }
-        }
-        await new Promise(resolve => setTimeout(resolve, 300));
-        currentRetry++;
-    }
-
-    if (!overlayContent) {
-        console.error('[DNumberSearch] FATAL: Could not find search overlay content area.');
-        return;
-    }
-
-    // 3. Find and click the toggle switch within the dynamic overlay.
-    let toggleSwitch;
-    currentRetry = 0;
-    while (currentRetry < maxRetries) {
-        if (overlayContent.shadowRoot) {
-            toggleSwitch = overlayContent.shadowRoot.querySelector('mo-toggle-switch');
-            if (toggleSwitch) {
-                console.log('[DNumberSearch] Found toggle switch.');
-                break;
-            }
-        }
-        await new Promise(resolve => setTimeout(resolve, 300));
-        currentRetry++;
-    }
-
-    if (toggleSwitch) {
-        if (toggleSwitch.getAttribute('aria-checked') !== 'true') {
-            console.log('[DNumberSearch] Clicking toggle switch for ID search.');
-            toggleSwitch.click();
-            await new Promise(resolve => setTimeout(resolve, 300));
-        } else {
-             console.log('[DNumberSearch] ID search already active.');
-        }
-    } else {
-        console.error('[DNumberSearch] FATAL: Could not find the toggle switch.');
-        return;
-    }
-
-    // 4. Find the search input, paste D-number, and trigger search.
-    let searchInput;
-    currentRetry = 0;
-    while (currentRetry < maxRetries) {
-        if (overlayContent.shadowRoot) {
-            const searchBox = overlayContent.shadowRoot.querySelector('mo-search-box.search-box-container');
-            if (searchBox && searchBox.shadowRoot) {
-                const moInput = searchBox.shadowRoot.querySelector('mo-input');
-                if(moInput && moInput.shadowRoot) {
-                   searchInput = moInput.shadowRoot.querySelector('input[type="text"]');
-                   if (searchInput) {
-                       console.log('[DNumberSearch] Found search input.');
-                       break;
-                   }
+/**
+ * Patiently waits for an element to appear in the DOM, searching within Shadow DOMs.
+ * @param {string} selector - The CSS selector for the element.
+ * @param {Element|ShadowRoot} [root=document] - The starting point for the search.
+ * @param {number} [timeout=10000] - The maximum time to wait in milliseconds.
+ * @returns {Promise<Element>} A promise that resolves with the found element.
+ */
+function waitForElementInShadow(selector, root = document, timeout = 10000) {
+    return new Promise((resolve, reject) => {
+        const intervalTime = 200;
+        let elapsedTime = 0;
+        const interval = setInterval(() => {
+            const element = queryShadowDom(selector, root);
+            if (element) {
+                clearInterval(interval);
+                resolve(element);
+            } else {
+                elapsedTime += intervalTime;
+                if (elapsedTime >= timeout) {
+                    clearInterval(interval);
+                    reject(new Error(`Element with selector "${selector}" not found within ${timeout}ms.`));
                 }
             }
-        }
-        await new Promise(resolve => setTimeout(resolve, 300));
-        currentRetry++;
-    }
+        }, intervalTime);
+    });
+}
 
-    if (searchInput) {
-        console.log('[DNumberSearch] Inputting D-Number and dispatching events.');
+
+async function handleDNumberSearch(dNumber) {
+    console.log(`[DNumberSearch] Starting search for: ${dNumber}`);
+    try {
+        // 1. Click the main search icon to open the search overlay.
+        const searchIcon = await waitForElementInShadow('mo-icon[name="search"]');
+        console.log('[DNumberSearch] Found search icon.');
+        searchIcon.click();
+
+        // 2. Wait for the search overlay to become available.
+        const searchOverlay = await waitForElementInShadow('mo-overlay[role="dialog"]');
+        console.log('[DNumberSearch] Found search overlay.');
+
+        // 3. Find the search input within the overlay's shadow DOM structure.
+        const searchInput = await waitForElementInShadow('input[data-is-native-input]', searchOverlay.shadowRoot);
+        console.log('[DNumberSearch] Found search input field.');
+
+        // 4. Input the D-Number and dispatch events to trigger the search.
         searchInput.value = dNumber;
-        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-        searchInput.dispatchEvent(new Event('change', { bubbles: true }));
-        searchInput.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
-    } else {
-        console.error('[DNumberSearch] FATAL: Could not find the search input field.');
-        return;
-    }
+        searchInput.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+        searchInput.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+        searchInput.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true, composed: true }));
+        console.log(`[DNumberSearch] Dispatched input and events for "${dNumber}".`);
 
-    // 5. Wait for the correct result link to appear and click it.
-    let resultLink;
-    currentRetry = 0;
-    while (currentRetry < maxRetries) {
-        if (overlayContent.shadowRoot) {
-            const itemRowAnchors = Array.from(overlayContent.shadowRoot.querySelectorAll('a.item-row'));
-            resultLink = itemRowAnchors.find(a => a.textContent.includes(dNumber));
-            if (resultLink) {
-                console.log('[DNumberSearch] Found result link.');
-                break;
-            }
+        // 5. Wait for the correct result link to appear.
+        // The results are within the same overlay, so we continue searching from its shadowRoot.
+        const resultLinkSelector = `a.item-row`;
+        const resultLink = await waitForElementInShadow(resultLinkSelector, searchOverlay.shadowRoot);
+
+        // We need to be more specific if multiple links appear.
+        const allResultLinks = Array.from(searchOverlay.shadowRoot.querySelectorAll(resultLinkSelector));
+        const correctLink = allResultLinks.find(link => link.textContent.includes(dNumber));
+
+        if (correctLink) {
+            console.log('[DNumberSearch] Found correct result link. Clicking it.');
+            correctLink.click();
+        } else {
+            throw new Error(`Could not find a result link containing "${dNumber}".`);
         }
-        await new Promise(resolve => setTimeout(resolve, 300));
-        currentRetry++;
-    }
 
-    if (resultLink) {
-        console.log('[DNumberSearch] Clicking result link.');
-        resultLink.click();
-    } else {
-        console.error(`[DNumberSearch] FATAL: Could not find result link for D-Number ${dNumber}.`);
+    } catch (error) {
+        console.error('[DNumberSearch] Automation failed:', error);
+        alert(`D-Number search automation failed: ${error.message}`);
     }
 }
-// --- New function to handle D-Number Search (End) ---
 
-// --- Custom Reminder Functions (Rest of file remains unchanged) ---
+// --- Custom Reminder Functions ---
 
 function fetchCustomReminders() {
     if (!chrome.runtime || !chrome.runtime.id) return; // Context guard
@@ -637,8 +580,9 @@ function checkCustomReminders() {
         // Moved this check inside the loop so we can log which reminder is skipped due to an existing popup
         if (document.getElementById('custom-reminder-display-popup')) {
             console.log("[ContentScript Prisma] Another custom reminder popup is already visible. Skipping reminder:", reminder.name);
-            // Since custom popups now use a generic ID, we should break after finding the first one to show.
-            // This prevents multiple custom reminders from trying to use the same popup ID simultaneously.
+            // Since only one custom popup can be shown at a time due to the generic ID,
+            // if one is already up, we must not attempt to show another.
+            // We can break here as no other reminder can be shown.
             break;
         }
 
@@ -741,7 +685,7 @@ function handleCampaignManagementFeatures() {
     });
 }
 
-// --- Approver Pasting Feature (Rest of file remains unchanged) ---
+// --- Approver Pasting Feature ---
 
 function handleApproverPasting() {
     const selectors = {
@@ -886,7 +830,7 @@ function handleManageFavouritesButton() {
     clearButton.parentNode.insertBefore(manageFavouritesButton, clearButton.nextSibling);
 }
 
-// --- End Custom Reminder Functions (Rest of file remains unchanged) ---
+// --- End Custom Reminder Functions ---
 
 function shouldReplaceLogoOnThisPage() {
     if (typeof window === 'undefined' || !window.location || !window.location.href) {
@@ -956,7 +900,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         shownCustomReminderIds.clear(); // Allow all reminders to be shown again as settings/list might have changed
         checkCustomReminders(); // Optional: re-check immediately after update
         sendResponse({status: "Custom reminders re-fetched and IDs reset by content script"});
-    } else if (request.action === "performDNumberSearch" && request.dNumber) { // <--- ADDED LOGIC FOR D-NUMBER SEARCH
+    } else if (request.action === "performDNumberSearch" && request.dNumber) {
         handleDNumberSearch(request.dNumber)
             .then(() => sendResponse({ status: "D-Number search initiated successfully" }))
             .catch(error => sendResponse({ status: "D-Number search failed", error: error.message }));
