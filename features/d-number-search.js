@@ -26,9 +26,12 @@
             console.log('[DNumberSearch] Pasting from clipboard into search input.');
             document.execCommand('paste');
 
+            // Manually dispatch an 'input' event to ensure frameworks detect the change.
+            searchInput.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+
             // Dispatching key events after pasting can help ensure the framework's event listeners fire.
             searchInput.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true, composed: true }));
-            console.log(`[DNumberSearch] Dispatched paste and Enter key event for "${dNumber}".`);
+            console.log(`[DNumberSearch] Dispatched paste, input, and Enter key event for "${dNumber}".`);
 
             // 5. Wait for the correct result link to appear.
             const resultLinkSelector = `a.item-row`;

@@ -1,7 +1,7 @@
 import { approversData } from '../approvers-data.js';
 import { scrapeAndDownloadCsv } from './meta-billing-scraper.js';
 
-async function disableTimeBomb(request, sender, sendResponse) {
+function disableTimeBomb(request, sender, sendResponse) {
     chrome.storage.local.remove(['timeBombActive', 'initialDeadline'], () => {
         if (chrome.runtime.lastError) {
             sendResponse({ status: 'error', message: chrome.runtime.lastError.message });
