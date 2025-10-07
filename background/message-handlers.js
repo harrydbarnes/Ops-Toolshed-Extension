@@ -61,26 +61,36 @@ async function metaBillingCheck(request, sender, sendResponse) {
 
 async function performDNumberSearch(request, sender, sendResponse) {
     const PRISMA_DASHBOARD_URL = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns';
-    const newTab = await chrome.tabs.create({ url: PRISMA_DASHBOARD_URL });
-    const tabId = newTab.id;
-    const dNumber = request.dNumber;
-
-    const tabLoaded = new Promise(resolve => {
-        const listener = (updatedTabId, changeInfo) => {
-            if (updatedTabId === tabId && changeInfo.status === 'complete') {
-                chrome.tabs.onUpdated.removeListener(listener);
-                resolve();
-            }
-        };
-        chrome.tabs.onUpdated.addListener(listener);
-    });
-    await tabLoaded;
-    await new Promise(r => setTimeout(r, 1000));
-
     try {
+        const newTab = await chrome.tabs.create({ url: PRISMA_DASHBOARD_URL });
+        const tabId = newTab.id;
+        const dNumber = request.dNumber;
+
+        const tabLoaded = new Promise((resolve, reject) => {
+            const listener = (updatedTabId, changeInfo, tab) => {
+                if (updatedTabId === tabId) {
+                    if (changeInfo.status === 'complete') {
+                        chrome.tabs.onUpdated.removeListener(listener);
+                        resolve(tab);
+                    }
+                    // It's good practice to also handle load errors.
+                    if (changeInfo.status === 'error') {
+                         chrome.tabs.onUpdated.removeListener(listener);
+                         reject(new Error("Tab failed to load."));
+                    }
+                }
+            };
+            chrome.tabs.onUpdated.addListener(listener);
+        });
+
+        await tabLoaded;
+        await new Promise(r => setTimeout(r, 1000)); // Wait for content script to be ready
+
         await chrome.tabs.sendMessage(tabId, { action: 'performDNumberSearch', dNumber: dNumber });
+        sendResponse({ status: 'success', message: 'D-Number search initiated.' });
     } catch (e) {
         console.error("Failed to execute D-Number search in new tab:", e);
+        sendResponse({ status: 'error', message: e.message });
     }
 }
 
