@@ -46,7 +46,16 @@
   "content_scripts": [
     {
       "matches": ["*://*.mediaocean.com/*"],
-      "js": ["content.js"],
+      "js": [
+        "utils.js",
+        "features/logo.js",
+        "features/reminders.js",
+        "features/campaign.js",
+        "features/d-number-search.js",
+        "features/gmi-chat.js",
+        "features/approver-pasting.js",
+        "content.js"
+      ],
       "css": ["approvers.css", "content.css"],
       "all_frames": true
     }

@@ -2,7 +2,16 @@ const { JSDOM } = require('jsdom');
 const fs = require('fs');
 const path = require('path');
 
-const contentScript = fs.readFileSync(path.resolve(__dirname, '../content.js'), 'utf8');
+const scriptsToLoad = [
+    'utils.js',
+    'features/logo.js',
+    'features/reminders.js',
+    'features/campaign.js',
+    'features/d-number-search.js',
+    'features/gmi-chat.js',
+    'features/approver-pasting.js',
+    'content.js'
+].map(scriptPath => fs.readFileSync(path.resolve(__dirname, `../${scriptPath}`), 'utf8'));
 
 describe('Content Script Main Logic', () => {
     let window;
@@ -35,9 +44,12 @@ describe('Content Script Main Logic', () => {
             return instance;
         });
 
-        const scriptEl = document.createElement('script');
-        scriptEl.textContent = contentScript;
-        document.head.appendChild(scriptEl);
+        // Load all scripts into the JSDOM environment
+        scriptsToLoad.forEach(scriptContent => {
+            const scriptEl = document.createElement('script');
+            scriptEl.textContent = scriptContent;
+            document.head.appendChild(scriptEl);
+        });
 
         // Manually dispatch DOMContentLoaded to ensure the script's main logic runs
         document.dispatchEvent(new window.Event('DOMContentLoaded', { bubbles: true, cancelable: true }));
@@ -71,10 +83,14 @@ describe('Content Script Main Logic', () => {
         expect(hasInitializationLog).toBe(true);
     });
 
-    // This test has been temporarily skipped due to a persistent and complex timing issue
-    // in the Jest/JSDOM environment. The test fails because the reminder popup is not
-    // reliably created before the test asserts its existence. This needs further investigation.
-    // TODO: Fix the underlying timing issue and re-enable this test.
+    // This test is skipped due to a fundamental timing issue between the application code's
+    // nested asynchronous operations (chrome.storage.get -> setTimeout) and Jest's fake timer
+    // environment. Attempts to fix this with advanced timer mocks or real timers with waitFor
+    // have been unsuccessful, leading to deadlocks or test environment leaks.
+    // The core issue is that the script's async initialization logic is not compatible with
+    // a unit testing environment that relies on precise timer control.
+    // TODO: Re-evaluate this test. It may need to be rewritten as a full end-to-end
+    // test with a tool like Playwright or Puppeteer to be reliable.
     test.skip('should show a custom reminder on initial load when conditions are met', () => {
         const reminder = {
             id: 'test1',
