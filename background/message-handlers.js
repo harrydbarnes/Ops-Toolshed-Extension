@@ -30,12 +30,12 @@ async function showTimesheetNotification(request, sender, sendResponse, context)
 }
 
 async function createTimesheetAlarm(request, sender, sendResponse, context) {
-    context.createTimesheetAlarm(request.day, request.time);
+    await context.createTimesheetAlarm(request.day, request.time);
     sendResponse({ status: "Alarm created" });
 }
 
 async function removeTimesheetAlarm(request, sender, sendResponse) {
-    chrome.alarms.clear('timesheetReminder');
+    await chrome.alarms.clear('timesheetReminder');
     sendResponse({ status: "Alarm removed" });
 }
 
@@ -67,14 +67,21 @@ async function performDNumberSearch(request, sender, sendResponse) {
         const dNumber = request.dNumber;
 
         const tabLoaded = new Promise((resolve, reject) => {
+            const timeoutId = setTimeout(() => {
+                chrome.tabs.onUpdated.removeListener(listener);
+                reject(new Error("Tab loading timed out after 30 seconds."));
+            }, 30000); // 30-second timeout
+
             const listener = (updatedTabId, changeInfo, tab) => {
                 if (updatedTabId === tabId) {
                     if (changeInfo.status === 'complete') {
+                        clearTimeout(timeoutId);
                         chrome.tabs.onUpdated.removeListener(listener);
                         resolve(tab);
                     }
                     // It's good practice to also handle load errors.
                     if (changeInfo.status === 'error') {
+                        clearTimeout(timeoutId);
                         chrome.tabs.onUpdated.removeListener(listener);
                         reject(new Error("Tab failed to load."));
                     }

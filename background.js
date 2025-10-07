@@ -59,11 +59,11 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
-function createTimesheetAlarm(day, time) {
+async function createTimesheetAlarm(day, time) {
   day = day || 'Friday';
   time = time || '14:30';
   const nextAlarmDate = getNextAlarmDate(day, time);
-  chrome.alarms.create('timesheetReminder', {
+  await chrome.alarms.create('timesheetReminder', {
     when: nextAlarmDate.getTime(),
     periodInMinutes: 10080 // 7 days
   });
