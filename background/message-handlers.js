@@ -75,8 +75,8 @@ async function performDNumberSearch(request, sender, sendResponse) {
                     }
                     // It's good practice to also handle load errors.
                     if (changeInfo.status === 'error') {
-                         chrome.tabs.onUpdated.removeListener(listener);
-                         reject(new Error("Tab failed to load."));
+                        chrome.tabs.onUpdated.removeListener(listener);
+                        reject(new Error("Tab failed to load."));
                     }
                 }
             };
@@ -84,10 +84,20 @@ async function performDNumberSearch(request, sender, sendResponse) {
         });
 
         await tabLoaded;
-        await new Promise(r => setTimeout(r, 1000)); // Wait for content script to be ready
 
-        await chrome.tabs.sendMessage(tabId, { action: 'performDNumberSearch', dNumber: dNumber });
-        sendResponse({ status: 'success', message: 'D-Number search initiated.' });
+        // Wait for the content script to be ready by retrying the message and awaiting its response.
+        let response;
+        for (let i = 0; i < 10; i++) { // Retry for up to 5 seconds
+            try {
+                response = await chrome.tabs.sendMessage(tabId, { action: 'performDNumberSearch', dNumber: dNumber });
+                break; // Success
+            } catch (e) {
+                if (i === 9) throw e; // Last attempt, rethrow error to be caught by the outer handler
+                await new Promise(r => setTimeout(r, 500));
+            }
+        }
+        sendResponse(response);
+
     } catch (e) {
         console.error("Failed to execute D-Number search in new tab:", e);
         sendResponse({ status: 'error', message: e.message });
