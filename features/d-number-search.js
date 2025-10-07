@@ -19,34 +19,37 @@
             console.log('[DNumberSearch] Found search icon. Performing robust click...');
             robustClick(searchIcon);
 
-            // FIX: Increase delay to allow complex overlay component to initialize.
-            await delay(1000); 
-            console.log('[DNumberSearch] Initial 1000ms delay complete. Waiting for overlay...');
+            // FIX: Increase delay significantly to allow complex overlay component to initialize.
+            await delay(2000); 
+            console.log('[DNumberSearch] Initial 2000ms delay complete. Waiting for overlay...');
 
             // 2. Wait for the search overlay and input field to become available.
-            const searchOverlay = await window.utils.waitForElementInShadow('mo-overlay[role="dialog"]', document, 10000); 
-            // The input field is confirmed to be inside the Shadow DOM: input[data-is-native-input]
+            const searchOverlay = await window.utils.waitForElementInShadow('mo-overlay[role="dialog"]', document, 15000); // Increased max wait just in case
             const searchInput = await window.utils.waitForElementInShadow('input[data-is-native-input]', searchOverlay.shadowRoot, 1000); 
             console.log('[DNumberSearch] Found search overlay and input field.');
 
-            // 3. (Optional) Ensure D-Number is on the clipboard (retained for external app paste compatibility)
+            // 3. (Optional) Ensure D-Number is on the clipboard
             console.log(`[DNumberSearch] Ensuring "${dNumber}" is on the clipboard.`);
             await chrome.runtime.sendMessage({ action: 'copyToClipboard', text: dNumber });
             
-            // --- NEW Robust Input Strategy: Manually set value and dispatch events ---
+            // --- Robust Input Strategy: Manually set value and dispatch every event ---
             
-            // 4. Force the value into the field and dispatch events (bypassing unreliable paste command)
+            // 4. Force the value into the field 
             searchInput.focus(); 
             searchInput.value = dNumber; 
             console.log(`[DNumberSearch] Manually set input value to: ${dNumber}`);
 
-            // 5. Dispatch ALL possible relevant events. The 'composed: true' flag allows them to cross the Shadow DOM boundary.
+            // 5. Dispatch ALL possible relevant events to ensure the framework runs the search filter.
             const eventConfig = { bubbles: true, composed: true };
 
-            searchInput.dispatchEvent(new Event('paste', eventConfig)); // Simulate a paste event directly
+            searchInput.dispatchEvent(new Event('paste', eventConfig));
             searchInput.dispatchEvent(new Event('input', eventConfig));
             searchInput.dispatchEvent(new Event('change', eventConfig));
-            console.log(`[DNumberSearch] Dispatched robust input events.`);
+            
+            // ADDED: Dispatch a key event as some frameworks only react to these for filtering.
+            searchInput.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', ...eventConfig }));
+            
+            console.log(`[DNumberSearch] Dispatched robust input and key events.`);
             
             // Give time for search results to populate
             await delay(1500); 
