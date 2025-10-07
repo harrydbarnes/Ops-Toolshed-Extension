@@ -169,7 +169,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const showToast = (message) => {
-        toastNotification.textContent = message;
+        const toastMessage = toastNotification.querySelector('.toast-message');
+        if (toastMessage) {
+            toastMessage.textContent = message;
+        }
         toastNotification.classList.add('show');
         setTimeout(() => {
             toastNotification.classList.remove('show');
