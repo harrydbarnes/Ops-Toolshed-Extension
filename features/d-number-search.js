@@ -3,15 +3,27 @@
 
     const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+    // Helper function to simulate a complete, robust click event sequence
+    function robustClick(element) {
+        if (!element) return;
+        // Dispatching mousedown and mouseup events often ensures complex components register the click
+        element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, composed: true }));
+        element.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, composed: true }));
+        // Follow up with a native click
+        element.click();
+    }
+
     async function handleDNumberSearch(dNumber) {
         console.log(`[DNumberSearch] Starting search for: ${dNumber}`);
         try {
             // 1. Click the main search icon to open the search overlay.
             const searchIcon = await window.utils.waitForElementInShadow('mo-icon[name="search"]');
-            console.log('[DNumberSearch] Found search icon. Clicking...');
-            searchIcon.click();
+            console.log('[DNumberSearch] Found search icon. Performing robust click...');
+            
+            // Use the robust click method to ensure the click is registered
+            robustClick(searchIcon);
 
-            // FIX: Wait briefly for the overlay UI to initialize after the click
+            // Wait briefly for the overlay UI to initialize after the click
             await delay(500);
 
             // 2. Wait for the search overlay to become available.
@@ -24,7 +36,6 @@
 
             // 4. Copy D-Number to clipboard and paste it to trigger the search.
             console.log(`[DNumberSearch] Copying "${dNumber}" to clipboard.`);
-            // NOTE: This relies on a successful implementation of copyToClipboard in background/offscreen scripts
             await chrome.runtime.sendMessage({ action: 'copyToClipboard', text: dNumber });
 
             searchInput.focus();
@@ -42,16 +53,15 @@
 
             // 5. Wait for the correct result link to appear and click it.
             const resultLinkSelector = `a.item-row`;
-            // Search for all result links containing the D-Number in the text
-            const allResultLinks = Array.from(searchOverlay.shadowRoot.querySelectorAll(resultLinkSelector));
+            // Wait for at least one result to appear
+            await window.utils.waitForElementInShadow(resultLinkSelector, searchOverlay.shadowRoot);
 
             // Find the link whose content includes the D-Number
+            const allResultLinks = Array.from(searchOverlay.shadowRoot.querySelectorAll(resultLinkSelector));
             const correctLink = allResultLinks.find(link => link.textContent.includes(dNumber));
 
             if (correctLink) {
                 console.log('[DNumberSearch] Found correct result link. Clicking it.');
-                // Simulate the full click behavior that leads to navigation
-                correctLink.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
                 correctLink.click();
             } else {
                 throw new Error(`Could not find a campaign result link containing D-Number "${dNumber}".`);
