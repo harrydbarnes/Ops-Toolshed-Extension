@@ -46,6 +46,10 @@ chrome.runtime.onInstalled.addListener(() => {
   checkTimeBomb();
   if (!chrome.runtime || !chrome.runtime.id) return;
   chrome.storage.sync.get(['timesheetReminderEnabled', 'reminderDay', 'reminderTime'], function(data) {
+    if (chrome.runtime.lastError) {
+        console.error(`Error getting timesheet reminder settings: ${chrome.runtime.lastError.message}`);
+        return;
+    }
     if (data.timesheetReminderEnabled !== false) {
       createTimesheetAlarm(data.reminderDay, data.reminderTime);
     }
@@ -174,6 +178,10 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.url) {
         if (!chrome.runtime || !chrome.runtime.id) return;
         chrome.storage.sync.get('addCampaignShortcutEnabled', (data) => {
+            if (chrome.runtime.lastError) {
+                console.error(`Error getting addCampaignShortcutEnabled setting: ${chrome.runtime.lastError.message}`);
+                return;
+            }
             if (data.addCampaignShortcutEnabled !== false) {
                 if (changeInfo.url.includes('osMOpts=lb')) {
                     const newUrl = changeInfo.url.replace(/&?osMOpts=lb/, '');

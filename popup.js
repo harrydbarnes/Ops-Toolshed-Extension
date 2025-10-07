@@ -186,8 +186,8 @@ function handleOpenCampaignDNumber() {
     if (!dNumberInput || !dNumberError) return;
 
     const dNumber = dNumberInput.value.trim();
-    // A D-number must start with 'D' and be followed by exactly 8 digits.
-    if (!/^D\d{8}$/.test(dNumber)) {
+    // A D-number must start with 'D' (case-insensitive) and be followed by exactly 8 digits.
+    if (!/^D\d{8}$/i.test(dNumber)) {
         dNumberError.textContent = 'Invalid format: must be D followed by 8 digits.';
         dNumberError.classList.remove('hidden');
     } else {

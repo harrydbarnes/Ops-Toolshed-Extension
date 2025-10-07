@@ -258,6 +258,12 @@
         shownCustomReminderIds.clear();
     }
 
+    function forceShowMetaReminder() {
+        metaReminderDismissed = false;
+        metaCheckInProgress = false;
+        checkForMetaConditions();
+    }
+
     // Expose public functions
     window.remindersFeature = {
         checkForMetaConditions,
@@ -265,6 +271,7 @@
         fetchCustomReminders,
         checkCustomReminders,
         resetReminderDismissalFlags,
+        forceShowMetaReminder,
 
         // Expose for message listener
         getShownCustomReminderIds: () => shownCustomReminderIds

@@ -93,9 +93,8 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         sendResponse({status: "Logo check processed by content script"});
     } else if (request.action === "showMetaReminder") {
         console.log("[ContentScript Prisma] 'showMetaReminder' action received. Attempting to create popup.");
-        // This needs to be handled within the reminders module now.
-        // For now, this will be a no-op until that feature is refactored.
-        sendResponse({status: "Meta reminder show request received."});
+        window.remindersFeature.forceShowMetaReminder();
+        sendResponse({status: "Meta reminder shown by content script"});
     } else if (request.action === "customRemindersUpdated") {
         console.log("[ContentScript Prisma] Received 'customRemindersUpdated' message. Re-fetching reminders.");
         window.remindersFeature.fetchCustomReminders().then(() => {
