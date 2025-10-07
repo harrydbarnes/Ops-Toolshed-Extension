@@ -16,44 +16,55 @@
     async function handleDNumberSearch(dNumber) {
         console.log(`[DNumberSearch] Starting search for: ${dNumber}`);
         try {
-            // 1. Click the main search icon to open the search overlay.
+            // 1. Click the main search icon to open the search overlay (using robust click).
             const searchIcon = await window.utils.waitForElementInShadow('mo-icon[name="search"]');
             console.log('[DNumberSearch] Found search icon. Performing robust click...');
             
-            // Use the robust click method to ensure the click is registered
             robustClick(searchIcon);
 
             // Wait briefly for the overlay UI to initialize after the click
             await delay(500);
 
-            // 2. Wait for the search overlay to become available.
+            // 2. Wait for the search overlay and input field to become available.
             const searchOverlay = await window.utils.waitForElementInShadow('mo-overlay[role="dialog"]');
-            console.log('[DNumberSearch] Found search overlay.');
-
-            // 3. Find the search input within the overlay's shadow DOM structure.
             const searchInput = await window.utils.waitForElementInShadow('input[data-is-native-input]', searchOverlay.shadowRoot);
-            console.log('[DNumberSearch] Found search input field.');
+            console.log('[DNumberSearch] Found search overlay and input field.');
 
-            // 4. Copy D-Number to clipboard and paste it to trigger the search.
+            // 3. Copy D-Number to clipboard (handled by background script)
             console.log(`[DNumberSearch] Copying "${dNumber}" to clipboard.`);
             await chrome.runtime.sendMessage({ action: 'copyToClipboard', text: dNumber });
 
+            // 4. Prepare the input for paste/input
             searchInput.focus();
+            searchInput.select(); // Ensure the input is ready to accept clipboard data
+            await delay(50); // Small delay to let focus/select settle
 
-            console.log('[DNumberSearch] Pasting from clipboard into search input.');
+            // 5. Attempt Paste via execCommand
+            console.log('[DNumberSearch] Attempting paste via document.execCommand...');
             document.execCommand('paste');
 
-            // Manually dispatch input/change events to notify the framework that the value has changed.
+            // --- Robustness Check: Fallback if paste fails ---
+            // Check if the value is correct immediately after attempting paste
+            let isPasted = searchInput.value.toUpperCase() === dNumber.toUpperCase();
+            
+            // If the paste failed, manually set the value and console log the fallback
+            if (!isPasted) {
+                console.log('[DNumberSearch] Paste failed. Manually setting input value and dispatching events.');
+                searchInput.value = dNumber; 
+            } else {
+                console.log('[DNumberSearch] Paste successful.');
+            }
+            
+            // 6. Dispatch input/change events to notify the framework to run the search filter
             searchInput.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
             searchInput.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
-            console.log(`[DNumberSearch] Dispatched paste and input/change events for "${dNumber}".`);
-
+            
             // Give time for search results to populate after the change event fires
             await delay(1000);
 
-            // 5. Wait for the correct result link to appear and click it.
+            // 7. Wait for the correct result link to appear and click it.
             const resultLinkSelector = `a.item-row`;
-            // Wait for at least one result to appear
+            // Wait for the presence of at least one result
             await window.utils.waitForElementInShadow(resultLinkSelector, searchOverlay.shadowRoot);
 
             // Find the link whose content includes the D-Number
