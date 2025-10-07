@@ -346,3 +346,32 @@ body {
 .manage-favourites-button {
     margin-left: 5px;
 }
+
+/* Toast Notification */
+#toast-notification {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #333;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    z-index: 1001;
+    font-size: 16px; /* Increased font size */
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.5s, visibility 0.5s, bottom 0.5s;
+}
+
+#toast-notification.show {
+    bottom: 40px;
+    opacity: 1;
+    visibility: visible;
+}
+
+#toast-notification.hide {
+    opacity: 0;
+    visibility: hidden;
+    bottom: 20px;
+}
