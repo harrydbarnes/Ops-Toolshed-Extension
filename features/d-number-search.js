@@ -1,15 +1,20 @@
 (function() {
     'use strict';
 
+    const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
     async function handleDNumberSearch(dNumber) {
         console.log(`[DNumberSearch] Starting search for: ${dNumber}`);
         try {
             // 1. Click the main search icon to open the search overlay.
             const searchIcon = await window.utils.waitForElementInShadow('mo-icon[name="search"]');
-            console.log('[DNumberSearch] Found search icon.');
+            console.log('[DNumberSearch] Found search icon. Clicking...');
             searchIcon.click();
 
-            // 2. Wait for the search overlay to become available.
+            // FIX: Wait briefly for the overlay UI to initialize after the click
+            await delay(500);
+
+            // 2. Wait for the search overlay to become available. This should now succeed.
             const searchOverlay = await window.utils.waitForElementInShadow('mo-overlay[role="dialog"]');
             console.log('[DNumberSearch] Found search overlay.');
 
@@ -26,10 +31,8 @@
             console.log('[DNumberSearch] Pasting from clipboard into search input.');
             document.execCommand('paste');
 
-            // Manually dispatch an 'input' event to ensure frameworks detect the change.
+            // Manually dispatch events to ensure frameworks detect the change.
             searchInput.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-
-            // Dispatching key events after pasting can help ensure the framework's event listeners fire.
             searchInput.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true, composed: true }));
             console.log(`[DNumberSearch] Dispatched paste, input, and Enter key event for "${dNumber}".`);
 
@@ -50,7 +53,8 @@
 
         } catch (error) {
             console.error('[DNumberSearch] Automation failed:', error);
-            alert(`D-Number search automation failed: ${error.message}`);
+            // Re-throw the error so the background script can catch and report it.
+            throw error;
         }
     }
 

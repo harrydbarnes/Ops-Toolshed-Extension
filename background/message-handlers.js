@@ -66,39 +66,15 @@ async function performDNumberSearch(request, sender, sendResponse) {
         const tabId = newTab.id;
         const dNumber = request.dNumber;
 
-        const tabLoaded = new Promise((resolve, reject) => {
-            const timeoutId = setTimeout(() => {
-                chrome.tabs.onUpdated.removeListener(listener);
-                reject(new Error("Tab loading timed out after 30 seconds."));
-            }, 30000); // 30-second timeout
-
-            const listener = (updatedTabId, changeInfo, tab) => {
-                if (updatedTabId === tabId) {
-                    if (changeInfo.status === 'complete') {
-                        clearTimeout(timeoutId);
-                        chrome.tabs.onUpdated.removeListener(listener);
-                        resolve(tab);
-                    }
-                    // It's good practice to also handle load errors.
-                    if (changeInfo.status === 'error') {
-                        clearTimeout(timeoutId);
-                        chrome.tabs.onUpdated.removeListener(listener);
-                        reject(new Error("Tab failed to load."));
-                    }
-                }
-            };
-            chrome.tabs.onUpdated.addListener(listener);
-        });
-
-        await tabLoaded;
-
         // Wait for the content script to be ready by retrying the message and awaiting its response.
         let response;
-        for (let i = 0; i < 10; i++) { // Retry for up to 5 seconds
+        for (let i = 0; i < 10; i++) { // Retry for up to 5 seconds (10 attempts * 500ms delay)
             try {
+                // The content script will perform the search automation upon receiving this message.
                 response = await chrome.tabs.sendMessage(tabId, { action: 'performDNumberSearch', dNumber: dNumber });
                 break; // Success
             } catch (e) {
+                // If it fails (e.g., content script not ready), wait 500ms and retry.
                 if (i === 9) throw e; // Last attempt, rethrow error to be caught by the outer handler
                 await new Promise(r => setTimeout(r, 500));
             }
