@@ -168,29 +168,29 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    const showToast = () => {
+    const showToast = (message) => {
+        toastNotification.textContent = message;
         toastNotification.classList.add('show');
         setTimeout(() => {
             toastNotification.classList.remove('show');
             toastNotification.classList.add('hide');
-            // Clean up classes after animation
             setTimeout(() => {
                 toastNotification.classList.remove('hide');
-            }, 500); // 0.5s animation
+            }, 500);
         }, 3000);
     };
 
     copyButton.addEventListener('click', () => {
         const emails = [...selectedApprovers].map(id => approversData.find(a => a.id === id).email);
         navigator.clipboard.writeText(emails.join('; ')).then(() => {
-            showToast();
+            showToast('Copied to clipboard!');
         });
     });
 
     copySaveButton.addEventListener('click', () => {
         const emails = [...selectedApprovers].map(id => approversData.find(a => a.id === id).email);
         navigator.clipboard.writeText(emails.join('; ')).then(() => {
-            showToast();
+            showToast('Favourites updated and copied to clipboard!');
         });
         selectedApprovers.forEach(id => favoriteApprovers.add(id));
         saveFavorites();

@@ -17,12 +17,18 @@
             const searchInput = await window.utils.waitForElementInShadow('input[data-is-native-input]', searchOverlay.shadowRoot);
             console.log('[DNumberSearch] Found search input field.');
 
-            // 4. Input the D-Number and dispatch events to trigger the search.
-            searchInput.value = dNumber;
-            searchInput.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-            searchInput.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+            // 4. Copy D-Number to clipboard and paste it to trigger the search.
+            console.log(`[DNumberSearch] Copying "${dNumber}" to clipboard.`);
+            await chrome.runtime.sendMessage({ action: 'copyToClipboard', text: dNumber });
+
+            searchInput.focus();
+
+            console.log('[DNumberSearch] Pasting from clipboard into search input.');
+            document.execCommand('paste');
+
+            // Dispatching key events after pasting can help ensure the framework's event listeners fire.
             searchInput.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true, composed: true }));
-            console.log(`[DNumberSearch] Dispatched input and events for "${dNumber}".`);
+            console.log(`[DNumberSearch] Dispatched paste and Enter key event for "${dNumber}".`);
 
             // 5. Wait for the correct result link to appear.
             const resultLinkSelector = `a.item-row`;
