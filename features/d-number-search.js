@@ -19,26 +19,17 @@
             console.log('[DNumberSearch] Found search icon. Performing robust click...');
             robustClick(searchIcon);
 
-            // Give a short time for the initial quick search menu to appear
-            await delay(500);
-            
-            // 2. Click the intermediary menu element to trigger the full search overlay/input activation.
-            const intermediarySelector = 'mo-banner-recent-menu-content.hydrated';
-            const intermediaryElement = await window.utils.waitForElementInShadow(intermediarySelector, document, 5000); 
-            console.log(`[DNumberSearch] Found intermediary menu element. Clicking to activate search input...`);
-            robustClick(intermediaryElement);
-            
-            // Wait for the full search UI to stabilize
+            // Give a short, necessary time for the quick search menu/overlay to appear after the click.
             await delay(500); 
+            console.log('[DNumberSearch] Initial 500ms delay complete. Searching for search box...');
 
-            // --- CRITICAL FIX ---
-            // 3. Find the definitive parent container (mo-search-box) and then the input inside its shadow DOM.
+            // --- CORRECTED STEP ---
+            // 2. Find the definitive parent mo-search-box container immediately.
             const searchBoxContainer = await window.utils.waitForElementInShadow('mo-search-box.search-box-container', document, 5000);
             console.log('[DNumberSearch] Found definitive mo-search-box container.');
 
-            // Now search for the native input *only* within the shadow DOM of the specific search container.
-            // The utility function automatically looks inside nested shadow roots (mo-input inside mo-search-box).
-            const searchInput = await window.utils.waitForElementInShadow('input[data-is-native-input]', searchBoxContainer, 2000); 
+            // 3. Now search for the native input *only* within the shadow DOM of the specific search container.
+            const searchInput = await window.utils.waitForElementInShadow('input[data-is-native-input]', searchBoxContainer, 2000);
             console.log('[DNumberSearch] Found final and correct search input field.');
             
             // 4. (Optional) Ensure D-Number is on the clipboard
@@ -48,8 +39,8 @@
             // --- Robust Input Strategy: Manually set value and dispatch every event ---
             
             // 5. Force the value into the field 
-            searchInput.focus(); 
-            searchInput.value = dNumber; 
+            searchInput.focus();
+            searchInput.value = dNumber;
             console.log(`[DNumberSearch] Manually set input value to: ${dNumber}`);
 
             // 6. Dispatch ALL possible relevant events to ensure the framework runs the search filter.
@@ -63,20 +54,29 @@
             console.log(`[DNumberSearch] Dispatched robust input and key events.`);
             
             // Give time for search results to populate
-            await delay(1500); 
+            await delay(1500);
 
             // 7. Click the correct result link.
             const resultLinkSelector = `a.item-row`;
-            // Search for the link again inside the specific search container
-            await window.utils.waitForElementInShadow(resultLinkSelector, searchBoxContainer, 5000);
+            
+            // Find the link whose content includes the D-Number (we'll look in the container's shadow root directly for better scope)
+            let finalLink = null;
 
-            // Find the link whose content includes the D-Number
-            const allResultLinks = Array.from(searchBoxContainer.shadowRoot.querySelectorAll(resultLinkSelector));
-            const correctLink = allResultLinks.find(link => link.textContent.includes(dNumber));
+            // Search for the link inside the hierarchy started by searchBoxContainer.
+            const shadowLinks = Array.from(searchBoxContainer.shadowRoot.querySelectorAll(resultLinkSelector));
+            finalLink = shadowLinks.find(link => link.textContent.includes(dNumber));
+            
+            // Fallback: Use the utility to search the entire document/shadow DOM as the element might be outside the container's shadow.
+            if (!finalLink) {
+                 finalLink = await window.utils.waitForElementInShadow(`a.item-row`, document, 1000);
+                 // If found generally, re-check content:
+                 if(finalLink && !finalLink.textContent.includes(dNumber)) finalLink = null;
+            }
 
-            if (correctLink) {
+
+            if (finalLink) {
                 console.log('[DNumberSearch] Found correct result link. Clicking it.');
-                correctLink.click();
+                finalLink.click();
             } else {
                 throw new Error(`Could not find a campaign result link containing D-Number "${dNumber}" after search.`);
             }
