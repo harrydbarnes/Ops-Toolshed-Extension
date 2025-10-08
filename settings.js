@@ -369,6 +369,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
 
+    // Live Chat Enhancements
+    setupToggle('fontSizeToggle', 'fontSizeToggleEnabled', 'Font Size Toggle setting saved:');
+    setupToggle('resizableChatToggle', 'resizableChatToggleEnabled', 'Resizable Chat setting saved:');
+    setupToggle('scheduledChatToggle', 'scheduledChatToggleEnabled', 'Scheduled Chat setting saved:');
+
     // Campaign Management Settings
     setupToggle('addCampaignShortcutToggle', 'addCampaignShortcutEnabled', 'Add Campaign shortcut setting saved:');
     setupToggle('hidingSectionsToggle', 'hidingSectionsEnabled', 'Hiding Sections setting saved:');
