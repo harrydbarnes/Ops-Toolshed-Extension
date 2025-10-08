@@ -82,3 +82,53 @@
     to { opacity: 1; }
 }
 /* --- End of Reminder Popup Styles --- */
+
+/* --- Live Chat Enhancement Styles --- */
+#resizable-chat-handle {
+    height: 10px;
+    background-color: #888;
+    cursor: ns-resize;
+    position: fixed;
+    z-index: 999999;
+    border-bottom: 1px solid #666;
+}
+
+#launcher-button-container {
+    position: fixed;
+    bottom: 10px;
+    right: 20px;
+    z-index: 999998;
+    width: 107px;
+    height: 50px;
+}
+
+#launcher-button-container button {
+    width: 100%;
+    height: 100%;
+    background-color: #007bff;
+    color: white;
+    border-radius: 25px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 15px;
+    cursor: pointer;
+    border: none;
+    font-family: sans-serif;
+    font-size: 16px;
+    transition: background-color 0.2s ease-in-out;
+}
+
+#launcher-button-container button:hover {
+    background-color: #0056b3;
+}
+
+#launcher-button-container button svg {
+    fill: white;
+    width: 20px;
+    height: 20px;
+}
+
+#launcher-button-container button span {
+    margin-left: 8px;
+}
