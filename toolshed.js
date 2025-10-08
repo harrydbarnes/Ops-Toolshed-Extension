@@ -62,10 +62,13 @@ document.addEventListener('DOMContentLoaded', () => {
         resetButton.addEventListener('click', resetStats);
     }
 
-    // Refresh stats when the stats tab is clicked
-    if (statsTabButton) {
-        statsTabButton.addEventListener('click', displayStats);
-    }
+    // --- Real-Time Update Listener ---
+    chrome.storage.onChanged.addListener((changes, namespace) => {
+        if (namespace === 'local' && changes.prismaUserStats) {
+            console.log('Detected a change in prismaUserStats, updating display.');
+            displayStats();
+        }
+    });
 
     // Display stats on initial load
     displayStats();
