@@ -75,6 +75,9 @@ async function performDNumberSearch(request, sender, sendResponse) {
             try {
                 // The content script will perform the search automation upon receiving this message.
                 response = await chrome.tabs.sendMessage(tabId, { action: 'performDNumberSearch', dNumber: dNumber });
+                if (!response || response.status !== 'success') {
+                    throw new Error(response?.message || 'D-Number search failed in content script.');
+                }
                 break; // Success
             } catch (e) {
                 // If it fails (e.g., content script not ready), wait and retry.

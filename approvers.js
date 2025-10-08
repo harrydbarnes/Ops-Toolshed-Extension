@@ -168,7 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    const showToast = (message) => {
+    const showToast = (message) => { // message: The message to display in the toast notification
         const toastMessage = toastNotification.querySelector('.toast-message');
         if (toastMessage) {
             toastMessage.textContent = message;
