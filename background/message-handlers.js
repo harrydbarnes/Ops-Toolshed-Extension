@@ -1,15 +1,14 @@
 import { approversData } from '../approvers-data.js';
 import { scrapeAndDownloadCsv } from './meta-billing-scraper.js';
 
-function disableTimeBomb(request, sender, sendResponse) {
-    chrome.storage.local.remove(['timeBombActive', 'initialDeadline'], () => {
-        if (chrome.runtime.lastError) {
-            sendResponse({ status: 'error', message: chrome.runtime.lastError.message });
-        } else {
-            sendResponse({ status: 'success' });
-        }
-    });
-    return true;
+async function disableTimeBomb(request, sender, sendResponse) {
+    try {
+        await chrome.storage.local.remove(['timeBombActive', 'initialDeadline']);
+        sendResponse({ status: 'success' });
+    } catch (e) {
+        console.error('Failed to disable time bomb:', e);
+        sendResponse({ status: 'error', message: e.message });
+    }
 }
 
 async function showTimesheetNotification(request, sender, sendResponse, context) {
@@ -42,7 +41,8 @@ async function removeTimesheetAlarm(request, sender, sendResponse) {
 async function metaBillingCheck(request, sender, sendResponse) {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab) {
-        return sendResponse({ status: 'error', message: 'Could not find active tab.' });
+        sendResponse({ status: 'error', message: 'Could not find active tab.' });
+        return;
     }
     if (tab.url && tab.url.includes('adsmanager.facebook.com/adsmanager/manage/campaigns')) {
         try {
@@ -61,6 +61,9 @@ async function metaBillingCheck(request, sender, sendResponse) {
 
 async function performDNumberSearch(request, sender, sendResponse) {
     const PRISMA_DASHBOARD_URL = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns';
+    const MAX_RETRIES = 10;
+    const RETRY_DELAY_MS = 500;
+
     try {
         const newTab = await chrome.tabs.create({ url: PRISMA_DASHBOARD_URL });
         const tabId = newTab.id;
@@ -68,15 +71,15 @@ async function performDNumberSearch(request, sender, sendResponse) {
 
         // Wait for the content script to be ready by retrying the message and awaiting its response.
         let response;
-        for (let i = 0; i < 10; i++) { // Retry for up to 5 seconds (10 attempts * 500ms delay)
+        for (let i = 0; i < MAX_RETRIES; i++) { // Retry for up to 5 seconds
             try {
                 // The content script will perform the search automation upon receiving this message.
                 response = await chrome.tabs.sendMessage(tabId, { action: 'performDNumberSearch', dNumber: dNumber });
                 break; // Success
             } catch (e) {
-                // If it fails (e.g., content script not ready), wait 500ms and retry.
-                if (i === 9) throw e; // Last attempt, rethrow error to be caught by the outer handler
-                await new Promise(r => setTimeout(r, 500));
+                // If it fails (e.g., content script not ready), wait and retry.
+                if (i === MAX_RETRIES - 1) throw e; // Last attempt, rethrow error.
+                await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
             }
         }
         sendResponse(response);
@@ -100,7 +103,8 @@ async function getFavouriteApprovers(request, sender, sendResponse) {
         const data = await chrome.storage.local.get(['favoriteApprovers']);
         const favoriteIds = new Set(data.favoriteApprovers || []);
         if (favoriteIds.size === 0) {
-            return sendResponse({ status: 'success', emails: [] });
+            sendResponse({ status: 'success', emails: [] });
+            return;
         }
         const favoriteEmails = approversData
             .filter(approver => favoriteIds.has(approver.id))
@@ -112,7 +116,7 @@ async function getFavouriteApprovers(request, sender, sendResponse) {
 }
 
 async function openApproversPage(request, sender, sendResponse) {
-    chrome.tabs.create({ url: chrome.runtime.getURL('approvers.html') });
+    await chrome.tabs.create({ url: chrome.runtime.getURL('approvers.html') });
     sendResponse({ status: 'success' });
 }
 
