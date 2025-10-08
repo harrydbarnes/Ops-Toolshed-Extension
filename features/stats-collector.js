@@ -35,9 +35,13 @@
     // --- 2. Track Loading Spinner Time ---
     let loadingSpinnerStartTime = null;
     function observeLoadingSpinner(mutations) {
-        // FIX: Replaced 'svg.spinner' with a combined selector to also catch
-        // the Font Awesome spinner (i.fa-spin) element, which is the user's loading indicator.
-        const spinner = document.querySelector('i.fa-spin, svg.spinner');
+        // FIX: Use window.utils.queryShadowDom to find spinners deep inside
+        // Shadow DOMs (like the mo-spinner component). We'll search for the
+        // most consistent indicator, which is the 'svg.spinner' inside the shadow root,
+        // or fall back to the simpler 'i.fa-spin' in the light DOM.
+
+        const spinner = window.utils.queryShadowDom('svg.spinner') ||
+                        document.querySelector('i.fa-spin');
 
         if (spinner && loadingSpinnerStartTime === null) {
             // Spinner appeared
