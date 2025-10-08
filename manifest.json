@@ -55,6 +55,7 @@
         "features/gmi-chat.js",
         "features/live-chat-enhancements.js",
         "features/approver-pasting.js",
+        "features/stats-collector.js",
         "content.js"
       ],
       "css": ["approvers.css", "content.css"],

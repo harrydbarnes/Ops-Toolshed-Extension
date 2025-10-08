@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (versionLink) {
             versionLink.textContent = versionText;
             versionLink.addEventListener('click', () => {
-                chrome.tabs.create({ url: chrome.runtime.getURL('updates.html') });
+                chrome.tabs.create({ url: chrome.runtime.getURL('toolshed.html') });
             });
         }
     });

@@ -77,6 +77,7 @@ async function mainContentScriptInit() {
                 window.approverPastingFeature.handleManageFavouritesButton();
                 window.gmiChatFeature.handleGmiChatButton();
                 window.liveChatEnhancements.initialize();
+                window.statsCollector.initialize();
             }, 300);
         }
     });

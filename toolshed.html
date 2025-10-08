@@ -3,16 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Updates</title>
-    <link rel="stylesheet" href="updates.css">
+    <title>Ops Toolshed</title>
+    <link rel="stylesheet" href="toolshed.css">
 </head>
 <body>
     <div class="container">
-        <h1>Updates</h1>
+        <h1>Ops Toolshed</h1>
 
         <div class="tab-container">
             <button class="tab-button active" data-tab="release-notes">Release Notes</button>
             <button class="tab-button" data-tab="roadmap">Roadmap</button>
+            <button class="tab-button" data-tab="stats">Stats</button>
         </div>
 
         <div id="release-notes" class="tab-content active">
@@ -59,7 +60,24 @@
         <div class="feedback">
             <a href="https://teams.microsoft.com/l/chat/0/0?users=harry.barnes@essencemediacom.com&topicname=Chat" target="_blank">Have an idea? Let the chef know here!</a>
         </div>
+
+        <div id="stats" class="tab-content">
+            <h2>Statistics</h2>
+            <div class="stat-item">
+                <strong>Campaigns Visited (total):</strong>
+                <span id="campaigns-visited-stat">0</span>
+            </div>
+            <div class="stat-item">
+                <strong>Time waiting for Prisma to load:</strong>
+                <span id="loading-time-stat">0s</span>
+            </div>
+            <div class="stat-item">
+                <strong>Number of placements added:</strong>
+                <span id="placements-added-stat">0</span>
+            </div>
+            <button id="reset-stats-button" class="button-secondary">Reset Stats</button>
+        </div>
     </div>
-    <script src="updates.js"></script>
+    <script src="toolshed.js"></script>
 </body>
 </html>
