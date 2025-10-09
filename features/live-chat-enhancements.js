@@ -57,6 +57,9 @@
         let initialWidgetTop = 0;
         let initialWidgetHeight = 0;
 
+        const MIN_CHAT_HEIGHT = 100;
+        const BOTTOM_MARGIN = 40;
+
         const onMouseDown = (e) => {
             isResizing = true;
             document.body.style.userSelect = 'none';
@@ -81,7 +84,7 @@
             const newTop = initialWidgetTop + deltaY;
             const newHeight = initialWidgetHeight - deltaY;
 
-            if (newHeight > 100 && newHeight < (window.innerHeight - 40)) {
+            if (newHeight > MIN_CHAT_HEIGHT && newHeight < (window.innerHeight - BOTTOM_MARGIN)) {
                 webWidget.style.top = `${newTop}px`;
                 webWidget.style.height = `${newHeight}px`;
                 handle.style.top = `${newTop}px`;
