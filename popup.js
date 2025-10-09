@@ -192,8 +192,20 @@ function handleOpenCampaignDNumber() {
         dNumberError.classList.remove('hidden');
     } else {
         dNumberError.classList.add('hidden');
-        // Send the message to the background script. No callback is needed as the popup will close.
-        chrome.runtime.sendMessage({ action: "performDNumberSearch", dNumber: dNumber });
+        chrome.runtime.sendMessage({ action: "performDNumberSearch", dNumber: dNumber }, (response) => {
+            if (chrome.runtime.lastError) {
+                dNumberError.textContent = `Error: ${chrome.runtime.lastError.message}`;
+                dNumberError.classList.remove('hidden');
+                return;
+            }
+            if (response && response.status === 'error') {
+                dNumberError.textContent = `Error: ${response.message}`;
+                dNumberError.classList.remove('hidden');
+                return;
+            }
+            // On success, the background script opens a new tab, so we can just close the popup.
+            window.close();
+        });
     }
 }
 

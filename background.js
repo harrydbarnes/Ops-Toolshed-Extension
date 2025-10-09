@@ -96,11 +96,15 @@ async function triggerTimesheetNotification() {
     }
 }
 
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'timeBombCheck') {
-    checkTimeBomb();
-  } else if (alarm.name === 'timesheetReminder') {
-    triggerTimesheetNotification();
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  try {
+    if (alarm.name === 'timeBombCheck') {
+      await checkTimeBomb();
+    } else if (alarm.name === 'timesheetReminder') {
+      await triggerTimesheetNotification();
+    }
+  } catch (error) {
+    console.error(`Error handling alarm "${alarm.name}":`, error);
   }
 });
 

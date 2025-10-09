@@ -81,12 +81,10 @@
             const toastId = 'ops-toolshed-toast';
             let toast = document.getElementById(toastId);
 
-            if (!toast) {
-                toast = document.createElement('div');
-                toast.id = toastId;
-                document.body.appendChild(toast);
-
+            const styleId = 'ops-toolshed-toast-styles';
+            if (!document.getElementById(styleId)) {
                 const style = document.createElement('style');
+                style.id = styleId;
                 style.textContent = `
                     #${toastId} {
                         position: fixed;
@@ -108,6 +106,12 @@
                     #${toastId}.toast-error { background-color: #D32F2F; }
                 `;
                 document.head.appendChild(style);
+            }
+
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = toastId;
+                document.body.appendChild(toast);
             }
 
             toast.textContent = message;

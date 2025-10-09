@@ -51,6 +51,7 @@
         };
 
         updateHandlePosition();
+        window.addEventListener('resize', updateHandlePosition);
 
         let isResizing = false;
         let initialMouseY = 0;
