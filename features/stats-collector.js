@@ -59,46 +59,35 @@
         }
     }
 
-    // --- 3. Track Placement "Save" Clicks ---
-    function observeSaveButtons(mutations) {
-        const saveButton = document.getElementById('btn-save');
-        const saveAndAddAnotherButton = document.getElementById('btn-save-and-add-another');
-
-        const setupListener = (button) => {
-            if (button && !button.dataset.statsListenerAttached) {
-                button.addEventListener('click', () => {
-                    console.log('[Stats Collector] Save button clicked.');
-                    updateStats(stats => {
-                        stats.placementsAdded += 1;
-                        return stats;
-                    });
-                });
-                button.dataset.statsListenerAttached = 'true';
-            }
-        };
-
-        setupListener(saveButton);
-        setupListener(saveAndAddAnotherButton);
+    // --- 3. Track Placement "Save" Clicks using Event Delegation ---
+    function handleSaveButtonClick(event) {
+        if (event.target.id === 'btn-save' || event.target.id === 'btn-save-and-add-another') {
+            console.log('[Stats Collector] Save button clicked.');
+            updateStats(stats => {
+                stats.placementsAdded += 1;
+                return stats;
+            });
+        }
     }
 
     // --- Main Initialization ---
+    let isInitialized = false;
     function initializeStatsCollector() {
+        if (isInitialized) return;
+
         // Initial check
         trackCampaignId();
 
         // Set up observers and intervals
         setInterval(trackCampaignId, 1000); // Check for URL changes periodically
 
-        const observer = new MutationObserver((mutations) => {
-            observeLoadingSpinner(mutations);
-            observeSaveButtons(mutations);
-        });
+        const observer = new MutationObserver(observeLoadingSpinner);
+        observer.observe(document.body, { childList: true, subtree: true });
 
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
+        // Use event delegation for save buttons
+        document.body.addEventListener('click', handleSaveButtonClick);
 
+        isInitialized = true;
         console.log("Stats Collector Initialized");
     }
 

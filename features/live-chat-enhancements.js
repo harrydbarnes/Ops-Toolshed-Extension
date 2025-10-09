@@ -57,7 +57,7 @@
         let initialWidgetTop = 0;
         let initialWidgetHeight = 0;
 
-        handle.addEventListener('mousedown', (e) => {
+        const onMouseDown = (e) => {
             isResizing = true;
             document.body.style.userSelect = 'none';
 
@@ -68,30 +68,34 @@
 
             webWidget.style.bottom = 'auto';
 
-            e.preventDefault();
-        });
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mouseup', onMouseUp);
 
-        window.addEventListener('mousemove', (e) => {
+            e.preventDefault();
+        };
+
+        const onMouseMove = (e) => {
             if (!isResizing) return;
 
             const deltaY = e.clientY - initialMouseY;
             const newTop = initialWidgetTop + deltaY;
             const newHeight = initialWidgetHeight - deltaY;
 
-            // Corrected boundary check to allow for more flexible resizing
             if (newHeight > 100 && newHeight < (window.innerHeight - 40)) {
                 webWidget.style.top = `${newTop}px`;
                 webWidget.style.height = `${newHeight}px`;
                 handle.style.top = `${newTop}px`;
             }
-        });
+        };
 
-        window.addEventListener('mouseup', () => {
-            if (isResizing) {
-                isResizing = false;
-                document.body.style.userSelect = '';
-            }
-        });
+        const onMouseUp = () => {
+            isResizing = false;
+            document.body.style.userSelect = '';
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+        };
+
+        handle.addEventListener('mousedown', onMouseDown);
 
         return handle;
     }
