@@ -185,6 +185,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             handler(request, sender, sendResponse, context);
         } else {
             console.log(`No handler found for action: ${action}`);
+            sendResponse({ status: 'error', message: `Unknown action: ${action}` });
         }
     });
     return true; // Indicates async response.
