@@ -168,7 +168,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    const showToast = (message) => { // message: The message to display in the toast notification
+    /**
+     * Shows a toast notification with a given message.
+     * @param {string} message The message to display in the toast notification.
+     */
+    const showToast = (message) => {
         const toastMessage = toastNotification.querySelector('.toast-message');
         if (toastMessage) {
             toastMessage.textContent = message;

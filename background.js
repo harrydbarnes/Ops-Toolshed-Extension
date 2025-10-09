@@ -80,12 +80,27 @@ function getNextAlarmDate(day, time) {
   return nextDate;
 }
 
+async function triggerTimesheetNotification() {
+    if (!chrome.runtime || !chrome.runtime.id) return;
+    const data = await chrome.storage.sync.get('timesheetReminderEnabled');
+    if (data.timesheetReminderEnabled !== false) {
+        await playAlarmSound();
+        chrome.notifications.create('timesheetReminder', {
+            type: 'basic',
+            iconUrl: 'icon.png',
+            title: 'Timesheet Reminder',
+            message: 'Don\'t forget to submit your timesheet!',
+            buttons: [{ title: 'Open My Timesheets' }, { title: 'Snooze for 15 minutes' }],
+            priority: 2
+        });
+    }
+}
+
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'timeBombCheck') {
     checkTimeBomb();
   } else if (alarm.name === 'timesheetReminder') {
-    // The handler will call the notification creation logic.
-    messageHandlers.showTimesheetNotification({}, null, () => {}, { playAlarmSound });
+    triggerTimesheetNotification();
   }
 });
 
@@ -140,6 +155,7 @@ async function handleOffscreenClipboard(request, sendResponse) {
         });
         sendResponse(response);
     } catch (e) {
+        console.error(`Error in handleOffscreenClipboard for action "${request.action}":`, e);
         sendResponse({ status: 'error', message: e.message });
     }
 }
@@ -163,7 +179,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             const context = {
                 playAlarmSound,
                 createTimesheetAlarm,
-                handleOffscreenClipboard
+                handleOffscreenClipboard,
+                triggerTimesheetNotification
             };
             handler(request, sender, sendResponse, context);
         } else {
@@ -198,6 +215,7 @@ if (typeof module !== 'undefined' && module.exports) {
         getNextAlarmDate,
         createTimesheetAlarm,
         getNextDeadline,
-        checkTimeBomb
+        checkTimeBomb,
+        triggerTimesheetNotification
     };
 }

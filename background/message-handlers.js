@@ -12,19 +12,7 @@ async function disableTimeBomb(request, sender, sendResponse) {
 }
 
 async function showTimesheetNotification(request, sender, sendResponse, context) {
-    if (!chrome.runtime || !chrome.runtime.id) return;
-    const data = await chrome.storage.sync.get('timesheetReminderEnabled');
-    if (data.timesheetReminderEnabled !== false) {
-        await context.playAlarmSound();
-        chrome.notifications.create('timesheetReminder', {
-            type: 'basic',
-            iconUrl: 'icon.png',
-            title: 'Timesheet Reminder',
-            message: 'Don\'t forget to submit your timesheet!',
-            buttons: [{ title: 'Open My Timesheets' }, { title: 'Snooze for 15 minutes' }],
-            priority: 2
-        });
-    }
+    await context.triggerTimesheetNotification();
     sendResponse({ status: "Notification shown" });
 }
 
