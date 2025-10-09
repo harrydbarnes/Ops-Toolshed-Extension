@@ -3,55 +3,6 @@
 
     const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-    // --- Self-Contained Toast Notification Utility ---
-    let toastStyleInjected = false;
-    function showToast(message) {
-        if (!toastStyleInjected) {
-            const style = document.createElement('style');
-            style.textContent = `
-                .d-search-toast {
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    background-color: #D32F2F; /* Red for error */
-                    color: white;
-                    padding: 15px;
-                    border-radius: 8px;
-                    z-index: 2147483647;
-                    font-family: sans-serif;
-                    font-size: 16px;
-                    box-shadow: 0 4px 10px rgba(0,0,0,0.25);
-                    opacity: 0;
-                    transition: opacity 0.3s ease-in-out;
-                }
-                .d-search-toast.show {
-                    opacity: 1;
-                }
-            `;
-            document.head.appendChild(style);
-            toastStyleInjected = true;
-        }
-
-        const toast = document.createElement('div');
-        toast.className = 'd-search-toast';
-        toast.textContent = message;
-        document.body.appendChild(toast);
-
-        // Animate in
-        setTimeout(() => {
-            toast.classList.add('show');
-        }, 10);
-
-        // Animate out and remove after a delay
-        setTimeout(() => {
-            toast.classList.remove('show');
-            setTimeout(() => {
-                document.body.removeChild(toast);
-            }, 300); // Wait for fade-out transition
-        }, 4000); // Show for 4 seconds
-    }
-
-
     // Helper function to simulate a complete, robust click event sequence
     function robustClick(element) {
         if (!element) return;
@@ -153,8 +104,8 @@
             console.error('[DNumberSearch] Automation failed:', error);
             const errorMessage = error.message || "An unknown error occurred during D-Number search.";
             
-            // Show a non-blocking toast notification instead of an alert
-            showToast(`D-Number Search Failed: ${errorMessage}`);
+            // Use the centralized toast utility for error reporting
+            window.utils.showToast(`D-Number Search Failed: ${errorMessage}`, 'error');
             
             throw error;
         }

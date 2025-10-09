@@ -75,6 +75,53 @@
                     }
                 }, intervalTime);
             });
+        },
+
+        showToast(message, type = 'info') {
+            const toastId = 'ops-toolshed-toast';
+            let toast = document.getElementById(toastId);
+
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = toastId;
+                document.body.appendChild(toast);
+
+                const style = document.createElement('style');
+                style.textContent = `
+                    #${toastId} {
+                        position: fixed;
+                        top: 20px;
+                        right: 20px;
+                        padding: 15px;
+                        border-radius: 8px;
+                        z-index: 2147483647;
+                        font-family: sans-serif;
+                        font-size: 16px;
+                        box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+                        opacity: 0;
+                        transition: opacity 0.3s ease-in-out;
+                        color: white;
+                    }
+                    #${toastId}.show { opacity: 1; }
+                    #${toastId}.toast-info { background-color: #0288D1; }
+                    #${toastId}.toast-success { background-color: #388E3C; }
+                    #${toastId}.toast-error { background-color: #D32F2F; }
+                `;
+                document.head.appendChild(style);
+            }
+
+            toast.textContent = message;
+            toast.className = `toast-${type}`; // Remove previous classes
+
+            // Animate in
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 10);
+
+            // Animate out and remove after a delay
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 4000); // 4 seconds
         }
     };
 

@@ -29,6 +29,7 @@ setInterval(() => {
         console.log("[ContentScript Prisma] URL changed, reminder dismissal flags reset.");
         window.remindersFeature.resetReminderDismissalFlags();
         window.campaignFeature.resetCampaignFlags();
+        window.statsCollector.trackCampaignId(); // Centralized call
         currentUrlForDismissFlags = window.location.href;
     }
 }, 500);
@@ -53,6 +54,11 @@ if (document.readyState === 'loading') {
 
 async function mainContentScriptInit() {
     console.log("[ContentScript Prisma] DOMContentLoaded or already loaded. Initializing checks.");
+
+    // Initialize features that should run once
+    window.statsCollector.initialize();
+    window.statsCollector.trackCampaignId(); // Initial call on page load
+
     if (window.logoFeature.shouldReplaceLogoOnThisPage()) {
         await window.remindersFeature.fetchCustomReminders(); // Fetch initial set of custom reminders
         window.logoFeature.checkAndReplaceLogo();

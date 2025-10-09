@@ -75,12 +75,6 @@
     function initializeStatsCollector() {
         if (isInitialized) return;
 
-        // Initial check
-        trackCampaignId();
-
-        // Set up observers and intervals
-        setInterval(trackCampaignId, 1000); // Check for URL changes periodically
-
         const observer = new MutationObserver(observeLoadingSpinner);
         observer.observe(document.body, { childList: true, subtree: true });
 
@@ -92,7 +86,8 @@
     }
 
     window.statsCollector = {
-        initialize: initializeStatsCollector
+        initialize: initializeStatsCollector,
+        trackCampaignId: trackCampaignId // Expose for centralized observer
     };
 
 })();
