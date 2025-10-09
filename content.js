@@ -111,12 +111,15 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         });
         return true; // Keep message port open for async response
     } else if (request.action === "performDNumberSearch" && request.dNumber) {
-        window.dNumberSearchFeature.handleDNumberSearch(request.dNumber)
-            .then(() => sendResponse({ status: 'success', message: 'D-Number search initiated successfully.' }))
-            .catch(error => {
+        (async () => {
+            try {
+                await window.dNumberSearchFeature.handleDNumberSearch(request.dNumber);
+                sendResponse({ status: 'success', message: 'D-Number search initiated successfully.' });
+            } catch (error) {
                 console.error("D-Number search failed:", error);
                 sendResponse({ status: 'error', message: error.message });
-            });
+            }
+        })();
         return true; // Keep the message channel open for asynchronous response
     } else {
         console.log("[ContentScript Prisma] Unknown action received or no action taken:", request.action);

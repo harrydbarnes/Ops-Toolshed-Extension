@@ -108,12 +108,16 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   }
 });
 
-chrome.notifications.onButtonClicked.addListener((notificationId, buttonIndex) => {
+chrome.notifications.onButtonClicked.addListener(async (notificationId, buttonIndex) => {
   if (notificationId === 'timesheetReminder') {
     if (buttonIndex === 0) {
       chrome.tabs.create({ url: 'https://groupmuk-aura.mediaocean.com/viewport-home/#osAppId=rod-time&osPspId=rod-time&route=time/display/myTimesheets/ToDo' });
     } else if (buttonIndex === 1) {
-      chrome.alarms.create('timesheetReminder', { delayInMinutes: 15 });
+      try {
+        await chrome.alarms.create('timesheetReminder', { delayInMinutes: 15 });
+      } catch (e) {
+        console.error('Failed to create snooze alarm:', e);
+      }
     }
     chrome.notifications.clear(notificationId);
   }
@@ -169,10 +173,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const { action } = request;
 
     if (action === 'disableTimeBomb') {
-        return messageHandlers.disableTimeBomb(request, sender, sendResponse);
+        messageHandlers.disableTimeBomb(request, sender, sendResponse);
+        return true;
     }
 
-    chrome.storage.local.get('timeBombActive', (data) => {
+    (async () => {
+        const data = await chrome.storage.local.get('timeBombActive');
         if (data.timeBombActive) {
             sendResponse({ status: 'error', message: 'All features have been disabled.' });
             return;
@@ -191,7 +197,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             console.log(`No handler found for action: ${action}`);
             sendResponse({ status: 'error', message: `Unknown action: ${action}` });
         }
-    });
+    })();
+
     return true; // Indicates async response.
 });
 
