@@ -63,14 +63,19 @@ async function performDNumberSearch(request, sender, sendResponse) {
             try {
                 // The content script will perform the search automation upon receiving this message.
                 response = await chrome.tabs.sendMessage(tabId, { action: 'performDNumberSearch', dNumber: dNumber });
-                if (!response || response.status !== 'success') {
+                if (response && response.status === 'success') {
+                    break; // Success
+                } else {
+                    // This is a terminal failure response from the content script.
                     throw new Error(response?.message || 'D-Number search failed in content script.');
                 }
-                break; // Success
             } catch (e) {
-                // If it fails (e.g., content script not ready), wait and retry.
-                if (i === MAX_RETRIES - 1) throw e; // Last attempt, rethrow error.
-                await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+                // Only retry for connection errors. For other errors (like failures from the content script), fail immediately.
+                if (e.message?.includes('Could not establish connection') && i < MAX_RETRIES - 1) {
+                    await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+                } else {
+                    throw e; // Rethrow terminal errors or on last retry.
+                }
             }
         }
         sendResponse(response);
