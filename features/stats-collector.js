@@ -1,16 +1,27 @@
 (function() {
     'use strict';
 
+    let isUpdatingStats = false;
+
     // --- Utility function to get and set stats ---
     async function updateStats(updateFunction) {
-        const data = await chrome.storage.local.get('prismaUserStats');
-        let stats = data.prismaUserStats || {
-            visitedCampaigns: [],
-            totalLoadingTime: 0,
-            placementsAdded: 0
-        };
-        const updatedStats = updateFunction(stats);
-        await chrome.storage.local.set({ 'prismaUserStats': updatedStats });
+        if (window.isUpdatingStats) {
+            console.warn('[Stats Collector] Concurrent update dropped to prevent race condition.');
+            return;
+        }
+        window.isUpdatingStats = true;
+        try {
+            const data = await chrome.storage.local.get('prismaUserStats');
+            let stats = data.prismaUserStats || {
+                visitedCampaigns: [],
+                totalLoadingTime: 0,
+                placementsAdded: 0
+            };
+            const updatedStats = updateFunction(stats);
+            await chrome.storage.local.set({ 'prismaUserStats': updatedStats });
+        } finally {
+            window.isUpdatingStats = false;
+        }
     }
 
     // --- 1. Track Unique Campaign IDs ---
