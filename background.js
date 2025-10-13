@@ -213,8 +213,9 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
             }
             if (data.addCampaignShortcutEnabled !== false) {
                 if (changeInfo.url.includes('osMOpts=lb')) {
-                    const newUrl = changeInfo.url.replace(/&?osMOpts=lb/, '');
-                    chrome.tabs.update(tabId, { url: newUrl });
+                    const url = new URL(changeInfo.url);
+                    url.searchParams.delete('osMOpts');
+                    chrome.tabs.update(tabId, { url: url.toString() });
                 }
             }
         });
