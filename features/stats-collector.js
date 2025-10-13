@@ -5,11 +5,11 @@
 
     // --- Utility function to get and set stats ---
     async function updateStats(updateFunction) {
-        if (window.isUpdatingStats) {
+        if (isUpdatingStats) {
             console.warn('[Stats Collector] Concurrent update dropped to prevent race condition.');
             return;
         }
-        window.isUpdatingStats = true;
+        isUpdatingStats = true;
         try {
             const data = await chrome.storage.local.get('prismaUserStats');
             let stats = data.prismaUserStats || {
@@ -20,7 +20,7 @@
             const updatedStats = updateFunction(stats);
             await chrome.storage.local.set({ 'prismaUserStats': updatedStats });
         } finally {
-            window.isUpdatingStats = false;
+            isUpdatingStats = false;
         }
     }
 

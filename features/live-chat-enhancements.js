@@ -28,6 +28,12 @@
         const handleId = 'resizable-chat-handle';
         let handle = document.getElementById(handleId);
 
+        // Clean up previous listener if it exists
+        if (webWidget._resizeListener) {
+            window.removeEventListener('resize', webWidget._resizeListener);
+            delete webWidget._resizeListener;
+        }
+
         if (!enabled) {
             if (handle) handle.remove();
             return null;
