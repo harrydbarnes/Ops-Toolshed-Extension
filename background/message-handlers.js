@@ -1,6 +1,10 @@
 import { approversData } from '../approvers-data.js';
 import { scrapeAndDownloadCsv } from './meta-billing-scraper.js';
 
+const PRISMA_DASHBOARD_URL = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns';
+const MAX_RETRIES = 10;
+const RETRY_DELAY_MS = 500;
+
 async function disableTimeBomb(request, sender, sendResponse) {
     try {
         await chrome.storage.local.remove(['timeBombActive', 'initialDeadline']);
@@ -48,10 +52,6 @@ async function metaBillingCheck(request, sender, sendResponse) {
 }
 
 async function performDNumberSearch(request, sender, sendResponse) {
-    const PRISMA_DASHBOARD_URL = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns';
-    const MAX_RETRIES = 10;
-    const RETRY_DELAY_MS = 500;
-
     try {
         const newTab = await chrome.tabs.create({ url: PRISMA_DASHBOARD_URL });
         const tabId = newTab.id;
@@ -62,7 +62,7 @@ async function performDNumberSearch(request, sender, sendResponse) {
         for (let i = 0; i < MAX_RETRIES; i++) { // Retry for up to 5 seconds
             try {
                 // The content script will perform the search automation upon receiving this message.
-                response = await chrome.tabs.sendMessage(tabId, { action: 'performDNumberSearch', dNumber: dNumber });
+                response = await chrome.tabs.sendMessage(tabId, { action: 'executeDNumberSearch', dNumber: dNumber });
                 if (response && response.status === 'success') {
                     break; // Success
                 } else {

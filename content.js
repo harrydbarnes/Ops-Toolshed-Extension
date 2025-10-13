@@ -110,7 +110,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
             sendResponse({status: "Custom reminders re-fetched and IDs reset by content script"});
         });
         return true; // Keep message port open for async response
-    } else if (request.action === "performDNumberSearch" && request.dNumber) {
+    } else if (request.action === "executeDNumberSearch" && request.dNumber) {
         (async () => {
             try {
                 await window.dNumberSearchFeature.handleDNumberSearch(request.dNumber);

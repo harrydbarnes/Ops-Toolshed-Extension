@@ -28,6 +28,12 @@ describe('Content Script Main Logic', () => {
         document = window.document;
         window.chrome = global.chrome;
 
+        // Mock feature modules before loading scripts
+        window.statsCollector = {
+            initialize: jest.fn(),
+            trackCampaignId: jest.fn(),
+        };
+
         // Mock setInterval to prevent infinite loops when using jest.runAllTimers()
         window.setInterval = jest.fn();
 
@@ -77,10 +83,11 @@ describe('Content Script Main Logic', () => {
     });
 
     test('should initialize features if time bomb is NOT active', () => {
-        setupJSDOM('https://groupmuk-prisma.mediaocean.com/', false);
+        const { window } = setupJSDOM('https://groupmuk-prisma.mediaocean.com/', false);
         jest.advanceTimersByTime(100);
         const hasInitializationLog = consoleSpy.mock.calls.some(call => call.join(' ').includes('[ContentScript Prisma] Script Injected'));
         expect(hasInitializationLog).toBe(true);
+        expect(window.statsCollector).toBeDefined();
     });
 
     // This test is skipped due to a fundamental timing issue between the application code's

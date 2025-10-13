@@ -43,23 +43,47 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- Modal Logic ---
+    const modalOverlay = document.getElementById('confirmation-modal-overlay');
+    const modal = document.getElementById('confirmation-modal');
+    const confirmButton = document.getElementById('modal-confirm-button');
+    const cancelButton = document.getElementById('modal-cancel-button');
+
+    const showModal = () => {
+        modalOverlay.style.display = 'block';
+        modal.style.display = 'block';
+    };
+
+    const hideModal = () => {
+        modalOverlay.style.display = 'none';
+        modal.style.display = 'none';
+    };
+
     // --- Stats Reset Logic ---
     function resetStats() {
-        if (confirm('Are you sure you want to reset all your stats? This cannot be undone.')) {
-            const defaultStats = {
-                visitedCampaigns: [],
-                totalLoadingTime: 0,
-                placementsAdded: 0
-            };
-            chrome.storage.local.set({ 'prismaUserStats': defaultStats }, () => {
-                console.log('Prisma user stats have been reset.');
-                displayStats(); // Refresh the display to show zeros
-            });
-        }
+        const defaultStats = {
+            visitedCampaigns: [],
+            totalLoadingTime: 0,
+            placementsAdded: 0
+        };
+        chrome.storage.local.set({ 'prismaUserStats': defaultStats }, () => {
+            console.log('Prisma user stats have been reset.');
+            displayStats(); // Refresh the display to show zeros
+        });
+        hideModal();
     }
 
     if (resetButton) {
-        resetButton.addEventListener('click', resetStats);
+        resetButton.addEventListener('click', showModal);
+    }
+    if (confirmButton) {
+        confirmButton.addEventListener('click', resetStats);
+    }
+    if (cancelButton) {
+        cancelButton.addEventListener('click', hideModal);
+    }
+    if (modalOverlay) {
+        modalOverlay.addEventListener('click', hideModal);
     }
 
     // --- Real-Time Update Listener ---

@@ -18,6 +18,13 @@
 
         <div id="release-notes" class="tab-content active">
             <div class="release">
+                <h2>r1.3</h2>
+                <ul>
+                    <li>Prisma Live Chat permanent button</li>
+                    <li>Stats for Prisma use</li>
+                </ul>
+            </div>
+            <div class="release">
                 <h2>r1.2</h2>
                 <ul>
                     <li>New Prisma Approvers tool</li>
@@ -50,7 +57,7 @@
                 <li>Preventing wrongful setup of certain elements of Campaigns, Placements and Packages</li>
                 <li>Log campaigns by client for easy searching</li>
                 <li>Remove and automate certain supplier drop-downs (e.g., ad serving)</li>
-                <li>'Recently approved' badge for timesheet approvals</li>
+                <li>'Recently approved' badge for Prisma approvals</li>
                 <li>Show cl/pr/ca details on campaigns without hovering on tooltip</li>
                 <li>Tweaks to new Prisma campaign navigation, such as displaying full current booked budget</li>
                 <li>Further efficiency automation gains</li>
@@ -80,6 +87,20 @@
             <a href="https://teams.microsoft.com/l/chat/0/0?users=harry.barnes@essencemediacom.com&topicname=Chat" target="_blank">Have an idea? Let the chef know here!</a>
         </div>
     </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmation-modal-overlay" class="modal-overlay"></div>
+    <div id="confirmation-modal" class="modal">
+        <div class="modal-content">
+            <h3>Confirm Reset</h3>
+            <p>Are you sure you want to reset all your stats? This cannot be undone.</p>
+            <div class="modal-actions">
+                <button id="modal-confirm-button" class="button-danger">Yes, Reset</button>
+                <button id="modal-cancel-button" class="button-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <script src="toolshed.js"></script>
 </body>
 </html>

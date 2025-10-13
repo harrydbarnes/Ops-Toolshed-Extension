@@ -124,12 +124,12 @@ chrome.notifications.onButtonClicked.addListener(async (notificationId, buttonIn
 });
 
 // --- Offscreen Document for Clipboard and Audio ---
+const OFFSCREEN_DOCUMENT_PATH = 'offscreen.html';
 let creating;
 async function createOffscreenDocument() {
-  const path = 'offscreen.html';
   const existingContexts = await chrome.runtime.getContexts({
     contextTypes: ['OFFSCREEN_DOCUMENT'],
-    documentUrls: [chrome.runtime.getURL(path)]
+    documentUrls: [chrome.runtime.getURL(OFFSCREEN_DOCUMENT_PATH)]
   });
   if (existingContexts.length > 0) return;
 
@@ -137,7 +137,7 @@ async function createOffscreenDocument() {
     await creating;
   } else {
     creating = chrome.offscreen.createDocument({
-      url: path,
+      url: OFFSCREEN_DOCUMENT_PATH,
       reasons: ['CLIPBOARD', 'AUDIO_PLAYBACK'],
       justification: 'Plays alarm sound and handles clipboard actions',
     });

@@ -32,16 +32,17 @@
         }
     }
 
+    function observeLoadingSpinner() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(findAndTrackSpinner, 150); // Debounce for 150ms
+    }
+
     // --- 2. Track Loading Spinner Time ---
     let loadingSpinnerStartTime = null;
-    function observeLoadingSpinner(mutations) {
-        // FIX: Use window.utils.queryShadowDom to find spinners deep inside
-        // Shadow DOMs (like the mo-spinner component). We'll search for the
-        // most consistent indicator, which is the 'svg.spinner' inside the shadow root,
-        // or fall back to the simpler 'i.fa-spin' in the light DOM.
+    let debounceTimer = null;
 
-        const spinner = window.utils.queryShadowDom('svg.spinner') ||
-                        document.querySelector('i.fa-spin');
+    function findAndTrackSpinner() {
+        const spinner = window.utils.queryShadowDom('svg.spinner') || document.querySelector('i.fa-spin');
 
         if (spinner && loadingSpinnerStartTime === null) {
             // Spinner appeared
