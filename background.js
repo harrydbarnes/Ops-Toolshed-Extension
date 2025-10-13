@@ -214,8 +214,13 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
             if (data.addCampaignShortcutEnabled !== false) {
                 if (changeInfo.url.includes('osMOpts=lb')) {
                     const url = new URL(changeInfo.url);
-                    url.searchParams.delete('osMOpts');
-                    chrome.tabs.update(tabId, { url: url.toString() });
+                    const hashParams = new URLSearchParams(url.hash.substring(1));
+                    if (hashParams.has('osMOpts')) {
+                        hashParams.delete('osMOpts');
+                        const newHash = hashParams.toString();
+                        url.hash = newHash ? `#${newHash}` : '';
+                        chrome.tabs.update(tabId, { url: url.toString() });
+                    }
                 }
             }
         });
