@@ -9,6 +9,7 @@ const scriptsToLoad = [
     'features/campaign.js',
     'features/d-number-search.js',
     'features/gmi-chat.js',
+    'features/live-chat-enhancements.js',
     'features/approver-pasting.js',
     'content.js'
 ].map(scriptPath => fs.readFileSync(path.resolve(__dirname, `../${scriptPath}`), 'utf8'));
