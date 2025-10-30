@@ -43,7 +43,7 @@ async function checkTimeBomb() {
 chrome.alarms.create('timeBombCheck', { periodInMinutes: 1 });
 
 chrome.runtime.onInstalled.addListener(() => {
-  checkTimeBomb();
+  checkTimeBomb().catch(error => console.error("Error during initial time bomb check:", error));
   if (!chrome.runtime || !chrome.runtime.id) return;
   chrome.storage.sync.get(['timesheetReminderEnabled', 'reminderDay', 'reminderTime'], function(data) {
     if (chrome.runtime.lastError) {
