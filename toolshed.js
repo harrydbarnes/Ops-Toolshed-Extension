@@ -25,6 +25,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Stats Display Logic ---
+    function formatLoadingTime(totalSeconds) {
+        if (totalSeconds < 60) {
+            return `${totalSeconds.toFixed(2)}s`;
+        } else {
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${minutes} min and ${seconds.toFixed(2)}s`;
+        }
+    }
+
     function displayStats() {
         chrome.storage.local.get('prismaUserStats', (data) => {
             const stats = data.prismaUserStats || {
@@ -38,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const placementsAddedEl = document.getElementById('placements-added-stat');
 
             if (campaignsVisitedEl) campaignsVisitedEl.textContent = stats.visitedCampaigns.length;
-            if (loadingTimeEl) loadingTimeEl.textContent = `${stats.totalLoadingTime.toFixed(2)}s`;
+            if (loadingTimeEl) loadingTimeEl.textContent = formatLoadingTime(stats.totalLoadingTime);
             if (placementsAddedEl) placementsAddedEl.textContent = stats.placementsAdded;
         });
     }
