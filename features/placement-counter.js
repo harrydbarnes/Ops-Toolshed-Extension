@@ -10,27 +10,39 @@
         }
 
         currentToast = document.createElement('div');
-        currentToast.className = 'placement-toast';
+        currentToast.className = 'placement-toast show'; // Immediately show
         currentToast.textContent = message;
         document.body.appendChild(currentToast);
 
         clearTimeout(toastTimeout);
         toastTimeout = setTimeout(() => {
             if (currentToast) {
-                document.body.removeChild(currentToast);
-                currentToast = null;
+                currentToast.classList.remove('show');
+                // Use a short delay for animation before removing from DOM
+                setTimeout(() => {
+                    if (currentToast && currentToast.parentElement) {
+                        document.body.removeChild(currentToast);
+                    }
+                    currentToast = null;
+                }, 300);
             }
         }, 3000);
     }
 
     function hideToast() {
         if (currentToast) {
-            document.body.removeChild(currentToast);
-            currentToast = null;
+            currentToast.classList.remove('show');
+            setTimeout(() => {
+                if (currentToast && currentToast.parentElement) {
+                    document.body.removeChild(currentToast);
+                }
+                currentToast = null;
+            }, 300);
         }
     }
 
     function countSelectedPlacements() {
+        // Query the document directly, as the checkboxes are inputs
         const selectedCheckboxes = document.querySelectorAll('input.mo-row-checkbox[type="checkbox"]:checked');
         const count = selectedCheckboxes.length;
 
@@ -45,14 +57,18 @@
     function initPlacementCounter() {
         chrome.storage.sync.get('countPlacementsSelectedEnabled', (data) => {
             if (data.countPlacementsSelectedEnabled) {
-                const gridContainer = document.getElementById('grid-container_hot');
-                if (gridContainer) {
-                    gridContainer.addEventListener('change', (event) => {
-                        if (event.target.classList.contains('mo-row-checkbox')) {
+                // FIX: Attach listener to the document body for robust delegation
+                // and check if the originating element is a target checkbox within the correct grid.
+                document.body.addEventListener('change', (event) => {
+                    // 1. Check if the target is the correct checkbox class
+                    if (event.target.classList.contains('mo-row-checkbox')) {
+                        // 2. Check if the checkbox is inside the main placement grid
+                        const isInsideTargetGrid = event.target.closest('#grid-container_hot');
+                        if (isInsideTargetGrid) {
                             countSelectedPlacements();
                         }
-                    });
-                }
+                    }
+                });
             }
         });
     }
