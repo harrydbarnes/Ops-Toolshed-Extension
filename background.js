@@ -45,6 +45,11 @@ chrome.alarms.create('timeBombCheck', { periodInMinutes: 1 });
 chrome.runtime.onInstalled.addListener(() => {
   checkTimeBomb().catch(error => console.error("Error during initial time bomb check:", error));
   if (!chrome.runtime || !chrome.runtime.id) return;
+  chrome.storage.sync.get('countPlacementsSelectedEnabled', function(data) {
+    if (data.countPlacementsSelectedEnabled === undefined) {
+      chrome.storage.sync.set({ countPlacementsSelectedEnabled: true });
+    }
+  });
   chrome.storage.sync.get(['timesheetReminderEnabled', 'reminderDay', 'reminderTime'], function(data) {
     if (chrome.runtime.lastError) {
         console.error(`Error getting timesheet reminder settings: ${chrome.runtime.lastError.message}`);
