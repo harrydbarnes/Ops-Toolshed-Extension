@@ -5,41 +5,36 @@
     let currentToast = null;
     const SETTING_KEY = 'countPlacementsSelectedEnabled';
 
-    // --- Toast Logic (No Change) ---
+    // --- Toast Logic (Animation Updated) ---
 
     function showToast(message) {
-        if (currentToast) {
+        // If a toast is already showing, remove it immediately to prevent overlap
+        if (currentToast && currentToast.parentElement) {
             document.body.removeChild(currentToast);
         }
+        clearTimeout(toastTimeout);
 
         currentToast = document.createElement('div');
         currentToast.className = 'placement-toast show';
         currentToast.textContent = message;
         document.body.appendChild(currentToast);
 
-        clearTimeout(toastTimeout);
-        toastTimeout = setTimeout(() => {
-            if (currentToast) {
-                currentToast.classList.remove('show');
-                setTimeout(() => {
-                    if (currentToast && currentToast.parentElement) {
-                        document.body.removeChild(currentToast);
-                    }
-                    currentToast = null;
-                }, 300);
-            }
-        }, 3000);
+        // Set a timeout to hide the toast after 3 seconds
+        toastTimeout = setTimeout(hideToast, 3000);
     }
 
     function hideToast() {
         if (currentToast) {
             currentToast.classList.remove('show');
+            currentToast.classList.add('hide'); // Trigger the hide animation
+
+            // Remove the element from the DOM after the animation completes (500ms)
             setTimeout(() => {
                 if (currentToast && currentToast.parentElement) {
                     document.body.removeChild(currentToast);
                 }
                 currentToast = null;
-            }, 300);
+            }, 500);
         }
     }
 
@@ -75,7 +70,7 @@
     }
 
     function initializePlacementCounter() {
-        // --- Inject Styles (Guard against duplicates) ---
+        // --- Inject Styles (Guard against duplicates and add animation) ---
         const styleId = 'placement-counter-style';
         if (!document.getElementById(styleId)) {
             const style = document.createElement('style');
@@ -94,27 +89,40 @@
                     font-size: 14px;
                     font-weight: 500;
                     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                    opacity: 0;
-                    transform: translateY(20px);
-                    transition: opacity 0.3s ease, transform 0.3s ease;
                     visibility: hidden;
+                    opacity: 0;
                 }
                 .placement-toast.show {
-                    opacity: 1;
-                    transform: translateY(0);
                     visibility: visible;
+                    animation: slide-in-up 0.5s forwards;
+                }
+                .placement-toast.hide {
+                    visibility: visible; /* Keep visible during hide animation */
+                    animation: slide-out-left 0.5s forwards;
+                }
+                @keyframes slide-in-up {
+                    from {
+                        transform: translateY(100px);
+                        opacity: 0;
+                    }
+                    to {
+                        transform: translateY(0);
+                        opacity: 1;
+                    }
+                }
+                @keyframes slide-out-left {
+                    from {
+                        transform: translateX(0);
+                        opacity: 1;
+                    }
+                    to {
+                        transform: translateX(-100%);
+                        opacity: 0;
+                    }
                 }
             `;
             document.head.appendChild(style);
         }
-
-        // We keep the native listener as a fallback, but rely mostly on the MutationObserver
-        document.body.addEventListener('change', (event) => {
-            if (event.target.classList.contains('mo-row-checkbox') && event.target.closest('#grid-container_hot')) {
-                // Manually trigger the check when a change event *does* bubble up
-                window.placementCounterFeature.checkSelection();
-            }
-        }, { once: false });
 
         // Initial check on load
         checkSelectionAndDisplay();
