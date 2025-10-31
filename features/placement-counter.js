@@ -84,7 +84,7 @@
             color: white;
             padding: 10px 20px;
             border-radius: 5px;
-            z-index: 9999;
+            z-index: 2147483647;
             font-family: 'Outfit', sans-serif;
             font-size: 14px;
             font-weight: 500;
