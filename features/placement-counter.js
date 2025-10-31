@@ -2,30 +2,23 @@
 
 (function() {
     let toastTimeout;
-    let currentToast = null; // This will hold the DOM element
+    let currentToast = null;
     let debounceTimeout = null;
     const SETTING_KEY = 'countPlacementsSelectedEnabled';
 
-    // --- Toast Logic (Refactored to Update In-Place) ---
+    // --- Toast Logic (ShowToast and HideToast functions remain unchanged) ---
 
     function showToast(message) {
         clearTimeout(toastTimeout);
-
-        // If the toast element doesn't exist, create it and animate it in.
         if (!currentToast) {
             currentToast = document.createElement('div');
             currentToast.className = 'placement-toast';
             document.body.appendChild(currentToast);
-            // Add 'show' after a brief delay to ensure the animation plays
             setTimeout(() => {
                 if(currentToast) currentToast.classList.add('show');
             }, 10);
         }
-
-        // ALWAYS update the text content.
         currentToast.textContent = message;
-
-        // Set a new timeout to hide the toast.
         toastTimeout = setTimeout(hideToast, 3000);
     }
 
@@ -33,14 +26,12 @@
         if (currentToast) {
             currentToast.classList.remove('show');
             currentToast.classList.add('hide');
-
-            // Set the element to null AFTER the animation is complete
             setTimeout(() => {
                 if (currentToast && currentToast.parentElement) {
                     document.body.removeChild(currentToast);
                 }
                 currentToast = null;
-            }, 500); // Corresponds to animation duration
+            }, 500);
         }
     }
 
@@ -51,38 +42,48 @@
 
         debounceTimeout = setTimeout(() => {
             chrome.storage.sync.get(SETTING_KEY, (data) => {
-                if (!data || !data.hasOwnProperty(SETTING_KEY)) {
-                    hideToast(); // Hide if setting is missing
-                    return;
-                }
-
-                if (!data[SETTING_KEY]) {
-                    hideToast(); // Hide if feature is disabled
+                if (!data || !data.hasOwnProperty(SETTING_KEY) || !data[SETTING_KEY]) {
+                    hideToast();
                     return;
                 }
 
                 const gridContainer = document.querySelector('#grid-container_hot');
                 if (!gridContainer) {
-                    hideToast(); // Hide if the grid is not on the page
+                    hideToast();
                     return;
                 }
 
                 const selectedCheckboxes = gridContainer.querySelectorAll('input.mo-row-checkbox[type="checkbox"]:checked');
 
-                // Filter checkboxes based on the new, more specific rules
-                const validCheckboxes = Array.from(selectedCheckboxes).filter(checkbox => {
-                    const row = checkbox.closest('tr');
-                    if (!row) return false;
+                // Use a Set for de-duplication (fixes the double-counting issue).
+                const validPlacementRows = new Set();
 
-                    const isLevel2 = row.querySelector('.hierarchical-level-2');
+                Array.from(selectedCheckboxes).forEach(checkbox => {
+                    const row = checkbox.closest('tr');
+                    if (!row) return;
+
+                    // Skip if we've already processed this row (due to duplicate internal checkboxes).
+                    if (validPlacementRows.has(row)) return;
+
+                    // The core identifying element is in the name column (aria-colindex="4" or data-col="3").
+                    // We need to check the row for the elements that identify exclusions.
+
+                    // Check for the Campaign Header (Level 0)
                     const isLevel0 = row.querySelector('.hierarchical-level-0');
+
+                    // Check for the Package icon/class
                     const isPackage = row.querySelector('.mi-package');
 
-                    // A valid placement is Level 2, but NOT Level 0 and NOT a package.
-                    return isLevel2 && !isLevel0 && !isPackage;
+                    // A row is a valid, countable item (Placement, Fee) if it is NOT the Campaign Header (Level 0)
+                    // AND it is NOT an explicit Package (has the package icon).
+                    const isValidCountableItem = !isLevel0 && !isPackage;
+
+                    if (isValidCountableItem) {
+                        validPlacementRows.add(row);
+                    }
                 });
 
-                const count = validCheckboxes.length;
+                const count = validPlacementRows.size; // Count the number of unique valid rows
 
                 if (count > 0) {
                     const message = `${count} Placement${count > 1 ? 's' : ''} Selected`;
