@@ -131,6 +131,8 @@
                     font-size: 14px;
                     font-weight: 500;
                     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    min-width: 180px; /* Stable width */
+                    text-align: center; /* Center the text */
                     visibility: hidden;
                     opacity: 0;
                     transform: translateY(20px); /* Start off-screen */
