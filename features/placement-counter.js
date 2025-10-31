@@ -68,7 +68,15 @@
                 }
 
                 const selectedCheckboxes = gridContainer.querySelectorAll('input.mo-row-checkbox[type="checkbox"]:checked');
-                const count = selectedCheckboxes.length;
+
+                // Filter the selected checkboxes to only include those in a level-2 hierarchy
+                const level2Checkboxes = Array.from(selectedCheckboxes).filter(checkbox => {
+                    const row = checkbox.closest('tr');
+                    if (!row) return false;
+                    return row.querySelector('.hierarchical-level-2');
+                });
+
+                const count = level2Checkboxes.length;
 
                 if (count > 0) {
                     const message = `${count} Placement${count > 1 ? 's' : ''} Selected`;
