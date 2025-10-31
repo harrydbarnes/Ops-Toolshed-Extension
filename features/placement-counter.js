@@ -6,8 +6,16 @@
     let debounceTimeout = null;
     const SETTING_KEY = 'countPlacementsSelectedEnabled';
 
-    // --- Toast Logic (ShowToast and HideToast functions remain unchanged) ---
+    // Define the list of text snippets that, if found in the placement name, should exclude the item.
+    // The dynamic supplier name "amazon (gbp" has been removed, as the structural checks below
+    // already correctly exclude those rows marked as headers (Level 0).
+    const EXCLUSION_TEXTS = [
+        "display", // User requested exclusion
+        "media total" // User requested exclusion
+    ];
 
+    // --- Toast Logic (Functions showToast and hideToast remain unchanged) ---
+    // ... [ShowToast and HideToast functions omitted for brevity] ...
     function showToast(message) {
         clearTimeout(toastTimeout);
         if (!currentToast) {
@@ -35,6 +43,7 @@
         }
     }
 
+
     // --- Core Logic with Debounce ---
 
     function checkSelectionAndDisplay() {
@@ -55,35 +64,43 @@
 
                 const selectedCheckboxes = gridContainer.querySelectorAll('input.mo-row-checkbox[type="checkbox"]:checked');
 
-                // Use a Set for de-duplication (fixes the double-counting issue).
-                const validPlacementRows = new Set();
+                // Use a Set to store UNIQUE ROW IDs (data-row value) to fix double counting.
+                const countableRowIds = new Set();
 
                 Array.from(selectedCheckboxes).forEach(checkbox => {
                     const row = checkbox.closest('tr');
                     if (!row) return;
 
-                    // Skip if we've already processed this row (due to duplicate internal checkboxes).
-                    if (validPlacementRows.has(row)) return;
+                    // 1. Get the unique ID from the checkbox itself for de-duplication.
+                    const rowId = checkbox.dataset.row;
+                    if (!rowId || countableRowIds.has(rowId)) return;
 
-                    // The core identifying element is in the name column (aria-colindex="4" or data-col="3").
-                    // We need to check the row for the elements that identify exclusions.
+                    // 2. Identify the placement name cell for content checks.
+                    // We target the column that holds the row ID in its ID, e.g., id="placementName-37"
+                    const nameCell = row.querySelector(`#placementName-${rowId}`);
+                    const nameText = (nameCell ? nameCell.textContent : '').toLowerCase();
 
-                    // Check for the Campaign Header (Level 0)
+                    // --- Exclusion Logic ---
+
+                    // A. Check for Campaign/Category/Supplier Headers (Level 0) - RELIABLE structural check
                     const isLevel0 = row.querySelector('.hierarchical-level-0');
 
-                    // Check for the Package icon/class
+                    // B. Check for Packages (mi-package icon) - RELIABLE structural check
                     const isPackage = row.querySelector('.mi-package');
 
-                    // A row is a valid, countable item (Placement, Fee) if it is NOT the Campaign Header (Level 0)
-                    // AND it is NOT an explicit Package (has the package icon).
-                    const isValidCountableItem = !isLevel0 && !isPackage;
+                    // C. Check for explicit remaining text exclusions (case-insensitive)
+                    const isTextExcluded = EXCLUSION_TEXTS.some(exclusion => nameText.includes(exclusion));
 
-                    if (isValidCountableItem) {
-                        validPlacementRows.add(row);
+                    // Final Decision: Count if NOT an excluded type
+                    // The dynamic supplier line is excluded here by the isLevel0 check
+                    const isCountable = !isLevel0 && !isPackage && !isTextExcluded;
+
+                    if (isCountable) {
+                        countableRowIds.add(rowId);
                     }
                 });
 
-                const count = validPlacementRows.size; // Count the number of unique valid rows
+                const count = countableRowIds.size; // Count the number of unique valid row IDs
 
                 if (count > 0) {
                     const message = `${count} Placement${count > 1 ? 's' : ''} Selected`;
