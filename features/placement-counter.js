@@ -3,12 +3,12 @@
 (function() {
     let toastTimeout;
     let currentToast = null;
+    let debounceTimeout = null; // Timeout for debouncing the check
     const SETTING_KEY = 'countPlacementsSelectedEnabled';
 
     // --- Toast Logic (Animation Updated) ---
 
     function showToast(message) {
-        // If a toast is already showing, remove it immediately to prevent overlap
         if (currentToast && currentToast.parentElement) {
             document.body.removeChild(currentToast);
         }
@@ -19,16 +19,14 @@
         currentToast.textContent = message;
         document.body.appendChild(currentToast);
 
-        // Set a timeout to hide the toast after 3 seconds
         toastTimeout = setTimeout(hideToast, 3000);
     }
 
     function hideToast() {
         if (currentToast) {
             currentToast.classList.remove('show');
-            currentToast.classList.add('hide'); // Trigger the hide animation
+            currentToast.classList.add('hide');
 
-            // Remove the element from the DOM after the animation completes (500ms)
             setTimeout(() => {
                 if (currentToast && currentToast.parentElement) {
                     document.body.removeChild(currentToast);
@@ -38,44 +36,53 @@
         }
     }
 
-    // --- Core Logic for Counting and Displaying ---
+    // --- Core Logic with Debounce and Safety Check ---
 
     function checkSelectionAndDisplay() {
-        // Since this function is called from the MutationObserver loop,
-        // we must check the setting inside the function on every call.
-        chrome.storage.sync.get(SETTING_KEY, (data) => {
-            if (!data[SETTING_KEY]) {
-                hideToast();
-                return;
-            }
+        // Clear the previous timeout to debounce the function
+        clearTimeout(debounceTimeout);
 
-            // Target the grid container directly for counting
-            const gridContainer = document.querySelector('#grid-container_hot');
-            if (!gridContainer) {
-                 hideToast();
-                 return;
-            }
+        // Set a new timeout
+        debounceTimeout = setTimeout(() => {
+            // Check the setting inside the debounced function
+            chrome.storage.sync.get(SETTING_KEY, (data) => {
+                // Defensive check to prevent errors if storage fails or data is malformed
+                if (!data || !data.hasOwnProperty(SETTING_KEY)) {
+                    hideToast();
+                    return;
+                }
 
-            // Query only checked checkboxes within the grid
-            const selectedCheckboxes = gridContainer.querySelectorAll('input.mo-row-checkbox[type="checkbox"]:checked');
-            const count = selectedCheckboxes.length;
+                if (!data[SETTING_KEY]) {
+                    hideToast();
+                    return;
+                }
 
-            if (count > 0) {
-                const message = `${count} Placement${count > 1 ? 's' : ''} Selected`;
-                showToast(message);
-            } else {
-                hideToast();
-            }
-        });
+                const gridContainer = document.querySelector('#grid-container_hot');
+                if (!gridContainer) {
+                    hideToast();
+                    return;
+                }
+
+                const selectedCheckboxes = gridContainer.querySelectorAll('input.mo-row-checkbox[type="checkbox"]:checked');
+                const count = selectedCheckboxes.length;
+
+                if (count > 0) {
+                    const message = `${count} Placement${count > 1 ? 's' : ''} Selected`;
+                    showToast(message);
+                } else {
+                    hideToast();
+                }
+            });
+        }, 150); // Debounce for 150ms to wait for UI to settle
     }
 
     function initializePlacementCounter() {
-        // --- Inject Styles (Guard against duplicates and add animation) ---
         const styleId = 'placement-counter-style';
         if (!document.getElementById(styleId)) {
             const style = document.createElement('style');
             style.id = styleId;
             style.textContent = `
+                /* ... [previous CSS styles remain unchanged] ... */
                 .placement-toast {
                     position: fixed;
                     bottom: 20px;
@@ -97,38 +104,24 @@
                     animation: slide-in-up 0.5s forwards;
                 }
                 .placement-toast.hide {
-                    visibility: visible; /* Keep visible during hide animation */
+                    visibility: visible;
                     animation: slide-out-left 0.5s forwards;
                 }
                 @keyframes slide-in-up {
-                    from {
-                        transform: translateY(100px);
-                        opacity: 0;
-                    }
-                    to {
-                        transform: translateY(0);
-                        opacity: 1;
-                    }
+                    from { transform: translateY(100px); opacity: 0; }
+                    to { transform: translateY(0); opacity: 1; }
                 }
                 @keyframes slide-out-left {
-                    from {
-                        transform: translateX(0);
-                        opacity: 1;
-                    }
-                    to {
-                        transform: translateX(-100%);
-                        opacity: 0;
-                    }
+                    from { transform: translateX(0); opacity: 1; }
+                    to { transform: translateX(-100%); opacity: 0; }
                 }
             `;
             document.head.appendChild(style);
         }
 
-        // Initial check on load
         checkSelectionAndDisplay();
     }
 
-    // Expose two functions: initialize (for initial setup) and checkSelection (for MutationObserver)
     window.placementCounterFeature = {
         initialize: initializePlacementCounter,
         checkSelection: checkSelectionAndDisplay
