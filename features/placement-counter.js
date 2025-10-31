@@ -2,23 +2,30 @@
 
 (function() {
     let toastTimeout;
-    let currentToast = null;
-    let debounceTimeout = null; // Timeout for debouncing the check
+    let currentToast = null; // This will hold the DOM element
+    let debounceTimeout = null;
     const SETTING_KEY = 'countPlacementsSelectedEnabled';
 
-    // --- Toast Logic (Animation Updated) ---
+    // --- Toast Logic (Refactored to Update In-Place) ---
 
     function showToast(message) {
-        if (currentToast && currentToast.parentElement) {
-            document.body.removeChild(currentToast);
-        }
         clearTimeout(toastTimeout);
 
-        currentToast = document.createElement('div');
-        currentToast.className = 'placement-toast show';
-        currentToast.textContent = message;
-        document.body.appendChild(currentToast);
+        // If the toast element doesn't exist, create it and animate it in.
+        if (!currentToast) {
+            currentToast = document.createElement('div');
+            currentToast.className = 'placement-toast';
+            document.body.appendChild(currentToast);
+            // Add 'show' after a brief delay to ensure the animation plays
+            setTimeout(() => {
+                if(currentToast) currentToast.classList.add('show');
+            }, 10);
+        }
 
+        // ALWAYS update the text content.
+        currentToast.textContent = message;
+
+        // Set a new timeout to hide the toast.
         toastTimeout = setTimeout(hideToast, 3000);
     }
 
@@ -27,39 +34,36 @@
             currentToast.classList.remove('show');
             currentToast.classList.add('hide');
 
+            // Set the element to null AFTER the animation is complete
             setTimeout(() => {
                 if (currentToast && currentToast.parentElement) {
                     document.body.removeChild(currentToast);
                 }
                 currentToast = null;
-            }, 500);
+            }, 500); // Corresponds to animation duration
         }
     }
 
-    // --- Core Logic with Debounce and Safety Check ---
+    // --- Core Logic with Debounce ---
 
     function checkSelectionAndDisplay() {
-        // Clear the previous timeout to debounce the function
         clearTimeout(debounceTimeout);
 
-        // Set a new timeout
         debounceTimeout = setTimeout(() => {
-            // Check the setting inside the debounced function
             chrome.storage.sync.get(SETTING_KEY, (data) => {
-                // Defensive check to prevent errors if storage fails or data is malformed
                 if (!data || !data.hasOwnProperty(SETTING_KEY)) {
-                    hideToast();
+                    hideToast(); // Hide if setting is missing
                     return;
                 }
 
                 if (!data[SETTING_KEY]) {
-                    hideToast();
+                    hideToast(); // Hide if feature is disabled
                     return;
                 }
 
                 const gridContainer = document.querySelector('#grid-container_hot');
                 if (!gridContainer) {
-                    hideToast();
+                    hideToast(); // Hide if the grid is not on the page
                     return;
                 }
 
@@ -73,7 +77,7 @@
                     hideToast();
                 }
             });
-        }, 150); // Debounce for 150ms to wait for UI to settle
+        }, 150);
     }
 
     function initializePlacementCounter() {
@@ -82,7 +86,6 @@
             const style = document.createElement('style');
             style.id = styleId;
             style.textContent = `
-                /* ... [previous CSS styles remain unchanged] ... */
                 .placement-toast {
                     position: fixed;
                     bottom: 20px;
@@ -98,22 +101,20 @@
                     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
                     visibility: hidden;
                     opacity: 0;
+                    transform: translateY(20px); /* Start off-screen */
+                    transition: visibility 0s 0.5s, opacity 0.5s ease, transform 0.5s ease;
                 }
                 .placement-toast.show {
                     visibility: visible;
-                    animation: slide-in-up 0.5s forwards;
+                    opacity: 1;
+                    transform: translateY(0);
+                    transition-delay: 0s;
                 }
                 .placement-toast.hide {
-                    visibility: visible;
-                    animation: slide-out-left 0.5s forwards;
-                }
-                @keyframes slide-in-up {
-                    from { transform: translateY(100px); opacity: 0; }
-                    to { transform: translateY(0); opacity: 1; }
-                }
-                @keyframes slide-out-left {
-                    from { transform: translateX(0); opacity: 1; }
-                    to { transform: translateX(-100%); opacity: 0; }
+                    /* The hide animation is now handled by the transition */
+                    opacity: 0;
+                    transform: translateX(-100%);
+                    transition: visibility 0s 0.5s, opacity 0.5s ease, transform 0.5s ease;
                 }
             `;
             document.head.appendChild(style);
