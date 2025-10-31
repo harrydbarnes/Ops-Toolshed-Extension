@@ -88,6 +88,12 @@ async function mainContentScriptInit() {
                 window.approverPastingFeature.handleManageFavouritesButton();
                 window.gmiChatFeature.handleGmiChatButton();
                 window.liveChatEnhancements.initialize();
+
+                // NEW LINE ADDED: Explicit check for placement selection on DOM change
+                if (window.placementCounterFeature) {
+                    window.placementCounterFeature.checkSelection();
+                }
+
             }, 300);
         }
     });
