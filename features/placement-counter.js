@@ -69,14 +69,20 @@
 
                 const selectedCheckboxes = gridContainer.querySelectorAll('input.mo-row-checkbox[type="checkbox"]:checked');
 
-                // Filter the selected checkboxes to only include those in a level-2 hierarchy
-                const level2Checkboxes = Array.from(selectedCheckboxes).filter(checkbox => {
+                // Filter checkboxes based on the new, more specific rules
+                const validCheckboxes = Array.from(selectedCheckboxes).filter(checkbox => {
                     const row = checkbox.closest('tr');
                     if (!row) return false;
-                    return row.querySelector('.hierarchical-level-2');
+
+                    const isLevel2 = row.querySelector('.hierarchical-level-2');
+                    const isLevel0 = row.querySelector('.hierarchical-level-0');
+                    const isPackage = row.querySelector('.mi-package');
+
+                    // A valid placement is Level 2, but NOT Level 0 and NOT a package.
+                    return isLevel2 && !isLevel0 && !isPackage;
                 });
 
-                const count = level2Checkboxes.length;
+                const count = validCheckboxes.length;
 
                 if (count > 0) {
                     const message = `${count} Placement${count > 1 ? 's' : ''} Selected`;
