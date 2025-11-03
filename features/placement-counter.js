@@ -145,7 +145,7 @@
                 .placement-toast.hide {
                     /* The hide animation is now handled by the transition */
                     opacity: 0;
-                    transform: translateX(-100%);
+                    transform: translateY(20px);
                     transition: visibility 0s 0.5s, opacity 0.5s ease, transform 0.5s ease;
                 }
             `;
