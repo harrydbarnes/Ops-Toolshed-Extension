@@ -51,7 +51,7 @@
 
         debounceTimeout = setTimeout(() => {
             chrome.storage.sync.get(SETTING_KEY, (data) => {
-                if (!data || !data.hasOwnProperty(SETTING_KEY) || !data[SETTING_KEY]) {
+                if (!data[SETTING_KEY]) {
                     hideToast();
                     return;
                 }
