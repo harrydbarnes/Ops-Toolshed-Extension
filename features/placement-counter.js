@@ -133,18 +133,18 @@
                     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
                     visibility: hidden;
                     opacity: 0;
-                    transform: translateX(-110%); /* Start off-screen to the left */
+                    transform: translateY(100%); /* Start off-screen */
                     transition: visibility 0s 0.5s, opacity 0.5s ease, transform 0.5s ease;
                 }
                 .placement-toast.show {
                     visibility: visible;
                     opacity: 1;
-                    transform: translateX(0); /* Slide into view from left */
+                    transform: translateY(0);
                     transition-delay: 0s;
                 }
                 .placement-toast.hide {
                     opacity: 0;
-                    transform: translateX(-110%); /* Slide out to the left */
+                    transform: translateY(100%);
                     transition: visibility 0s 0.5s, opacity 0.5s ease, transform 0.5s ease;
                 }
             `;

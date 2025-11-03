@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function displayStats() {
-        chrome.storage.local.get(['prismaUserStats', 'installDate'], (data) => {
+        chrome.storage.local.get(['prismaUserStats', 'statsStartDate'], (data) => {
             const stats = data.prismaUserStats || {
                 visitedCampaigns: [],
                 totalLoadingTime: 0,
@@ -52,34 +52,37 @@ document.addEventListener('DOMContentLoaded', () => {
             if (placementsAddedEl) placementsAddedEl.textContent = stats.placementsAdded;
 
             const statsTitle = document.querySelector('#stats h2');
-            if (statsTitle && data.installDate) {
-                const installDate = new Date(data.installDate);
+            let sinceSpan = statsTitle.querySelector('.since-date');
+
+            if (statsTitle && data.statsStartDate) {
+                const startDate = new Date(data.statsStartDate);
                 const now = new Date();
                 const oneWeek = 7 * 24 * 60 * 60 * 1000;
-                const showTime = now - installDate < oneWeek;
+                const showTime = now - startDate < oneWeek;
 
-                const dateString = installDate.toLocaleDateString(undefined, {
+                const dateString = startDate.toLocaleDateString(undefined, {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric'
                 });
 
-                const timeString = showTime ? installDate.toLocaleTimeString(undefined, {
+                const timeString = showTime ? startDate.toLocaleTimeString(undefined, {
                     hour: '2-digit',
                     minute: '2-digit'
                 }) : '';
 
                 const sinceText = `(since ${dateString}${showTime ? ' at ' + timeString : ''})`;
 
-                // Avoid re-adding the span if it already exists
-                let sinceSpan = statsTitle.querySelector('.since-date');
                 if (!sinceSpan) {
                     sinceSpan = document.createElement('span');
                     sinceSpan.className = 'since-date';
-                    statsTitle.appendChild(document.createTextNode(' ')); // Add a space
+                    statsTitle.appendChild(document.createTextNode(' '));
                     statsTitle.appendChild(sinceSpan);
                 }
                 sinceSpan.textContent = sinceText;
+                sinceSpan.style.display = ''; // Make sure it's visible
+            } else if (sinceSpan) {
+                sinceSpan.style.display = 'none'; // Hide if no date is found
             }
         });
     }

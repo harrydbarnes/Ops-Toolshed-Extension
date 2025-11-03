@@ -11,12 +11,22 @@
         }
         isUpdatingStats = true;
         try {
-            const data = await chrome.storage.local.get('prismaUserStats');
-            let stats = data.prismaUserStats || {
-                visitedCampaigns: [],
-                totalLoadingTime: 0,
-                placementsAdded: 0
-            };
+            const data = await chrome.storage.local.get(['prismaUserStats', 'statsStartDate']);
+            let stats = data.prismaUserStats;
+
+            // If stats object doesn't exist, this is the first time.
+            if (!stats) {
+                stats = {
+                    visitedCampaigns: [],
+                    totalLoadingTime: 0,
+                    placementsAdded: 0
+                };
+                // Set the start date only if it doesn't already exist.
+                if (!data.statsStartDate) {
+                    chrome.storage.local.set({ statsStartDate: new Date().toISOString() });
+                }
+            }
+
             const updatedStats = updateFunction(stats);
             await chrome.storage.local.set({ 'prismaUserStats': updatedStats });
         } finally {

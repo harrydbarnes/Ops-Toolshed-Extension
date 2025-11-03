@@ -46,13 +46,6 @@ chrome.runtime.onInstalled.addListener(() => {
   checkTimeBomb().catch(error => console.error("Error during initial time bomb check:", error));
   if (!chrome.runtime || !chrome.runtime.id) return;
 
-  // Store the installation timestamp if it doesn't exist
-  chrome.storage.local.get('installDate', (data) => {
-    if (!data.installDate) {
-      chrome.storage.local.set({ installDate: new Date().toISOString() });
-    }
-  });
-
   chrome.storage.sync.get([
     'countPlacementsSelectedEnabled',
     'timesheetReminderEnabled',
