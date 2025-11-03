@@ -59,6 +59,11 @@ async function mainContentScriptInit() {
     window.statsCollector.initialize();
     window.statsCollector.trackCampaignId(); // Initial call on page load
 
+    // NEW LINE ADDED: Initialize the placement counter feature
+    if (window.placementCounterFeature) {
+        window.placementCounterFeature.initialize();
+    }
+
     if (window.logoFeature.shouldReplaceLogoOnThisPage()) {
         await window.remindersFeature.fetchCustomReminders(); // Fetch initial set of custom reminders
         window.logoFeature.checkAndReplaceLogo();
@@ -83,6 +88,12 @@ async function mainContentScriptInit() {
                 window.approverPastingFeature.handleManageFavouritesButton();
                 window.gmiChatFeature.handleGmiChatButton();
                 window.liveChatEnhancements.initialize();
+
+                // NEW LINE ADDED: Explicit check for placement selection on DOM change
+                if (window.placementCounterFeature) {
+                    window.placementCounterFeature.checkSelection();
+                }
+
             }, 300);
         }
     });

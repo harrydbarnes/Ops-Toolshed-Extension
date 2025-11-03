@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function displayStats() {
-        chrome.storage.local.get('prismaUserStats', (data) => {
+        chrome.storage.local.get(['prismaUserStats', 'statsStartDate'], (data) => {
             const stats = data.prismaUserStats || {
                 visitedCampaigns: [],
                 totalLoadingTime: 0,
@@ -50,6 +50,40 @@ document.addEventListener('DOMContentLoaded', () => {
             if (campaignsVisitedEl) campaignsVisitedEl.textContent = stats.visitedCampaigns.length;
             if (loadingTimeEl) loadingTimeEl.textContent = formatLoadingTime(stats.totalLoadingTime);
             if (placementsAddedEl) placementsAddedEl.textContent = stats.placementsAdded;
+
+            const statsTitle = document.querySelector('#stats h2');
+            let sinceSpan = statsTitle.querySelector('.since-date');
+
+            if (statsTitle && data.statsStartDate) {
+                const startDate = new Date(data.statsStartDate);
+                const now = new Date();
+                const ONE_WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000;
+                const showTime = now - startDate < ONE_WEEK_IN_MS;
+
+                const dateString = startDate.toLocaleDateString(undefined, {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+
+                const timeString = showTime ? startDate.toLocaleTimeString(undefined, {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                }) : '';
+
+                const sinceText = `(since ${dateString}${showTime ? ' at ' + timeString : ''})`;
+
+                if (!sinceSpan) {
+                    sinceSpan = document.createElement('span');
+                    sinceSpan.className = 'since-date';
+                    statsTitle.appendChild(document.createTextNode(' '));
+                    statsTitle.appendChild(sinceSpan);
+                }
+                sinceSpan.textContent = sinceText;
+                sinceSpan.style.display = ''; // Make sure it's visible
+            } else if (sinceSpan) {
+                sinceSpan.style.display = 'none'; // Hide if no date is found
+            }
         });
     }
 

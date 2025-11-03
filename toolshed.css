@@ -142,6 +142,12 @@ li {
     background-color: #5a6268;
 }
 
+.since-date {
+    font-size: 0.6em;
+    color: #666;
+    font-weight: 400;
+}
+
 /* --- Confirmation Modal Styles --- */
 .modal-overlay {
     display: none;
