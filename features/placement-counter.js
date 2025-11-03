@@ -67,7 +67,7 @@
                 // Use a Set to store UNIQUE ROW IDs (data-row value) to fix double counting.
                 const countableRowIds = new Set();
 
-                Array.from(selectedCheckboxes).forEach(checkbox => {
+                selectedCheckboxes.forEach(checkbox => {
                     const row = checkbox.closest('tr');
                     if (!row) return;
 
