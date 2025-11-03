@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function displayStats() {
-        chrome.storage.local.get('prismaUserStats', (data) => {
+        chrome.storage.local.get(['prismaUserStats', 'installDate'], (data) => {
             const stats = data.prismaUserStats || {
                 visitedCampaigns: [],
                 totalLoadingTime: 0,
@@ -50,6 +50,37 @@ document.addEventListener('DOMContentLoaded', () => {
             if (campaignsVisitedEl) campaignsVisitedEl.textContent = stats.visitedCampaigns.length;
             if (loadingTimeEl) loadingTimeEl.textContent = formatLoadingTime(stats.totalLoadingTime);
             if (placementsAddedEl) placementsAddedEl.textContent = stats.placementsAdded;
+
+            const statsTitle = document.querySelector('#stats h2');
+            if (statsTitle && data.installDate) {
+                const installDate = new Date(data.installDate);
+                const now = new Date();
+                const oneWeek = 7 * 24 * 60 * 60 * 1000;
+                const showTime = now - installDate < oneWeek;
+
+                const dateString = installDate.toLocaleDateString(undefined, {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+
+                const timeString = showTime ? installDate.toLocaleTimeString(undefined, {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                }) : '';
+
+                const sinceText = `(since ${dateString}${showTime ? ' at ' + timeString : ''})`;
+
+                // Avoid re-adding the span if it already exists
+                let sinceSpan = statsTitle.querySelector('.since-date');
+                if (!sinceSpan) {
+                    sinceSpan = document.createElement('span');
+                    sinceSpan.className = 'since-date';
+                    statsTitle.appendChild(document.createTextNode(' ')); // Add a space
+                    statsTitle.appendChild(sinceSpan);
+                }
+                sinceSpan.textContent = sinceText;
+            }
         });
     }
 

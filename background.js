@@ -45,21 +45,44 @@ chrome.alarms.create('timeBombCheck', { periodInMinutes: 1 });
 chrome.runtime.onInstalled.addListener(() => {
   checkTimeBomb().catch(error => console.error("Error during initial time bomb check:", error));
   if (!chrome.runtime || !chrome.runtime.id) return;
-  chrome.storage.sync.get('countPlacementsSelectedEnabled', function(data) {
-    if (data.countPlacementsSelectedEnabled === undefined) {
-      chrome.storage.sync.set({ countPlacementsSelectedEnabled: true });
+
+  // Store the installation timestamp if it doesn't exist
+  chrome.storage.local.get('installDate', (data) => {
+    if (!data.installDate) {
+      chrome.storage.local.set({ installDate: new Date().toISOString() });
     }
   });
-  chrome.storage.sync.get(['timesheetReminderEnabled', 'reminderDay', 'reminderTime'], function(data) {
+
+  chrome.storage.sync.get([
+    'countPlacementsSelectedEnabled',
+    'timesheetReminderEnabled',
+    'reminderDay',
+    'reminderTime'
+  ], (data) => {
     if (chrome.runtime.lastError) {
-        console.error(`Error getting timesheet reminder settings: ${chrome.runtime.lastError.message}`);
+        console.error(`Error getting settings: ${chrome.runtime.lastError.message}`);
         return;
     }
-    if (data.timesheetReminderEnabled !== false) {
-      createTimesheetAlarm(data.reminderDay, data.reminderTime);
+
+    const defaults = {};
+
+    if (data.countPlacementsSelectedEnabled === undefined) {
+        defaults.countPlacementsSelectedEnabled = true;
     }
-    if (data.reminderDay === undefined || data.reminderTime === undefined) {
-      chrome.storage.sync.set({ reminderDay: 'Friday', reminderTime: '14:30' });
+
+    if (data.reminderDay === undefined) {
+        defaults.reminderDay = 'Friday';
+    }
+    if (data.reminderTime === undefined) {
+        defaults.reminderTime = '14:30';
+    }
+
+    if (Object.keys(defaults).length > 0) {
+        chrome.storage.sync.set(defaults);
+    }
+
+    if (data.timesheetReminderEnabled !== false) {
+      createTimesheetAlarm(data.reminderDay || defaults.reminderDay, data.reminderTime || defaults.reminderTime);
     }
   });
 });
