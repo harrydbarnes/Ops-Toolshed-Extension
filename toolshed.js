@@ -57,8 +57,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (statsTitle && data.statsStartDate) {
                 const startDate = new Date(data.statsStartDate);
                 const now = new Date();
-                const oneWeek = 7 * 24 * 60 * 60 * 1000;
-                const showTime = now - startDate < oneWeek;
+                const ONE_WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000;
+                const showTime = now - startDate < ONE_WEEK_IN_MS;
 
                 const dateString = startDate.toLocaleDateString(undefined, {
                     year: 'numeric',
