@@ -32,14 +32,13 @@
 
     function hideToast() {
         if (currentToast) {
-            currentToast.classList.remove('show');
-            currentToast.classList.add('hide');
+            currentToast.classList.remove('show'); // Animation is triggered by removing 'show'
             setTimeout(() => {
                 if (currentToast && currentToast.parentElement) {
                     document.body.removeChild(currentToast);
                 }
                 currentToast = null;
-            }, 500);
+            }, 500); // Wait for the transition to finish (500ms)
         }
     }
 
@@ -141,11 +140,6 @@
                     opacity: 1;
                     transform: translateY(0);
                     transition-delay: 0s;
-                }
-                .placement-toast.hide {
-                    opacity: 0;
-                    transform: translateY(100%);
-                    transition: visibility 0s 0.5s, opacity 0.5s ease, transform 0.5s ease;
                 }
             `;
             document.head.appendChild(style);
