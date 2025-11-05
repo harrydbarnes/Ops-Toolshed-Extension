@@ -9,6 +9,11 @@
   });
 
   function initializeContentScript() {
+    chrome.storage.sync.get('approverWidgetOptimiseEnabled', (data) => {
+        if (data.approverWidgetOptimiseEnabled) {
+            document.body.classList.add('approver-widget-optimise');
+        }
+    });
     console.log("[ContentScript Prisma] Script Injected on URL:", window.location.href, "at", new Date().toLocaleTimeString());
 
 // Global variables for custom reminders

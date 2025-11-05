@@ -2,9 +2,9 @@
     'use strict';
 
     function formatClientName(name) {
-        // If the name is all uppercase (and not just a single acronym), convert it to title case.
-        // A simple check is if the string is its own uppercase version.
-        if (name && name === name.toUpperCase()) {
+        // If the name is all uppercase and contains spaces (multi-word), convert it to title case.
+        // This avoids converting single-word acronyms like 'NASA' to 'Nasa'.
+        if (name && name === name.toUpperCase() && name.includes(' ')) {
             return name.toLowerCase().replace(/\b\w/g, char => char.toUpperCase());
         }
         return name;

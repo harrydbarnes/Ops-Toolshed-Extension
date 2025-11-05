@@ -132,3 +132,9 @@
 #launcher-button-container button span {
     margin-left: 8px;
 }
+
+.approver-widget-optimise .workflow-widget-wrapper {
+    min-width: 200px;
+    max-width: 300px;
+    width: auto;
+}
