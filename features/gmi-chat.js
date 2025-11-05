@@ -1,6 +1,15 @@
 (function() {
     'use strict';
 
+    function formatClientName(name) {
+        // If the name is all uppercase (and not just a single acronym), convert it to title case.
+        // A simple check is if the string is its own uppercase version.
+        if (name && name === name.toUpperCase()) {
+            return name.toLowerCase().replace(/\b\w/g, char => char.toUpperCase());
+        }
+        return name;
+    }
+
     function handleGmiChatButton() {
         const workflowWidget = document.querySelector('.workflow-widget-wrapper');
         if (!workflowWidget || workflowWidget.querySelector('.gmi-chat-button')) {
@@ -16,8 +25,9 @@
             const clientNameElement = document.querySelector('[id$="-csl-product-label"]');
             const campaignNameElement = document.querySelector('[id$="-campaign-name"]');
 
-            const clientName = clientNameElement ? clientNameElement.textContent.trim() : 'CLIENT_NAME_HERE';
-            const campaignName = campaignNameElement ? campaignNameElement.getAttribute('title').trim() : 'CAMPAIGN_NAME_HERE';
+            const unformattedClientName = clientNameElement ? clientNameElement.textContent.trim() : 'CLIENT_NAME_HERE';
+            const clientName = formatClientName(unformattedClientName);
+            const campaignName = campaignNameElement ? (campaignNameElement.getAttribute('title') || campaignNameElement.textContent || '').trim() : 'CAMPAIGN_NAME_HERE';
             const currentUrl = window.location.href;
 
             const message = `${clientName} - ${campaignName}`;
