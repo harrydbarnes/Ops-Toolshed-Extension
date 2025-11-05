@@ -17,7 +17,7 @@
             const campaignNameElement = document.querySelector('[id$="-campaign-name"]');
 
             const clientName = clientNameElement ? clientNameElement.textContent.trim() : 'CLIENT_NAME_HERE';
-            const campaignName = campaignNameElement ? campaignNameElement.getAttribute('title').trim() : 'CAMPAIGN_NAME_HERE';
+            const campaignName = campaignNameElement ? (campaignNameElement.getAttribute('title') || campaignNameElement.textContent || '').trim() : 'CAMPAIGN_NAME_HERE';
             const currentUrl = window.location.href;
 
             const message = `${clientName} - ${campaignName}`;
