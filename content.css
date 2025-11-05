@@ -134,7 +134,6 @@
 }
 
 .approver-widget-optimise .workflow-widget-wrapper {
-    min-width: 200px;
+    min-width: 208px;
     max-width: 300px;
-    width: auto;
 }
