@@ -144,6 +144,28 @@ function setupToggle(toggleId, storageKey, logMessage) {
 
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Tab switching logic
+    const tabContainer = document.querySelector('.tab-container');
+    if (tabContainer) {
+        tabContainer.addEventListener('click', function(event) {
+            if (event.target.classList.contains('tab-button')) {
+                const tabName = event.target.dataset.tab;
+
+                // Update button active state
+                document.querySelectorAll('.tab-button').forEach(button => {
+                    button.classList.remove('active');
+                });
+                event.target.classList.add('active');
+
+                // Update content active state
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+                document.getElementById(tabName).classList.add('active');
+            }
+        });
+    }
+
     // --- Time-Bomb Disablement ---
     chrome.storage.local.get('timeBombActive', (data) => {
         if (data.timeBombActive) {
