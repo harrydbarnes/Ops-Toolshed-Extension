@@ -49,70 +49,80 @@
         clearTimeout(debounceTimeout);
 
         debounceTimeout = setTimeout(() => {
-            chrome.storage.sync.get(SETTING_KEY, (data) => {
-                if (chrome.runtime.lastError) {
-                    // Context invalidated, do nothing.
-                    console.warn("Placement counter: Extension context invalidated. Skipping check.");
-                    return;
-                }
-                if (!data[SETTING_KEY]) {
-                    hideToast();
-                    return;
-                }
+            try {
+                chrome.storage.sync.get(SETTING_KEY, (data) => {
+                    if (chrome.runtime.lastError) {
+                        // Context invalidated during async operation, do nothing.
+                        console.warn("Placement counter: Extension context invalidated during async operation. Skipping check.");
+                        return;
+                    }
+                    if (!data[SETTING_KEY]) {
+                        hideToast();
+                        return;
+                    }
 
-                const gridContainer = document.querySelector('#grid-container_hot');
-                if (!gridContainer) {
-                    hideToast();
-                    return;
-                }
+                    const gridContainer = document.querySelector('#grid-container_hot');
+                    if (!gridContainer) {
+                        hideToast();
+                        return;
+                    }
 
-                const selectedCheckboxes = gridContainer.querySelectorAll('input.mo-row-checkbox[type="checkbox"]:checked');
+                    const selectedCheckboxes = gridContainer.querySelectorAll('input.mo-row-checkbox[type="checkbox"]:checked');
 
-                // Use a Set to store UNIQUE ROW IDs (data-row value) to fix double counting.
-                const countableRowIds = new Set();
+                    // Use a Set to store UNIQUE ROW IDs (data-row value) to fix double counting.
+                    const countableRowIds = new Set();
 
-                selectedCheckboxes.forEach(checkbox => {
-                    const row = checkbox.closest('tr');
-                    if (!row) return;
+                    selectedCheckboxes.forEach(checkbox => {
+                        const row = checkbox.closest('tr');
+                        if (!row) return;
 
-                    // 1. Get the unique ID from the checkbox itself for de-duplication.
-                    const rowId = checkbox.dataset.row;
-                    if (!rowId || countableRowIds.has(rowId)) return;
+                        // 1. Get the unique ID from the checkbox itself for de-duplication.
+                        const rowId = checkbox.dataset.row;
+                        if (!rowId || countableRowIds.has(rowId)) return;
 
-                    // 2. Identify the placement name cell for content checks.
-                    // We target the column that holds the row ID in its ID, e.g., id="placementName-37"
-                    const nameCell = row.querySelector(`#placementName-${rowId}`);
-                    const nameText = (nameCell ? nameCell.textContent : '').toLowerCase();
+                        // 2. Identify the placement name cell for content checks.
+                        // We target the column that holds the row ID in its ID, e.g., id="placementName-37"
+                        const nameCell = row.querySelector(`#placementName-${rowId}`);
+                        const nameText = (nameCell ? nameCell.textContent : '').toLowerCase();
 
-                    // --- Exclusion Logic ---
+                        // --- Exclusion Logic ---
 
-                    // A. Check for Campaign/Category/Supplier Headers (Level 0) - RELIABLE structural check
-                    const isLevel0 = row.querySelector('.hierarchical-level-0');
+                        // A. Check for Campaign/Category/Supplier Headers (Level 0) - RELIABLE structural check
+                        const isLevel0 = row.querySelector('.hierarchical-level-0');
 
-                    // B. Check for Packages (mi-package icon) - RELIABLE structural check
-                    const isPackage = row.querySelector('.mi-package');
+                        // B. Check for Packages (mi-package icon) - RELIABLE structural check
+                        const isPackage = row.querySelector('.mi-package');
 
-                    // C. Check for explicit remaining text exclusions (case-insensitive)
-                    const isTextExcluded = EXCLUSION_TEXTS.some(exclusion => nameText.includes(exclusion));
+                        // C. Check for explicit remaining text exclusions (case-insensitive)
+                        const isTextExcluded = EXCLUSION_TEXTS.some(exclusion => nameText.includes(exclusion));
 
-                    // Final Decision: Count if NOT an excluded type
-                    // The dynamic supplier line is excluded here by the isLevel0 check
-                    const isCountable = !isLevel0 && !isPackage && !isTextExcluded;
+                        // Final Decision: Count if NOT an excluded type
+                        // The dynamic supplier line is excluded here by the isLevel0 check
+                        const isCountable = !isLevel0 && !isPackage && !isTextExcluded;
 
-                    if (isCountable) {
-                        countableRowIds.add(rowId);
+                        if (isCountable) {
+                            countableRowIds.add(rowId);
+                        }
+                    });
+
+                    const count = countableRowIds.size; // Count the number of unique valid row IDs
+
+                    if (count > 0) {
+                        const message = `${count} Placement${count > 1 ? 's' : ''} Selected`;
+                        showToast(message);
+                    } else {
+                        hideToast();
                     }
                 });
-
-                const count = countableRowIds.size; // Count the number of unique valid row IDs
-
-                if (count > 0) {
-                    const message = `${count} Placement${count > 1 ? 's' : ''} Selected`;
-                    showToast(message);
+            } catch (error) {
+                if (error.message.includes("Extension context invalidated")) {
+                    // Silently fail, as this is expected during page navigation when the timeout fires after the context is gone.
+                    console.warn("Placement counter: Extension context invalidated before API call. Skipping check.");
                 } else {
-                    hideToast();
+                    // Re-throw other unexpected errors.
+                    throw error;
                 }
-            });
+            }
         }, 150);
     }
 
