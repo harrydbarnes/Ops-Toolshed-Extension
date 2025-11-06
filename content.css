@@ -137,3 +137,8 @@
     min-width: 260px;
     max-width: 300px;
 }
+
+/* Set a fixed height for the workflow widget cell for consistent alignment */
+.mo.pull-right.container-fluid.workflow-cell {
+    height: 45px;
+}
