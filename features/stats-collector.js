@@ -29,6 +29,12 @@
 
             const updatedStats = updateFunction(stats);
             await chrome.storage.local.set({ 'prismaUserStats': updatedStats });
+        } catch (error) {
+            if (error.message.includes('Extension context invalidated')) {
+                console.warn('[Stats Collector] Extension context invalidated. Aborting stats update.');
+            } else {
+                console.error('[Stats Collector] Unexpected error during stats update:', error);
+            }
         } finally {
             isUpdatingStats = false;
         }

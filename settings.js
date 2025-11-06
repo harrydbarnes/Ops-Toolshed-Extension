@@ -103,37 +103,21 @@ function showTestReminderPopup({ popupId, overlayId, content, closeButtonId, has
 
     if (closeButton) {
         if (hasCountdown && countdownSeconds > 0) {
-            const runCountdown = () => {
-                closeButton.disabled = true;
-                let secondsLeft = countdownSeconds;
-                closeButton.textContent = `Got it! (${secondsLeft}s)`;
-                countdownInterval = setInterval(() => {
-                    secondsLeft--;
-                    if (secondsLeft > 0) {
-                        closeButton.textContent = `Got it! (${secondsLeft}s)`;
-                    } else {
-                        clearInterval(countdownInterval);
-                        closeButton.textContent = 'Got it!';
-                        closeButton.disabled = false;
-                        if (storageKey) {
-                            localStorage.setItem(storageKey, new Date().toDateString());
-                        }
-                    }
-                }, 1000);
-            };
+            // Disable the button and start the countdown immediately for test popups.
+            closeButton.disabled = true;
+            let secondsLeft = countdownSeconds;
+            closeButton.textContent = `Got it! (${secondsLeft}s)`;
 
-            if (storageKey) {
-                const today = new Date().toDateString();
-                const lastShownDate = localStorage.getItem(storageKey);
-                if (lastShownDate !== today) {
-                    runCountdown();
+            countdownInterval = setInterval(() => {
+                secondsLeft--;
+                if (secondsLeft > 0) {
+                    closeButton.textContent = `Got it! (${secondsLeft}s)`;
                 } else {
+                    clearInterval(countdownInterval);
+                    closeButton.textContent = 'Got it!';
                     closeButton.disabled = false;
                 }
-            } else {
-                // No storageKey, run countdown unconditionally for this session.
-                runCountdown();
-            }
+            }, 1000);
         }
         closeButton.addEventListener('click', cleanupPopup);
     }

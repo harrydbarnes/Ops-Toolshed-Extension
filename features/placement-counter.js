@@ -50,6 +50,11 @@
 
         debounceTimeout = setTimeout(() => {
             chrome.storage.sync.get(SETTING_KEY, (data) => {
+                if (chrome.runtime.lastError) {
+                    // Context invalidated, do nothing.
+                    console.warn("Placement counter: Extension context invalidated. Skipping check.");
+                    return;
+                }
                 if (!data[SETTING_KEY]) {
                     hideToast();
                     return;
