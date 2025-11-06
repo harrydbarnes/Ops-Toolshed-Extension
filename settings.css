@@ -151,7 +151,7 @@ button:hover, .settings-button:hover {
 
 button:disabled, .settings-button:disabled {
     background-color: #cccccc; /* A light grey to indicate disabled */
-    color: #666666; /* Darker text for readability */
+    color: #3b3b3b; /* Darker text for accessibility (4.5:1 contrast) */
     cursor: not-allowed; /* Visual cue that it's not clickable */
 }
 
