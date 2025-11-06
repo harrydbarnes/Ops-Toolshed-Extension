@@ -139,6 +139,6 @@
 }
 
 /* Set a fixed height for the workflow widget cell for consistent alignment */
-.approver-widget-optimise .mo.pull-right.container-fluid.workflow-cell {
+.approver-widget-optimise #campaignHeader .mo.pull-right.container-fluid.workflow-cell {
     height: 45px;
 }
