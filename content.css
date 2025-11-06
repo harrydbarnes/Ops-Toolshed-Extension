@@ -139,6 +139,6 @@
 }
 
 /* Set a fixed height for the workflow widget cell for consistent alignment */
-.mo.pull-right.container-fluid.workflow-cell {
-    height: 45px !important;
+.approver-widget-optimise .mo.pull-right.container-fluid.workflow-cell {
+    height: 45px;
 }
