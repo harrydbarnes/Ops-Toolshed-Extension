@@ -33,7 +33,7 @@
             if (error.message.includes('Extension context invalidated')) {
                 console.warn('[Stats Collector] Extension context invalidated. Aborting stats update.');
             } else {
-                throw error;
+                console.error('[Stats Collector] Unexpected error during stats update:', error);
             }
         } finally {
             isUpdatingStats = false;
