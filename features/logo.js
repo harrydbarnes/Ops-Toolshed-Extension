@@ -69,7 +69,7 @@
             return false;
         }
         const url = window.location.href;
-        return url.includes('aura.mediaocean.com') || url.includes('prisma.mediaocean.com');
+        return url.includes('aura.mediaocean.com') || url.includes('prisma.mediaocean.com') || url.includes('go.demo.mediaocean.com');
     }
 
     // Expose the functions to the global scope
