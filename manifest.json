@@ -15,7 +15,8 @@
     "clipboardWrite"
   ],
   "host_permissions": [
-    "https://groupmuk-prisma.mediaocean.com/*"
+    "https://groupmuk-prisma.mediaocean.com/*",
+    "https://go.demo.mediaocean.com/*"
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; style-src 'self' https://cdnjs.cloudflare.com https://fonts.googleapis.com; object-src 'self'"
