@@ -68,9 +68,9 @@
         if (typeof window === 'undefined' || !window.location || !window.location.href) {
             return false;
         }
-        const url = window.location.href;
+        const { hostname } = new URL(window.location.href);
         const allowedDomains = ['aura.mediaocean.com', 'prisma.mediaocean.com', 'go.demo.mediaocean.com'];
-        return allowedDomains.some(domain => url.includes(domain));
+        return allowedDomains.some(domain => hostname.endsWith(domain));
     }
 
     // Expose the functions to the global scope
