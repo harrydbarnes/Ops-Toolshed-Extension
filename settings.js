@@ -161,7 +161,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.querySelectorAll('.tab-content').forEach(content => {
                     content.classList.remove('active');
                 });
-                document.getElementById(tabName).classList.add('active');
+
+                const newActiveContent = document.getElementById(tabName);
+                if (newActiveContent) {
+                    newActiveContent.classList.add('active');
+                }
             }
         });
     }
