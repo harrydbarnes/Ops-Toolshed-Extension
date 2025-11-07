@@ -71,13 +71,14 @@ section:last-of-type {
 
 .section-header-with-button {
     display: flex;
-    justify-content: space-between;
+    /* justify-content: space-between; */
     align-items: baseline;
     margin-bottom: 15px; /* Same margin as h2 used to have */
 }
 
 .section-header-with-button h2 {
     margin: 0; /* Remove margin from h2 as the container handles it */
+    flex-grow: 1;
 }
 
 .section-header-with-button .settings-button {
