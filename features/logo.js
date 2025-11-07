@@ -69,7 +69,8 @@
             return false;
         }
         const url = window.location.href;
-        return url.includes('aura.mediaocean.com') || url.includes('prisma.mediaocean.com');
+        const allowedDomains = ['aura.mediaocean.com', 'prisma.mediaocean.com', 'go.demo.mediaocean.com'];
+        return allowedDomains.some(domain => url.includes(domain));
     }
 
     // Expose the functions to the global scope

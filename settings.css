@@ -27,16 +27,15 @@ body {
     padding: 20px;
     border-radius: 8px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    max-width: 550px;
-    width: 100%; /* Occupy available width given by flex parent, up to max-width */
-    box-sizing: border-box;
-    flex-shrink: 0; /* Prevent .container from shrinking if body had other flex items */
-    /* height: auto; /* Default, ensure no fixed height is set */
-    /* overflow: visible; /* Default, ensure content isn't clipped by container itself unless intended */
+    width: 800px; /* Fixed width to prevent resizing between tabs */
+    max-width: 100%; /* Ensures responsiveness on smaller screens */
+    box-sizing: border-box; /* Ensures padding is included within the width */
 }
 
 .settings-header {
-    text-align: center;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 20px;
     padding-bottom: 10px;
     border-bottom: 1px solid #eee;
@@ -46,6 +45,12 @@ body {
     font-size: 1.8em;
     color: #333;
     margin: 0; /* This is key for controlling top space */
+}
+
+.nav-link {
+    font-size: 1em;
+    color: #007bff;
+    text-decoration: none;
 }
 
 section {
@@ -62,9 +67,7 @@ section:last-of-type {
 }
 
 .section-header-with-button {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    position: relative;
     margin-bottom: 15px; /* Same margin as h2 used to have */
 }
 
@@ -74,6 +77,10 @@ section:last-of-type {
 
 .section-header-with-button .settings-button {
     margin: 0; /* Remove default button margin for precise alignment */
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
 }
 
 
@@ -419,3 +426,39 @@ input:checked + .slider:before {
     background-color: #f7f7f7;
 }
 
+
+/* Tab Styles */
+.tab-container {
+    display: flex;
+    border-bottom: 2px solid #f0f0f0;
+    margin-bottom: 20px;
+}
+
+.tab-button {
+    padding: 10px 20px;
+    cursor: pointer;
+    border: none;
+    background-color: transparent;
+    font-size: 1em;
+    font-weight: 500;
+    color: #555;
+    border-bottom: 3px solid transparent;
+    transition: background-color 0.3s ease, color 0.3s ease, border-bottom-color 0.3s ease;
+}
+
+.tab-button:hover {
+    background-color: #f9f9f9;
+    color: #333;
+}
+
+.tab-button.active {
+    color: #ff4087;
+    border-bottom-color: #ff4087;
+}
+
+.tab-content {
+}
+
+.tab-content.active {
+    display: block;
+}

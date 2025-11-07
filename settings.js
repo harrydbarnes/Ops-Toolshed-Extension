@@ -144,6 +144,40 @@ function setupToggle(toggleId, storageKey, logMessage) {
 
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Tab switching logic
+    const tabContainer = document.querySelector('.tab-container');
+    if (tabContainer) {
+        tabContainer.addEventListener('click', function(event) {
+            const clickedButton = event.target.closest('.tab-button');
+            if (!clickedButton) return;
+
+            const tabName = clickedButton.dataset.tab;
+
+            // Deactivate all tabs and panels
+            document.querySelectorAll('[role="tab"]').forEach(tab => {
+                tab.classList.remove('active');
+                tab.setAttribute('aria-selected', 'false');
+                tab.setAttribute('tabindex', '-1');
+            });
+            document.querySelectorAll('[role="tabpanel"]').forEach(panel => {
+                panel.classList.remove('active');
+                panel.hidden = true;
+            });
+
+            // Activate the clicked tab and corresponding panel
+            clickedButton.classList.add('active');
+            clickedButton.setAttribute('aria-selected', 'true');
+            clickedButton.removeAttribute('tabindex');
+
+            const newActiveContent = document.getElementById(tabName);
+            if (newActiveContent) {
+                newActiveContent.classList.add('active');
+                newActiveContent.hidden = false;
+            }
+            clickedButton.focus();
+        });
+    }
+
     // --- Time-Bomb Disablement ---
     chrome.storage.local.get('timeBombActive', (data) => {
         if (data.timeBombActive) {
