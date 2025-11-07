@@ -11,15 +11,14 @@ body {
     box-sizing: border-box; /* Crucial for height calculations with padding */
 
     /* --- Layout Overrides for settings.html --- */
-    /* Using !important to fight potential overrides from style.css */
-    width: 100% !important;
-    min-width: 0 !important; /* Reset any problematic min-width */
-    min-height: 100vh !important; /* Make body at least full viewport height */
-    display: flex !important;
-    flex-direction: column !important; /* Stack .container and other body children vertically */
-    align-items: center !important; /* Center .container horizontally */
-    justify-content: flex-start !important; /* Align .container to the top */
-    overflow-y: auto !important; /* Allow body to scroll if .container's content is too tall */
+    width: 100%;
+    min-width: 0; /* Reset any problematic min-width */
+    min-height: 100vh; /* Make body at least full viewport height */
+    display: flex;
+    flex-direction: column; /* Stack .container and other body children vertically */
+    align-items: center; /* Center .container horizontally */
+    justify-content: flex-start; /* Align .container to the top */
+    overflow-y: auto; /* Allow body to scroll if .container's content is too tall */
 }
 
 .container {
