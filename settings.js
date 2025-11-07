@@ -148,25 +148,33 @@ document.addEventListener('DOMContentLoaded', function() {
     const tabContainer = document.querySelector('.tab-container');
     if (tabContainer) {
         tabContainer.addEventListener('click', function(event) {
-            if (event.target.classList.contains('tab-button')) {
-                const tabName = event.target.dataset.tab;
+            const clickedButton = event.target.closest('.tab-button');
+            if (!clickedButton) return;
 
-                // Update button active state
-                document.querySelectorAll('.tab-button').forEach(button => {
-                    button.classList.remove('active');
-                });
-                event.target.classList.add('active');
+            const tabName = clickedButton.dataset.tab;
 
-                // Update content active state
-                document.querySelectorAll('.tab-content').forEach(content => {
-                    content.classList.remove('active');
-                });
+            // Deactivate all tabs and panels
+            document.querySelectorAll('[role="tab"]').forEach(tab => {
+                tab.classList.remove('active');
+                tab.setAttribute('aria-selected', 'false');
+                tab.setAttribute('tabindex', '-1');
+            });
+            document.querySelectorAll('[role="tabpanel"]').forEach(panel => {
+                panel.classList.remove('active');
+                panel.hidden = true;
+            });
 
-                const newActiveContent = document.getElementById(tabName);
-                if (newActiveContent) {
-                    newActiveContent.classList.add('active');
-                }
+            // Activate the clicked tab and corresponding panel
+            clickedButton.classList.add('active');
+            clickedButton.setAttribute('aria-selected', 'true');
+            clickedButton.removeAttribute('tabindex');
+
+            const newActiveContent = document.getElementById(tabName);
+            if (newActiveContent) {
+                newActiveContent.classList.add('active');
+                newActiveContent.hidden = false;
             }
+            clickedButton.focus();
         });
     }
 

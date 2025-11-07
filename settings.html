@@ -18,13 +18,13 @@
             <a href="toolshed.html" class="nav-link">Release Notes, Roadmap + Stats</a>
         </header>
 
-        <div class="tab-container">
-            <button class="tab-button active" data-tab="features">Features</button>
-            <button class="tab-button" data-tab="reminders">Reminders</button>
-            <button class="tab-button" data-tab="custom-reminders">Custom Reminders</button>
+        <div class="tab-container" role="tablist">
+            <button class="tab-button active" data-tab="features" role="tab" id="tab-features" aria-controls="features" aria-selected="true">Features</button>
+            <button class="tab-button" data-tab="reminders" role="tab" id="tab-reminders" aria-controls="reminders" aria-selected="false" tabindex="-1">Reminders</button>
+            <button class="tab-button" data-tab="custom-reminders" role="tab" id="tab-custom-reminders" aria-controls="custom-reminders" aria-selected="false" tabindex="-1">Custom Reminders</button>
         </div>
 
-        <div id="features" class="tab-content active">
+        <div id="features" class="tab-content active" role="tabpanel" aria-labelledby="tab-features">
             <section id="general-settings">
                 <h2>General</h2>
                 <div class="toggle-container">
@@ -101,7 +101,7 @@
             </section>
         </div>
 
-        <div id="reminders" class="tab-content">
+        <div id="reminders" class="tab-content" role="tabpanel" aria-labelledby="tab-reminders">
             <section id="prisma-reminders">
                 <div class="section-header-with-button">
                     <h2>Prisma Reminders</h2>
@@ -184,7 +184,7 @@
             </section>
         </div>
 
-        <div id="custom-reminders" class="tab-content">
+        <div id="custom-reminders" class="tab-content" role="tabpanel" aria-labelledby="tab-custom-reminders">
             <section id="create-reminder">
                 <h2>Create Custom Reminder</h2>
                 <div id="createReminderInitialStep">
