@@ -27,6 +27,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Stats Display Logic ---
     function formatLoadingTime(totalSeconds) {
         if (totalSeconds < 60) {
+            // ENHANCEMENT: Display <0.01s for very small, non-zero values
+            if (totalSeconds > 0 && totalSeconds < 0.01) {
+                return '<0.01s';
+            }
             return `${totalSeconds.toFixed(2)}s`;
         } else {
             const minutes = Math.floor(totalSeconds / 60);
@@ -101,9 +105,13 @@ document.addEventListener('DOMContentLoaded', () => {
             totalLoadingTime: 0,
             placementsAdded: 0
         };
-        chrome.storage.local.set({ 'prismaUserStats': defaultStats }, () => {
+        // FIX: Set a new statsStartDate to the current time when resetting
+        chrome.storage.local.set({
+            'prismaUserStats': defaultStats,
+            'statsStartDate': new Date().toISOString() // <-- This line is the fix
+        }, () => {
             console.log('Prisma user stats have been reset.');
-            displayStats(); // Refresh the display to show zeros
+            displayStats(); // Refresh the display
         });
         hideModal();
     }
