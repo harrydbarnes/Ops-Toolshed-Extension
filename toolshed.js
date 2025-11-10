@@ -39,8 +39,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    let realTimeUpdateInterval = null;
+
     function displayStats() {
-        chrome.storage.local.get(['prismaUserStats', 'statsStartDate'], (data) => {
+        chrome.storage.local.get(['prismaUserStats', 'statsStartDate', 'loadingStartTime'], (data) => {
             const stats = data.prismaUserStats || {
                 visitedCampaigns: [],
                 totalLoadingTime: 0,
@@ -54,27 +56,38 @@ document.addEventListener('DOMContentLoaded', () => {
             const avgLoadingTimeEl = document.getElementById('avg-loading-time-stat');
 
             if (campaignsVisitedEl) campaignsVisitedEl.textContent = stats.visitedCampaigns.length;
-            if (loadingTimeEl) loadingTimeEl.textContent = formatLoadingTime(stats.totalLoadingTime);
             if (placementsAddedEl) placementsAddedEl.textContent = stats.placementsAdded;
 
             const sinceDateEl = document.getElementById('stats-since-date');
             if (sinceDateEl && data.statsStartDate) {
                 const startDate = new Date(data.statsStartDate);
-                const day = String(startDate.getDate()).padStart(2, '0');
-                const month = String(startDate.getMonth() + 1).padStart(2, '0');
-                const year = String(startDate.getFullYear()).slice(-2);
-                const hours = String(startDate.getHours()).padStart(2, '0');
-                const minutes = String(startDate.getMinutes()).padStart(2, '0');
-
-                sinceDateEl.textContent = `since ${day}.${month}.${year} ${hours}:${minutes}`;
+                sinceDateEl.textContent = `since ${startDate.toLocaleString(undefined, {
+                    year: '2-digit',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                })}`;
                 sinceDateEl.style.fontStyle = 'normal';
 
-                // Calculate avg loading time
-                const uniqueDays = new Set(stats.visitTimestamps.map(ts => new Date(ts).toDateString())).size || 1;
-                const avgLoadingTime = stats.totalLoadingTime / uniqueDays;
+                const uniqueDays = new Set((stats.visitTimestamps || []).map(ts => new Date(ts).toDateString())).size || 1;
 
-                if (avgLoadingTimeEl) avgLoadingTimeEl.textContent = formatLoadingTime(avgLoadingTime);
-
+                if (data.loadingStartTime) {
+                    if (realTimeUpdateInterval) clearInterval(realTimeUpdateInterval);
+                    realTimeUpdateInterval = setInterval(() => {
+                        const elapsed = (Date.now() - data.loadingStartTime) / 1000;
+                        const currentTotal = stats.totalLoadingTime + elapsed;
+                        const currentAvg = currentTotal / uniqueDays;
+                        if (loadingTimeEl) loadingTimeEl.textContent = formatLoadingTime(currentTotal);
+                        if (avgLoadingTimeEl) avgLoadingTimeEl.textContent = formatLoadingTime(currentAvg);
+                    }, 100);
+                } else {
+                    if (realTimeUpdateInterval) clearInterval(realTimeUpdateInterval);
+                    const avgLoadingTime = stats.totalLoadingTime / uniqueDays;
+                    if (loadingTimeEl) loadingTimeEl.textContent = formatLoadingTime(stats.totalLoadingTime);
+                    if (avgLoadingTimeEl) avgLoadingTimeEl.textContent = formatLoadingTime(avgLoadingTime);
+                }
             } else if (sinceDateEl) {
                 sinceDateEl.textContent = '';
             }

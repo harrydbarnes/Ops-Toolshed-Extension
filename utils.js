@@ -126,6 +126,67 @@
             setTimeout(() => {
                 toast.classList.remove('show');
             }, 4000); // 4 seconds
+        },
+
+        showPersistentToast(message, type = 'info') {
+            const toastId = 'ops-toolshed-persistent-toast';
+            let toast = document.getElementById(toastId);
+
+            const styleId = 'ops-toolshed-toast-styles';
+            if (!document.getElementById(styleId)) {
+                const style = document.createElement('style');
+                style.id = styleId;
+                style.textContent = `
+                    #${toastId} {
+                        position: fixed;
+                        top: 20px;
+                        right: 20px;
+                        padding: 15px;
+                        border-radius: 8px;
+                        z-index: 2147483647;
+                        font-family: sans-serif;
+                        font-size: 16px;
+                        box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+                        opacity: 0;
+                        transition: opacity 0.3s ease-in-out;
+                        color: white;
+                    }
+                    #ops-toolshed-toast {
+                        position: fixed;
+                        top: 20px;
+                        right: 20px;
+                        padding: 15px;
+                        border-radius: 8px;
+                        z-index: 2147483647;
+                        font-family: sans-serif;
+                        font-size: 16px;
+                        box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+                        opacity: 0;
+                        transition: opacity 0.3s ease-in-out;
+                        color: white;
+                    }
+                    #${toastId}.show, #ops-toolshed-toast.show { opacity: 1; }
+                    #${toastId}.toast-info, #ops-toolshed-toast.toast-info { background-color: #0288D1; }
+                    #${toastId}.toast-success, #ops-toolshed-toast.toast-success { background-color: #388E3C; }
+                    #${toastId}.toast-error, #ops-toolshed-toast.toast-error { background-color: #D32F2F; }
+                `;
+                document.head.appendChild(style);
+            }
+
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = toastId;
+                document.body.appendChild(toast);
+            }
+
+            toast.textContent = message;
+            toast.className = `toast-${type}`;
+
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 10);
+
+            return toast;
         }
     };
 

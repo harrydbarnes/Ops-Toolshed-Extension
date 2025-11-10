@@ -69,6 +69,8 @@
     // --- 2. Track Loading Spinner Time ---
     let loadingSpinnerStartTime = null;
     let debounceTimer = null;
+    let timerInterval = null;
+    let toastElement = null;
 
     function findAndTrackSpinner() {
         const spinner = window.utils.queryShadowDom('svg.spinner') || document.querySelector('i.fa-spin');
@@ -76,11 +78,23 @@
         if (spinner && loadingSpinnerStartTime === null) {
             // Spinner appeared
             loadingSpinnerStartTime = Date.now();
+            chrome.storage.local.set({ loadingStartTime: loadingSpinnerStartTime });
             console.log('[Stats Collector] Loading spinner detected. Timer started.');
+            toastElement = window.utils.showPersistentToast('Loading...', 'info');
+            timerInterval = setInterval(() => {
+                const elapsed = (Date.now() - loadingSpinnerStartTime) / 1000;
+                toastElement.textContent = `Loading: ${elapsed.toFixed(1)}s`;
+            }, 100);
         } else if (!spinner && loadingSpinnerStartTime !== null) {
             // Spinner disappeared
+            clearInterval(timerInterval);
+            if (toastElement) {
+                toastElement.remove();
+                toastElement = null;
+            }
             const duration = (Date.now() - loadingSpinnerStartTime) / 1000; // in seconds
             loadingSpinnerStartTime = null;
+            chrome.storage.local.remove('loadingStartTime');
             console.log(`[Stats Collector] Loading finished. Duration: ${duration.toFixed(2)}s`);
             updateStats(stats => {
                 stats.totalLoadingTime += duration;
