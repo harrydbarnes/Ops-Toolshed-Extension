@@ -31,11 +31,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (totalSeconds > 0 && totalSeconds < 0.01) {
                 return '<0.01s';
             }
-            return `${totalSeconds.toFixed(2)}s`;
+            return `${Math.floor(totalSeconds * 10) / 10}s`;
         } else {
             const minutes = Math.floor(totalSeconds / 60);
             const seconds = totalSeconds % 60;
-            return `${minutes} min and ${seconds.toFixed(2)}s`;
+            return `${minutes} min and ${Math.floor(seconds * 10) / 10}s`;
         }
     }
 
@@ -44,7 +44,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const stats = data.prismaUserStats || {
                 visitedCampaigns: [],
                 totalLoadingTime: 0,
-                placementsAdded: 0
+                placementsAdded: 0,
+                visitTimestamps: []
             };
 
             const campaignsVisitedEl = document.getElementById('campaigns-visited-stat');
@@ -66,13 +67,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const minutes = String(startDate.getMinutes()).padStart(2, '0');
 
                 sinceDateEl.textContent = `since ${day}.${month}.${year} ${hours}:${minutes}`;
-                sinceDateEl.style.fontStyle = 'italic';
+                sinceDateEl.style.fontStyle = 'normal';
 
                 // Calculate avg loading time
-                const now = new Date();
-                const diffTime = Math.abs(now - startDate);
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
-                const avgLoadingTime = stats.totalLoadingTime / diffDays;
+                const uniqueDays = new Set(stats.visitTimestamps.map(ts => new Date(ts).toDateString())).size || 1;
+                const avgLoadingTime = stats.totalLoadingTime / uniqueDays;
 
                 if (avgLoadingTimeEl) avgLoadingTimeEl.textContent = formatLoadingTime(avgLoadingTime);
 
@@ -103,7 +102,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const defaultStats = {
             visitedCampaigns: [],
             totalLoadingTime: 0,
-            placementsAdded: 0
+            placementsAdded: 0,
+            visitTimestamps: []
         };
         // FIX: Set a new statsStartDate to the current time when resetting
         chrome.storage.local.set({

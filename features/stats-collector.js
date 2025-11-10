@@ -19,7 +19,8 @@
                 stats = {
                     visitedCampaigns: [],
                     totalLoadingTime: 0,
-                    placementsAdded: 0
+                    placementsAdded: 0,
+                    visitTimestamps: []
                 };
                 // Set the start date only if it doesn't already exist.
                 if (!data.statsStartDate) {
@@ -54,6 +55,7 @@
                     stats.visitedCampaigns.push(campaignId);
                     console.log(`[Stats Collector] New campaign tracked: ${campaignId}`);
                 }
+                stats.visitTimestamps.push(new Date().toISOString());
                 return stats;
             });
         }
