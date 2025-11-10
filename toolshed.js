@@ -46,43 +46,34 @@ document.addEventListener('DOMContentLoaded', () => {
             const campaignsVisitedEl = document.getElementById('campaigns-visited-stat');
             const loadingTimeEl = document.getElementById('loading-time-stat');
             const placementsAddedEl = document.getElementById('placements-added-stat');
+            const avgLoadingTimeEl = document.getElementById('avg-loading-time-stat');
 
             if (campaignsVisitedEl) campaignsVisitedEl.textContent = stats.visitedCampaigns.length;
             if (loadingTimeEl) loadingTimeEl.textContent = formatLoadingTime(stats.totalLoadingTime);
             if (placementsAddedEl) placementsAddedEl.textContent = stats.placementsAdded;
 
-            const statsTitle = document.querySelector('#stats h2');
-            let sinceSpan = statsTitle.querySelector('.since-date');
-
-            if (statsTitle && data.statsStartDate) {
+            const sinceDateEl = document.getElementById('stats-since-date');
+            if (sinceDateEl && data.statsStartDate) {
                 const startDate = new Date(data.statsStartDate);
+                const day = String(startDate.getDate()).padStart(2, '0');
+                const month = String(startDate.getMonth() + 1).padStart(2, '0');
+                const year = String(startDate.getFullYear()).slice(-2);
+                const hours = String(startDate.getHours()).padStart(2, '0');
+                const minutes = String(startDate.getMinutes()).padStart(2, '0');
+
+                sinceDateEl.textContent = `since ${day}.${month}.${year} ${hours}:${minutes}`;
+                sinceDateEl.style.fontStyle = 'italic';
+
+                // Calculate avg loading time
                 const now = new Date();
-                const ONE_WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000;
-                const showTime = now - startDate < ONE_WEEK_IN_MS;
+                const diffTime = Math.abs(now - startDate);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+                const avgLoadingTime = stats.totalLoadingTime / diffDays;
 
-                const dateString = startDate.toLocaleDateString(undefined, {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                });
+                if (avgLoadingTimeEl) avgLoadingTimeEl.textContent = formatLoadingTime(avgLoadingTime);
 
-                const timeString = showTime ? startDate.toLocaleTimeString(undefined, {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                }) : '';
-
-                const sinceText = `(since ${dateString}${showTime ? ' at ' + timeString : ''})`;
-
-                if (!sinceSpan) {
-                    sinceSpan = document.createElement('span');
-                    sinceSpan.className = 'since-date';
-                    statsTitle.appendChild(document.createTextNode(' '));
-                    statsTitle.appendChild(sinceSpan);
-                }
-                sinceSpan.textContent = sinceText;
-                sinceSpan.style.display = ''; // Make sure it's visible
-            } else if (sinceSpan) {
-                sinceSpan.style.display = 'none'; // Hide if no date is found
+            } else if (sinceDateEl) {
+                sinceDateEl.textContent = '';
             }
         });
     }
