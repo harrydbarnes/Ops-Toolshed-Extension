@@ -343,7 +343,6 @@ select:focus {
     display: flex;
     justify-content: center;
     align-items: center;
-    text-align: center;
     margin-top: 0;
     margin-bottom: 10px;
     white-space: nowrap; /* Prevent link text from wrapping */
