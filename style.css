@@ -346,17 +346,19 @@ select:focus {
     text-align: center;
     margin-top: 0;
     margin-bottom: 10px;
+    white-space: nowrap; /* Prevent link text from wrapping */
 }
 
 a.settings-page-link {
     color: #007bff; /* Using a common blue link color, can be adjusted */
     text-decoration: none;
-    padding: 8px 12px;
+    padding: 8px 6px; /* Reduced horizontal padding */
     border-radius: 4px;
     font-weight: 500; /* Or bold, depending on desired emphasis */
     cursor: pointer;
     display: inline-block;
     transition: color 0.2s ease-in-out; /* Transition for color change */
+    font-size: 0.95em; /* Slightly smaller font to fit */
 }
 
 a.settings-page-link:hover {
