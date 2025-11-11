@@ -39,15 +39,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function displayStats() {
-        chrome.storage.local.get(['prismaUserStats', 'statsStartDate', 'visitTimestamps'], (data) => {
+        chrome.storage.local.get(['prismaUserStats', 'statsStartDate', 'visitDates'], (data) => {
             const stats = data.prismaUserStats || {
                 visitedCampaigns: [],
                 totalLoadingTime: 0,
                 placementsAdded: 0
             };
-            const visitTimestamps = data.visitTimestamps || [];
-            const uniqueDays = new Set(visitTimestamps.map(ts => new Date(ts).toLocaleDateString()));
-            const totalUniqueDays = uniqueDays.size;
+            const visitDates = data.visitDates || [];
+            const totalUniqueDays = visitDates.length;
 
             const campaignsVisitedEl = document.getElementById('campaigns-visited-stat');
             const loadingTimeEl = document.getElementById('loading-time-stat');
