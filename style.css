@@ -332,9 +332,17 @@ select:focus {
     display: none;
 }
 
+.separator {
+    margin: 0 5px;
+    color: #666;
+}
+
 /* Revised styles for settings link in style.css */
 
 .settings-link-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
     text-align: center;
     margin-top: 0;
     margin-bottom: 10px;

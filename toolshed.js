@@ -56,18 +56,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const campaignsVisitedEl = document.getElementById('campaigns-visited-stat');
             const loadingTimeEl = document.getElementById('loading-time-stat');
+            const avgLoadingTimeEl = document.getElementById('avg-loading-time-stat');
             const placementsAddedEl = document.getElementById('placements-added-stat');
 
             if (campaignsVisitedEl) campaignsVisitedEl.textContent = stats.visitedCampaigns.length;
             if (loadingTimeEl) {
-                const totalDaysForAvg = totalUniqueDays || 1; // Avoid division by zero
+                loadingTimeEl.textContent = formatLoadingTime(stats.totalLoadingTime);
+            }
+            if (avgLoadingTimeEl) {
+                const totalDaysForAvg = totalUniqueDays > 0 ? totalUniqueDays : 1;
                 const averagePerDay = stats.totalLoadingTime / totalDaysForAvg;
 
-                let loadingText = formatLoadingTime(stats.totalLoadingTime);
-                if (stats.totalLoadingTime > 0 && totalUniqueDays > 0) {
-                    loadingText += ` (avg ${formatLoadingTime(averagePerDay)}/day)`;
+                if (stats.totalLoadingTime > 0) {
+                    avgLoadingTimeEl.textContent = `Average time waiting per day: ${formatLoadingTime(averagePerDay)}`;
+                    avgLoadingTimeEl.style.display = 'inline';
+                } else {
+                    avgLoadingTimeEl.style.display = 'none';
                 }
-                loadingTimeEl.textContent = loadingText;
             }
             if (placementsAddedEl) placementsAddedEl.textContent = stats.placementsAdded;
 
