@@ -27,28 +27,42 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Stats Display Logic ---
     function formatLoadingTime(totalSeconds) {
         if (totalSeconds < 60) {
-            return `${totalSeconds.toFixed(2)}s`;
+            if (totalSeconds > 0 && totalSeconds < 0.01) {
+                return '<0.01s';
+            }
+            return `${Math.floor(totalSeconds * 10) / 10}s`;
         } else {
             const minutes = Math.floor(totalSeconds / 60);
             const seconds = totalSeconds % 60;
-            return `${minutes} min and ${seconds.toFixed(2)}s`;
+            return `${minutes} min and ${Math.floor(seconds * 10) / 10}s`;
         }
     }
 
     function displayStats() {
-        chrome.storage.local.get(['prismaUserStats', 'statsStartDate'], (data) => {
+        chrome.storage.local.get(['prismaUserStats', 'statsStartDate', 'visitTimestamps'], (data) => {
             const stats = data.prismaUserStats || {
                 visitedCampaigns: [],
                 totalLoadingTime: 0,
                 placementsAdded: 0
             };
+            const visitTimestamps = data.visitTimestamps || [];
 
             const campaignsVisitedEl = document.getElementById('campaigns-visited-stat');
             const loadingTimeEl = document.getElementById('loading-time-stat');
             const placementsAddedEl = document.getElementById('placements-added-stat');
 
             if (campaignsVisitedEl) campaignsVisitedEl.textContent = stats.visitedCampaigns.length;
-            if (loadingTimeEl) loadingTimeEl.textContent = formatLoadingTime(stats.totalLoadingTime);
+            if (loadingTimeEl) {
+                const uniqueDays = new Set((data.visitTimestamps || []).map(ts => new Date(ts).toLocaleDateString()));
+                const totalDays = uniqueDays.size || 1;
+                const averagePerDay = stats.totalLoadingTime / totalDays;
+
+                let loadingText = formatLoadingTime(stats.totalLoadingTime);
+                if (stats.totalLoadingTime > 0) {
+                    loadingText += ` (avg ${formatLoadingTime(averagePerDay)}/day)`;
+                }
+                loadingTimeEl.textContent = loadingText;
+            }
             if (placementsAddedEl) placementsAddedEl.textContent = stats.placementsAdded;
 
             const statsTitle = document.querySelector('#stats h2');
@@ -56,22 +70,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (statsTitle && data.statsStartDate) {
                 const startDate = new Date(data.statsStartDate);
-                const now = new Date();
-                const ONE_WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000;
-                const showTime = now - startDate < ONE_WEEK_IN_MS;
-
-                const dateString = startDate.toLocaleDateString(undefined, {
+                const dateString = startDate.toLocaleString(undefined, {
                     year: 'numeric',
                     month: 'long',
-                    day: 'numeric'
-                });
-
-                const timeString = showTime ? startDate.toLocaleTimeString(undefined, {
+                    day: 'numeric',
                     hour: '2-digit',
                     minute: '2-digit'
-                }) : '';
+                });
 
-                const sinceText = `(since ${dateString}${showTime ? ' at ' + timeString : ''})`;
+                // Calculate unique days
+                const uniqueDays = new Set(visitTimestamps.map(ts => new Date(ts).toLocaleDateString()));
+                const totalDays = uniqueDays.size;
+                const daysString = totalDays === 1 ? '1 Day' : `${totalDays} Days`;
+
+                const sinceText = `(since ${dateString} - ${daysString})`;
 
                 if (!sinceSpan) {
                     sinceSpan = document.createElement('span');
