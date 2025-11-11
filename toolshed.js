@@ -46,6 +46,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 placementsAdded: 0
             };
             const visitTimestamps = data.visitTimestamps || [];
+            const uniqueDays = new Set(visitTimestamps.map(ts => new Date(ts).toLocaleDateString()));
+            const totalUniqueDays = uniqueDays.size;
 
             const campaignsVisitedEl = document.getElementById('campaigns-visited-stat');
             const loadingTimeEl = document.getElementById('loading-time-stat');
@@ -53,12 +55,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (campaignsVisitedEl) campaignsVisitedEl.textContent = stats.visitedCampaigns.length;
             if (loadingTimeEl) {
-                const uniqueDays = new Set((data.visitTimestamps || []).map(ts => new Date(ts).toLocaleDateString()));
-                const totalDays = uniqueDays.size || 1;
-                const averagePerDay = stats.totalLoadingTime / totalDays;
+                const totalDaysForAvg = totalUniqueDays || 1; // Avoid division by zero
+                const averagePerDay = stats.totalLoadingTime / totalDaysForAvg;
 
                 let loadingText = formatLoadingTime(stats.totalLoadingTime);
-                if (stats.totalLoadingTime > 0) {
+                if (stats.totalLoadingTime > 0 && totalUniqueDays > 0) {
                     loadingText += ` (avg ${formatLoadingTime(averagePerDay)}/day)`;
                 }
                 loadingTimeEl.textContent = loadingText;
@@ -78,10 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     minute: '2-digit'
                 });
 
-                // Calculate unique days
-                const uniqueDays = new Set(visitTimestamps.map(ts => new Date(ts).toLocaleDateString()));
-                const totalDays = uniqueDays.size;
-                const daysString = totalDays === 1 ? '1 Day' : `${totalDays} Days`;
+                const daysString = totalUniqueDays === 1 ? '1 Day' : `${totalUniqueDays} Days`;
 
                 const sinceText = `(since ${dateString} - ${daysString})`;
 

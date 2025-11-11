@@ -335,22 +335,15 @@ select:focus {
 /* Revised styles for settings link in style.css */
 
 .settings-link-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    text-align: center;
     margin-top: 0;
     margin-bottom: 10px;
-}
-
-.separator {
-    margin: 0 5px;
-    color: #666;
 }
 
 a.settings-page-link {
     color: #007bff; /* Using a common blue link color, can be adjusted */
     text-decoration: none;
-    padding: 8px;
+    padding: 8px 12px;
     border-radius: 4px;
     font-weight: 500; /* Or bold, depending on desired emphasis */
     cursor: pointer;

@@ -176,14 +176,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
-
-    const openToolshedPageButton = document.getElementById('openToolshedPage');
-    if (openToolshedPageButton) {
-        openToolshedPageButton.addEventListener('click', function(event) {
-            event.preventDefault();
-            chrome.tabs.create({ url: chrome.runtime.getURL('toolshed.html') });
-        });
-    }
 });
 
 // Removed setLogoToggleState, setMetaReminderToggleState, setTimesheetReminderToggleState functions
