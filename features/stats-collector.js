@@ -11,8 +11,9 @@
         }
         isUpdatingStats = true;
         try {
-            const data = await chrome.storage.local.get(['prismaUserStats', 'statsStartDate']);
+            const data = await chrome.storage.local.get(['prismaUserStats', 'statsStartDate', 'visitTimestamps']);
             let stats = data.prismaUserStats;
+            let timestamps = data.visitTimestamps || [];
 
             // If stats object doesn't exist, this is the first time.
             if (!stats) {
@@ -28,7 +29,8 @@
             }
 
             const updatedStats = updateFunction(stats);
-            await chrome.storage.local.set({ 'prismaUserStats': updatedStats });
+            timestamps.push(new Date().toISOString());
+            await chrome.storage.local.set({ 'prismaUserStats': updatedStats, 'visitTimestamps': timestamps });
         } catch (error) {
             if (error.message.includes('Extension context invalidated')) {
                 console.warn('[Stats Collector] Extension context invalidated. Aborting stats update.');

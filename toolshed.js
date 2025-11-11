@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     minute: '2-digit'
                 });
 
-                const daysString = totalUniqueDays === 1 ? '1 Day' : `${totalUniqueDays} Days`;
+                const daysString = totalUniqueDays < 1 ? '<1 Day' : (totalUniqueDays === 1 ? '1 Day' : `${totalUniqueDays} Days`);
 
                 const sinceText = `(since ${dateString} - ${daysString})`;
 
