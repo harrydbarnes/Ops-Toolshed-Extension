@@ -163,19 +163,22 @@ document.addEventListener('DOMContentLoaded', function() {
     addClickListener('ngmcscoButton', 'https://groupmuk-prisma.mediaocean.com/ideskos-viewport/launchapp?workflowid=buyers-workflow&moduleid=prsm-cm-spa&context=eyJ0byI6eyJpZCI6IjM1LVJFSUtXWEgtNiIsInN1YkNvbnRleHQiOnsiaWQiOiJOR01DU0NPIn19LCJmcm9tIjp7ImlkIjoiMzUtUkVJS1dYSC02Iiwic3ViQ29udGV4dCI6eyJpZCI6Ik5HTUNJTlQifX19');
     addClickListener('ngopenButton', 'https://groupmuk-prisma.mediaocean.com/ideskos-viewport/launchapp?workflowid=buyers-workflow&moduleid=prsm-cm-spa&context=eyJ0byI6eyJpZCI6IjM1LVJFSUtXWEgtNiIsInN1YkNvbnRleHQiOnsiaWQiOiJOR09QRU4ifX0sImZyb20iOnsiaWQiOiIzNS1SRUlLV1hILTYiLCJzdWJDb250ZXh0Ijp7ImlkIjoiTkdNQ0lOVCJ9fX0=');
 
-    const openSettingsPageButton = document.getElementById('openSettingsPage');
-    if (openSettingsPageButton) {
-        openSettingsPageButton.addEventListener('click', function(event) {
-            event.preventDefault(); // Prevent default link behavior
-            chrome.runtime.openOptionsPage(() => {
+    // Setup navigation for settings and toolshed pages
+    addNavigationClickListener('openSettingsPage', () => {
+        chrome.runtime.openOptionsPage(
+            () => {
                 if (chrome.runtime.lastError) {
                     console.error('Error opening options page:', chrome.runtime.lastError);
-                    // Fallback if openOptionsPage is not set up or fails:
+                    // Fallback if openOptionsPage is not set up or fails
                     chrome.tabs.create({ url: chrome.runtime.getURL('settings.html') });
                 }
-            });
-        });
-    }
+            }
+        );
+    });
+
+    addNavigationClickListener('openToolshedPage', () => {
+        chrome.tabs.create({ url: chrome.runtime.getURL('toolshed.html') });
+    });
 });
 
 // Removed setLogoToggleState, setMetaReminderToggleState, setTimesheetReminderToggleState functions
@@ -283,6 +286,22 @@ function generateUrlFromData(campaignId, campaignDateStr) {
 // Note: If `updateAlarm` or parts of it were used by other functionalities not being removed,
 // those parts would need to be preserved or refactored. Based on the current context,
 // they seem exclusively tied to the removed settings UI.
+
+/**
+ * Adds a click listener to a link-like element (e.g., <a>).
+ * Prevents the default link navigation and executes a custom handler.
+ * @param {string} id The ID of the DOM element.
+ * @param {function} clickHandler The function to execute on click.
+ */
+function addNavigationClickListener(id, clickHandler) {
+    const element = document.getElementById(id);
+    if (element) {
+        element.addEventListener('click', (event) => {
+            event.preventDefault();
+            clickHandler(event);
+        });
+    }
+}
 
 function addClickListener(id, url) {
     const button = document.getElementById(id);
