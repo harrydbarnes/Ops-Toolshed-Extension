@@ -94,7 +94,7 @@
                     console.log('[DNumberSearch] Found final search button. Clicking it to perform deep search.');
                     robustClick(finalButton);
                 } else {
-                    throw new Error(`Fallback failed: Could not find the final search/open button (${finalButtonSelector}).`);
+                    throw new Error(`Fallback failed: Could not find the final search/open button.`);
                 }
             }
 

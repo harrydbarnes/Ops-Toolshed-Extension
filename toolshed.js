@@ -27,26 +27,32 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Stats Display Logic ---
     function formatLoadingTime(totalSeconds) {
         if (totalSeconds < 60) {
+            // ENHANCEMENT: Display <0.01s for very small, non-zero values
             if (totalSeconds > 0 && totalSeconds < 0.01) {
                 return '<0.01s';
             }
             return `${Math.floor(totalSeconds * 10) / 10}s`;
         } else {
             const minutes = Math.floor(totalSeconds / 60);
-            const seconds = totalSeconds % 60;
-            return `${minutes} min and ${Math.floor(seconds * 10) / 10}s`;
+            const seconds = Math.floor((totalSeconds % 60) * 10) / 10;
+            return `${minutes} min and ${seconds}s`;
         }
     }
 
     function displayStats() {
-        chrome.storage.local.get(['prismaUserStats', 'statsStartDate', 'visitDates'], (data) => {
+        chrome.storage.local.get(['prismaUserStats', 'statsStartDate', 'visitTimestamps'], (data) => {
             const stats = data.prismaUserStats || {
                 visitedCampaigns: [],
                 totalLoadingTime: 0,
                 placementsAdded: 0
             };
-            const visitDates = data.visitDates || [];
-            const totalUniqueDays = visitDates.length;
+            const visitTimestamps = data.visitTimestamps || [];
+
+            // Calculate unique days
+            const uniqueDays = new Set(
+                visitTimestamps.map(ts => new Date(ts).toLocaleDateString())
+            );
+            const totalUniqueDays = uniqueDays.size;
 
             const campaignsVisitedEl = document.getElementById('campaigns-visited-stat');
             const loadingTimeEl = document.getElementById('loading-time-stat');
@@ -77,9 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     hour: '2-digit',
                     minute: '2-digit'
                 });
-
-                const daysString = totalUniqueDays < 1 ? '<1 Day' : (totalUniqueDays === 1 ? '1 Day' : `${totalUniqueDays} Days`);
-
+                const daysString = totalUniqueDays === 1 ? '1 Day' : `${totalUniqueDays} Days`;
                 const sinceText = `(since ${dateString} - ${daysString})`;
 
                 if (!sinceSpan) {
@@ -119,12 +123,13 @@ document.addEventListener('DOMContentLoaded', () => {
             totalLoadingTime: 0,
             placementsAdded: 0
         };
-        chrome.storage.local.set({ 'prismaUserStats': defaultStats }, () => {
+        chrome.storage.local.set({ 'prismaUserStats': defaultStats, 'visitTimestamps': [], 'statsStartDate': new Date().toISOString() }, () => {
             console.log('Prisma user stats have been reset.');
             displayStats(); // Refresh the display to show zeros
         });
         hideModal();
     }
+
 
     if (resetButton) {
         resetButton.addEventListener('click', showModal);
@@ -141,7 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Real-Time Update Listener ---
     chrome.storage.onChanged.addListener((changes, namespace) => {
-        if (namespace === 'local' && changes.prismaUserStats) {
+        if (namespace === 'local' && (changes.prismaUserStats || changes.visitTimestamps)) {
             console.log('Detected a change in prismaUserStats, updating display.');
             displayStats();
         }
