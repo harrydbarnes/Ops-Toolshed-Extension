@@ -98,8 +98,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (activeCompanyUserIds.length > 0) {
+            // FIX: Use Array.prototype.some() for an OR condition
+            // to correctly show approvers with ANY of the selected Company User IDs.
             filtered = filtered.filter(a =>
-                activeCompanyUserIds.every(id => a.companyUserIds && a.companyUserIds.includes(id))
+                activeCompanyUserIds.some(id => a.companyUserIds && a.companyUserIds.includes(id))
             );
         }
 

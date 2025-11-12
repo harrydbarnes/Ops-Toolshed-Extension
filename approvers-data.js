@@ -1177,7 +1177,9 @@ const businessUnitFunctions = approversData
   .filter(bu => bu && bu !== 'All' && !bu.startsWith('BU') && !bu.startsWith('B12') && bu !== 'B12');
 const specialtyFunctions = approversData
   .map(a => a.specialty)
-  .filter(Boolean);
+  .filter(Boolean)
+  // FIX: Exclude 'B12' from the functions list
+  .filter(s => s !== 'B12');
 export const functions = [...new Set([...businessUnitFunctions, ...specialtyFunctions])].sort();
 
 // Collect and export all unique Company User IDs
