@@ -1,10 +1,11 @@
-import { approversData, businessUnits, clients } from './approvers-data.js';
+import { approversData, businessUnits, clients, companyUserIdsList } from './approvers-data.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('search-input');
     const favoritesOnlyButton = document.getElementById('favorites-only-button');
     const businessUnitsContainer = document.getElementById('business-units-filters');
     const clientsContainer = document.getElementById('clients-filters');
+    const companyUserIdsContainer = document.getElementById('company-user-ids-filters');
     const approversList = document.getElementById('approvers-list');
     const approversCount = document.getElementById('approvers-count');
     const selectedCount = document.getElementById('selected-count');
@@ -60,6 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const favoritesOnly = favoritesOnlyButton.classList.contains('active');
         const activeBusinessUnits = [...businessUnitsContainer.querySelectorAll('.active')].map(btn => btn.dataset.value);
         const activeClients = [...clientsContainer.querySelectorAll('.active')].map(btn => btn.dataset.value);
+        const activeCompanyUserIds = [...companyUserIdsContainer.querySelectorAll('.active')].map(btn => btn.dataset.value);
 
         let filtered = approversData;
 
@@ -85,6 +87,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (activeClients.length > 0) {
             filtered = filtered.filter(a => activeClients.includes(a.officeName));
+        }
+
+        if (activeCompanyUserIds.length > 0) {
+            filtered = filtered.filter(a =>
+                activeCompanyUserIds.some(id => a.companyUserIds && a.companyUserIds.includes(id))
+            );
         }
 
         renderApprovers(filtered);
@@ -124,6 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     businessUnitsContainer.addEventListener('click', toggleFilterButton);
     clientsContainer.addEventListener('click', toggleFilterButton);
+    companyUserIdsContainer.addEventListener('click', toggleFilterButton);
 
     approversList.addEventListener('click', (e) => {
         const card = e.target.closest('.approver-card');
@@ -219,6 +228,14 @@ document.addEventListener('DOMContentLoaded', () => {
         button.dataset.value = client;
         button.textContent = client;
         clientsContainer.appendChild(button);
+    });
+
+    companyUserIdsList.forEach(id => {
+        const button = document.createElement('button');
+        button.className = 'filter-button';
+        button.dataset.value = id;
+        button.textContent = id;
+        companyUserIdsContainer.appendChild(button);
     });
 
     loadFavorites();
