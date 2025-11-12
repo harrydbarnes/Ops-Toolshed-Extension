@@ -1900,12 +1900,7 @@ const specialtyFunctions = approversData
 export const functions = [...new Set([...businessUnitFunctions, ...specialtyFunctions])].sort();
 
 // Collect and export all unique Company User IDs
-const allCompanyUserIds = new Set();
-approversData.forEach(approver => {
-  if (approver.companyUserIds) {
-    approver.companyUserIds.forEach(id => allCompanyUserIds.add(id));
-  }
-});
+const allCompanyUserIds = new Set(approversData.flatMap(approver => approver.companyUserIds));
 const priorityOrder = ['NGMCALL', 'NGMCLON', 'NGMCINT', 'NGMCNOR'];
 export const companyUserIdsList = [...allCompanyUserIds].sort((a, b) => {
     const aIndex = priorityOrder.indexOf(a);
