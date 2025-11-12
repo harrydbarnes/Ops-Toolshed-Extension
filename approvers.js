@@ -39,6 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <p>${approver.email}</p>
                 <div class="approver-tags">
                     <span class="tag">${approver.officeName}</span>
+                    <span class="tag">${approver.businessUnit}</span>
                     ${approver.specialty ? `<span class="tag specialty">${approver.specialty}</span>` : ''}
                 </div>
             `;
