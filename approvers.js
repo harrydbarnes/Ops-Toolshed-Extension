@@ -1,9 +1,10 @@
-import { approversData, businessUnits, clients, companyUserIdsList } from './approvers-data.js';
+import { approversData, businessUnits, clients, functions, companyUserIdsList } from './approvers-data.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('search-input');
     const favoritesOnlyButton = document.getElementById('favorites-only-button');
     const businessUnitsContainer = document.getElementById('business-units-filters');
+    const functionContainer = document.getElementById('function-filters');
     const clientsContainer = document.getElementById('clients-filters');
     const companyUserIdsContainer = document.getElementById('company-user-ids-filters');
     const approversList = document.getElementById('approvers-list');
@@ -61,6 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const searchTerm = searchInput.value.toLowerCase();
         const favoritesOnly = favoritesOnlyButton.classList.contains('active');
         const activeBusinessUnits = [...businessUnitsContainer.querySelectorAll('.active')].map(btn => btn.dataset.value);
+        const activeFunctions = [...functionContainer.querySelectorAll('.active')].map(btn => btn.dataset.value);
         const activeClients = [...clientsContainer.querySelectorAll('.active')].map(btn => btn.dataset.value);
         const activeCompanyUserIds = [...companyUserIdsContainer.querySelectorAll('.active')].map(btn => btn.dataset.value);
 
@@ -93,6 +95,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (activeCompanyUserIds.length > 0) {
             filtered = filtered.filter(a =>
                 activeCompanyUserIds.some(id => a.companyUserIds && a.companyUserIds.includes(id))
+            );
+        }
+
+        if (activeFunctions.length > 0) {
+            filtered = filtered.filter(a =>
+                activeFunctions.includes(a.businessUnit) || activeFunctions.includes(a.specialty)
             );
         }
 
@@ -132,6 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     businessUnitsContainer.addEventListener('click', toggleFilterButton);
+    functionContainer.addEventListener('click', toggleFilterButton);
     clientsContainer.addEventListener('click', toggleFilterButton);
     companyUserIdsContainer.addEventListener('click', toggleFilterButton);
 
@@ -221,6 +230,14 @@ document.addEventListener('DOMContentLoaded', () => {
         button.dataset.value = unit;
         button.textContent = unit;
         businessUnitsContainer.appendChild(button);
+    });
+
+    functions.forEach(func => {
+        const button = document.createElement('button');
+        button.className = 'filter-button';
+        button.dataset.value = func;
+        button.textContent = func;
+        functionContainer.appendChild(button);
     });
 
     clients.forEach(client => {

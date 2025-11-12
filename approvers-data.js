@@ -1171,6 +1171,15 @@ export const approversData = [{
 export const businessUnits = [...new Set(approversData.map(a => a.businessUnit).filter(bu => bu && (bu.startsWith('BU') || bu.startsWith('B12') || bu === 'All')))].sort();
 export const clients = [...new Set(approversData.map(a => a.officeName))].filter(Boolean);
 
+// Collect and export all unique Functions from businessUnit and specialty
+const businessUnitFunctions = approversData
+  .map(a => a.businessUnit)
+  .filter(bu => bu && bu !== 'All' && !bu.startsWith('BU') && !bu.startsWith('B12'));
+const specialtyFunctions = approversData
+  .map(a => a.specialty)
+  .filter(Boolean);
+export const functions = [...new Set([...businessUnitFunctions, ...specialtyFunctions])].sort();
+
 // Collect and export all unique Company User IDs
 const allCompanyUserIds = new Set();
 approversData.forEach(approver => {
