@@ -1,19 +1,744 @@
 // Data extracted from the CSV snippet and merged with the original approversData
 const companyUserIdsMap = {
-  // Data extracted from "EM Approver list.xlsx - Sheet3.csv" snippets, excluding 'NGRPTIME'
-  "ADCRO": ["NGMCLON", "NGMCCON", "NGMCCOA"],
-  "JOCAP": ["NGMCLLO", "NGMCLON", "NGMCSCO", "NGMCINT", "NGDOOR"],
-  "KLEWIS": ["NGMCLON", "NGMCUK"],
-  "TUDAL": ["NGMCLON", "NGMCINT", "NGMCCOA", "NGMCLSE"],
-  "BEWIL": ["NGMCLON", "NGMCKRM", "NGMCOUT", "NGMCREP"],
-  "EBRAD": ["NGMCLON"],
-  "CTURN": ["NGMCNOR", "NGMCBRL", "NGMCBRB", "NGMCNAL", "NGMCCOA", "NGMCALL", "NGMCUK", "NGMCLON", "NGOPEM"],
-  "IMACD": ["NGMCMBA", "NGMCLON", "NGMCNUC", "NGMCALL", "NGMCBRL", "NGMCUK", "NGMCINT", "NGMCCOA"],
-  "JBOCK": ["NGMCMBA", "NGMCLON", "NGMCNUC", "NGMCALL", "NGOPEN"],
-  "KAREI": ["NGMCLON", "NGMCKRM"],
-  "KGRAC": ["NGMCINT", "NGMCALL", "NGMCLON"],
-  "MAHOW": ["NGMCMBA", "NGMCLON", "NGMCINT"],
-  "SCUSH": ["NGMCINT", "NGMCLON"]
+  "ADCRO": [
+    "NGMCLON",
+    "NGMCCON",
+    "NGMCCOA"
+  ],
+  "JOCAP": [
+    "NGMCLLO",
+    "NGMCLON",
+    "NGMCSCO",
+    "NGMCINT",
+    "NGDOOR"
+  ],
+  "KLEWIS": [
+    "NGMCLON",
+    "NGMCUK"
+  ],
+  "TUDAL": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCCOA",
+    "NGMCLSE"
+  ],
+  "BEWIL": [
+    "NGMCLON",
+    "NGMCKRM",
+    "NGMCOUT",
+    "NGMCREP"
+  ],
+  "EBRAD": [
+    "NGMCLON"
+  ],
+  "HAOUG": [
+    "NGMCLON",
+    "NGOPEM"
+  ],
+  "HAWAL": [
+    "NGMCLON",
+    "NGMCKRM",
+    "NGMCALL",
+    "NGMCINT"
+  ],
+  "LUPIC": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGOPEM",
+    "NGOPEN"
+  ],
+  "RCHAM": [
+    "NGMCLON"
+  ],
+  "RPALM": [
+    "NGMCLON",
+    "NGMCMBA",
+    "NGOPEM",
+    "NGOPEN"
+  ],
+  "SCORE": [
+    "NGMCLON"
+  ],
+  "AROBE": [
+    "NGMCLON",
+    "NGMCKRM",
+    "NGMCOUT"
+  ],
+  "JGORN": [
+    "NGMCLON",
+    "NGMCMBA"
+  ],
+  "LTURN": [
+    "NGMCLON",
+    "NGMCKRM",
+    "NGMCCOA"
+  ],
+  "MNIKO": [
+    "NGMCLON",
+    "NGMCMBA",
+    "NGMCINT",
+    "NGMCALL"
+  ],
+  "NCART": [
+    "NGMCLON"
+  ],
+  "ROWAL": [
+    "NGMCLON",
+    "NGMCKRM"
+  ],
+  "SMEYER": [
+    "NGMCLON"
+  ],
+  "TEBUC": [
+    "NGMCLON",
+    "NGMCSCO"
+  ],
+  "APYKE": [
+    "NGMCLON"
+  ],
+  "CRIDS": [
+    "NGMCLON",
+    "NGMCWBA"
+  ],
+  "HSPRI": [
+    "NGMCLON",
+    "NGOPEM"
+  ],
+  "ISLAW": [
+    "NGMCLON",
+    "NGMCWBA",
+    "NGOPEN",
+    "NGOPEM"
+  ],
+  "KBEAR": [
+    "NGMCLON",
+    "NGMCWBA"
+  ],
+  "LASCOT": [
+    "NGMCKRM",
+    "NGMCUK",
+    "NGMCLON"
+  ],
+  "MEWIL": [
+    "NGMCLON",
+    "NGMCSCO",
+    "NGMCINT",
+    "NGMCCOA",
+    "NGMCMBA",
+    "NGOPEM"
+  ],
+  "SHSHA": [
+    "NGMCLLO",
+    "NGMCLON",
+    "NGMCNUC",
+    "NGMCALL"
+  ],
+  "SSWEE": [
+    "NGMCMBA",
+    "NGMCLON",
+    "NGMCALL",
+    "NGMCWBA"
+  ],
+  "KATRE": [
+    "NGMCLON",
+    "NGMCSCO",
+    "NGMCKRM",
+    "NGMCINT"
+  ],
+  "TLATH": [
+    "NGMCLON",
+    "NGMCSCO",
+    "NGMCKRM",
+    "NGMCCOA"
+  ],
+  "AMGIBS": [
+    "NGMCLON"
+  ],
+  "KOGIL": [
+    "NGMCLON",
+    "NGMCMBA",
+    "NGMCNUC",
+    "NGMCUK",
+    "NGMCINT"
+  ],
+  "LFILB": [
+    "NGMCLON",
+    "NGMCINT"
+  ],
+  "PJAMESON": [
+    "NGMCLON",
+    "NGMCALL",
+    "NGOPEM"
+  ],
+  "YNDLO": [
+    "NGMCLON",
+    "NGMCINT"
+  ],
+  "GBARL": [
+    "NGMCLON",
+    "NGMCINT"
+  ],
+  "MMIND": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCALL"
+  ],
+  "RDIXO": [
+    "NGMCLON",
+    "NGMCALL",
+    "NGMCINT"
+  ],
+  "VIOAN": [
+    "NGMCINT",
+    "NGMCALL",
+    "NGMCLON",
+    "NGMCMBA"
+  ],
+  "YPAPA": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCALL"
+  ],
+  "AMUEL": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCCON"
+  ],
+  "AWIJE": [
+    "NGMCINT",
+    "NGMCLON",
+    "NGMCALL"
+  ],
+  "BESTA": [
+    "NGMCEMA",
+    "NGMCINT",
+    "NGMCLSE",
+    "NGMCALL"
+  ],
+  "CMCWH": [
+    "NGMCCOA",
+    "NGMCINT",
+    "NGMCLON",
+    "NGMCALL"
+  ],
+  "GGILB": [
+    "NGMCINT",
+    "NGMCLON",
+    "NGMCMBA"
+  ],
+  "HMCCA": [
+    "NGMCWWD",
+    "NGMCINT",
+    "NGMCALL"
+  ],
+  "JASLA": [
+    "NGMCINT",
+    "NGMCWWD",
+    "NGMCEMA",
+    "NGMCGLB"
+  ],
+  "KEMCG": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCALL"
+  ],
+  "KHAVE": [
+    "NGMCINT",
+    "NGMCLON",
+    "NGMCLSE",
+    "NGMCALL"
+  ],
+  "LKUCU": [
+    "NGMCLON",
+    "NGMCWWD",
+    "NGMCALL",
+    "NGMCLSW",
+    "NGMCINT",
+    "NGOPEM"
+  ],
+  "NELIO": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCALL"
+  ],
+  "RESCO": [
+    "NGMCINT",
+    "NGMCALL",
+    "NGMCLON"
+  ],
+  "ROCOL": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCALL"
+  ],
+  "SCROW": [
+    "NGMCLON",
+    "NGMCKRM",
+    "NGMCINT",
+    "NGMCALL"
+  ],
+  "ADENE": [
+    "NGMCINT"
+  ],
+  "ADMCC": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCALL"
+  ],
+  "ANGIM": [
+    "NGMCINT"
+  ],
+  "ANIKO": [
+    "NGMCINT"
+  ],
+  "ASHEI": [
+    "NGMCINT"
+  ],
+  "ASTEP": [
+    "NGMCINT",
+    "NGMCLON"
+  ],
+  "BDRUR": [
+    "NGMCINT",
+    "NGMCLON",
+    "NGMCEMA"
+  ],
+  "CBECK": [
+    "NGMCLON",
+    "NGMCCOA",
+    "NGMCINT",
+    "NGMCALL"
+  ],
+  "CROSE": [
+    "NGMAXESS",
+    "NGMSESS"
+  ],
+  "CSAUN": [
+    "NGMCINT",
+    "NGMCALL",
+    "NGMCLON"
+  ],
+  "CTUTT": [
+    "NGMCINT",
+    "NGMCLON",
+    "NGMCALL"
+  ],
+  "DADAR": [
+    "NGMCINT",
+    "NGMCALL",
+    "NGMCLON"
+  ],
+  "DCABU": [
+    "NGMCINT",
+    "NGMCLON",
+    "NGMCALL"
+  ],
+  "DDWIN": [
+    "NGMCLON",
+    "NGMCINT"
+  ],
+  "ELDAV": [
+    "NGMCWWD",
+    "NGMCMBA",
+    "NGMCSPO",
+    "NGMCINT",
+    "NGMCALL",
+    "NGOPEM",
+    "NGOPEN"
+  ],
+  "ELIMA": [
+    "NGMCINT"
+  ],
+  "ELLES": [
+    "NGMCINT",
+    "NGMCALL",
+    "NGMCLON"
+  ],
+  "HANMC": [
+    "NGMCINT",
+    "NGMCALL",
+    "NGMCLON"
+  ],
+  "HCONS": [
+    "NGMCLON",
+    "NGMCMBA",
+    "NGMCINT"
+  ],
+  "HLETR": [
+    "NGMCWWD",
+    "NGMCINT",
+    "NGMCALL",
+    "NGMCLON"
+  ],
+  "HWILS": [
+    "NGMCINT",
+    "NGMCALL",
+    "NGMCLON"
+  ],
+  "JACKH": [
+    "NGMCLON",
+    "NGMCCOA",
+    "NGMCALL",
+    "NGMCINT"
+  ],
+  "JHELM": [
+    "NGMCINT",
+    "NGMCALL",
+    "NGMCLON"
+  ],
+  "JOLAR": [
+    "NGMCINT",
+    "NGMCALL",
+    "NGMCLON"
+  ],
+  "JORSE": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCCOA"
+  ],
+  "KATKN": [
+    "NGMCINT"
+  ],
+  "LIBRE": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCCOA",
+    "NGMCALL"
+  ],
+  "MAMAT": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCMBA"
+  ],
+  "MASSI": [
+    "NGMCLON",
+    "NGMCCOA",
+    "NGMCALL",
+    "NGMCINT"
+  ],
+  "MBUFT": [
+    "NGMCESCO",
+    "NGMCINT",
+    "NGOPEM"
+  ],
+  "MJELMAN": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCALL"
+  ],
+  "MKOLL": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCALL"
+  ],
+  "OJOSH": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCCOA"
+  ],
+  "PSHRI": [
+    "NGMCINT",
+    "NGMCALL",
+    "NGMCLON"
+  ],
+  "REONE": [
+    "NGMCLON",
+    "NGMCWWD",
+    "NGMCALL",
+    "NGMCLSW",
+    "NGMCINT"
+  ],
+  "SBURT": [
+    "NGMCLON",
+    "NGMCCOA",
+    "NGMCALL",
+    "NGMCINT"
+  ],
+  "SZANO": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCCOA"
+  ],
+  "TMYLE": [
+    "NGMCLON",
+    "NGMCINT"
+  ],
+  "VLOUD": [
+    "NGMCINT",
+    "NGMCLON"
+  ],
+  "WBLAN": [
+    "NGMCINT",
+    "NGMCEMA",
+    "NGMCALL",
+    "NGMCLON"
+  ],
+  "ANCOO": [
+    "NGMCNOR",
+    "NGMCBRB",
+    "NGMCBRL",
+    "NGMCNAL",
+    "NGMCLON"
+  ],
+  "BISAM": [
+    "NGMCBRL",
+    "NGMCNAL",
+    "NGMCNAC",
+    "NGMCBRB",
+    "NGMCNOR",
+    "NGMCNOL"
+  ],
+  "BMALA": [
+    "NGMCBRL",
+    "NGMCNAL"
+  ],
+  "BSHEA": [
+    "NGMCNOR",
+    "NGMCBRL",
+    "NGMCBRB",
+    "NGMCNAC",
+    "NGMCWBA"
+  ],
+  "DANBE": [
+    "NGMCNOR",
+    "NGMCBRL",
+    "NGMCBRB",
+    "NGMCNAL",
+    "NGMCCOA",
+    "NGMCCON",
+    "NGMCINT"
+  ],
+  "DAROBI": [
+    "NGMCNOR",
+    "NGMCNAL",
+    "NGMCBRL",
+    "NGMCBRB",
+    "NGMCNAC",
+    "NGMCUK",
+    "NGMCLON"
+  ],
+  "DHIGH": [
+    "NGMCNOR",
+    "NGMCNAL",
+    "NGMCBRB",
+    "NGMCNOL",
+    "NGMCBRL"
+  ],
+  "DSTAND": [
+    "NGMCNOR",
+    "NGMCBRL",
+    "NGMCBRB",
+    "NGMCNAL",
+    "NGMCLON",
+    "NGMCMBA"
+  ],
+  "ESTRU": [
+    "NGMCNOR",
+    "NGMCBRL",
+    "NGMCBRB",
+    "NGMCNAC",
+    "NGMCLON"
+  ],
+  "GSPIN": [
+    "NGMCNOR",
+    "NGMCNAL",
+    "NGMCBRL",
+    "NGMCBRB",
+    "NGMCLON"
+  ],
+  "HWHIT": [
+    "NGMCBRL",
+    "NGMCNAL"
+  ],
+  "JCOLL": [
+    "NGMCNOR",
+    "NGMCBRL",
+    "NGMCBRB",
+    "NGMCNAL",
+    "NGMCMBA"
+  ],
+  "JONWA": [
+    "NGMCNOR",
+    "NGMCBRL",
+    "NGMCBRB",
+    "NGMCNAC",
+    "NGMCUK"
+  ],
+  "LKURT": [
+    "NGMCNOR",
+    "NGMCBRL",
+    "NGMCBRB",
+    "NGMCNAL",
+    "NGMCUK",
+    "NGMCLON",
+    "NGMCMBA"
+  ],
+  "MSTIR3": [
+    "NGMCNOR",
+    "NGMCNAL",
+    "NGMCBRB",
+    "NGMCBRL"
+  ],
+  "RMCDO": [
+    "NGMCLON",
+    "NGMCMBA",
+    "NGMCUK",
+    "NGMCNAL"
+  ],
+  "SHASL2": [
+    "NGMCNOR",
+    "NGMCNAL",
+    "NGMCNOL"
+  ],
+  "LAGOR": [
+    "NGDOOR",
+    "NGMCLON"
+  ],
+  "THODE": [
+    "NGMCLON",
+    "NGMCWBA",
+    "NGMCUK",
+    "NGDOOR"
+  ],
+  "VIJMU": [
+    "NGDOOR"
+  ],
+  "RHETE": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCCOA",
+    "NGOPEN",
+    "NGOPEM"
+  ],
+  "SHIKP": [
+    "NGMCLSW",
+    "NGMCALL",
+    "NGMCINT",
+    "NGMCLON",
+    "NGOPEN",
+    "NGOPEM"
+  ],
+  "VALDA": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCALL"
+  ],
+  "JACOL": [
+    "NGMCSCO",
+    "NGMCALL",
+    "NGMCCON"
+  ],
+  "JANEW": [
+    "NGMCSCO",
+    "NGMCCON",
+    "NGMCLON"
+  ],
+  "KMILL": [
+    "NGMCSCO",
+    "NGMCCOA"
+  ],
+  "KSTEW": [
+    "NGMCSCO",
+    "NGMCCON"
+  ],
+  "MACANT": [
+    "NGMCSCO",
+    "NGMCLON",
+    "NGMCCON"
+  ],
+  "MICHT": [
+    "NGMCSCO",
+    "NGMCESCO",
+    "NGMCCON"
+  ],
+  "RLITT": [
+    "NGMCSCO",
+    "NGMCCON",
+    "NGMCLON"
+  ],
+  "ADSMI": [
+    "NGMCINT"
+  ],
+  "AMILE": [
+    "NGMCMBA",
+    "NGMCLON"
+  ],
+  "CMAST": [
+    "NGMCINT",
+    "NGMCLON",
+    "NGMCALL",
+    "NGMCCON"
+  ],
+  "CTURN": [
+    "NGMCNOR",
+    "NGMCBRL",
+    "NGMCBRB",
+    "NGMCNAL",
+    "NGMCCOA",
+    "NGMCALL",
+    "NGMCUK",
+    "NGMCLON",
+    "NGOPEM"
+  ],
+  "IMACD": [
+    "NGMCMBA",
+    "NGMCLON",
+    "NGMCNUC",
+    "NGMCALL",
+    "NGMCBRL",
+    "NGMCUK",
+    "NGMCINT",
+    "NGMCCOA"
+  ],
+  "JBOCK": [
+    "NGMCMBA",
+    "NGMCLON",
+    "NGMCNUC",
+    "NGMCALL",
+    "NGOPEN"
+  ],
+  "KAREI": [
+    "NGMCLON",
+    "NGMCKRM"
+  ],
+  "KGRAC": [
+    "NGMCINT",
+    "NGMCALL",
+    "NGMCLON"
+  ],
+  "MAHOW": [
+    "NGMCMBA",
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCBRL"
+  ],
+  "MKALU": [
+    "NGMCLON",
+    "NGMCINT"
+  ],
+  "OMCAL": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCALL"
+  ],
+  "RBARD": [
+    "NGMCINT"
+  ],
+  "SCUSH": [
+    "NGMCINT"
+  ],
+  "SLADA": [
+    "NGMCMBA",
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCCOA",
+    "NGMCBRL"
+  ],
+  "TLOON": [
+    "NGMCALL",
+    "NGMCESCO",
+    "NGMCINT"
+  ]
 };
 
 function toTitleCase(str) {
@@ -553,14 +1278,6 @@ export const approversData = [{
   officeName: "MEDIACOM",
   securityGroup: "PRAPRBUY",
   businessUnit: "International"
-}, {
-  id: "JONWA",
-  firstName: "Jonathan",
-  lastName: "Waller",
-  email: "jonathan.waller@essencemediacom.com",
-  officeName: "MEDIACOM NORTH",
-  securityGroup: "PRAPRGBY",
-  businessUnit: "North"
 }, {
   id: "JORSE",
   firstName: "Jordan",
