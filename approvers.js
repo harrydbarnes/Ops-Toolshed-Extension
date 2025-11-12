@@ -51,10 +51,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const updateSelectedCount = () => {
         const footerActions = document.querySelector('.footer-actions');
         selectedCount.textContent = `${selectedApprovers.size} approver${selectedApprovers.size === 1 ? '' : 's'} selected`;
-        if (selectedApprovers.size > 0) {
+
+        const isVisible = footerActions.classList.contains('visible');
+
+        if (selectedApprovers.size > 0 && !isVisible) {
             footerActions.classList.remove('hidden');
-        } else {
-            footerActions.classList.add('hidden');
+            footerActions.classList.add('visible');
+        } else if (selectedApprovers.size === 0 && isVisible) {
+            footerActions.classList.remove('visible');
+            footerActions.classList.add('hiding');
+            setTimeout(() => {
+                footerActions.classList.add('hidden');
+                footerActions.classList.remove('hiding');
+            }, 250); // Corresponds to the animation duration
         }
     };
 
@@ -81,11 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (activeBusinessUnits.length > 0) {
-            if(activeBusinessUnits.includes("All")) {
-                // do nothing
-            } else {
-                filtered = filtered.filter(a => activeBusinessUnits.includes(a.businessUnit));
-            }
+            filtered = filtered.filter(a => activeBusinessUnits.includes(a.businessUnit));
         }
 
         if (activeClients.length > 0) {
@@ -94,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (activeCompanyUserIds.length > 0) {
             filtered = filtered.filter(a =>
-                activeCompanyUserIds.some(id => a.companyUserIds && a.companyUserIds.includes(id))
+                activeCompanyUserIds.every(id => a.companyUserIds && a.companyUserIds.includes(id))
             );
         }
 
