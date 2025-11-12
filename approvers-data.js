@@ -1168,7 +1168,7 @@ export const approversData = [{
   companyUserIds: companyUserIdsMap[approver.id] || []
 }));
 
-export const businessUnits = [...new Set(approversData.map(a => a.businessUnit).filter(bu => bu === 'All' || !bu.startsWith('BU') && !bu.startsWith('BG')))].sort();
+export const businessUnits = [...new Set(approversData.map(a => a.businessUnit).filter(bu => bu && (bu.startsWith('BU') || bu.startsWith('B12') || bu === 'All')))].sort();
 export const clients = [...new Set(approversData.map(a => a.officeName))].filter(Boolean);
 
 // Collect and export all unique Company User IDs
