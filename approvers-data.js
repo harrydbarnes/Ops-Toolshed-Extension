@@ -1891,7 +1891,7 @@ export const clients = [...new Set(approversData.map(a => a.officeName))].filter
 // Collect and export all unique Functions from businessUnit and specialty
 const businessUnitFunctions = approversData
   .map(a => a.businessUnit)
-  .filter(bu => bu && bu !== 'All' && !bu.startsWith('BU') && !bu.startsWith('B12') && bu !== 'B12');
+  .filter(bu => bu && bu !== 'All' && !bu.startsWith('BU') && !bu.startsWith('B12'));
 const specialtyFunctions = approversData
   .map(a => a.specialty)
   .filter(Boolean)
