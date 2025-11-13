@@ -86,8 +86,9 @@ body {
 .filter-section {
     margin-bottom: 15px;
     text-align: center;
-    flex: 1;
-    min-width: 0;
+    flex: 0 1 auto; /* Do not grow, allow shrinking, base size is auto */
+    max-width: 400px; /* Constrain the max width of the filter sections */
+    min-width: 300px; /* Prevent it from becoming too narrow */
 }
 
 .filter-section h3 {
@@ -416,7 +417,7 @@ body {
     justify-content: center;
     gap: 10px;
     overflow: hidden;
-    transition: max-height 0.4s ease-in-out, opacity 0.3s ease-in-out;
+    transition: max-height 0.35s ease-in-out, opacity 0.2s ease-in-out 0.1s;
     max-height: 0;
     opacity: 0;
     width: 100%;

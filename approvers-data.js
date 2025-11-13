@@ -733,11 +733,6 @@ const companyUserIdsMap = {
     "NGMCINT",
     "NGMCCOA",
     "NGMCBRL"
-  ],
-  "TLOON": [
-    "NGMCALL",
-    "NGMCESCO",
-    "NGMCINT"
   ]
 };
 
@@ -1796,15 +1791,6 @@ export const approversData = [{
   officeName: "MEDIACOM",
   securityGroup: "PRAPBMQS",
   businessUnit: "BU3"
-}, {
-  id: "TLOON",
-  firstName: "Tash",
-  lastName: "Looney",
-  email: "tash.looney@essencemediacom.com",
-  officeName: "MEDIACOM",
-  securityGroup: "PRAPRBUY",
-  businessUnit: "CCP",
-  specialty: "CCP"
 }, {
   id: "TMYLE",
   firstName: "Toby",
