@@ -86,8 +86,12 @@ body {
 .filter-section {
     margin-bottom: 15px;
     text-align: center;
+}
+
+/* Apply flex properties only to the sections in the top row */
+.filter-row > .filter-section {
     flex: 0 1 auto; /* Do not grow, allow shrinking, base size is auto */
-    max-width: 400px; /* Constrain the max width of the filter sections */
+    max-width: 500px; /* Widen the sections in the top row */
     min-width: 300px; /* Prevent it from becoming too narrow */
 }
 
