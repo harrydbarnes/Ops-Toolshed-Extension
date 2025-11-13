@@ -77,9 +77,17 @@ body {
     margin-bottom: 20px;
 }
 
+.filter-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+}
+
 .filter-section {
     margin-bottom: 15px;
     text-align: center;
+    flex: 1;
+    min-width: 0;
 }
 
 .filter-section h3 {
@@ -369,4 +377,40 @@ body {
 
 .manage-favourites-button {
     margin-left: 5px;
+}
+
+.toggle-container {
+    text-align: center;
+    margin-top: 10px;
+}
+
+.toggle-button {
+    background-color: transparent;
+    border: none;
+    color: #007bff;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 5px;
+}
+
+.toggle-button .fas {
+    margin-left: 5px;
+    transition: transform 0.3s ease;
+}
+
+.company-user-id-button {
+    overflow: hidden;
+    transition: max-height 0.5s ease-in-out, opacity 0.5s ease-in-out;
+    max-height: 100px; /* Set a value large enough to show the button */
+    opacity: 1;
+}
+
+.company-user-id-button.hidden {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    border: none;
 }

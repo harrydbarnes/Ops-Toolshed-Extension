@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const copyButton = document.getElementById('copy-button');
     const copySaveButton = document.getElementById('copy-save-button');
     const toastNotification = document.getElementById('toast-notification');
+    const toggleCompanyUserIdsButton = document.getElementById('toggle-company-user-ids');
 
     let selectedApprovers = new Set();
     let favoriteApprovers = new Set();
@@ -98,10 +99,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (activeCompanyUserIds.length > 0) {
-            // FIX: Use Array.prototype.some() for an OR condition
-            // to correctly show approvers with ANY of the selected Company User IDs.
             filtered = filtered.filter(a =>
-                activeCompanyUserIds.some(id => a.companyUserIds && a.companyUserIds.includes(id))
+                activeCompanyUserIds.every(id => a.companyUserIds && a.companyUserIds.includes(id))
             );
         }
 
@@ -255,12 +254,34 @@ document.addEventListener('DOMContentLoaded', () => {
         clientsContainer.appendChild(button);
     });
 
-    companyUserIdsList.forEach(id => {
+    const visibleIds = ['NGMCALL', 'NGMCLON', 'NGMOPEM', 'NGOPEN'];
+    companyUserIdsList.forEach((id, index) => {
         const button = document.createElement('button');
-        button.className = 'filter-button';
+        button.className = 'filter-button company-user-id-button';
+        if (!visibleIds.includes(id)) {
+            button.classList.add('hidden');
+        }
         button.dataset.value = id;
         button.textContent = id;
         companyUserIdsContainer.appendChild(button);
+    });
+
+    toggleCompanyUserIdsButton.addEventListener('click', () => {
+        const buttons = companyUserIdsContainer.querySelectorAll('.company-user-id-button');
+        const toggleText = toggleCompanyUserIdsButton.querySelector('.toggle-text');
+        const toggleIcon = toggleCompanyUserIdsButton.querySelector('i');
+        const isExpanded = toggleCompanyUserIdsButton.getAttribute('aria-expanded') === 'true';
+
+        toggleCompanyUserIdsButton.setAttribute('aria-expanded', !isExpanded);
+        toggleText.textContent = isExpanded ? 'More' : 'Hide';
+        toggleIcon.classList.toggle('fa-chevron-down', isExpanded);
+        toggleIcon.classList.toggle('fa-chevron-up', !isExpanded);
+
+        buttons.forEach(btn => {
+            if (!visibleIds.includes(btn.dataset.value)) {
+                btn.classList.toggle('hidden');
+            }
+        });
     });
 
     loadFavorites();
