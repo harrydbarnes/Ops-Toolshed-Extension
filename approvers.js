@@ -254,8 +254,24 @@ document.addEventListener('DOMContentLoaded', () => {
         clientsContainer.appendChild(button);
     });
 
-    const visibleIds = ['NGMCALL', 'NGMCLON', 'NGMOPEM', 'NGOPEN', 'NGOPEM'];
-    companyUserIdsList.forEach((id, index) => {
+    const visibleIds = ['NGMCALL', 'NGMCLON', 'NGMOPEM', 'NGOPEN'];
+    const sortedCompanyUserIds = [...companyUserIdsList].sort((a, b) => {
+        const aIsVisible = visibleIds.indexOf(a);
+        const bIsVisible = visibleIds.indexOf(b);
+
+        if (aIsVisible > -1 && bIsVisible > -1) { // Both are visible
+            return aIsVisible - bIsVisible; // Sort by their order in visibleIds
+        }
+        if (aIsVisible > -1) { // Only a is visible
+            return -1;
+        }
+        if (bIsVisible > -1) { // Only b is visible
+            return 1;
+        }
+        return a.localeCompare(b); // Neither are visible, sort alphabetically
+    });
+
+    sortedCompanyUserIds.forEach(id => {
         const button = document.createElement('button');
         button.className = 'filter-button company-user-id-button';
         if (!visibleIds.includes(id)) {
