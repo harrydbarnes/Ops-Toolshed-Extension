@@ -33,6 +33,10 @@ document.addEventListener('DOMContentLoaded', () => {
             card.dataset.approverId = approver.id;
 
             const isFavorited = favoriteApprovers.has(approver.id);
+            const specialtyTag = (approver.specialty && approver.specialty !== approver.businessUnit)
+                ? `<span class="tag specialty">${approver.specialty}</span>`
+                : '';
+
             card.innerHTML = `
                 <div class="approver-card-header">
                     <h4>${approver.firstName} ${approver.lastName}</h4>
@@ -42,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="approver-tags">
                     <span class="tag">${approver.officeName}</span>
                     <span class="tag">${approver.businessUnit}</span>
-                    ${approver.specialty ? `<span class="tag specialty">${approver.specialty}</span>` : ''}
+                    ${specialtyTag}
                 </div>
             `;
             approversList.appendChild(card);
@@ -254,50 +258,40 @@ document.addEventListener('DOMContentLoaded', () => {
         clientsContainer.appendChild(button);
     });
 
-    const visibleIds = ['NGMCALL', 'NGMCLON', 'NGMOPEM', 'NGOPEN'];
-    const sortedCompanyUserIds = [...companyUserIdsList].sort((a, b) => {
-        const aIsVisible = visibleIds.indexOf(a);
-        const bIsVisible = visibleIds.indexOf(b);
+    const visibleIds = ['NGMCALL', 'NGMCLON', 'NGMOPEM', 'NGOPEN', 'NGMCKRM'];
+    const initialFiltersContainer = document.querySelector('.initial-filters-container');
+    const moreFiltersContainer = document.querySelector('.more-filters-container');
 
-        if (aIsVisible > -1 && bIsVisible > -1) { // Both are visible
-            return aIsVisible - bIsVisible; // Sort by their order in visibleIds
-        }
-        if (aIsVisible > -1) { // Only a is visible
-            return -1;
-        }
-        if (bIsVisible > -1) { // Only b is visible
-            return 1;
-        }
-        return a.localeCompare(b); // Neither are visible, sort alphabetically
-    });
-
-    sortedCompanyUserIds.forEach(id => {
+    companyUserIdsList.forEach(id => {
         const button = document.createElement('button');
-        button.className = 'filter-button company-user-id-button';
-        if (!visibleIds.includes(id)) {
-            button.classList.add('is-hidden');
-        }
+        button.className = 'filter-button';
         button.dataset.value = id;
         button.textContent = id;
-        companyUserIdsContainer.appendChild(button);
+
+        if (visibleIds.includes(id)) {
+            initialFiltersContainer.appendChild(button);
+        } else {
+            moreFiltersContainer.appendChild(button);
+        }
     });
 
     toggleCompanyUserIdsButton.addEventListener('click', () => {
-        const buttons = companyUserIdsContainer.querySelectorAll('.company-user-id-button');
+        const isExpanded = toggleCompanyUserIdsButton.getAttribute('aria-expanded') === 'true';
         const toggleText = toggleCompanyUserIdsButton.querySelector('.toggle-text');
         const toggleIcon = toggleCompanyUserIdsButton.querySelector('i');
-        const isExpanded = toggleCompanyUserIdsButton.getAttribute('aria-expanded') === 'true';
 
         toggleCompanyUserIdsButton.setAttribute('aria-expanded', !isExpanded);
-        toggleText.textContent = isExpanded ? 'More' : 'Hide';
-        toggleIcon.classList.toggle('fa-chevron-down', isExpanded);
-        toggleIcon.classList.toggle('fa-chevron-up', !isExpanded);
+        moreFiltersContainer.classList.toggle('is-expanded');
 
-        buttons.forEach(btn => {
-            if (!visibleIds.includes(btn.dataset.value)) {
-                btn.classList.toggle('is-hidden');
-            }
-        });
+        if (isExpanded) {
+            toggleText.textContent = 'More';
+            toggleIcon.classList.remove('fa-chevron-up');
+            toggleIcon.classList.add('fa-chevron-down');
+        } else {
+            toggleText.textContent = 'Hide';
+            toggleIcon.classList.remove('fa-chevron-down');
+            toggleIcon.classList.add('fa-chevron-up');
+        }
     });
 
     loadFavorites();

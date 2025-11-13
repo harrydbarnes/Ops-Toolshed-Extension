@@ -51,10 +51,15 @@
         <div class="filter-section">
             <h3>Prisma Location Required</h3>
             <div id="company-user-ids-filters" class="filter-buttons">
-                <!-- Company User ID buttons will be dynamically inserted here -->
+                <div class="initial-filters-container">
+                    <!-- Initially visible buttons will be inserted here -->
+                </div>
+                <div class="more-filters-container">
+                    <!-- Initially hidden buttons will be inserted here -->
+                </div>
             </div>
             <div class="toggle-container">
-                <button id="toggle-company-user-ids" class="toggle-button">
+                <button id="toggle-company-user-ids" class="toggle-button" aria-expanded="false">
                     <span class="toggle-text">More</span> <i class="fas fa-chevron-down"></i>
                 </button>
             </div>
