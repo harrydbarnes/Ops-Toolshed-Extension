@@ -254,7 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
         clientsContainer.appendChild(button);
     });
 
-    const visibleIds = ['NGMCALL', 'NGMCLON', 'NGMOPEM', 'NGOPEN'];
+    const visibleIds = ['NGMCALL', 'NGMCLON', 'NGMOPEM', 'NGOPEN', 'NGOPEM'];
     companyUserIdsList.forEach((id, index) => {
         const button = document.createElement('button');
         button.className = 'filter-button company-user-id-button';
