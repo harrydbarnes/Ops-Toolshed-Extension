@@ -80,7 +80,7 @@ body {
 .filter-row {
     display: flex;
     justify-content: space-between;
-    gap: 10px;
+    gap: 5px;
 }
 
 .filter-section {
@@ -406,7 +406,7 @@ body {
     opacity: 1;
 }
 
-.company-user-id-button.hidden {
+.company-user-id-button.is-hidden {
     max-height: 0;
     opacity: 0;
     padding-top: 0;

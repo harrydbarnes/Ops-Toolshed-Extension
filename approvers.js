@@ -259,7 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const button = document.createElement('button');
         button.className = 'filter-button company-user-id-button';
         if (!visibleIds.includes(id)) {
-            button.classList.add('hidden');
+            button.classList.add('is-hidden');
         }
         button.dataset.value = id;
         button.textContent = id;
@@ -279,7 +279,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         buttons.forEach(btn => {
             if (!visibleIds.includes(btn.dataset.value)) {
-                btn.classList.toggle('hidden');
+                btn.classList.toggle('is-hidden');
             }
         });
     });
