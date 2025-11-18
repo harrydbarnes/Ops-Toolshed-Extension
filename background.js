@@ -49,6 +49,7 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.sync.get([
     'countPlacementsSelectedEnabled',
     'approverWidgetOptimiseEnabled',
+    'swapAccountsEnabled',
     'timesheetReminderEnabled',
     'reminderDay',
     'reminderTime'
@@ -66,6 +67,10 @@ chrome.runtime.onInstalled.addListener(() => {
 
     if (data.approverWidgetOptimiseEnabled === undefined) {
         defaults.approverWidgetOptimiseEnabled = true;
+    }
+
+    if (data.swapAccountsEnabled === undefined) {
+        defaults.swapAccountsEnabled = true;
     }
 
     if (data.reminderDay === undefined) {

@@ -58,6 +58,7 @@
         "features/approver-pasting.js",
         "features/stats-collector.js",
         "features/placement-counter.js",
+        "features/swap-accounts.js",
         "content.js"
       ],
       "css": ["approvers.css", "content.css"],

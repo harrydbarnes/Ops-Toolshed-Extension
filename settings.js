@@ -398,6 +398,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupToggle('automateFormFieldsToggle', 'automateFormFieldsEnabled', 'Automate Form Fields setting saved:');
     setupToggle('countPlacementsSelectedToggle', 'countPlacementsSelectedEnabled', 'Count Placements Selected setting saved:');
     setupToggle('approverWidgetOptimiseToggle', 'approverWidgetOptimiseEnabled', 'Approver Widget Optimise setting saved:');
+    setupToggle('swapAccountsToggle', 'swapAccountsEnabled', 'Swap Accounts setting saved:');
 
     // Aura Reminders (Timesheet)
     const timesheetReminderToggle = document.getElementById('timesheetReminderToggle');

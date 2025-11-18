@@ -69,6 +69,10 @@ async function mainContentScriptInit() {
         window.placementCounterFeature.initialize();
     }
 
+    if (window.swapAccountsFeature) {
+        window.swapAccountsFeature.initialize();
+    }
+
     if (window.logoFeature.shouldReplaceLogoOnThisPage()) {
         await window.remindersFeature.fetchCustomReminders(); // Fetch initial set of custom reminders
         window.logoFeature.checkAndReplaceLogo();
