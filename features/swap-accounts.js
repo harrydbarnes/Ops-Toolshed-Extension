@@ -9,13 +9,19 @@
             // 1. Find and click the user menu to open it.
             const userMenu = await utils.waitForElementInShadow('mo-banner-user-menu');
             if (!userMenu) throw new Error('Could not find user menu component.');
-            userMenu.click();
+
+            // The actual clickable element is deeper in the shadow DOM.
+            const clickableMenu = utils.queryShadowDom('mo-menu', userMenu.shadowRoot);
+            if(!clickableMenu) throw new Error('Could not find clickable menu element.');
+            clickableMenu.click();
+
 
             // 2. Wait for the menu content, then find and click "User Registration".
-            const userMenuContent = await utils.waitForElementInShadow('mo-banner-user-menu-content', document, 5000);
-            if (!userMenuContent || !userMenuContent.shadowRoot) throw new Error('User menu content or its shadow root not found.');
+            const userMenuContent = await utils.waitForElement('mo-banner-user-menu-content', document, 5000);
+            if (!userMenuContent) throw new Error('User menu content not found.');
 
-            const labels = userMenuContent.shadowRoot.querySelectorAll('.user-menu-item-label');
+            // The items are in the light DOM of the content element, not a shadow root.
+            const labels = userMenuContent.querySelectorAll('.user-menu-item-label');
             const userRegistrationButton = Array.from(labels).find(el => el.textContent.trim() === 'User Registration');
             if (!userRegistrationButton) throw new Error('"User Registration" button not found in menu.');
             userRegistrationButton.click();
@@ -44,7 +50,7 @@
             console.error('Error during account swap:', error);
             utils.showToast(`Swap failed: ${error.message}`, 'error');
             swapButton.disabled = false;
-            swapButton.textContent = 'Swap';
+            swapButton.textContent = 'Swap Accounts';
         }
     }
 
@@ -57,9 +63,9 @@
             if (!parentContainer || parentContainer.querySelector('.swap-accounts-button')) return;
 
             const swapButton = document.createElement('button');
-            swapButton.textContent = 'Swap';
+            swapButton.textContent = 'Swap Accounts';
             swapButton.title = 'Swap Accounts';
-            swapButton.className = 'filter-button prisma-paste-button swap-accounts-button';
+            swapButton.className = 'filter-button prisma-paste-button gmi-chat-button swap-accounts-button';
             swapButton.style.marginRight = '8px';
             swapButton.style.alignSelf = 'center';
 
