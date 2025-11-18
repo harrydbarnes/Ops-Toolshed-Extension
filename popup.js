@@ -188,14 +188,20 @@ function handleOpenCampaignDNumber() {
     const dNumberError = document.getElementById('dNumberError');
     if (!dNumberInput || !dNumberError) return;
 
-    const dNumber = dNumberInput.value.trim().toUpperCase();
-    // A D-number must start with 'D' (case-insensitive) and be followed by exactly 8 digits.
-    if (!/^D\d{8}$/i.test(dNumber)) {
-        dNumberError.textContent = 'Invalid format: must be D followed by 8 digits.';
+    // Get value, trim whitespace, and convert to uppercase
+    let campaignNumber = dNumberInput.value.trim().toUpperCase();
+
+    // Remove revision suffixes like -R0, -R1, etc.
+    campaignNumber = campaignNumber.replace(/-R\d+$/, '');
+
+    // A D-number is 'D' + 8 digits. An O-number is 'O-' + 5 alphanumeric chars.
+    if (!/^(D\d{8}|O-[A-Z0-9]{5})$/.test(campaignNumber)) {
+        dNumberError.textContent = 'Invalid format: use D followed by 8 digits, or O- followed by 5 chars.';
         dNumberError.classList.remove('hidden');
     } else {
         dNumberError.classList.add('hidden');
-        chrome.runtime.sendMessage({ action: "performDNumberSearch", dNumber: dNumber }, (response) => {
+        // The message action is still called "performDNumberSearch" but now sends a generic campaignNumber
+        chrome.runtime.sendMessage({ action: "performDNumberSearch", dNumber: campaignNumber }, (response) => {
             if (chrome.runtime.lastError) {
                 dNumberError.textContent = `Error: ${chrome.runtime.lastError.message}`;
                 dNumberError.classList.remove('hidden');
