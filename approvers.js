@@ -258,7 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
         clientsContainer.appendChild(button);
     });
 
-    const visibleIds = ['NGMCALL', 'NGMCLON', 'NGMOPEM', 'NGOPEN', 'NGMCKRM'];
+    const visibleIds = ['NGMCALL', 'NGMCLON', 'NGOPEM', 'NGOPEN', 'NGMCKRM'];
     const initialFiltersContainer = document.querySelector('.initial-filters-container');
     const moreFiltersContainer = document.querySelector('.more-filters-container');
 
