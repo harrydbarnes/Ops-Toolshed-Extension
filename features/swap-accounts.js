@@ -21,7 +21,7 @@
 
 
             // 4. Wait for the menu content, then find and click "User Registration".
-            const userMenuContent = await utils.waitForElement('mo-banner-user-menu-content', document, 5000);
+            const userMenuContent = await utils.waitForElementInShadow('mo-banner-user-menu-content', document, 5000);
             if (!userMenuContent) throw new Error('User menu content not found.');
 
             // The items are in the light DOM of the content element, not a shadow root.
@@ -63,12 +63,15 @@
             const userMenu = await utils.waitForElementInShadow('mo-banner-user-menu', document, 15000);
 
             const parentContainer = userMenu.parentElement;
-            if (!parentContainer || parentContainer.querySelector('.swap-accounts-button')) return;
+            if (!parentContainer) return;
 
             const swapButton = document.createElement('button');
             swapButton.textContent = 'Swap Accounts';
             swapButton.title = 'Swap Accounts';
-            swapButton.className = 'swap-accounts-button';
+            swapButton.className = 'filter-button prisma-paste-button gmi-chat-button';
+
+            swapButton.style.marginRight = '8px';
+            swapButton.style.alignSelf = 'center';
 
             swapButton.addEventListener('click', () => handleSwap(swapButton));
 

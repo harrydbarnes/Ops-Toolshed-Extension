@@ -447,8 +447,6 @@ a.settings-page-link:active {
     font-weight: 500;
 }
 
-#prismaApproversButton,
-#generateUrl,
-#openCampaignDNumber {
+#prismaApproversButton {
     font-size: 12px;
 }
