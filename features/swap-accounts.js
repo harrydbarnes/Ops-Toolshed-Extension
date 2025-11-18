@@ -66,19 +66,23 @@
             const parentContainer = userMenu.parentElement;
             if (!parentContainer || parentContainer.querySelector('.swap-accounts-button')) return;
 
-            // Wait for the GMI chat button to exist so we can copy its classes
-            const gmiChatButton = await utils.waitForElement('.gmi-chat-button', 15000);
-            if (!gmiChatButton) {
-                console.error("Swap Accounts: Could not find GMI Chat button to copy styles from.");
-                return;
-            }
-
             const swapButton = document.createElement('button');
             swapButton.textContent = 'Swap Accounts';
             swapButton.title = 'Swap Accounts';
-            swapButton.className = gmiChatButton.className + ' swap-accounts-button'; // Copy classes
+            swapButton.className = 'swap-accounts-button';
 
+            // Apply styles directly to the element
             Object.assign(swapButton.style, {
+                backgroundColor: '#ffffff',
+                border: '1px solid #d1d5db',
+                color: '#374151',
+                borderRadius: '20px',
+                padding: '6px 14px',
+                fontSize: '13px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+                lineHeight: '1',
                 marginRight: '8px',
                 alignSelf: 'center'
             });
