@@ -80,7 +80,7 @@ body {
 .filter-row {
     display: flex;
     justify-content: center;
-    gap: 20px;
+    gap: 55px;
 }
 
 .filter-section {
