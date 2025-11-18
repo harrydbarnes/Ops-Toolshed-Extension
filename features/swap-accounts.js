@@ -6,17 +6,21 @@
         swapButton.textContent = 'Swapping...';
 
         try {
-            // 1. Find and click the user menu to open it.
+            // 1. Find the user menu component.
             const userMenu = await utils.waitForElementInShadow('mo-banner-user-menu');
-            if (!userMenu) throw new Error('Could not find user menu component.');
+            if (!userMenu || !userMenu.shadowRoot) throw new Error('Could not find user menu component or its shadow root.');
 
-            // The actual clickable element is deeper in the shadow DOM.
-            const clickableMenu = utils.queryShadowDom('mo-menu', userMenu.shadowRoot);
+            // 2. Traverse the first shadow root to find the widget.
+            const bannerWidget = userMenu.shadowRoot.querySelector('mo-banner-widget');
+            if(!bannerWidget || !bannerWidget.shadowRoot) throw new Error('Could not find banner widget or its shadow root.');
+
+            // 3. Traverse the second shadow root to find the clickable menu.
+            const clickableMenu = bannerWidget.shadowRoot.querySelector('mo-menu');
             if(!clickableMenu) throw new Error('Could not find clickable menu element.');
             clickableMenu.click();
 
 
-            // 2. Wait for the menu content, then find and click "User Registration".
+            // 4. Wait for the menu content, then find and click "User Registration".
             const userMenuContent = await utils.waitForElement('mo-banner-user-menu-content', document, 5000);
             if (!userMenuContent) throw new Error('User menu content not found.');
 
@@ -26,16 +30,16 @@
             if (!userRegistrationButton) throw new Error('"User Registration" button not found in menu.');
             userRegistrationButton.click();
 
-            // 3. Wait for the dialog and find the PID buttons.
+            // 5. Wait for the dialog and find the PID buttons.
             const pidOptionsContainer = await utils.waitForElement('div.pid-options', 5000);
             if (!pidOptionsContainer) throw new Error('PID options container not found in dialog.');
 
-            // 4. Find the inactive PID button and click it.
+            // 6. Find the inactive PID button and click it.
             const inactiveButton = pidOptionsContainer.querySelector('button.mo-btn:not(.active)');
             if (!inactiveButton) throw new Error('Could not find an alternative PID to swap to.');
             inactiveButton.click();
 
-            // 5. Find and click the Save button.
+            // 7. Find and click the Save button.
             const saveButton = await utils.waitForElement('#saveButton');
             if (!saveButton) throw new Error('Save button not found.');
             saveButton.click();
@@ -62,12 +66,23 @@
             const parentContainer = userMenu.parentElement;
             if (!parentContainer || parentContainer.querySelector('.swap-accounts-button')) return;
 
+            // Wait for the GMI chat button to exist so we can copy its classes
+            const gmiChatButton = await utils.waitForElement('.gmi-chat-button', 15000);
+            if (!gmiChatButton) {
+                console.error("Swap Accounts: Could not find GMI Chat button to copy styles from.");
+                return;
+            }
+
             const swapButton = document.createElement('button');
             swapButton.textContent = 'Swap Accounts';
             swapButton.title = 'Swap Accounts';
-            swapButton.className = 'filter-button prisma-paste-button gmi-chat-button swap-accounts-button';
-            swapButton.style.marginRight = '8px';
-            swapButton.style.alignSelf = 'center';
+            swapButton.className = gmiChatButton.className + ' swap-accounts-button'; // Copy classes
+
+            Object.assign(swapButton.style, {
+                marginRight: '8px',
+                alignSelf: 'center'
+            });
+
 
             swapButton.addEventListener('click', () => handleSwap(swapButton));
 
