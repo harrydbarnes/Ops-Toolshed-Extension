@@ -136,6 +136,12 @@ body::-webkit-scrollbar-thumb:hover {
     box-sizing: border-box;
 }
 
+#campaignId::placeholder,
+#dNumber::placeholder,
+#campaignDate::placeholder {
+    font-size: 12px;
+}
+
 .campaign-actions-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;

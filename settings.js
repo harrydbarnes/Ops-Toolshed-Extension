@@ -188,7 +188,7 @@ document.addEventListener('DOMContentLoaded', function() {
             toast.classList.add('show', 'permanent'); // 'permanent' class can be styled to ensure it stays
 
             // Disable all interactive elements except for the export functionality
-            document.querySelectorAll('input, button, select, textarea, a').forEach(el => {
+        document.querySelectorAll('input, button:not(.tab-button), select, textarea, a').forEach(el => {
                 // IDs of elements to keep enabled
                 const allowedIds = ['generateExportData', 'exportDataTextarea', 'resetRemindersButton'];
                 if (!allowedIds.includes(el.id)) {

@@ -1,16 +1,19 @@
-import { approversData, businessUnits, clients } from './approvers-data.js';
+import { approversData, businessUnits, clients, functions, companyUserIdsList } from './approvers-data.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('search-input');
     const favoritesOnlyButton = document.getElementById('favorites-only-button');
     const businessUnitsContainer = document.getElementById('business-units-filters');
+    const functionContainer = document.getElementById('function-filters');
     const clientsContainer = document.getElementById('clients-filters');
+    const companyUserIdsContainer = document.getElementById('company-user-ids-filters');
     const approversList = document.getElementById('approvers-list');
     const approversCount = document.getElementById('approvers-count');
     const selectedCount = document.getElementById('selected-count');
     const copyButton = document.getElementById('copy-button');
     const copySaveButton = document.getElementById('copy-save-button');
     const toastNotification = document.getElementById('toast-notification');
+    const toggleCompanyUserIdsButton = document.getElementById('toggle-company-user-ids');
 
     let selectedApprovers = new Set();
     let favoriteApprovers = new Set();
@@ -30,6 +33,10 @@ document.addEventListener('DOMContentLoaded', () => {
             card.dataset.approverId = approver.id;
 
             const isFavorited = favoriteApprovers.has(approver.id);
+            const specialtyTag = (approver.specialty && approver.specialty !== approver.businessUnit)
+                ? `<span class="tag specialty">${approver.specialty}</span>`
+                : '';
+
             card.innerHTML = `
                 <div class="approver-card-header">
                     <h4>${approver.firstName} ${approver.lastName}</h4>
@@ -38,7 +45,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <p>${approver.email}</p>
                 <div class="approver-tags">
                     <span class="tag">${approver.officeName}</span>
-                    ${approver.specialty ? `<span class="tag specialty">${approver.specialty}</span>` : ''}
+                    <span class="tag">${approver.businessUnit}</span>
+                    ${specialtyTag}
                 </div>
             `;
             approversList.appendChild(card);
@@ -48,10 +56,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const updateSelectedCount = () => {
         const footerActions = document.querySelector('.footer-actions');
         selectedCount.textContent = `${selectedApprovers.size} approver${selectedApprovers.size === 1 ? '' : 's'} selected`;
-        if (selectedApprovers.size > 0) {
+
+        const isVisible = footerActions.classList.contains('visible');
+
+        if (selectedApprovers.size > 0 && !isVisible) {
             footerActions.classList.remove('hidden');
-        } else {
-            footerActions.classList.add('hidden');
+            footerActions.classList.add('visible');
+        } else if (selectedApprovers.size === 0 && isVisible) {
+            footerActions.classList.remove('visible');
+            footerActions.classList.add('hiding');
+            setTimeout(() => {
+                footerActions.classList.add('hidden');
+                footerActions.classList.remove('hiding');
+            }, 250); // Corresponds to the animation duration
         }
     };
 
@@ -59,7 +76,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const searchTerm = searchInput.value.toLowerCase();
         const favoritesOnly = favoritesOnlyButton.classList.contains('active');
         const activeBusinessUnits = [...businessUnitsContainer.querySelectorAll('.active')].map(btn => btn.dataset.value);
+        const activeFunctions = [...functionContainer.querySelectorAll('.active')].map(btn => btn.dataset.value);
         const activeClients = [...clientsContainer.querySelectorAll('.active')].map(btn => btn.dataset.value);
+        const activeCompanyUserIds = [...companyUserIdsContainer.querySelectorAll('.active')].map(btn => btn.dataset.value);
 
         let filtered = approversData;
 
@@ -76,15 +95,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (activeBusinessUnits.length > 0) {
-            if(activeBusinessUnits.includes("All")) {
-                // do nothing
-            } else {
-                filtered = filtered.filter(a => activeBusinessUnits.includes(a.businessUnit));
-            }
+            filtered = filtered.filter(a => activeBusinessUnits.includes(a.businessUnit));
         }
 
         if (activeClients.length > 0) {
             filtered = filtered.filter(a => activeClients.includes(a.officeName));
+        }
+
+        if (activeCompanyUserIds.length > 0) {
+            filtered = filtered.filter(a =>
+                activeCompanyUserIds.every(id => a.companyUserIds && a.companyUserIds.includes(id))
+            );
+        }
+
+        if (activeFunctions.length > 0) {
+            filtered = filtered.filter(a =>
+                activeFunctions.includes(a.businessUnit) || activeFunctions.includes(a.specialty)
+            );
         }
 
         renderApprovers(filtered);
@@ -123,7 +150,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     businessUnitsContainer.addEventListener('click', toggleFilterButton);
+    functionContainer.addEventListener('click', toggleFilterButton);
     clientsContainer.addEventListener('click', toggleFilterButton);
+    companyUserIdsContainer.addEventListener('click', toggleFilterButton);
 
     approversList.addEventListener('click', (e) => {
         const card = e.target.closest('.approver-card');
@@ -213,12 +242,56 @@ document.addEventListener('DOMContentLoaded', () => {
         businessUnitsContainer.appendChild(button);
     });
 
+    functions.forEach(func => {
+        const button = document.createElement('button');
+        button.className = 'filter-button';
+        button.dataset.value = func;
+        button.textContent = func;
+        functionContainer.appendChild(button);
+    });
+
     clients.forEach(client => {
         const button = document.createElement('button');
         button.className = 'filter-button';
         button.dataset.value = client;
         button.textContent = client;
         clientsContainer.appendChild(button);
+    });
+
+    const visibleIds = ['NGMCALL', 'NGMCLON', 'NGOPEM', 'NGOPEN', 'NGMCKRM'];
+    const initialFiltersContainer = document.querySelector('.initial-filters-container');
+    const moreFiltersContainer = document.querySelector('.more-filters-container');
+
+    companyUserIdsList.forEach(id => {
+        const button = document.createElement('button');
+        button.className = 'filter-button';
+        button.dataset.value = id;
+        button.textContent = id;
+
+        if (visibleIds.includes(id)) {
+            initialFiltersContainer.appendChild(button);
+        } else {
+            moreFiltersContainer.appendChild(button);
+        }
+    });
+
+    toggleCompanyUserIdsButton.addEventListener('click', () => {
+        const isExpanded = toggleCompanyUserIdsButton.getAttribute('aria-expanded') === 'true';
+        const toggleText = toggleCompanyUserIdsButton.querySelector('.toggle-text');
+        const toggleIcon = toggleCompanyUserIdsButton.querySelector('i');
+
+        toggleCompanyUserIdsButton.setAttribute('aria-expanded', !isExpanded);
+        moreFiltersContainer.classList.toggle('is-expanded');
+
+        if (isExpanded) {
+            toggleText.textContent = 'More';
+            toggleIcon.classList.remove('fa-chevron-up');
+            toggleIcon.classList.add('fa-chevron-down');
+        } else {
+            toggleText.textContent = 'Hide';
+            toggleIcon.classList.remove('fa-chevron-down');
+            toggleIcon.classList.add('fa-chevron-up');
+        }
     });
 
     loadFavorites();

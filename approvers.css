@@ -77,9 +77,22 @@ body {
     margin-bottom: 20px;
 }
 
+.filter-row {
+    display: flex;
+    justify-content: center;
+    gap: 55px;
+}
+
 .filter-section {
     margin-bottom: 15px;
     text-align: center;
+}
+
+/* Apply flex properties only to the sections in the top row */
+.filter-row > .filter-section {
+    flex: 0 1 auto; /* Do not grow, allow shrinking, base size is auto */
+    max-width: 500px; /* Widen the sections in the top row */
+    min-width: 300px; /* Prevent it from becoming too narrow */
 }
 
 .filter-section h3 {
@@ -96,6 +109,11 @@ body {
     flex-wrap: wrap;
     justify-content: center;
     gap: 10px;
+}
+
+#function-filters {
+    max-width: 800px;
+    margin: auto;
 }
 
 .filter-button {
@@ -229,7 +247,7 @@ body {
 }
 
 /* Footer Actions */
-@keyframes slide-up {
+@keyframes slideInUp {
     from {
         transform: translate(-50%, 100%);
         opacity: 0;
@@ -240,13 +258,23 @@ body {
     }
 }
 
+@keyframes slideOutDown {
+    from {
+        transform: translate(-50%, 0);
+        opacity: 1;
+    }
+    to {
+        transform: translate(-50%, 100%);
+        opacity: 0;
+    }
+}
+
 .footer-actions {
     position: fixed;
     bottom: 1.5rem;
     left: 50%;
     transform: translateX(-50%);
     z-index: 50;
-    animation: slide-up 0.3s ease-out forwards;
     background-color: rgba(255, 255, 255, 0.8);
     backdrop-filter: blur(8px);
     border: 1px solid #e5e7eb;
@@ -256,6 +284,15 @@ body {
     display: flex;
     align-items: center;
     gap: 1rem;
+    opacity: 0;
+}
+
+.footer-actions.visible {
+    animation: slideInUp 0.3s ease-out forwards;
+}
+
+.footer-actions.hiding {
+    animation: slideOutDown 0.25s ease-in forwards;
 }
 
 #selected-count {
@@ -345,4 +382,61 @@ body {
 
 .manage-favourites-button {
     margin-left: 5px;
+}
+
+.toggle-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+.toggle-button {
+    background-color: transparent;
+    border: none;
+    color: #007bff;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 5px;
+    display: flex;
+    align-items: center;
+}
+
+.toggle-button .toggle-text {
+    transition: opacity 0.2s ease-in-out;
+}
+
+.toggle-button .fas {
+    margin-left: 5px;
+    transition: transform 0.25s ease-in-out;
+}
+
+#company-user-ids-filters {
+    flex-direction: column;
+    align-items: center;
+}
+
+.more-filters-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    overflow: hidden;
+    transition: max-height 0.35s ease-in-out, opacity 0.2s ease-in-out 0.1s;
+    max-height: 0;
+    opacity: 0;
+    width: 100%;
+}
+
+.more-filters-container.is-expanded {
+    margin-top: 10px; /* Add space when the container is open */
+    max-height: 1000px; /* Arbitrary large value to allow content to expand */
+    opacity: 1;
+}
+
+/* This is the container for the initially visible buttons */
+.initial-filters-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
 }

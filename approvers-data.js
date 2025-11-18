@@ -1,198 +1,1904 @@
-export const approversData = [
-  { id: "ADCRO", firstName: "Adam", lastName: "Crow", email: "adam.crow@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPROV", businessUnit: "All" },
-  { id: "ADENE", firstName: "Adeel", lastName: "Nehim", email: "adeel.nehim@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "Social", specialty: "Social" },
-  { id: "ADMCC", firstName: "Adeola", lastName: "Mccabe", email: "adeola.mccabe@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "Social", specialty: "Social" },
-  { id: "ADSMI", firstName: "Adam", lastName: "Smith", email: "adam.smith1@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "PPC", specialty: "PPC" },
-  { id: "AMGIBS", firstName: "Amelia", lastName: "Monks", email: "amelia.monks@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "AMILE", firstName: "Ana", lastName: "Cuellar", email: "ana.cuellar@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "SEO", specialty: "SEO" },
-  { id: "AMUEL", firstName: "Adrian", lastName: "Mueller", email: "adrian.mueller@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPROV", businessUnit: "All" },
-  { id: "ANCOO", firstName: "Andrew", lastName: "Cook", email: "andrew.cook@essencemediacom.com", officeName: "MEDIACOM NORTH", securityGroup: "PRAPRGBY", businessUnit: "All" },
-  { id: "ANGIM", firstName: "Anna", lastName: "Gim", email: "anna.gim@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "ANIKO", firstName: "Athina", lastName: "Nikol", email: "athina.nikol@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "APYKE", firstName: "Adam", lastName: "Pyke", email: "adam.pyke@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "AROBE", firstName: "Amy", lastName: "Roberts", email: "amy.roberts@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "BG3" },
-  { id: "ASHEI", firstName: "Ashleigh", lastName: "Heitman", email: "ashleigh.heitman@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPROV", businessUnit: "All" },
-  { id: "ASTEP", firstName: "Adam", lastName: "Stephens", email: "adam.stephens@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPROV", businessUnit: "All" },
-  { id: "AWIJE", firstName: "Adrian", lastName: "Wijenathan", email: "adrian.wijenathan@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "BDRUR", firstName: "Beth", lastName: "Drury", email: "beth.drury@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "BESTA", firstName: "Ben", lastName: "Stanhope", email: "ben.stanhope1@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRPO", businessUnit: "All" },
-  { id: "BEWIL", firstName: "Becci", lastName: "Wilson", email: "becci.wilson@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "BISAM", firstName: "Billy", lastName: "Samuels", email: "billy.samuels@essencemediacom.com", officeName: "MEDIACOM NORTH", securityGroup: "PRAPRGBY", businessUnit: "All" },
-  { id: "BMALA", firstName: "Ben", lastName: "Malam", email: "ben.malam@essencemediacom.com", officeName: "MEDIACOM NORTH", securityGroup: "PRAPRGBY", businessUnit: "All" },
-  { id: "BSHEA", firstName: "Briony", lastName: "Sheard", email: "briony.sheard@essencemediacom.com", officeName: "MEDIACOM NORTH", securityGroup: "PRAPROV", businessUnit: "All" },
-  { id: "CBECK", firstName: "Christofer", lastName: "Beckman", email: "christofer.beckman@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "CMAST", firstName: "Caroline", lastName: "Mastromauro", email: "caroline.mastromauro@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "CMCWH", firstName: "Caroline", lastName: "Mcwhirter", email: "caroline.mcwhirter@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPROV", businessUnit: "All" },
-  { id: "CRIDS", firstName: "Carys", lastName: "Profitdale", email: "carys.profitdale@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "CROSE", firstName: "Cheyenne", lastName: "Rose", email: "cheyenne.rose@essencemediacom.com", officeName: "ESSENCE", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "CSAUN", firstName: "Charlie", lastName: "Saunders", email: "charlie.saunders@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "CTURN", firstName: "Chris", lastName: "Turner", email: "chris.turner@essencemediacom.com", officeName: "MEDIACOM NORTH", securityGroup: "PRAPROV", businessUnit: "All" },
-  { id: "CTUTT", firstName: "Connor", lastName: "Tuttle", email: "connor.tuttle@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "DADAR", firstName: "Danielle", lastName: "Darko", email: "danielle.darko@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPBMQS", businessUnit: "All" },
-  { id: "DANBE", firstName: "Danielle", lastName: "Bennett", email: "danielle.bennett@essencemediacom.com", officeName: "MEDIACOM NORTH", securityGroup: "PRAPRGBY", businessUnit: "All" },
-  { id: "DAROBI", firstName: "Dan", lastName: "Robinson", email: "dan.robinson@essencemediacom.com", officeName: "MEDIACOM NORTH", securityGroup: "PRAPRGBY", businessUnit: "All" },
-  { id: "DCABU", firstName: "Damla", lastName: "Cabuk", email: "damla.cabuk@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "DDWIN", firstName: "Danique", lastName: "De Winter", email: "danique.dewinter@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPROV", businessUnit: "All" },
-  { id: "DHIGH", firstName: "Dean", lastName: "Highfield", email: "dean.highfield@essencemediacom.com", officeName: "MEDIACOM NORTH", securityGroup: "PRAPRGBY", businessUnit: "All" },
-  { id: "DSTAND", firstName: "David", lastName: "Standaloft", email: "david.standaloft@essencemediacom.com", officeName: "MEDIACOM NORTH", securityGroup: "PRAPROV", businessUnit: "All" },
-  { id: "EBRAD", firstName: "Emma", lastName: "Brady", email: "emma.brady@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "ELDAV", firstName: "Ella", lastName: "Davies", email: "ella.davies@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRPO", businessUnit: "All" },
-  { id: "ELIMA", firstName: "Erza", lastName: "Limani", email: "erza.limani@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRPO", businessUnit: "All" },
-  { id: "ELLES", firstName: "Ellie", lastName: "Esplen", email: "ellie.esplen@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRPO", businessUnit: "All" },
-  { id: "EMCCA", firstName: "Emma", lastName: "Mccarthy", email: "emma.mccarthy@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "FMCKI", firstName: "Faye", lastName: "Mckinney", email: "faye.mckinney@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "FPIAN", firstName: "Francesco", lastName: "Piani", email: "francesco.piani@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "GFARR", firstName: "Grace", lastName: "Farrer", email: "grace.farrer@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "GLEAF", firstName: "Grace", lastName: "Leaford", email: "grace.leaford@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "GMCLA", firstName: "Georgina", lastName: "Mclauchlan", email: "georgina.mclauchlan@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "GNELS", firstName: "George", lastName: "Nelson", email: "george.nelson@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "HAVAN", firstName: "Harvey", lastName: "Vann", email: "harvey.vann@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRPO", businessUnit: "All" },
-  { id: "HCLAR", firstName: "Hannah", lastName: "Clarke", email: "hannah.clarke@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "HKATH", firstName: "Hannah", lastName: "Kathri", email: "hannah.kathri@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "HNEAL", firstName: "Hollie", lastName: "Neal", email: "hollie.neal@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "HWILL", firstName: "Hamza", lastName: "Williams", email: "hamza.williams@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "HYADL", firstName: "Haya", lastName: "Dl", email: "haya.dl@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "JACOL", firstName: "Jack", lastName: "Collins", email: "jack.collins@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "JALVE", firstName: "Jake", lastName: "Alves", email: "jake.alves@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "JAMGI", firstName: "Jamie", lastName: "Gibson", email: "jamie.gibson@essencemediacom.com", officeName: "MEDIACOM NORTH", securityGroup: "PRAPRGBY", businessUnit: "All" },
-  { id: "JBENS", firstName: "Jake", lastName: "Benson", email: "jake.benson@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "JBONN", firstName: "Julia", lastName: "Bonny", email: "julia.bonny@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "JBROO", firstName: "James", lastName: "Brooks", email: "james.brooks@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "BG2", specialty: "BG2" },
-  { id: "JCHAP", firstName: "Joe", lastName: "Chapman", email: "joe.chapman@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "JCLAD", firstName: "Jayde", lastName: "Cladd", email: "jayde.cladd@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "JDEAN", firstName: "Jack", lastName: "Dean", email: "jack.dean@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "JELTO", firstName: "Jess", lastName: "Elton", email: "jess.elton@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "JENVA", firstName: "Jake", lastName: "Envall", email: "jake.envall@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "JFORD", firstName: "Jess", lastName: "Ford", email: "jess.ford@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "JGRAN", firstName: "Jack", lastName: "Grant", email: "jack.grant@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "JHARR", firstName: "Jack", lastName: "Harrison", email: "jack.harrison@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "JHILL", firstName: "James", lastName: "Hills", email: "james.hills@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "JKING", firstName: "Jade", lastName: "King", email: "jade.king@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "JLUNA", firstName: "Javier", lastName: "Luna", email: "javier.luna@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "JMICK", firstName: "James", lastName: "Mickiewicz", email: "james.mickiewicz@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "JMOTT", firstName: "James", lastName: "Mott", email: "james.mott@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "JOOHO", firstName: "Joo", lastName: "Ho", email: "joo.ho@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "JPARK", firstName: "Jay", lastName: "Park", email: "jay.park@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "JSHER", firstName: "Jack", lastName: "Sherman", email: "jack.sherman@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "JSMAL", firstName: "James", lastName: "Smalley", email: "james.smalley@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "JTURN", firstName: "James", lastName: "Turner", email: "james.turner@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "KATKI", firstName: "Katrina", lastName: "Atkin", email: "katrina.atkin@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "KBULL", firstName: "Kristy", lastName: "Bull", email: "kristy.bull@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "KCADE", firstName: "Kavitha", lastName: "Cadeaux", email: "kavitha.cadeaux@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "KDAVI", firstName: "Kate", lastName: "Davis", email: "kate.davis@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "KGRIM", firstName: "Kate", lastName: "Grimshaw", email: "kate.grimshaw@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "KHUNG", firstName: "Kevin", lastName: "Hung", email: "kevin.hung@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "KJAME", firstName: "Kirsty", lastName: "James", email: "kirsty.james@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "KKEMP", firstName: "Kathryn", lastName: "Kemp", email: "kathryn.kemp@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "KMACD", firstName: "Katie", lastName: "Macdonald", email: "katie.macdonald@essencemediacom.com", officeName: "MEDIACOM NORTH", securityGroup: "PRAPRGBY", businessUnit: "All" },
-  { id: "KMART", firstName: "Kate", lastName: "Martin", email: "kate.martin@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "KMERR", firstName: "Katie", lastName: "Merrick", email: "katie.merrick@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "KPARS", firstName: "Kate", lastName: "Parsons", email: "kate.parsons@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "KPEAR", firstName: "Kathryn", lastName: "Pearson", email: "kathryn.pearson@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "KRICH", firstName: "Katie", lastName: "Richards", email: "katie.richards@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "KSTIL", firstName: "Kelly", lastName: "Stiles", email: "kelly.stiles@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "KTREB", firstName: "Kamil", lastName: "Trebnicki", email: "kamil.trebnicki@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "LAURP", firstName: "Lauren", lastName: "Purvis", email: "lauren.purvis@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "LBROW", firstName: "Laura", lastName: "Brown", email: "laura.brown@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "LCHEC", firstName: "Luca", lastName: "Checchetto", email: "luca.checchetto@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "LDICK", firstName: "Lucy", lastName: "Dickens", email: "lucy.dickens@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "LDOYL", firstName: "Lucy", lastName: "Doyle", email: "lucy.doyle@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "LGRAS", firstName: "Luke", lastName: "Grassi", email: "luke.grassi@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "LHUNT", firstName: "Lyndsey", lastName: "Hunt", email: "lyndsey.hunt@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "LJAME", firstName: "Louise", lastName: "James", email: "louise.james@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "LKYLE", firstName: "Luke", lastName: "Kyle", email: "luke.kyle@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "LLOUR", firstName: "Louisa", lastName: "Lourdes", email: "louisa.lourdes@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "LMART", firstName: "Lucy", lastName: "Martin", email: "lucy.martin@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "LMCKA", firstName: "Lucy", lastName: "Mckay", email: "lucy.mckay@essencemediacom.com", officeName: "MEDIACOM NORTH", securityGroup: "PRAPRGBY", businessUnit: "All" },
-  { id: "LMORG", firstName: "Laura", lastName: "Morgan", email: "laura.morgan@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "LPAYN", firstName: "Lara", lastName: "Payne", email: "lara.payne@essencemediacom.com", officeName: "ESSENCE", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "LRIDE", firstName: "Lucy", lastName: "Rideal", email: "lucy.rideal@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "LROYS", firstName: "Lucy", lastName: "Royston", email: "lucy.royston@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "LSAUN", firstName: "Lucy", lastName: "Saunders", email: "lucy.saunders@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "LSCON", firstName: "Laura", lastName: "Scon", email: "laura.scon@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "LTOMP", firstName: "Lauren", lastName: "Tompkins", email: "lauren.tompkins@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "LWOLF", firstName: "Lewis", lastName: "Wolfe", email: "lewis.wolfe@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "MAPPL", firstName: "Max", lastName: "Appleby", email: "max.appleby@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "MARQU", firstName: "Maria", lastName: "Arquist", email: "maria.arquist@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "MBEAC", firstName: "Molly", lastName: "Beach", email: "molly.beach@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "MBHOW", firstName: "Mark", lastName: "Bhowmick", email: "mark.bhowmick@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "MCALD", firstName: "Michael", lastName: "Caldwell", email: "michael.caldwell@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "MCHUR", firstName: "Mia", lastName: "Churchill", email: "mia.churchill@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "MDAVI", firstName: "Megan", lastName: "Davis", email: "megan.davis@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "MGOUG", firstName: "Martin", lastName: "Gough", email: "martin.gough@essencemediacom.com", officeName: "MEDIACOM NORTH", securityGroup: "PRAPRGBY", businessUnit: "All" },
-  { id: "MHAQU", firstName: "Milhan", lastName: "Haque", email: "milhan.haque@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "MJAVI", firstName: "Maria", lastName: "Javidi", email: "maria.javidi@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "MKANT", firstName: "Michelle", lastName: "Kanter", email: "michelle.kanter@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "MKOVA", firstName: "Martin", lastName: "Kovacs", email: "martin.kovacs@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "MKRAM", firstName: "Max", lastName: "Kramer", email: "max.kramer@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRPO", businessUnit: "All" },
-  { id: "MMCDA", firstName: "Megan", lastName: "Mcdaid", email: "megan.mcdaid@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "MMOGA", firstName: "Molly", lastName: "Mogan", email: "molly.mogan@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "MMORG", firstName: "Millie", lastName: "Morgan", email: "millie.morgan@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "MOWKE", firstName: "Mohammed", lastName: "Owkeef", email: "mohammed.owkeef@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "MPAGE", firstName: "Megan", lastName: "Page", email: "megan.page@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "MPARL", firstName: "Megan", lastName: "Parlett", email: "megan.parlett@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "MPERS", firstName: "Matt", lastName: "Persse", email: "matt.persse@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "MREED", firstName: "Max", lastName: "Reed", email: "max.reed@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "MSADE", firstName: "Muktar", lastName: "Sadeghi", email: "muktar.sadeghi@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "MSHAH", firstName: "Megan", lastName: "Shah", email: "megan.shah@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "MTHOM", firstName: "Michael", lastName: "Thompson", email: "michael.thompson@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "MWATK", firstName: "Megan", lastName: "Watkins", email: "megan.watkins@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "NCASE", firstName: "Niall", lastName: "Casey", email: "niall.casey@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPROV", businessUnit: "All" },
-  { id: "NCLIF", firstName: "Nikki", lastName: "Clifford", email: "nikki.clifford@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "BG1", specialty: "BG1" },
-  { id: "NCOOP", firstName: "Nico", lastName: "Cooper", email: "nico.cooper@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "NFORD", firstName: "Nathan", lastName: "Ford", email: "nathan.ford@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "NJONE", firstName: "Niall", lastName: "Jones", email: "niall.jones@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "NKANE", firstName: "Niall", lastName: "Kane", email: "niall.kane@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "NKEEF", firstName: "Niamh", lastName: "Keeffe", email: "niamh.keeffe@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "NPARA", firstName: "Nikhil", lastName: "Parate", email: "nikhil.parate@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "NROBE", firstName: "Nick", lastName: "Roberts", email: "nick.roberts@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "NSHAR", firstName: "Nikita", lastName: "Sharma", email: "nikita.sharma@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "NSTEV", firstName: "Niall", lastName: "Stevens", email: "niall.stevens@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "OSAIN", firstName: "Oliver", lastName: "Sainsbury", email: "oliver.sainsbury@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "OWAIT", firstName: "Olivia", lastName: "Waite", email: "olivia.waite@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "PCAMP", firstName: "Paul", lastName: "Campbell", email: "paul.campbell@essencemediacom.com", officeName: "MEDIACOM NORTH", securityGroup: "PRAPRGBY", businessUnit: "All" },
-  { id: "RAGAR", firstName: "Rachel", lastName: "Agarwal", email: "rachel.agarwal@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "RBENN", firstName: "Ruby", lastName: "Bennett", email: "ruby.bennett@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "RCONA", firstName: "Rob", lastName: "Conan", email: "rob.conan@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "RCOWA", firstName: "Ruth", lastName: "Cowan", email: "ruth.cowan@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "RFERR", firstName: "Ross", lastName: "Ferrari", email: "ross.ferrari@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "RGILL", firstName: "Robyn", lastName: "Gillham", email: "robyn.gillham@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "RHIND", firstName: "Rebecca", lastName: "Hind", email: "rebecca.hind@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "RHOLD", firstName: "Robyn", lastName: "Holder", email: "robyn.holder@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "RMOOR", firstName: "Rachel", lastName: "Moore", email: "rachel.moore@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "RMORR", firstName: "Rebecca", lastName: "Morris", email: "rebecca.morris@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "RSHAR", firstName: "Rahul", lastName: "Sharma", email: "rahul.sharma@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "RWAIN", firstName: "Rebecca", lastName: "Wainwright", email: "rebecca.wainwright@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "SADUL", firstName: "Sherin", lastName: "Aduloju", email: "sherin.aduloju@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "SALVA", firstName: "Sofia", lastName: "Alvarez", email: "sofia.alvarez@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "SARNO", firstName: "Sabrina", lastName: "Arnold", email: "sabrina.arnold@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "SBOON", firstName: "Shane", lastName: "Boone", email: "shane.boone@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "SCLAR", firstName: "Sophie", lastName: "Clarke", email: "sophie.clarke@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "SDAVI", firstName: "Sophie", lastName: "Davis", email: "sophie.davis@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "SENGU", firstName: "Sam", lastName: "English", email: "sam.english@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "SGREE", firstName: "Sophie", lastName: "Green", email: "sophie.green@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "SHANE", firstName: "Shaun", lastName: "Hanley", email: "shaun.hanley@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "SLIGH", firstName: "Sian", lastName: "Light", email: "sian.light@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "SMIRR", firstName: "Stephen", lastName: "Mirrlees", email: "stephen.mirrlees@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "SNELA", firstName: "Sara", lastName: "Nelson", email: "sara.nelson@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "SPETR", firstName: "Sofia", lastName: "Petrides", email: "sofia.petrides@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "SQUIC", firstName: "Sophie", lastName: "Quick", email: "sophie.quick@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "SRIDH", firstName: "Shanki", lastName: "Ridhwan", email: "shanki.ridhwan@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "SSHAW", firstName: "Sean", lastName: "Shaw", email: "sean.shaw@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "SWILS", firstName: "Sophie", lastName: "Wilson", email: "sophie.wilson@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "SYANG", firstName: "Sarah", lastName: "Yang", email: "sarah.yang@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "TBAUL", firstName: "Tom", lastName: "Baulderstone", email: "tom.baulderstone@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "TLLAW", firstName: "Tayla", lastName: "Llawry", email: "tayla.llawry@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "TMARR", firstName: "Toby", lastName: "Marr", email: "toby.marr@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "TOBEN", firstName: "Tanja", lastName: "Obendorf", email: "tanja.obendorf@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "TRING", firstName: "Tony", lastName: "Ring", email: "tony.ring@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "TROWE", firstName: "Tom", lastName: "Rowe", email: "tom.rowe@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "TSHEP", firstName: "Tammy", lastName: "Shepherd", email: "tammy.shepherd@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "VSING", firstName: "Vikrant", lastName: "Singh", email: "vikrant.singh@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "WWILL", firstName: "Will", lastName: "Williams", email: "will.williams@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "YHOPE", firstName: "Yusuf", lastName: "Hopen", email: "yusuf.hopen@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" },
-  { id: "ZCHOI", firstName: "Zoe", lastName: "Choi", email: "zoe.choi@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" }
-];
+// Data extracted from the CSV snippet and merged with the original approversData
+const companyUserIdsMap = {
+  "ADCRO": [
+    "NGMCLON",
+    "NGMCCON",
+    "NGMCCOA"
+  ],
+  "JOCAP": [
+    "NGMCLLO",
+    "NGMCLON",
+    "NGMCSCO",
+    "NGMCINT",
+    "NGDOOR"
+  ],
+  "KLEWIS": [
+    "NGMCLON",
+    "NGMCUK"
+  ],
+  "TUDAL": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCCOA",
+    "NGMCLSE"
+  ],
+  "BEWIL": [
+    "NGMCLON",
+    "NGMCKRM",
+    "NGMCOUT",
+    "NGMCREP"
+  ],
+  "EBRAD": [
+    "NGMCLON"
+  ],
+  "HAOUG": [
+    "NGMCLON",
+    "NGOPEM"
+  ],
+  "HAWAL": [
+    "NGMCLON",
+    "NGMCKRM",
+    "NGMCALL",
+    "NGMCINT"
+  ],
+  "LUPIC": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGOPEM",
+    "NGOPEN"
+  ],
+  "RCHAM": [
+    "NGMCLON"
+  ],
+  "RPALM": [
+    "NGMCLON",
+    "NGMCMBA",
+    "NGOPEM",
+    "NGOPEN"
+  ],
+  "SCORE": [
+    "NGMCLON"
+  ],
+  "AROBE": [
+    "NGMCLON",
+    "NGMCKRM",
+    "NGMCOUT"
+  ],
+  "JGORN": [
+    "NGMCLON",
+    "NGMCMBA"
+  ],
+  "LTURN": [
+    "NGMCLON",
+    "NGMCKRM",
+    "NGMCCOA"
+  ],
+  "MNIKO": [
+    "NGMCLON",
+    "NGMCMBA",
+    "NGMCINT",
+    "NGMCALL"
+  ],
+  "NCART": [
+    "NGMCLON"
+  ],
+  "ROWAL": [
+    "NGMCLON",
+    "NGMCKRM"
+  ],
+  "SMEYER": [
+    "NGMCLON"
+  ],
+  "TEBUC": [
+    "NGMCLON",
+    "NGMCSCO"
+  ],
+  "APYKE": [
+    "NGMCLON"
+  ],
+  "CRIDS": [
+    "NGMCLON",
+    "NGMCWBA"
+  ],
+  "HSPRI": [
+    "NGMCLON",
+    "NGOPEM"
+  ],
+  "ISLAW": [
+    "NGMCLON",
+    "NGMCWBA",
+    "NGOPEN",
+    "NGOPEM"
+  ],
+  "KBEAR": [
+    "NGMCLON",
+    "NGMCWBA"
+  ],
+  "LASCOT": [
+    "NGMCKRM",
+    "NGMCUK",
+    "NGMCLON"
+  ],
+  "MEWIL": [
+    "NGMCLON",
+    "NGMCSCO",
+    "NGMCINT",
+    "NGMCCOA",
+    "NGMCMBA",
+    "NGOPEM"
+  ],
+  "SHSHA": [
+    "NGMCLLO",
+    "NGMCLON",
+    "NGMCNUC",
+    "NGMCALL"
+  ],
+  "SSWEE": [
+    "NGMCMBA",
+    "NGMCLON",
+    "NGMCALL",
+    "NGMCWBA"
+  ],
+  "KATRE": [
+    "NGMCLON",
+    "NGMCSCO",
+    "NGMCKRM",
+    "NGMCINT"
+  ],
+  "TLATH": [
+    "NGMCLON",
+    "NGMCSCO",
+    "NGMCKRM",
+    "NGMCCOA"
+  ],
+  "AMGIBS": [
+    "NGMCLON"
+  ],
+  "KOGIL": [
+    "NGMCLON",
+    "NGMCMBA",
+    "NGMCNUC",
+    "NGMCUK",
+    "NGMCINT"
+  ],
+  "LFILB": [
+    "NGMCLON",
+    "NGMCINT"
+  ],
+  "PJAMESON": [
+    "NGMCLON",
+    "NGMCALL",
+    "NGOPEM"
+  ],
+  "YNDLO": [
+    "NGMCLON",
+    "NGMCINT"
+  ],
+  "GBARL": [
+    "NGMCLON",
+    "NGMCINT"
+  ],
+  "MMIND": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCALL"
+  ],
+  "RDIXO": [
+    "NGMCLON",
+    "NGMCALL",
+    "NGMCINT"
+  ],
+  "VIOAN": [
+    "NGMCINT",
+    "NGMCALL",
+    "NGMCLON",
+    "NGMCMBA"
+  ],
+  "YPAPA": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCALL"
+  ],
+  "AMUEL": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCCON"
+  ],
+  "AWIJE": [
+    "NGMCINT",
+    "NGMCLON",
+    "NGMCALL"
+  ],
+  "BESTA": [
+    "NGMCEMA",
+    "NGMCINT",
+    "NGMCLSE",
+    "NGMCALL"
+  ],
+  "CMCWH": [
+    "NGMCCOA",
+    "NGMCINT",
+    "NGMCLON",
+    "NGMCALL"
+  ],
+  "GGILB": [
+    "NGMCINT",
+    "NGMCLON",
+    "NGMCMBA"
+  ],
+  "HMCCA": [
+    "NGMCWWD",
+    "NGMCINT",
+    "NGMCALL"
+  ],
+  "JASLA": [
+    "NGMCINT",
+    "NGMCWWD",
+    "NGMCEMA",
+    "NGMCGLB"
+  ],
+  "KEMCG": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCALL"
+  ],
+  "KHAVE": [
+    "NGMCINT",
+    "NGMCLON",
+    "NGMCLSE",
+    "NGMCALL"
+  ],
+  "LKUCU": [
+    "NGMCLON",
+    "NGMCWWD",
+    "NGMCALL",
+    "NGMCLSW",
+    "NGMCINT",
+    "NGOPEM"
+  ],
+  "NELIO": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCALL"
+  ],
+  "RESCO": [
+    "NGMCINT",
+    "NGMCALL",
+    "NGMCLON"
+  ],
+  "ROCOL": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCALL"
+  ],
+  "SCROW": [
+    "NGMCLON",
+    "NGMCKRM",
+    "NGMCINT",
+    "NGMCALL"
+  ],
+  "ADENE": [
+    "NGMCINT"
+  ],
+  "ADMCC": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCALL"
+  ],
+  "ANGIM": [
+    "NGMCINT"
+  ],
+  "ANIKO": [
+    "NGMCINT"
+  ],
+  "ASHEI": [
+    "NGMCINT"
+  ],
+  "ASTEP": [
+    "NGMCINT",
+    "NGMCLON"
+  ],
+  "BDRUR": [
+    "NGMCINT",
+    "NGMCLON",
+    "NGMCEMA"
+  ],
+  "CBECK": [
+    "NGMCLON",
+    "NGMCCOA",
+    "NGMCINT",
+    "NGMCALL"
+  ],
+  "CROSE": [
+    "NGMAXESS",
+    "NGMSESS"
+  ],
+  "CSAUN": [
+    "NGMCINT",
+    "NGMCALL",
+    "NGMCLON"
+  ],
+  "CTUTT": [
+    "NGMCINT",
+    "NGMCLON",
+    "NGMCALL"
+  ],
+  "DADAR": [
+    "NGMCINT",
+    "NGMCALL",
+    "NGMCLON"
+  ],
+  "DCABU": [
+    "NGMCINT",
+    "NGMCLON",
+    "NGMCALL"
+  ],
+  "DDWIN": [
+    "NGMCLON",
+    "NGMCINT"
+  ],
+  "ELDAV": [
+    "NGMCWWD",
+    "NGMCMBA",
+    "NGMCSPO",
+    "NGMCINT",
+    "NGMCALL",
+    "NGOPEM",
+    "NGOPEN"
+  ],
+  "ELIMA": [
+    "NGMCINT"
+  ],
+  "ELLES": [
+    "NGMCINT",
+    "NGMCALL",
+    "NGMCLON"
+  ],
+  "HANMC": [
+    "NGMCINT",
+    "NGMCALL",
+    "NGMCLON"
+  ],
+  "HCONS": [
+    "NGMCLON",
+    "NGMCMBA",
+    "NGMCINT"
+  ],
+  "HLETR": [
+    "NGMCWWD",
+    "NGMCINT",
+    "NGMCALL",
+    "NGMCLON"
+  ],
+  "HWILS": [
+    "NGMCINT",
+    "NGMCALL",
+    "NGMCLON"
+  ],
+  "JACKH": [
+    "NGMCLON",
+    "NGMCCOA",
+    "NGMCALL",
+    "NGMCINT"
+  ],
+  "JHELM": [
+    "NGMCINT",
+    "NGMCALL",
+    "NGMCLON"
+  ],
+  "JOLAR": [
+    "NGMCINT",
+    "NGMCALL",
+    "NGMCLON"
+  ],
+  "JORSE": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCCOA"
+  ],
+  "KATKN": [
+    "NGMCINT"
+  ],
+  "LIBRE": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCCOA",
+    "NGMCALL"
+  ],
+  "MAMAT": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCMBA"
+  ],
+  "MASSI": [
+    "NGMCLON",
+    "NGMCCOA",
+    "NGMCALL",
+    "NGMCINT"
+  ],
+  "MBUFT": [
+    "NGMCESCO",
+    "NGMCINT",
+    "NGOPEM"
+  ],
+  "MJELMAN": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCALL"
+  ],
+  "MKOLL": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCALL"
+  ],
+  "OJOSH": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCCOA"
+  ],
+  "PSHRI": [
+    "NGMCINT",
+    "NGMCALL",
+    "NGMCLON"
+  ],
+  "REONE": [
+    "NGMCLON",
+    "NGMCWWD",
+    "NGMCALL",
+    "NGMCLSW",
+    "NGMCINT"
+  ],
+  "SBURT": [
+    "NGMCLON",
+    "NGMCCOA",
+    "NGMCALL",
+    "NGMCINT"
+  ],
+  "SZANO": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCCOA"
+  ],
+  "TMYLE": [
+    "NGMCLON",
+    "NGMCINT"
+  ],
+  "VLOUD": [
+    "NGMCINT",
+    "NGMCLON"
+  ],
+  "WBLAN": [
+    "NGMCINT",
+    "NGMCEMA",
+    "NGMCALL",
+    "NGMCLON"
+  ],
+  "ANCOO": [
+    "NGMCNOR",
+    "NGMCBRB",
+    "NGMCBRL",
+    "NGMCNAL",
+    "NGMCLON"
+  ],
+  "BISAM": [
+    "NGMCBRL",
+    "NGMCNAL",
+    "NGMCNAC",
+    "NGMCBRB",
+    "NGMCNOR",
+    "NGMCNOL"
+  ],
+  "BMALA": [
+    "NGMCBRL",
+    "NGMCNAL"
+  ],
+  "BSHEA": [
+    "NGMCNOR",
+    "NGMCBRL",
+    "NGMCBRB",
+    "NGMCNAC",
+    "NGMCWBA"
+  ],
+  "DANBE": [
+    "NGMCNOR",
+    "NGMCBRL",
+    "NGMCBRB",
+    "NGMCNAL",
+    "NGMCCOA",
+    "NGMCCON",
+    "NGMCINT"
+  ],
+  "DAROBI": [
+    "NGMCNOR",
+    "NGMCNAL",
+    "NGMCBRL",
+    "NGMCBRB",
+    "NGMCNAC",
+    "NGMCUK",
+    "NGMCLON"
+  ],
+  "DHIGH": [
+    "NGMCNOR",
+    "NGMCNAL",
+    "NGMCBRB",
+    "NGMCNOL",
+    "NGMCBRL"
+  ],
+  "DSTAND": [
+    "NGMCNOR",
+    "NGMCBRL",
+    "NGMCBRB",
+    "NGMCNAL",
+    "NGMCLON",
+    "NGMCMBA"
+  ],
+  "ESTRU": [
+    "NGMCNOR",
+    "NGMCBRL",
+    "NGMCBRB",
+    "NGMCNAC",
+    "NGMCLON"
+  ],
+  "GSPIN": [
+    "NGMCNOR",
+    "NGMCNAL",
+    "NGMCBRL",
+    "NGMCBRB",
+    "NGMCLON"
+  ],
+  "HWHIT": [
+    "NGMCBRL",
+    "NGMCNAL"
+  ],
+  "JCOLL": [
+    "NGMCNOR",
+    "NGMCBRL",
+    "NGMCBRB",
+    "NGMCNAL",
+    "NGMCMBA"
+  ],
+  "JONWA": [
+    "NGMCNOR",
+    "NGMCBRL",
+    "NGMCBRB",
+    "NGMCNAC",
+    "NGMCUK"
+  ],
+  "LKURT": [
+    "NGMCNOR",
+    "NGMCBRL",
+    "NGMCBRB",
+    "NGMCNAL",
+    "NGMCUK",
+    "NGMCLON",
+    "NGMCMBA"
+  ],
+  "MSTIR3": [
+    "NGMCNOR",
+    "NGMCNAL",
+    "NGMCBRB",
+    "NGMCBRL"
+  ],
+  "RMCDO": [
+    "NGMCLON",
+    "NGMCMBA",
+    "NGMCUK",
+    "NGMCNAL"
+  ],
+  "SHASL2": [
+    "NGMCNOR",
+    "NGMCNAL",
+    "NGMCNOL"
+  ],
+  "LAGOR": [
+    "NGDOOR",
+    "NGMCLON"
+  ],
+  "THODE": [
+    "NGMCLON",
+    "NGMCWBA",
+    "NGMCUK",
+    "NGDOOR"
+  ],
+  "VIJMU": [
+    "NGDOOR"
+  ],
+  "RHETE": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCCOA",
+    "NGOPEN",
+    "NGOPEM"
+  ],
+  "SHIKP": [
+    "NGMCLSW",
+    "NGMCALL",
+    "NGMCINT",
+    "NGMCLON",
+    "NGOPEN",
+    "NGOPEM"
+  ],
+  "VALDA": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCALL"
+  ],
+  "JACOL": [
+    "NGMCSCO",
+    "NGMCALL",
+    "NGMCCON"
+  ],
+  "JANEW": [
+    "NGMCSCO",
+    "NGMCCON",
+    "NGMCLON"
+  ],
+  "KMILL": [
+    "NGMCSCO",
+    "NGMCCOA"
+  ],
+  "KSTEW": [
+    "NGMCSCO",
+    "NGMCCON"
+  ],
+  "MACANT": [
+    "NGMCSCO",
+    "NGMCLON",
+    "NGMCCON"
+  ],
+  "MICHT": [
+    "NGMCSCO",
+    "NGMCESCO",
+    "NGMCCON"
+  ],
+  "RLITT": [
+    "NGMCSCO",
+    "NGMCCON",
+    "NGMCLON"
+  ],
+  "ADSMI": [
+    "NGMCINT"
+  ],
+  "AMILE": [
+    "NGMCMBA",
+    "NGMCLON"
+  ],
+  "CMAST": [
+    "NGMCINT",
+    "NGMCLON",
+    "NGMCALL",
+    "NGMCCON"
+  ],
+  "CTURN": [
+    "NGMCNOR",
+    "NGMCBRL",
+    "NGMCBRB",
+    "NGMCNAL",
+    "NGMCCOA",
+    "NGMCALL",
+    "NGMCUK",
+    "NGMCLON",
+    "NGOPEM"
+  ],
+  "IMACD": [
+    "NGMCMBA",
+    "NGMCLON",
+    "NGMCNUC",
+    "NGMCALL",
+    "NGMCBRL",
+    "NGMCUK",
+    "NGMCINT",
+    "NGMCCOA"
+  ],
+  "JBOCK": [
+    "NGMCMBA",
+    "NGMCLON",
+    "NGMCNUC",
+    "NGMCALL",
+    "NGOPEN"
+  ],
+  "KAREI": [
+    "NGMCLON",
+    "NGMCKRM"
+  ],
+  "KGRAC": [
+    "NGMCINT",
+    "NGMCALL",
+    "NGMCLON"
+  ],
+  "MAHOW": [
+    "NGMCMBA",
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCBRL"
+  ],
+  "MKALU": [
+    "NGMCLON",
+    "NGMCINT"
+  ],
+  "OMCAL": [
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCALL"
+  ],
+  "RBARD": [
+    "NGMCINT"
+  ],
+  "SCUSH": [
+    "NGMCINT"
+  ],
+  "SLADA": [
+    "NGMCMBA",
+    "NGMCLON",
+    "NGMCINT",
+    "NGMCCOA",
+    "NGMCBRL"
+  ]
+};
 
-export const businessUnits = [...new Set(approversData.map(a => a.businessUnit))].filter(Boolean);
+function toTitleCase(str) {
+  return str.replace(
+    /\w\S*/g,
+    function(txt) {
+      return txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase();
+    }
+  );
+}
+
+export const approversData = [{
+  id: "ADCRO",
+  firstName: "Adam",
+  lastName: "Crow",
+  email: "adam.crow@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPROV",
+  businessUnit: "All"
+}, {
+  id: "ADENE",
+  firstName: "Adeel",
+  lastName: "Nehim",
+  email: "adeel.nehim@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "International",
+  specialty: "Social"
+}, {
+  id: "ADMCC",
+  firstName: "Adeola",
+  lastName: "Mccabe",
+  email: "adeola.mccabe@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "International",
+  specialty: "Social"
+}, {
+  id: "ADSMI",
+  firstName: "Adam",
+  lastName: "Smith",
+  email: "adam.smith1@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "PPC",
+  specialty: "PPC"
+}, {
+  id: "AMGIBS",
+  firstName: "Amelia",
+  lastName: "Monks",
+  email: "amelia.monks@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "BU5"
+}, {
+  id: "AMILE",
+  firstName: "Ana",
+  lastName: "Cuellar",
+  email: "ana.cuellar@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "SEO",
+  specialty: "SEO"
+}, {
+  id: "AMUEL",
+  firstName: "Adrian",
+  lastName: "Mueller",
+  email: "adrian.mueller@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPROV",
+  businessUnit: "Global"
+}, {
+  id: "ANCOO",
+  firstName: "Andrew",
+  lastName: "Cook",
+  email: "andrew.cook@essencemediacom.com",
+  officeName: "MEDIACOM NORTH",
+  securityGroup: "PRAPRGBY",
+  businessUnit: "North"
+}, {
+  id: "ANGIM",
+  firstName: "Anna",
+  lastName: "Gim",
+  email: "anna.gim@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "International"
+}, {
+  id: "ANIKO",
+  firstName: "Athina",
+  lastName: "Nikol",
+  email: "athina.nikol@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "International"
+}, {
+  id: "APYKE",
+  firstName: "Adam",
+  lastName: "Pyke",
+  email: "adam.pyke@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "B12",
+  specialty: "PPC"
+}, {
+  id: "AROBE",
+  firstName: "Amy",
+  lastName: "Roberts",
+  email: "amy.roberts@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "BU3"
+}, {
+  id: "ASHEI",
+  firstName: "Ashleigh",
+  lastName: "Heitman",
+  email: "ashleigh.heitman@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPROV",
+  businessUnit: "International"
+}, {
+  id: "ASTEP",
+  firstName: "Adam",
+  lastName: "Stephens",
+  email: "adam.stephens@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPROV",
+  businessUnit: "International"
+}, {
+  id: "AWIJE",
+  firstName: "Adrian",
+  lastName: "Wijenathan",
+  email: "adrian.wijenathan@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "Global"
+}, {
+  id: "BDRUR",
+  firstName: "Beth",
+  lastName: "Drury",
+  email: "beth.drury@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "International"
+}, {
+  id: "BESTA",
+  firstName: "Ben",
+  lastName: "Stanhope",
+  email: "ben.stanhope1@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRPO",
+  businessUnit: "Global"
+}, {
+  id: "BEWIL",
+  firstName: "Becci",
+  lastName: "Wilson",
+  email: "becci.wilson@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "B12"
+}, {
+  id: "BISAM",
+  firstName: "Billy",
+  lastName: "Samuels",
+  email: "billy.samuels@essencemediacom.com",
+  officeName: "MEDIACOM NORTH",
+  securityGroup: "PRAPRGBY",
+  businessUnit: "North"
+}, {
+  id: "BMALA",
+  firstName: "Ben",
+  lastName: "Malam",
+  email: "ben.malam@essencemediacom.com",
+  officeName: "MEDIACOM NORTH",
+  securityGroup: "PRAPRGBY",
+  businessUnit: "North"
+}, {
+  id: "BSHEA",
+  firstName: "Briony",
+  lastName: "Sheard",
+  email: "briony.sheard@essencemediacom.com",
+  officeName: "MEDIACOM NORTH",
+  securityGroup: "PRAPROV",
+  businessUnit: "North"
+}, {
+  id: "CBECK",
+  firstName: "Christofer",
+  lastName: "Beckman",
+  email: "christofer.beckman@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "International"
+}, {
+  id: "CMAST",
+  firstName: "Caroline",
+  lastName: "Mastromauro",
+  email: "caroline.mastromauro@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "PST"
+}, {
+  id: "CMCWH",
+  firstName: "Caroline",
+  lastName: "Mcwhirter",
+  email: "caroline.mcwhirter@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPROV",
+  businessUnit: "Global"
+}, {
+  id: "CRIDS",
+  firstName: "Carys",
+  lastName: "Profitdale",
+  email: "carys.profitdale@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "B12"
+}, {
+  id: "CROSE",
+  firstName: "Cheyenne",
+  lastName: "Rose",
+  email: "cheyenne.rose@essencemediacom.com",
+  officeName: "ESSENCE",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "International"
+}, {
+  id: "CSAUN",
+  firstName: "Charlie",
+  lastName: "Saunders",
+  email: "charlie.saunders@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "International"
+}, {
+  id: "CTURN",
+  firstName: "Chris",
+  lastName: "Turner",
+  email: "chris.turner@essencemediacom.com",
+  officeName: "MEDIACOM NORTH",
+  securityGroup: "PRAPROV",
+  businessUnit: "PST",
+  specialty: "PST"
+}, {
+  id: "CTUTT",
+  firstName: "Connor",
+  lastName: "Tuttle",
+  email: "connor.tuttle@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "International"
+}, {
+  id: "DADAR",
+  firstName: "Danielle",
+  lastName: "Darko",
+  email: "danielle.darko@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPBMQS",
+  businessUnit: "International"
+}, {
+  id: "DANBE",
+  firstName: "Danielle",
+  lastName: "Bennett",
+  email: "danielle.bennett@essencemediacom.com",
+  officeName: "MEDIACOM NORTH",
+  securityGroup: "PRAPRGBY",
+  businessUnit: "North"
+}, {
+  id: "DAROBI",
+  firstName: "Dan",
+  lastName: "Robinson",
+  email: "dan.robinson@essencemediacom.com",
+  officeName: "MEDIACOM NORTH",
+  securityGroup: "PRAPRGBY",
+  businessUnit: "North"
+}, {
+  id: "DCABU",
+  firstName: "Damla",
+  lastName: "Cabuk",
+  email: "damla.cabuk@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "International"
+}, {
+  id: "DDWIN",
+  firstName: "Danique",
+  lastName: "De Winter",
+  email: "danique.dewinter@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPROV",
+  businessUnit: "International"
+}, {
+  id: "DHIGH",
+  firstName: "Dean",
+  lastName: "Highfield",
+  email: "dean.highfield@essencemediacom.com",
+  officeName: "MEDIACOM NORTH",
+  securityGroup: "PRAPRGBY",
+  businessUnit: "North"
+}, {
+  id: "DSTAND",
+  firstName: "David",
+  lastName: "Standaloft",
+  email: "david.standaloft@essencemediacom.com",
+  officeName: "MEDIACOM NORTH",
+  securityGroup: "PRAPROV",
+  businessUnit: "North"
+}, {
+  id: "EBRAD",
+  firstName: "Emma",
+  lastName: "Brady",
+  email: "emma.brady@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "B12"
+}, {
+  id: "ELDAV",
+  firstName: "Ella",
+  lastName: "Davies",
+  email: "ella.davies@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRPO",
+  businessUnit: "International"
+}, {
+  id: "ELIMA",
+  firstName: "Erza",
+  lastName: "Limani",
+  email: "erza.limani@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRPO",
+  businessUnit: "International"
+}, {
+  id: "ELLES",
+  firstName: "Ellie",
+  lastName: "Esplen",
+  email: "ellie.esplen@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRPO",
+  businessUnit: "International"
+}, {
+  id: "ESTRU",
+  firstName: "Emma",
+  lastName: "Struggles",
+  email: "emma.struggles@essencemediacom.com",
+  officeName: "MEDIACOM NORTH",
+  securityGroup: "PRAPRGBY",
+  businessUnit: "North"
+}, {
+  id: "GBARL",
+  firstName: "Georgina",
+  lastName: "Barlow",
+  email: "georgina.barlow@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRPO",
+  businessUnit: "Dell"
+}, {
+  id: "GGILB",
+  firstName: "George",
+  lastName: "Gilbert",
+  email: "george.gilbert@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "Global"
+}, {
+  id: "GSPIN",
+  firstName: "Gemma",
+  lastName: "Spink",
+  email: "gemma.spink@essencemediacom.com",
+  officeName: "MEDIACOM NORTH",
+  securityGroup: "PRAPRGBY",
+  businessUnit: "North"
+}, {
+  id: "HANMC",
+  firstName: "Hannah",
+  lastName: "Mcloughlin",
+  email: "hannah.mcloughlin@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "International"
+}, {
+  id: "HAOUG",
+  firstName: "Harjit",
+  lastName: "Oughera",
+  email: "harjit.oughera@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "B12"
+}, {
+  id: "HAWAL",
+  firstName: "Harriet",
+  lastName: "Waldron",
+  email: "harriet.waldron@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "B12"
+}, {
+  id: "HCONS",
+  firstName: "Harley",
+  lastName: "Constable",
+  email: "harley.constable@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPROV",
+  businessUnit: "International"
+}, {
+  id: "HLETR",
+  firstName: "Hieu",
+  lastName: "Letrung",
+  email: "hieu.letrung1@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPROV",
+  businessUnit: "International"
+}, {
+  id: "HMCCA",
+  firstName: "Hayley",
+  lastName: "Mccauley",
+  email: "hayley.mccauley@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPROV",
+  businessUnit: "Global"
+}, {
+  id: "HSPRI",
+  firstName: "Henry",
+  lastName: "Springate",
+  email: "henry.springate@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "B12"
+}, {
+  id: "HWHIT",
+  firstName: "Helen",
+  lastName: "Whitley",
+  email: "helen.whitley@essencemediacom.com",
+  officeName: "MEDIACOM NORTH",
+  securityGroup: "PRAPRGBY",
+  businessUnit: "North"
+}, {
+  id: "HWILS",
+  firstName: "Holly",
+  lastName: "Parker",
+  email: "holly.parker@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "International"
+}, {
+  id: "IMACD",
+  firstName: "Isobel",
+  lastName: "Macdougall",
+  email: "isobel.macdougall@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPROV",
+  businessUnit: "eCom"
+}, {
+  id: "ISLAW",
+  firstName: "Isla",
+  lastName: "Watson",
+  email: "isla.watson@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRPO",
+  businessUnit: "B12",
+  specialty: "PPC"
+}, {
+  id: "JACKH",
+  firstName: "Jack",
+  lastName: "Harmon",
+  email: "jack.harmon@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPBMQS",
+  businessUnit: "International"
+}, {
+  id: "JACOL",
+  firstName: "Jamie",
+  lastName: "Collins",
+  email: "jamie.collins@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "Scotland"
+}, {
+  id: "JANEW",
+  firstName: "Jane",
+  lastName: "Wilson",
+  email: "jane.wilson@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRPO",
+  businessUnit: "Scotland"
+}, {
+  id: "JASLA",
+  firstName: "Jade",
+  lastName: "Slater",
+  email: "jade.slater@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRPO",
+  businessUnit: "Global"
+}, {
+  id: "JBOCK",
+  firstName: "Jeremy",
+  lastName: "Bock",
+  email: "jeremy.bock@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "SEO",
+  specialty: "SEO"
+}, {
+  id: "JCOLL",
+  firstName: "Jared",
+  lastName: "Collins",
+  email: "jared.collins@essencemediacom.com",
+  officeName: "MEDIACOM NORTH",
+  securityGroup: "PRAPRPO",
+  businessUnit: "North"
+}, {
+  id: "JGORN",
+  firstName: "Joshua",
+  lastName: "Gornell",
+  email: "joshua.gornell@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPBMQS",
+  businessUnit: "BU3"
+}, {
+  id: "JHELM",
+  firstName: "John",
+  lastName: "Helm",
+  email: "john.helm@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPBMQS",
+  businessUnit: "International"
+}, {
+  id: "JOCAP",
+  firstName: "Joe",
+  lastName: "Capildeo",
+  email: "joe.capildeo@groupm.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPBMQS",
+  businessUnit: "All"
+}, {
+  id: "JOLAR",
+  firstName: "Joel",
+  lastName: "Large",
+  email: "joel.large@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "International"
+}, {
+  id: "JORSE",
+  firstName: "Jordan",
+  lastName: "Seddon",
+  email: "jordan.seddon@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "International"
+}, {
+  id: "KAREI",
+  firstName: "Karen",
+  lastName: "Reid",
+  email: "karen.reid@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "Print",
+  specialty: "Print"
+}, {
+  id: "KATKN",
+  firstName: "Katarina",
+  lastName: "Knazeova",
+  email: "katarina.knazeova@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "International"
+}, {
+  id: "KATRE",
+  firstName: "Kathryn",
+  lastName: "Reid",
+  email: "kathryn.reid@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "BU3"
+}, {
+  id: "KBEAR",
+  firstName: "Kayleigh",
+  lastName: "Beard",
+  email: "kayleigh.beard@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRPO",
+  businessUnit: "B12",
+  specialty: "Social"
+}, {
+  id: "KEMCG",
+  firstName: "Kelly",
+  lastName: "Mcguinness",
+  email: "kelly.mcguinness@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPROV",
+  businessUnit: "Global"
+}, {
+  id: "KGRAC",
+  firstName: "Klaudia",
+  lastName: "Graczyk",
+  email: "klaudia.graczyk@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "PST"
+}, {
+  id: "KHAVE",
+  firstName: "Krishna",
+  lastName: "Haveliwala",
+  email: "krishna.haveliwala@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "Global"
+}, {
+  id: "KLEWIS",
+  firstName: "Katie",
+  lastName: "Lewis",
+  email: "katie.lewis@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "All"
+}, {
+  id: "KMILL",
+  firstName: "Kayleigh",
+  lastName: "Mills",
+  email: "kayleigh.mills@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "Scotland"
+}, {
+  id: "KOGIL",
+  firstName: "Kirsty",
+  lastName: "Ogilvie",
+  email: "kirsty.ogilvie@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPBMQS",
+  businessUnit: "BU5"
+}, {
+  id: "KSTEW",
+  firstName: "Kirsty",
+  lastName: "Anderson",
+  email: "kirsty.anderson@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRPO",
+  businessUnit: "Scotland"
+}, {
+  id: "LAGOR",
+  firstName: "Lauren",
+  lastName: "Gore",
+  email: "lauren.gore@groupm.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPBMQS",
+  businessUnit: "OpenDoor"
+}, {
+  id: "LASCOT",
+  firstName: "Laura",
+  lastName: "Smith",
+  email: "laura.smith@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRPO",
+  businessUnit: "B12"
+}, {
+  id: "LFILB",
+  firstName: "Laurence",
+  lastName: "Filby",
+  email: "laurence.filby@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRPO",
+  businessUnit: "BU5"
+}, {
+  id: "LIBRE",
+  firstName: "Liam",
+  lastName: "Brennan",
+  email: "liam.brennan1@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "International"
+}, {
+  id: "LKUCU",
+  firstName: "Laden",
+  lastName: "Kucuk",
+  email: "laden.kucuk1@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRPO",
+  businessUnit: "Global"
+}, {
+  id: "LKURT",
+  firstName: "Ledi",
+  lastName: "Kurtula",
+  email: "ledi.kurtula@essencemediacom.com",
+  officeName: "MEDIACOM NORTH",
+  securityGroup: "PRAPROV",
+  businessUnit: "North"
+}, {
+  id: "LTURN",
+  firstName: "Luke",
+  lastName: "Turner",
+  email: "luke.turner@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPBYJM",
+  businessUnit: "BU3"
+}, {
+  id: "LUPIC",
+  firstName: "Lucy",
+  lastName: "Pickering",
+  email: "lucy.pickering@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "B12"
+}, {
+  id: "MACANT",
+  firstName: "Maud",
+  lastName: "Cant",
+  email: "maud.cant@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRGBY",
+  businessUnit: "Scotland"
+}, {
+  id: "MAHOW",
+  firstName: "Margo",
+  lastName: "Howie",
+  email: "margo.howie@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "eCom"
+}, {
+  id: "MAMAT",
+  firstName: "Madeleine",
+  lastName: "Mather",
+  email: "madeleine.mather@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "International"
+}, {
+  id: "MASSI",
+  firstName: "Massimo",
+  lastName: "Michini",
+  email: "massimo.michini@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRPO",
+  businessUnit: "International"
+}, {
+  id: "MBUFT",
+  firstName: "Megan",
+  lastName: "Bufton",
+  email: "megan.bufton@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRPO",
+  businessUnit: "International"
+}, {
+  id: "MEWIL",
+  firstName: "Mesha",
+  lastName: "Lunt",
+  email: "mesha.lunt@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "B12"
+}, {
+  id: "MICHT",
+  firstName: "Michael",
+  lastName: "Thomson",
+  email: "michael.thomson@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPROV",
+  businessUnit: "Scotland"
+}, {
+  id: "MJELMAN",
+  firstName: "Mariama",
+  lastName: "Jelman",
+  email: "mariama.jelman@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRPO",
+  businessUnit: "International"
+}, {
+  id: "MKALU",
+  firstName: "Mwewa",
+  lastName: "Kaluba",
+  email: "mwewa.kaluba@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "Digital Practice",
+  specialty: "Digital Practice"
+}, {
+  id: "MKOLL",
+  firstName: "Marion",
+  lastName: "Kollen",
+  email: "marion.kollen@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPROV",
+  businessUnit: "International"
+}, {
+  id: "MMIND",
+  firstName: "Malina",
+  lastName: "Mindru",
+  email: "malina.mindru@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPROV",
+  businessUnit: "Dell"
+}, {
+  id: "MNIKO",
+  firstName: "Mariana",
+  lastName: "Nikolakaki",
+  email: "mariana.nikolakaki@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRPO",
+  businessUnit: "BU3"
+}, {
+  id: "MSTIR3",
+  firstName: "Matthew",
+  lastName: "Stirland",
+  email: "matthew.stirland@essencemediacom.com",
+  officeName: "MEDIACOM NORTH",
+  securityGroup: "PRAPRGBY",
+  businessUnit: "North"
+}, {
+  id: "NCART",
+  firstName: "Nick",
+  lastName: "Carter",
+  email: "nick.carter@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPBMQS",
+  businessUnit: "BU3"
+}, {
+  id: "NELIO",
+  firstName: "Niamh",
+  lastName: "Eliot",
+  email: "niamh.eliot@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "Global"
+}, {
+  id: "OJOSH",
+  firstName: "Omkar",
+  lastName: "Joshi",
+  email: "omkar.joshi@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "International"
+}, {
+  id: "OMCAL",
+  firstName: "Oliver",
+  lastName: "Mcalary",
+  email: "oliver.mcalary@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRPO",
+  businessUnit: "Careers",
+  specialty: "Careers"
+}, {
+  id: "PJAMESON",
+  firstName: "Phil",
+  lastName: "Jameson",
+  email: "phil.jameson@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPROV",
+  businessUnit: "BU5"
+}, {
+  id: "PSHRI",
+  firstName: "Paresh",
+  lastName: "Shrigondekar",
+  email: "paresh.shrigondekar@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "International"
+}, {
+  id: "RBARD",
+  firstName: "Rebecca",
+  lastName: "Barden",
+  email: "rebecca.barden@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "PST"
+}, {
+  id: "RCHAM",
+  firstName: "Richard",
+  lastName: "Chambers",
+  email: "richard.chambers@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "B12"
+}, {
+  id: "RDIXO",
+  firstName: "Rachel",
+  lastName: "Dixon",
+  email: "rachel.dixon@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPROV",
+  businessUnit: "Dell"
+}, {
+  id: "REONE",
+  firstName: "Rebecca",
+  lastName: "Jones",
+  email: "rebecca.jones@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPROV",
+  businessUnit: "International"
+}, {
+  id: "RESCO",
+  firstName: "Reece",
+  lastName: "Scott",
+  email: "reece.scott@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "Global"
+}, {
+  id: "RHETE",
+  firstName: "Rheanna",
+  lastName: "Tejura",
+  email: "rheanna.tejura@groupm.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "OpenMind"
+}, {
+  id: "RLITT",
+  firstName: "Rachel",
+  lastName: "Little",
+  email: "rachel.little@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "Scotland"
+}, {
+  id: "RMCDO",
+  firstName: "Rebecca",
+  lastName: "Mcdonald",
+  email: "rebecca.mcdonald@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPROV",
+  businessUnit: "North"
+}, {
+  id: "ROCOL",
+  firstName: "Rob",
+  lastName: "Coles",
+  email: "rob.coles@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "Global"
+}, {
+  id: "ROWAL",
+  firstName: "Robert",
+  lastName: "Walker",
+  email: "robert.walker@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPBMQS",
+  businessUnit: "BU3"
+}, {
+  id: "RPALM",
+  firstName: "Rebecca",
+  lastName: "Palmer",
+  email: "rebecca.palmer@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "B12"
+}, {
+  id: "SBURT",
+  firstName: "Sara",
+  lastName: "Burton",
+  email: "sara.burton@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPROV",
+  businessUnit: "International"
+}, {
+  id: "SCORE",
+  firstName: "Silvia",
+  lastName: "Correia",
+  email: "silvia.correia@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "B12"
+}, {
+  id: "SCROW",
+  firstName: "Sammy",
+  lastName: "Crow",
+  email: "sammy.crow@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRPO",
+  businessUnit: "Global"
+}, {
+  id: "SCUSH",
+  firstName: "Steve",
+  lastName: "Cushnan",
+  email: "steve.cushnan@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "PST",
+  specialty: "PST"
+}, {
+  id: "SHASL2",
+  firstName: "Sam",
+  lastName: "Haslam",
+  email: "sam.haslam@essencemediacom.com",
+  officeName: "MEDIACOM NORTH",
+  securityGroup: "PRAPRGBY",
+  businessUnit: "North"
+}, {
+  id: "SHIKP",
+  firstName: "Shikha",
+  lastName: "Patel",
+  email: "shikha.patel@groupm.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "OpenMind"
+}, {
+  id: "SHSHA",
+  firstName: "Shahyad",
+  lastName: "Shahir",
+  email: "shahyad.shahir@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPROV",
+  businessUnit: "B12"
+}, {
+  id: "SLADA",
+  firstName: "Steve",
+  lastName: "Ladan",
+  email: "steve.ladan@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "eCom"
+}, {
+  id: "SMEYER",
+  firstName: "Sarah",
+  lastName: "Hewitt",
+  email: "sarah.hewitt@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "BU3",
+  specialty: "B12"
+}, {
+  id: "SSWEE",
+  firstName: "Sophie",
+  lastName: "Sweetland",
+  email: "sophie.sweetland@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRPO",
+  businessUnit: "B12"
+}, {
+  id: "SZANO",
+  firstName: "Simone",
+  lastName: "Zanolla",
+  email: "simone.zanolla@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "International"
+}, {
+  id: "TEBUC",
+  firstName: "Terry",
+  lastName: "Buckingham",
+  email: "terry.buckingham@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPBMQS",
+  businessUnit: "BU3"
+}, {
+  id: "THODE",
+  firstName: "Thomas",
+  lastName: "Denman",
+  email: "thomas.denman@groupm.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "OpenDoor"
+}, {
+  id: "TLATH",
+  firstName: "Tom",
+  lastName: "Latham",
+  email: "tom.latham@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPBMQS",
+  businessUnit: "BU3"
+}, {
+  id: "TMYLE",
+  firstName: "Toby",
+  lastName: "Myles",
+  email: "toby.myles@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "International"
+}, {
+  id: "TUDAL",
+  firstName: "Tatjana",
+  lastName: "Udalova",
+  email: "tatjana.udalova@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPBMQS",
+  businessUnit: "All"
+}, {
+  id: "VALDA",
+  firstName: "Valentina",
+  lastName: "Damiani",
+  email: "valentina.damiani@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPROV",
+  businessUnit: "OpenMind"
+}, {
+  id: "VIJMU",
+  firstName: "Vijay",
+  lastName: "Muthukrishnan",
+  email: "vijay.muthukrishnan@groupm.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "OpenDoor"
+}, {
+  id: "VIOAN",
+  firstName: "Vasiliki",
+  lastName: "Ioannidou",
+  email: "vasiliki.ioannidou@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPROV",
+  businessUnit: "Dell"
+}, {
+  id: "VLOUD",
+  firstName: "Veronika",
+  lastName: "Loudova",
+  email: "veronika.loudova@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "International"
+}, {
+  id: "WBLAN",
+  firstName: "Will",
+  lastName: "Blank",
+  email: "will.blank@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRBUY",
+  businessUnit: "International"
+}, {
+  id: "YNDLO",
+  firstName: "Yolanda",
+  lastName: "Ndlovu",
+  email: "yolanda.ndlovu@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPRPO",
+  businessUnit: "BU5"
+}, {
+  id: "YPAPA",
+  firstName: "Yiota",
+  lastName: "Papathoma",
+  email: "yiota.papathoma@essencemediacom.com",
+  officeName: "MEDIACOM",
+  securityGroup: "PRAPROV",
+  businessUnit: "Dell"
+}].map(approver => ({
+  ...approver,
+  firstName: toTitleCase(approver.firstName),
+  lastName: toTitleCase(approver.lastName),
+  // Add the new companyUserIds field, defaulting to an empty array
+  companyUserIds: companyUserIdsMap[approver.id] || []
+}));
+
+export const businessUnits = [...new Set(approversData.map(a => a.businessUnit).filter(bu => bu && (bu.startsWith('BU') || bu.startsWith('B12') || bu === 'All')))].sort();
 export const clients = [...new Set(approversData.map(a => a.officeName))].filter(Boolean);
+
+// Collect and export all unique Functions from businessUnit and specialty
+const businessUnitFunctions = approversData
+  .map(a => a.businessUnit)
+  .filter(bu => bu && bu !== 'All' && !bu.startsWith('BU') && !bu.startsWith('B12'));
+const specialtyFunctions = approversData
+  .map(a => a.specialty)
+  .filter(Boolean)
+  // FIX: Exclude 'B12' from the functions list
+  .filter(s => s !== 'B12');
+export const functions = [...new Set([...businessUnitFunctions, ...specialtyFunctions])].sort();
+
+// Collect and export all unique Company User IDs
+const allCompanyUserIds = new Set(approversData.flatMap(approver => approver.companyUserIds));
+const priorityOrder = ['NGMCALL', 'NGMCLON', 'NGMCINT', 'NGMCNOR'];
+export const companyUserIdsList = [...allCompanyUserIds].sort((a, b) => {
+    const aIndex = priorityOrder.indexOf(a);
+    const bIndex = priorityOrder.indexOf(b);
+
+    if (aIndex === -1 && bIndex === -1) {
+        return a.localeCompare(b); // Both not in priority, sort alphabetically
+    } else if (aIndex === -1) {
+        return 1; // b is in priority, a is not
+    } else if (bIndex === -1) {
+        return -1; // a is in priority, b is not
+    } else {
+        return aIndex - bIndex; // Both are in priority, sort by their order
+    }
+});
