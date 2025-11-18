@@ -61,7 +61,6 @@
     async function addSwapAccountsButton() {
         try {
             const userMenu = await utils.waitForElementInShadow('mo-banner-user-menu', document, 15000);
-            if (!userMenu) return; // Fail silently if element isn't there
 
             const parentContainer = userMenu.parentElement;
             if (!parentContainer || parentContainer.querySelector('.swap-accounts-button')) return;
@@ -70,23 +69,6 @@
             swapButton.textContent = 'Swap Accounts';
             swapButton.title = 'Swap Accounts';
             swapButton.className = 'swap-accounts-button';
-
-            // Apply styles directly to the element
-            Object.assign(swapButton.style, {
-                backgroundColor: '#ffffff',
-                border: '1px solid #d1d5db',
-                color: '#374151',
-                borderRadius: '20px',
-                padding: '6px 14px',
-                fontSize: '13px',
-                fontWeight: '500',
-                cursor: 'pointer',
-                fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-                lineHeight: '1',
-                marginRight: '8px',
-                alignSelf: 'center'
-            });
-
 
             swapButton.addEventListener('click', () => handleSwap(swapButton));
 

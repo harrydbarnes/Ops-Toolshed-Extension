@@ -142,3 +142,24 @@
 .approver-widget-optimise #campaignHeader .mo.pull-right.container-fluid.workflow-cell {
     height: 45px;
 }
+
+/* --- Swap Accounts Button Styles --- */
+mo-banner .swap-accounts-button {
+    background-color: #ffffff;
+    border: 1px solid #d1d5db;
+    color: #374151;
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1;
+    margin-right: 8px;
+    align-self: center;
+}
+
+mo-banner .swap-accounts-button:hover {
+    background-color: #f9fafb;
+    border-color: #ccc;
+}
