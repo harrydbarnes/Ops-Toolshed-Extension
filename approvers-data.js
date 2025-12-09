@@ -5,7 +5,7 @@
 
 /**
  * Array of approver objects containing their details.
- * @type {Array<Object>}
+ * @type {Array<Approver>}
  * @property {string} id - The unique identifier for the approver.
  * @property {string} firstName - The first name of the approver.
  * @property {string} lastName - The last name of the approver.
