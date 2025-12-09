@@ -1,6 +1,14 @@
+/**
+ * @fileoverview Logic for the updates page (toolshed.html).
+ * Handles tab switching functionality.
+ */
+
 document.addEventListener('DOMContentLoaded', () => {
+    /** @type {HTMLElement} The container for tab buttons. */
     const tabContainer = document.querySelector('.tab-container');
+    /** @type {NodeListOf<HTMLElement>} List of all tab buttons. */
     const tabButtons = document.querySelectorAll('.tab-button');
+    /** @type {NodeListOf<HTMLElement>} List of all tab content sections. */
     const tabContents = document.querySelectorAll('.tab-content');
 
     if (tabContainer) {

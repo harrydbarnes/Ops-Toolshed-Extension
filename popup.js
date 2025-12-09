@@ -1,3 +1,14 @@
+/**
+ * @fileoverview Popup logic for the Ops Toolshed extension.
+ * Handles user interactions within the extension's popup, such as
+ * generating URLs, opening specific pages, and triggering reminders.
+ */
+
+/**
+ * Formats the time remaining until a deadline into a human-readable string.
+ * @param {number} deadline - The timestamp of the deadline in milliseconds.
+ * @returns {string} The formatted time remaining string (e.g., " - 2 days left").
+ */
 function formatTimeRemaining(deadline) {
     if (!deadline) return '';
     const now = new Date().getTime();
@@ -170,6 +181,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Removed setLogoToggleState, setMetaReminderToggleState, setTimesheetReminderToggleState functions
 
+/**
+ * Handles opening a campaign using a D-Number.
+ * Validates the input and sends a message to the background script.
+ */
 function handleOpenCampaignDNumber() {
     const dNumberInput = document.getElementById('dNumber');
     const dNumberError = document.getElementById('dNumberError');
@@ -185,6 +200,10 @@ function handleOpenCampaignDNumber() {
     }
 }
 
+/**
+ * Handles the URL generation for campaign actualization.
+ * Reads inputs, generates the URL, and opens it in a new tab.
+ */
 function handleGenerateUrl() {
     const campaignIdInput = document.getElementById('campaignId');
     const campaignDateInput = document.getElementById('campaignDate');
@@ -204,6 +223,12 @@ function handleGenerateUrl() {
     }
 }
 
+/**
+ * Generates the campaign actualization URL based on ID and date string.
+ * @param {string} campaignId - The campaign ID.
+ * @param {string} campaignDateStr - The date string provided by the user.
+ * @returns {string|null} The generated URL or null if inputs are invalid.
+ */
 function generateUrlFromData(campaignId, campaignDateStr) {
     if (!campaignId) {
         return null;
@@ -260,6 +285,11 @@ function generateUrlFromData(campaignId, campaignDateStr) {
 // those parts would need to be preserved or refactored. Based on the current context,
 // they seem exclusively tied to the removed settings UI.
 
+/**
+ * Attaches a click listener to a button to open a URL in a new tab.
+ * @param {string} id - The ID of the button element.
+ * @param {string} url - The URL to open.
+ */
 function addClickListener(id, url) {
     const button = document.getElementById(id);
     if (button) {

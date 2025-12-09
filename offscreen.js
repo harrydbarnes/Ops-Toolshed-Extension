@@ -1,3 +1,13 @@
+/**
+ * @fileoverview Offscreen document script for the Ops Toolshed extension.
+ * Handles tasks that cannot be performed in the service worker, such as
+ * playing audio and accessing the clipboard via `document.execCommand`.
+ */
+
+/**
+ * Listener for messages from the extension.
+ * Handles actions: 'playAlarm', 'readClipboard', 'copyToClipboard'.
+ */
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'playAlarm') {
         (async () => {

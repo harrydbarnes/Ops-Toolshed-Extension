@@ -1,4 +1,10 @@
 (function() { // Wrap the entire script in an IIFE to control execution.
+  /**
+   * @fileoverview Content script for Ops Toolshed.
+   * Handles page interactions, logo replacement, reminders (Meta, IAS, Custom),
+   * and automated form filling on Prisma and Aura pages.
+   */
+
   chrome.storage.local.get('timeBombActive', (data) => {
     if (data.timeBombActive) {
       console.log('Ops Toolshed features disabled due to time bomb.');
@@ -8,6 +14,9 @@
     initializeContentScript();
   });
 
+  /**
+   * Initializes the content script logic.
+   */
   function initializeContentScript() {
     console.log("[ContentScript Prisma] Script Injected on URL:", window.location.href, "at", new Date().toLocaleTimeString());
 
@@ -18,6 +27,11 @@ let mediaMixAutomated = false;
 let budgetTypeAutomated = false;
 
 // Utility to escape HTML for display (used by custom reminder popup)
+/**
+ * Escapes HTML characters in a string to prevent XSS.
+ * @param {string} str - The string to escape.
+ * @returns {string} The escaped HTML string.
+ */
 function escapeHTML(str) {
     if (str === null || str === undefined) return '';
     const div = document.createElement('div');
@@ -45,6 +59,12 @@ function queryShadowDom(selector, root = document) {
     return null;
 }
 
+/**
+ * Waits for an element to appear in the DOM.
+ * @param {string} selector - The CSS selector of the element to wait for.
+ * @param {number} [timeout=2000] - The maximum time to wait in milliseconds.
+ * @returns {Promise<Element>} A promise that resolves with the found element.
+ */
 function waitForElement(selector, timeout = 2000) {
   return new Promise((resolve, reject) => {
     const interval = setInterval(() => {
@@ -62,6 +82,12 @@ function waitForElement(selector, timeout = 2000) {
   });
 }
 
+/**
+ * Waits for an element to disappear from the DOM.
+ * @param {string} selector - The CSS selector of the element to wait for.
+ * @param {number} [timeout=2000] - The maximum time to wait in milliseconds.
+ * @returns {Promise<void>} A promise that resolves when the element disappears.
+ */
 function waitForElementToDisappear(selector, timeout = 2000) {
   return new Promise((resolve, reject) => {
     const interval = setInterval(() => {
@@ -79,6 +105,10 @@ function waitForElementToDisappear(selector, timeout = 2000) {
   });
 }
 
+/**
+ * Replaces the Prisma logo with a custom logo (the extension icon).
+ * Saves the original SVG content to allow restoration.
+ */
 function replaceLogo() {
     // Use a more robust selector by finding a unique path within the SVG,
     // and use queryShadowDom to search inside shadow DOM trees.
@@ -114,6 +144,9 @@ function replaceLogo() {
     }
 }
 
+/**
+ * Restores the original Prisma logo from the stored SVG content.
+ */
 function restoreOriginalLogo() {
     const customLogoImg = document.querySelector('i.logo > img.custom-prisma-logo');
     if (customLogoImg) {
@@ -133,6 +166,9 @@ function restoreOriginalLogo() {
     }
 }
 
+/**
+ * Checks the user preference and either replaces or restores the logo.
+ */
 function checkAndReplaceLogo() {
     // Gracefully handle cases where the extension context is invalidated.
     if (!chrome.runtime || !chrome.runtime.id) {
@@ -166,6 +202,12 @@ let metaCheckInProgress = false;
 
 // --- New Reminder Logic ---
 
+/**
+ * Determines whether a reminder should be shown based on frequency and last shown time.
+ * @param {string} storageKey - The key in local storage for the last shown timestamp.
+ * @param {string} frequency - The frequency setting ('daily', 'weekly', 'monthly', 'once').
+ * @param {function(boolean): void} callback - The callback receiving the decision (true to show).
+ */
 function shouldShowReminder(storageKey, frequency, callback) {
     chrome.storage.local.get([storageKey], (data) => {
         const lastShownTimestamp = data[storageKey];
@@ -201,10 +243,25 @@ function shouldShowReminder(storageKey, frequency, callback) {
     });
 }
 
+/**
+ * Updates the last shown timestamp for a reminder in local storage.
+ * @param {string} storageKey - The key in local storage.
+ */
 function setReminderShown(storageKey) {
     chrome.storage.local.set({ [storageKey]: Date.now() });
 }
 
+/**
+ * Creates and displays a standardized reminder popup.
+ * @param {Object} params - The parameters for the popup.
+ * @param {string} params.popupId - The unique ID for the popup element.
+ * @param {Object} params.content - Content object containing title, message, and list items.
+ * @param {string} params.content.title - Title of the reminder.
+ * @param {string} params.content.message - Message body of the reminder.
+ * @param {string[]} params.content.list - List of items to display.
+ * @param {number} params.countdownSeconds - Seconds before the close button is enabled.
+ * @param {string} params.storageKey - The storage key to update when dismissed.
+ */
 function createPrismaReminderPopup({ popupId, content, countdownSeconds, storageKey }) {
     if (document.getElementById(popupId)) return;
 
@@ -273,6 +330,9 @@ function createPrismaReminderPopup({ popupId, content, countdownSeconds, storage
     closeButton.addEventListener('click', cleanupPopup);
 }
 
+/**
+ * Checks if conditions for the Meta Reconciliation Reminder are met and shows it if necessary.
+ */
 function checkForMetaConditions() {
     if (metaReminderDismissed || metaCheckInProgress) return;
     const currentUrl = window.location.href;
@@ -320,6 +380,9 @@ function checkForMetaConditions() {
     });
 }
 
+/**
+ * Checks if conditions for the IAS Booking Reminder are met and shows it if necessary.
+ */
 function checkForIASConditions() {
     if (iasReminderDismissed) return;
     if (!chrome.runtime || !chrome.runtime.id) return;
@@ -366,6 +429,9 @@ setInterval(() => {
 
 // --- Custom Reminder Functions ---
 
+/**
+ * Fetches active custom reminders from storage.
+ */
 function fetchCustomReminders() {
     if (!chrome.runtime || !chrome.runtime.id) return; // Context guard
     chrome.storage.sync.get({customReminders: []}, function(data) {
@@ -381,6 +447,11 @@ function fetchCustomReminders() {
     });
 }
 
+/**
+ * Converts a wildcard pattern to a regular expression.
+ * @param {string} pattern - The wildcard pattern (e.g., "*example*").
+ * @returns {RegExp} The equivalent regular expression.
+ */
 function wildcardToRegex(pattern) {
     // Escape regex special chars
     let escapedPattern = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
@@ -397,6 +468,10 @@ function wildcardToRegex(pattern) {
     return new RegExp('^' + escapedPattern + '$', 'i'); // Added 'i' flag for case-insensitivity
 }
 
+/**
+ * Creates and displays a custom reminder popup.
+ * @param {Object} reminder - The reminder object.
+ */
 function createCustomReminderPopup(reminder) {
     // const popupId = 'custom-reminder-popup-' + reminder.id; // Old ID
     if (document.getElementById('custom-reminder-display-popup')) { // Check for the new generic ID
@@ -444,7 +519,9 @@ function createCustomReminderPopup(reminder) {
     console.log(`[ContentScript Prisma] Custom reminder popup created for: ${reminder.name}`);
 }
 
-
+/**
+ * Adds a "GMI Chat" button to the workflow widget to open a pre-filled Teams chat.
+ */
 function handleGmiChatButton() {
     const workflowWidget = document.querySelector('.workflow-widget-wrapper');
     if (!workflowWidget || workflowWidget.querySelector('.gmi-chat-button')) {
@@ -472,6 +549,10 @@ function handleGmiChatButton() {
     workflowWidget.appendChild(gmiChatButton);
 }
 
+/**
+ * Checks all active custom reminders against the current page URL and content.
+ * Displays a popup for the first matching reminder.
+ */
 function checkCustomReminders() {
     console.log("[ContentScript Prisma] Running checkCustomReminders...");
     if (activeCustomReminders.length === 0) {
@@ -549,6 +630,10 @@ function checkCustomReminders() {
     console.log("[ContentScript Prisma] Finished checkCustomReminders.");
 }
 
+/**
+ * Handles UI modifications and automation for the Campaign Management page.
+ * Hides specific sections and automates form fields based on settings.
+ */
 function handleCampaignManagementFeatures() {
     if (!window.location.href.includes('osModalId=prsm-cm-cmpadd')) {
         return;
@@ -611,6 +696,9 @@ function handleCampaignManagementFeatures() {
 
 // --- Approver Pasting Feature ---
 
+/**
+ * Adds buttons to paste approver emails and manage favorites on the relevant page.
+ */
 function handleApproverPasting() {
     const selectors = {
         toLabel: 'label',
@@ -732,6 +820,9 @@ function handleApproverPasting() {
     toLabel.parentNode.insertBefore(pasteFavouritesButton, pasteButton.nextSibling);
 }
 
+/**
+ * Adds a "Manage Favourites" button next to the "Clear" button.
+ */
 function handleManageFavouritesButton() {
     const clearButton = Array.from(document.querySelectorAll('button.btn-link.mo-btn-link')).find(btn => btn.textContent.trim() === 'Clear');
     if (!clearButton) {
@@ -756,6 +847,10 @@ function handleManageFavouritesButton() {
 
 // --- End Custom Reminder Functions ---
 
+/**
+ * Checks if the current page is one where the logo should be replaced.
+ * @returns {boolean} True if the logo should be replaced, false otherwise.
+ */
 function shouldReplaceLogoOnThisPage() {
     if (typeof window === 'undefined' || !window.location || !window.location.href) {
         return false; // Guard against test environments where window/location might not be fully available
@@ -771,6 +866,10 @@ if (document.readyState === 'loading') {
     mainContentScriptInit();
 }
 
+/**
+ * Main initialization function called when the DOM is ready.
+ * Sets up observers and initial checks.
+ */
 function mainContentScriptInit() {
     console.log("[ContentScript Prisma] DOMContentLoaded or already loaded. Initializing checks.");
     if (shouldReplaceLogoOnThisPage()) {
@@ -802,6 +901,9 @@ function mainContentScriptInit() {
     observer.observe(document.body, { childList: true, subtree: true });
 }
 
+/**
+ * Listener for messages from other parts of the extension.
+ */
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     console.log("[ContentScript Prisma] Message received in listener:", request);
 

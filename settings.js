@@ -1,6 +1,16 @@
 // Prepend to settings.js or ensure it's within DOMContentLoaded
 
-// Utility to escape HTML for display
+/**
+ * @fileoverview Settings page logic for the Ops Toolshed extension.
+ * Handles user configuration for various features including reminders,
+ * automated actions, and custom alerts. Manages local and sync storage updates.
+ */
+
+/**
+ * Escapes HTML characters in a string to prevent XSS.
+ * @param {string} str - The string to escape.
+ * @returns {string} The escaped HTML string.
+ */
 function escapeHTML(str) {
     if (str === null || str === undefined) return '';
     const div = document.createElement('div');
@@ -8,7 +18,10 @@ function escapeHTML(str) {
     return div.innerHTML;
 }
 
-// Function to show a test custom reminder on the settings page
+/**
+ * Shows a test version of a custom reminder popup on the settings page.
+ * @param {Object} reminder - The custom reminder object.
+ */
 function showTestCustomReminderOnSettingsPage(reminder) {
     const existingGenericPopup = document.getElementById('custom-reminder-display-popup');
     if (existingGenericPopup) existingGenericPopup.remove();
@@ -48,7 +61,17 @@ function showTestCustomReminderOnSettingsPage(reminder) {
 }
 
 
-// Generic function to show a test reminder popup on the settings page
+/**
+ * Shows a generic test reminder popup on the settings page.
+ * @param {Object} params - Parameters for the test popup.
+ * @param {string} params.popupId - The ID for the popup element.
+ * @param {string} params.overlayId - The ID for the overlay element.
+ * @param {Object} params.content - Content for the popup (title, message, list).
+ * @param {string} params.closeButtonId - The ID for the close button.
+ * @param {boolean} params.hasCountdown - Whether to enable a countdown on the close button.
+ * @param {string} [params.storageKey] - Storage key to check/update (optional).
+ * @param {number} [params.countdownSeconds=5] - Duration of the countdown in seconds.
+ */
 function showTestReminderPopup({ popupId, overlayId, content, closeButtonId, hasCountdown, storageKey, countdownSeconds = 5 }) {
     // Remove existing popups to prevent duplicates
     const existingPopup = document.getElementById(popupId);
@@ -139,7 +162,12 @@ function showTestReminderPopup({ popupId, overlayId, content, closeButtonId, has
     }
 }
 
-// Helper function to set up a toggle switch
+/**
+ * Sets up a toggle switch and links it to chrome.storage.sync.
+ * @param {string} toggleId - The ID of the toggle input element.
+ * @param {string} storageKey - The storage key to bind the toggle to.
+ * @param {string} logMessage - Message to log to console on change.
+ */
 function setupToggle(toggleId, storageKey, logMessage) {
     const toggle = document.getElementById(toggleId);
     if (toggle) {

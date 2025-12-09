@@ -1,78 +1,81 @@
 # Ops Toolshed Chrome Extension
 
-**Feature set as of version: 1.2**
+**Version: 1.2**
 
 A utility extension built to enhance Prisma functionality and provide quick access to various operations and tools, streamlining daily workflows for campaign management and approvals.
 
+## Overview
+
+The Ops Toolshed extension integrates directly with Prisma and Aura platforms to provide:
+* **Workflow Automation:** Automates repetitive tasks like form filling and campaign navigation.
+* **Contextual Alerts:** Provides reminders for critical processes like Meta reconciliation and IAS booking.
+* **Approver Management:** A robust tool for searching, filtering, and pasting approver emails.
+* **Quick Navigation:** One-click access to essential internal and external links.
+
+## Project Structure
+
+*   `background.js`: Service worker handling alarms, notifications, and message routing.
+*   `content.js`: Main script injected into web pages to handle DOM interactions and logic.
+*   `popup.js`: Logic for the extension's popup interface.
+*   `settings.js`: Manages user configuration and custom reminders.
+*   `approvers.js` & `approvers-data.js`: Logic and data for the Approver Management tool.
+*   `offscreen.js`: Handles background tasks requiring DOM access, like clipboard operations and audio playback.
+
 ## Key Features
 
-The Ops Toolshed extension is divided into several categories of features:
-
-* **Quick Navigation:** One-click access to critical external and internal platforms (e.g., Prisma, Aura Timesheets, Handbooks).
-* **Workflow Efficiency:** Automated form filling and UI improvements within Prisma's Campaign Management interface.
-* **Contextual Reminders:** Automated reminders for critical steps in reconciliation and booking processes.
-* **Approver Management Tool:** A dedicated search interface for finding, filtering, and managing Prisma approver email addresses.
-* **Utility Tools:** Quick launch tools for deep-linking into Prisma campaigns by ID or D-number, and a bulk data scraper for Meta Ads Manager.
-
----
-
-## Detailed Feature Breakdown
-
 ### 1. Quick Navigation & Launch Tools
-
-All of these features are available directly from the extension's popup menu:
-
-* **One-Click Navigation:** Direct links to key applications like:
-    * Prisma
-    * Prisma Approvers (New dedicated tool)
-    * My Timesheets (Aura)
-    * Timesheet Approvals (Aura)
-    * Meta Handbook
-    * Ops D.R.E
-    * TPO Sharepoint
-    * Prisma Approvers List
-    * Add Campaign
-    * Meta Billing Check (Launches scraper for Meta Ads Manager - **currently WIP**)
-* **Campaign URL Generator (Open Campaign):** Quickly generates a direct link to the **Actualize** route within a Prisma campaign for a specified **Campaign ID** and month/year.
-* **D Number Campaign Opener:** Automatically navigates to the Prisma Campaigns dashboard and uses a script to search for and open a campaign based on its **D Number**.
-* **Prisma Location Switcher:** Provides quick buttons to switch between different New Global Media (NGM) locations (NGMCLON, NGMCINT, NGMCSCO, NGOPEN) within Prisma.
+Available via the extension popup:
+*   **Prisma & Aura Links:** Quick access to Prisma, My Timesheets, Approvals, and Handbooks.
+*   **Campaign Tools:**
+    *   **Open Campaign:** Generates deep links to specific campaigns based on ID and date.
+    *   **D-Number Search:** Automates searching and opening campaigns by D-Number.
+*   **Location Switcher:** Rapidly switch between NGM locations (NGMCLON, NGMCINT, etc.).
 
 ### 2. Prisma Workflow Enhancements
-
-These features activate when viewing the Prisma web app and can be managed via the **Settings** page:
-
-| Setting Name | Functionality |
-| :--- | :--- |
-| **Replace Prisma Logo** | Replaces the standard Prisma logo with the extension's custom icon in the UI, indicating the extension is active. |
-| **'Add Campaign' auto clicks 'Enter Full Details'** | Automatically redirects a campaign creation URL to bypass the simplified 'light-box' option, defaulting to the full details page. |
-| **Hide unused sections on 'Add Campaign'** | Hides the **Objective**, **Targeting**, and **Flighting** sections on the 'Add Campaign' page for a cleaner interface. |
-| **Automate 'Budget type' and 'Media mix' selection** | Automatically sets the 'Media Mix' field to **Digital** (`media_digital`) and 'Budget Type' to **Total Cost** (`3`) on the 'Add Campaign' form. |
+Configurable via Settings:
+*   **Logo Replacement:** Replaces the Prisma logo with the extension icon to indicate activity.
+*   **Add Campaign Automation:** Auto-redirects to full details view, hides unused sections, and pre-fills 'Media Mix' and 'Budget Type'.
 
 ### 3. Contextual Reminders
+*   **Built-in Reminders:** Alerts for Meta Reconciliation and IAS Booking based on page content.
+*   **Custom Reminders:** User-defined popups triggered by specific URL patterns and page text.
+*   **Timesheet Reminder:** Configurable weekly alarm to remind users to submit timesheets.
 
-The extension monitors page content and URLs in real-time to display critical, non-dismissable popups:
+### 4. Approver Management
+*   **Search Interface:** Filter approvers by Business Unit, Client, or Favorites.
+*   **One-Click Paste:** Inject buttons into Prisma to auto-paste selected or favorite approver emails.
 
-* **Meta Reconciliation Reminder:** Shows a reminder popup on the Prisma 'actualize' page when specific text conditions for Meta reconciliation are detected (`000770` and `Redistribute all`).
-* **IAS Booking Reminder:** Shows a reminder popup when specific conditions for IAS booking are detected (`001148`, `Flat`, and `Unit Type`).
-* **Custom Reminders:** Allows users to create their own custom reminders triggered by a **URL pattern** (supporting wildcards `*`) and optional **page text trigger**.
-* **Timesheet Reminder (Aura):** A recurring notification alarm that can be configured to trigger on a specific **Day** and **Time** (e.g., Friday at 14:30), with a snooze option.
+### 5. Meta Billing Check
+*   **Scraper:** Extracts campaign data (Budget, Spend, Impressions) from Meta Ads Manager into a CSV file.
 
-### 4. Approver Management Tools
+## Setup & Installation
 
-A dedicated tool set for handling Prisma approver emails:
+1.  **Clone the repository:**
+    ```bash
+    git clone <repository-url>
+    ```
+2.  **Install dependencies:**
+    ```bash
+    npm install
+    ```
+3.  **Load into Chrome:**
+    *   Open `chrome://extensions/`
+    *   Enable **Developer mode** (top right).
+    *   Click **Load unpacked**.
+    *   Select the directory containing `manifest.json`.
 
-* **Prisma Approver Search Page:** A separate HTML page (`approvers.html`) providing a searchable, filterable list of all approvers. Users can filter by **Business Unit**, **Client/Office Name**, and a **Favourites Only** toggle.
-* **Approve/Copy Integration:** Users can select multiple approvers, copy their emails to the clipboard, and save them as favourites directly from the search tool.
-* **One-Click Paste in Prisma:** On Prisma approval pages, buttons are injected next to the 'To' field to:
-    * **Paste Approvers:** Automatically pastes a semi-colon delimited list of emails from the clipboard into the Prisma search field, selecting and adding each one sequentially.
-    * **Paste Favourites:** Automatically pastes all saved favourite approver emails.
+## Usage
 
-### 5. Meta Billing Check Utility
+*   **Popup:** Click the extension icon to access navigation links and tools.
+*   **Settings:** Right-click the extension icon and select **Options**, or use the gear icon in the popup.
+*   **Approvers:** Access the "Prisma Approvers" tool from the popup.
+*   **Automation:** Navigate to supported Prisma pages (e.g., Add Campaign) to see automation in action.
 
-* **Meta Billing Check:** A button in the extension popup that, when clicked on the **Meta Ads Manager campaigns page**, injects a script to scrape and download campaign data (including Campaign Name, Start/End Dates, Impressions, Budget, and Amount Spent) as a CSV file.
+## Development
 
----
+*   **Documentation:** All source files are thoroughly documented with JSDoc.
+*   **Testing:** Run tests using `npm test` (if configured).
 
-## Settings
+## License
 
-All optional and automated features can be toggled on/off and configured in the dedicated **Settings** page (`settings.html`). This page also hosts the interface for **creating, editing, and exporting Custom Reminders**.
+[License Information Here]
