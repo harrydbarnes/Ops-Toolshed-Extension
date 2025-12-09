@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * Renders the list of approver cards to the DOM.
-     * @param {Array<Object>} approvers - The list of approver objects to display.
+     * @param {Array<Approver>} approvers - The list of approver objects to display.
      */
     const renderApprovers = (approvers) => {
         approversList.innerHTML = '';
