@@ -1,20 +1,47 @@
 import { approversData, businessUnits, clients } from './approvers-data.js';
 
+/**
+ * Initializes the approvers page logic when the DOM content is fully loaded.
+ * Sets up event listeners, filters, and renders the initial list of approvers.
+ */
 document.addEventListener('DOMContentLoaded', () => {
+    /** @type {HTMLInputElement} The search input field for filtering approvers. */
     const searchInput = document.getElementById('search-input');
+    /** @type {HTMLElement} The button to filter by favorites only. */
     const favoritesOnlyButton = document.getElementById('favorites-only-button');
+    /** @type {HTMLElement} The container for business unit filter buttons. */
     const businessUnitsContainer = document.getElementById('business-units-filters');
+    /** @type {HTMLElement} The container for client filter buttons. */
     const clientsContainer = document.getElementById('clients-filters');
+    /** @type {HTMLElement} The container where approver cards are rendered. */
     const approversList = document.getElementById('approvers-list');
+    /** @type {HTMLElement} The element displaying the count of found approvers. */
     const approversCount = document.getElementById('approvers-count');
+    /** @type {HTMLElement} The element displaying the count of selected approvers. */
     const selectedCount = document.getElementById('selected-count');
+    /** @type {HTMLElement} The button to copy selected approvers' emails. */
     const copyButton = document.getElementById('copy-button');
+    /** @type {HTMLElement} The button to copy emails and save selected approvers as favorites. */
     const copySaveButton = document.getElementById('copy-save-button');
+    /** @type {HTMLElement} The toast notification element. */
     const toastNotification = document.getElementById('toast-notification');
 
+    /**
+     * A Set containing the IDs of currently selected approvers.
+     * @type {Set<string>}
+     */
     let selectedApprovers = new Set();
+
+    /**
+     * A Set containing the IDs of favorite approvers.
+     * @type {Set<string>}
+     */
     let favoriteApprovers = new Set();
 
+    /**
+     * Renders the list of approver cards to the DOM.
+     * @param {Array<Approver>} approvers - The list of approver objects to display.
+     */
     const renderApprovers = (approvers) => {
         approversList.innerHTML = '';
         approversCount.textContent = `${approvers.length} approver${approvers.length !== 1 ? 's' : ''} found`;
@@ -45,6 +72,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
+    /**
+     * Updates the UI to reflect the number of selected approvers.
+     * Toggles the visibility of the footer actions.
+     */
     const updateSelectedCount = () => {
         const footerActions = document.querySelector('.footer-actions');
         selectedCount.textContent = `${selectedApprovers.size} approver${selectedApprovers.size === 1 ? '' : 's'} selected`;
@@ -55,6 +86,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    /**
+     * Filters the approvers list based on search term, favorites status, business units, and clients.
+     * Renders the filtered list.
+     */
     const filterApprovers = () => {
         const searchTerm = searchInput.value.toLowerCase();
         const favoritesOnly = favoritesOnlyButton.classList.contains('active');
@@ -90,6 +125,10 @@ document.addEventListener('DOMContentLoaded', () => {
         renderApprovers(filtered);
     };
 
+    /**
+     * Toggles the active state of a filter button and triggers a re-filter.
+     * @param {Event} e - The click event.
+     */
     const toggleFilterButton = (e) => {
         if (e.target.classList.contains('filter-button')) {
             e.target.classList.toggle('active');
@@ -97,6 +136,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    /**
+     * Loads favorite approvers from Chrome storage.
+     * @async
+     */
     const loadFavorites = async () => {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
             const { favoriteApprovers: favs } = await chrome.storage.local.get(['favoriteApprovers']);
@@ -107,6 +150,9 @@ document.addEventListener('DOMContentLoaded', () => {
         filterApprovers();
     };
 
+    /**
+     * Saves the current set of favorite approvers to Chrome storage.
+     */
     const saveFavorites = () => {
         chrome.storage.local.set({ favoriteApprovers: [...favoriteApprovers] });
     };
@@ -168,6 +214,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    /**
+     * Shows a temporary toast notification to the user.
+     */
     const showToast = () => {
         toastNotification.classList.add('show');
         setTimeout(() => {

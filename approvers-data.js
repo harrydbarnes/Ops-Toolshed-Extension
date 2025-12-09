@@ -1,3 +1,20 @@
+/**
+ * @fileoverview Defines the data source for the approvers page.
+ * Contains a list of approvers with their details and exported arrays for filtering options.
+ */
+
+/**
+ * Array of approver objects containing their details.
+ * @type {Array<Approver>}
+ * @property {string} id - The unique identifier for the approver.
+ * @property {string} firstName - The first name of the approver.
+ * @property {string} lastName - The last name of the approver.
+ * @property {string} email - The email address of the approver.
+ * @property {string} officeName - The office/client name associated with the approver.
+ * @property {string} securityGroup - The security group code for the approver.
+ * @property {string} businessUnit - The business unit the approver belongs to.
+ * @property {string} [specialty] - The specialty area of the approver (optional).
+ */
 export const approversData = [
   { id: "ADCRO", firstName: "Adam", lastName: "Crow", email: "adam.crow@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPROV", businessUnit: "All" },
   { id: "ADENE", firstName: "Adeel", lastName: "Nehim", email: "adeel.nehim@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "Social", specialty: "Social" },
@@ -194,5 +211,14 @@ export const approversData = [
   { id: "ZCHOI", firstName: "Zoe", lastName: "Choi", email: "zoe.choi@essencemediacom.com", officeName: "MEDIACOM", securityGroup: "PRAPRBUY", businessUnit: "All" }
 ];
 
+/**
+ * Array of unique business units extracted from the approvers data.
+ * @type {Array<string>}
+ */
 export const businessUnits = [...new Set(approversData.map(a => a.businessUnit))].filter(Boolean);
+
+/**
+ * Array of unique client names (office names) extracted from the approvers data.
+ * @type {Array<string>}
+ */
 export const clients = [...new Set(approversData.map(a => a.officeName))].filter(Boolean);

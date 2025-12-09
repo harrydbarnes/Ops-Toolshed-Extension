@@ -1,6 +1,20 @@
 import { approversData } from './approvers-data.js';
 
+/**
+ * @fileoverview Background service worker for the Ops Toolshed extension.
+ * Handles alarms, notifications, offscreen documents, and message routing.
+ * Manages the "Time-Bomb" feature and Timesheet Reminders.
+ */
+
 // --- Time-Bomb Feature ---
+/**
+ * Configuration for the Time-Bomb feature.
+ * @type {Object}
+ * @property {string} enabled - 'Y' to enable, 'N' to disable.
+ * @property {number} disableDay - Day of the week to disable (0=Sun, 1=Mon, etc.).
+ * @property {number} disableHour - Hour of the day to disable (0-23).
+ * @property {number} disableMinute - Minute of the hour to disable (0-59).
+ */
 const timeBombConfig = {
   enabled: 'Y', // Change to 'N' to disable
   disableDay: 2, // Tuesday (0=Sun, 1=Mon, 2=Tue, etc.)
@@ -8,6 +22,10 @@ const timeBombConfig = {
   disableMinute: 59
 };
 
+/**
+ * Calculates the timestamp for the next deadline based on the configuration.
+ * @returns {number} The timestamp (ms) of the next deadline.
+ */
 function getNextDeadline() {
   const now = new Date();
   const deadline = new Date(now);
@@ -21,6 +39,11 @@ function getNextDeadline() {
   return deadline.getTime();
 }
 
+/**
+ * Checks if the time bomb deadline has passed and updates storage.
+ * If disabled via config, clears related storage.
+ * @returns {Promise<void>}
+ */
 function checkTimeBomb() {
   if (timeBombConfig.enabled !== 'Y') {
     // If disabled in the code, clear all time bomb variables from storage.
@@ -47,6 +70,10 @@ chrome.alarms.create('timeBombCheck', { periodInMinutes: 1 });
 // --- End Time-Bomb Feature ---
 
 
+/**
+ * Listener for extension installation.
+ * Initializes the time bomb check and timesheet reminder settings.
+ */
 chrome.runtime.onInstalled.addListener(() => {
   checkTimeBomb(); // Run on install
   if (!chrome.runtime || !chrome.runtime.id) return; // Context guard
@@ -61,6 +88,11 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
+/**
+ * Creates a recurring alarm for the timesheet reminder.
+ * @param {string} [day='Friday'] - The day of the week for the alarm (e.g., 'Friday').
+ * @param {string} [time='14:30'] - The time for the alarm in HH:MM format.
+ */
 function createTimesheetAlarm(day, time) {
   // Default to Friday at 14:30 if day or time is undefined
   day = day || 'Friday';
@@ -74,6 +106,12 @@ function createTimesheetAlarm(day, time) {
   console.log("Alarm set for:", nextAlarmDate);
 }
 
+/**
+ * Calculates the next occurrence of a specific day and time.
+ * @param {string} day - The target day of the week.
+ * @param {string} time - The target time in HH:MM format.
+ * @returns {Date} The Date object for the next alarm.
+ */
 function getNextAlarmDate(day, time) {
   const now = new Date();
   const [hours, minutes] = time.split(':').map(Number);
@@ -88,7 +126,11 @@ function getNextAlarmDate(day, time) {
   return nextDate;
 }
 
-// Check if an offscreen document is already open
+/**
+ * Checks if an offscreen document with the given path is already open.
+ * @param {string} path - The path of the offscreen document.
+ * @returns {Promise<boolean>} True if the document exists, false otherwise.
+ */
 async function hasOffscreenDocument(path) {
   const matchedClients = await clients.matchAll({
     type: 'window',
@@ -105,6 +147,11 @@ async function hasOffscreenDocument(path) {
 
 // Create the offscreen document if it doesn't exist
 let creating; // A global promise to avoid racing createDocument
+/**
+ * Creates the offscreen document if it does not already exist.
+ * Ensures only one creation process runs at a time.
+ * @returns {Promise<void>}
+ */
 async function createOffscreenDocument() {
   // Check if we have an existing document.
   if (await hasOffscreenDocument('offscreen.html')) {
@@ -125,7 +172,13 @@ async function createOffscreenDocument() {
   }
 }
 
-// Helper function to handle clipboard actions with the offscreen document.
+/**
+ * Handles clipboard actions by delegating to the offscreen document.
+ * @param {Object} request - The message request object.
+ * @param {string} request.action - The action to perform ('getClipboardText' or 'copyToClipboard').
+ * @param {string} [request.text] - The text to write to the clipboard (if applicable).
+ * @param {function} sendResponse - The function to send the response back to the sender.
+ */
 async function handleOffscreenClipboard(request, sendResponse) {
     const { action, text } = request;
     // Map the action from the content script to the action for the offscreen document.
@@ -144,7 +197,10 @@ async function handleOffscreenClipboard(request, sendResponse) {
     }
 }
 
-// Modify playAlarmSound to use the offscreen document
+/**
+ * Plays the alarm sound by sending a message to the offscreen document.
+ * Checks user settings before playing.
+ */
 async function playAlarmSound() {
   console.log("playAlarmSound function called");
   if (!chrome.runtime || !chrome.runtime.id) return; // Context guard
@@ -165,6 +221,10 @@ async function playAlarmSound() {
 }
 
 
+/**
+ * Listener for alarms.
+ * Triggers the time bomb check or timesheet reminder notification.
+ */
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'timeBombCheck') {
     checkTimeBomb();
@@ -173,6 +233,9 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
+/**
+ * Displays the timesheet reminder notification and plays a sound.
+ */
 async function showTimesheetNotification() {
     console.log("showTimesheetNotification function called");
     if (!chrome.runtime || !chrome.runtime.id) return; // Context guard
@@ -204,6 +267,10 @@ async function showTimesheetNotification() {
 }
 
 
+/**
+ * Listener for notification button clicks.
+ * Handles opening the timesheet URL or snoozing the reminder.
+ */
 chrome.notifications.onButtonClicked.addListener((notificationId, buttonIndex) => {
   if (notificationId === 'timesheetReminder') {
     if (buttonIndex === 0) {
@@ -220,6 +287,11 @@ chrome.notifications.onButtonClicked.addListener((notificationId, buttonIndex) =
 
 // --- Meta Billing Check Logic ---
 
+/**
+ * Script execution function to open a campaign with a D-Number.
+ * This function is injected into the page context.
+ * @param {string} dNumber - The D-Number to search for.
+ */
 function openCampaignWithDNumberScript(dNumber) {
     // REFACTORED: findElement now accepts an optional root element to search within.
     const findElement = (selector, rootElement = document, timeout = 15000) => {
@@ -322,6 +394,10 @@ function openCampaignWithDNumberScript(dNumber) {
     })();
 }
 
+/**
+ * Script execution function to scrape and download CSV from Meta Ads Manager.
+ * This function is injected into the page context.
+ */
 function scrapeAndDownloadCsv() {
     (async () => {
         const scrapingMessage = document.createElement('div');
@@ -443,6 +519,11 @@ function scrapeAndDownloadCsv() {
     })();
 }
 
+/**
+ * Global message listener.
+ * Handles internal messages for various extension features like time bomb overrides,
+ * notifications, and script injection.
+ */
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // Allow the disableTimeBomb action to proceed even if the bomb is active.
     if (request.action === "disableTimeBomb") {
@@ -552,6 +633,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }); // close chrome.storage.local.get
 });
 
+/**
+ * Listener for tab updates.
+ * Removes specific URL parameters if the shortcut feature is enabled.
+ */
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     // Check if the URL has changed and the feature is enabled
     if (changeInfo.url) {
