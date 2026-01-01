@@ -40,6 +40,38 @@ function escapeHTML(str) {
 }
 
 /**
+ * Sanitizes HTML string to allow only specific safe tags and no attributes.
+ * Prevents XSS from potentially malicious storage data.
+ * @param {string} htmlString - The HTML string to sanitize.
+ * @returns {DocumentFragment} The sanitized content as a DocumentFragment.
+ */
+function sanitizeReminderHTML(htmlString) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlString, 'text/html');
+    const fragment = document.createDocumentFragment();
+
+    function sanitize(node, parent) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            parent.appendChild(document.createTextNode(node.textContent));
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+            const tagName = node.tagName.toUpperCase();
+            if (['H3', 'P', 'UL', 'LI', 'B', 'I', 'STRONG', 'EM', 'BR', 'SPAN'].includes(tagName)) {
+                const newEl = document.createElement(tagName);
+                // No attributes copied
+                Array.from(node.childNodes).forEach(child => sanitize(child, newEl));
+                parent.appendChild(newEl);
+            } else {
+                // Unwrap disallowed tags but preserve their text content
+                Array.from(node.childNodes).forEach(child => sanitize(child, parent));
+            }
+        }
+    }
+
+    Array.from(doc.body.childNodes).forEach(node => sanitize(node, fragment));
+    return fragment;
+}
+
+/**
  * Recursively searches for an element matching the selector, piercing through shadow DOMs.
  * @param {string} selector - The CSS selector to search for.
  * @param {Element|ShadowRoot} [root=document] - The root element to start the search from.
@@ -502,14 +534,21 @@ function createCustomReminderPopup(reminder) {
 
     // Inline styles are removed, will be handled by addReminderStyles
 
-    popup.innerHTML = `
-        <h3>${escapeHTML(reminder.name)}</h3>
-        ${reminder.popupMessage}
-        <button id="custom-reminder-display-close">Got it!</button>
-    `;
+    popup.innerHTML = ''; // Ensure clean slate
+
+    const h3 = document.createElement('h3');
+    h3.textContent = reminder.name; // Safely set text content
+    popup.appendChild(h3);
+
+    popup.appendChild(sanitizeReminderHTML(reminder.popupMessage));
+
+    const closeButton = document.createElement('button');
+    closeButton.id = 'custom-reminder-display-close';
+    closeButton.textContent = 'Got it!';
+    popup.appendChild(closeButton);
+
     document.body.appendChild(popup);
 
-    const closeButton = document.getElementById('custom-reminder-display-close'); // Use new ID
     closeButton.addEventListener('click', () => {
         if (popup.parentNode) popup.parentNode.removeChild(popup);
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay); // Remove its specific overlay
