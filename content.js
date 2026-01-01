@@ -544,6 +544,7 @@ function createCustomReminderPopup(reminder) {
 
     const closeButton = document.createElement('button');
     closeButton.id = 'custom-reminder-display-close';
+    closeButton.className = 'reminder-close-button';
     closeButton.textContent = 'Got it!';
     popup.appendChild(closeButton);
 
