@@ -68,10 +68,7 @@
             const swapButton = document.createElement('button');
             swapButton.textContent = 'Swap Accounts';
             swapButton.title = 'Swap Accounts';
-            swapButton.className = 'filter-button prisma-paste-button gmi-chat-button';
-
-            swapButton.style.marginRight = '8px';
-            swapButton.style.alignSelf = 'center';
+            swapButton.className = 'filter-button prisma-paste-button gmi-chat-button swap-accounts-button';
 
             swapButton.addEventListener('click', () => handleSwap(swapButton));
 
