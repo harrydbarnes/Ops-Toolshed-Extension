@@ -91,33 +91,14 @@
                     // Ensure we don't attach multiple listeners
                     if (!btn.dataset.hasAlwaysShowListener) {
                         btn.dataset.hasAlwaysShowListener = 'true';
-                        btn.addEventListener('click', function() {
-                            // Poll for the elements to remove
-                            let attempts = 0;
-                            const maxAttempts = 20; // 2 seconds
-                            let toggleRemoved = false, actionRemoved = false;
-                            const interval = setInterval(() => {
-                                attempts++;
-                                if (!toggleRemoved) {
-                                    const toggleWrapper = document.querySelector('.mo.toggle-btn-wrapper.mo-btn-group');
-                                    if (toggleWrapper) {
-                                        toggleWrapper.remove();
-                                        toggleRemoved = true;
-                                    }
-                                }
-
-                                if (!actionRemoved) {
-                                    const actionGroup = document.querySelector('.action-group');
-                                    if (actionGroup) {
-                                        actionGroup.remove();
-                                        actionRemoved = true;
-                                    }
-                                }
-
-                                if ((toggleRemoved && actionRemoved) || attempts >= maxAttempts) {
-                                    clearInterval(interval);
-                                }
-                            }, 100);
+                        btn.addEventListener('click', async function() {
+                            // Use Promise.allSettled to wait for both elements to be found and removed,
+                            // without failing if one of them doesn't appear within the timeout.
+                            const removalPromises = [
+                                utils.waitForElement('.mo.toggle-btn-wrapper.mo-btn-group', 2000).then(el => el.remove()),
+                                utils.waitForElement('.action-group', 2000).then(el => el.remove())
+                            ];
+                            await Promise.allSettled(removalPromises);
                         });
                     }
                 });
