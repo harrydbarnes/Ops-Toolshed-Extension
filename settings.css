@@ -463,3 +463,12 @@ input:checked + .slider:before {
 .tab-content.active {
     display: block;
 }
+
+.build-info {
+    text-align: center;
+    font-size: 0.8em;
+    color: #888;
+    margin-top: 10px;
+    margin-bottom: 20px;
+    width: 100%;
+}

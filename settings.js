@@ -398,6 +398,8 @@ document.addEventListener('DOMContentLoaded', function() {
     setupToggle('automateFormFieldsToggle', 'automateFormFieldsEnabled', 'Automate Form Fields setting saved:');
     setupToggle('countPlacementsSelectedToggle', 'countPlacementsSelectedEnabled', 'Count Placements Selected setting saved:');
     setupToggle('approverWidgetOptimiseToggle', 'approverWidgetOptimiseEnabled', 'Approver Widget Optimise setting saved:');
+    setupToggle('swapAccountsToggle', 'swapAccountsEnabled', 'Swap Accounts setting saved:');
+    setupToggle('alwaysShowCommentsToggle', 'alwaysShowCommentsEnabled', 'Always Show Comments setting saved:');
 
     // Aura Reminders (Timesheet)
     const timesheetReminderToggle = document.getElementById('timesheetReminderToggle');
@@ -868,6 +870,14 @@ document.addEventListener('DOMContentLoaded', function() {
             return true;
         }
     });
+
+    // Display Build Info
+    if (window.buildInfo) {
+        const buildInfoDiv = document.getElementById('build-info');
+        if (buildInfoDiv) {
+            buildInfoDiv.textContent = `Build Date: ${window.buildInfo.buildDate} | Commit: ${window.buildInfo.commitId}`;
+        }
+    }
 });
 
 if (typeof module !== 'undefined' && module.exports) {

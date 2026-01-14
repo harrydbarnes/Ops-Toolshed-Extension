@@ -73,6 +73,20 @@
                             <span class="slider"></span>
                         </label>
                     </div>
+                    <div class="toggle-container">
+                        <span>Swap Accounts button:</span>
+                        <label class="toggle">
+                            <input type="checkbox" id="swapAccountsToggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-container">
+                        <span>Always Show Comments:</span>
+                        <label class="toggle">
+                            <input type="checkbox" id="alwaysShowCommentsToggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
                 </section>
 
                 <section id="live-chat-settings">
@@ -219,7 +233,10 @@
             </section>
         </div>
     </div>
+    <script src="build-info.js"></script>
     <script src="settings.js"></script>
+
+    <div id="build-info" class="build-info"></div>
 
     <!-- New Reminder Modal Editor -->
     <div id="reminderModalOverlay" class="reminder-modal-overlay"></div>

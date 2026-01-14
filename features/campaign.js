@@ -70,8 +70,64 @@
         budgetTypeAutomated = false;
     }
 
+    function handleAlwaysShowComments() {
+        const href = window.location.href;
+        // Check for specific URL components
+        const params = new URLSearchParams(window.location.hash.substring(1));
+        if (!href.includes('groupmuk-prisma.mediaocean.com/campaign-management/') ||
+            params.get('osAppId') !== 'prsm-cm-spa' ||
+            params.get('osPspId') !== 'prsm-cm-buy' ||
+            params.get('route') !== 'actualize') {
+            return;
+        }
+
+        chrome.storage.sync.get('alwaysShowCommentsEnabled', (data) => {
+            if (data.alwaysShowCommentsEnabled) {
+                const lockedButtons = document.querySelectorAll('button.btn.btn-mini.ok-to-pay.ok-to-pay-yes.ok-to-pay-buy.disabled[data-is-buy-locked="true"]');
+                lockedButtons.forEach(btn => {
+                    btn.setAttribute('data-is-buy-locked', 'false');
+                    btn.classList.remove('disabled'); // Remove disabled class to allow interaction
+
+                    // Ensure we don't attach multiple listeners
+                    if (!btn.dataset.hasAlwaysShowListener) {
+                        btn.dataset.hasAlwaysShowListener = 'true';
+                        btn.addEventListener('click', function() {
+                            // Poll for the elements to remove
+                            let attempts = 0;
+                            const maxAttempts = 20; // 2 seconds
+                            let toggleRemoved = false, actionRemoved = false;
+                            const interval = setInterval(() => {
+                                attempts++;
+                                if (!toggleRemoved) {
+                                    const toggleWrapper = document.querySelector('.mo.toggle-btn-wrapper.mo-btn-group');
+                                    if (toggleWrapper) {
+                                        toggleWrapper.remove();
+                                        toggleRemoved = true;
+                                    }
+                                }
+
+                                if (!actionRemoved) {
+                                    const actionGroup = document.querySelector('.action-group');
+                                    if (actionGroup) {
+                                        actionGroup.remove();
+                                        actionRemoved = true;
+                                    }
+                                }
+
+                                if ((toggleRemoved && actionRemoved) || attempts >= maxAttempts) {
+                                    clearInterval(interval);
+                                }
+                            }, 100);
+                        });
+                    }
+                });
+            }
+        });
+    }
+
     window.campaignFeature = {
         handleCampaignManagementFeatures,
+        handleAlwaysShowComments,
         resetCampaignFlags
     };
 })();

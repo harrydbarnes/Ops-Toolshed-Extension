@@ -69,6 +69,10 @@ async function mainContentScriptInit() {
         window.placementCounterFeature.initialize();
     }
 
+    if (window.swapAccountsFeature) {
+        window.swapAccountsFeature.initialize();
+    }
+
     if (window.logoFeature.shouldReplaceLogoOnThisPage()) {
         await window.remindersFeature.fetchCustomReminders(); // Fetch initial set of custom reminders
         window.logoFeature.checkAndReplaceLogo();
@@ -77,6 +81,7 @@ async function mainContentScriptInit() {
             window.remindersFeature.checkForIASConditions();
             window.remindersFeature.checkCustomReminders(); // Initial check for custom reminders
             window.campaignFeature.handleCampaignManagementFeatures();
+            window.campaignFeature.handleAlwaysShowComments();
         }, 2000);
     }
 
@@ -89,6 +94,7 @@ async function mainContentScriptInit() {
                 window.remindersFeature.checkForIASConditions();
                 window.remindersFeature.checkCustomReminders(); // Check for custom reminders on DOM changes
                 window.campaignFeature.handleCampaignManagementFeatures();
+                window.campaignFeature.handleAlwaysShowComments();
                 window.approverPastingFeature.handleApproverPasting();
                 window.approverPastingFeature.handleManageFavouritesButton();
                 window.gmiChatFeature.handleGmiChatButton();
