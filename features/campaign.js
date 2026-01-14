@@ -95,12 +95,8 @@
                             // Use Promise.allSettled to wait for both elements to be found and removed,
                             // without failing if one of them doesn't appear within the timeout.
                             const removalPromises = [
-                                utils.waitForElement('.mo.toggle-btn-wrapper.mo-btn-group', 2000)
-                                    .then(el => el.remove())
-                                    .catch(() => {}), // Ignore errors if element is not found
-                                utils.waitForElement('.action-group', 2000)
-                                    .then(el => el.remove())
-                                    .catch(() => {}) // Ignore errors if element is not found
+                                utils.waitForElement('.mo.toggle-btn-wrapper.mo-btn-group', 2000).then(el => el.remove()),
+                                utils.waitForElement('.action-group', 2000).then(el => el.remove())
                             ];
                             await Promise.allSettled(removalPromises);
                         });
