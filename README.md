@@ -48,7 +48,7 @@ These features activate when viewing the Prisma web app and can be managed via t
 | **'Add Campaign' auto clicks 'Enter Full Details'** | Automatically redirects a campaign creation URL to bypass the simplified 'light-box' option, defaulting to the full details page. |
 | **Hide unused sections on 'Add Campaign'** | Hides the **Objective**, **Targeting**, and **Flighting** sections on the 'Add Campaign' page for a cleaner interface. |
 | **Automate 'Budget type' and 'Media mix' selection** | Automatically sets the 'Media Mix' field to **Digital** (`media_digital`) and 'Budget Type' to **Total Cost** (`3`) on the 'Add Campaign' form. |
-| **Always Show Comments** | Fixes the "Buy" button issue in Campaign Management by automatically removing interfering UI elements when the button is locked. |
+| **Always Show Comments** | Fixes the "Buy" button issue in Campaign Management by unlocking the button and removing interfering UI elements upon click. |
 | **Placement Counter** | Automatically counts and displays the number of selected placements in the Prisma grid. |
 
 ### 3. Contextual Reminders 🔔
