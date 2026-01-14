@@ -70,8 +70,60 @@
         budgetTypeAutomated = false;
     }
 
+    function handleAlwaysShowComments() {
+        const href = window.location.href;
+        // Check for specific URL components
+        if (!href.includes('/groupmuk-prisma.mediaocean.com/campaign-management/') ||
+            !href.includes('osAppId=prsm-cm-spa') ||
+            !href.includes('osPspId=prsm-cm-buy') ||
+            !href.includes('route=actualize')) {
+            return;
+        }
+
+        chrome.storage.sync.get('alwaysShowCommentsEnabled', (data) => {
+            if (data.alwaysShowCommentsEnabled) {
+                const lockedButtons = document.querySelectorAll('button.btn.btn-mini.ok-to-pay.ok-to-pay-yes.ok-to-pay-buy.disabled[data-is-buy-locked="true"]');
+                lockedButtons.forEach(btn => {
+                    btn.setAttribute('data-is-buy-locked', 'false');
+                    btn.classList.remove('disabled'); // Remove disabled class to allow interaction
+
+                    // Ensure we don't attach multiple listeners
+                    if (!btn.dataset.hasAlwaysShowListener) {
+                        btn.dataset.hasAlwaysShowListener = 'true';
+                        btn.addEventListener('click', function() {
+                            // Poll for the elements to remove
+                            let attempts = 0;
+                            const maxAttempts = 20; // 2 seconds
+                            const interval = setInterval(() => {
+                                attempts++;
+                                const toggleWrapper = document.querySelector('.mo.toggle-btn-wrapper.mo-btn-group');
+                                const actionGroup = document.querySelector('.action-group');
+
+                                let removed = false;
+                                if (toggleWrapper) {
+                                    toggleWrapper.remove();
+                                    removed = true;
+                                }
+                                if (actionGroup) {
+                                    actionGroup.remove();
+                                    removed = true;
+                                }
+
+                                if (removed || attempts >= maxAttempts) {
+                                    if (removed) clearInterval(interval);
+                                    else if (attempts >= maxAttempts) clearInterval(interval);
+                                }
+                            }, 100);
+                        });
+                    }
+                });
+            }
+        });
+    }
+
     window.campaignFeature = {
         handleCampaignManagementFeatures,
+        handleAlwaysShowComments,
         resetCampaignFlags
     };
 })();
