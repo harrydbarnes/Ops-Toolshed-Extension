@@ -73,7 +73,7 @@
     function handleAlwaysShowComments() {
         const href = window.location.href;
         // Check for specific URL components
-        if (!href.includes('/groupmuk-prisma.mediaocean.com/campaign-management/') ||
+        if (!href.includes('groupmuk-prisma.mediaocean.com/campaign-management/') ||
             !href.includes('osAppId=prsm-cm-spa') ||
             !href.includes('osPspId=prsm-cm-buy') ||
             !href.includes('route=actualize')) {

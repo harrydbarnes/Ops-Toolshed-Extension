@@ -105,10 +105,11 @@ def run(playwright):
         print("Build info content is empty!")
 
     # Take screenshot
-    if not os.path.exists('/home/jules/verification'):
-        os.makedirs('/home/jules/verification')
+    output_dir = 'verification'
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
-    page.screenshot(path='/home/jules/verification/verification.png', full_page=True)
+    page.screenshot(path=os.path.join(output_dir, 'verification.png'), full_page=True)
     browser.close()
 
 with sync_playwright() as playwright:
