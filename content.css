@@ -142,3 +142,42 @@
 .approver-widget-optimise #campaignHeader .mo.pull-right.container-fluid.workflow-cell {
     height: 45px;
 }
+
+/* --- Switch Account Button Styles --- */
+.switch-account-button {
+    background-color: #334a6c;
+    color: white;
+    border: 1px solid #4a6a9b;
+    border-radius: 20px;
+    padding: 5px 15px 5px 10px;
+    font-family: 'Roboto', sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.2s;
+    margin-right: 10px;
+}
+
+.switch-account-button:hover {
+    background-color: #4a6a9b;
+}
+
+.switch-account-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background-color: white;
+    border-radius: 50%;
+    margin-right: 8px;
+    position: relative;
+}
+
+.switch-account-icon svg {
+    width: 16px;
+    height: 16px;
+    fill: #334a6c;
+}
+/* --- End of Switch Account Button Styles --- */
