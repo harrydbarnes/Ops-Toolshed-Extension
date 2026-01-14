@@ -2,8 +2,8 @@
     'use strict';
 
     async function handleSwap(swapButton) {
-        swapButton.disabled = true;
         const textSpan = swapButton.querySelector('.switch-account-text');
+        swapButton.disabled = true;
         if (textSpan) textSpan.textContent = 'Swapping...';
 
         try {
@@ -55,7 +55,6 @@
             console.error('Error during account swap:', error);
             utils.showToast(`Swap failed: ${error.message}`, 'error');
             swapButton.disabled = false;
-            const textSpan = swapButton.querySelector('.switch-account-text');
             if (textSpan) textSpan.textContent = 'Switch Account';
         }
     }
