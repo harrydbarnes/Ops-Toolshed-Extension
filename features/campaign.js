@@ -94,24 +94,27 @@
                             // Poll for the elements to remove
                             let attempts = 0;
                             const maxAttempts = 20; // 2 seconds
+                            let toggleRemoved = false, actionRemoved = false;
                             const interval = setInterval(() => {
                                 attempts++;
-                                const toggleWrapper = document.querySelector('.mo.toggle-btn-wrapper.mo-btn-group');
-                                const actionGroup = document.querySelector('.action-group');
-
-                                let removed = false;
-                                if (toggleWrapper) {
-                                    toggleWrapper.remove();
-                                    removed = true;
-                                }
-                                if (actionGroup) {
-                                    actionGroup.remove();
-                                    removed = true;
+                                if (!toggleRemoved) {
+                                    const toggleWrapper = document.querySelector('.mo.toggle-btn-wrapper.mo-btn-group');
+                                    if (toggleWrapper) {
+                                        toggleWrapper.remove();
+                                        toggleRemoved = true;
+                                    }
                                 }
 
-                                if (removed || attempts >= maxAttempts) {
-                                    if (removed) clearInterval(interval);
-                                    else if (attempts >= maxAttempts) clearInterval(interval);
+                                if (!actionRemoved) {
+                                    const actionGroup = document.querySelector('.action-group');
+                                    if (actionGroup) {
+                                        actionGroup.remove();
+                                        actionRemoved = true;
+                                    }
+                                }
+
+                                if ((toggleRemoved && actionRemoved) || attempts >= maxAttempts) {
+                                    clearInterval(interval);
                                 }
                             }, 100);
                         });
