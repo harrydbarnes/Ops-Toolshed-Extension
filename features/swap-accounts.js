@@ -3,7 +3,8 @@
 
     async function handleSwap(swapButton) {
         swapButton.disabled = true;
-        swapButton.textContent = 'Swapping...';
+        const textSpan = swapButton.querySelector('.switch-account-text');
+        if (textSpan) textSpan.textContent = 'Swapping...';
 
         try {
             // 1. Find the user menu component.
@@ -54,7 +55,8 @@
             console.error('Error during account swap:', error);
             utils.showToast(`Swap failed: ${error.message}`, 'error');
             swapButton.disabled = false;
-            swapButton.textContent = 'Swap Accounts';
+            const textSpan = swapButton.querySelector('.switch-account-text');
+            if (textSpan) textSpan.textContent = 'Switch Account';
         }
     }
 
@@ -66,16 +68,24 @@
             if (!parentContainer) return;
 
             const swapButton = document.createElement('button');
-            swapButton.textContent = 'Swap Accounts';
-            swapButton.title = 'Swap Accounts';
-            swapButton.className = 'filter-button prisma-paste-button gmi-chat-button swap-accounts-button';
+            swapButton.title = 'Switch Account';
+            swapButton.className = 'switch-account-button';
+
+            const iconSpan = document.createElement('span');
+            iconSpan.className = 'switch-account-icon';
+            swapButton.appendChild(iconSpan);
+
+            const textSpan = document.createElement('span');
+            textSpan.className = 'switch-account-text';
+            textSpan.textContent = 'Switch Account';
+            swapButton.appendChild(textSpan);
 
             swapButton.addEventListener('click', () => handleSwap(swapButton));
 
             parentContainer.insertBefore(swapButton, userMenu);
 
         } catch (error) {
-            console.error('Could not add Swap Accounts button:', error);
+            console.error('Could not add Switch Accounts button:', error);
         }
     }
 
