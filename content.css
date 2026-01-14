@@ -143,14 +143,20 @@
     height: 45px;
 }
 
+:root {
+    --color-nav-pill-bg: rgba(255, 255, 255, 0.15);
+    --color-nav-pill-bg-hover: rgba(255, 255, 255, 0.2);
+    --font-primary: 'Inter', 'Roboto', sans-serif;
+}
+
 /* --- Switch Account Button Styles --- */
 .switch-account-button {
-    background-color: rgba(255, 255, 255, 0.15); /* bg-nav-pill */
+    background-color: var(--color-nav-pill-bg); /* bg-nav-pill */
     color: white;
     border: none;
     border-radius: 9999px; /* rounded-full */
     padding: 8px 16px; /* py-2 px-4 */
-    font-family: 'Inter', 'Roboto', sans-serif; /* font-sans */
+    font-family: var(--font-primary); /* font-sans */
     font-size: 14px; /* text-sm */
     font-weight: 500; /* font-medium */
     cursor: pointer;
@@ -161,7 +167,7 @@
 }
 
 .switch-account-button:hover {
-    background-color: rgba(255, 255, 255, 0.2); /* hover:bg-white/20 */
+    background-color: var(--color-nav-pill-bg-hover); /* hover:bg-white/20 */
 }
 
 .switch-account-icon {
