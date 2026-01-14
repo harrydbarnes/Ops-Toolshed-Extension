@@ -164,16 +164,20 @@
 }
 
 .switch-account-icon {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     width: 20px;
     height: 20px;
     background-color: white;
     border-radius: 50%;
     margin-right: 8px;
     position: relative;
-    background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzMzNGE2YyI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy0yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg==");
-    background-size: 16px 16px;
-    background-position: center;
-    background-repeat: no-repeat;
+}
+
+.switch-account-icon svg {
+    width: 16px;
+    height: 16px;
+    fill: #334a6c;
 }
 /* --- End of Switch Account Button Styles --- */
