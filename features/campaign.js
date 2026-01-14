@@ -73,10 +73,11 @@
     function handleAlwaysShowComments() {
         const href = window.location.href;
         // Check for specific URL components
+        const params = new URLSearchParams(window.location.hash.substring(1));
         if (!href.includes('groupmuk-prisma.mediaocean.com/campaign-management/') ||
-            !href.includes('osAppId=prsm-cm-spa') ||
-            !href.includes('osPspId=prsm-cm-buy') ||
-            !href.includes('route=actualize')) {
+            params.get('osAppId') !== 'prsm-cm-spa' ||
+            params.get('osPspId') !== 'prsm-cm-buy' ||
+            params.get('route') !== 'actualize') {
             return;
         }
 
