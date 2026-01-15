@@ -66,6 +66,21 @@
             const parentContainer = userMenu.parentElement;
             if (!parentContainer) return;
 
+            // Inject styles for the button (crucial if inside a Shadow DOM)
+            const styleId = 'switch-account-styles';
+            if (!parentContainer.querySelector(`#${styleId}`)) {
+                const style = document.createElement('style');
+                style.id = styleId;
+                const styleURL = chrome.runtime.getURL('features/swap-accounts.css');
+                const response = await fetch(styleURL);
+                if (response.ok) {
+                    style.textContent = await response.text();
+                    parentContainer.appendChild(style);
+                } else {
+                    throw new Error(`Failed to load switch account styles: ${response.status} ${response.statusText}`);
+                }
+            }
+
             const swapButton = document.createElement('button');
             swapButton.title = 'Switch Account';
             swapButton.className = 'switch-account-button';
