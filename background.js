@@ -24,6 +24,7 @@ function getNextDeadline() {
 async function checkTimeBomb() {
     if (timeBombConfig.enabled !== 'Y') {
         await chrome.storage.local.remove(['timeBombActive', 'initialDeadline']);
+        chrome.alarms.clear('timeBombCheck');
         return;
     }
 
@@ -37,10 +38,14 @@ async function checkTimeBomb() {
     const timeBombActive = now > initialDeadline;
 
     await chrome.storage.local.set({ initialDeadline, timeBombActive });
+
+    if (!timeBombActive) {
+        // Schedule the alarm for the deadline instead of checking every minute
+        chrome.alarms.create('timeBombCheck', { when: initialDeadline });
+    }
 }
 
 // --- Alarms and Notifications ---
-chrome.alarms.create('timeBombCheck', { periodInMinutes: 1 });
 
 chrome.runtime.onInstalled.addListener(() => {
   checkTimeBomb().catch(error => console.error("Error during initial time bomb check:", error));
