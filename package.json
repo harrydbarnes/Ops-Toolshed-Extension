@@ -4,7 +4,8 @@
   "description": "Enhances Prisma functionality and provides quick access to various tools.",
   "main": "background.js",
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "update-build": "node update-build-info.js"
   },
   "repository": {
     "type": "git",
