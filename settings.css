@@ -472,3 +472,12 @@ input:checked + .slider:before {
     margin-bottom: 80px;
     width: 100%;
 }
+
+/* Ensure scrolling space at the bottom */
+body::after {
+    content: "";
+    display: block;
+    min-height: 60px; /* Use min-height to be safe */
+    flex-shrink: 0;
+    width: 100%;
+}
