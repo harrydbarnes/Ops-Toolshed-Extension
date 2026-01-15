@@ -66,6 +66,49 @@
             const parentContainer = userMenu.parentElement;
             if (!parentContainer) return;
 
+            // Inject styles for the button (crucial if inside a Shadow DOM)
+            const styleId = 'switch-account-styles';
+            if (!parentContainer.querySelector(`#${styleId}`)) {
+                const style = document.createElement('style');
+                style.id = styleId;
+                style.textContent = `
+                    .switch-account-button {
+                        background-color: var(--color-nav-pill-bg, rgba(255, 255, 255, 0.15));
+                        color: white;
+                        border: none;
+                        border-radius: 9999px;
+                        padding: 8px 16px;
+                        font-family: var(--font-primary, 'Inter', 'Roboto', sans-serif);
+                        font-size: 14px;
+                        font-weight: 500;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        transition: background-color 0.2s ease-in-out;
+                        margin-right: 10px;
+                    }
+
+                    .switch-account-button:hover {
+                        background-color: var(--color-nav-pill-bg-hover, rgba(255, 255, 255, 0.2));
+                    }
+
+                    .switch-account-icon {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        background-color: transparent;
+                        margin-right: 8px;
+                    }
+
+                    .switch-account-icon svg {
+                        width: 20px;
+                        height: 20px;
+                        fill: white;
+                    }
+                `;
+                parentContainer.appendChild(style);
+            }
+
             const swapButton = document.createElement('button');
             swapButton.title = 'Switch Account';
             swapButton.className = 'switch-account-button';
