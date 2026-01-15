@@ -24,7 +24,7 @@ try {
     console.error('[Build Info] Error updating build info:', error);
     // Fallback to avoid breaking the build if git fails
     const content = `window.buildInfo = {
-    buildDate: "${new Date().toISOString()}",
+    buildDate: "${new Date().toISOString().replace('T', ' ').substring(0, 19)}",
     commitId: "unknown"
 };`;
     fs.writeFileSync(buildInfoPath, content);
