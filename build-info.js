@@ -1,4 +1,4 @@
 window.buildInfo = {
-    buildDate: "2026-01-15 18:24:16",
-    commitId: "dff60a9"
+    buildDate: "15.01.2026 (18:47:33)",
+    commitId: "93db16c"
 };
