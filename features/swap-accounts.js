@@ -55,7 +55,7 @@
             console.error('Error during account swap:', error);
             utils.showToast(`Swap failed: ${error.message}`, 'error');
             swapButton.disabled = false;
-            if (textSpan) textSpan.textContent = 'Switch Accounts';
+            if (textSpan) textSpan.textContent = 'Switch Account';
         }
     }
 
@@ -82,17 +82,18 @@
             }
 
             const swapButton = document.createElement('button');
-            swapButton.title = 'Switch Accounts';
+            swapButton.title = 'Switch Account';
             swapButton.className = 'switch-account-button';
 
             const iconSpan = document.createElement('span');
             iconSpan.className = 'switch-account-icon';
-            iconSpan.append(new DOMParser().parseFromString('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>', 'image/svg+xml').documentElement);
+            // Updated SVG to match requested design: Circle outline with solid user inside
+            iconSpan.append(new DOMParser().parseFromString('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="none" stroke="white" stroke-width="1.5"/><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="white" transform="matrix(0.7 0 0 0.7 3.6 3.6)"/></svg>', 'image/svg+xml').documentElement);
             swapButton.appendChild(iconSpan);
 
             const textSpan = document.createElement('span');
             textSpan.className = 'switch-account-text';
-            textSpan.textContent = 'Switch Accounts';
+            textSpan.textContent = 'Switch Account';
             swapButton.appendChild(textSpan);
 
             swapButton.addEventListener('click', () => handleSwap(swapButton));
@@ -100,7 +101,7 @@
             parentContainer.insertBefore(swapButton, userMenu);
 
         } catch (error) {
-            console.error('Could not add Switch Accounts button:', error);
+            console.error('Could not add Switch Account button:', error);
         }
     }
 
