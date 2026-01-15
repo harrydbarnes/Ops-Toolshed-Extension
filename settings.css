@@ -6,7 +6,8 @@ html {
 body {
     font-family: 'Outfit', sans-serif;
     margin: 0;
-    padding: 20px; /* This is the buffer around the .container */
+    padding: 20px;
+    padding-bottom: 60px; /* Added extra space for build info footer */
     background-color: #f4f4f4;
     box-sizing: border-box; /* Crucial for height calculations with padding */
 

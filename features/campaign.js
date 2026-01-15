@@ -83,8 +83,12 @@
 
         chrome.storage.sync.get('alwaysShowCommentsEnabled', (data) => {
             if (data.alwaysShowCommentsEnabled) {
-                const lockedButtons = document.querySelectorAll('button.btn.btn-mini.ok-to-pay.ok-to-pay-yes.ok-to-pay-buy.disabled[data-is-buy-locked="true"]');
+                // Added [data-row-comment] to selector to ensure we only target rows with comments
+                const lockedButtons = document.querySelectorAll('button.btn.btn-mini.ok-to-pay.ok-to-pay-yes.ok-to-pay-buy.disabled[data-is-buy-locked="true"][data-row-comment]');
                 lockedButtons.forEach(btn => {
+                    // Double check specifically for the comment attribute being present and not empty
+                    if (!btn.hasAttribute('data-row-comment')) return;
+
                     btn.setAttribute('data-is-buy-locked', 'false');
                     btn.classList.remove('disabled'); // Remove disabled class to allow interaction
 
