@@ -77,7 +77,7 @@
                     style.textContent = await response.text();
                     parentContainer.appendChild(style);
                 } else {
-                    console.error('Failed to load switch account styles:', response.statusText);
+                    throw new Error(`Failed to load switch account styles: ${response.status} ${response.statusText}`);
                 }
             }
 
