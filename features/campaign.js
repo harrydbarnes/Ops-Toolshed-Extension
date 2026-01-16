@@ -121,9 +121,9 @@
                                     utils.waitForElement(BUTTON_GROUP_SELECTOR, 2000).then(el => {
                                         const messageDiv = document.createElement('div');
                                         messageDiv.textContent = LOCKED_BUY_MESSAGE;
-                                        // Apply styles directly to the element for better encapsulation.
-                                        messageDiv.style.padding = '5px';
-                                        messageDiv.style.fontStyle = 'italic';
+                                        // Add a CSS class for styling to separate concerns.
+                                        // A corresponding '.locked-buy-message' class should be added to a CSS file.
+                                        messageDiv.classList.add('locked-buy-message');
                                         el.replaceWith(messageDiv);
                                     }),
                                     // Remove the action group (Save/Cancel) completely.
