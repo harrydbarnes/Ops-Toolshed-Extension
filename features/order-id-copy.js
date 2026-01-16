@@ -55,7 +55,7 @@
                 color: var(--btn-text-color);
                 line-height: normal;
                 white-space: nowrap; /* Prevent button text wrapping */
-                transition: background-color 0.2s, color 0.2s; /* Smooth transition */
+                transition: background-color 0.2s, color 0.2s, border-color 0.2s; /* Smooth transition */
             }
             /* Button hover effect */
             .order-id-copy-btn:hover {
