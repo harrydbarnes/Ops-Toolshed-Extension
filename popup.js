@@ -195,7 +195,7 @@ function handleOpenCampaignDNumber() {
     campaignNumber = campaignNumber.replace(/-R\d+$/, '');
 
     // A D-number is 'D' + 8 digits. An O-number is 'O-' + 5 alphanumeric chars.
-    if (!/^(D\d{8}|O-[A-Z0-9]{5})$/.test(campaignNumber)) {
+    if (!isValidDNumber(campaignNumber)) {
         dNumberError.textContent = 'Invalid format: use D followed by 8 digits, or O- followed by 5 chars.';
         dNumberError.classList.remove('hidden');
     } else {
@@ -216,6 +216,12 @@ function handleOpenCampaignDNumber() {
             window.close();
         });
     }
+}
+
+function isValidDNumber(dNumber) {
+    if (!dNumber) return false;
+    // A D-number is 'D' + 8 digits. An O-number is 'O-' + 5 alphanumeric chars.
+    return /^(D\d{8}|O-[A-Z0-9]{5})$/.test(dNumber);
 }
 
 function handleGenerateUrl() {
@@ -322,5 +328,5 @@ function addClickListener(id, url) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { handleGenerateUrl, generateUrlFromData };
+    module.exports = { handleGenerateUrl, generateUrlFromData, isValidDNumber };
 }

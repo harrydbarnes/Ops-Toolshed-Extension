@@ -1,4 +1,4 @@
-const { generateUrlFromData } = require('../popup');
+const { generateUrlFromData, isValidDNumber } = require('../popup');
 
 describe('generateUrlFromData', () => {
     const campaignId = 'TEST_CAMPAIGN';
@@ -49,5 +49,26 @@ describe('generateUrlFromData', () => {
         const newCampaignId = 'ANOTHER-ID-123';
         const expectedUrl = `https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-buy&campaign-id=${encodeURIComponent(newCampaignId)}&route=actualize&mos=2024-07-01`;
         expect(generateUrlFromData(newCampaignId, '')).toBe(expectedUrl);
+    });
+});
+
+describe('isValidDNumber', () => {
+    test('should validate correct D-Numbers', () => {
+        expect(isValidDNumber('D12345678')).toBe(true);
+        expect(isValidDNumber('D00000000')).toBe(true);
+    });
+
+    test('should validate correct O-Numbers', () => {
+        expect(isValidDNumber('O-ABC12')).toBe(true);
+        expect(isValidDNumber('O-12345')).toBe(true);
+    });
+
+    test('should reject invalid formats', () => {
+        expect(isValidDNumber('D123')).toBe(false); // Too short
+        expect(isValidDNumber('D123456789')).toBe(false); // Too long
+        expect(isValidDNumber('X12345678')).toBe(false); // Wrong prefix
+        expect(isValidDNumber('O-ABC')).toBe(false); // O-number too short
+        expect(isValidDNumber('')).toBe(false); // Empty
+        expect(isValidDNumber(null)).toBe(false); // Null
     });
 });
