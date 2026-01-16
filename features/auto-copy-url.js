@@ -25,7 +25,7 @@
                      .catch(err => console.error('Failed to copy URL', err));
              });
              // Visual cue
-             linkIcon.style.cursor = 'pointer';
+linkIcon.classList.add('auto-copy-icon');
         }
     }
 
