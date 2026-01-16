@@ -13,10 +13,12 @@
     let iasReminderEnabled = true;
     let prismaReminderFrequency = 'daily';
     let prismaCountdownDuration = 0;
+    // Reminder Theme State
+    let reminderTheme = 'pink';
 
     // Initialize settings
     if (chrome.runtime && chrome.runtime.id) {
-        chrome.storage.sync.get(['metaReminderEnabled', 'iasReminderEnabled', 'prismaReminderFrequency', 'prismaCountdownDuration', 'customReminders'], (settings) => {
+        chrome.storage.sync.get(['metaReminderEnabled', 'iasReminderEnabled', 'prismaReminderFrequency', 'prismaCountdownDuration', 'customReminders', 'reminderTheme'], (settings) => {
             if (chrome.runtime.lastError) {
                 console.error('Error retrieving reminder settings:', chrome.runtime.lastError);
                 return;
@@ -25,6 +27,14 @@
             iasReminderEnabled = settings.iasReminderEnabled !== false;
             prismaReminderFrequency = settings.prismaReminderFrequency || 'daily';
             prismaCountdownDuration = parseInt(settings.prismaCountdownDuration, 10) || 0;
+            reminderTheme = settings.reminderTheme || 'pink';
+
+            // Apply theme class
+            if (reminderTheme === 'black') {
+                document.body.classList.add('reminder-theme-black');
+            } else {
+                document.body.classList.remove('reminder-theme-black');
+            }
 
             if (settings.customReminders) {
                 activeCustomReminders = settings.customReminders.filter(r => r.enabled);
@@ -41,6 +51,15 @@
             if (changes.customReminders) {
                 const newReminders = changes.customReminders.newValue || [];
                 activeCustomReminders = newReminders.filter(r => r.enabled);
+            }
+            // Listen for theme changes
+            if (changes.reminderTheme) {
+                reminderTheme = changes.reminderTheme.newValue || 'pink';
+                if (reminderTheme === 'black') {
+                    document.body.classList.add('reminder-theme-black');
+                } else {
+                    document.body.classList.remove('reminder-theme-black');
+                }
             }
         });
     }

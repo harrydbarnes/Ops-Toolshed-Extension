@@ -228,6 +228,19 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // General Settings
+    // Theme Settings
+    const uiThemeSelector = document.getElementById('uiThemeSelector');
+    if (uiThemeSelector) {
+        chrome.storage.sync.get('uiTheme', (data) => {
+             uiThemeSelector.value = data.uiTheme || 'pink';
+        });
+        uiThemeSelector.addEventListener('change', () => {
+             chrome.storage.sync.set({ uiTheme: uiThemeSelector.value }, () => {
+                 console.log('UI Theme saved:', uiThemeSelector.value);
+             });
+        });
+    }
+
     const logoToggle = document.getElementById('logoToggle');
     if (logoToggle) {
         chrome.storage.sync.get('logoReplaceEnabled', function(data) {
@@ -251,13 +264,15 @@ document.addEventListener('DOMContentLoaded', function() {
     // Prisma Reminders
     const prismaReminderFrequency = document.getElementById('prismaReminderFrequency');
     const prismaCountdownDuration = document.getElementById('prismaCountdownDuration');
+    const reminderThemeSelector = document.getElementById('reminderThemeSelector');
 
     // Load and save settings for Prisma Reminders
     if (prismaReminderFrequency && prismaCountdownDuration) {
-        const settingsToGet = ['prismaReminderFrequency', 'prismaCountdownDuration'];
+        const settingsToGet = ['prismaReminderFrequency', 'prismaCountdownDuration', 'reminderTheme'];
         chrome.storage.sync.get(settingsToGet, (data) => {
             prismaReminderFrequency.value = data.prismaReminderFrequency || 'daily';
             prismaCountdownDuration.value = data.prismaCountdownDuration || '5';
+            if (reminderThemeSelector) reminderThemeSelector.value = data.reminderTheme || 'pink';
         });
 
         prismaReminderFrequency.addEventListener('change', () => {
@@ -271,6 +286,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.log('Prisma countdown duration saved:', prismaCountdownDuration.value);
             });
         });
+
+        if (reminderThemeSelector) {
+            reminderThemeSelector.addEventListener('change', () => {
+                 chrome.storage.sync.set({ reminderTheme: reminderThemeSelector.value }, () => {
+                     console.log('Reminder Theme saved:', reminderThemeSelector.value);
+                 });
+            });
+        }
     }
 
     const resetRemindersButton = document.getElementById('resetRemindersButton');
