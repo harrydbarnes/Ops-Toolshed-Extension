@@ -34,8 +34,8 @@
             }
             /* Button hover effect */
             .order-id-copy-btn:hover {
-                background-color: #e0e0e0 !important;
-                border-color: #bbb !important;
+                background-color: #e0e0e0;
+                border-color: #bbb;
             }
         `;
         document.head.appendChild(style);
