@@ -29,7 +29,7 @@
 
     function checkAndAddCopyButtons() {
         // Only run on specific URLs
-        if (!window.location.href.includes('=prsm-cm-ord&campaign-id=')) {
+        if (!window.location.href.includes('=prsm-cm-ord') || !window.location.href.includes('campaign-id=')) {
             return;
         }
 
