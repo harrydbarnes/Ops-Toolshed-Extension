@@ -55,7 +55,7 @@
             console.error('Error during account swap:', error);
             utils.showToast(`Swap failed: ${error.message}`, 'error');
             swapButton.disabled = false;
-            if (textSpan) textSpan.textContent = 'Switch Account';
+            if (textSpan) textSpan.textContent = 'Switch Accounts';
         }
     }
 
@@ -82,7 +82,7 @@
             }
 
             const swapButton = document.createElement('button');
-            swapButton.title = 'Switch Account';
+            swapButton.title = 'Switch Accounts';
             swapButton.className = 'switch-account-button';
 
             const iconSpan = document.createElement('span');
@@ -93,7 +93,7 @@
 
             const textSpan = document.createElement('span');
             textSpan.className = 'switch-account-text';
-            textSpan.textContent = 'Switch Account';
+            textSpan.textContent = 'Switch Accounts';
             swapButton.appendChild(textSpan);
 
             swapButton.addEventListener('click', () => handleSwap(swapButton));
