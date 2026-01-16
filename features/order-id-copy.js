@@ -120,7 +120,7 @@
 
                  // Check if it looks like an Order ID (O-xxxxx-Rx)
                  // And check if we haven't already added the button to this cell
-                 if (text.includes('O-') && text.includes('-R') && !cell.querySelector('.order-id-copy-btn')) {
+                 if (/^O-[\w]+-R\d+$/.test(text) && !cell.querySelector('.order-id-copy-btn')) {
 
                      // Apply flexbox to the parent cell to push button to the far right
                      cell.style.display = 'flex';
