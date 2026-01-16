@@ -5,9 +5,9 @@
     let budgetTypeAutomated = false;
 
     // Cached settings
-    let hidingSectionsEnabled;
-    let automateFormFieldsEnabled;
-    let alwaysShowCommentsEnabled = false;
+    let hidingSectionsEnabled = true;
+    let automateFormFieldsEnabled = true;
+    let alwaysShowCommentsEnabled = true;
 
     // Initialize settings
     if (chrome.runtime && chrome.runtime.id) {
