@@ -32,10 +32,31 @@
                 transform: translateY(0);
                 transition-delay: 0s;
             }
+            .order-id-copy-cell {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .order-id-copy-btn {
+                padding: 2px 6px;
+                font-size: 10px;
+                cursor: pointer;
+                background-color: #f0f0f0;
+                border: 1px solid #ccc;
+                border-radius: 3px;
+                color: #333;
+                line-height: normal;
+                white-space: nowrap; /* Prevent button text wrapping */
+                transition: background-color 0.2s, color 0.2s; /* Smooth transition */
+            }
             /* Button hover effect */
             .order-id-copy-btn:hover {
                 background-color: #e0e0e0;
                 border-color: #bbb;
+            }
+            .order-id-copy-btn.copied {
+                background-color: #333;
+                color: #fff;
             }
         `;
         document.head.appendChild(style);
@@ -86,17 +107,13 @@
 
             // Visual feedback on button
             const originalText = button.textContent;
-            const originalBg = button.style.backgroundColor;
-            const originalColor = button.style.color;
 
             button.textContent = 'Copied!';
-            button.style.backgroundColor = '#333';
-            button.style.color = '#fff';
+            button.classList.add('copied');
 
             setTimeout(() => {
                 button.textContent = originalText;
-                button.style.backgroundColor = originalBg;
-                button.style.color = originalColor;
+                button.classList.remove('copied');
             }, 2000);
 
         }).catch(err => {
@@ -122,27 +139,13 @@
                  // And check if we haven't already added the button to this cell
                  if (/^O-[\w]+-R\d+$/.test(text) && !cell.querySelector('.order-id-copy-btn')) {
 
-                     // Apply flexbox to the parent cell to push button to the far right
-                     cell.style.display = 'flex';
-                     cell.style.justifyContent = 'space-between';
-                     cell.style.alignItems = 'center';
+                     // Apply flexbox via class to the parent cell to push button to the far right
+                     cell.classList.add('order-id-copy-cell');
 
                      const copyBtn = document.createElement('button');
                      copyBtn.textContent = 'Copy';
                      copyBtn.className = 'order-id-copy-btn';
                      copyBtn.title = 'Copy Clean Order ID';
-
-                     // Styling - space-between handles the gap now
-                     copyBtn.style.padding = '2px 6px';
-                     copyBtn.style.fontSize = '10px';
-                     copyBtn.style.cursor = 'pointer';
-                     copyBtn.style.backgroundColor = '#f0f0f0';
-                     copyBtn.style.border = '1px solid #ccc';
-                     copyBtn.style.borderRadius = '3px';
-                     copyBtn.style.color = '#333';
-                     copyBtn.style.lineHeight = 'normal';
-                     copyBtn.style.whiteSpace = 'nowrap'; // Prevent button text wrapping
-                     copyBtn.style.transition = 'background-color 0.2s, color 0.2s'; // Smooth transition
 
                      copyBtn.addEventListener('click', (e) => {
                          e.preventDefault();

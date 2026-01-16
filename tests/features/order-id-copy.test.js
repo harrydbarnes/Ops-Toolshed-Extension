@@ -55,9 +55,7 @@ describe('Order ID Copy Feature', () => {
 
         expect(button).not.toBeNull();
         expect(cell.contains(button)).toBe(true);
-        expect(cell.style.display).toBe('flex');
-        expect(cell.style.justifyContent).toBe('space-between');
-        expect(cell.style.alignItems).toBe('center');
+        expect(cell.classList.contains('order-id-copy-cell')).toBe(true);
     });
 
     test('should copy cleaned ID and show toast on click', async () => {
@@ -89,11 +87,10 @@ describe('Order ID Copy Feature', () => {
         await Promise.resolve();
 
         expect(button.textContent).toBe('Copied!');
-        // Note: JSDOM might return rgb or hex depending on version, checking logic mainly
-        // #333 is rgb(51, 51, 51)
-        expect(button.style.backgroundColor).toBe('rgb(51, 51, 51)');
+        expect(button.classList.contains('copied')).toBe(true);
 
         jest.advanceTimersByTime(2000);
         expect(button.textContent).toBe(originalText);
+        expect(button.classList.contains('copied')).toBe(false);
     });
 });
