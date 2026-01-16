@@ -399,7 +399,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupToggle('countPlacementsSelectedToggle', 'countPlacementsSelectedEnabled', 'Count Placements Selected setting saved:');
     setupToggle('approverWidgetOptimiseToggle', 'approverWidgetOptimiseEnabled', 'Approver Widget Optimise setting saved:');
     setupToggle('swapAccountsToggle', 'swapAccountsEnabled', 'Switch Accounts setting saved:');
-    setupToggle('alwaysShowCommentsToggle', 'alwaysShowCommentsEnabled', 'Always Show Comments setting saved:');
+    setupToggle('seeCommentsOnLockedBuysToggle', 'alwaysShowCommentsEnabled', 'See Comments on Locked Buys setting saved:');
 
     // Aura Reminders (Timesheet)
     const timesheetReminderToggle = document.getElementById('timesheetReminderToggle');
