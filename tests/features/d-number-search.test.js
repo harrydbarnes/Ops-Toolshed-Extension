@@ -72,6 +72,8 @@ describe('D-Number Search Feature', () => {
         test('should fallback to history toggle if immediate link not found', async () => {
             await window.dNumberSearchFeature.handleDNumberSearch(dNumber);
 
+            expect(mockSearchIcon.click).toHaveBeenCalled();
+            expect(mockInput.value).toBe(dNumber);
             expect(mockToggle.click).toHaveBeenCalled();
             expect(mockFinalButton.click).toHaveBeenCalled();
         });
