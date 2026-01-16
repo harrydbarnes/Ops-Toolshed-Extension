@@ -81,7 +81,13 @@
             return;
         }
 
+        // FIX ADDED HERE: Check if runtime is valid before accessing storage
+        if (!chrome.runtime || !chrome.runtime.id) return;
+
         chrome.storage.sync.get('alwaysShowCommentsEnabled', (data) => {
+            // Add error check for good measure
+            if (chrome.runtime.lastError) return;
+
             if (data.alwaysShowCommentsEnabled) {
                 // Define constants once per execution of the feature check
                 const BUTTON_GROUP_SELECTOR = '.mo.toggle-btn-wrapper.mo-btn-group';

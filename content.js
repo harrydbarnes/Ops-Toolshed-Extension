@@ -73,6 +73,10 @@ async function mainContentScriptInit() {
         window.swapAccountsFeature.initialize();
     }
 
+    if (window.autoCopyUrlFeature) {
+        window.autoCopyUrlFeature.initialize();
+    }
+
     if (window.logoFeature.shouldReplaceLogoOnThisPage()) {
         await window.remindersFeature.fetchCustomReminders(); // Fetch initial set of custom reminders
         window.logoFeature.checkAndReplaceLogo();
@@ -103,6 +107,10 @@ async function mainContentScriptInit() {
                 // NEW LINE ADDED: Explicit check for placement selection on DOM change
                 if (window.placementCounterFeature) {
                     window.placementCounterFeature.checkSelection();
+                }
+
+                if (window.autoCopyUrlFeature) {
+                    window.autoCopyUrlFeature.handleAutoCopy();
                 }
 
             }, 300);
