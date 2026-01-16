@@ -7,6 +7,10 @@
     // Initialize cache and listener
     if (chrome.runtime && chrome.runtime.id) {
         chrome.storage.sync.get('logoReplaceEnabled', (data) => {
+            if (chrome.runtime.lastError) {
+                console.error('Error retrieving logoReplaceEnabled setting:', chrome.runtime.lastError);
+                return;
+            }
             if (data.logoReplaceEnabled !== undefined) {
                 isLogoReplaceEnabled = data.logoReplaceEnabled;
             }

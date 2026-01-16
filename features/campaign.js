@@ -5,8 +5,8 @@
     let budgetTypeAutomated = false;
 
     // Cached settings
-    let hidingSectionsEnabled = true;
-    let automateFormFieldsEnabled = true;
+    let hidingSectionsEnabled;
+    let automateFormFieldsEnabled;
     let alwaysShowCommentsEnabled = false;
 
     // Initialize settings

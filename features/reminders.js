@@ -9,15 +9,18 @@
     let shownCustomReminderIds = new Set();
 
     // Cached settings
-    let metaReminderEnabled = false;
-    let iasReminderEnabled = false;
+    let metaReminderEnabled = true;
+    let iasReminderEnabled = true;
     let prismaReminderFrequency = 'daily';
     let prismaCountdownDuration = 0;
 
     // Initialize settings
     if (chrome.runtime && chrome.runtime.id) {
         chrome.storage.sync.get(['metaReminderEnabled', 'iasReminderEnabled', 'prismaReminderFrequency', 'prismaCountdownDuration', 'customReminders'], (settings) => {
-            if (chrome.runtime.lastError) return;
+            if (chrome.runtime.lastError) {
+                console.error('Error retrieving reminder settings:', chrome.runtime.lastError);
+                return;
+            }
             metaReminderEnabled = settings.metaReminderEnabled !== false;
             iasReminderEnabled = settings.iasReminderEnabled !== false;
             prismaReminderFrequency = settings.prismaReminderFrequency || 'daily';
