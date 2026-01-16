@@ -43,7 +43,7 @@
 
                  // Check if it looks like an Order ID (O-xxxxx-Rx) using a robust regex
                  // And check if we haven't already added the button to this cell
-                 if (/^O-.*-R\d+$/.test(text) && !cell.querySelector('.order-id-copy-btn')) {
+                 if (/^O-[\w]+-R\d+$/.test(text) && !cell.querySelector('.order-id-copy-btn')) {
 
                      const copyBtn = document.createElement('button');
                      copyBtn.textContent = 'Copy';
