@@ -83,6 +83,11 @@
 
         chrome.storage.sync.get('alwaysShowCommentsEnabled', (data) => {
             if (data.alwaysShowCommentsEnabled) {
+                // Define constants once per execution of the feature check
+                const BUTTON_GROUP_SELECTOR = '.mo.toggle-btn-wrapper.mo-btn-group';
+                const ACTION_GROUP_SELECTOR = '.action-group';
+                const LOCKED_BUY_MESSAGE = 'Please note this buy is locked';
+
                 // Modified selector to target both Yes and No buttons that are locked
                 const lockedButtons = document.querySelectorAll('button.btn.btn-mini.ok-to-pay.disabled[data-is-buy-locked="true"][data-row-comment]');
 
@@ -98,13 +103,38 @@
                     if (!btn.dataset.hasAlwaysShowListener) {
                         btn.dataset.hasAlwaysShowListener = 'true';
                         btn.addEventListener('click', async function() {
-                            // Use Promise.allSettled to wait for both elements to be found and removed,
-                            // without failing if one of them doesn't appear within the timeout.
-                            const removalPromises = [
-                                utils.waitForElement('.mo.toggle-btn-wrapper.mo-btn-group', 2000).then(el => el.remove()),
-                                utils.waitForElement('.action-group', 2000).then(el => el.remove())
-                            ];
-                            await Promise.allSettled(removalPromises);
+                            // 1. Inject a temporary style element to hide elements and prevent flashing.
+                            // A new element is created for each click to avoid race conditions and ensure cleanup.
+                            const style = document.createElement('style');
+                            style.textContent = `
+                                ${BUTTON_GROUP_SELECTOR},
+                                ${ACTION_GROUP_SELECTOR} {
+                                    display: none !important;
+                                }
+                            `;
+                            document.head.appendChild(style);
+
+                            try {
+                                // 2. Perform DOM manipulations once elements appear.
+                                const removalPromises = [
+                                    // Replace the button group with the message text.
+                                    utils.waitForElement(BUTTON_GROUP_SELECTOR, 2000).then(el => {
+                                        const messageDiv = document.createElement('div');
+                                        messageDiv.textContent = LOCKED_BUY_MESSAGE;
+                                        // Add a CSS class for styling to separate concerns.
+                                        // A corresponding '.locked-buy-message' class should be added to a CSS file.
+                                        messageDiv.classList.add('locked-buy-message');
+                                        el.replaceWith(messageDiv);
+                                    }),
+                                    // Remove the action group (Save/Cancel) completely.
+                                    utils.waitForElement(ACTION_GROUP_SELECTOR, 2000).then(el => el.remove())
+                                ];
+
+                                await Promise.allSettled(removalPromises);
+                            } finally {
+                                // 3. Always remove the temporary style element to clean up the DOM.
+                                style.remove();
+                            }
                         });
                     }
                 });
