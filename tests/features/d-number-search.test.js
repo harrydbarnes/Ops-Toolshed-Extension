@@ -27,18 +27,23 @@ describe('D-Number Search Feature', () => {
         const scriptEl = document.createElement('script');
         scriptEl.textContent = scriptContent;
         document.body.appendChild(scriptEl);
+
+        // Common mocks
+        mockSearchIcon = { click: jest.fn(), dispatchEvent: jest.fn() };
+        mockInput = { focus: jest.fn(), dispatchEvent: jest.fn(), value: '' };
+
+        // Common sequence
+        window.utils.waitForElementInShadow
+            .mockResolvedValueOnce(mockSearchIcon) // 1. Icon
+            .mockResolvedValueOnce(mockInput);     // 2. Input
     });
 
     describe('when result link is found immediately', () => {
         beforeEach(() => {
-            mockSearchIcon = { click: jest.fn(), dispatchEvent: jest.fn() };
-            mockInput = { focus: jest.fn(), dispatchEvent: jest.fn(), value: '' };
             mockLink = { click: jest.fn(), textContent: `Campaign ${dNumber}` };
 
-            // Sequence of mock returns for waitForElementInShadow
+            // Sequence specific to success
             window.utils.waitForElementInShadow
-                .mockResolvedValueOnce(mockSearchIcon) // 1. Icon
-                .mockResolvedValueOnce(mockInput)      // 2. Input
                 .mockResolvedValueOnce(mockLink);      // 3. Result Link
         });
 
@@ -54,14 +59,11 @@ describe('D-Number Search Feature', () => {
 
     describe('when falling back to history toggle', () => {
         beforeEach(() => {
-            mockSearchIcon = { click: jest.fn(), dispatchEvent: jest.fn() };
-            mockInput = { focus: jest.fn(), dispatchEvent: jest.fn(), value: '' };
             mockToggle = { click: jest.fn(), dispatchEvent: jest.fn() };
             mockFinalButton = { click: jest.fn(), dispatchEvent: jest.fn() };
 
+            // Sequence specific to fallback
             window.utils.waitForElementInShadow
-                .mockResolvedValueOnce(mockSearchIcon) // 1. Icon
-                .mockResolvedValueOnce(mockInput)      // 2. Input
                 .mockRejectedValueOnce(new Error('No link')) // 3. Link not found immediately
                 .mockResolvedValueOnce(mockToggle)     // 4. Toggle switch
                 .mockResolvedValueOnce(mockFinalButton); // 5. Final button
