@@ -83,6 +83,20 @@
 
         chrome.storage.sync.get('alwaysShowCommentsEnabled', (data) => {
             if (data.alwaysShowCommentsEnabled) {
+                // Define constants once per execution of the feature check
+                const STYLE_ID = 'ts-hide-locked-popup';
+                const BUTTON_GROUP_SELECTOR = '.mo.toggle-btn-wrapper.mo-btn-group';
+                const ACTION_GROUP_SELECTOR = '.action-group';
+                const LOCKED_BUY_MESSAGE = 'Please note this buy is locked';
+                const MESSAGE_CLASS = 'ts-locked-buy-message';
+
+                const MESSAGE_STYLE = `
+                    .${MESSAGE_CLASS} {
+                        padding: 5px;
+                        font-style: italic;
+                    }
+                `;
+
                 // Modified selector to target both Yes and No buttons that are locked
                 const lockedButtons = document.querySelectorAll('button.btn.btn-mini.ok-to-pay.disabled[data-is-buy-locked="true"][data-row-comment]');
 
@@ -98,12 +112,6 @@
                     if (!btn.dataset.hasAlwaysShowListener) {
                         btn.dataset.hasAlwaysShowListener = 'true';
                         btn.addEventListener('click', async function() {
-                            const STYLE_ID = 'ts-hide-locked-popup';
-                            const BUTTON_GROUP_SELECTOR = '.mo.toggle-btn-wrapper.mo-btn-group';
-                            const ACTION_GROUP_SELECTOR = '.action-group';
-                            const LOCKED_BUY_MESSAGE = 'Please note this buy is locked';
-                            const MESSAGE_CLASS = 'ts-locked-buy-message';
-
                             // 1. Inject temporary style to hide elements immediately to prevent flashing
                             let style = document.getElementById(STYLE_ID);
                             if (!style) {
@@ -119,10 +127,7 @@
                                 ${ACTION_GROUP_SELECTOR} {
                                     display: none !important;
                                 }
-                                .${MESSAGE_CLASS} {
-                                    padding: 5px;
-                                    font-style: italic;
-                                }
+                                ${MESSAGE_STYLE}
                             `;
 
                             // 2. Perform DOM manipulations once elements appear
@@ -141,14 +146,8 @@
                             await Promise.allSettled(removalPromises);
 
                             // 3. Remove the hiding rules but keep the message styling.
-                            if (style) {
-                                style.textContent = `
-                                    .${MESSAGE_CLASS} {
-                                        padding: 5px;
-                                        font-style: italic;
-                                    }
-                                `;
-                            }
+                            // We know 'style' exists because we accessed/created it at step 1.
+                            style.textContent = MESSAGE_STYLE;
                         });
                     }
                 });
