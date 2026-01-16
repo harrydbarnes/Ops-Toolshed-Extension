@@ -9,6 +9,7 @@ describe('Placement Counter Feature', () => {
     let window, document;
 
     beforeEach(() => {
+        jest.useFakeTimers();
         // Setup JSDOM with necessary globals
         const dom = new JSDOM('<!DOCTYPE html><html><body><div id="grid-container_hot"></div></body></html>', {
             runScripts: "dangerously",
@@ -33,6 +34,10 @@ describe('Placement Counter Feature', () => {
         document.body.appendChild(scriptEl);
     });
 
+    afterEach(() => {
+        jest.useRealTimers();
+    });
+
     // Helper to create a mock row
     function createRow(id, name, isChecked = true, classes = []) {
         const tr = document.createElement('tr');
@@ -54,7 +59,6 @@ describe('Placement Counter Feature', () => {
     }
 
     test('should count valid placement rows', () => {
-        jest.useFakeTimers();
         const container = document.getElementById('grid-container_hot');
         container.appendChild(createRow('1', 'Standard Placement'));
         container.appendChild(createRow('2', 'Another Placement'));
@@ -68,11 +72,9 @@ describe('Placement Counter Feature', () => {
         const toast = document.querySelector('.placement-toast');
         expect(toast).not.toBeNull();
         expect(toast.textContent).toBe('2 Placements Selected');
-        jest.useRealTimers();
     });
 
     test('should exclude rows with "display" or "media total" in the name', () => {
-        jest.useFakeTimers();
         const container = document.getElementById('grid-container_hot');
         container.appendChild(createRow('1', 'Valid Placement'));
         container.appendChild(createRow('2', 'Programmatic Display Package')); // Should be excluded
@@ -84,11 +86,9 @@ describe('Placement Counter Feature', () => {
 
         const toast = document.querySelector('.placement-toast');
         expect(toast.textContent).toBe('1 Placement Selected');
-        jest.useRealTimers();
     });
 
     test('should exclude hierarchical level 0 rows', () => {
-        jest.useFakeTimers();
         const container = document.getElementById('grid-container_hot');
         // Add class 'hierarchical-level-0' to simulate a header row.
         // The implementation uses row.querySelector('.hierarchical-level-0'), so it must be a descendant.
@@ -109,6 +109,5 @@ describe('Placement Counter Feature', () => {
         } else {
              expect(toast).toBeNull();
         }
-        jest.useRealTimers();
     });
 });

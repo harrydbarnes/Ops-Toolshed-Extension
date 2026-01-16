@@ -6,6 +6,8 @@ const scriptContent = fs.readFileSync(path.resolve(__dirname, '../../features/d-
 
 describe('D-Number Search Feature', () => {
     let window, document;
+    const dNumber = 'D12345678';
+    let mockSearchIcon, mockInput, mockLink, mockToggle, mockFinalButton;
 
     beforeEach(() => {
         const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
@@ -21,6 +23,12 @@ describe('D-Number Search Feature', () => {
             showToast: jest.fn()
         };
 
+        mockSearchIcon = { click: jest.fn(), dispatchEvent: jest.fn() };
+        mockInput = { focus: jest.fn(), dispatchEvent: jest.fn(), value: '' };
+        mockLink = { click: jest.fn(), textContent: `Campaign ${dNumber}` };
+        mockToggle = { click: jest.fn(), dispatchEvent: jest.fn() };
+        mockFinalButton = { click: jest.fn(), dispatchEvent: jest.fn() };
+
         // Inject script
         const scriptEl = document.createElement('script');
         scriptEl.textContent = scriptContent;
@@ -28,20 +36,6 @@ describe('D-Number Search Feature', () => {
     });
 
     test('should click search icon, input text, and find result link', async () => {
-        const dNumber = 'D12345678';
-
-        // Mocks for DOM elements
-        const mockSearchIcon = { click: jest.fn(), dispatchEvent: jest.fn() };
-        const mockInput = {
-            focus: jest.fn(),
-            dispatchEvent: jest.fn(),
-            value: ''
-        };
-        const mockLink = {
-            click: jest.fn(),
-            textContent: `Campaign ${dNumber}`
-        };
-
         // Sequence of mock returns for waitForElementInShadow
         window.utils.waitForElementInShadow
             .mockResolvedValueOnce(mockSearchIcon) // 1. Icon
@@ -57,13 +51,6 @@ describe('D-Number Search Feature', () => {
     });
 
     test('should fallback to history toggle if immediate link not found', async () => {
-        const dNumber = 'D12345678';
-
-        const mockSearchIcon = { click: jest.fn(), dispatchEvent: jest.fn() };
-        const mockInput = { focus: jest.fn(), dispatchEvent: jest.fn(), value: '' };
-        const mockToggle = { click: jest.fn(), dispatchEvent: jest.fn() };
-        const mockFinalButton = { click: jest.fn(), dispatchEvent: jest.fn() };
-
         window.utils.waitForElementInShadow
             .mockResolvedValueOnce(mockSearchIcon) // 1. Icon
             .mockResolvedValueOnce(mockInput)      // 2. Input
