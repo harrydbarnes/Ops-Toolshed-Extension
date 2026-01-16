@@ -84,18 +84,9 @@
         chrome.storage.sync.get('alwaysShowCommentsEnabled', (data) => {
             if (data.alwaysShowCommentsEnabled) {
                 // Define constants once per execution of the feature check
-                const STYLE_ID = 'ts-hide-locked-popup';
                 const BUTTON_GROUP_SELECTOR = '.mo.toggle-btn-wrapper.mo-btn-group';
                 const ACTION_GROUP_SELECTOR = '.action-group';
                 const LOCKED_BUY_MESSAGE = 'Please note this buy is locked';
-                const MESSAGE_CLASS = 'ts-locked-buy-message';
-
-                const MESSAGE_STYLE = `
-                    .${MESSAGE_CLASS} {
-                        padding: 5px;
-                        font-style: italic;
-                    }
-                `;
 
                 // Modified selector to target both Yes and No buttons that are locked
                 const lockedButtons = document.querySelectorAll('button.btn.btn-mini.ok-to-pay.disabled[data-is-buy-locked="true"][data-row-comment]');
@@ -112,42 +103,38 @@
                     if (!btn.dataset.hasAlwaysShowListener) {
                         btn.dataset.hasAlwaysShowListener = 'true';
                         btn.addEventListener('click', async function() {
-                            // 1. Inject temporary style to hide elements immediately to prevent flashing
-                            let style = document.getElementById(STYLE_ID);
-                            if (!style) {
-                                style = document.createElement('style');
-                                style.id = STYLE_ID;
-                                document.head.appendChild(style);
-                            }
-
-                            // Include message styling in the "temporary" block so it's available immediately
-                            // The hiding rules are what we want to eventually remove
+                            // 1. Inject a temporary style element to hide elements and prevent flashing.
+                            // A new element is created for each click to avoid race conditions and ensure cleanup.
+                            const style = document.createElement('style');
                             style.textContent = `
                                 ${BUTTON_GROUP_SELECTOR},
                                 ${ACTION_GROUP_SELECTOR} {
                                     display: none !important;
                                 }
-                                ${MESSAGE_STYLE}
                             `;
+                            document.head.appendChild(style);
 
-                            // 2. Perform DOM manipulations once elements appear
-                            const removalPromises = [
-                                // Replace the button group with the message text
-                                utils.waitForElement(BUTTON_GROUP_SELECTOR, 2000).then(el => {
-                                    const messageDiv = document.createElement('div');
-                                    messageDiv.textContent = LOCKED_BUY_MESSAGE;
-                                    messageDiv.className = MESSAGE_CLASS;
-                                    el.replaceWith(messageDiv);
-                                }),
-                                // Remove the action group (Save/Cancel) completely
-                                utils.waitForElement(ACTION_GROUP_SELECTOR, 2000).then(el => el.remove())
-                            ];
+                            try {
+                                // 2. Perform DOM manipulations once elements appear.
+                                const removalPromises = [
+                                    // Replace the button group with the message text.
+                                    utils.waitForElement(BUTTON_GROUP_SELECTOR, 2000).then(el => {
+                                        const messageDiv = document.createElement('div');
+                                        messageDiv.textContent = LOCKED_BUY_MESSAGE;
+                                        // Apply styles directly to the element for better encapsulation.
+                                        messageDiv.style.padding = '5px';
+                                        messageDiv.style.fontStyle = 'italic';
+                                        el.replaceWith(messageDiv);
+                                    }),
+                                    // Remove the action group (Save/Cancel) completely.
+                                    utils.waitForElement(ACTION_GROUP_SELECTOR, 2000).then(el => el.remove())
+                                ];
 
-                            await Promise.allSettled(removalPromises);
-
-                            // 3. Remove the hiding rules but keep the message styling.
-                            // We know 'style' exists because we accessed/created it at step 1.
-                            style.textContent = MESSAGE_STYLE;
+                                await Promise.allSettled(removalPromises);
+                            } finally {
+                                // 3. Always remove the temporary style element to clean up the DOM.
+                                style.remove();
+                            }
                         });
                     }
                 });
