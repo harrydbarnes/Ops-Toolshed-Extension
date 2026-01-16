@@ -101,7 +101,7 @@
             parentContainer.insertBefore(swapButton, userMenu);
 
         } catch (error) {
-            console.error('Could not add Switch Account button:', error);
+            console.error('Could not add Switch Accounts button:', error);
         }
     }
 
