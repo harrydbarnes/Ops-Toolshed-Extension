@@ -84,7 +84,7 @@
         chrome.storage.sync.get('alwaysShowCommentsEnabled', (data) => {
             if (data.alwaysShowCommentsEnabled) {
                 // Modified selector to target both Yes and No buttons that are locked
-                const lockedButtons = document.querySelectorAll('button.btn.btn-mini.ok-to-pay.disabled[data-is-buy-locked="true"]');
+                const lockedButtons = document.querySelectorAll('button.btn.btn-mini.ok-to-pay.disabled[data-is-buy-locked="true"][data-row-comment]');
 
                 lockedButtons.forEach(btn => {
                     // Check if the comment attribute exists and is not empty
