@@ -38,25 +38,33 @@
                 align-items: center;
             }
             .order-id-copy-btn {
+                --btn-bg: #f0f0f0;
+                --btn-border-color: #ccc;
+                --btn-text-color: #333;
+                --btn-hover-bg: #e0e0e0;
+                --btn-hover-border-color: #bbb;
+                --btn-copied-bg: #333;
+                --btn-copied-text-color: #fff;
+
                 padding: 2px 6px;
                 font-size: 10px;
                 cursor: pointer;
-                background-color: #f0f0f0;
-                border: 1px solid #ccc;
+                background-color: var(--btn-bg);
+                border: 1px solid var(--btn-border-color);
                 border-radius: 3px;
-                color: #333;
+                color: var(--btn-text-color);
                 line-height: normal;
                 white-space: nowrap; /* Prevent button text wrapping */
                 transition: background-color 0.2s, color 0.2s; /* Smooth transition */
             }
             /* Button hover effect */
             .order-id-copy-btn:hover {
-                background-color: #e0e0e0;
-                border-color: #bbb;
+                background-color: var(--btn-hover-bg);
+                border-color: var(--btn-hover-border-color);
             }
             .order-id-copy-btn.copied {
-                background-color: #333;
-                color: #fff;
+                background-color: var(--btn-copied-bg);
+                color: var(--btn-copied-text-color);
             }
         `;
         document.head.appendChild(style);
