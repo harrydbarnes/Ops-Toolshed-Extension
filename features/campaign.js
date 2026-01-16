@@ -98,41 +98,57 @@
                     if (!btn.dataset.hasAlwaysShowListener) {
                         btn.dataset.hasAlwaysShowListener = 'true';
                         btn.addEventListener('click', async function() {
+                            const STYLE_ID = 'ts-hide-locked-popup';
+                            const BUTTON_GROUP_SELECTOR = '.mo.toggle-btn-wrapper.mo-btn-group';
+                            const ACTION_GROUP_SELECTOR = '.action-group';
+                            const LOCKED_BUY_MESSAGE = 'Please note this buy is locked';
+                            const MESSAGE_CLASS = 'ts-locked-buy-message';
+
                             // 1. Inject temporary style to hide elements immediately to prevent flashing
-                            const styleId = 'ts-hide-locked-popup';
-                            let style = document.getElementById(styleId);
+                            let style = document.getElementById(STYLE_ID);
                             if (!style) {
                                 style = document.createElement('style');
-                                style.id = styleId;
-                                style.textContent = `
-                                    .mo.toggle-btn-wrapper.mo-btn-group,
-                                    .action-group {
-                                        display: none !important;
-                                    }
-                                `;
+                                style.id = STYLE_ID;
                                 document.head.appendChild(style);
                             }
+
+                            // Include message styling in the "temporary" block so it's available immediately
+                            // The hiding rules are what we want to eventually remove
+                            style.textContent = `
+                                ${BUTTON_GROUP_SELECTOR},
+                                ${ACTION_GROUP_SELECTOR} {
+                                    display: none !important;
+                                }
+                                .${MESSAGE_CLASS} {
+                                    padding: 5px;
+                                    font-style: italic;
+                                }
+                            `;
 
                             // 2. Perform DOM manipulations once elements appear
                             const removalPromises = [
                                 // Replace the button group with the message text
-                                utils.waitForElement('.mo.toggle-btn-wrapper.mo-btn-group', 2000).then(el => {
+                                utils.waitForElement(BUTTON_GROUP_SELECTOR, 2000).then(el => {
                                     const messageDiv = document.createElement('div');
-                                    messageDiv.textContent = "Please note this buy is locked";
-                                    messageDiv.style.padding = "5px";
-                                    messageDiv.style.fontStyle = "italic";
+                                    messageDiv.textContent = LOCKED_BUY_MESSAGE;
+                                    messageDiv.className = MESSAGE_CLASS;
                                     el.replaceWith(messageDiv);
                                 }),
                                 // Remove the action group (Save/Cancel) completely
-                                utils.waitForElement('.action-group', 2000).then(el => el.remove())
+                                utils.waitForElement(ACTION_GROUP_SELECTOR, 2000).then(el => el.remove())
                             ];
 
                             await Promise.allSettled(removalPromises);
 
-                            // 3. Remove the temporary style.
-                            // The new "messageDiv" doesn't have the hidden class, so it will show up.
-                            // The action-group is gone, so it won't show up.
-                            if (style) style.remove();
+                            // 3. Remove the hiding rules but keep the message styling.
+                            if (style) {
+                                style.textContent = `
+                                    .${MESSAGE_CLASS} {
+                                        padding: 5px;
+                                        font-style: italic;
+                                    }
+                                `;
+                            }
                         });
                     }
                 });
