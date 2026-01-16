@@ -400,6 +400,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupToggle('approverWidgetOptimiseToggle', 'approverWidgetOptimiseEnabled', 'Approver Widget Optimise setting saved:');
     setupToggle('swapAccountsToggle', 'swapAccountsEnabled', 'Switch Accounts setting saved:');
     setupToggle('seeCommentsOnLockedBuysToggle', 'alwaysShowCommentsEnabled', 'See Comments on Locked Buys setting saved:');
+    setupToggle('orderIdCopyToggle', 'orderIdCopyEnabled', 'Order ID Copy setting saved:');
 
     // Aura Reminders (Timesheet)
     const timesheetReminderToggle = document.getElementById('timesheetReminderToggle');

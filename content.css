@@ -184,3 +184,17 @@
     fill: white; /* Icon updated to white to match text */
 }
 /* --- End of Switch Account Button Styles --- */
+
+/* --- Order ID Copy Button Styles --- */
+.order-id-copy-btn {
+    margin-left: 8px;
+    padding: 2px 6px;
+    font-size: 10px;
+    cursor: pointer;
+    background-color: #f0f0f0;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    color: #333;
+    line-height: normal;
+}
+/* --- End of Order ID Copy Button Styles --- */

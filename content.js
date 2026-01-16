@@ -71,6 +71,10 @@ async function mainContentScriptInit() {
         window.autoCopyUrlFeature.initialize();
     }
 
+    if (window.orderIdCopyFeature) {
+        window.orderIdCopyFeature.initialize();
+    }
+
     if (window.logoFeature.shouldReplaceLogoOnThisPage()) {
         await window.remindersFeature.fetchCustomReminders(); // Fetch initial set of custom reminders
         window.logoFeature.checkAndReplaceLogo();
@@ -105,6 +109,10 @@ async function mainContentScriptInit() {
 
                 if (window.autoCopyUrlFeature) {
                     window.autoCopyUrlFeature.handleAutoCopy();
+                }
+
+                if (window.orderIdCopyFeature) {
+                    window.orderIdCopyFeature.checkAndAddCopyButtons();
                 }
 
             }, 300);
