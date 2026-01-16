@@ -1,6 +1,27 @@
 (function() {
     'use strict';
 
+    // Local cache for settings
+    let isLogoReplaceEnabled = true;
+
+    // Initialize cache and listener
+    if (chrome.runtime && chrome.runtime.id) {
+        chrome.storage.sync.get('logoReplaceEnabled', (data) => {
+            if (data.logoReplaceEnabled !== undefined) {
+                isLogoReplaceEnabled = data.logoReplaceEnabled;
+            }
+            // Run initial check after fetching setting
+            checkAndReplaceLogo();
+        });
+
+        chrome.storage.onChanged.addListener((changes, namespace) => {
+            if (namespace === 'sync' && changes.logoReplaceEnabled) {
+                isLogoReplaceEnabled = changes.logoReplaceEnabled.newValue;
+                checkAndReplaceLogo();
+            }
+        });
+    }
+
     function replaceLogo() {
         // Use the utility function from utils.js
         const uniquePath = window.utils.queryShadowDom('path[d="M9.23616 0C4.13364 0 0 3.78471 0 8.455C0 13.1253 4.13364 16.91 9.23616 16.91"]');
@@ -47,21 +68,11 @@
     }
 
     function checkAndReplaceLogo() {
-        if (!chrome.runtime || !chrome.runtime.id) {
-            return;
+        if (isLogoReplaceEnabled !== false) {
+            replaceLogo();
+        } else {
+            restoreOriginalLogo();
         }
-
-        chrome.storage.sync.get('logoReplaceEnabled', function(data) {
-            if (chrome.runtime.lastError) {
-                console.error(`Error getting logoReplaceEnabled setting: ${chrome.runtime.lastError.message}`);
-                return;
-            }
-            if (data.logoReplaceEnabled !== false) {
-                replaceLogo();
-            } else {
-                restoreOriginalLogo();
-            }
-        });
     }
 
     function shouldReplaceLogoOnThisPage() {

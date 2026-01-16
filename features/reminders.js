@@ -8,6 +8,40 @@
     let activeCustomReminders = [];
     let shownCustomReminderIds = new Set();
 
+    // Cached settings
+    let metaReminderEnabled = false;
+    let iasReminderEnabled = false;
+    let prismaReminderFrequency = 'daily';
+    let prismaCountdownDuration = 0;
+
+    // Initialize settings
+    if (chrome.runtime && chrome.runtime.id) {
+        chrome.storage.sync.get(['metaReminderEnabled', 'iasReminderEnabled', 'prismaReminderFrequency', 'prismaCountdownDuration', 'customReminders'], (settings) => {
+            if (chrome.runtime.lastError) return;
+            metaReminderEnabled = settings.metaReminderEnabled !== false;
+            iasReminderEnabled = settings.iasReminderEnabled !== false;
+            prismaReminderFrequency = settings.prismaReminderFrequency || 'daily';
+            prismaCountdownDuration = parseInt(settings.prismaCountdownDuration, 10) || 0;
+
+            if (settings.customReminders) {
+                activeCustomReminders = settings.customReminders.filter(r => r.enabled);
+            }
+        });
+
+        chrome.storage.onChanged.addListener((changes, namespace) => {
+            if (namespace !== 'sync') return;
+
+            if (changes.metaReminderEnabled) metaReminderEnabled = changes.metaReminderEnabled.newValue !== false;
+            if (changes.iasReminderEnabled) iasReminderEnabled = changes.iasReminderEnabled.newValue !== false;
+            if (changes.prismaReminderFrequency) prismaReminderFrequency = changes.prismaReminderFrequency.newValue || 'daily';
+            if (changes.prismaCountdownDuration) prismaCountdownDuration = parseInt(changes.prismaCountdownDuration.newValue, 10) || 0;
+            if (changes.customReminders) {
+                const newReminders = changes.customReminders.newValue || [];
+                activeCustomReminders = newReminders.filter(r => r.enabled);
+            }
+        });
+    }
+
     function shouldShowReminder(storageKey, frequency, callback) {
         chrome.storage.local.get([storageKey], (data) => {
             const lastShownTimestamp = data[storageKey];
@@ -106,70 +140,64 @@
         if (metaReminderDismissed || metaCheckInProgress) return;
         const currentUrl = window.location.href;
         if (!currentUrl.includes('groupmuk-prisma.mediaocean.com/') || !currentUrl.includes('actualize')) return;
-        if (!chrome.runtime || !chrome.runtime.id) return;
 
-        chrome.storage.sync.get(['metaReminderEnabled', 'prismaReminderFrequency', 'prismaCountdownDuration'], (settings) => {
-            if (chrome.runtime.lastError || settings.metaReminderEnabled === false) return;
+        // Use cached settings
+        if (!metaReminderEnabled) return;
 
-            const frequency = settings.prismaReminderFrequency || 'daily';
-            shouldShowReminder('metaReminderLastShown', frequency, (show) => {
-                if (!show) return;
-                metaCheckInProgress = true;
-                let attempts = 0;
-                const maxAttempts = 15;
-                const intervalId = setInterval(() => {
-                    const pageText = document.body.textContent || "";
-                    const conditionsMet = pageText.includes('000770') && pageText.includes('Redistribute all');
-                    if (conditionsMet) {
-                        clearInterval(intervalId);
-                        if (!document.getElementById('meta-reminder-popup')) {
-                            createPrismaReminderPopup({
-                                popupId: 'meta-reminder-popup',
-                                content: {
-                                    title: '⚠️ Meta Reconciliation Reminder ⚠️',
-                                    message: 'When reconciling Meta, please:',
-                                    list: ["Actualise to the 'Supplier' option", "Self-accept the IO", "Push through on trafficking tab to Meta", "Verify success of the push, every time", "Do not just leave the page!"]
-                                },
-                                countdownSeconds: parseInt(settings.prismaCountdownDuration, 10) || 0,
-                                storageKey: 'metaReminderLastShown'
-                            });
-                        }
-                    } else if (attempts >= maxAttempts) {
-                        clearInterval(intervalId);
-                        metaCheckInProgress = false;
+        shouldShowReminder('metaReminderLastShown', prismaReminderFrequency, (show) => {
+            if (!show) return;
+            metaCheckInProgress = true;
+            let attempts = 0;
+            const maxAttempts = 15;
+            const intervalId = setInterval(() => {
+                const pageText = document.body.textContent || "";
+                const conditionsMet = pageText.includes('000770') && pageText.includes('Redistribute all');
+                if (conditionsMet) {
+                    clearInterval(intervalId);
+                    if (!document.getElementById('meta-reminder-popup')) {
+                        createPrismaReminderPopup({
+                            popupId: 'meta-reminder-popup',
+                            content: {
+                                title: '⚠️ Meta Reconciliation Reminder ⚠️',
+                                message: 'When reconciling Meta, please:',
+                                list: ["Actualise to the 'Supplier' option", "Self-accept the IO", "Push through on trafficking tab to Meta", "Verify success of the push, every time", "Do not just leave the page!"]
+                            },
+                            countdownSeconds: prismaCountdownDuration,
+                            storageKey: 'metaReminderLastShown'
+                        });
                     }
-                    attempts++;
-                }, 2000);
-            });
+                } else if (attempts >= maxAttempts) {
+                    clearInterval(intervalId);
+                    metaCheckInProgress = false;
+                }
+                attempts++;
+            }, 2000);
         });
     }
 
     function checkForIASConditions() {
         if (iasReminderDismissed) return;
-        if (!chrome.runtime || !chrome.runtime.id) return;
 
-        chrome.storage.sync.get(['iasReminderEnabled', 'prismaReminderFrequency', 'prismaCountdownDuration'], (settings) => {
-            if (chrome.runtime.lastError || settings.iasReminderEnabled === false) return;
+        // Use cached settings
+        if (!iasReminderEnabled) return;
 
-            const pageText = document.body.innerText;
-            if (pageText.includes('001148') && pageText.includes('Flat') && pageText.includes('Unit type')) {
-                const frequency = settings.prismaReminderFrequency || 'daily';
-                shouldShowReminder('iasReminderLastShown', frequency, (show) => {
-                    if (show && !document.getElementById('ias-reminder-popup')) {
-                        createPrismaReminderPopup({
-                            popupId: 'ias-reminder-popup',
-                            content: {
-                                title: '⚠️ IAS Booking Reminder ⚠️',
-                                message: 'Please ensure you book as CPM',
-                                list: ['With correct rate for media type', 'Check the plan', 'Ensure what is planned is what goes live']
-                            },
-                            countdownSeconds: parseInt(settings.prismaCountdownDuration, 10) || 0,
-                            storageKey: 'iasReminderLastShown'
-                        });
-                    }
-                });
-            }
-        });
+        const pageText = document.body.innerText;
+        if (pageText.includes('001148') && pageText.includes('Flat') && pageText.includes('Unit type')) {
+            shouldShowReminder('iasReminderLastShown', prismaReminderFrequency, (show) => {
+                if (show && !document.getElementById('ias-reminder-popup')) {
+                    createPrismaReminderPopup({
+                        popupId: 'ias-reminder-popup',
+                        content: {
+                            title: '⚠️ IAS Booking Reminder ⚠️',
+                            message: 'Please ensure you book as CPM',
+                            list: ['With correct rate for media type', 'Check the plan', 'Ensure what is planned is what goes live']
+                        },
+                        countdownSeconds: prismaCountdownDuration,
+                        storageKey: 'iasReminderLastShown'
+                    });
+                }
+            });
+        }
     }
 
     function fetchCustomReminders() {

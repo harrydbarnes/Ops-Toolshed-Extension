@@ -107,7 +107,11 @@
         manageFavouritesButton.className = 'btn-link mo-btn-link manage-favourites-button';
 
         manageFavouritesButton.addEventListener('click', () => {
-            chrome.runtime.sendMessage({ action: 'openApproversPage' });
+            if (chrome.runtime && chrome.runtime.id) {
+                chrome.runtime.sendMessage({ action: 'openApproversPage' });
+            } else {
+                console.warn('Extension context invalidated. Please refresh the page.');
+            }
         });
 
         clearButton.parentNode.insertBefore(manageFavouritesButton, clearButton.nextSibling);
