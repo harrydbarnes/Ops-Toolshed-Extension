@@ -37,7 +37,7 @@
         // The user mentioned the structure: <td class="pad"> ... <a ...>O-5YWFK-R0</a> ... </td>
         const cells = document.querySelectorAll('td.pad');
         cells.forEach(cell => {
-             const link = cell.querySelector('a');
+            const link = cell.querySelector('a');
              if (link) {
                  const text = link.textContent.trim();
 
