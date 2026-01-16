@@ -121,7 +121,7 @@
                     position: fixed;
                     bottom: 20px;
                     left: 20px;
-                    background-color: #333;
+                    background-color: #ff3d80; /* Default Pink */
                     color: white;
                     padding: 10px 20px;
                     border-radius: 5px;
@@ -134,6 +134,10 @@
                     opacity: 0;
                     transform: translateY(100%); /* Start off-screen */
                     transition: visibility 0s 0.5s, opacity 0.5s ease, transform 0.5s ease;
+                }
+                /* Theme Override */
+                body.ui-theme-black .placement-toast {
+                    background-color: #333;
                 }
                 .placement-toast.show {
                     visibility: visible;

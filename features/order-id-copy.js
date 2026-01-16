@@ -11,7 +11,7 @@
                 position: fixed;
                 top: 60px; /* Slightly lower than 20px to avoid overlapping top bar */
                 right: 20px;
-                background-color: #333;
+                background-color: #ff3d80; /* Default Pink */
                 color: white;
                 padding: 10px 20px;
                 border-radius: 5px;
@@ -25,6 +25,10 @@
                 transform: translateY(-100%); /* Start from top */
                 transition: visibility 0s 0.5s, opacity 0.5s ease, transform 0.5s ease;
                 pointer-events: none;
+            }
+            /* Theme Override */
+            body.ui-theme-black .order-id-copy-toast {
+                background-color: #333;
             }
             .order-id-copy-toast.show {
                 visibility: visible;
@@ -43,7 +47,7 @@
                 --btn-text-color: #333;
                 --btn-hover-bg: #e0e0e0;
                 --btn-hover-border-color: #bbb;
-                --btn-copied-bg: #333;
+                --btn-copied-bg: #ff3d80; /* Default Pink */
                 --btn-copied-text-color: #fff;
 
                 padding: 2px 6px;
@@ -56,6 +60,10 @@
                 line-height: normal;
                 white-space: nowrap; /* Prevent button text wrapping */
                 transition: background-color 0.2s, color 0.2s, border-color 0.2s; /* Smooth transition */
+            }
+            /* Theme Override for Button */
+            body.ui-theme-black .order-id-copy-btn {
+                --btn-copied-bg: #333;
             }
             /* Button hover effect */
             .order-id-copy-btn:hover {
