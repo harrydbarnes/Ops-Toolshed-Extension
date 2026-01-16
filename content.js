@@ -16,12 +16,6 @@
     });
     console.log("[ContentScript Prisma] Script Injected on URL:", window.location.href, "at", new Date().toLocaleTimeString());
 
-// Global variables for custom reminders
-let activeCustomReminders = [];
-let shownCustomReminderIds = new Set();
-let mediaMixAutomated = false;
-let budgetTypeAutomated = false;
-
 // Utility functions are now in utils.js
 
 // Logo-related functions are now in features/logo.js
