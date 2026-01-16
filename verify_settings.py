@@ -92,7 +92,10 @@ def run(playwright):
     print(f"window.buildInfo: {build_info}")
 
     # Check for "Always Show Comments" toggle
-    page.wait_for_selector('text=Always Show Comments')
+    page.wait_for_selector('text=See Comments on Locked Buys')
+
+    # Check for the new ID
+    page.wait_for_selector('#seeCommentsOnLockedBuysToggle', state='attached')
 
     # Check for Build Info div text
     # We use state='attached' first, then check visibility or content
