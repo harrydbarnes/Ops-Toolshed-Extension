@@ -59,6 +59,7 @@
         "features/stats-collector.js",
         "features/placement-counter.js",
         "features/swap-accounts.js",
+        "features/auto-copy-url.js",
         "content.js"
       ],
       "css": ["approvers.css", "content.css"],

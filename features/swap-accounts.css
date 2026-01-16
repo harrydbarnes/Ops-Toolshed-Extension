@@ -5,13 +5,15 @@
     border-radius: 9999px;
     padding: 4px 12px;
     font-family: var(--font-primary, 'Inter', 'Roboto', sans-serif);
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 400;
     cursor: pointer;
     display: flex;
     align-items: center;
     transition: background-color 0.2s ease-in-out;
     margin-right: 10px;
+    margin-top: 6px;
+    margin-bottom: 6px;
 }
 
 .switch-account-button:hover,
