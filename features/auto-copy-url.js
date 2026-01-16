@@ -8,17 +8,14 @@
              return;
         }
 
-        // Optimization: Try to find the specific container first
-        // The user said "shadow root of the div class banner".
         const banner = utils.queryShadowDom('.banner');
         if (!banner) return;
 
-        let linkIcon = null;
-        if (banner.shadowRoot) {
-            linkIcon = utils.queryShadowDom('mo-icon[name="link"]', banner.shadowRoot);
-        } else {
+        if (!banner.shadowRoot) {
             return;
         }
+
+        const linkIcon = utils.queryShadowDom('mo-icon[name="link"]', banner.shadowRoot);
 
         if (linkIcon && linkIcon !== linkIconFound) {
              linkIconFound = linkIcon;
