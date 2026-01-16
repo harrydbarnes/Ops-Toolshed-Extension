@@ -23,44 +23,55 @@ describe('D-Number Search Feature', () => {
             showToast: jest.fn()
         };
 
-        mockSearchIcon = { click: jest.fn(), dispatchEvent: jest.fn() };
-        mockInput = { focus: jest.fn(), dispatchEvent: jest.fn(), value: '' };
-        mockLink = { click: jest.fn(), textContent: `Campaign ${dNumber}` };
-        mockToggle = { click: jest.fn(), dispatchEvent: jest.fn() };
-        mockFinalButton = { click: jest.fn(), dispatchEvent: jest.fn() };
-
         // Inject script
         const scriptEl = document.createElement('script');
         scriptEl.textContent = scriptContent;
         document.body.appendChild(scriptEl);
     });
 
-    test('should click search icon, input text, and find result link', async () => {
-        // Sequence of mock returns for waitForElementInShadow
-        window.utils.waitForElementInShadow
-            .mockResolvedValueOnce(mockSearchIcon) // 1. Icon
-            .mockResolvedValueOnce(mockInput)      // 2. Input
-            .mockResolvedValueOnce(mockLink);      // 3. Result Link
+    describe('when result link is found immediately', () => {
+        beforeEach(() => {
+            mockSearchIcon = { click: jest.fn(), dispatchEvent: jest.fn() };
+            mockInput = { focus: jest.fn(), dispatchEvent: jest.fn(), value: '' };
+            mockLink = { click: jest.fn(), textContent: `Campaign ${dNumber}` };
 
-        await window.dNumberSearchFeature.handleDNumberSearch(dNumber);
+            // Sequence of mock returns for waitForElementInShadow
+            window.utils.waitForElementInShadow
+                .mockResolvedValueOnce(mockSearchIcon) // 1. Icon
+                .mockResolvedValueOnce(mockInput)      // 2. Input
+                .mockResolvedValueOnce(mockLink);      // 3. Result Link
+        });
 
-        // Verification
-        expect(mockSearchIcon.click).toHaveBeenCalled();
-        expect(mockInput.value).toBe(dNumber);
-        expect(mockLink.click).toHaveBeenCalled(); // Success!
+        test('should click search icon, input text, and find result link', async () => {
+            await window.dNumberSearchFeature.handleDNumberSearch(dNumber);
+
+            // Verification
+            expect(mockSearchIcon.click).toHaveBeenCalled();
+            expect(mockInput.value).toBe(dNumber);
+            expect(mockLink.click).toHaveBeenCalled(); // Success!
+        });
     });
 
-    test('should fallback to history toggle if immediate link not found', async () => {
-        window.utils.waitForElementInShadow
-            .mockResolvedValueOnce(mockSearchIcon) // 1. Icon
-            .mockResolvedValueOnce(mockInput)      // 2. Input
-            .mockRejectedValueOnce(new Error('No link')) // 3. Link not found immediately
-            .mockResolvedValueOnce(mockToggle)     // 4. Toggle switch
-            .mockResolvedValueOnce(mockFinalButton); // 5. Final button
+    describe('when falling back to history toggle', () => {
+        beforeEach(() => {
+            mockSearchIcon = { click: jest.fn(), dispatchEvent: jest.fn() };
+            mockInput = { focus: jest.fn(), dispatchEvent: jest.fn(), value: '' };
+            mockToggle = { click: jest.fn(), dispatchEvent: jest.fn() };
+            mockFinalButton = { click: jest.fn(), dispatchEvent: jest.fn() };
 
-        await window.dNumberSearchFeature.handleDNumberSearch(dNumber);
+            window.utils.waitForElementInShadow
+                .mockResolvedValueOnce(mockSearchIcon) // 1. Icon
+                .mockResolvedValueOnce(mockInput)      // 2. Input
+                .mockRejectedValueOnce(new Error('No link')) // 3. Link not found immediately
+                .mockResolvedValueOnce(mockToggle)     // 4. Toggle switch
+                .mockResolvedValueOnce(mockFinalButton); // 5. Final button
+        });
 
-        expect(mockToggle.click).toHaveBeenCalled();
-        expect(mockFinalButton.click).toHaveBeenCalled();
+        test('should fallback to history toggle if immediate link not found', async () => {
+            await window.dNumberSearchFeature.handleDNumberSearch(dNumber);
+
+            expect(mockToggle.click).toHaveBeenCalled();
+            expect(mockFinalButton.click).toHaveBeenCalled();
+        });
     });
 });
