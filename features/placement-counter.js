@@ -6,16 +6,12 @@
     let debounceTimeout = null;
     const SETTING_KEY = 'countPlacementsSelectedEnabled';
 
-    // Define the list of text snippets that, if found in the placement name, should exclude the item.
-    // The dynamic supplier name "amazon (gbp" has been removed, as the structural checks below
-    // already correctly exclude those rows marked as headers (Level 0).
     const EXCLUSION_TEXTS = [
         "display", // User requested exclusion
         "media total" // User requested exclusion
     ];
 
     // --- Toast Logic (Functions showToast and hideToast remain unchanged) ---
-    // ... [ShowToast and HideToast functions omitted for brevity] ...
     function showToast(message) {
         clearTimeout(toastTimeout);
         if (!currentToast) {
@@ -32,40 +28,31 @@
 
     function hideToast() {
         if (currentToast) {
-            currentToast.classList.remove('show'); // Animation is triggered by removing 'show'
+            currentToast.classList.remove('show');
             setTimeout(() => {
                 if (currentToast && currentToast.parentElement) {
                     document.body.removeChild(currentToast);
                 }
                 currentToast = null;
-            }, 500); // Wait for the transition to finish (500ms)
+            }, 500);
         }
     }
 
-
     // --- Core Logic with Debounce ---
-
     function checkSelectionAndDisplay() {
         clearTimeout(debounceTimeout);
 
         debounceTimeout = setTimeout(() => {
-            // Before making an async call, check if the context is still valid.
             if (!chrome.runtime || !chrome.runtime.id) {
-                // If the extension context is invalidated (e.g., during a page reload),
-                // chrome.runtime will be undefined or its id will be gone.
-                // Silently skipping the check is the correct behavior here.
                 return;
             }
 
             chrome.storage.sync.get(SETTING_KEY, (data) => {
                 if (chrome.runtime.lastError) {
-                    // This will catch cases where the context becomes invalid *during* the async call.
-                    // The warning is kept here as it's a slightly different race condition.
                     console.warn("Placement counter: Extension context invalidated during async operation. Skipping check.");
                     return;
                 }
 
-                // If the setting is disabled, hide any existing toast and exit.
                 if (!data[SETTING_KEY]) {
                     hideToast();
                     return;
@@ -148,6 +135,26 @@
             `;
             document.head.appendChild(style);
         }
+
+        // Fetch and apply theme
+        chrome.storage.sync.get('uiTheme', (data) => {
+             if (data.uiTheme === 'black') {
+                document.body.classList.add('ui-theme-black');
+            } else {
+                document.body.classList.remove('ui-theme-black');
+            }
+        });
+
+        // Listen for updates (handled by order-id-copy usually, but good to be redundant for safety)
+        chrome.storage.onChanged.addListener((changes, namespace) => {
+            if (namespace === 'sync' && changes.uiTheme) {
+                if (changes.uiTheme.newValue === 'black') {
+                    document.body.classList.add('ui-theme-black');
+                } else {
+                    document.body.classList.remove('ui-theme-black');
+                }
+            }
+        });
 
         checkSelectionAndDisplay();
     }

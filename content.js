@@ -14,36 +14,6 @@
             document.body.classList.add('approver-widget-optimise');
         }
     });
-
-    // --- Theme Management ---
-    function updateThemeClasses() {
-        chrome.storage.sync.get(['uiTheme', 'reminderTheme'], (data) => {
-            if (data.uiTheme === 'black') {
-                document.body.classList.add('ui-theme-black');
-                document.body.classList.remove('ui-theme-pink');
-            } else {
-                document.body.classList.add('ui-theme-pink');
-                document.body.classList.remove('ui-theme-black');
-            }
-
-            if (data.reminderTheme === 'black') {
-                document.body.classList.add('reminder-theme-black');
-                document.body.classList.remove('reminder-theme-pink');
-            } else {
-                document.body.classList.add('reminder-theme-pink');
-                document.body.classList.remove('reminder-theme-black');
-            }
-        });
-    }
-    updateThemeClasses();
-
-    chrome.storage.onChanged.addListener((changes, namespace) => {
-        if (namespace === 'sync' && (changes.uiTheme || changes.reminderTheme)) {
-            updateThemeClasses();
-        }
-    });
-    // --- End Theme Management ---
-
     console.log("[ContentScript Prisma] Script Injected on URL:", window.location.href, "at", new Date().toLocaleTimeString());
 
 // Utility functions are now in utils.js

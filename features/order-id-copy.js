@@ -177,9 +177,28 @@
     }
 
     function initialize() {
-        chrome.storage.sync.get('orderIdCopyEnabled', (data) => {
+        // Fetch 'uiTheme' alongside 'orderIdCopyEnabled'
+        chrome.storage.sync.get(['orderIdCopyEnabled', 'uiTheme'], (data) => {
+            // Apply the theme class to the body
+            if (data.uiTheme === 'black') {
+                document.body.classList.add('ui-theme-black');
+            } else {
+                document.body.classList.remove('ui-theme-black');
+            }
+
             if (data.orderIdCopyEnabled !== false) {
                  checkAndAddCopyButtons();
+            }
+        });
+
+        // Listen for changes to the theme setting to update dynamically
+        chrome.storage.onChanged.addListener((changes, namespace) => {
+            if (namespace === 'sync' && changes.uiTheme) {
+                if (changes.uiTheme.newValue === 'black') {
+                    document.body.classList.add('ui-theme-black');
+                } else {
+                    document.body.classList.remove('ui-theme-black');
+                }
             }
         });
     }
