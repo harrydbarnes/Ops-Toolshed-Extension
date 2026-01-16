@@ -1,6 +1,6 @@
 # Ops Toolshed Chrome Extension 🛠️
 
-**Feature set as of version: 1.3**
+**Feature set as of version: 1.4**
 
 A utility extension built to enhance Prisma functionality and provide quick access to various operations and tools, streamlining daily workflows for campaign management and approvals.
 
@@ -50,6 +50,7 @@ These features activate when viewing the Prisma web app and can be managed via t
 | **Automate 'Budget type' and 'Media mix' selection** | Automatically sets the 'Media Mix' field to **Digital** (`media_digital`) and 'Budget Type' to **Total Cost** (`3`) on the 'Add Campaign' form. |
 | **Always Show Comments** | Fixes the "Buy" button issue in Campaign Management by unlocking the button and removing interfering UI elements upon click. |
 | **Placement Counter** | Automatically counts and displays the number of selected placements in the Prisma grid. |
+| **Order ID Copy** | Adds a copy button to Order ID cells in Campaign Management to copy the clean ID (without version suffix). |
 
 ### 3. Contextual Reminders 🔔
 
