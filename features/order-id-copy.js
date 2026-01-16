@@ -41,25 +41,14 @@
              if (link) {
                  const text = link.textContent.trim();
 
-                 // Check if it looks like an Order ID (O-xxxxx-Rx)
+                 // Check if it looks like an Order ID (O-xxxxx-Rx) using a robust regex
                  // And check if we haven't already added the button to this cell
-                 if (text.includes('O-') && text.includes('-R') && !cell.querySelector('.order-id-copy-btn')) {
+                 if (/^O-.*-R\d+$/.test(text) && !cell.querySelector('.order-id-copy-btn')) {
 
                      const copyBtn = document.createElement('button');
                      copyBtn.textContent = 'Copy';
                      copyBtn.className = 'order-id-copy-btn';
                      copyBtn.title = 'Copy Clean Order ID';
-
-                     // Styling
-                     copyBtn.style.marginLeft = '8px';
-                     copyBtn.style.padding = '2px 6px';
-                     copyBtn.style.fontSize = '10px';
-                     copyBtn.style.cursor = 'pointer';
-                     copyBtn.style.backgroundColor = '#f0f0f0';
-                     copyBtn.style.border = '1px solid #ccc';
-                     copyBtn.style.borderRadius = '3px';
-                     copyBtn.style.color = '#333';
-                     copyBtn.style.lineHeight = 'normal';
 
                      copyBtn.addEventListener('click', (e) => {
                          e.preventDefault();
