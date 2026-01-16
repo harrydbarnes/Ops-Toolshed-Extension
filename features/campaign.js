@@ -89,7 +89,7 @@
                 lockedButtons.forEach(btn => {
                     // Check if the comment attribute exists and is not empty
                     const comment = btn.getAttribute('data-row-comment');
-                    if (!comment || comment.trim() === '') return;
+                    if (comment.trim() === '') return;
 
                     btn.setAttribute('data-is-buy-locked', 'false');
                     btn.classList.remove('disabled'); // Remove disabled class to allow interaction
