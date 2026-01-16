@@ -221,7 +221,7 @@ function handleOpenCampaignDNumber() {
 function isValidDNumber(dNumber) {
     if (!dNumber) return false;
     // A D-number is 'D' + 8 digits. An O-number is 'O-' + 5 alphanumeric chars.
-    return /^(D\d{8}|O-[A-Z0-9]{5})$/.test(dNumber);
+    return /^(D\d{8}|O-[A-Z0-9]{5})$/i.test(dNumber);
 }
 
 function handleGenerateUrl() {
