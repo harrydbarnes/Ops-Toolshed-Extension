@@ -316,7 +316,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Trigger Keyboard Events
         trigger.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+            if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
                 e.preventDefault();
                 openDropdown();
             }
