@@ -228,28 +228,73 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // General Settings
-    // Theme Settings
-    function updateSwatch(selector, swatch) {
-        if (selector && swatch) {
-            const selectedOption = selector.options[selector.selectedIndex];
-            swatch.style.backgroundColor = selectedOption?.dataset.color || 'transparent';
+    // Theme Settings - Custom Dropdown Logic
+    function initializeCustomDropdown(dropdownId, storageKey, defaultValue = 'pink') {
+        const dropdown = document.getElementById(dropdownId);
+        if (!dropdown) return;
+
+        const trigger = dropdown.querySelector('.dropdown-trigger');
+        const triggerText = trigger.querySelector('.selected-text');
+        const triggerColor = trigger.querySelector('.color-preview-rect');
+        const optionsContainer = dropdown.querySelector('.dropdown-options');
+        const options = dropdown.querySelectorAll('.dropdown-option');
+
+        // Helper to update the UI
+        function updateUI(value) {
+            // Find the option element with this value
+            const selectedOption = Array.from(options).find(opt => opt.dataset.value === value);
+            if (selectedOption) {
+                const color = selectedOption.dataset.color;
+                const text = selectedOption.textContent.trim();
+                triggerText.textContent = text;
+                triggerColor.style.backgroundColor = color;
+
+                // Update selected state in options
+                options.forEach(opt => opt.classList.remove('selected'));
+                selectedOption.classList.add('selected');
+            }
         }
+
+        // Initialize from storage
+        chrome.storage.sync.get(storageKey, (data) => {
+            const storedValue = data[storageKey] || defaultValue;
+            updateUI(storedValue);
+        });
+
+        // Toggle dropdown open/close
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Close other dropdowns first
+            document.querySelectorAll('.custom-dropdown.active').forEach(d => {
+                if (d !== dropdown) d.classList.remove('active');
+            });
+            dropdown.classList.toggle('active');
+        });
+
+        // Handle option selection
+        options.forEach(option => {
+            option.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const value = option.dataset.value;
+                updateUI(value);
+                chrome.storage.sync.set({ [storageKey]: value }, () => {
+                    console.log(`${storageKey} saved:`, value);
+                });
+                dropdown.classList.remove('active');
+            });
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!dropdown.contains(e.target)) {
+                dropdown.classList.remove('active');
+            }
+        });
     }
 
-    const uiThemeSelector = document.getElementById('uiThemeSelector');
-    if (uiThemeSelector) {
-        const uiThemeSwatch = document.getElementById('uiThemeSwatch');
-        chrome.storage.sync.get('uiTheme', (data) => {
-             uiThemeSelector.value = data.uiTheme || 'pink';
-             updateSwatch(uiThemeSelector, uiThemeSwatch);
-        });
-        uiThemeSelector.addEventListener('change', () => {
-             updateSwatch(uiThemeSelector, uiThemeSwatch);
-             chrome.storage.sync.set({ uiTheme: uiThemeSelector.value }, () => {
-                 console.log('UI Theme saved:', uiThemeSelector.value);
-             });
-        });
-    }
+    // Initialize the two theme dropdowns
+    initializeCustomDropdown('uiThemeDropdown', 'uiTheme', 'pink');
+    initializeCustomDropdown('reminderThemeDropdown', 'reminderTheme', 'pink');
 
     const logoToggle = document.getElementById('logoToggle');
     if (logoToggle) {
@@ -274,19 +319,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Prisma Reminders
     const prismaReminderFrequency = document.getElementById('prismaReminderFrequency');
     const prismaCountdownDuration = document.getElementById('prismaCountdownDuration');
-    const reminderThemeSelector = document.getElementById('reminderThemeSelector');
 
     // Load and save settings for Prisma Reminders
     if (prismaReminderFrequency && prismaCountdownDuration) {
-        const settingsToGet = ['prismaReminderFrequency', 'prismaCountdownDuration', 'reminderTheme'];
+        const settingsToGet = ['prismaReminderFrequency', 'prismaCountdownDuration'];
         chrome.storage.sync.get(settingsToGet, (data) => {
             prismaReminderFrequency.value = data.prismaReminderFrequency || 'daily';
             prismaCountdownDuration.value = data.prismaCountdownDuration || '5';
-            if (reminderThemeSelector) {
-                const reminderThemeSwatch = document.getElementById('reminderThemeSwatch');
-                reminderThemeSelector.value = data.reminderTheme || 'pink';
-                updateSwatch(reminderThemeSelector, reminderThemeSwatch);
-            }
         });
 
         prismaReminderFrequency.addEventListener('change', () => {
@@ -300,16 +339,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.log('Prisma countdown duration saved:', prismaCountdownDuration.value);
             });
         });
-
-        if (reminderThemeSelector) {
-            const reminderThemeSwatch = document.getElementById('reminderThemeSwatch');
-            reminderThemeSelector.addEventListener('change', () => {
-                 updateSwatch(reminderThemeSelector, reminderThemeSwatch);
-                 chrome.storage.sync.set({ reminderTheme: reminderThemeSelector.value }, () => {
-                     console.log('Reminder Theme saved:', reminderThemeSelector.value);
-                 });
-            });
-        }
     }
 
     const resetRemindersButton = document.getElementById('resetRemindersButton');
