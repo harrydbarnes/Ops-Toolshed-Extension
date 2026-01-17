@@ -120,6 +120,26 @@ section h2 {
     margin-bottom: 0;
 }
 
+.theme-select-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.theme-select-wrapper .select-container {
+    width: 150px;
+    margin-bottom: 0;
+}
+
+.color-swatch {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    background-color: transparent; /* Will be set by JS */
+    flex-shrink: 0;
+}
+
 /* General styling for input elements, buttons, etc. within settings */
 input[type="text"],
 input[type="url"],
