@@ -126,6 +126,95 @@ section h2 {
     gap: 10px;
 }
 
+/* Custom Dropdown Styles */
+.custom-dropdown {
+    position: relative;
+    width: 150px;
+    font-size: 1em;
+    user-select: none;
+}
+
+.dropdown-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start; /* Align contents to left */
+    gap: 10px;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 10px;
+    cursor: pointer;
+    position: relative;
+    /* Custom arrow icon */
+    background-image: url('data:image/svg+xml;utf8,<svg fill="black" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/><path d="M0 0h24v24H0z" fill="none"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 10px top 50%;
+    background-size: 16px;
+}
+
+.dropdown-trigger:focus {
+    outline: none;
+    border-color: #ff4087;
+}
+
+.color-preview-rect {
+    display: inline-block;
+    width: 24px;
+    height: 14px;
+    border-radius: 2px;
+    border: 1px solid #ddd; /* Subtle border for lighter colors */
+    flex-shrink: 0;
+}
+
+.dropdown-options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    z-index: 10;
+    display: none; /* Hidden by default */
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.custom-dropdown.active .dropdown-options {
+    display: block;
+}
+
+/* While active (open), remove bottom radius from trigger to merge with options */
+.custom-dropdown.active .dropdown-trigger {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom-color: transparent; /* Makes it look seamless */
+}
+/* And add top border to options to match or just keep seamless */
+.custom-dropdown.active .dropdown-options {
+    border-top: 1px solid #eee; /* Optional separator */
+}
+
+.dropdown-option {
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.dropdown-option:hover {
+    background-color: #f0f0f0;
+}
+
+.dropdown-option.selected {
+    background-color: #e6f7ff;
+    font-weight: 500;
+}
+
 .theme-select-wrapper .select-container {
     width: 150px;
     margin-bottom: 0;

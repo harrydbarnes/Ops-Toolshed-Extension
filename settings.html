@@ -30,13 +30,23 @@
                 <div class="toggle-container">
                     <label for="uiThemeSelector">Popup UI Theme:</label>
                     <div class="theme-select-wrapper">
-                        <div class="select-container">
-                            <select id="uiThemeSelector">
-                                <option value="pink" data-color="#ff3d80">Pink</option>
-                                <option value="black" data-color="#333">Black</option>
-                            </select>
+                        <!-- Custom Dropdown for UI Theme -->
+                        <div class="custom-dropdown" id="uiThemeDropdown">
+                            <div class="dropdown-trigger" tabindex="0">
+                                <span class="color-preview-rect"></span>
+                                <span class="selected-text">Pink</span>
+                            </div>
+                            <div class="dropdown-options">
+                                <div class="dropdown-option" data-value="pink" data-color="#ff3d80">
+                                    <span class="color-preview-rect" style="background-color: #ff3d80;"></span>
+                                    Pink
+                                </div>
+                                <div class="dropdown-option" data-value="black" data-color="#333">
+                                    <span class="color-preview-rect" style="background-color: #333;"></span>
+                                    Black
+                                </div>
+                            </div>
                         </div>
-                        <div id="uiThemeSwatch" class="color-swatch"></div>
                     </div>
                 </div>
                 <div class="toggle-container">
@@ -144,13 +154,23 @@
                     <div class="toggle-container">
                         <label for="reminderThemeSelector">Reminder Theme:</label>
                         <div class="theme-select-wrapper">
-                            <div class="select-container">
-                                <select id="reminderThemeSelector">
-                                    <option value="pink" data-color="#ff3d80">Pink</option>
-                                    <option value="black" data-color="#333">Black</option>
-                                </select>
+                            <!-- Custom Dropdown for Reminder Theme -->
+                            <div class="custom-dropdown" id="reminderThemeDropdown">
+                                <div class="dropdown-trigger" tabindex="0">
+                                    <span class="color-preview-rect"></span>
+                                    <span class="selected-text">Pink</span>
+                                </div>
+                                <div class="dropdown-options">
+                                    <div class="dropdown-option" data-value="pink" data-color="#ff3d80">
+                                        <span class="color-preview-rect" style="background-color: #ff3d80;"></span>
+                                        Pink
+                                    </div>
+                                    <div class="dropdown-option" data-value="black" data-color="#333">
+                                        <span class="color-preview-rect" style="background-color: #333;"></span>
+                                        Black
+                                    </div>
+                                </div>
                             </div>
-                            <div id="reminderThemeSwatch" class="color-swatch"></div>
                         </div>
                     </div>
                     <div class="setting-row">
