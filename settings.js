@@ -239,6 +239,18 @@ document.addEventListener('DOMContentLoaded', function() {
         const optionsContainer = dropdown.querySelector('.dropdown-options');
         const options = dropdown.querySelectorAll('.dropdown-option');
 
+        // Accessibility Initialization
+        trigger.setAttribute('aria-expanded', 'false');
+        trigger.setAttribute('aria-haspopup', 'listbox');
+        trigger.setAttribute('role', 'combobox');
+        optionsContainer.setAttribute('role', 'listbox');
+
+        options.forEach(option => {
+            option.setAttribute('role', 'option');
+            option.setAttribute('tabindex', '-1');
+            option.setAttribute('aria-selected', 'false');
+        });
+
         // Helper to update the UI
         function updateUI(value) {
             // Find the option element with this value
@@ -250,8 +262,43 @@ document.addEventListener('DOMContentLoaded', function() {
                 triggerColor.style.backgroundColor = color;
 
                 // Update selected state in options
-                options.forEach(opt => opt.classList.remove('selected'));
+                options.forEach(opt => {
+                    opt.classList.remove('selected');
+                    opt.setAttribute('aria-selected', 'false');
+                });
                 selectedOption.classList.add('selected');
+                selectedOption.setAttribute('aria-selected', 'true');
+            }
+        }
+
+        function closeDropdown() {
+            dropdown.classList.remove('active');
+            trigger.setAttribute('aria-expanded', 'false');
+            trigger.focus();
+        }
+
+        function openDropdown() {
+            // Close other dropdowns first
+            document.querySelectorAll('.custom-dropdown.active').forEach(d => {
+                if (d !== dropdown) {
+                    d.classList.remove('active');
+                    const otherTrigger = d.querySelector('.dropdown-trigger');
+                    if (otherTrigger) otherTrigger.setAttribute('aria-expanded', 'false');
+                }
+            });
+            dropdown.classList.add('active');
+            trigger.setAttribute('aria-expanded', 'true');
+
+            // Focus current selection or first option
+            const selected = dropdown.querySelector('.dropdown-option.selected') || options[0];
+            if (selected) selected.focus();
+        }
+
+        function toggleDropdown() {
+            if (dropdown.classList.contains('active')) {
+                closeDropdown();
+            } else {
+                openDropdown();
             }
         }
 
@@ -261,36 +308,66 @@ document.addEventListener('DOMContentLoaded', function() {
             updateUI(storedValue);
         });
 
-        // Toggle dropdown open/close
+        // Toggle dropdown open/close on click
         trigger.addEventListener('click', (e) => {
             e.stopPropagation();
-            // Close other dropdowns first
-            document.querySelectorAll('.custom-dropdown.active').forEach(d => {
-                if (d !== dropdown) d.classList.remove('active');
-            });
-            dropdown.classList.toggle('active');
+            toggleDropdown();
+        });
+
+        // Trigger Keyboard Events
+        trigger.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                openDropdown();
+            }
         });
 
         // Handle option selection
-        options.forEach(option => {
-            option.addEventListener('click', (e) => {
-                e.stopPropagation();
+        options.forEach((option, index) => {
+            const selectOption = () => {
                 const value = option.dataset.value;
                 updateUI(value);
                 chrome.storage.sync.set({ [storageKey]: value }, () => {
                     console.log(`${storageKey} saved:`, value);
                 });
-                dropdown.classList.remove('active');
+                closeDropdown();
+            };
+
+            option.addEventListener('click', (e) => {
+                e.stopPropagation();
+                selectOption();
+            });
+
+            option.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    selectOption();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    closeDropdown();
+                } else if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    const nextIndex = (index + 1) % options.length;
+                    options[nextIndex].focus();
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    const prevIndex = (index - 1 + options.length) % options.length;
+                    options[prevIndex].focus();
+                }
             });
         });
+    }
 
-        // Close dropdown when clicking outside
-        document.addEventListener('click', (e) => {
+    // Close dropdown when clicking outside (Global Listener)
+    document.addEventListener('click', (e) => {
+        document.querySelectorAll('.custom-dropdown.active').forEach(dropdown => {
             if (!dropdown.contains(e.target)) {
                 dropdown.classList.remove('active');
+                const trigger = dropdown.querySelector('.dropdown-trigger');
+                if (trigger) trigger.setAttribute('aria-expanded', 'false');
             }
         });
-    }
+    });
 
     // Initialize the two theme dropdowns
     initializeCustomDropdown('uiThemeDropdown', 'uiTheme', 'pink');
