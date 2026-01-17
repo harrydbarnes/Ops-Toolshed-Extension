@@ -263,8 +263,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 // Update selected state in options
                 options.forEach(opt => {
-                     opt.classList.remove('selected');
-                     opt.setAttribute('aria-selected', 'false');
+                    opt.classList.remove('selected');
+                    opt.setAttribute('aria-selected', 'false');
                 });
                 selectedOption.classList.add('selected');
                 selectedOption.setAttribute('aria-selected', 'true');
