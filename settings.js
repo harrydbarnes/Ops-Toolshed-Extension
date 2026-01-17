@@ -302,8 +302,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         if (reminderThemeSelector) {
+            const reminderThemeSwatch = document.getElementById('reminderThemeSwatch');
             reminderThemeSelector.addEventListener('change', () => {
-                 const reminderThemeSwatch = document.getElementById('reminderThemeSwatch');
                  updateSwatch(reminderThemeSelector, reminderThemeSwatch);
                  chrome.storage.sync.set({ reminderTheme: reminderThemeSelector.value }, () => {
                      console.log('Reminder Theme saved:', reminderThemeSelector.value);
