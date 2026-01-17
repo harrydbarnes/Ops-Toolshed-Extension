@@ -260,8 +260,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 triggerText.textContent = text;
 
                 // Update trigger color class (CSP safe)
-                triggerColor.className = 'color-preview-rect';
-                triggerColor.classList.add(value);
+                triggerColor.className = 'color-preview-rect ' + value;
 
                 // Update selected state in options
                 options.forEach(opt => {
