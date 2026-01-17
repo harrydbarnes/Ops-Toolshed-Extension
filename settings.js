@@ -229,28 +229,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // General Settings
     // Theme Settings
-    const themeColors = {
-        'pink': '#ff3d80',
-        'black': '#333'
-    };
-
-    function updateSwatch(selectorId, swatchId) {
-        const selector = document.getElementById(selectorId);
-        const swatch = document.getElementById(swatchId);
+    function updateSwatch(selector, swatch) {
         if (selector && swatch) {
-            const color = themeColors[selector.value] || 'transparent';
-            swatch.style.backgroundColor = color;
+            const selectedOption = selector.options[selector.selectedIndex];
+            swatch.style.backgroundColor = selectedOption?.dataset.color || 'transparent';
         }
     }
 
     const uiThemeSelector = document.getElementById('uiThemeSelector');
     if (uiThemeSelector) {
+        const uiThemeSwatch = document.getElementById('uiThemeSwatch');
         chrome.storage.sync.get('uiTheme', (data) => {
              uiThemeSelector.value = data.uiTheme || 'pink';
-             updateSwatch('uiThemeSelector', 'uiThemeSwatch');
+             updateSwatch(uiThemeSelector, uiThemeSwatch);
         });
         uiThemeSelector.addEventListener('change', () => {
-             updateSwatch('uiThemeSelector', 'uiThemeSwatch');
+             updateSwatch(uiThemeSelector, uiThemeSwatch);
              chrome.storage.sync.set({ uiTheme: uiThemeSelector.value }, () => {
                  console.log('UI Theme saved:', uiThemeSelector.value);
              });
@@ -289,8 +283,9 @@ document.addEventListener('DOMContentLoaded', function() {
             prismaReminderFrequency.value = data.prismaReminderFrequency || 'daily';
             prismaCountdownDuration.value = data.prismaCountdownDuration || '5';
             if (reminderThemeSelector) {
+                const reminderThemeSwatch = document.getElementById('reminderThemeSwatch');
                 reminderThemeSelector.value = data.reminderTheme || 'pink';
-                updateSwatch('reminderThemeSelector', 'reminderThemeSwatch');
+                updateSwatch(reminderThemeSelector, reminderThemeSwatch);
             }
         });
 
@@ -308,7 +303,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (reminderThemeSelector) {
             reminderThemeSelector.addEventListener('change', () => {
-                 updateSwatch('reminderThemeSelector', 'reminderThemeSwatch');
+                 const reminderThemeSwatch = document.getElementById('reminderThemeSwatch');
+                 updateSwatch(reminderThemeSelector, reminderThemeSwatch);
                  chrome.storage.sync.set({ reminderTheme: reminderThemeSelector.value }, () => {
                      console.log('Reminder Theme saved:', reminderThemeSelector.value);
                  });
