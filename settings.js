@@ -256,10 +256,12 @@ document.addEventListener('DOMContentLoaded', function() {
             // Find the option element with this value
             const selectedOption = Array.from(options).find(opt => opt.dataset.value === value);
             if (selectedOption) {
-                const color = selectedOption.dataset.color;
                 const text = selectedOption.textContent.trim();
                 triggerText.textContent = text;
-                triggerColor.style.backgroundColor = color;
+
+                // Update trigger color class (CSP safe)
+                triggerColor.className = 'color-preview-rect';
+                triggerColor.classList.add(value);
 
                 // Update selected state in options
                 options.forEach(opt => {
