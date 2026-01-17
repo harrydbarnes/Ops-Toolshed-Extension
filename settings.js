@@ -278,12 +278,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         function openDropdown() {
-             // Close other dropdowns first
+            // Close other dropdowns first
             document.querySelectorAll('.custom-dropdown.active').forEach(d => {
                 if (d !== dropdown) {
-                     d.classList.remove('active');
-                     const otherTrigger = d.querySelector('.dropdown-trigger');
-                     if(otherTrigger) otherTrigger.setAttribute('aria-expanded', 'false');
+                    d.classList.remove('active');
+                    const otherTrigger = d.querySelector('.dropdown-trigger');
+                    if (otherTrigger) otherTrigger.setAttribute('aria-expanded', 'false');
                 }
             });
             dropdown.classList.add('active');
