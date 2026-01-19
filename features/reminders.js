@@ -240,6 +240,10 @@
         });
     }
 
+    function escapeRegExp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
     function wildcardToRegex(pattern) {
         let escapedPattern = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
         if (!pattern.includes('*')) {
@@ -280,7 +284,7 @@
         if (document.getElementById('custom-reminder-display-popup')) return;
 
         const currentUrl = window.location.href;
-        const pageText = document.body.innerText.toLowerCase();
+        const pageText = document.body.innerText; // Keep original case for display, but regex will be case-insensitive
 
         for (const reminder of activeCustomReminders) {
             if (shownCustomReminderIds.has(reminder.id)) continue;
@@ -288,20 +292,39 @@
             const urlRegex = wildcardToRegex(reminder.urlPattern);
             if (urlRegex.test(currentUrl)) {
                 let textMatch = true;
-                if (reminder.textTrigger && reminder.textTrigger.trim() !== '') {
-                    const triggerTexts = reminder.textTrigger.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
 
-                    const logic = reminder.triggerLogic || 'OR';
+                // Normalize Data: Handle legacy string or new Array
+                let triggers = reminder.textTrigger;
+                if (typeof triggers === 'string') {
+                    triggers = triggers.split(',').map(t => t.trim());
+                }
+                if (!Array.isArray(triggers)) triggers = [];
+                // Filter empty strings
+                triggers = triggers.filter(t => t && t.length > 0);
 
-                    if (triggerTexts.length > 0) {
-                        if (logic === 'ALL') {
-                            textMatch = triggerTexts.every(text => pageText.includes(text));
-                        } else {
-                            textMatch = triggerTexts.some(text => pageText.includes(text));
-                        }
+                if (triggers.length > 0) {
+                    const logic = (reminder.triggerLogic || 'OR').toUpperCase();
+
+                    const checkTrigger = (trigger) => {
+                         try {
+                             // Whole word matching (\b), case insensitive (i)
+                             const regex = new RegExp('\\b' + escapeRegExp(trigger) + '\\b', 'i');
+                             return regex.test(pageText);
+                         } catch (e) {
+                             console.warn('[Reminders] Invalid regex for trigger:', trigger, e);
+                             return false;
+                         }
+                     };
+
+                    if (logic === 'ALL') {
+                        textMatch = triggers.every(checkTrigger);
                     } else {
-                        textMatch = false;
+                        // OR
+                        textMatch = triggers.some(checkTrigger);
                     }
+                } else {
+                    // Empty State: If no text triggers, treat as URL-only match (Issue 3)
+                    textMatch = true;
                 }
 
                 if (textMatch) {
