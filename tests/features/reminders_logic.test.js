@@ -27,6 +27,8 @@ describe('Reminders Feature Logic', () => {
         // Mock utils
         window.utils = {
             escapeHTML: (str) => str,
+            escapeRegExp: (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+            sanitizeReminderHTML: (html) => html,
             normalizeTriggers: (triggers) => {
                 if (typeof triggers === 'string') {
                     return triggers.split(',').map(t => t.trim()).filter(Boolean);

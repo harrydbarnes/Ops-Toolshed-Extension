@@ -9,6 +9,36 @@
             return div.innerHTML;
         },
 
+        escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        },
+
+        sanitizeReminderHTML(htmlString) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(htmlString || '', 'text/html');
+            let safeContent = '';
+
+            doc.body.childNodes.forEach(node => {
+                if (node.nodeType === 3) { // Text node
+                    safeContent += this.escapeHTML(node.textContent);
+                } else if (node.nodeType === 1) { // Element node
+                    const tag = node.tagName.toLowerCase();
+                    if (['h3', 'p', 'b', 'i', 'strong', 'em'].includes(tag)) {
+                        safeContent += `<${tag}>${this.escapeHTML(node.textContent)}</${tag}>`;
+                    } else if (tag === 'ul' || tag === 'ol') {
+                        safeContent += `<${tag}>`;
+                        Array.from(node.children).forEach(child => {
+                            if (child.tagName.toLowerCase() === 'li') {
+                                safeContent += `<li>${this.escapeHTML(child.textContent)}</li>`;
+                            }
+                        });
+                        safeContent += `</${tag}>`;
+                    }
+                }
+            });
+            return safeContent;
+        },
+
         normalizeTriggers(triggers) {
             if (typeof triggers === 'string') {
                 return triggers.split(',').map(t => t.trim()).filter(Boolean);

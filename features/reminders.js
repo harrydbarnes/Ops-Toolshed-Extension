@@ -240,10 +240,6 @@
         });
     }
 
-    function escapeRegExp(string) {
-        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    }
-
     function wildcardToRegex(pattern) {
         let escapedPattern = window.utils.escapeRegExp(pattern);
         if (!pattern.includes('*')) {
@@ -265,9 +261,11 @@
         const popup = document.createElement('div');
         popup.id = 'custom-reminder-display-popup';
 
+        const safeContent = window.utils.sanitizeReminderHTML(reminder.popupMessage);
+
         popup.innerHTML = `
             <h3>${window.utils.escapeHTML(reminder.name)}</h3>
-            ${reminder.popupMessage}
+            ${safeContent}
             <button id="custom-reminder-display-close">Got it!</button>
         `;
         document.body.appendChild(popup);
@@ -302,7 +300,7 @@
                     const checkTrigger = (trigger) => {
                          try {
                              // Whole word matching (\b), case insensitive (i)
-                             const regex = new RegExp('\\b' + escapeRegExp(trigger) + '\\b', 'i');
+                             const regex = new RegExp('\\b' + window.utils.escapeRegExp(trigger) + '\\b', 'i');
                              return regex.test(pageText);
                          } catch (e) {
                              console.warn('[Reminders] Invalid regex for trigger:', trigger, e);
