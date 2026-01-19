@@ -290,7 +290,18 @@
                 let textMatch = true;
                 if (reminder.textTrigger && reminder.textTrigger.trim() !== '') {
                     const triggerTexts = reminder.textTrigger.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
-                    textMatch = triggerTexts.length > 0 && triggerTexts.some(text => pageText.includes(text));
+
+                    const logic = reminder.triggerLogic || 'OR';
+
+                    if (triggerTexts.length > 0) {
+                        if (logic === 'ALL') {
+                            textMatch = triggerTexts.every(text => pageText.includes(text));
+                        } else {
+                            textMatch = triggerTexts.some(text => pageText.includes(text));
+                        }
+                    } else {
+                        textMatch = false;
+                    }
                 }
 
                 if (textMatch) {

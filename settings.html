@@ -265,6 +265,14 @@
                         <label for="reminderTextTrigger">Text to look for on site (leave blank if URL match is enough):</label>
                         <input type="text" id="reminderTextTrigger" placeholder="e.g., 'Order Complete, Submitted, Thank You'">
                     </div>
+                    <div>
+                        <label for="reminderTriggerLogic">Match Logic:</label>
+                        <select id="reminderTriggerLogic" class="settings-dropdown">
+                            <option value="OR">Match ANY text (OR)</option>
+                            <option value="ALL">Match ALL text (AND)</option>
+                        </select>
+                        <p class="input-help">"Any" triggers if one phrase is found. "All" requires every phrase to be present.</p>
+                    </div>
                     <button id="nextButton" class="settings-button">Next</button>
                     <p id="customReminderStatus" class="reminder-update-message hidden-initially"></p>
                 </div>
