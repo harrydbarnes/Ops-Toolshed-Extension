@@ -224,20 +224,49 @@ function isValidDNumber(dNumber) {
     return /^(D\d{8}|O-[A-Z0-9]{5})$/i.test(dNumber);
 }
 
+function isValidCampaignId(campaignId) {
+    if (!campaignId) return false;
+    // Starts with C (case insensitive) and is 7 characters long.
+    return /^[cC].{6}$/.test(campaignId);
+}
+
 function handleGenerateUrl() {
     const campaignIdInput = document.getElementById('campaignId');
     const campaignDateInput = document.getElementById('campaignDate');
+    const campaignIdError = document.getElementById('campaignIdError');
     if (!campaignIdInput || !campaignDateInput) return;
 
-    const campaignId = campaignIdInput.value;
+    const campaignId = campaignIdInput.value.trim();
     const campaignDateStr = campaignDateInput.value.trim();
+
+    if (!campaignId) {
+        if (campaignIdError) {
+            campaignIdError.textContent = 'Please enter a Campaign ID.';
+            campaignIdError.classList.remove('hidden');
+        } else {
+            alert('Please enter a Campaign ID.');
+        }
+        return;
+    }
+
+    if (!isValidCampaignId(campaignId)) {
+        if (campaignIdError) {
+            campaignIdError.textContent = 'Invalid Campaign ID format. Must start with C and be 7 characters long.';
+            campaignIdError.classList.remove('hidden');
+        } else {
+            alert('Invalid Campaign ID format. Must start with C and be 7 characters long.');
+        }
+        return;
+    }
+
+    if (campaignIdError) {
+        campaignIdError.classList.add('hidden');
+    }
 
     const finalUrl = generateUrlFromData(campaignId, campaignDateStr);
 
     if (finalUrl) {
         chrome.tabs.create({ url: finalUrl });
-    } else if (!campaignId) {
-        alert('Please enter a Campaign ID.');
     } else {
         alert("Could not parse date: '" + campaignDateStr + "'. Please use formats like 'July 25', '07/25', 'July 2025', '07/2025', '2025-07', or leave blank for current month.");
     }
@@ -328,5 +357,5 @@ function addClickListener(id, url) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { handleGenerateUrl, generateUrlFromData, isValidDNumber };
+    module.exports = { handleGenerateUrl, generateUrlFromData, isValidDNumber, isValidCampaignId };
 }
