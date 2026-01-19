@@ -689,8 +689,10 @@ document.addEventListener('DOMContentLoaded', function() {
         input.placeholder = "e.g., Order Complete";
 
         const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
         removeBtn.textContent = 'X';
         removeBtn.className = 'settings-button settings-button-secondary remove-trigger-btn';
+        removeBtn.setAttribute('aria-label', 'Remove keyword');
         // Allow removing, but user can always add more
         removeBtn.addEventListener('click', () => {
             wrapper.remove();

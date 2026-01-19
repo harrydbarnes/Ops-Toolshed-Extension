@@ -240,16 +240,25 @@
         });
     }
 
+    function normalizeTriggers(triggers) {
+        if (typeof triggers === 'string') {
+            return triggers.split(',').map(t => t.trim()).filter(Boolean);
+        } else if (Array.isArray(triggers)) {
+            return triggers.filter(Boolean);
+        }
+        return [];
+    }
+
     function escapeRegExp(string) {
         return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
     function wildcardToRegex(pattern) {
-        let escapedPattern = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+        let escapedPattern = escapeRegExp(pattern);
         if (!pattern.includes('*')) {
             escapedPattern = '.*' + escapedPattern + '.*';
         } else {
-            escapedPattern = escapedPattern.replace(/\*/g, '.*');
+            escapedPattern = escapedPattern.replace(/\\\*/g, '.*');
         }
         return new RegExp('^' + escapedPattern + '$', 'i');
     }
@@ -294,14 +303,7 @@
                 let textMatch = true;
 
                 // Normalize Data: Handle legacy string or new Array
-                let triggers = reminder.textTrigger;
-                if (typeof triggers === 'string') {
-                    triggers = triggers.split(',').map(t => t.trim()).filter(Boolean);
-                } else if (!Array.isArray(triggers)) {
-                    triggers = [];
-                } else {
-                    triggers = triggers.filter(Boolean);
-                }
+                let triggers = normalizeTriggers(reminder.textTrigger);
 
                 if (triggers.length > 0) {
                     const logic = (reminder.triggerLogic || 'OR').toUpperCase();
