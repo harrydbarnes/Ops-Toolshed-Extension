@@ -1,4 +1,4 @@
-const { generateUrlFromData, isValidDNumber } = require('../popup');
+const { generateUrlFromData, isValidDNumber, isValidCampaignId } = require('../popup');
 
 describe('generateUrlFromData', () => {
     const campaignId = 'TEST_CAMPAIGN';
@@ -70,5 +70,21 @@ describe('isValidDNumber', () => {
         expect(isValidDNumber('O-ABC')).toBe(false); // O-number too short
         expect(isValidDNumber('')).toBe(false); // Empty
         expect(isValidDNumber(null)).toBe(false); // Null
+    });
+});
+
+describe('isValidCampaignId', () => {
+    test('should validate correct Campaign IDs', () => {
+        expect(isValidCampaignId('CP383ML')).toBe(true);
+        expect(isValidCampaignId('c123456')).toBe(true);
+        expect(isValidCampaignId('Caaaaaa')).toBe(true);
+    });
+
+    test('should reject invalid formats', () => {
+        expect(isValidCampaignId('CP383M')).toBe(false); // Too short
+        expect(isValidCampaignId('CP383MLX')).toBe(false); // Too long
+        expect(isValidCampaignId('XP383ML')).toBe(false); // Wrong prefix
+        expect(isValidCampaignId('')).toBe(false); // Empty
+        expect(isValidCampaignId(null)).toBe(false); // Null
     });
 });
