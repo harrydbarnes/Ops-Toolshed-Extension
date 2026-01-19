@@ -245,7 +245,7 @@
     }
 
     function wildcardToRegex(pattern) {
-        let escapedPattern = escapeRegExp(pattern);
+        let escapedPattern = window.utils.escapeRegExp(pattern);
         if (!pattern.includes('*')) {
             escapedPattern = '.*' + escapedPattern + '.*';
         } else {
