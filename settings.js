@@ -8,6 +8,17 @@ function escapeHTML(str) {
     return div.innerHTML;
 }
 
+// Helper to normalize triggers
+function normalizeTriggers(triggers) {
+    if (typeof triggers === 'string') {
+        return triggers.split(',').map(t => t.trim()).filter(Boolean);
+    }
+    if (Array.isArray(triggers)) {
+        return triggers.filter(Boolean);
+    }
+    return [];
+}
+
 // Function to show a test custom reminder on the settings page
 function showTestCustomReminderOnSettingsPage(reminder) {
     const existingGenericPopup = document.getElementById('custom-reminder-display-popup');
@@ -658,10 +669,47 @@ document.addEventListener('DOMContentLoaded', function() {
     const createReminderInitialStepDiv = document.getElementById('createReminderInitialStep');
     const reminderNameInput = document.getElementById('reminderName');
     const reminderUrlPatternInput = document.getElementById('reminderUrlPattern');
-    const reminderTextTriggerInput = document.getElementById('reminderTextTrigger');
+    // REMOVED: const reminderTextTriggerInput = document.getElementById('reminderTextTrigger');
     const nextButton = document.getElementById('nextButton');
     const customReminderStatus = document.getElementById('customReminderStatus');
     const customRemindersListDiv = document.getElementById('customRemindersList');
+
+    // Helper: Dynamic Trigger Inputs
+    function renderTriggerInput(value = '') {
+        const container = document.getElementById('reminderTriggersContainer');
+        if (!container) return;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'trigger-input-wrapper';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'trigger-input';
+        input.value = value;
+        input.placeholder = "e.g., Order Complete";
+
+        const removeBtn = document.createElement('button');
+        removeBtn.textContent = 'X';
+        removeBtn.className = 'settings-button settings-button-secondary remove-trigger-btn';
+        // Allow removing, but user can always add more
+        removeBtn.addEventListener('click', () => {
+            wrapper.remove();
+        });
+
+        wrapper.appendChild(input);
+        wrapper.appendChild(removeBtn);
+        container.appendChild(wrapper);
+    }
+
+    const addTriggerBtn = document.getElementById('addTriggerBtn');
+    if (addTriggerBtn) {
+        addTriggerBtn.addEventListener('click', () => renderTriggerInput());
+    }
+    // Initialize with one empty input if none exist
+    const container = document.getElementById('reminderTriggersContainer');
+    if (container && container.children.length === 0) {
+        renderTriggerInput();
+    }
 
     // Modal elements
     const reminderModalOverlay = document.getElementById('reminderModalOverlay');
@@ -692,7 +740,27 @@ document.addEventListener('DOMContentLoaded', function() {
             modalEditorTitle.textContent = 'Edit Custom Reminder';
             modalReminderNameDisplay.textContent = reminderDataForEdit.name;
             modalReminderUrlPatternDisplay.textContent = reminderDataForEdit.urlPattern;
-            modalReminderTextTriggerDisplay.textContent = reminderDataForEdit.textTrigger || 'N/A';
+
+            // Display triggers - handle Array or String
+            const triggers = normalizeTriggers(reminderDataForEdit.textTrigger);
+            if (triggers.length > 0) {
+                modalReminderTextTriggerDisplay.textContent = triggers.join(', ');
+            } else {
+                modalReminderTextTriggerDisplay.textContent = 'N/A';
+            }
+
+            // Populate hidden inputs for editing as requested
+            const container = document.getElementById('reminderTriggersContainer');
+            if (container) {
+                container.replaceChildren(); // Clear existing
+                const editTriggers = normalizeTriggers(reminderDataForEdit.textTrigger);
+                if (editTriggers.length === 0) {
+                    renderTriggerInput('');
+                } else {
+                    editTriggers.forEach(t => renderTriggerInput(t));
+                }
+            }
+
 
             // Parse reminderDataForEdit.popupMessage to fill modal inputs
             const parser = new DOMParser();
@@ -711,7 +779,15 @@ document.addEventListener('DOMContentLoaded', function() {
             modalEditorTitle.textContent = 'Create Custom Reminder';
             modalReminderNameDisplay.textContent = currentReminderData.name || 'N/A';
             modalReminderUrlPatternDisplay.textContent = currentReminderData.urlPattern || 'N/A';
-            modalReminderTextTriggerDisplay.textContent = currentReminderData.textTrigger || 'N/A';
+
+            // Display triggers
+            const triggers = normalizeTriggers(currentReminderData.textTrigger);
+            if (triggers.length > 0) {
+                modalReminderTextTriggerDisplay.textContent = triggers.join(', ');
+            } else {
+                modalReminderTextTriggerDisplay.textContent = 'N/A';
+            }
+
 
             // Pre-fill with defaults for new reminder
             modalInputReminderTitle.value = "⚠️ Reminder Title ⚠️";
@@ -755,10 +831,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
+            // Gather triggers from dynamic inputs
+            const triggerInputs = document.querySelectorAll('.trigger-input');
+            const textTrigger = Array.from(triggerInputs).map(i => i.value.trim()).filter(v => v !== '');
+
             currentReminderData = {
                 name,
                 urlPattern,
-                textTrigger: reminderTextTriggerInput.value.trim(),
+                textTrigger, // Array of strings
                 triggerLogic: document.getElementById('reminderTriggerLogic').value
             };
             // editingReminderId = null; // This is set in openReminderModal
@@ -774,6 +854,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // These are from currentReminderData, set when modal was opened (for new or edit)
             const reminderName = currentReminderData.name;
             const urlPattern = currentReminderData.urlPattern;
+
             const textTrigger = currentReminderData.textTrigger;
             const triggerLogic = currentReminderData.triggerLogic || 'OR';
 
@@ -848,7 +929,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (!editingReminderId) { // Clear initial step inputs only for new reminders
                            if(reminderNameInput) reminderNameInput.value = '';
                            if(reminderUrlPatternInput) reminderUrlPatternInput.value = '';
-                           if(reminderTextTriggerInput) reminderTextTriggerInput.value = '';
+                           // Clear triggers
+                           const container = document.getElementById('reminderTriggersContainer');
+                           if (container) {
+                               container.replaceChildren();
+                               renderTriggerInput(); // Add one back
+                           }
                         }
                     }
                     customReminderStatus.classList.remove('hidden-initially');
@@ -907,13 +993,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 const triggerStrong = document.createElement('strong');
                 triggerStrong.textContent = 'Trigger Text:';
                 textDiv.appendChild(triggerStrong);
-                if (reminder.textTrigger) {
-                    textDiv.appendChild(document.createTextNode(` ${reminder.textTrigger}`));
+
+                const normalizedTriggers = normalizeTriggers(reminder.textTrigger);
+                if (normalizedTriggers.length > 0) {
+                    textDiv.appendChild(document.createTextNode(' ' + normalizedTriggers.join(', ')));
                 } else {
                     const em = document.createElement('em');
                     em.textContent = ' N/A';
                     textDiv.appendChild(em);
                 }
+
 
                 const controlsDiv = document.createElement('div');
                 controlsDiv.style.display = 'flex';
