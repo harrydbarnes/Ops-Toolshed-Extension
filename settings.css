@@ -597,3 +597,23 @@ body::after {
     flex-shrink: 0;
     width: 100%;
 }
+
+/* Dynamic Trigger Input Styling */
+.trigger-input-wrapper {
+    display: flex;
+    margin-bottom: 5px;
+}
+
+.trigger-input {
+    flex-grow: 1;
+}
+
+.remove-trigger-btn {
+    margin-left: 5px;
+    padding: 0 10px;
+}
+
+/* Add Button Spacing */
+.add-trigger-btn {
+    margin-top: 5px;
+}

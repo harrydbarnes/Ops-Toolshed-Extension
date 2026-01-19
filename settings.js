@@ -8,6 +8,17 @@ function escapeHTML(str) {
     return div.innerHTML;
 }
 
+// Helper to normalize triggers
+function normalizeTriggers(triggers) {
+    if (typeof triggers === 'string') {
+        return triggers.split(',').map(t => t.trim()).filter(Boolean);
+    }
+    if (Array.isArray(triggers)) {
+        return triggers.filter(Boolean);
+    }
+    return [];
+}
+
 // Function to show a test custom reminder on the settings page
 function showTestCustomReminderOnSettingsPage(reminder) {
     const existingGenericPopup = document.getElementById('custom-reminder-display-popup');
@@ -670,21 +681,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const wrapper = document.createElement('div');
         wrapper.className = 'trigger-input-wrapper';
-        wrapper.style.display = 'flex';
-        wrapper.style.marginBottom = '5px';
 
         const input = document.createElement('input');
         input.type = 'text';
         input.className = 'trigger-input';
         input.value = value;
         input.placeholder = "e.g., Order Complete";
-        input.style.flexGrow = '1';
 
         const removeBtn = document.createElement('button');
         removeBtn.textContent = 'X';
-        removeBtn.className = 'settings-button settings-button-secondary';
-        removeBtn.style.marginLeft = '5px';
-        removeBtn.style.padding = '0 10px';
+        removeBtn.className = 'settings-button settings-button-secondary remove-trigger-btn';
         // Allow removing, but user can always add more
         removeBtn.addEventListener('click', () => {
             wrapper.remove();
@@ -735,11 +741,8 @@ document.addEventListener('DOMContentLoaded', function() {
             modalReminderUrlPatternDisplay.textContent = reminderDataForEdit.urlPattern;
 
             // Display triggers - handle Array or String
-            let triggers = reminderDataForEdit.textTrigger;
-            if (typeof triggers === 'string') {
-                triggers = triggers.split(',').map(t => t.trim()).filter(Boolean);
-            }
-            if (Array.isArray(triggers) && triggers.length > 0) {
+            const triggers = normalizeTriggers(reminderDataForEdit.textTrigger);
+            if (triggers.length > 0) {
                 modalReminderTextTriggerDisplay.textContent = triggers.join(', ');
             } else {
                 modalReminderTextTriggerDisplay.textContent = 'N/A';
@@ -749,14 +752,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const container = document.getElementById('reminderTriggersContainer');
             if (container) {
                 container.innerHTML = ''; // Clear existing
-                let editTriggers = reminderDataForEdit.textTrigger;
-                if (typeof editTriggers === 'string') {
-                    editTriggers = editTriggers.split(',').map(t => t.trim());
+                const editTriggers = normalizeTriggers(reminderDataForEdit.textTrigger);
+                if (editTriggers.length === 0) {
+                    renderTriggerInput('');
+                } else {
+                    editTriggers.forEach(t => renderTriggerInput(t));
                 }
-                if (!Array.isArray(editTriggers) || editTriggers.length === 0) {
-                    editTriggers = [''];
-                }
-                editTriggers.forEach(t => renderTriggerInput(t));
             }
 
 
@@ -779,11 +780,8 @@ document.addEventListener('DOMContentLoaded', function() {
             modalReminderUrlPatternDisplay.textContent = currentReminderData.urlPattern || 'N/A';
 
             // Display triggers
-            let triggers = currentReminderData.textTrigger;
-             if (typeof triggers === 'string') {
-                triggers = triggers.split(',').map(t => t.trim()).filter(Boolean);
-            }
-            if (Array.isArray(triggers) && triggers.length > 0) {
+            const triggers = normalizeTriggers(currentReminderData.textTrigger);
+            if (triggers.length > 0) {
                 modalReminderTextTriggerDisplay.textContent = triggers.join(', ');
             } else {
                 modalReminderTextTriggerDisplay.textContent = 'N/A';
@@ -859,11 +857,6 @@ document.addEventListener('DOMContentLoaded', function() {
             // Gather triggers again to support potential editing (if inputs were visible/modified)
             const triggerInputs = document.querySelectorAll('.trigger-input');
             let textTrigger = Array.from(triggerInputs).map(i => i.value.trim()).filter(v => v !== '');
-
-            // Fallback: If no inputs found (e.g. DOM cleared), use currentReminderData
-            if (triggerInputs.length === 0 && currentReminderData.textTrigger) {
-                textTrigger = currentReminderData.textTrigger;
-            }
 
             const triggerLogic = currentReminderData.triggerLogic || 'OR';
 
@@ -1004,14 +997,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 textDiv.appendChild(triggerStrong);
 
                 let triggerText = ' N/A';
-                if (reminder.textTrigger) {
-                    if (Array.isArray(reminder.textTrigger)) {
-                        triggerText = ' ' + reminder.textTrigger.join(', ');
+                const triggers = reminder.textTrigger;
+
+                if (triggers && triggers.length > 0) {
+                    // Check if it's an array or string (handle legacy data if necessary, or assume array if normalized)
+                    if (Array.isArray(triggers)) {
+                        triggerText = ' ' + triggers.join(', ');
                     } else {
-                        triggerText = ' ' + reminder.textTrigger;
+                        triggerText = ' ' + triggers;
                     }
+                } else {
+                    const em = document.createElement('em');
+                    em.textContent = ' N/A';
+                    textDiv.appendChild(em);
+                    // Ensure triggerText is empty so we don't double append
+                    triggerText = '';
                 }
-                textDiv.appendChild(document.createTextNode(triggerText));
+
+                if (triggerText) {
+                    textDiv.appendChild(document.createTextNode(triggerText));
+                }
 
 
                 const controlsDiv = document.createElement('div');
