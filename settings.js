@@ -931,7 +931,7 @@ document.addEventListener('DOMContentLoaded', function() {
                            // Clear triggers
                            const container = document.getElementById('reminderTriggersContainer');
                            if (container) {
-                               container.innerHTML = '';
+                               container.replaceChildren();
                                renderTriggerInput(); // Add one back
                            }
                         }
