@@ -706,7 +706,8 @@ document.addEventListener('DOMContentLoaded', function() {
         addTriggerBtn.addEventListener('click', () => renderTriggerInput());
     }
     // Initialize with one empty input if none exist
-    if (document.getElementById('reminderTriggersContainer') && document.getElementById('reminderTriggersContainer').children.length === 0) {
+    const container = document.getElementById('reminderTriggersContainer');
+    if (container && container.children.length === 0) {
         renderTriggerInput();
     }
 
