@@ -9,6 +9,15 @@
             return div.innerHTML;
         },
 
+        normalizeTriggers(triggers) {
+            if (typeof triggers === 'string') {
+                return triggers.split(',').map(t => t.trim()).filter(Boolean);
+            } else if (Array.isArray(triggers)) {
+                return triggers.filter(Boolean);
+            }
+            return [];
+        },
+
         queryShadowDom(selector, root = document) {
             const found = root.querySelector(selector);
             if (found) return found;

@@ -240,15 +240,6 @@
         });
     }
 
-    function normalizeTriggers(triggers) {
-        if (typeof triggers === 'string') {
-            return triggers.split(',').map(t => t.trim()).filter(Boolean);
-        } else if (Array.isArray(triggers)) {
-            return triggers.filter(Boolean);
-        }
-        return [];
-    }
-
     function escapeRegExp(string) {
         return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
@@ -303,7 +294,7 @@
                 let textMatch = true;
 
                 // Normalize Data: Handle legacy string or new Array
-                let triggers = normalizeTriggers(reminder.textTrigger);
+                let triggers = window.utils.normalizeTriggers(reminder.textTrigger);
 
                 if (triggers.length > 0) {
                     const logic = (reminder.triggerLogic || 'OR').toUpperCase();
