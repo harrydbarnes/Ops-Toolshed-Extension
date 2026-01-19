@@ -16,27 +16,42 @@
         sanitizeReminderHTML(htmlString) {
             const parser = new DOMParser();
             const doc = parser.parseFromString(htmlString || '', 'text/html');
-            let safeContent = '';
+            const allowedTags = new Set(['h3', 'p', 'b', 'i', 'strong', 'em', 'ul', 'ol', 'li']);
+            const self = this; // Capture 'this' for escapeHTML
 
-            doc.body.childNodes.forEach(node => {
-                if (node.nodeType === 3) { // Text node
-                    safeContent += this.escapeHTML(node.textContent);
-                } else if (node.nodeType === 1) { // Element node
-                    const tag = node.tagName.toLowerCase();
-                    if (['h3', 'p', 'b', 'i', 'strong', 'em'].includes(tag)) {
-                        safeContent += `<${tag}>${this.escapeHTML(node.textContent)}</${tag}>`;
-                    } else if (tag === 'ul' || tag === 'ol') {
-                        safeContent += `<${tag}>`;
-                        Array.from(node.children).forEach(child => {
-                            if (child.tagName.toLowerCase() === 'li') {
-                                safeContent += `<li>${this.escapeHTML(child.textContent)}</li>`;
-                            }
-                        });
-                        safeContent += `</${tag}>`;
-                    }
+            const processNode = (node) => {
+                if (node.nodeType === 3) { // Text Node
+                    return self.escapeHTML(node.textContent);
                 }
-            });
-            return safeContent;
+
+                if (node.nodeType !== 1) { // Not an Element
+                    return '';
+                }
+
+                const tagName = node.tagName.toLowerCase();
+                if (!allowedTags.has(tagName)) {
+                    // Discard unallowed tags but process their children
+                    return processNodes(node.childNodes);
+                }
+
+                // Special handling for lists to ensure they only contain list items
+                if (tagName === 'ul' || tagName === 'ol') {
+                    const children = Array.from(node.children)
+                        .filter(child => child.tagName.toLowerCase() === 'li')
+                        .map(processNode)
+                        .join('');
+                    return `<${tagName}>${children}</${tagName}>`;
+                }
+
+                const children = processNodes(node.childNodes);
+                return `<${tagName}>${children}</${tagName}>`;
+            };
+
+            const processNodes = (nodes) => {
+                return Array.from(nodes).map(processNode).join('');
+            };
+
+            return processNodes(doc.body.childNodes);
         },
 
         normalizeTriggers(triggers) {
