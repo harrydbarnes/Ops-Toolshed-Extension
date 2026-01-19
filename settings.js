@@ -751,7 +751,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Populate hidden inputs for editing as requested
             const container = document.getElementById('reminderTriggersContainer');
             if (container) {
-                container.innerHTML = ''; // Clear existing
+                container.replaceChildren(); // Clear existing
                 const editTriggers = normalizeTriggers(reminderDataForEdit.textTrigger);
                 if (editTriggers.length === 0) {
                     renderTriggerInput('');
