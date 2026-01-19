@@ -686,7 +686,8 @@ document.addEventListener('DOMContentLoaded', function() {
             currentReminderData = { // Store the non-popupMessage parts
                 name: reminderDataForEdit.name,
                 urlPattern: reminderDataForEdit.urlPattern,
-                textTrigger: reminderDataForEdit.textTrigger
+                textTrigger: reminderDataForEdit.textTrigger,
+                triggerLogic: reminderDataForEdit.triggerLogic
             };
             modalEditorTitle.textContent = 'Edit Custom Reminder';
             modalReminderNameDisplay.textContent = reminderDataForEdit.name;
@@ -757,7 +758,8 @@ document.addEventListener('DOMContentLoaded', function() {
             currentReminderData = {
                 name,
                 urlPattern,
-                textTrigger: reminderTextTriggerInput.value.trim()
+                textTrigger: reminderTextTriggerInput.value.trim(),
+                triggerLogic: document.getElementById('reminderTriggerLogic').value
             };
             // editingReminderId = null; // This is set in openReminderModal
             openReminderModal(false); // Open for new reminder
@@ -773,6 +775,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const reminderName = currentReminderData.name;
             const urlPattern = currentReminderData.urlPattern;
             const textTrigger = currentReminderData.textTrigger;
+            const triggerLogic = currentReminderData.triggerLogic || 'OR';
 
             const title = modalInputReminderTitle.value.trim();
             const intro = modalInputIntroSentence.value.trim();
@@ -809,6 +812,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         reminders[reminderIndex].name = reminderName;
                         reminders[reminderIndex].urlPattern = urlPattern;
                         reminders[reminderIndex].textTrigger = textTrigger;
+                        reminders[reminderIndex].triggerLogic = triggerLogic;
                         reminders[reminderIndex].popupMessage = popupMessageHtml;
                         // .enabled state is preserved as it's not editable here
                         statusMessage = 'Custom reminder updated!';
@@ -825,6 +829,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         name: reminderName,
                         urlPattern: urlPattern,
                         textTrigger: textTrigger,
+                        triggerLogic: triggerLogic,
                         popupMessage: popupMessageHtml,
                         enabled: true
                     };
