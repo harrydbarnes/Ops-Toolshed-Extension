@@ -837,7 +837,7 @@ document.addEventListener('DOMContentLoaded', function() {
             currentReminderData = {
                 name,
                 urlPattern,
-                textTrigger: textTrigger, // Array of strings
+                textTrigger, // Array of strings
                 triggerLogic: document.getElementById('reminderTriggerLogic').value
             };
             // editingReminderId = null; // This is set in openReminderModal
