@@ -262,9 +262,11 @@
                         <input type="text" id="reminderUrlPattern" placeholder="*://*.example.com/*">
                     </div>
                     <div>
-                        <label>Text to look for on site (leave blank if URL match is enough):</label>
-                        <div id="reminderTriggersContainer"></div>
-                        <button id="addTriggerBtn" class="settings-button settings-button-secondary add-trigger-btn">+ Add another keyword</button>
+                        <fieldset>
+                            <legend>Text to look for on site (leave blank if URL match is enough):</legend>
+                            <div id="reminderTriggersContainer"></div>
+                            <button type="button" id="addTriggerBtn" class="settings-button settings-button-secondary add-trigger-btn">+ Add another keyword</button>
+                        </fieldset>
                     </div>
                     <div>
                         <label for="reminderTriggerLogic">Match Logic:</label>
