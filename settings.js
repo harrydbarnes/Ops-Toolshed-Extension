@@ -854,10 +854,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const reminderName = currentReminderData.name;
             const urlPattern = currentReminderData.urlPattern;
 
-            // Gather triggers again to support potential editing (if inputs were visible/modified)
-            const triggerInputs = document.querySelectorAll('.trigger-input');
-            let textTrigger = Array.from(triggerInputs).map(i => i.value.trim()).filter(v => v !== '');
-
+            const textTrigger = currentReminderData.textTrigger;
             const triggerLogic = currentReminderData.triggerLogic || 'OR';
 
             const title = modalInputReminderTitle.value.trim();
@@ -996,26 +993,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 triggerStrong.textContent = 'Trigger Text:';
                 textDiv.appendChild(triggerStrong);
 
-                let triggerText = ' N/A';
-                const triggers = reminder.textTrigger;
-
-                if (triggers && triggers.length > 0) {
-                    // Check if it's an array or string (handle legacy data if necessary, or assume array if normalized)
-                    if (Array.isArray(triggers)) {
-                        triggerText = ' ' + triggers.join(', ');
-                    } else {
-                        triggerText = ' ' + triggers;
-                    }
+                const normalizedTriggers = normalizeTriggers(reminder.textTrigger);
+                if (normalizedTriggers.length > 0) {
+                    textDiv.appendChild(document.createTextNode(' ' + normalizedTriggers.join(', ')));
                 } else {
                     const em = document.createElement('em');
                     em.textContent = ' N/A';
                     textDiv.appendChild(em);
-                    // Ensure triggerText is empty so we don't double append
-                    triggerText = '';
-                }
-
-                if (triggerText) {
-                    textDiv.appendChild(document.createTextNode(triggerText));
                 }
 
 

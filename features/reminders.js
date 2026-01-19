@@ -296,11 +296,12 @@
                 // Normalize Data: Handle legacy string or new Array
                 let triggers = reminder.textTrigger;
                 if (typeof triggers === 'string') {
-                    triggers = triggers.split(',').map(t => t.trim());
+                    triggers = triggers.split(',').map(t => t.trim()).filter(Boolean);
+                } else if (!Array.isArray(triggers)) {
+                    triggers = [];
+                } else {
+                    triggers = triggers.filter(Boolean);
                 }
-                if (!Array.isArray(triggers)) triggers = [];
-                // Filter empty strings
-                triggers = triggers.filter(t => t && t.length > 0);
 
                 if (triggers.length > 0) {
                     const logic = (reminder.triggerLogic || 'OR').toUpperCase();
