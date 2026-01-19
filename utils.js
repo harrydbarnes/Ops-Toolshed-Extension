@@ -17,11 +17,10 @@
             const parser = new DOMParser();
             const doc = parser.parseFromString(htmlString || '', 'text/html');
             const allowedTags = new Set(['h3', 'p', 'b', 'i', 'strong', 'em', 'ul', 'ol', 'li']);
-            const self = this; // Capture 'this' for escapeHTML
 
             const processNode = (node) => {
                 if (node.nodeType === 3) { // Text Node
-                    return self.escapeHTML(node.textContent);
+                    return this.escapeHTML(node.textContent);
                 }
 
                 if (node.nodeType !== 1) { // Not an Element
