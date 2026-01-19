@@ -8,16 +8,6 @@ function escapeHTML(str) {
     return div.innerHTML;
 }
 
-// Helper to normalize triggers
-function normalizeTriggers(triggers) {
-    if (typeof triggers === 'string') {
-        return triggers.split(',').map(t => t.trim()).filter(Boolean);
-    }
-    if (Array.isArray(triggers)) {
-        return triggers.filter(Boolean);
-    }
-    return [];
-}
 
 // Function to show a test custom reminder on the settings page
 function showTestCustomReminderOnSettingsPage(reminder) {
@@ -689,8 +679,10 @@ document.addEventListener('DOMContentLoaded', function() {
         input.placeholder = "e.g., Order Complete";
 
         const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
         removeBtn.textContent = 'X';
         removeBtn.className = 'settings-button settings-button-secondary remove-trigger-btn';
+        removeBtn.setAttribute('aria-label', 'Remove keyword');
         // Allow removing, but user can always add more
         removeBtn.addEventListener('click', () => {
             wrapper.remove();
@@ -742,7 +734,7 @@ document.addEventListener('DOMContentLoaded', function() {
             modalReminderUrlPatternDisplay.textContent = reminderDataForEdit.urlPattern;
 
             // Display triggers - handle Array or String
-            const triggers = normalizeTriggers(reminderDataForEdit.textTrigger);
+            const triggers = window.utils.normalizeTriggers(reminderDataForEdit.textTrigger);
             if (triggers.length > 0) {
                 modalReminderTextTriggerDisplay.textContent = triggers.join(', ');
             } else {
@@ -753,7 +745,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const container = document.getElementById('reminderTriggersContainer');
             if (container) {
                 container.replaceChildren(); // Clear existing
-                const editTriggers = normalizeTriggers(reminderDataForEdit.textTrigger);
+                const editTriggers = window.utils.normalizeTriggers(reminderDataForEdit.textTrigger);
                 if (editTriggers.length === 0) {
                     renderTriggerInput('');
                 } else {
@@ -781,7 +773,7 @@ document.addEventListener('DOMContentLoaded', function() {
             modalReminderUrlPatternDisplay.textContent = currentReminderData.urlPattern || 'N/A';
 
             // Display triggers
-            const triggers = normalizeTriggers(currentReminderData.textTrigger);
+            const triggers = window.utils.normalizeTriggers(currentReminderData.textTrigger);
             if (triggers.length > 0) {
                 modalReminderTextTriggerDisplay.textContent = triggers.join(', ');
             } else {
@@ -994,7 +986,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 triggerStrong.textContent = 'Trigger Text:';
                 textDiv.appendChild(triggerStrong);
 
-                const normalizedTriggers = normalizeTriggers(reminder.textTrigger);
+                const normalizedTriggers = window.utils.normalizeTriggers(reminder.textTrigger);
                 if (normalizedTriggers.length > 0) {
                     textDiv.appendChild(document.createTextNode(' ' + normalizedTriggers.join(', ')));
                 } else {
