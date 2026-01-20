@@ -26,11 +26,7 @@ function showTestCustomReminderOnSettingsPage(reminder) {
     popup.id = 'custom-reminder-display-popup'; // Ensure this ID is styled in settings.css or style.css
 
     // Safely parse and append the reminder's HTML content
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(reminder.popupMessage, 'text/html');
-    Array.from(doc.body.childNodes).forEach(node => {
-        popup.appendChild(node.cloneNode(true));
-    });
+    popup.innerHTML = window.utils.sanitizeReminderHTML(reminder.popupMessage);
 
     const closeButton = document.createElement('button');
     closeButton.id = 'custom-reminder-display-close';

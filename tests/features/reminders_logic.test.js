@@ -1,6 +1,6 @@
-const { JSDOM } = require('jsdom');
 const fs = require('fs');
 const path = require('path');
+const { setupTestEnvironment } = require('../test-utils');
 
 const remindersScript = fs.readFileSync(path.resolve(__dirname, '../../features/reminders.js'), 'utf8');
 
@@ -8,56 +8,9 @@ describe('Reminders Feature Logic', () => {
     let window, document;
 
     beforeEach(() => {
-        const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
-            runScripts: "dangerously",
-            resources: "usable",
-            url: "https://example.com/test"
-        });
-        window = dom.window;
-        document = window.document;
-
-        // Mock innerText for JSDOM (simplistic)
-        Object.defineProperty(window.HTMLElement.prototype, 'innerText', {
-            get() {
-                return this.textContent || "";
-            },
-            configurable: true
-        });
-
-        // Mock utils
-        window.utils = {
-            escapeHTML: (str) => str,
-            normalizeTriggers: (triggers) => {
-                if (typeof triggers === 'string') {
-                    return triggers.split(',').map(t => t.trim()).filter(Boolean);
-                } else if (Array.isArray(triggers)) {
-                    return triggers.filter(Boolean);
-                }
-                return [];
-            }
-        };
-
-        // Mock Chrome API
-        window.chrome = {
-            runtime: { id: 'test-id', lastError: null },
-            storage: {
-                sync: {
-                    get: jest.fn((keys, cb) => cb({})),
-                },
-                onChanged: {
-                    addListener: jest.fn()
-                },
-                local: {
-                    get: jest.fn((keys, cb) => cb({})),
-                    set: jest.fn()
-                }
-            }
-        };
-
-        // Inject script
-        const scriptEl = document.createElement('script');
-        scriptEl.textContent = remindersScript;
-        document.body.appendChild(scriptEl);
+        const env = setupTestEnvironment(remindersScript, { url: "https://example.com/test" });
+        window = env.window;
+        document = env.document;
     });
 
     test('should match OR logic (default)', () => {
@@ -238,7 +191,6 @@ describe('Reminders Feature Logic', () => {
         window.chrome.storage.sync.get = jest.fn((keys, cb) => cb({ customReminders: [reminder] }));
 
         return window.remindersFeature.fetchCustomReminders().then(() => {
-             // The JSDOM URL is initialized to "https://example.com/test" in beforeEach
              document.body.textContent = "Random content.";
              window.remindersFeature.checkCustomReminders();
              expect(document.getElementById('custom-reminder-display-popup')).not.toBeNull();
