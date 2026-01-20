@@ -20,7 +20,7 @@
 
             const processNode = (node) => {
                 if (node.nodeType === 3) { // Text Node
-                    return this.escapeHTML(node.textContent);
+                    return window.utils.escapeHTML(node.textContent);
                 }
 
                 if (node.nodeType !== 1) { // Not an Element
