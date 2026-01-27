@@ -4,7 +4,7 @@ body {
     font-family: 'Montserrat', sans-serif;
     margin: 0;
     padding: 20px;
-    width: 300px;
+    width: 320px; /* Increased from 300px */
     max-height: 600px;
     overflow-y: auto;
 }
@@ -79,8 +79,8 @@ body::-webkit-scrollbar-thumb:hover {
 }
 
 .subtitle {
-    font-size: 1.1em;
-    margin: 0 0 15px 0;
+    font-size: 1em; /* Reduced from 1.1em */
+    margin: 0 0 12px 0; /* Reduced from 15px */
     color: #666;
 }
 
@@ -93,6 +93,11 @@ body::-webkit-scrollbar-thumb:hover {
     flex-wrap: wrap;
     gap: 5px;
     margin-bottom: 5px; /* Default margin-bottom for button groups */
+}
+
+/* Specific button-group in the Switch Prisma Location section */
+.section .button-group {
+    margin-bottom: 0;
 }
 
 
@@ -449,4 +454,135 @@ a.settings-page-link:active {
 
 #prismaApproversButton {
     font-size: 12px;
+}
+
+/* --- Bottom Menu Styles --- */
+.menu-container {
+    margin-top: 10px; /* Reduced from 20px */
+    background-color: rgba(249, 250, 251, 0.8);
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.menu-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px; /* Reduced vertical padding from 16px */
+    cursor: pointer;
+    transition: background-color 0.2s;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.menu-row:last-child {
+    border-bottom: none;
+}
+
+/* Center content for feedback menu row */
+#menu-feedback {
+    justify-content: center;
+    position: relative;
+}
+
+#menu-feedback .menu-row-left {
+    justify-content: center;
+}
+
+/* Position chevron absolutely so it doesn't affect centering */
+#menu-feedback .menu-chevron {
+    position: absolute;
+    right: 16px;
+}
+
+.menu-row:hover {
+    background-color: #f9fafb;
+}
+
+.menu-row:active {
+    background-color: #f3f4f6;
+}
+
+.menu-row-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.menu-icon {
+    width: 20px;
+    font-size: 18px;
+    color: #ec4899; /* Pink-500 */
+    text-align: center;
+}
+
+.menu-label {
+    color: #111827;
+    font-weight: 500;
+    font-size: 11px; /* Changed from 14px to match split items */
+}
+
+.menu-chevron {
+    font-size: 14px;
+    color: #ec4899;
+}
+
+/* --- Split Menu Styles --- */
+
+.split-menu-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0; /* Clear padding so inner items handle click area */
+    cursor: default;
+}
+
+.split-menu-row:hover {
+    background-color: transparent; /* Remove hover from the container row */
+}
+
+/* Specific adjustments for split layout */
+.split-menu-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 4px; /* Reduced vertical padding from 14px */
+    cursor: pointer;
+    gap: 6px;
+    transition: background-color 0.2s;
+}
+
+/* Give "Settings" less space, and "Roadmap" more space */
+#menu-settings {
+    flex: 0.7; /* Takes up ~35% of width */
+}
+
+#menu-roadmap {
+    flex: 1.3; /* Takes up ~65% of width */
+}
+
+.split-menu-item:hover {
+    background-color: #f9fafb;
+}
+
+.split-menu-item:active {
+    background-color: #f3f4f6;
+}
+
+/* Adjust font size for split items to fit on one line */
+.split-menu-item .menu-label {
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.split-menu-item .menu-icon {
+    font-size: 13px;
+    width: auto;
+}
+
+.menu-separator {
+    width: 1px;
+    height: 20px;
+    background-color: #e5e7eb;
 }

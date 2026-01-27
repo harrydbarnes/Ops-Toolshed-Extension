@@ -69,13 +69,28 @@
         </div>
     </div>
 
-    <div class="settings-link-container">
-        <a href="#" id="openSettingsPage" class="settings-page-link">Settings</a>
-        <span class="separator">/</span>
-        <a href="#" id="openToolshedPage" class="settings-page-link">Release Notes, Roadmap + Stats</a>
-    </div>
-    <div class="feedback">
-        <a id="feedback-link" href="https://teams.microsoft.com/l/chat/0/0?users=harry.barnes@essencemediacom.com&topicname=Chat" target="_blank">Submit feedback / compliment the chef here!</a>
+    <div class="menu-container">
+        <div class="menu-row split-menu-row">
+            <div id="menu-settings" class="split-menu-item">
+                <i class="fa-solid fa-gear menu-icon"></i>
+                <span class="menu-label">Settings</span>
+            </div>
+
+            <div class="menu-separator"></div>
+
+            <div id="menu-roadmap" class="split-menu-item">
+                <i class="fa-solid fa-file-lines menu-icon"></i>
+                <span class="menu-label">Release Notes & Roadmap</span>
+            </div>
+        </div>
+
+        <div class="menu-row" id="menu-feedback">
+            <div class="menu-row-left">
+                <i class="fa-solid fa-bullhorn menu-icon"></i>
+                <span class="menu-label" id="feedback-label">Submit Feedback</span>
+            </div>
+            <i class="fa-solid fa-chevron-right menu-chevron"></i>
+        </div>
     </div>
 
     <script src="popup.js"></script></body>
