@@ -95,6 +95,11 @@ body::-webkit-scrollbar-thumb:hover {
     margin-bottom: 5px; /* Default margin-bottom for button groups */
 }
 
+/* Specific button-group in the Switch Prisma Location section */
+.section .button-group {
+    margin-bottom: 0;
+}
+
 
 /* Removed specific styles for .button-group.timesheet-group */
 /* The general .button-group styles will now apply to the single group */
@@ -473,6 +478,22 @@ a.settings-page-link:active {
 
 .menu-row:last-child {
     border-bottom: none;
+}
+
+/* Center content for feedback menu row */
+#menu-feedback {
+    justify-content: center;
+    position: relative;
+}
+
+#menu-feedback .menu-row-left {
+    justify-content: center;
+}
+
+/* Position chevron absolutely so it doesn't affect centering */
+#menu-feedback .menu-chevron {
+    position: absolute;
+    right: 16px;
 }
 
 .menu-row:hover {
