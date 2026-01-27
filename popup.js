@@ -163,22 +163,36 @@ document.addEventListener('DOMContentLoaded', function() {
     addClickListener('ngmcscoButton', 'https://groupmuk-prisma.mediaocean.com/ideskos-viewport/launchapp?workflowid=buyers-workflow&moduleid=prsm-cm-spa&context=eyJ0byI6eyJpZCI6IjM1LVJFSUtXWEgtNiIsInN1YkNvbnRleHQiOnsiaWQiOiJOR01DU0NPIn19LCJmcm9tIjp7ImlkIjoiMzUtUkVJS1dYSC02Iiwic3ViQ29udGV4dCI6eyJpZCI6Ik5HTUNJTlQifX19');
     addClickListener('ngopenButton', 'https://groupmuk-prisma.mediaocean.com/ideskos-viewport/launchapp?workflowid=buyers-workflow&moduleid=prsm-cm-spa&context=eyJ0byI6eyJpZCI6IjM1LVJFSUtXWEgtNiIsInN1YkNvbnRleHQiOnsiaWQiOiJOR09QRU4ifX0sImZyb20iOnsiaWQiOiIzNS1SRUlLV1hILTYiLCJzdWJDb250ZXh0Ijp7ImlkIjoiTkdNQ0lOVCJ9fX0=');
 
-    // Setup navigation for settings and toolshed pages
-    addNavigationClickListener('openSettingsPage', () => {
-        chrome.runtime.openOptionsPage(
-            () => {
+    // --- New Menu Handlers ---
+
+    // Settings
+    const menuSettings = document.getElementById('menu-settings');
+    if (menuSettings) {
+        menuSettings.addEventListener('click', () => {
+             chrome.runtime.openOptionsPage(() => {
+                // Fallback if openOptionsPage fails
                 if (chrome.runtime.lastError) {
-                    console.error('Error opening options page:', chrome.runtime.lastError);
-                    // Fallback if openOptionsPage is not set up or fails
                     chrome.tabs.create({ url: chrome.runtime.getURL('settings.html') });
                 }
-            }
-        );
-    });
+            });
+        });
+    }
 
-    addNavigationClickListener('openToolshedPage', () => {
-        chrome.tabs.create({ url: chrome.runtime.getURL('toolshed.html') });
-    });
+    // Release Notes & Roadmap
+    const menuRoadmap = document.getElementById('menu-roadmap');
+    if (menuRoadmap) {
+        menuRoadmap.addEventListener('click', () => {
+             chrome.tabs.create({ url: chrome.runtime.getURL('toolshed.html') });
+        });
+    }
+
+    // Feedback
+    const menuFeedback = document.getElementById('menu-feedback');
+    if (menuFeedback) {
+        menuFeedback.addEventListener('click', () => {
+            chrome.tabs.create({ url: 'https://teams.microsoft.com/l/chat/0/0?users=harry.barnes@essencemediacom.com&topicname=Chat' });
+        });
+    }
 });
 
 // Removed setLogoToggleState, setMetaReminderToggleState, setTimesheetReminderToggleState functions

@@ -450,3 +450,59 @@ a.settings-page-link:active {
 #prismaApproversButton {
     font-size: 12px;
 }
+
+/* --- Bottom Menu Styles --- */
+.menu-container {
+    margin-top: 20px;
+    background-color: rgba(249, 250, 251, 0.8);
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.menu-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.menu-row:last-child {
+    border-bottom: none;
+}
+
+.menu-row:hover {
+    background-color: #f9fafb;
+}
+
+.menu-row:active {
+    background-color: #f3f4f6;
+}
+
+.menu-row-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.menu-icon {
+    width: 20px;
+    font-size: 18px;
+    color: #ec4899; /* Pink-500 */
+    text-align: center;
+}
+
+.menu-label {
+    color: #111827;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.menu-chevron {
+    font-size: 14px;
+    color: #ec4899;
+}
