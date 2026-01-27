@@ -172,6 +172,7 @@ document.addEventListener('DOMContentLoaded', function() {
              chrome.runtime.openOptionsPage(() => {
                 // Fallback if openOptionsPage fails
                 if (chrome.runtime.lastError) {
+                    console.error('Error opening options page:', chrome.runtime.lastError);
                     chrome.tabs.create({ url: chrome.runtime.getURL('settings.html') });
                 }
             });
