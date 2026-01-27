@@ -495,7 +495,8 @@ a.settings-page-link:active {
 #menu-feedback .menu-icon {
     font-size: 13px;
     position: absolute;
-    left: -25px;
+    left: 0;
+    transform: translateX(calc(-100% - 8px));
 }
 
 /* Position chevron absolutely so it doesn't affect centering */
