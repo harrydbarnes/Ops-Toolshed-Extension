@@ -506,3 +506,53 @@ a.settings-page-link:active {
     font-size: 14px;
     color: #ec4899;
 }
+
+/* --- Split Menu Styles --- */
+
+.split-menu-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0; /* Clear padding so inner items handle click area */
+    cursor: default;
+}
+
+.split-menu-row:hover {
+    background-color: transparent; /* Remove hover from the container row */
+}
+
+.split-menu-item {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 4px;
+    cursor: pointer;
+    gap: 6px;
+    transition: background-color 0.2s;
+}
+
+.split-menu-item:hover {
+    background-color: #f9fafb;
+}
+
+.split-menu-item:active {
+    background-color: #f3f4f6;
+}
+
+/* Adjust font size for split items to fit on one line */
+.split-menu-item .menu-label {
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.split-menu-item .menu-icon {
+    font-size: 13px;
+    width: auto;
+}
+
+.menu-separator {
+    width: 1px;
+    height: 20px;
+    background-color: #e5e7eb;
+}
