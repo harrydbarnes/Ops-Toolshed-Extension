@@ -472,7 +472,7 @@ a.settings-page-link:active {
     justify-content: space-between;
     padding: 10px 16px; /* Reduced vertical padding from 16px */
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: background-color 0.2s ease;
     border-bottom: 1px solid #e5e7eb;
 }
 
@@ -488,6 +488,15 @@ a.settings-page-link:active {
 
 #menu-feedback .menu-row-left {
     justify-content: center;
+    position: relative;
+    gap: 0;
+}
+
+#menu-feedback .menu-icon {
+    font-size: 13px;
+    position: absolute;
+    left: 0;
+    transform: translateX(calc(-100% - 8px));
 }
 
 /* Position chevron absolutely so it doesn't affect centering */
@@ -497,11 +506,11 @@ a.settings-page-link:active {
 }
 
 .menu-row:hover {
-    background-color: #f9fafb;
+    background-color: #f0f2f5;
 }
 
 .menu-row:active {
-    background-color: #f3f4f6;
+    background-color: #e5e7eb;
 }
 
 .menu-row-left {
@@ -550,7 +559,7 @@ a.settings-page-link:active {
     padding: 10px 4px; /* Reduced vertical padding from 14px */
     cursor: pointer;
     gap: 6px;
-    transition: background-color 0.2s;
+    transition: background-color 0.2s ease;
 }
 
 /* Give "Settings" less space, and "Roadmap" more space */
@@ -563,11 +572,11 @@ a.settings-page-link:active {
 }
 
 .split-menu-item:hover {
-    background-color: #f9fafb;
+    background-color: #f0f2f5;
 }
 
 .split-menu-item:active {
-    background-color: #f3f4f6;
+    background-color: #e5e7eb;
 }
 
 /* Adjust font size for split items to fit on one line */
