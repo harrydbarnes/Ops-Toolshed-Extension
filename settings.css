@@ -617,3 +617,21 @@ body::after {
 .add-trigger-btn {
     margin-top: 5px;
 }
+
+.feedback {
+    margin-top: 40px;
+    text-align: center;
+    font-size: 1em;
+    padding-top: 20px;
+    border-top: 2px solid #f0f0f0;
+}
+
+.feedback a {
+    color: #0066cc;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.feedback a:hover {
+    text-decoration: underline;
+}
