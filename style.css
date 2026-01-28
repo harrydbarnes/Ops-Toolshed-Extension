@@ -490,6 +490,7 @@ a.settings-page-link:active {
     justify-content: center;
     position: relative;
     gap: 0;
+    font-size: 0; /* Eliminate whitespace influence on centering */
 }
 
 #menu-feedback .menu-icon {
