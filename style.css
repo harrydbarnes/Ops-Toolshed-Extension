@@ -490,13 +490,17 @@ a.settings-page-link:active {
     justify-content: center;
     position: relative;
     gap: 0;
+    flex-grow: 0;
+    width: auto;
 }
 
 #menu-feedback .menu-icon {
     font-size: 13px;
     position: absolute;
-    left: 0;
-    transform: translateX(calc(-100% - 8px));
+    right: 100%;
+    margin-right: 12px;
+    left: auto;
+    transform: none;
 }
 
 /* Position chevron absolutely so it doesn't affect centering */
