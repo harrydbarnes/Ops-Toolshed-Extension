@@ -295,10 +295,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Feedback
-    const menuFeedback = document.getElementById('menu-feedback');
+    const menuFeedback = document.getElementById('menu-feedback-btn');
     if (menuFeedback) {
         menuFeedback.addEventListener('click', () => {
             chrome.tabs.create({ url: 'https://teams.microsoft.com/l/chat/0/0?users=harry.barnes@essencemediacom.com&topicname=Chat' });
+        });
+    }
+
+    // Excel List
+    const menuExcelList = document.getElementById('menu-excel-list');
+    if (menuExcelList) {
+        menuExcelList.addEventListener('click', () => {
+            chrome.tabs.create({ url: 'https://insidemedia.sharepoint.com/:x:/s/TPO-SharePoint/EYxRbLkQU_xLpMSvnQQFIt4Bug1w9CJupONy6sIdr6IuFw?email=harry.barnes%40wppmedia.com&e=Mi9JPh' });
         });
     }
 

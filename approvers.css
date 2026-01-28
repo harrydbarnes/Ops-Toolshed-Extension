@@ -454,3 +454,9 @@ body {
     width: 50%;
     margin: 20px auto;
 }
+
+/* Split button adjustments for approvers page */
+#menu-feedback-btn,
+#menu-excel-list {
+    flex: 1;
+}
