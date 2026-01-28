@@ -245,3 +245,12 @@ li {
 .button-secondary:hover {
     background-color: #5a6268;
 }
+
+.build-info {
+    margin-top: 20px;
+    margin-bottom: 20px;
+    color: #888;
+    font-size: 0.8em;
+    text-align: center;
+    width: 100%;
+}

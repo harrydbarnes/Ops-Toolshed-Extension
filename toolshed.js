@@ -159,4 +159,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Display stats on initial load
     displayStats();
+
+    // Display Build Info
+    if (window.buildInfo) {
+        const buildInfoDiv = document.getElementById('build-info');
+        if (buildInfoDiv) {
+            buildInfoDiv.textContent = `Build Date: ${window.buildInfo.buildDate} | Commit: ${window.buildInfo.commitId}`;
+        }
+    }
 });
