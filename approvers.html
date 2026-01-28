@@ -83,10 +83,15 @@
                 </button>
             </div>
         </div>
-        <div class="feedback">
-            <a href="https://teams.microsoft.com/l/chat/0/0?users=harry.barnes@essencemediacom.com&topicname=Chat" target="_blank">Submit feedback / compliment the chef here!</a>
+        <div class="menu-container feedback-container">
+            <div class="menu-row" id="menu-feedback">
+                <div class="menu-row-left"><i class="fa-solid fa-bullhorn menu-icon"></i><span class="menu-label" id="feedback-label">Submit Feedback</span></div>
+                <i class="fa-solid fa-chevron-right menu-chevron"></i>
+            </div>
         </div>
+        <div id="build-info" class="build-info"></div>
     </div>
+    <script src="build-info.js" defer></script>
     <script type="module" src="approvers.js"></script>
     <div id="toast-notification" class="toast">
       <div class="toast-message">Approver emails copied to clipboard!</div>

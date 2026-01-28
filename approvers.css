@@ -440,3 +440,17 @@ body {
     justify-content: center;
     gap: 10px;
 }
+
+/* Build Info */
+.build-info {
+    text-align: center;
+    font-size: 0.8em;
+    color: #888;
+    margin-top: 10px;
+    width: 100%;
+}
+
+.feedback-container {
+    width: 50%;
+    margin: 20px auto;
+}

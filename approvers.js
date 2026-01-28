@@ -294,5 +294,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Feedback
+    const menuFeedback = document.getElementById('menu-feedback');
+    if (menuFeedback) {
+        menuFeedback.addEventListener('click', () => {
+            chrome.tabs.create({ url: 'https://teams.microsoft.com/l/chat/0/0?users=harry.barnes@essencemediacom.com&topicname=Chat' });
+        });
+    }
+
+    // Display Build Info
+    if (window.buildInfo) {
+        const buildInfoDiv = document.getElementById('build-info');
+        if (buildInfoDiv) {
+            buildInfoDiv.textContent = `Build Date: ${window.buildInfo.buildDate} | Commit: ${window.buildInfo.commitId}`;
+        }
+    }
+
     loadFavorites();
 });
