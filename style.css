@@ -488,16 +488,10 @@ a.settings-page-link:active {
 
 #menu-feedback .menu-row-left {
     justify-content: center;
-    position: relative;
-    gap: 0;
-    font-size: 0; /* Eliminate whitespace influence on centering */
 }
 
 #menu-feedback .menu-icon {
     font-size: 13px;
-    position: absolute;
-    left: 0;
-    transform: translateX(calc(-100% - 8px));
 }
 
 /* Position chevron absolutely so it doesn't affect centering */
