@@ -141,6 +141,14 @@ function setupToggle(toggleId, storageKey, logMessage) {
 
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Input Limits (Security Enhancement)
+    const MAX_NAME_LENGTH = 50;
+    const MAX_URL_LENGTH = 200;
+    const MAX_TRIGGER_LENGTH = 100;
+    const MAX_TITLE_LENGTH = 100;
+    const MAX_INTRO_LENGTH = 200;
+    const MAX_BULLETS_LENGTH = 1000;
+
     // Tab switching logic
     const tabContainer = document.querySelector('.tab-container');
     if (tabContainer) {
@@ -819,9 +827,36 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
+            // Input Length Validation (Step 1)
+            if (name.length > MAX_NAME_LENGTH) {
+                customReminderStatus.textContent = `Reminder Name must be under ${MAX_NAME_LENGTH} characters.`;
+                customReminderStatus.style.color = 'red';
+                customReminderStatus.classList.remove('hidden-initially');
+                setTimeout(() => customReminderStatus.classList.add('hidden-initially'), 3000);
+                return;
+            }
+
+            if (urlPattern.length > MAX_URL_LENGTH) {
+                customReminderStatus.textContent = `URL Pattern must be under ${MAX_URL_LENGTH} characters.`;
+                customReminderStatus.style.color = 'red';
+                customReminderStatus.classList.remove('hidden-initially');
+                setTimeout(() => customReminderStatus.classList.add('hidden-initially'), 3000);
+                return;
+            }
+
             // Gather triggers from dynamic inputs
             const triggerInputs = document.querySelectorAll('.trigger-input');
             const textTrigger = Array.from(triggerInputs).map(i => i.value.trim()).filter(v => v !== '');
+
+            for (const trigger of textTrigger) {
+                if (trigger.length > MAX_TRIGGER_LENGTH) {
+                    customReminderStatus.textContent = `Each Trigger Text must be under ${MAX_TRIGGER_LENGTH} characters.`;
+                    customReminderStatus.style.color = 'red';
+                    customReminderStatus.classList.remove('hidden-initially');
+                    setTimeout(() => customReminderStatus.classList.add('hidden-initially'), 3000);
+                    return;
+                }
+            }
 
             currentReminderData = {
                 name,
@@ -852,6 +887,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (!title || !intro) {
                 alert('Reminder Title and Intro Sentence are required.');
+                return;
+            }
+
+            // Input Length Validation (Step 2)
+            if (title.length > MAX_TITLE_LENGTH) {
+                alert(`Reminder Title must be under ${MAX_TITLE_LENGTH} characters.`);
+                return;
+            }
+            if (intro.length > MAX_INTRO_LENGTH) {
+                alert(`Intro Sentence must be under ${MAX_INTRO_LENGTH} characters.`);
+                return;
+            }
+            if (bulletsText.length > MAX_BULLETS_LENGTH) {
+                alert(`Bullet Points must be under ${MAX_BULLETS_LENGTH} characters.`);
                 return;
             }
 
