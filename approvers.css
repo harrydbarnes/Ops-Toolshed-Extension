@@ -460,3 +460,12 @@ body {
 #menu-excel-list {
     flex: 1;
 }
+
+/* Button reset for split menu items */
+button.split-menu-item {
+    background-color: transparent;
+    border: none;
+    color: inherit;
+    font-family: inherit;
+    font-size: inherit;
+}
