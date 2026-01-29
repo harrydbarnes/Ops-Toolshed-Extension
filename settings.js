@@ -83,6 +83,7 @@ function showTestReminderPopup({ popupId, overlayId, content, closeButtonId, has
 
     const closeButton = document.createElement('button');
     closeButton.id = closeButtonId;
+    closeButton.className = 'reminder-close-button';
     closeButton.textContent = 'Got it!';
     popup.appendChild(closeButton);
 
@@ -118,6 +119,54 @@ function showTestReminderPopup({ popupId, overlayId, content, closeButtonId, has
         }
         closeButton.addEventListener('click', cleanupPopup);
     }
+}
+
+// Function to show a confirmation popup with custom actions
+function showConfirmationPopup({ title, message, confirmText, cancelText, onConfirm, onCancel }) {
+    const popupId = 'confirmation-popup';
+    const overlayId = 'confirmation-overlay';
+
+    // Remove existing
+    const existingPopup = document.getElementById(popupId);
+    if (existingPopup) existingPopup.remove();
+    const existingOverlay = document.getElementById(overlayId);
+    if (existingOverlay) existingOverlay.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'reminder-overlay';
+    overlay.id = overlayId;
+    document.body.appendChild(overlay);
+
+    const popup = document.createElement('div');
+    popup.id = popupId;
+    // Mimic the simple reminder popup style
+    popup.innerHTML = `
+        <h3>${escapeHTML(title)}</h3>
+        <p>${escapeHTML(message)}</p>
+        <div class="button-group" style="display: flex; justify-content: center; gap: 10px; margin-top: 15px;">
+            <button id="confirm-action-btn" class="settings-button" style="background-color: #dc3545;">${escapeHTML(confirmText)}</button>
+            <button id="cancel-action-btn" class="settings-button">${escapeHTML(cancelText)}</button>
+        </div>
+    `;
+    document.body.appendChild(popup);
+
+    const confirmBtn = document.getElementById('confirm-action-btn');
+    const cancelBtn = document.getElementById('cancel-action-btn');
+
+    const cleanup = () => {
+        popup.remove();
+        overlay.remove();
+    };
+
+    confirmBtn.addEventListener('click', () => {
+        if (onConfirm) onConfirm();
+        cleanup();
+    });
+
+    cancelBtn.addEventListener('click', () => {
+        if (onCancel) onCancel();
+        cleanup();
+    });
 }
 
 // Helper function to set up a toggle switch
@@ -544,6 +593,48 @@ document.addEventListener('DOMContentLoaded', function() {
     setupToggle('swapAccountsToggle', 'swapAccountsEnabled', 'Switch Accounts setting saved:');
     setupToggle('seeCommentsOnLockedBuysToggle', 'alwaysShowCommentsEnabled', 'See Comments on Locked Buys setting saved:');
     setupToggle('orderIdCopyToggle', 'orderIdCopyEnabled', 'Order ID Copy setting saved:');
+    setupToggle('gmiChatShortcutToggle', 'gmiChatShortcutEnabled', 'GMI Chat Shortcut setting saved:');
+    setupToggle('autoCopyUrlToggle', 'autoCopyUrlEnabled', 'Auto Copy URL setting saved:');
+
+    // Stats Collector with Confirmation
+    const statsCollectorToggle = document.getElementById('statsCollectorToggle');
+    if (statsCollectorToggle) {
+        chrome.storage.sync.get('statsCollectorEnabled', function(data) {
+            statsCollectorToggle.checked = data.statsCollectorEnabled === undefined ? true : data.statsCollectorEnabled;
+            if (data.statsCollectorEnabled === undefined) {
+                chrome.storage.sync.set({ 'statsCollectorEnabled': true });
+            }
+        });
+        statsCollectorToggle.addEventListener('click', function(e) {
+            if (!this.checked) {
+                // User trying to disable
+                e.preventDefault(); 
+                this.checked = true; // Visually stay checked
+
+                showConfirmationPopup({
+                    title: 'Wait!',
+                    message: 'Keeping this setting on allows us to advocate for improvements to Prisma, and showcase how we are power users of the software! Changed your mind?',
+                    confirmText: 'Disable',
+                    cancelText: 'Keep Enabled',
+                    onConfirm: () => {
+                        statsCollectorToggle.checked = false;
+                        chrome.storage.sync.set({ 'statsCollectorEnabled': false }, () => {
+                            console.log('Stats Collector disabled.');
+                        });
+                    },
+                    onCancel: () => {
+                        // Do nothing, just close
+                        console.log('Stats Collector kept enabled.');
+                    }
+                });
+            } else {
+                // User re-enabling
+                chrome.storage.sync.set({ 'statsCollectorEnabled': true }, () => {
+                    console.log('Stats Collector enabled.');
+                });
+            }
+        });
+    }
 
     // Aura Reminders (Timesheet)
     const timesheetReminderToggle = document.getElementById('timesheetReminderToggle');

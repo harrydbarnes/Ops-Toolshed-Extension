@@ -1,6 +1,22 @@
 (function() {
     'use strict';
 
+    let isEnabled = true;
+
+    chrome.storage.sync.get('gmiChatShortcutEnabled', (data) => {
+        isEnabled = data.gmiChatShortcutEnabled !== false;
+    });
+
+    chrome.storage.onChanged.addListener((changes, area) => {
+        if (area === 'sync' && changes.gmiChatShortcutEnabled) {
+            isEnabled = changes.gmiChatShortcutEnabled.newValue !== false;
+            if (!isEnabled) {
+                const btn = document.querySelector('.gmi-chat-button');
+                if (btn) btn.remove();
+            }
+        }
+    });
+
     function formatClientName(name) {
         // If the name is all uppercase and contains spaces (multi-word), convert it to title case.
         // This avoids converting single-word acronyms like 'NASA' to 'Nasa'.
@@ -11,6 +27,8 @@
     }
 
     function handleGmiChatButton() {
+        if (!isEnabled) return;
+
         const workflowWidget = document.querySelector('.workflow-widget-wrapper');
         if (!workflowWidget || workflowWidget.querySelector('.gmi-chat-button')) {
             return;
