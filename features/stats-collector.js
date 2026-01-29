@@ -2,9 +2,22 @@
     'use strict';
 
     let isUpdatingStats = false;
+    let isEnabled = true;
+
+    chrome.storage.sync.get('statsCollectorEnabled', (data) => {
+        isEnabled = data.statsCollectorEnabled !== false;
+    });
+
+    chrome.storage.onChanged.addListener((changes, area) => {
+        if (area === 'sync' && changes.statsCollectorEnabled) {
+            isEnabled = changes.statsCollectorEnabled.newValue !== false;
+        }
+    });
 
     // --- Utility function to get and set stats ---
     async function updateStats(updateFunction) {
+        if (!isEnabled) return;
+
         if (isUpdatingStats) {
             console.warn('[Stats Collector] Concurrent update dropped to prevent race condition.');
             return;
@@ -49,6 +62,7 @@
     // --- 1. Track Unique Campaign IDs ---
     let lastUrl = '';
     function trackCampaignId() {
+        if (!isEnabled) return;
         if (window.location.href === lastUrl) return;
         lastUrl = window.location.href;
 
@@ -66,6 +80,7 @@
     }
 
     function observeLoadingSpinner() {
+        if (!isEnabled) return;
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(findAndTrackSpinner, 150); // Debounce for 150ms
     }
@@ -75,6 +90,10 @@
     let debounceTimer = null;
 
     function findAndTrackSpinner() {
+        if (!isEnabled) {
+            loadingSpinnerStartTime = null;
+            return;
+        }
         const spinner = window.utils.queryShadowDom('svg.spinner') || document.querySelector('i.fa-spin');
 
         if (spinner && loadingSpinnerStartTime === null) {
@@ -95,6 +114,7 @@
 
     // --- 3. Track Placement "Save" Clicks using Event Delegation ---
     function handleSaveButtonClick(event) {
+        if (!isEnabled) return;
         if (event.target.id === 'btn-save' || event.target.id === 'btn-save-and-add-another') {
             console.log('[Stats Collector] Save button clicked.');
             updateStats(stats => {
