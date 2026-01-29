@@ -143,7 +143,7 @@ function showConfirmationPopup({ title, message, confirmText, cancelText, onConf
     popup.innerHTML = `
         <h3>${escapeHTML(title)}</h3>
         <p>${escapeHTML(message)}</p>
-        <div class="button-group" style="justify-content: center; margin-top: 15px;">
+        <div class="button-group" style="display: flex; justify-content: center; gap: 10px; margin-top: 15px;">
             <button id="confirm-action-btn" class="settings-button" style="background-color: #dc3545;">${escapeHTML(confirmText)}</button>
             <button id="cancel-action-btn" class="settings-button">${escapeHTML(cancelText)}</button>
         </div>
