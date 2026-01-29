@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ops Toolshed Settings</title>
+    <title>Prisma Tools Settings</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap">
     <link rel="stylesheet" href="style.css"> <!-- Added link to shared style.css -->
     <link rel="stylesheet" href="settings.css">
@@ -15,316 +15,159 @@
     <div class="container">
         <header class="settings-header">
             <h1>Settings</h1>
-            <a href="toolshed.html" class="nav-link">Release Notes, Roadmap + Stats</a>
         </header>
 
-        <div class="tab-container" role="tablist">
-            <button class="tab-button active" data-tab="features" role="tab" id="tab-features" aria-controls="features" aria-selected="true">Features</button>
-            <button class="tab-button" data-tab="reminders" role="tab" id="tab-reminders" aria-controls="reminders" aria-selected="false" tabindex="-1">Reminders</button>
-            <button class="tab-button" data-tab="custom-reminders" role="tab" id="tab-custom-reminders" aria-controls="custom-reminders" aria-selected="false" tabindex="-1">Custom Reminders</button>
-        </div>
+        <section id="general-settings">
+            <h2>General</h2>
+            <div class="toggle-container">
+                <span>Replace Prisma Logo:</span>
+                <label class="toggle">
+                    <input type="checkbox" id="logoToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </section>
 
-        <div id="features" class="tab-content active" role="tabpanel" aria-labelledby="tab-features">
-            <section id="general-settings">
-                <h2>General</h2>
-                <div class="toggle-container">
-                    <label for="uiThemeSelector">Popup UI Theme:</label>
-                    <div class="theme-select-wrapper">
-                        <!-- Custom Dropdown for UI Theme -->
-                        <div class="custom-dropdown" id="uiThemeDropdown">
-                            <div class="dropdown-trigger" tabindex="0">
-                                <span class="color-preview-rect"></span>
-                                <span class="selected-text">Pink</span>
-                            </div>
-                            <div class="dropdown-options">
-                                <div class="dropdown-option" data-value="pink">
-                                    <span class="color-preview-rect pink"></span>
-                                    Pink
-                                </div>
-                                <div class="dropdown-option" data-value="black">
-                                    <span class="color-preview-rect black"></span>
-                                    Black
-                                </div>
-                            </div>
-                        </div>
+        <section id="campaign-management-settings">
+            <h2>Prisma Efficiency Gains</h2>
+            <div class="toggle-container">
+                <span>'Add Campaign' auto clicks 'Enter Full Details':</span>
+                <label class="toggle">
+                    <input type="checkbox" id="addCampaignShortcutToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="toggle-container">
+                <span>Hide unused sections on 'Add Campaign':</span>
+                <label class="toggle">
+                    <input type="checkbox" id="hidingSectionsToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="toggle-container">
+                <span>Automate 'Budget type' and 'Media mix' selection:</span>
+                <label class="toggle">
+                    <input type="checkbox" id="automateFormFieldsToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </section>
+
+        <section id="prisma-reminders">
+            <div class="section-header-with-button">
+                <h2>Prisma Reminders</h2>
+                <button id="resetRemindersButton" class="settings-button settings-button-secondary">Reset</button>
+            </div>
+            <div class="prisma-reminder-options">
+                <div class="setting-row">
+                    <label for="prismaReminderFrequency">Show Reminders:</label>
+                    <div class="select-container">
+                        <select id="prismaReminderFrequency">
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="once">Once</option>
+                        </select>
                     </div>
                 </div>
-                <div class="toggle-container">
-                        <span>Replace Prisma Logo:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="logoToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>Stats Collector:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="statsCollectorToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                </section>
-
-                <section id="campaign-management-settings">
-                    <h2>Prisma Efficiency Gains</h2>
-                    <div class="toggle-container">
-                        <span>GMI Chat Shortcut:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="gmiChatShortcutToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>Auto Copy Campaign URL:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="autoCopyUrlToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>Order ID Copy Button:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="orderIdCopyToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>'Add Campaign' auto clicks 'Enter Full Details':</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="addCampaignShortcutToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>Hide unused sections on 'Add Campaign':</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="hidingSectionsToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>Automate 'Budget type' and 'Media mix' selection:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="automateFormFieldsToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>Approver Widget Optimise:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="approverWidgetOptimiseToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>Count Placements Selected:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="countPlacementsSelectedToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>Switch Accounts button:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="swapAccountsToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>See Comments on Locked Buys:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="seeCommentsOnLockedBuysToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                </section>
-
-                <section id="live-chat-settings">
-                    <h2>Live Chat Enhancements</h2>
-                    <div class="toggle-container">
-                        <span>Smaller Chat Font:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="fontSizeToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>Resizable Chat Window:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="resizableChatToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>Scheduled Chat Launcher (10 AM - 12 PM):</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="scheduledChatToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                </section>
-        </div>
-
-        <div id="reminders" class="tab-content" role="tabpanel" aria-labelledby="tab-reminders">
-            <section id="prisma-reminders">
-                <div class="section-header-with-button">
-                    <h2>Prisma Reminders</h2>
-                    <button id="resetRemindersButton" class="settings-button settings-button-secondary">Reset</button>
-                </div>
-                <div class="prisma-reminder-options">
-                    <div class="setting-row">
-                        <label for="reminderThemeSelector">Reminder Theme:</label>
-                        <div class="theme-select-wrapper">
-                            <!-- Custom Dropdown for Reminder Theme -->
-                            <div class="custom-dropdown" id="reminderThemeDropdown">
-                                <div class="dropdown-trigger" tabindex="0">
-                                    <span class="color-preview-rect"></span>
-                                    <span class="selected-text">Pink</span>
-                                </div>
-                                <div class="dropdown-options">
-                                    <div class="dropdown-option" data-value="pink">
-                                        <span class="color-preview-rect pink"></span>
-                                        Pink
-                                    </div>
-                                    <div class="dropdown-option" data-value="black">
-                                        <span class="color-preview-rect black"></span>
-                                        Black
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="setting-row">
-                        <label for="prismaReminderFrequency">Show Reminders:</label>
-                        <div class="select-container">
-                            <select id="prismaReminderFrequency">
-                                <option value="daily">Daily</option>
-                                <option value="weekly">Weekly</option>
-                                <option value="monthly">Monthly</option>
-                                <option value="once">Once</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="setting-row">
-                        <label for="prismaCountdownDuration">Countdown to dismiss:</label>
-                        <div class="select-container">
-                            <select id="prismaCountdownDuration">
-                                <option value="3">3 seconds</option>
-                                <option value="5">5 seconds</option>
-                                <option value="0">None</option>
-                            </select>
-                        </div>
+                <div class="setting-row">
+                    <label for="prismaCountdownDuration">Countdown to dismiss:</label>
+                    <div class="select-container">
+                        <select id="prismaCountdownDuration">
+                            <option value="3">3 seconds</option>
+                            <option value="5">5 seconds</option>
+                            <option value="0">None</option>
+                        </select>
                     </div>
                 </div>
-                <div class="toggle-container">
-                    <span class="toggle-label">Meta Reconciliation Reminder:</span>
-                    <div class="button-and-toggle-group">
-                        <button id="triggerMetaReminder" class="settings-button">Test</button>
-                        <label class="toggle">
-                            <input type="checkbox" id="metaReminderToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                </div>
-                <div class="toggle-container">
-                    <span class="toggle-label">IAS Reminder:</span>
-                    <div class="button-and-toggle-group">
-                        <button id="triggerIasReminder" class="settings-button">Test</button>
-                        <label class="toggle">
-                            <input type="checkbox" id="iasReminderToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                </div>
-            </section>
-
-            <section id="aura-reminders">
-                <h2>Aura Reminders</h2>
-                <div class="toggle-container">
-                    <span>Enable Timesheet Reminder:</span>
+            </div>
+            <div class="toggle-container">
+                <span class="toggle-label">Meta Reconciliation Reminder:</span>
+                <div class="button-and-toggle-group">
+                    <button id="triggerMetaReminder" class="settings-button">Test</button>
                     <label class="toggle">
-                        <input type="checkbox" id="timesheetReminderToggle">
+                        <input type="checkbox" id="metaReminderToggle">
                         <span class="slider"></span>
                     </label>
                 </div>
-                <div id="timesheetReminderSettings" class="hidden-initially"> <!-- This div will be shown/hidden by the toggle -->
-                    <p class="reminder-text"><em>Remind me on and at:</em></p>
-                    <div class="select-container">
-                        <select id="reminderDay">
-                            <option value="Monday">Monday</option>
-                            <option value="Tuesday">Tuesday</option>
-                            <option value="Wednesday">Wednesday</option>
-                            <option value="Thursday">Thursday</option>
-                            <option value="Friday">Friday</option>
-                        </select>
-                    </div>
-                    <div class="select-container">
-                        <select id="reminderTime"></select> <!-- Options populated by JS -->
-                    </div>
-                    <div class="button-group">
-                        <button id="saveTimesheetReminderSettings" class="settings-button">Save Reminder</button>
-                        <button id="triggerTimesheetReminder" class="settings-button">Trigger Timesheet Reminder Now</button>
-                        <p id="timesheetReminderUpdateMessage" class="reminder-update-message hidden-initially"></p>
-                    </div>
+            </div>
+            <div class="toggle-container">
+                <span class="toggle-label">IAS Reminder:</span>
+                <div class="button-and-toggle-group">
+                    <button id="triggerIasReminder" class="settings-button">Test</button>
+                    <label class="toggle">
+                        <input type="checkbox" id="iasReminderToggle">
+                        <span class="slider"></span>
+                    </label>
                 </div>
-            </section>
-        </div>
+            </div>
+        </section>
 
-        <div id="custom-reminders" class="tab-content" role="tabpanel" aria-labelledby="tab-custom-reminders">
-            <section id="create-reminder">
-                <h2>Create Custom Reminder</h2>
-                <div id="createReminderInitialStep">
-                    <div>
-                        <label for="reminderName">Reminder Name:</label>
-                        <input type="text" id="reminderName" placeholder="e.g., Snapchat Task">
-                    </div>
-                    <div>
-                        <label for="reminderUrlPattern">URL Pattern (e.g., *://*.example.com/path*):</label>
-                        <input type="text" id="reminderUrlPattern" placeholder="*://*.example.com/*">
-                    </div>
-                    <div>
-                        <fieldset>
-                            <legend>Text to look for on site (leave blank if URL match is enough):</legend>
-                            <div id="reminderTriggersContainer"></div>
-                            <button type="button" id="addTriggerBtn" class="settings-button settings-button-secondary add-trigger-btn">+ Add another keyword</button>
-                        </fieldset>
-                    </div>
-                    <div>
-                        <label for="reminderTriggerLogic">Match Logic:</label>
-                        <select id="reminderTriggerLogic" class="settings-dropdown">
-                            <option value="OR">Match ANY text (OR)</option>
-                            <option value="ALL">Match ALL text (AND)</option>
-                        </select>
-                        <p class="input-help">"Any" triggers if one phrase is found. "All" requires every phrase to be present.</p>
-                    </div>
-                    <button id="nextButton" class="settings-button">Next</button>
-                    <p id="customReminderStatus" class="reminder-update-message hidden-initially"></p>
+        <section id="aura-reminders">
+            <h2>Aura Reminders</h2>
+            <div class="toggle-container">
+                <span>Enable Timesheet Reminder:</span>
+                <label class="toggle">
+                    <input type="checkbox" id="timesheetReminderToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div id="timesheetReminderSettings" class="hidden-initially"> <!-- This div will be shown/hidden by the toggle -->
+                <p class="reminder-text"><em>Remind me on and at:</em></p>
+                <div class="select-container">
+                    <select id="reminderDay">
+                        <option value="Monday">Monday</option>
+                        <option value="Tuesday">Tuesday</option>
+                        <option value="Wednesday">Wednesday</option>
+                        <option value="Thursday">Thursday</option>
+                        <option value="Friday">Friday</option>
+                    </select>
                 </div>
-
-                <h3>Saved Custom Reminders</h3>
-                <div id="customRemindersList">
-                    <!-- Custom reminders will be listed here by JavaScript -->
-                    <p>No custom reminders saved yet.</p>
+                <div class="select-container">
+                    <select id="reminderTime"></select> <!-- Options populated by JS -->
                 </div>
-            </section>
+                <div class="button-group">
+                    <button id="saveTimesheetReminderSettings" class="settings-button">Save Reminder</button>
+                    <button id="triggerTimesheetReminder" class="settings-button">Trigger Timesheet Reminder Now</button>
+                    <p id="timesheetReminderUpdateMessage" class="reminder-update-message hidden-initially"></p>
+                </div>
+            </div>
+        </section>
 
-            <section id="export-settings">
-                <h2>Export Custom Reminders</h2>
-                <p>Click the button below to generate a JSON representation of your custom reminders. You can copy this to back them up or share them.</p>
-                <button id="generateExportData" class="settings-button">Generate Export Data</button>
-                <textarea id="exportDataTextarea" readonly placeholder="Exported JSON data will appear here..."></textarea>
-            </section>
-        </div>
+        <section id="create-reminder">
+            <h2>Create Custom Reminder</h2>
+            <div id="createReminderInitialStep">
+                <div>
+                    <label for="reminderName">Reminder Name:</label>
+                    <input type="text" id="reminderName" placeholder="e.g., Snapchat Task">
+                </div>
+                <div>
+                    <label for="reminderUrlPattern">URL Pattern (e.g., *://*.example.com/path*):</label>
+                    <input type="text" id="reminderUrlPattern" placeholder="*://*.example.com/*">
+                </div>
+                <div>
+                    <label for="reminderTextTrigger">Text to look for on site (leave blank if URL match is enough):</label>
+                    <input type="text" id="reminderTextTrigger" placeholder="e.g., 'Order Complete, Submitted, Thank You'">
+                </div>
+                <button id="nextButton" class="settings-button">Next</button>
+                <p id="customReminderStatus" class="reminder-update-message hidden-initially"></p>
+            </div>
 
-        <div class="feedback">
-<a href="https://teams.microsoft.com/l/chat/0/0?users=harry.barnes@essencemediacom.com&topicname=Chat" target="_blank" rel="noopener noreferrer">Have an idea? Let the chef know here!</a>
-        </div>
+            <h3>Saved Custom Reminders</h3>
+            <div id="customRemindersList">
+                <!-- Custom reminders will be listed here by JavaScript -->
+                <p>No custom reminders saved yet.</p>
+            </div>
+        </section>
+
+        <section id="export-settings">
+            <h2>Export Custom Reminders</h2>
+            <p>Click the button below to generate a JSON representation of your custom reminders. You can copy this to back them up or share them.</p>
+            <button id="generateExportData" class="settings-button">Generate Export Data</button>
+            <textarea id="exportDataTextarea" readonly placeholder="Exported JSON data will appear here..."></textarea>
+        </section>
     </div>
-    <script src="build-info.js"></script>
-    <script src="utils.js"></script>
     <script src="settings.js"></script>
-
-    <div id="build-info" class="build-info"></div>
 
     <!-- New Reminder Modal Editor -->
     <div id="reminderModalOverlay" class="reminder-modal-overlay"></div>
