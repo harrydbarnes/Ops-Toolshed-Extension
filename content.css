@@ -1,7 +1,7 @@
 /* --- Reminder Popup Styles --- */
 /* Note: The @import for Montserrat font is intentionally omitted here to avoid conflicts with host pages. */
 
-#meta-reminder-popup, #ias-reminder-popup, #custom-reminder-display-popup { /* Apply styles to all three popups */
+#meta-reminder-popup, #ias-reminder-popup, #custom-reminder-display-popup, #confirmation-popup { /* Apply styles to all popups */
     font-family: 'Montserrat', sans-serif;
     position: fixed;
     z-index: 2147483647;
@@ -21,13 +21,14 @@
 /* Black Theme Override for Reminders */
 body.reminder-theme-black #meta-reminder-popup,
 body.reminder-theme-black #ias-reminder-popup,
-body.reminder-theme-black #custom-reminder-display-popup {
+body.reminder-theme-black #custom-reminder-display-popup,
+body.reminder-theme-black #confirmation-popup {
     background-color: #333;
 }
-#meta-reminder-popup h3, #ias-reminder-popup h3, #custom-reminder-display-popup h3 { margin-top: 0; font-size: 18px; font-weight: 700; }
-#meta-reminder-popup p, #ias-reminder-popup p, #custom-reminder-display-popup p { margin-bottom: 10px; font-size: 14px; }
-#meta-reminder-popup ul, #ias-reminder-popup ul, #custom-reminder-display-popup ul { text-align: left; margin-bottom: 20px; font-size: 14px; padding-left: 20px; }
-#meta-reminder-popup li, #ias-reminder-popup li, #custom-reminder-display-popup li { margin-bottom: 5px; }
+#meta-reminder-popup h3, #ias-reminder-popup h3, #custom-reminder-display-popup h3, #confirmation-popup h3 { margin-top: 0; font-size: 18px; font-weight: 700; }
+#meta-reminder-popup p, #ias-reminder-popup p, #custom-reminder-display-popup p, #confirmation-popup p { margin-bottom: 10px; font-size: 14px; }
+#meta-reminder-popup ul, #ias-reminder-popup ul, #custom-reminder-display-popup ul, #confirmation-popup ul { text-align: left; margin-bottom: 20px; font-size: 14px; padding-left: 20px; }
+#meta-reminder-popup li, #ias-reminder-popup li, #custom-reminder-display-popup li, #confirmation-popup li { margin-bottom: 5px; }
 
 .reminder-close-button {
     background-color: white;
