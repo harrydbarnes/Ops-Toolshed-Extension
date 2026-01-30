@@ -1,6 +1,5 @@
 from playwright.sync_api import sync_playwright
 import os
-import time
 
 def run(playwright):
     browser = playwright.chromium.launch(headless=True)
@@ -43,7 +42,7 @@ def run(playwright):
     page.click('#otf-next-btn')
     
     # Wait for animation
-    time.sleep(0.5)
+    page.wait_for_selector('#otf-step-2.active')
     
     # Screenshot Step 2 (Slider effect verification)
     page.screenshot(path="verification/feedback_slider_step2.png")

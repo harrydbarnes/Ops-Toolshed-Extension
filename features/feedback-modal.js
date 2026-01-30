@@ -10,15 +10,6 @@ class FeedbackModal {
             name: ''
         };
         this.root = null;
-        
-        // Load user name from secure storage
-        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-            chrome.storage.local.get(['opsToolshed_userName'], (result) => {
-                if (result.opsToolshed_userName) {
-                    this.data.name = result.opsToolshed_userName;
-                }
-            });
-        }
     }
 
     initialize() {
@@ -185,9 +176,6 @@ ${this.data.name}`;
             "Order ID Copy", "Live Chat", "Stats", "General/Other"
         ];
 
-        const safeName = window.utils && window.utils.escapeHTML ? window.utils.escapeHTML(this.data.name) : '';
-        const safeIdeaBy = window.utils && window.utils.escapeHTML ? window.utils.escapeHTML(this.data.ideaBy) : '';
-
         // Removed all inline styles (style="...") to fix CSP errors
         this.root.innerHTML = `
             <div class="otf-overlay"></div>
@@ -223,11 +211,11 @@ ${this.data.name}`;
                                 </div>
                                 <div class="otf-field">
                                     <label class="otf-label" for="otf-ideaBy">Info from</label>
-                                    <input id="otf-ideaBy" class="otf-input" placeholder="Who told you this?" value="${safeIdeaBy}">
+                                    <input id="otf-ideaBy" class="otf-input" placeholder="Who told you this?">
                                 </div>
                                 <div class="otf-field">
                                     <label class="otf-label" for="otf-name">Your Name</label>
-                                    <input id="otf-name" class="otf-input" placeholder="Your name" value="${safeName}">
+                                    <input id="otf-name" class="otf-input" placeholder="Your name">
                                 </div>
                             </div>
                         </div>
@@ -255,6 +243,10 @@ ${this.data.name}`;
         `;
 
         document.body.appendChild(this.root);
+
+        // Safely set values after DOM insertion to prevent XSS
+        this.root.querySelector('#otf-name').value = this.data.name || '';
+        this.root.querySelector('#otf-ideaBy').value = this.data.ideaBy || '';
 
         // Bind events
         this.root.querySelector('.otf-overlay').onclick = () => this.close();
