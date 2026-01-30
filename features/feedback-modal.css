@@ -1,0 +1,247 @@
+/* Scoped to #ops-toolshed-feedback-root to avoid conflicts */
+#ops-toolshed-feedback-root {
+    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2147483647; /* Max z-index */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: auto;
+}
+
+.otf-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(4px);
+    animation: otf-fade-in 0.2s ease-out;
+}
+
+.otf-modal {
+    position: relative;
+    width: 100%;
+    max-width: 470px;
+    background-color: #ffffff;
+    border-radius: 8px;
+    border: 1px solid #e4e4e7;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    padding: 24px;
+    margin: 16px;
+    color: #09090b;
+    animation: otf-zoom-in 0.2s ease-out;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow: hidden; /* Ensure toasts don't spill out visually */
+}
+
+/* Header */
+.otf-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+.otf-header p {
+    margin: 6px 0 0 0;
+    font-size: 14px;
+    color: #71717a;
+}
+
+/* Animation Container */
+.otf-slider-viewport {
+    overflow: hidden;
+    position: relative;
+    /* Smooth height resizing */
+    transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.otf-slider-track {
+    display: flex;
+    width: 200%; /* Two steps side by side */
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* Smooth slide */
+    align-items: flex-start; /* CRITICAL: Prevents step 2 from stretching to step 1 height */
+}
+
+.otf-step {
+    width: 50%; /* Each step takes half the track (which is 100% of viewport) */
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none; /* Prevent interaction when not active */
+}
+
+.otf-step.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Form Layout */
+.otf-grid {
+    display: grid;
+    gap: 16px;
+    padding: 4px; /* Increased padding to prevent focus ring clipping */
+}
+
+.otf-field {
+    display: grid;
+    grid-template-columns: 1fr 3fr;
+    align-items: center;
+    gap: 16px;
+}
+
+.otf-label {
+    text-align: right;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1;
+}
+
+.otf-input, .otf-select, .otf-textarea {
+    display: flex;
+    width: 100%;
+    border-radius: 6px;
+    border: 1px solid #e4e4e7;
+    background-color: transparent;
+    padding: 8px 12px;
+    font-size: 14px;
+    line-height: 20px;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+    font-family: inherit;
+}
+
+.otf-input:focus, .otf-select:focus, .otf-textarea:focus {
+    outline: 2px solid #ff4087;
+    outline-offset: 2px;
+    border-color: #ff4087;
+}
+
+.otf-textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+/* Footer & Buttons */
+.otf-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 8px;
+}
+
+.otf-step-indicator {
+    font-size: 14px;
+    color: #71717a;
+}
+
+.otf-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    height: 40px;
+    padding: 0 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+}
+
+.otf-btn-primary {
+    background-color: #ff4087;
+    color: #ffffff;
+}
+.otf-btn-primary:hover {
+    background-color: #ff4087;
+    opacity: 0.9;
+}
+
+.otf-btn-ghost {
+    background-color: transparent;
+    color: #18181b;
+}
+.otf-btn-ghost:hover {
+    background-color: #f4f4f5;
+}
+
+.otf-btn-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: transparent;
+    border: none;
+    font-size: 18px;
+    color: #71717a;
+    cursor: pointer;
+    line-height: 1;
+    padding: 4px;
+    border-radius: 4px;
+    z-index: 10;
+}
+.otf-btn-close:hover {
+    background-color: #f4f4f5;
+    color: #18181b;
+}
+
+/* Step 2 Content */
+.otf-step-2-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    text-align: center;
+    font-size: 16px;
+    /* Ensure padding matches grid so width aligns */
+    box-sizing: border-box; 
+}
+
+/* Toast Notification */
+.otf-toast {
+    position: absolute;
+    bottom: 24px;
+    right: 24px;
+    padding: 12px 16px;
+    background-color: #fff;
+    border: 1px solid #e4e4e7;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transform: translateY(20px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 20;
+    pointer-events: none;
+}
+
+.otf-toast.visible {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.otf-toast.error {
+    border-left: 4px solid #ef4444;
+}
+.otf-toast.success {
+    border-left: 4px solid #10b981;
+}
+
+@keyframes otf-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+@keyframes otf-zoom-in {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
