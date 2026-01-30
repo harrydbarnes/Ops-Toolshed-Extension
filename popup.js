@@ -191,7 +191,25 @@ document.addEventListener('DOMContentLoaded', function() {
     const menuFeedback = document.getElementById('menu-feedback');
     if (menuFeedback) {
         menuFeedback.addEventListener('click', () => {
-            chrome.tabs.create({ url: 'https://teams.microsoft.com/l/chat/0/0?users=harry.barnes@essencemediacom.com&topicname=Chat' });
+            // Check if active tab is a MediaOcean/Prisma page where we can inject the modal
+            chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+                const activeTab = tabs[0];
+                const isPrisma = activeTab.url && (activeTab.url.includes("mediaocean.com") || activeTab.url.includes("sharepoint.com"));
+                
+                if (isPrisma) {
+                    chrome.tabs.sendMessage(activeTab.id, { action: "openFeedbackModal" }, (response) => {
+                        // If error (e.g., content script not loaded), fallback to toolshed page
+                        if (chrome.runtime.lastError) {
+                            chrome.tabs.create({ url: chrome.runtime.getURL('toolshed.html?feedback=true') });
+                        } else {
+                            window.close(); // Close popup if modal opened successfully
+                        }
+                    });
+                } else {
+                    // Not on a Prisma page, open toolshed with feedback param
+                    chrome.tabs.create({ url: chrome.runtime.getURL('toolshed.html?feedback=true') });
+                }
+            });
         });
     }
 });

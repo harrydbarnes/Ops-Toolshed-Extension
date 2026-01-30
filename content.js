@@ -153,6 +153,12 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
             }
         })();
         return true; // Keep the message channel open for asynchronous response
+    } else if (request.action === "openFeedbackModal") {
+        console.log("[ContentScript] Opening Feedback Modal");
+        if (window.feedbackModalFeature) {
+            window.feedbackModalFeature.open();
+        }
+        sendResponse({ status: "opened" });
     } else {
         console.log("[ContentScript Prisma] Unknown action received or no action taken:", request.action);
     }
