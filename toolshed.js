@@ -1,4 +1,27 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // --- Feedback Modal Logic ---
+    const feedbackLink = document.getElementById('open-feedback-modal');
+    
+    // Function to open modal (reusing the class from features/feedback-modal.js)
+    const openFeedback = (e) => {
+        if (e) e.preventDefault();
+        if (window.feedbackModalFeature) {
+            window.feedbackModalFeature.open();
+        }
+    };
+
+    if (feedbackLink) {
+        feedbackLink.addEventListener('click', openFeedback);
+    }
+
+    // Check URL params
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('feedback') === 'true') {
+        openFeedback();
+        // Optional: Clean URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
     const tabContainer = document.querySelector('.tab-container');
     const tabButtons = document.querySelectorAll('.tab-button');
     const tabContents = document.querySelectorAll('.tab-content');

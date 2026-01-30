@@ -49,6 +49,7 @@
       "matches": ["*://*.mediaocean.com/*"],
       "js": [
         "utils.js",
+        "features/feedback-modal.js",
         "features/logo.js",
         "features/reminders.js",
         "features/campaign.js",
@@ -63,7 +64,7 @@
         "features/order-id-copy.js",
         "content.js"
       ],
-      "css": ["approvers.css", "content.css"],
+      "css": ["approvers.css", "content.css", "features/feedback-modal.css"],
       "all_frames": true
     }
   ],
