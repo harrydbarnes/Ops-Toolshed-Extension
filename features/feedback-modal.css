@@ -245,21 +245,3 @@
     from { opacity: 0; transform: scale(0.95); }
     to { opacity: 1; transform: scale(1); }
 }
-
-/* Footer & Buttons - Utility classes */
-
-.otf-footer-side {
-    width: 64px;
-}
-
-.otf-footer-right {
-    display: flex;
-    justify-content: flex-end;
-}
-
-.otf-hidden {
-    visibility: hidden;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s ease;
-}

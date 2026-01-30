@@ -1,5 +1,3 @@
-const RECIPIENT_EMAIL = 'harry.barnes@wppmedia.com';
-
 class FeedbackModal {
     constructor() {
         this.step = 1;
@@ -7,18 +5,9 @@ class FeedbackModal {
             section: '',
             tip: '',
             ideaBy: '',
-            name: ''
+            name: localStorage.getItem('opsToolshed_userName') || ''
         };
         this.root = null;
-        
-        // Load user name from secure storage
-        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-            chrome.storage.local.get(['opsToolshed_userName'], (result) => {
-                if (result.opsToolshed_userName) {
-                    this.data.name = result.opsToolshed_userName;
-                }
-            });
-        }
     }
 
     initialize() {
@@ -27,21 +16,6 @@ class FeedbackModal {
 
     open() {
         if (document.getElementById('ops-toolshed-feedback-root')) return;
-
-        // Fetch name immediately before rendering to prevent race conditions
-        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-            chrome.storage.local.get(['opsToolshed_userName'], (result) => {
-                if (result.opsToolshed_userName) {
-                    this.data.name = result.opsToolshed_userName;
-                }
-                this._renderAndShow();
-            });
-        } else {
-            this._renderAndShow();
-        }
-    }
-
-    _renderAndShow() {
         this.step = 1;
         this.render();
         // Wait for frame to ensure DOM is measured correctly
@@ -70,11 +44,11 @@ class FeedbackModal {
     }
 
     handleNext() {
-        const section = this.root.querySelector('#otf-section').value;
-        const type = this.root.querySelector('#otf-type').value;
-        const tip = this.root.querySelector('#otf-tip').value;
-        const ideaBy = this.root.querySelector('#otf-ideaBy').value;
-        const name = this.root.querySelector('#otf-name').value;
+        const section = document.getElementById('otf-section').value;
+        const type = document.getElementById('otf-type').value;
+        const tip = document.getElementById('otf-tip').value;
+        const ideaBy = document.getElementById('otf-ideaBy').value;
+        const name = document.getElementById('otf-name').value;
 
         if (!section || !type || !tip || !ideaBy || !name) {
             this.showToast("Please fill in all fields", "error");
@@ -82,10 +56,7 @@ class FeedbackModal {
         }
 
         this.data = { section, type, tip, ideaBy, name };
-        
-        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-            chrome.storage.local.set({ 'opsToolshed_userName': name });
-        }
+        localStorage.setItem('opsToolshed_userName', name);
         
         this.step = 2;
         this.updateUI();
@@ -97,7 +68,12 @@ class FeedbackModal {
     }
 
     handleSubmit() {
-        const uniqueId = new Date().toISOString();
+        const now = new Date();
+        const uniqueId = `${now.getDate().toString().padStart(2, '0')}${
+            (now.getMonth() + 1).toString().padStart(2, '0')}-${
+            now.getHours().toString().padStart(2, '0')}:${
+            now.getMinutes().toString().padStart(2, '0')}`;
+
         const subject = `Ops Toolshed Feedback - ${this.data.section} (${uniqueId})`;
         const body = `Hello Harry,
 
@@ -113,8 +89,10 @@ ${this.data.name}`;
 
         this.showToast("Email opening: look for it now.", "success");
 
+        // Small delay to let the toast be seen before the mail client potentially covers screen
         setTimeout(() => {
-            window.location.href = `mailto:${RECIPIENT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            window.location.href = `mailto:harry.barnes@wppmedia.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            // Close modal shortly after
             setTimeout(() => this.close(), 1000);
         }, 500);
     }
@@ -141,9 +119,7 @@ ${this.data.name}`;
             viewport.style.height = `${height}px`;
 
             // Button State
-            // Use classList for CSP compliance (no inline styles)
-            backBtn.classList.add('otf-hidden');
-            
+            backBtn.style.visibility = 'hidden';
             nextBtn.textContent = 'Next';
             nextBtn.onclick = () => this.handleNext();
         } else {
@@ -157,8 +133,7 @@ ${this.data.name}`;
             viewport.style.height = `${height}px`;
 
             // Button State
-            backBtn.classList.remove('otf-hidden');
-
+            backBtn.style.visibility = 'visible';
             nextBtn.textContent = 'Submit';
             nextBtn.onclick = () => this.handleSubmit();
         }
@@ -175,10 +150,6 @@ ${this.data.name}`;
             "Order ID Copy", "Live Chat", "Stats", "General/Other"
         ];
 
-        const safeName = window.utils && window.utils.escapeHTML ? window.utils.escapeHTML(this.data.name) : '';
-        const safeIdeaBy = window.utils && window.utils.escapeHTML ? window.utils.escapeHTML(this.data.ideaBy) : '';
-
-        // Removed all inline styles (style="...") to fix CSP errors
         this.root.innerHTML = `
             <div class="otf-overlay"></div>
             <div class="otf-modal">
@@ -213,11 +184,11 @@ ${this.data.name}`;
                                 </div>
                                 <div class="otf-field">
                                     <label class="otf-label" for="otf-ideaBy">Info from</label>
-                                    <input id="otf-ideaBy" class="otf-input" placeholder="Who told you this?" value="${safeIdeaBy}">
+                                    <input id="otf-ideaBy" class="otf-input" placeholder="Who told you this?" value="${this.data.ideaBy}">
                                 </div>
                                 <div class="otf-field">
                                     <label class="otf-label" for="otf-name">Your Name</label>
-                                    <input id="otf-name" class="otf-input" placeholder="Your name" value="${safeName}">
+                                    <input id="otf-name" class="otf-input" placeholder="Your name" value="${this.data.name}">
                                 </div>
                             </div>
                         </div>
@@ -231,11 +202,11 @@ ${this.data.name}`;
                 </div>
 
                 <div class="otf-footer">
-                    <div class="otf-footer-side">
-                        <button id="otf-back-btn" class="otf-btn otf-btn-ghost otf-hidden">Back</button>
+                    <div style="width: 64px">
+                        <button id="otf-back-btn" class="otf-btn otf-btn-ghost" style="visibility: hidden">Back</button>
                     </div>
                     <span class="otf-step-indicator">1/2</span>
-                    <div class="otf-footer-side otf-footer-right">
+                    <div style="width: 64px; display: flex; justify-content: flex-end;">
                         <button id="otf-next-btn" class="otf-btn otf-btn-primary">Next</button>
                     </div>
                 </div>

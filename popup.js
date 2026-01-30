@@ -194,8 +194,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Check if active tab is a MediaOcean/Prisma page where we can inject the modal
             chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
                 const activeTab = tabs[0];
-                // Modified: Removed sharepoint.com check as content scripts don't run there
-                const isPrisma = activeTab.url && activeTab.url.includes("mediaocean.com");
+                const isPrisma = activeTab.url && (activeTab.url.includes("mediaocean.com") || activeTab.url.includes("sharepoint.com"));
                 
                 if (isPrisma) {
                     chrome.tabs.sendMessage(activeTab.id, { action: "openFeedbackModal" }, (response) => {
