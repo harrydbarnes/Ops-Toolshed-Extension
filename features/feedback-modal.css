@@ -42,6 +42,15 @@
     overflow: hidden; /* Ensure toasts don't spill out visually */
 }
 
+/* Exit Animations */
+.otf-closing .otf-overlay {
+    animation: otf-fade-out 0.2s ease-in forwards;
+}
+
+.otf-closing .otf-modal {
+    animation: otf-zoom-out 0.2s ease-in forwards;
+}
+
 /* Header */
 .otf-header h2 {
     margin: 0;
@@ -244,4 +253,31 @@
 @keyframes otf-zoom-in {
     from { opacity: 0; transform: scale(0.95); }
     to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes otf-fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+@keyframes otf-zoom-out {
+    from { opacity: 1; transform: scale(1); }
+    to { opacity: 0; transform: scale(0.95); }
+}
+
+/* Footer & Buttons - Utility classes */
+
+.otf-footer-side {
+    width: 64px;
+}
+
+.otf-footer-right {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.otf-hidden {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
 }
