@@ -48,16 +48,9 @@ def run(playwright):
     # Screenshot Step 2 (Slider effect verification)
     page.screenshot(path="verification/feedback_slider_step2.png")
     
-    # Override handleSubmit to prevent actual navigation but maintain logic for test
-    page.evaluate("""
-        if (window.feedbackModalFeature) {
-            window.feedbackModalFeature.handleSubmit = function() {
-                // Use window.feedbackModalFeature directly to avoid 'this' context issues
-                window.feedbackModalFeature.showToast("Email opening: look for it now.", "success");
-                console.log("Mock submit: Navigation prevented");
-            };
-        }
-    """)
+    # Submit to see toast
+    # Mock window.location.href or ignore navigation
+    page.evaluate("window.open = () => {}") # Just in case
     
     page.click('#otf-next-btn') # Now it says Submit
     
