@@ -190,17 +190,6 @@ function setupToggle(toggleId, storageKey, logMessage) {
 
 
 document.addEventListener('DOMContentLoaded', function() {
-    // --- Feedback Modal Logic ---
-    const feedbackLink = document.getElementById('open-feedback-modal');
-    if (feedbackLink) {
-        feedbackLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (window.feedbackModalFeature) {
-                window.feedbackModalFeature.open();
-            }
-        });
-    }
-
     // Tab switching logic
     const tabContainer = document.querySelector('.tab-container');
     if (tabContainer) {
