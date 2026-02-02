@@ -9,7 +9,7 @@ export const renderApprovers = (approvers, context) => {
         document = window.document
     } = context;
 
-    approversList.innerHTML = '';
+    approversList.replaceChildren();
     approversCount.textContent = `${approvers.length} approver${approvers.length !== 1 ? 's' : ''} found`;
 
     if (approvers.length === 0) {
