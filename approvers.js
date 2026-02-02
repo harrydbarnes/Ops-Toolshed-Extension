@@ -1,5 +1,78 @@
 import { approversData, businessUnits, clients, functions, companyUserIdsList } from './approvers-data.js';
 
+export const renderApprovers = (approvers, context) => {
+    const {
+        approversList,
+        approversCount,
+        selectedApprovers,
+        favoriteApprovers,
+        document = window.document
+    } = context;
+
+    approversList.innerHTML = '';
+    approversCount.textContent = `${approvers.length} approver${approvers.length !== 1 ? 's' : ''} found`;
+
+    if (approvers.length === 0) {
+        const p = document.createElement('p');
+        p.textContent = 'No approvers found matching your criteria.';
+        approversList.appendChild(p);
+        return;
+    }
+
+    approvers.forEach(approver => {
+        const card = document.createElement('div');
+        card.className = `approver-card ${selectedApprovers.has(approver.id) ? 'selected' : ''}`;
+        card.dataset.approverId = approver.id;
+
+        const isFavorited = favoriteApprovers.has(approver.id);
+
+        // Header
+        const header = document.createElement('div');
+        header.className = 'approver-card-header';
+
+        const h4 = document.createElement('h4');
+        h4.textContent = `${approver.firstName} ${approver.lastName}`;
+
+        const star = document.createElement('i');
+        star.className = `favorite-star ${isFavorited ? 'fas fa-star favorited' : 'far fa-star'}`;
+
+        header.appendChild(h4);
+        header.appendChild(star);
+
+        // Email
+        const pEmail = document.createElement('p');
+        pEmail.textContent = approver.email;
+
+        // Tags
+        const tags = document.createElement('div');
+        tags.className = 'approver-tags';
+
+        const tagOffice = document.createElement('span');
+        tagOffice.className = 'tag';
+        tagOffice.textContent = approver.officeName;
+
+        const tagUnit = document.createElement('span');
+        tagUnit.className = 'tag';
+        tagUnit.textContent = approver.businessUnit;
+
+        tags.appendChild(tagOffice);
+        tags.appendChild(tagUnit);
+
+        if (approver.specialty && approver.specialty !== approver.businessUnit) {
+            const tagSpecialty = document.createElement('span');
+            tagSpecialty.className = 'tag specialty';
+            tagSpecialty.textContent = approver.specialty;
+            tags.appendChild(tagSpecialty);
+        }
+
+        card.appendChild(header);
+        card.appendChild(pEmail);
+        card.appendChild(tags);
+
+        approversList.appendChild(card);
+    });
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('search-input');
     const favoritesOnlyButton = document.getElementById('favorites-only-button');
@@ -18,38 +91,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedApprovers = new Set();
     let favoriteApprovers = new Set();
 
-    const renderApprovers = (approvers) => {
-        approversList.innerHTML = '';
-        approversCount.textContent = `${approvers.length} approver${approvers.length !== 1 ? 's' : ''} found`;
-
-        if (approvers.length === 0) {
-            approversList.innerHTML = '<p>No approvers found matching your criteria.</p>';
-            return;
-        }
-
-        approvers.forEach(approver => {
-            const card = document.createElement('div');
-            card.className = `approver-card ${selectedApprovers.has(approver.id) ? 'selected' : ''}`;
-            card.dataset.approverId = approver.id;
-
-            const isFavorited = favoriteApprovers.has(approver.id);
-            const specialtyTag = (approver.specialty && approver.specialty !== approver.businessUnit)
-                ? `<span class="tag specialty">${approver.specialty}</span>`
-                : '';
-
-            card.innerHTML = `
-                <div class="approver-card-header">
-                    <h4>${approver.firstName} ${approver.lastName}</h4>
-                    <i class="favorite-star ${isFavorited ? 'fas fa-star favorited' : 'far fa-star'}"></i>
-                </div>
-                <p>${approver.email}</p>
-                <div class="approver-tags">
-                    <span class="tag">${approver.officeName}</span>
-                    <span class="tag">${approver.businessUnit}</span>
-                    ${specialtyTag}
-                </div>
-            `;
-            approversList.appendChild(card);
+    // Internal wrapper to bridge the exported function
+    const renderApproversWrapper = (approvers) => {
+        renderApprovers(approvers, {
+            approversList,
+            approversCount,
+            selectedApprovers,
+            favoriteApprovers
         });
     };
 
@@ -114,7 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
             );
         }
 
-        renderApprovers(filtered);
+        renderApproversWrapper(filtered);
     };
 
     const toggleFilterButton = (e) => {
