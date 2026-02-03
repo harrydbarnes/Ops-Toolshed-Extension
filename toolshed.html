@@ -83,7 +83,9 @@
 
         <div id="stats" class="tab-content">
             <h2>Statistics</h2>
-            <ul>
+
+            <!-- Lifetime Totals -->
+            <ul class="stats-list">
                 <li>
                     <strong>Campaigns visited:</strong>
                     <span id="campaigns-visited-stat">0</span>
@@ -99,6 +101,41 @@
                     <span id="placements-added-stat">0</span>
                 </li>
             </ul>
+
+            <!-- Heatmap -->
+            <div class="stats-section">
+                <h3>Activity Heatmap</h3>
+                <div class="heatmap-wrapper">
+                    <div id="heatmap" class="heatmap-container"></div>
+                </div>
+            </div>
+
+            <!-- Charts & Fun Stats -->
+            <div class="stats-grid">
+                <div class="stats-card">
+                    <h3>Weekly Productivity</h3>
+                    <div id="day-of-week-chart" class="chart-container"></div>
+                    <p id="most-active-month" class="stat-summary"></p>
+                </div>
+                <div class="stats-card">
+                    <h3>Fun Metrics</h3>
+                    <div class="fun-stat">
+                        <span class="fun-icon">🫖</span>
+                        <div class="fun-content">
+                            <span id="kettle-index" class="fun-value">0</span>
+                            <span class="fun-label">Kettles Boiled (waiting time)</span>
+                        </div>
+                    </div>
+                    <div class="fun-stat">
+                        <span class="fun-icon">📈</span>
+                        <div class="fun-content">
+                            <span id="beat-your-week" class="fun-value">-</span>
+                            <span class="fun-label">vs Previous Week</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <button id="reset-stats-button" class="button-secondary">Reset Stats</button>
         </div>
 
@@ -121,6 +158,7 @@
     </div>
 
     <div id="build-info" class="build-info"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/canvas-confetti/1.6.0/confetti.browser.min.js"></script>
     <script src="build-info.js"></script>
     <script src="utils.js"></script>
     <script src="features/feedback-modal.js"></script>

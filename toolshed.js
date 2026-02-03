@@ -18,7 +18,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('feedback') === 'true') {
         openFeedback();
-        // Optional: Clean URL
         window.history.replaceState({}, document.title, window.location.pathname);
     }
 
@@ -26,7 +25,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabButtons = document.querySelectorAll('.tab-button');
     const tabContents = document.querySelectorAll('.tab-content');
     const resetButton = document.getElementById('reset-stats-button');
-    const statsTabButton = document.querySelector('.tab-button[data-tab="stats"]');
 
     // --- Tab Switching Logic ---
     if (tabContainer) {
@@ -50,7 +48,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Stats Display Logic ---
     function formatLoadingTime(totalSeconds) {
         if (totalSeconds < 60) {
-            // ENHANCEMENT: Display <0.01s for very small, non-zero values
             if (totalSeconds > 0 && totalSeconds < 0.01) {
                 return '<0.01s';
             }
@@ -62,68 +59,209 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function renderHeatmap(dailyStats) {
+        const heatmapContainer = document.getElementById('heatmap');
+        if (!heatmapContainer) return;
+        heatmapContainer.innerHTML = '';
+
+        // Generate dates for the last 52 weeks (approx 365 days)
+        const today = new Date();
+        // Adjust start date to align with the grid (start on Sunday or consistent day)
+        // For simplicity, just last 365 days
+        const startDate = new Date(today);
+        startDate.setDate(today.getDate() - 364);
+
+        // Map daily stats to date strings
+        const statsMap = dailyStats || {};
+
+        for (let i = 0; i < 365; i++) {
+            const date = new Date(startDate);
+            date.setDate(startDate.getDate() + i);
+            const dateStr = date.toISOString().split('T')[0];
+
+            const stat = statsMap[dateStr];
+            const placements = stat ? stat.placements : 0;
+
+            // Determine level (0-4)
+            let level = 0;
+            if (placements > 0) level = 1;
+            if (placements > 5) level = 2;
+            if (placements > 15) level = 3;
+            if (placements > 30) level = 4;
+
+            const dayEl = document.createElement('div');
+            dayEl.className = 'heatmap-day';
+            dayEl.dataset.level = level;
+            dayEl.title = `${dateStr}: ${placements} placements`;
+
+            heatmapContainer.appendChild(dayEl);
+        }
+    }
+
+    function renderCharts(dailyStats) {
+        // Day of Week Chart
+        const dayCounts = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 }; // Sun-Sat
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+        Object.keys(dailyStats || {}).forEach(dateStr => {
+            const date = new Date(dateStr);
+            const day = date.getDay();
+            if (dailyStats[dateStr].placements) {
+                dayCounts[day] += dailyStats[dateStr].placements;
+            }
+        });
+
+        const maxCount = Math.max(...Object.values(dayCounts));
+        const chartContainer = document.getElementById('day-of-week-chart');
+        if (chartContainer) {
+            chartContainer.innerHTML = '';
+            days.forEach((day, index) => {
+                const count = dayCounts[index];
+                const percentage = maxCount > 0 ? (count / maxCount) * 100 : 0;
+
+                const bar = document.createElement('div');
+                bar.className = 'chart-bar';
+                bar.style.height = `${percentage}%`;
+
+                const label = document.createElement('span');
+                label.className = 'chart-bar-label';
+                label.textContent = day;
+                bar.appendChild(label);
+
+                bar.title = `${day}: ${count} placements`;
+                chartContainer.appendChild(bar);
+            });
+        }
+
+        // Most Active Month
+        const monthCounts = {};
+        Object.keys(dailyStats || {}).forEach(dateStr => {
+            const date = new Date(dateStr);
+            const month = date.toLocaleString('default', { month: 'long', year: 'numeric' });
+            if (dailyStats[dateStr].placements) {
+                monthCounts[month] = (monthCounts[month] || 0) + dailyStats[dateStr].placements;
+            }
+        });
+
+        let mostActiveMonth = '-';
+        let maxMonthCount = 0;
+        Object.entries(monthCounts).forEach(([month, count]) => {
+            if (count > maxMonthCount) {
+                maxMonthCount = count;
+                mostActiveMonth = month;
+            }
+        });
+
+        const monthEl = document.getElementById('most-active-month');
+        if (monthEl) monthEl.textContent = `Most Active Month: ${mostActiveMonth}`;
+    }
+
+    function renderFunStats(dailyStats, totalLoadingTime, totalPlacements) {
+        // Kettle Index
+        const kettleIndex = Math.floor(totalLoadingTime / 180);
+        const kettleEl = document.getElementById('kettle-index');
+        if (kettleEl) kettleEl.textContent = kettleIndex;
+
+        // Beat Your Week
+        const today = new Date();
+        let currentWeekCount = 0;
+        let previousWeekCount = 0;
+
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(today);
+            d.setDate(today.getDate() - i);
+            const ds = d.toISOString().split('T')[0];
+            if (dailyStats[ds]) currentWeekCount += dailyStats[ds].placements || 0;
+        }
+
+        for (let i = 7; i < 14; i++) {
+            const d = new Date(today);
+            d.setDate(today.getDate() - i);
+            const ds = d.toISOString().split('T')[0];
+            if (dailyStats[ds]) previousWeekCount += dailyStats[ds].placements || 0;
+        }
+
+        const beatWeekEl = document.getElementById('beat-your-week');
+        if (beatWeekEl) {
+            if (previousWeekCount === 0) {
+                beatWeekEl.textContent = currentWeekCount > 0 ? "First Week!" : "-";
+            } else {
+                const diff = currentWeekCount - previousWeekCount;
+                const percent = Math.round((diff / previousWeekCount) * 100);
+                const arrow = percent > 0 ? '⬆️' : (percent < 0 ? '⬇️' : '➖');
+                beatWeekEl.textContent = `${arrow} ${Math.abs(percent)}%`;
+            }
+        }
+
+        // Milestones
+        const milestones = [100, 500, 1000, 5000, 10000];
+        if (milestones.includes(totalPlacements) && window.confetti) {
+             // Basic Confetti
+            window.confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { y: 0.6 }
+            });
+        }
+    }
+
     function displayStats() {
-        chrome.storage.local.get(['prismaUserStats', 'statsStartDate', 'visitTimestamps'], (data) => {
-            const stats = data.prismaUserStats || {
+        chrome.storage.local.get(['legacyStats', 'dailyStats', 'statsStartDate'], (data) => {
+            const legacyStats = data.legacyStats || {
                 visitedCampaigns: [],
                 totalLoadingTime: 0,
                 placementsAdded: 0
             };
-            const visitTimestamps = data.visitTimestamps || [];
+            const dailyStats = data.dailyStats || {};
 
-            // Calculate unique days
-            const uniqueDays = new Set(
-                visitTimestamps.map(ts => new Date(ts).toLocaleDateString())
-            );
-            const totalUniqueDays = uniqueDays.size;
+            // Calculate Totals
+            let totalLoadingTime = legacyStats.totalLoadingTime || 0;
+            let totalPlacements = legacyStats.placementsAdded || 0;
 
+            // For campaigns, we try to merge
+            const allCampaigns = new Set(legacyStats.visitedCampaigns || []);
+
+            Object.values(dailyStats).forEach(stat => {
+                totalLoadingTime += stat.loadingTime || 0;
+                totalPlacements += stat.placements || 0;
+                if (stat.visitedCampaigns) {
+                    stat.visitedCampaigns.forEach(c => allCampaigns.add(c));
+                }
+            });
+
+            // Update DOM
             const campaignsVisitedEl = document.getElementById('campaigns-visited-stat');
             const loadingTimeEl = document.getElementById('loading-time-stat');
             const avgLoadingTimeEl = document.getElementById('avg-loading-time-stat');
             const placementsAddedEl = document.getElementById('placements-added-stat');
 
-            if (campaignsVisitedEl) campaignsVisitedEl.textContent = stats.visitedCampaigns.length;
-            if (loadingTimeEl) {
-                loadingTimeEl.textContent = formatLoadingTime(stats.totalLoadingTime);
-            }
-            if (avgLoadingTimeEl) {
-                const totalDaysForAvg = totalUniqueDays > 0 ? totalUniqueDays : 1;
-                const averagePerDay = stats.totalLoadingTime / totalDaysForAvg;
+            if (campaignsVisitedEl) campaignsVisitedEl.textContent = allCampaigns.size;
+            if (loadingTimeEl) loadingTimeEl.textContent = formatLoadingTime(totalLoadingTime);
+            if (placementsAddedEl) placementsAddedEl.textContent = totalPlacements;
 
-                if (stats.totalLoadingTime > 0) {
-                    avgLoadingTimeEl.textContent = `Average time waiting per day: ${formatLoadingTime(averagePerDay)}`;
-                    avgLoadingTimeEl.style.display = 'inline';
-                } else {
-                    avgLoadingTimeEl.style.display = 'none';
-                }
-            }
-            if (placementsAddedEl) placementsAddedEl.textContent = stats.placementsAdded;
+            // Render Visualizations
+            renderHeatmap(dailyStats);
+            renderCharts(dailyStats);
+            renderFunStats(dailyStats, totalLoadingTime, totalPlacements);
 
+            // Start Date
             const statsTitle = document.querySelector('#stats h2');
             let sinceSpan = statsTitle.querySelector('.since-date');
-
-            if (statsTitle && data.statsStartDate) {
+            if (data.statsStartDate) {
                 const startDate = new Date(data.statsStartDate);
-                const dateString = startDate.toLocaleString(undefined, {
+                 const dateString = startDate.toLocaleString(undefined, {
                     year: 'numeric',
                     month: 'long',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
+                    day: 'numeric'
                 });
-                const daysString = totalUniqueDays === 1 ? '1 Day' : `${totalUniqueDays} Days`;
-                const sinceText = `(since ${dateString} - ${daysString})`;
+                const totalDays = Math.max(1, Math.floor((new Date() - startDate) / (1000 * 60 * 60 * 24)));
 
-                if (!sinceSpan) {
-                    sinceSpan = document.createElement('span');
-                    sinceSpan.className = 'since-date';
-                    statsTitle.appendChild(document.createTextNode(' '));
-                    statsTitle.appendChild(sinceSpan);
-                }
-                sinceSpan.textContent = sinceText;
-                sinceSpan.style.display = ''; // Make sure it's visible
-            } else if (sinceSpan) {
-                sinceSpan.style.display = 'none'; // Hide if no date is found
+                 // Calculate average loading time
+                 if (avgLoadingTimeEl && totalLoadingTime > 0) {
+                     const avg = totalLoadingTime / totalDays;
+                     avgLoadingTimeEl.textContent = `Avg per day: ${formatLoadingTime(avg)}`;
+                     avgLoadingTimeEl.style.display = 'inline';
+                 }
             }
         });
     }
@@ -146,36 +284,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Stats Reset Logic ---
     function resetStats() {
-        const defaultStats = {
-            visitedCampaigns: [],
-            totalLoadingTime: 0,
-            placementsAdded: 0
-        };
-        chrome.storage.local.set({ 'prismaUserStats': defaultStats, 'visitTimestamps': [], 'statsStartDate': new Date().toISOString() }, () => {
-            console.log('Prisma user stats have been reset.');
-            displayStats(); // Refresh the display to show zeros
+        chrome.storage.local.set({
+            'legacyStats': { visitedCampaigns: [], totalLoadingTime: 0, placementsAdded: 0 },
+            'dailyStats': {},
+            'statsStartDate': new Date().toISOString()
+        }, () => {
+            console.log('Stats have been reset.');
+            displayStats();
         });
         hideModal();
     }
 
-
-    if (resetButton) {
-        resetButton.addEventListener('click', showModal);
-    }
-    if (confirmButton) {
-        confirmButton.addEventListener('click', resetStats);
-    }
-    if (cancelButton) {
-        cancelButton.addEventListener('click', hideModal);
-    }
-    if (modalOverlay) {
-        modalOverlay.addEventListener('click', hideModal);
-    }
+    if (resetButton) resetButton.addEventListener('click', showModal);
+    if (confirmButton) confirmButton.addEventListener('click', resetStats);
+    if (cancelButton) cancelButton.addEventListener('click', hideModal);
+    if (modalOverlay) modalOverlay.addEventListener('click', hideModal);
 
     // --- Real-Time Update Listener ---
     chrome.storage.onChanged.addListener((changes, namespace) => {
-        if (namespace === 'local' && (changes.prismaUserStats || changes.visitTimestamps)) {
-            console.log('Detected a change in prismaUserStats, updating display.');
+        if (namespace === 'local' && (changes.legacyStats || changes.dailyStats)) {
             displayStats();
         }
     });

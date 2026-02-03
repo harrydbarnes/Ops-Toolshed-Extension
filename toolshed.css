@@ -254,3 +254,156 @@ li {
     text-align: center;
     width: 100%;
 }
+
+/* --- Heatmap Styles --- */
+.heatmap-container {
+    display: grid;
+    grid-template-rows: repeat(7, 12px);
+    grid-auto-flow: column;
+    gap: 2px;
+    margin-bottom: 20px;
+    overflow-x: auto;
+    padding-bottom: 5px;
+}
+
+.heatmap-day {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    background-color: #ebedf0;
+    position: relative;
+}
+
+/* Tooltip for heatmap */
+.heatmap-day:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.8);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 10;
+    pointer-events: none;
+    margin-bottom: 5px;
+}
+
+/* GitHub Green Colors */
+.heatmap-day[data-level="0"] { background-color: #ebedf0; }
+.heatmap-day[data-level="1"] { background-color: #9be9a8; }
+.heatmap-day[data-level="2"] { background-color: #40c463; }
+.heatmap-day[data-level="3"] { background-color: #30a14e; }
+.heatmap-day[data-level="4"] { background-color: #216e39; }
+
+
+/* --- Stats Grid Layout --- */
+.stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+@media (max-width: 700px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.stats-card {
+    background: #f9f9f9;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.stats-card h3 {
+    margin-top: 0;
+    font-size: 1.1em;
+    color: #555;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 8px;
+    margin-bottom: 15px;
+}
+
+/* --- Charts --- */
+.chart-container {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    height: 150px;
+    padding-top: 10px;
+}
+
+.chart-bar {
+    width: 10%;
+    background-color: #40c463;
+    border-radius: 3px 3px 0 0;
+    transition: height 0.3s ease;
+    position: relative;
+    min-height: 2px; /* Ensure visible even if 0 */
+}
+.chart-bar:hover {
+    opacity: 0.8;
+}
+.chart-bar-label {
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: #666;
+}
+
+.stat-summary {
+    margin-top: 25px;
+    font-size: 0.9em;
+    color: #555;
+    text-align: center;
+}
+
+/* --- Fun Stats --- */
+.fun-stat {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 10px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #eee;
+}
+
+.fun-icon {
+    font-size: 2em;
+    margin-right: 15px;
+}
+
+.fun-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.fun-value {
+    font-size: 1.4em;
+    font-weight: bold;
+    color: #333;
+}
+
+.fun-label {
+    font-size: 0.8em;
+    color: #777;
+}
+
+.stats-list li {
+    background-color: #fff;
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 5px;
+    border: 1px solid #f0f0f0;
+    display: flex;
+    justify-content: space-between;
+}
