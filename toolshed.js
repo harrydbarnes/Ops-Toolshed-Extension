@@ -307,6 +307,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // --- Refresh Button Logic ---
+    const refreshButton = document.getElementById('refresh-stats-button');
+    if (refreshButton) {
+        refreshButton.addEventListener('click', () => {
+            const icon = refreshButton.querySelector('svg');
+            if (icon) {
+                icon.classList.add('spin');
+                setTimeout(() => {
+                    icon.classList.remove('spin');
+                }, 1000); // 1s animation
+            }
+            displayStats();
+        });
+    }
+
     // Display stats on initial load
     displayStats();
 

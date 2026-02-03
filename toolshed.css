@@ -130,6 +130,49 @@ li {
 }
 
 /* --- Stats Page Specific Styles --- */
+.stats-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 30px;
+    margin-bottom: 10px;
+}
+
+.stats-header h2 {
+    margin: 0;
+}
+
+.icon-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #666;
+    padding: 5px;
+    border-radius: 50%;
+    transition: background-color 0.2s, transform 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-button:hover {
+    background-color: #f0f0f0;
+    color: #333;
+}
+
+.icon-button:active {
+    transform: scale(0.95);
+}
+
+.spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
 #stats ul {
     list-style-type: disc; /* Ensure bullet points are shown */
     padding-left: 25px;    /* Add standard indentation for a list */
