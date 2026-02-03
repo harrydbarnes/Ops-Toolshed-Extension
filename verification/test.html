@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Loading Facts Test</title>
+    <link rel="stylesheet" href="../content.css">
+    <style>
+        body {
+            background-color: #f0f0f0;
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        /* Shadow DOM spinner container */
+        #spinner-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Shadow DOM Host for spinner -->
+    <div id="spinner-container"></div>
+
+    <script src="../utils.js"></script>
+    <script>
+        // Mock chrome.storage.sync
+        window.chrome = {
+            storage: {
+                sync: {
+                    get: (keys, callback) => {
+                        // Mock enabled by default
+                        callback({ loadingFactsEnabled: true });
+                    }
+                },
+                onChanged: {
+                    addListener: () => {}
+                }
+            }
+        };
+
+        // Create Shadow DOM and add spinner matching new logic
+        const container = document.getElementById('spinner-container');
+        const shadow = container.attachShadow({mode: 'open'});
+        const spinner = document.createElement('svg');
+        spinner.className = 'spinner';
+        spinner.innerHTML = '<circle cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle>';
+        shadow.appendChild(spinner);
+    </script>
+    <script src="../features/loading-facts.js"></script>
+    <script>
+        // Manually trigger initialization
+        if (window.loadingFactsFeature) {
+            window.loadingFactsFeature.initialize();
+            // Force check
+            window.loadingFactsFeature.checkForLoading();
+        }
+    </script>
+</body>
+</html>
