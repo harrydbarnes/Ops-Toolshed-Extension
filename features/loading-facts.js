@@ -18,19 +18,26 @@
                 "You are currently part of the elite club of people waiting for this specific page."
             ];
 
-            // TODO: Verify the specific class name of the Prisma loading wheel.
-            // Common Prisma/ExtJS loading classes are listed below.
-            this.loadingSelectors = [
-                '.x-mask-msg',
-                '.x-mask-loading',
-                '.loading-spinner',
-                '.spinner',
-                '[data-ref="loadMask"]'
-            ];
-
             this.toastId = 'ops-toolshed-loading-toast';
             this.isVisible = false;
             this.debounceTimer = null;
+            this.isEnabled = true; // Default to enabled
+
+            // Initialize enabled state
+            chrome.storage.sync.get('loadingFactsEnabled', (data) => {
+                this.isEnabled = data.loadingFactsEnabled !== false;
+            });
+
+            // Listen for changes
+            chrome.storage.onChanged.addListener((changes, area) => {
+                if (area === 'sync' && changes.loadingFactsEnabled) {
+                    this.isEnabled = changes.loadingFactsEnabled.newValue !== false;
+                    // If disabled while visible, hide immediately
+                    if (!this.isEnabled && this.isVisible) {
+                        this.hideToast();
+                    }
+                }
+            });
         }
 
         initialize() {
@@ -43,7 +50,18 @@
             if (this.debounceTimer) clearTimeout(this.debounceTimer);
 
             this.debounceTimer = setTimeout(() => {
-                const isLoading = this.loadingSelectors.some(selector => document.querySelector(selector));
+                // If feature is disabled, ensure toast is hidden and return
+                if (!this.isEnabled) {
+                    if (this.isVisible) this.hideToast();
+                    return;
+                }
+
+                // MATCHING STATS-COLLECTOR LOGIC:
+                // We use the util to pierce Shadow DOM for 'svg.spinner'
+                // OR check for the standard font-awesome spinner.
+                const spinner = window.utils.queryShadowDom('svg.spinner') || document.querySelector('i.fa-spin');
+
+                const isLoading = !!spinner;
 
                 if (isLoading && !this.isVisible) {
                     this.showToast();
