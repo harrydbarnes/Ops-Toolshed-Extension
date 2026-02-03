@@ -75,6 +75,11 @@ async function mainContentScriptInit() {
         window.orderIdCopyFeature.initialize();
     }
 
+    // Initialize Loading Facts Feature
+    if (window.loadingFactsFeature) {
+        window.loadingFactsFeature.initialize();
+    }
+
     if (window.logoFeature.shouldReplaceLogoOnThisPage()) {
         await window.remindersFeature.fetchCustomReminders(); // Fetch initial set of custom reminders
         window.logoFeature.checkAndReplaceLogo();
@@ -88,6 +93,11 @@ async function mainContentScriptInit() {
     }
 
     const observer = new MutationObserver(function(mutations) {
+        // Always check for loading spinner regardless of logo settings
+        if (window.loadingFactsFeature) {
+            window.loadingFactsFeature.checkForLoading();
+        }
+
         if (window.logoFeature.shouldReplaceLogoOnThisPage()) {
             window.logoFeature.checkAndReplaceLogo();
             // No need to iterate mutations for these checks, just run them if any mutation occurred
