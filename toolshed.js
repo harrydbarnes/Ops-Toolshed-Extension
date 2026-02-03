@@ -26,6 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabContents = document.querySelectorAll('.tab-content');
     const resetButton = document.getElementById('reset-stats-button');
 
+    let previousTotalPlacements = null;
+
     // --- Tab Switching Logic ---
     if (tabContainer) {
         tabContainer.addEventListener('click', (e) => {
@@ -195,14 +197,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Milestones
         const milestones = [100, 500, 1000, 5000, 10000];
-        if (milestones.includes(totalPlacements) && window.confetti) {
-             // Basic Confetti
-            window.confetti({
-                particleCount: 100,
-                spread: 70,
-                origin: { y: 0.6 }
-            });
+        if (window.confetti) {
+            if (previousTotalPlacements === null) {
+                // Initial Load
+                if (milestones.includes(totalPlacements)) {
+                    window.confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+                }
+            } else {
+                // Check Crossing
+                const crossed = milestones.some(m => previousTotalPlacements < m && totalPlacements >= m);
+                if (crossed) {
+                    window.confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+                }
+            }
         }
+
+        previousTotalPlacements = totalPlacements;
     }
 
     function displayStats() {
