@@ -16,6 +16,9 @@
         "You are currently part of the elite club of people waiting for this specific page."
     ];
 
+    const DEBOUNCE_DELAY_MS = 200;
+    const ANIMATION_DURATION_MS = 500;
+
     class LoadingFactsFeature {
         constructor() {
             this.toastId = 'ops-toolshed-loading-toast';
@@ -75,7 +78,7 @@
                 } else if (!isLoading && this.isVisible) {
                     this.hideToast();
                 }
-            }, 200);
+            }, DEBOUNCE_DELAY_MS);
         }
 
         getRandomFact() {
@@ -122,7 +125,7 @@
                     toast.parentNode.removeChild(toast);
                 }
                 this.isVisible = false;
-            }, 500); // Match CSS animation duration
+            }, ANIMATION_DURATION_MS); // Match CSS animation duration
         }
     }
 

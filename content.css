@@ -99,7 +99,7 @@ body.reminder-theme-black #confirmation-popup {
     left: 50%;
     transform: translateX(-50%);
     z-index: 2147483647;
-    background-color: #333; /* Dark background for contrast */
+    background-color: var(--toast-bg-color); /* Dark background for contrast */
     color: white;
     padding: 15px 20px;
     border-radius: 50px; /* Pill shape */
@@ -123,7 +123,7 @@ body.reminder-theme-black #confirmation-popup {
 }
 
 .loading-fact-content strong {
-    color: #ff3d80; /* Pink accent */
+    color: var(--primary-pink); /* Pink accent */
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -225,6 +225,8 @@ body.reminder-theme-black #confirmation-popup {
     --color-nav-pill-bg: rgba(255, 255, 255, 0.15);
     --color-nav-pill-bg-hover: rgba(255, 255, 255, 0.2);
     --font-primary: 'Inter', 'Roboto', sans-serif;
+    --toast-bg-color: #333;
+    --primary-pink: #ff3d80;
 }
 
 /* --- Switch Account Button Styles --- */
