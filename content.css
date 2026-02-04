@@ -102,7 +102,7 @@ body.reminder-theme-black #confirmation-popup {
     background-color: var(--toast-bg-color); /* Dark background for contrast */
     color: white;
     padding: 15px 20px;
-    border-radius: 50px; /* Pill shape */
+    border-radius: var(--toast-border-radius); /* Pill shape */
     box-shadow: 0 5px 15px rgba(0,0,0,0.3);
     display: flex;
     align-items: center;
