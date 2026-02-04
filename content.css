@@ -98,7 +98,7 @@ body.reminder-theme-black #confirmation-popup {
     bottom: var(--toast-bottom-position);
     left: 50%;
     transform: translateX(-50%);
-    z-index: 2147483647;
+    z-index: var(--toast-z-index);
     background-color: var(--toast-bg-color); /* Dark background for contrast */
     color: white;
     padding: 15px 20px;
