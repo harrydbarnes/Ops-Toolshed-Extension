@@ -110,7 +110,7 @@ body.reminder-theme-black #confirmation-popup {
     font-family: 'Montserrat', sans-serif;
     font-size: var(--toast-font-size);
     min-width: var(--toast-min-width);
-    max-width: 500px;
+    max-width: var(--toast-max-width);
 }
 
 .loading-fact-icon {
