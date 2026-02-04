@@ -140,7 +140,7 @@ body.reminder-theme-black #confirmation-popup {
 
 @keyframes slideUpFadeIn {
     0% {
-        transform: translate(-50%, 100px); /* Start below final position */
+        transform: translate(-50%, var(--toast-slide-offset)); /* Start below final position */
         opacity: 0;
     }
     100% {
