@@ -124,7 +124,7 @@ body.reminder-theme-black #confirmation-popup {
 
 .loading-fact-content strong {
     color: var(--primary-pink); /* Pink accent */
-    font-size: 11px;
+    font-size: var(--toast-strong-font-size);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 2px;
