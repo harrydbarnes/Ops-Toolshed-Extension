@@ -1,6 +1,9 @@
 from playwright.sync_api import sync_playwright
 import os
 
+WAIT_FOR_SELECTOR_TIMEOUT_MS = 5000
+WAIT_FOR_ANIMATION_TIMEOUT_MS = 1000
+
 def test_loading_facts():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -14,11 +17,11 @@ def test_loading_facts():
         toast_selector = "#ops-toolshed-loading-toast"
 
         try:
-            page.wait_for_selector(toast_selector, state="visible", timeout=5000)
+            page.wait_for_selector(toast_selector, state="visible", timeout=WAIT_FOR_SELECTOR_TIMEOUT_MS)
             print("Toast appeared with Shadow DOM spinner!")
 
             # Wait a bit for the animation to settle
-            page.wait_for_timeout(1000)
+            page.wait_for_timeout(WAIT_FOR_ANIMATION_TIMEOUT_MS)
 
             # Verify content
             content = page.text_content(toast_selector)

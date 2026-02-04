@@ -97,13 +97,23 @@
             toast.className = 'loading-fact-toast slide-up';
 
             // Create inner content structure
-            toast.innerHTML = `
-                <div class="loading-fact-icon">⏳</div>
-                <div class="loading-fact-content">
-                    <strong>Did you know?</strong>
-                    <span>${window.utils.escapeHTML(fact)}</span>
-                </div>
-            `;
+            const iconDiv = document.createElement('div');
+            iconDiv.className = 'loading-fact-icon';
+            iconDiv.textContent = '⏳';
+            toast.appendChild(iconDiv);
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'loading-fact-content';
+
+            const strong = document.createElement('strong');
+            strong.textContent = 'Did you know?';
+            contentDiv.appendChild(strong);
+
+            const span = document.createElement('span');
+            span.innerHTML = window.utils.escapeHTML(fact);
+            contentDiv.appendChild(span);
+
+            toast.appendChild(contentDiv);
 
             document.body.appendChild(toast);
         }
