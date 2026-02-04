@@ -114,7 +114,7 @@ body.reminder-theme-black #confirmation-popup {
 }
 
 .loading-fact-icon {
-    font-size: 20px;
+    font-size: var(--toast-icon-font-size);
 }
 
 .loading-fact-content {
