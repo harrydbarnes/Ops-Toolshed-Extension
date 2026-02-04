@@ -109,7 +109,7 @@ body.reminder-theme-black #confirmation-popup {
     gap: var(--toast-gap-spacing);
     font-family: 'Montserrat', sans-serif;
     font-size: var(--toast-font-size);
-    min-width: 300px;
+    min-width: var(--toast-min-width);
     max-width: 500px;
 }
 
