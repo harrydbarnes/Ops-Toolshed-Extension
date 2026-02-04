@@ -1,9 +1,34 @@
 import { migrateStats, handleTrackStat } from '../background/stats-manager';
 
 describe('Stats Manager', () => {
+    const RealDate = Date;
+
     beforeEach(() => {
         global.resetMocks();
+
+        // Manual Date mock to ensure deterministic dates (2023-10-27)
+        // while allowing real timers (setTimeout) to function for async/await tests.
+        global.Date = class extends RealDate {
+            constructor(...args) {
+                if (args.length) {
+                    return new RealDate(...args);
+                }
+                return new RealDate('2023-10-27T02:00:00Z');
+            }
+            static now() {
+                return new RealDate('2023-10-27T02:00:00Z').getTime();
+            }
+        };
     });
+
+    afterEach(() => {
+        global.Date = RealDate;
+    });
+
+    // Helper to wait for async operations (using real timers)
+    async function waitForAsync() {
+        await new Promise(resolve => setTimeout(resolve, 50));
+    }
 
     test('migrateStats should move prismaUserStats to legacyStats', async () => {
         const oldStats = {
@@ -11,6 +36,7 @@ describe('Stats Manager', () => {
             totalLoadingTime: 10,
             placementsAdded: 5
         };
+        // Use the mock set (real setTimeout)
         await chrome.storage.local.set({ prismaUserStats: oldStats });
 
         await migrateStats();
@@ -32,18 +58,23 @@ describe('Stats Manager', () => {
     });
 
     test('handleTrackStat should update dailyStats correctly', async () => {
-        const today = new Date().toISOString().split('T')[0];
+        // With mocked date, today is fixed
+        const d = new Date();
+        const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
+        // These are fire-and-forget in implementation, so we wait after
         handleTrackStat({ type: 'CAMPAIGN_VISIT', value: 'c2' }, {}, () => {});
         handleTrackStat({ type: 'LOADING_TIME', value: 2.5 }, {}, () => {});
         handleTrackStat({ type: 'PLACEMENT_ADDED', value: 3 }, {}, () => {});
 
-        // Wait for async execution
-        await new Promise(r => setTimeout(r, 100));
+        // Wait for the chain of promises to resolve
+        await waitForAsync();
 
         const store = chrome.storage.local.__getStore();
-        const daily = store.dailyStats[today];
+        // Check if dailyStats exists first
+        expect(store.dailyStats).toBeDefined();
 
+        const daily = store.dailyStats[today];
         expect(daily).toBeDefined();
         expect(daily.visitedCampaigns).toContain('c2');
         expect(daily.loadingTime).toBe(2.5);
@@ -51,14 +82,17 @@ describe('Stats Manager', () => {
     });
 
     test('handleTrackStat should deduplicate campaign visits', async () => {
-        const today = new Date().toISOString().split('T')[0];
+        const d = new Date();
+        const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
         handleTrackStat({ type: 'CAMPAIGN_VISIT', value: 'c2' }, {}, () => {});
-        await new Promise(r => setTimeout(r, 50));
+        await waitForAsync();
+
         handleTrackStat({ type: 'CAMPAIGN_VISIT', value: 'c2' }, {}, () => {});
-        await new Promise(r => setTimeout(r, 50));
+        await waitForAsync();
 
         const store = chrome.storage.local.__getStore();
+        expect(store.dailyStats).toBeDefined();
         const daily = store.dailyStats[today];
 
         expect(daily.visitedCampaigns.length).toBe(1);

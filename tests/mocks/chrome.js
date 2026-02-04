@@ -4,6 +4,7 @@ const createStorageAreaMock = () => {
   return {
     get: jest.fn((keys, callback) => {
       return new Promise(resolve => {
+        // Always use setTimeout to ensure compatibility with Jest fake timers
         setTimeout(() => {
           const result = {};
           if (!keys) { // Get all items

@@ -79,7 +79,11 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = 0; i < 365; i++) {
             const date = new Date(startDate);
             date.setDate(startDate.getDate() + i);
-            const dateStr = date.toISOString().split('T')[0];
+            // Local date string construction to avoid UTC shifting
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const dateStr = `${year}-${month}-${day}`;
 
             const stat = statsMap[dateStr];
             const placements = stat ? stat.placements : 0;
@@ -106,7 +110,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
         Object.keys(dailyStats || {}).forEach(dateStr => {
-            const date = new Date(dateStr);
+            // Parse YYYY-MM-DD as local date
+            const [y, m, d] = dateStr.split('-').map(Number);
+            const date = new Date(y, m - 1, d);
             const day = date.getDay();
             if (dailyStats[dateStr].placements) {
                 dayCounts[day] += dailyStats[dateStr].placements;
@@ -138,7 +144,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Most Active Month
         const monthCounts = {};
         Object.keys(dailyStats || {}).forEach(dateStr => {
-            const date = new Date(dateStr);
+            // Parse YYYY-MM-DD as local date
+            const [y, m, d] = dateStr.split('-').map(Number);
+            const date = new Date(y, m - 1, d);
             const month = date.toLocaleString('default', { month: 'long', year: 'numeric' });
             if (dailyStats[dateStr].placements) {
                 monthCounts[month] = (monthCounts[month] || 0) + dailyStats[dateStr].placements;
@@ -172,14 +180,20 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = 0; i < 7; i++) {
             const d = new Date(today);
             d.setDate(today.getDate() - i);
-            const ds = d.toISOString().split('T')[0];
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const ds = `${year}-${month}-${day}`;
             if (dailyStats[ds]) currentWeekCount += dailyStats[ds].placements || 0;
         }
 
         for (let i = 7; i < 14; i++) {
             const d = new Date(today);
             d.setDate(today.getDate() - i);
-            const ds = d.toISOString().split('T')[0];
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const ds = `${year}-${month}-${day}`;
             if (dailyStats[ds]) previousWeekCount += dailyStats[ds].placements || 0;
         }
 
