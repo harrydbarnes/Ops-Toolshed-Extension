@@ -135,7 +135,7 @@ body.reminder-theme-black #confirmation-popup {
 }
 
 .loading-fact-toast.slide-down {
-    animation: slideDownFadeOut 0.5s ease-in forwards;
+    animation: slideDownFadeOut var(--toast-animation-duration) ease-in forwards;
 }
 
 @keyframes slideUpFadeIn {
