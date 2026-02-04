@@ -127,7 +127,7 @@ body.reminder-theme-black #confirmation-popup {
     font-size: var(--toast-strong-font-size);
     text-transform: uppercase;
     letter-spacing: var(--toast-letter-spacing);
-    margin-bottom: 2px;
+    margin-bottom: var(--toast-content-margin-bottom);
 }
 
 .loading-fact-toast.slide-up {
