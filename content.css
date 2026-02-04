@@ -155,7 +155,7 @@ body.reminder-theme-black #confirmation-popup {
         opacity: 1;
     }
     100% {
-        transform: translate(-50%, 100px); /* Slide back down */
+        transform: translate(-50%, var(--toast-slide-offset)); /* Slide back down */
         opacity: 0;
     }
 }
