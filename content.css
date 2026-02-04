@@ -126,7 +126,7 @@ body.reminder-theme-black #confirmation-popup {
     color: var(--primary-pink); /* Pink accent */
     font-size: var(--toast-strong-font-size);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: var(--toast-letter-spacing);
     margin-bottom: 2px;
 }
 
