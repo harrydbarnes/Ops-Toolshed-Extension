@@ -227,6 +227,20 @@ body.reminder-theme-black #confirmation-popup {
     --font-primary: 'Inter', 'Roboto', sans-serif;
     --toast-bg-color: #333;
     --primary-pink: #ff3d80;
+    --toast-bottom-position: 33%;
+    --toast-z-index: 2147483647;
+    --toast-border-radius: 50px;
+    --toast-gap-spacing: 15px;
+    --toast-font-size: 14px;
+    --toast-min-width: 300px;
+    --toast-max-width: 500px;
+    --toast-icon-font-size: 20px;
+    --toast-strong-font-size: 11px;
+    --toast-letter-spacing: 0.5px;
+    --toast-content-margin-bottom: 2px;
+    --toast-animation-duration: 0.5s;
+    --toast-slide-up-bezier: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    --toast-slide-offset: 100px;
 }
 
 /* --- Switch Account Button Styles --- */
