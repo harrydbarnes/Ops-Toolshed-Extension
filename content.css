@@ -106,7 +106,7 @@ body.reminder-theme-black #confirmation-popup {
     box-shadow: 0 5px 15px rgba(0,0,0,0.3);
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: var(--toast-gap-spacing);
     font-family: 'Montserrat', sans-serif;
     font-size: var(--toast-font-size);
     min-width: 300px;
