@@ -45,9 +45,15 @@ export function handleTrackStat(request, sender, sendResponse) {
                 stats.visitedCampaigns.push(request.value);
             }
         } else if (request.type === 'LOADING_TIME') {
-            stats.loadingTime += parseFloat(request.value);
+            const val = parseFloat(request.value);
+            if (!isNaN(val)) {
+                stats.loadingTime += val;
+            }
         } else if (request.type === 'PLACEMENT_ADDED') {
-            stats.placements += parseInt(request.value, 10);
+            const val = parseInt(request.value, 10);
+            if (!isNaN(val)) {
+                stats.placements += val;
+            }
         }
 
         dailyStats[today] = stats;

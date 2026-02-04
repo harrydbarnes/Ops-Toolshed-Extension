@@ -105,14 +105,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderCharts(dailyStats) {
+        const parseDateStr = (dateStr) => {
+            const [y, m, d] = dateStr.split('-').map(Number);
+            return new Date(y, m - 1, d);
+        };
+
         // Day of Week Chart
         const dayCounts = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 }; // Sun-Sat
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
         Object.keys(dailyStats || {}).forEach(dateStr => {
             // Parse YYYY-MM-DD as local date
-            const [y, m, d] = dateStr.split('-').map(Number);
-            const date = new Date(y, m - 1, d);
+            const date = parseDateStr(dateStr);
             const day = date.getDay();
             if (dailyStats[dateStr].placements) {
                 dayCounts[day] += dailyStats[dateStr].placements;
@@ -145,8 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const monthCounts = {};
         Object.keys(dailyStats || {}).forEach(dateStr => {
             // Parse YYYY-MM-DD as local date
-            const [y, m, d] = dateStr.split('-').map(Number);
-            const date = new Date(y, m - 1, d);
+            const date = parseDateStr(dateStr);
             const month = date.toLocaleString('default', { month: 'long', year: 'numeric' });
             if (dailyStats[dateStr].placements) {
                 monthCounts[month] = (monthCounts[month] || 0) + dailyStats[dateStr].placements;
