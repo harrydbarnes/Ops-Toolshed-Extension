@@ -17,7 +17,8 @@ def verify_stats(page):
             "2023-10-27": { "placements": 5, "loadingTime": 50, "visitedCampaigns": ["c1"] },
             "2023-10-26": { "placements": 10, "loadingTime": 100 },
             "2023-10-20": { "placements": 8, "loadingTime": 80 }
-        }
+        },
+        "statsStartDate": "2023-01-01T00:00:00.000Z"
     }
 
     # Expected Totals:
@@ -96,9 +97,15 @@ def verify_stats(page):
     print(f"Beat Your Week: {beat_week}")
     assert "88%" in beat_week
 
+    # 5. Check "Stats since..." text (restored feature)
+    stats_header = page.locator(".stats-header h2")
+    header_text = stats_header.inner_text()
+    print(f"Header Text: {header_text}")
+    assert "since January 1, 2023" in header_text
+
     # Screenshot
     os.makedirs("verification", exist_ok=True)
-    screenshot_path = os.path.join("verification", "toolshed_stats_verified.png")
+    screenshot_path = os.path.join("verification", "toolshed_stats_verified_refactored.png")
     page.screenshot(path=screenshot_path)
     print(f"Screenshot saved to {screenshot_path}")
 

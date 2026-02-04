@@ -174,28 +174,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Beat Your Week
         const today = new Date();
-        let currentWeekCount = 0;
-        let previousWeekCount = 0;
 
-        for (let i = 0; i < 7; i++) {
-            const d = new Date(today);
-            d.setDate(today.getDate() - i);
-            const year = d.getFullYear();
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            const ds = `${year}-${month}-${day}`;
-            if (dailyStats[ds]) currentWeekCount += dailyStats[ds].placements || 0;
-        }
+        const getPlacementsForPastDays = (endDate, startOffset, numDays) => {
+            let count = 0;
+            for (let i = 0; i < numDays; i++) {
+                const d = new Date(endDate);
+                d.setDate(d.getDate() - (startOffset + i));
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                const ds = `${year}-${month}-${day}`;
+                if (dailyStats[ds]) {
+                    count += dailyStats[ds].placements || 0;
+                }
+            }
+            return count;
+        };
 
-        for (let i = 7; i < 14; i++) {
-            const d = new Date(today);
-            d.setDate(today.getDate() - i);
-            const year = d.getFullYear();
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            const ds = `${year}-${month}-${day}`;
-            if (dailyStats[ds]) previousWeekCount += dailyStats[ds].placements || 0;
-        }
+        const currentWeekCount = getPlacementsForPastDays(today, 0, 7);
+        const previousWeekCount = getPlacementsForPastDays(today, 7, 7);
 
         const beatWeekEl = document.getElementById('beat-your-week');
         if (beatWeekEl) {
@@ -270,14 +267,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Start Date
             const statsTitle = document.querySelector('#stats h2');
-            let sinceSpan = statsTitle.querySelector('.since-date');
-            if (data.statsStartDate) {
+
+            if (data.statsStartDate && statsTitle) {
                 const startDate = new Date(data.statsStartDate);
-                 const dateString = startDate.toLocaleString(undefined, {
+                const dateString = startDate.toLocaleString(undefined, {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric'
                 });
+
+                let sinceSpan = statsTitle.querySelector('.since-date');
+                if (!sinceSpan) {
+                    sinceSpan = document.createElement('span');
+                    sinceSpan.className = 'since-date';
+                    statsTitle.appendChild(document.createTextNode(' '));
+                    statsTitle.appendChild(sinceSpan);
+                }
+                sinceSpan.textContent = `(since ${dateString})`;
+
                 const totalDays = Math.max(1, Math.floor((new Date() - startDate) / (1000 * 60 * 60 * 24)));
 
                  // Calculate average loading time
