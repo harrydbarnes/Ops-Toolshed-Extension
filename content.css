@@ -131,7 +131,7 @@ body.reminder-theme-black #confirmation-popup {
 }
 
 .loading-fact-toast.slide-up {
-    animation: slideUpFadeIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    animation: slideUpFadeIn var(--toast-animation-duration) var(--toast-slide-up-bezier) forwards;
 }
 
 .loading-fact-toast.slide-down {
