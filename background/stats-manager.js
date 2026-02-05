@@ -58,9 +58,11 @@ export function handleTrackStat(request, sender, sendResponse) {
 
         dailyStats[today] = stats;
         await chrome.storage.local.set({ dailyStats });
+        sendResponse({ status: 'success' });
     }).catch(err => {
         console.error('[Stats Manager] Error updating stats:', err);
+        sendResponse({ status: 'error', message: err.toString() });
     });
 
-    sendResponse({ status: 'success' });
+    return true; // Indicates async response
 }
