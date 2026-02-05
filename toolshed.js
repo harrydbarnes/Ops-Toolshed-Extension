@@ -74,13 +74,16 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.appendChild(tooltip);
         }
 
-        // Logic to start on Sunday 52 weeks ago
+        // Logic to start on the Monday 52 weeks ago
         const today = new Date();
         const startDate = new Date(today);
-        startDate.setDate(today.getDate() - (52 * 7)); // Go back 52 weeks
-        // Adjust to previous Sunday (if not already Sunday)
-        const dayOfWeek = startDate.getDay(); // 0 is Sunday
-        startDate.setDate(startDate.getDate() - dayOfWeek);
+        startDate.setDate(today.getDate() - (52 * 7));
+
+        // Adjust to previous Monday (0=Sun, 1=Mon, ..., 6=Sat)
+        // We want Mon(1) to be offset 0, Tue(2) offset 1... Sun(0) offset 6.
+        const dayOfWeek = startDate.getDay();
+        const daysToMonday = (dayOfWeek + 6) % 7;
+        startDate.setDate(startDate.getDate() - daysToMonday);
 
         // Map daily stats to date strings
         const statsMap = dailyStats || {};
