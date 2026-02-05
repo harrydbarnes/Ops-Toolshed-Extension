@@ -40,13 +40,13 @@ describe('Toolshed Stats UI', () => {
         // Check Totals
         // Campaigns: c1 + c2 = 2
         expect(document.getElementById('campaigns-visited-stat').textContent).toBe('2');
-        // Loading Time: 180 + 180 = 360s -> 6 min and 0s
-        expect(document.getElementById('loading-time-stat').textContent).toContain('6 min');
+        // Loading Time: 180 + 180 = 360s -> 6 mins &<br> 0s
+        expect(document.getElementById('loading-time-stat').textContent).toContain('6 mins');
         // Placements: 100 + 10 = 110
         expect(document.getElementById('placements-added-stat').textContent).toBe('110');
 
-        // Check Kettle Index: 360 / 180 = 2
-        expect(document.getElementById('kettle-index').textContent).toBe('2');
+        // Check Kettle Index: 360 / 45 = 8
+        expect(document.getElementById('kettle-index').textContent).toBe('8');
 
         // Check Heatmap presence (at least one day should be generated)
         expect(document.getElementById('heatmap').children.length).toBeGreaterThan(300);

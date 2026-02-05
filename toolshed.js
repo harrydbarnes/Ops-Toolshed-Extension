@@ -175,9 +175,15 @@ document.addEventListener('DOMContentLoaded', () => {
             // Parse YYYY-MM-DD as local date
             const date = parseDateStr(dateStr);
             const day = date.getDay();
-            if (dailyStats[dateStr].placements) {
-                dayCounts[day] += dailyStats[dateStr].placements;
-            }
+            const stat = dailyStats[dateStr];
+
+            // Sum of all productivity metrics
+            const placements = stat.placements || 0;
+            const reconciliations = stat.reconciliations || 0;
+            const campaigns = (stat.visitedCampaigns || []).length;
+            const totalActivity = placements + reconciliations + campaigns;
+
+            dayCounts[day] += totalActivity;
         });
 
         const maxCount = Math.max(...Object.values(dayCounts));
@@ -197,7 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 label.textContent = day;
                 bar.appendChild(label);
 
-                bar.title = `${day}: ${count} placements`;
+                bar.title = `${day}: ${count} actions`;
                 chartContainer.appendChild(bar);
             });
         }
@@ -261,8 +267,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderFunStats(dailyStats, totalLoadingTime, totalPlacements) {
-        // Kettle Index
-        const kettleIndex = Math.floor(totalLoadingTime / 180);
+        // Kettle Index (1 kettle per 45s)
+        const kettleIndex = Math.floor(totalLoadingTime / 45);
         const kettleEl = document.getElementById('kettle-index');
         if (kettleEl) kettleEl.textContent = kettleIndex;
 
@@ -356,7 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (streak > 0) {
-                streakEl.textContent = `🔥 ${streak} Day Streak`;
+                streakEl.textContent = `${streak} Day Streak`;
                 streakEl.parentElement.parentElement.style.display = 'flex'; // Show if hidden
             } else {
                 streakEl.textContent = '';
