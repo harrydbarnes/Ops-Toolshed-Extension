@@ -50,14 +50,29 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Stats Display Logic ---
     function formatLoadingTime(totalSeconds) {
         if (totalSeconds < 60) {
+            // Case A: < 60s
             if (totalSeconds > 0 && totalSeconds < 0.01) {
                 return '<0.01s';
             }
             return `${Math.floor(totalSeconds * 10) / 10}s`;
-        } else {
+        } else if (totalSeconds < 600) {
+            // Case B: 60s <= t < 600s (Under 10 mins)
             const minutes = Math.floor(totalSeconds / 60);
             const seconds = Math.floor((totalSeconds % 60) * 10) / 10;
-            return `${minutes} min and ${seconds}s`;
+            const minUnit = minutes === 1 ? 'min' : 'mins';
+            return `${minutes} ${minUnit} &<br> ${seconds}s`;
+        } else {
+            // Case C: t >= 600s (10 mins+)
+            const hours = Math.floor(totalSeconds / 3600);
+            const remainingSeconds = totalSeconds % 3600;
+            const minutes = Math.floor(remainingSeconds / 60);
+            const seconds = Math.floor(remainingSeconds % 60); // Whole number
+
+            if (hours > 0) {
+                return `${hours}h &<br> ${minutes}m &<br> ${seconds}s`;
+            } else {
+                return `${minutes}m &<br> ${seconds}s`;
+            }
         }
     }
 
@@ -405,7 +420,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const reconciliationsEl = document.getElementById('reconciliations-stat');
 
             if (campaignsVisitedEl) campaignsVisitedEl.textContent = allCampaigns.size;
-            if (loadingTimeEl) loadingTimeEl.textContent = formatLoadingTime(totalLoadingTime);
+            if (loadingTimeEl) loadingTimeEl.innerHTML = formatLoadingTime(totalLoadingTime);
             if (placementsAddedEl) placementsAddedEl.textContent = totalPlacements;
             if (reconciliationsEl) reconciliationsEl.textContent = totalReconciliations;
 
@@ -439,7 +454,7 @@ document.addEventListener('DOMContentLoaded', () => {
                  // Calculate average loading time
                  if (avgLoadingTimeEl && totalLoadingTime > 0) {
                      const avg = totalLoadingTime / totalDays;
-                     avgLoadingTimeEl.textContent = `Avg per day: ${formatLoadingTime(avg)}`;
+                     avgLoadingTimeEl.innerHTML = `Avg per day: ${formatLoadingTime(avg)}`;
                      avgLoadingTimeEl.style.display = 'inline';
                  }
             }
