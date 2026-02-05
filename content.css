@@ -94,20 +94,20 @@ body.reminder-theme-black #confirmation-popup {
 /* --- Loading Facts Toast Styles --- */
 /* The Fact "Pill" */
 .loading-fact-toast {
-    /* Positioning relative to the spinner's container */
+    /* Positioning Strategy (Absolute relative to spinner container) */
     position: absolute;
     top: 50%;
     left: 50%;
-    /* Center horizontally and push down vertically (80px gap) */
-    transform: translate(-50%, 80px);
-    z-index: 9999; /* Ensure it sits on top */
 
-    /* VISUAL STYLES */
+    /* Center X, and Push Down Y */
+    transform: translate(-50%, 130px);
+
+    /* Visual Styling */
     background-color: var(--toast-bg-color, #333);
     color: white;
     padding: 15px 20px;
     border-radius: 50px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    box-shadow: 0 5px 20px rgba(0,0,0,0.5); /* Slightly stronger shadow for pop */
     font-family: 'Montserrat', sans-serif;
     font-size: 14px;
     display: flex;
@@ -116,6 +116,11 @@ body.reminder-theme-black #confirmation-popup {
     width: max-content;
     max-width: 500px;
     text-align: center;
+
+    /* Layering Fixes */
+    z-index: 2147483647 !important; /* Max Z-Index to sit on top of backdrops */
+    opacity: 1 !important;
+    pointer-events: none; /* Let clicks pass through */
 }
 
 /* Restore Inner Elements */
@@ -147,21 +152,21 @@ body.reminder-theme-black #confirmation-popup {
 @keyframes slideUpFadeIn {
     0% {
         opacity: 0;
-        transform: translate(-50%, 100px); /* Start slightly lower than 80px */
+        transform: translate(-50%, 150px); /* Start slightly lower than 130px */
     }
     100% {
         opacity: 1;
-        transform: translate(-50%, 80px); /* End at intended position */
+        transform: translate(-50%, 130px); /* End at intended position */
     }
 }
 
 @keyframes slideDownFadeOut {
     0% {
-        transform: translate(-50%, 80px);
+        transform: translate(-50%, 130px);
         opacity: 1;
     }
     100% {
-        transform: translate(-50%, 100px); /* Slide back down */
+        transform: translate(-50%, 150px); /* Slide back down */
         opacity: 0;
     }
 }
