@@ -11,9 +11,15 @@
         "A 'ji-gong' is a professional line waiter you can hire in China.",
         "The average person spends 2 days a year waiting at traffic lights.",
         "The 'wait' for the first photo ever taken was 8 hours (1826).",
-        "Studies show waiting for a website to load raises your heart pressure.",
         "The Eiffel Tower has one of the longest average wait times: over 2 hours.",
-        "You are currently part of the elite club of people waiting for this specific page."
+        "You are currently part of the elite club of people waiting for this specific page.",
+        "The coding for Prisma references the Yes/No field for Actualisation as 'Ok to Pay'.",
+        "The first computer bug was an actual real-life moth found in a relay.",
+        "The first computer mouse was made of wood.",
+        "Technically, the loading spinner is known as a 'throbber' in UI design.",
+        "Domain names were free until 1995.",
+        "Once upon a time, someone in Ops during their first week was caught chain smoking outside whilst 15 minutes late for work.",
+        "In total you have seen this spinning wheel for {{TIME}}. Share this with Harry to help speed up Prisma!"
     ];
 
     const DEBOUNCE_DELAY_MS = 200;
@@ -90,12 +96,50 @@
             return FACTS[index];
         }
 
-        showToast(spinner) {
+        formatTime(seconds) {
+            if (!seconds) return '0s';
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = Math.floor(seconds % 60);
+
+            const parts = [];
+            if (h > 0) parts.push(`${h}h`);
+            if (m > 0) parts.push(`${m}m`);
+            if (s > 0 || parts.length === 0) parts.push(`${s}s`);
+
+            return parts.join(' ');
+        }
+
+        async getProcessedFact() {
+            let fact = this.getRandomFact();
+
+            if (fact.includes('{{TIME}}')) {
+                return new Promise((resolve) => {
+                    chrome.storage.local.get(['prismaUserStats'], (data) => {
+                        const stats = data.prismaUserStats;
+                        const time = stats ? stats.totalLoadingTime : 0;
+
+                        if (time > 0) {
+                            const timeStr = this.formatTime(time);
+                            resolve(fact.replace('{{TIME}}', timeStr));
+                        } else {
+                            // If no time data, pick another fact recursively
+                            // Use a simple retry limit to avoid infinite loops effectively
+                            // But practically just picking another random one is fine.
+                            resolve(this.getProcessedFact());
+                        }
+                    });
+                });
+            }
+            return fact;
+        }
+
+        async showToast(spinner) {
             if (document.getElementById(this.toastId)) return;
             if (!spinner) return;
 
             this.isVisible = true;
-            const fact = this.getRandomFact();
+            const fact = await this.getProcessedFact();
 
             // Revert Wrapper Logic: Do NOT wrap the spinner.
             // Use sibling injection with absolute positioning.

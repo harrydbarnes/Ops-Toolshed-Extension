@@ -37,6 +37,16 @@
                         callback({ loadingFactsEnabled: true });
                     }
                 },
+                local: {
+                    get: (keys, callback) => {
+                        // Mock user stats for dynamic fact testing
+                        callback({
+                            prismaUserStats: {
+                                totalLoadingTime: 3665 // 1h 1m 5s
+                            }
+                        });
+                    }
+                },
                 onChanged: {
                     addListener: () => {}
                 }
