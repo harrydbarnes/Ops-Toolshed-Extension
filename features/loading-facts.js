@@ -100,16 +100,37 @@
             // Revert Wrapper Logic: Do NOT wrap the spinner.
             // Use sibling injection with absolute positioning.
 
-            // Calculate Position: Horizontal Center of Spinner
-            const rect = spinner.getBoundingClientRect();
-            const centerX = rect.left + (rect.width / 2);
+            // Smart Target Logic: Find the visual center of the spinner
+            let targetElement = spinner;
+            // If the spinner container is wide, look for the actual graphic
+            if (spinner.offsetWidth > 100) {
+                const innerSvg = spinner.querySelector('svg') || window.utils.queryShadowDom('svg', spinner.shadowRoot);
+                if (innerSvg) targetElement = innerSvg;
+            }
+
+            const updatePosition = () => {
+                const rect = targetElement.getBoundingClientRect();
+                const centerX = rect.left + (rect.width / 2);
+                const toastEl = document.getElementById(this.toastId);
+                if (toastEl) {
+                    toastEl.style.left = `${centerX}px`;
+                }
+            };
 
             const toast = document.createElement('div');
             toast.id = this.toastId;
             toast.className = 'loading-fact-toast slide-up';
 
-            // Apply calculated horizontal position
+            // Initial positioning
+            // We need to append first or use the calculated value immediately?
+            // The logic below appends at the end. We can calculate now.
+            const rect = targetElement.getBoundingClientRect();
+            const centerX = rect.left + (rect.width / 2);
             toast.style.left = `${centerX}px`;
+
+            // Add resize listener to track window changes
+            this.resizeHandler = () => requestAnimationFrame(updatePosition);
+            window.addEventListener('resize', this.resizeHandler);
 
             // Create inner content structure
             const iconDiv = document.createElement('div');
@@ -139,6 +160,12 @@
             if (!toast) {
                 this.isVisible = false;
                 return;
+            }
+
+            // Cleanup resize listener
+            if (this.resizeHandler) {
+                window.removeEventListener('resize', this.resizeHandler);
+                this.resizeHandler = null;
             }
 
             // Replace slide-up class with slide-down for exit animation

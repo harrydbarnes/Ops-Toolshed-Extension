@@ -96,45 +96,51 @@ body.reminder-theme-black #confirmation-popup {
 .loading-fact-toast {
     /* Viewport Positioning (Vertical) */
     position: fixed;
-    bottom: 100px; /* Anchored to bottom of screen, consistent on all monitors */
+    bottom: 80px; /* Anchored to bottom of screen */
 
     /* Horizontal Positioning is handled by JS (left style), this centers it on that point */
     transform: translateX(-50%);
 
-    /* Visual Styling (Keep existing) */
+    /* Layout: Switch to Stacked (Column) for perfect symmetry */
+    display: flex;
+    flex-direction: column; /* Stack Icon on top of Text */
+    align-items: center;    /* Horizontally center everything */
+    justify-content: center;
+    gap: 10px;
+
+    /* Visuals */
     background-color: var(--toast-bg-color, #333);
     color: white;
-    padding: 15px 20px;
-    border-radius: 50px;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+    padding: 20px 30px; /* More padding for a nicer "Card/Pill" look */
+    border-radius: 20px; /* Softer corners */
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
     font-family: 'Montserrat', sans-serif;
     font-size: 14px;
-    display: flex;
-    align-items: center;
-    gap: 15px;
     width: max-content;
-    max-width: 500px;
-    text-align: center;
+    max-width: 400px;
+    text-align: center; /* Crucial: Centers the text inside */
     z-index: 2147483647 !important; /* Max Z-Index */
     pointer-events: none;
 }
 
-/* Restore Inner Elements */
 .loading-fact-icon {
-    font-size: 20px;
+    font-size: 24px;
+    margin-bottom: 5px;
 }
 
 .loading-fact-content {
     display: flex;
     flex-direction: column;
+    align-items: center; /* Centers the "Did you know" and the Fact */
 }
 
 .loading-fact-content strong {
     color: #ff3d80; /* Pink accent */
-    font-size: 11px;
+    font-size: 12px;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 2px;
+    letter-spacing: 1px;
+    margin-bottom: 5px;
+    display: block; /* Ensure it takes full width of flex item */
 }
 
 .loading-fact-toast.slide-up {
