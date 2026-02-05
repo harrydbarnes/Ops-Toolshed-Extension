@@ -69,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const seconds = Math.floor(remainingSeconds % 60); // Whole number
 
             if (hours > 0) {
-                return `${hours}h &<br> ${minutes}m &<br> ${seconds}s`;
+                return `${hours}h,<br> ${minutes}m & ${seconds}s`;
             } else {
                 return `${minutes}m &<br> ${seconds}s`;
             }
