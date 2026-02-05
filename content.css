@@ -92,45 +92,30 @@ body.reminder-theme-black #confirmation-popup {
 /* --- End of Reminder Popup Styles --- */
 
 /* --- Loading Facts Toast Styles --- */
-/* Container for the Spinner + Facts (Ensures alignment) */
-.loading-facts-wrapper {
-    display: flex;
-    flex-direction: column;
-    align-items: center; /* Locks text center to the wheel */
-    justify-content: center;
-    width: 100%;
-}
-
-/* 1. The Spinner (Target standard spinner classes) */
-.loading-facts-wrapper mo-spinner,
-.loading-facts-wrapper .spinner,
-.loading-facts-wrapper svg {
-    order: 1 !important;
-}
-
 /* The Fact "Pill" */
 .loading-fact-toast {
-    order: 2 !important; /* Force below spinner */
+    /* Positioning relative to the spinner's container */
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    /* Center horizontally and push down vertically (80px gap) */
+    transform: translate(-50%, 80px);
+    z-index: 9999; /* Ensure it sits on top */
 
-    /* VISUAL STYLES (Restore these) */
-    background-color: var(--toast-bg-color, #333); /* Fallback to #333 if var missing */
+    /* VISUAL STYLES */
+    background-color: var(--toast-bg-color, #333);
     color: white;
     padding: 15px 20px;
-    border-radius: 50px; /* Pill shape */
+    border-radius: 50px;
     box-shadow: 0 5px 15px rgba(0,0,0,0.3);
     font-family: 'Montserrat', sans-serif;
     font-size: 14px;
     display: flex;
     align-items: center;
     gap: 15px;
-    min-width: 300px;
+    width: max-content;
     max-width: 500px;
-
-    /* POSITIONING (Fix height & center) */
-    position: static; /* No longer fixed to screen */
-    margin-top: 80px; /* Pushes text down to original 'height' gap */
-    transform: none;  /* Remove old centering transforms */
-    z-index: 2147483647;
+    text-align: center;
 }
 
 /* Restore Inner Elements */
@@ -162,21 +147,21 @@ body.reminder-theme-black #confirmation-popup {
 @keyframes slideUpFadeIn {
     0% {
         opacity: 0;
-        transform: translateY(20px); /* Slide up slightly */
+        transform: translate(-50%, 100px); /* Start slightly lower than 80px */
     }
     100% {
         opacity: 1;
-        transform: translateY(0);
+        transform: translate(-50%, 80px); /* End at intended position */
     }
 }
 
 @keyframes slideDownFadeOut {
     0% {
-        transform: translateY(0);
+        transform: translate(-50%, 80px);
         opacity: 1;
     }
     100% {
-        transform: translateY(20px); /* Slide back down */
+        transform: translate(-50%, 100px); /* Slide back down */
         opacity: 0;
     }
 }

@@ -97,70 +97,60 @@
             this.isVisible = true;
             const fact = this.getRandomFact();
 
-            // Check/Create Wrapper
-            let wrapper = spinner.parentNode;
-            // If the parent is not the wrapper, we need to wrap the spinner
-            // Note: spinner.parentNode might be a ShadowRoot which doesn't have classList
-            const isWrapper = wrapper && wrapper.classList && wrapper.classList.contains('loading-facts-wrapper');
+            // Revert Wrapper Logic: Do NOT wrap the spinner.
+            // Use sibling injection with absolute positioning.
 
-            if (!isWrapper) {
-                const parent = spinner.parentNode;
-                wrapper = document.createElement('div');
-                wrapper.className = 'loading-facts-wrapper';
+            if (spinner.parentElement) {
+                // Set parent relative to establish positioning context
+                spinner.parentElement.style.position = 'relative';
 
-                // Insert the wrapper before the spinner in the DOM
-                if (parent) {
-                    parent.insertBefore(wrapper, spinner);
-                    // Standard appendChild to guarantee [Spinner] -> [Toast] order
-                    wrapper.appendChild(spinner);
-                }
+                const toast = document.createElement('div');
+                toast.id = this.toastId;
+                toast.className = 'loading-fact-toast slide-up';
+
+                // Create inner content structure
+                const iconDiv = document.createElement('div');
+                iconDiv.className = 'loading-fact-icon';
+                iconDiv.textContent = '⏳';
+                toast.appendChild(iconDiv);
+
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'loading-fact-content';
+
+                const strong = document.createElement('strong');
+                strong.textContent = 'Did you know?';
+                contentDiv.appendChild(strong);
+
+                const span = document.createElement('span');
+                span.textContent = fact;
+                contentDiv.appendChild(span);
+
+                toast.appendChild(contentDiv);
+
+                // Append toast as a sibling, NOT a child of the spinner
+                spinner.parentElement.appendChild(toast);
 
                 // Shadow DOM Support: Inject styles if inside a Shadow Root
-                // This ensures content.css styles apply to the wrapper and toast
-                const root = wrapper.getRootNode();
+                // This ensures content.css styles apply to the toast
+                const root = spinner.getRootNode();
                 if (root instanceof ShadowRoot) {
-                    const link = document.createElement('link');
-                    link.rel = 'stylesheet';
-                    if (window.chrome && chrome.runtime && chrome.runtime.getURL) {
-                         try {
-                             link.href = chrome.runtime.getURL('content.css');
-                         } catch (e) {
-                             // Fallback or ignore
-                             link.href = '../content.css';
-                         }
-                    } else {
-                        // Fallback for local testing
-                        link.href = '../content.css';
+                    // Check if link already exists to avoid duplicates
+                    if (!root.querySelector('link[href*="content.css"]')) {
+                        const link = document.createElement('link');
+                        link.rel = 'stylesheet';
+                        if (window.chrome && chrome.runtime && chrome.runtime.getURL) {
+                             try {
+                                 link.href = chrome.runtime.getURL('content.css');
+                             } catch (e) {
+                                 link.href = '../content.css';
+                             }
+                        } else {
+                            link.href = '../content.css';
+                        }
+                        root.appendChild(link);
                     }
-                    wrapper.appendChild(link);
                 }
             }
-
-            const toast = document.createElement('div');
-            toast.id = this.toastId;
-            toast.className = 'loading-fact-toast slide-up';
-
-            // Create inner content structure
-            const iconDiv = document.createElement('div');
-            iconDiv.className = 'loading-fact-icon';
-            iconDiv.textContent = '⏳';
-            toast.appendChild(iconDiv);
-
-            const contentDiv = document.createElement('div');
-            contentDiv.className = 'loading-fact-content';
-
-            const strong = document.createElement('strong');
-            strong.textContent = 'Did you know?';
-            contentDiv.appendChild(strong);
-
-            const span = document.createElement('span');
-            span.textContent = fact;
-            contentDiv.appendChild(span);
-
-            toast.appendChild(contentDiv);
-
-            // Append toast to the wrapper (guaranteed to be after spinner as 2nd child)
-            wrapper.appendChild(toast);
         }
 
         hideToast() {
@@ -176,6 +166,7 @@
 
             // Wait for animation to finish before removing
             setTimeout(() => {
+                // Simply remove the toast element
                 if (toast && toast.parentNode) {
                     toast.parentNode.removeChild(toast);
                 }

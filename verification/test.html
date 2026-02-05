@@ -52,6 +52,12 @@
         // Create Shadow DOM and add spinner matching new logic
         const container = document.getElementById('spinner-container');
         const shadow = container.attachShadow({mode: 'open'});
+
+        // Wrap spinner in a DIV so 'parentElement' exists inside Shadow DOM
+        const wrapper = document.createElement('div');
+        wrapper.id = 'spinner-wrapper';
+        wrapper.style.display = 'inline-block'; // Mimic typical spinner container behavior
+
         const spinner = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         spinner.setAttribute('class', 'spinner');
         const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -61,7 +67,9 @@
         circle.setAttribute('fill', 'none');
         circle.setAttribute('stroke-width', '5');
         spinner.appendChild(circle);
-        shadow.appendChild(spinner);
+
+        wrapper.appendChild(spinner);
+        shadow.appendChild(wrapper);
     </script>
     <script src="../features/loading-facts.js"></script>
     <script>
