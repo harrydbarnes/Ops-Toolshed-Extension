@@ -12,26 +12,18 @@ def verify_stats(page):
         "legacyStats": {
             "placementsAdded": 100,
             "totalLoadingTime": 1000,
-            "visitedCampaigns": []
+            "visitedCampaigns": [],
+            "reconciliations": 50
         },
         "dailyStats": {
-            "2023-10-27": { "placements": 5, "loadingTime": 50, "visitedCampaigns": ["c1"] },
-            "2023-10-26": { "placements": 10, "loadingTime": 100 },
+            "2023-10-27": { "placements": 5, "loadingTime": 50, "visitedCampaigns": ["c1"], "reconciliations": 2 },
+            "2023-10-26": { "placements": 10, "loadingTime": 100, "reconciliations": 0 },
             "2023-10-25": { "placements": 10, "loadingTime": 100 },
             "2023-10-24": { "placements": 10, "loadingTime": 100 },
             "2023-10-20": { "placements": 8, "loadingTime": 80 }
         },
         "statsStartDate": "2023-01-01T00:00:00.000Z"
     }
-
-    # Streak Logic Check:
-    # 27th (Fri) - Active (5)
-    # 26th (Thu) - Active (10)
-    # 25th (Wed) - Active (10)
-    # 24th (Tue) - Active (10)
-    # 23rd (Mon) - No Data (0) -> Break? Yes, Mon is not bank holiday in Oct 2023?
-    # Wait, 23 Oct 2023 is Monday. Not a bank holiday.
-    # So streak is 4 days: 27, 26, 25, 24.
 
     page.add_init_script("""
         window.chrome = {
@@ -81,12 +73,17 @@ def verify_stats(page):
     placements = page.locator("#placements-added-stat").inner_text()
     print(f"Placements found: {placements}")
 
-    # 2. Check Streak
+    reconciliations = page.locator("#reconciliations-stat").inner_text()
+    print(f"Reconciliations found: {reconciliations}")
+    # Legacy (50) + Daily (2) = 52
+    assert "52" in reconciliations
+
+    # 2. Check Streak (Should still work)
     streak_text = page.locator("#streak-counter").inner_text()
     print(f"Streak found: {streak_text}")
     assert "4 Day Streak" in streak_text
 
-    # 3. Check Heatmap Tooltip
+    # 3. Check Heatmap Tooltip for Activity
     # Hover over the last day (Today)
     days = page.locator(".heatmap-day")
     last_day = days.last
@@ -97,12 +94,12 @@ def verify_stats(page):
     tooltip_text = tooltip.inner_text()
     print(f"Tooltip Text: {tooltip_text}")
     # Format should be dd.mm.yy
-    # 27.10.23
-    assert "27.10.23" in tooltip_text
+    # 27.10.23: 7 actions (5 placements + 2 reconciliations)
+    assert "27.10.23: 7 actions" in tooltip_text
 
     # Screenshot
     os.makedirs("verification", exist_ok=True)
-    screenshot_path = os.path.join("verification", "toolshed_stats_refactored_verified.png")
+    screenshot_path = os.path.join("verification", "toolshed_stats_reconciliations_verified.png")
     page.screenshot(path=screenshot_path)
     print(f"Screenshot saved to {screenshot_path}")
 

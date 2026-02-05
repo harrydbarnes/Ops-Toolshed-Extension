@@ -1,4 +1,4 @@
-import { migrateStats, handleTrackStat } from '../background/stats-manager';
+import { handleTrackStat, migrateStats } from '../background/stats-manager';
 
 describe('Stats Manager', () => {
     const RealDate = Date;
@@ -7,7 +7,6 @@ describe('Stats Manager', () => {
         global.resetMocks();
 
         // Manual Date mock to ensure deterministic dates (2023-10-27)
-        // while allowing real timers (setTimeout) to function for async/await tests.
         global.Date = class extends RealDate {
             constructor(...args) {
                 if (args.length) {
@@ -27,14 +26,15 @@ describe('Stats Manager', () => {
 
     // Helper to wait for async operations (using real timers)
     async function waitForAsync() {
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await new Promise(resolve => setTimeout(resolve, 100));
     }
 
     test('migrateStats should move prismaUserStats to legacyStats', async () => {
         const oldStats = {
             visitedCampaigns: ['c1'],
             totalLoadingTime: 10,
-            placementsAdded: 5
+            placementsAdded: 5,
+            reconciliations: 0
         };
         // Use the mock set (real setTimeout)
         await chrome.storage.local.set({ prismaUserStats: oldStats });
@@ -53,7 +53,8 @@ describe('Stats Manager', () => {
         expect(store.legacyStats).toEqual({
             visitedCampaigns: [],
             totalLoadingTime: 0,
-            placementsAdded: 0
+            placementsAdded: 0,
+            reconciliations: 0
         });
     });
 
@@ -66,6 +67,7 @@ describe('Stats Manager', () => {
         handleTrackStat({ type: 'CAMPAIGN_VISIT', value: 'c2' }, {}, () => {});
         handleTrackStat({ type: 'LOADING_TIME', value: 2.5 }, {}, () => {});
         handleTrackStat({ type: 'PLACEMENT_ADDED', value: 3 }, {}, () => {});
+        handleTrackStat({ type: 'RECONCILIATION', value: 2 }, {}, () => {});
 
         // Wait for the chain of promises to resolve
         await waitForAsync();
@@ -79,6 +81,7 @@ describe('Stats Manager', () => {
         expect(daily.visitedCampaigns).toContain('c2');
         expect(daily.loadingTime).toBe(2.5);
         expect(daily.placements).toBe(3);
+        expect(daily.reconciliations).toBe(2);
     });
 
     test('handleTrackStat should deduplicate campaign visits', async () => {

@@ -76,12 +76,20 @@
         }
     }
 
-    // --- 3. Track Placement "Save" Clicks using Event Delegation ---
-    function handleSaveButtonClick(event) {
+    // --- 3. Track Click Events (Save Placements & Reconciliations) ---
+    function handleClickEvents(event) {
         if (!isEnabled) return;
+
+        // Track Placement Saves
         if (event.target.id === 'btn-save' || event.target.id === 'btn-save-and-add-another') {
             console.log('[Stats Collector] Save button clicked.');
             trackStat('PLACEMENT_ADDED', 1);
+        }
+
+        // Track Reconciliations (Ok to Pay = Yes)
+        if (event.target.id === 'ok-to-pay-yes-button') {
+            console.log('[Stats Collector] Reconciliation clicked.');
+            trackStat('RECONCILIATION', 1);
         }
     }
 
@@ -93,8 +101,8 @@
         const observer = new MutationObserver(observeLoadingSpinner);
         observer.observe(document.body, { childList: true, subtree: true });
 
-        // Use event delegation for save buttons
-        document.body.addEventListener('click', handleSaveButtonClick);
+        // Use event delegation for buttons
+        document.body.addEventListener('click', handleClickEvents);
 
         isInitialized = true;
         console.log("Stats Collector Initialized");

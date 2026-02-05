@@ -104,14 +104,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const dateStr = `${year}-${month}-${day}`;
 
             const stat = statsMap[dateStr];
-            const placements = stat ? stat.placements : 0;
+            const placements = stat ? (stat.placements || 0) : 0;
+            const reconciliations = stat ? (stat.reconciliations || 0) : 0;
+            const activityCount = placements + reconciliations;
 
-            // Determine level (0-4)
+            // Determine level (0-4) based on Activity
             let level = 0;
-            if (placements > 0) level = 1;
-            if (placements > 5) level = 2;
-            if (placements > 15) level = 3;
-            if (placements > 30) level = 4;
+            if (activityCount > 0) level = 1;
+            if (activityCount > 5) level = 2;
+            if (activityCount > 15) level = 3;
+            if (activityCount > 30) level = 4;
 
             const dayEl = document.createElement('div');
             dayEl.className = 'heatmap-day';
@@ -121,7 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const yy = String(year).slice(-2);
             const displayDate = `${day}.${month}.${yy}`;
             // Store text for tooltip
-            dayEl.dataset.tooltipText = `${displayDate}: ${placements} placements`;
+            dayEl.dataset.tooltipText = `${displayDate}: ${activityCount} actions`;
 
             // JS Tooltip Events
             dayEl.addEventListener('mouseover', (e) => {
@@ -373,13 +375,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const legacyStats = data.legacyStats || {
                 visitedCampaigns: [],
                 totalLoadingTime: 0,
-                placementsAdded: 0
+                placementsAdded: 0,
+                reconciliations: 0
             };
             const dailyStats = data.dailyStats || {};
 
             // Calculate Totals
             let totalLoadingTime = legacyStats.totalLoadingTime || 0;
             let totalPlacements = legacyStats.placementsAdded || 0;
+            let totalReconciliations = legacyStats.reconciliations || 0;
 
             // For campaigns, we try to merge
             const allCampaigns = new Set(legacyStats.visitedCampaigns || []);
@@ -387,6 +391,7 @@ document.addEventListener('DOMContentLoaded', () => {
             Object.values(dailyStats).forEach(stat => {
                 totalLoadingTime += stat.loadingTime || 0;
                 totalPlacements += stat.placements || 0;
+                totalReconciliations += stat.reconciliations || 0;
                 if (stat.visitedCampaigns) {
                     stat.visitedCampaigns.forEach(c => allCampaigns.add(c));
                 }
@@ -397,10 +402,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const loadingTimeEl = document.getElementById('loading-time-stat');
             const avgLoadingTimeEl = document.getElementById('avg-loading-time-stat');
             const placementsAddedEl = document.getElementById('placements-added-stat');
+            const reconciliationsEl = document.getElementById('reconciliations-stat');
 
             if (campaignsVisitedEl) campaignsVisitedEl.textContent = allCampaigns.size;
             if (loadingTimeEl) loadingTimeEl.textContent = formatLoadingTime(totalLoadingTime);
             if (placementsAddedEl) placementsAddedEl.textContent = totalPlacements;
+            if (reconciliationsEl) reconciliationsEl.textContent = totalReconciliations;
 
             // Render Visualizations
             renderHeatmap(dailyStats);
@@ -458,7 +465,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Stats Reset Logic ---
     function resetStats() {
         chrome.storage.local.set({
-            'legacyStats': { visitedCampaigns: [], totalLoadingTime: 0, placementsAdded: 0 },
+            'legacyStats': { visitedCampaigns: [], totalLoadingTime: 0, placementsAdded: 0, reconciliations: 0 },
             'dailyStats': {},
             'statsStartDate': new Date().toISOString()
         }, () => {

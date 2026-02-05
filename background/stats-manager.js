@@ -16,7 +16,8 @@ export async function migrateStats() {
             legacyStats: {
                 visitedCampaigns: [],
                 totalLoadingTime: 0,
-                placementsAdded: 0
+                placementsAdded: 0,
+                reconciliations: 0
             }
         });
     }
@@ -34,11 +35,16 @@ export function handleTrackStat(request, sender, sendResponse) {
             dailyStats[today] = {
                 placements: 0,
                 loadingTime: 0,
-                visitedCampaigns: []
+                visitedCampaigns: [],
+                reconciliations: 0
             };
         }
 
         const stats = dailyStats[today];
+        // Ensure reconciliations exists for existing days
+        if (typeof stats.reconciliations === 'undefined') {
+            stats.reconciliations = 0;
+        }
 
         if (request.type === 'CAMPAIGN_VISIT') {
             if (!stats.visitedCampaigns.includes(request.value)) {
@@ -53,6 +59,11 @@ export function handleTrackStat(request, sender, sendResponse) {
             const val = parseInt(request.value, 10);
             if (!isNaN(val)) {
                 stats.placements += val;
+            }
+        } else if (request.type === 'RECONCILIATION') {
+            const val = parseInt(request.value, 10);
+            if (!isNaN(val)) {
+                stats.reconciliations += val;
             }
         }
 
