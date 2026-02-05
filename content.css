@@ -96,7 +96,7 @@ body.reminder-theme-black #confirmation-popup {
 .loading-fact-toast {
     /* Positioning (Fixed Bottom + Center X) */
     position: fixed;
-    bottom: 100px;
+    bottom: 80px;
     transform: translateX(-50%);
     z-index: 2147483647 !important;
     pointer-events: none;
@@ -107,11 +107,11 @@ body.reminder-theme-black #confirmation-popup {
     justify-content: center; /* Horizontally center text */
     width: max-content;
     max-width: 500px;
-    min-height: 60px; /* Ensure height for icon */
+    min-height: 50px; /* Reduced from 60px to fit tighter padding */
 
     /* VISUAL CENTERING MAGIC: Balanced Padding */
     /* Left padding holds the icon. Right padding balances it. */
-    padding: 15px 70px 15px 70px;
+    padding: 10px 70px 10px 70px;
 
     /* Styling */
     background-color: var(--toast-bg-color, #333);
