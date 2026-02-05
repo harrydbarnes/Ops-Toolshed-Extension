@@ -67,8 +67,9 @@
                 }
 
                 // MATCHING STATS-COLLECTOR LOGIC:
-                // Prioritize mo-spinner, then Shadow DOM 'svg.spinner', then standard FA spinner.
-                const spinner = document.querySelector('.mo-spinner') ||
+                // Prioritize mo-spinner (tag or class), then Shadow DOM 'svg.spinner', then standard FA spinner.
+                const spinner = document.querySelector('mo-spinner') ||
+                                document.querySelector('.mo-spinner') ||
                                 window.utils.queryShadowDom('svg.spinner') ||
                                 document.querySelector('i.fa-spin');
 

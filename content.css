@@ -92,35 +92,41 @@ body.reminder-theme-black #confirmation-popup {
 /* --- End of Reminder Popup Styles --- */
 
 /* --- Loading Facts Toast Styles --- */
+/* Container for the Spinner + Facts (Ensures alignment) */
 .loading-facts-wrapper {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: center; /* Locks text center to the wheel */
     justify-content: center;
     width: 100%;
 }
 
+/* The Fact "Pill" */
 .loading-fact-toast {
-    margin-top: 80px;
-    position: relative;
-    width: max-content;
-    z-index: var(--toast-z-index);
-    background-color: var(--toast-bg-color, #333); /* Dark background for contrast */
+    /* VISUAL STYLES (Restore these) */
+    background-color: var(--toast-bg-color, #333); /* Fallback to #333 if var missing */
     color: white;
     padding: 15px 20px;
-    border-radius: var(--toast-border-radius, 50px); /* Pill shape */
+    border-radius: 50px; /* Pill shape */
     box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 14px;
     display: flex;
     align-items: center;
-    gap: var(--toast-gap-spacing);
-    font-family: 'Montserrat', sans-serif;
-    font-size: var(--toast-font-size);
-    min-width: var(--toast-min-width);
-    max-width: var(--toast-max-width);
+    gap: 15px;
+    min-width: 300px;
+    max-width: 500px;
+
+    /* POSITIONING (Fix height & center) */
+    position: static; /* No longer fixed to screen */
+    margin-top: 80px; /* Pushes text down to original 'height' gap */
+    transform: none;  /* Remove old centering transforms */
+    z-index: 2147483647;
 }
 
+/* Restore Inner Elements */
 .loading-fact-icon {
-    font-size: var(--toast-icon-font-size);
+    font-size: 20px;
 }
 
 .loading-fact-content {
@@ -129,11 +135,11 @@ body.reminder-theme-black #confirmation-popup {
 }
 
 .loading-fact-content strong {
-    color: var(--primary-pink); /* Pink accent */
-    font-size: var(--toast-strong-font-size);
+    color: #ff3d80; /* Pink accent */
+    font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: var(--toast-letter-spacing);
-    margin-bottom: var(--toast-content-margin-bottom);
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
 }
 
 .loading-fact-toast.slide-up {
@@ -146,12 +152,12 @@ body.reminder-theme-black #confirmation-popup {
 
 @keyframes slideUpFadeIn {
     0% {
-        transform: translateY(var(--toast-slide-offset)); /* Start below final position */
         opacity: 0;
+        transform: translateY(20px); /* Slide up slightly */
     }
     100% {
-        transform: translateY(0);
         opacity: 1;
+        transform: translateY(0);
     }
 }
 
@@ -161,7 +167,7 @@ body.reminder-theme-black #confirmation-popup {
         opacity: 1;
     }
     100% {
-        transform: translateY(var(--toast-slide-offset)); /* Slide back down */
+        transform: translateY(20px); /* Slide back down */
         opacity: 0;
     }
 }
