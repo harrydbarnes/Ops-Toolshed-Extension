@@ -92,18 +92,12 @@ body.reminder-theme-black #confirmation-popup {
 /* --- End of Reminder Popup Styles --- */
 
 /* --- Loading Facts Toast Styles --- */
-/* Parent container styling for centering */
-.loading-facts-overlay-parent {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    justify-content: center !important;
-}
-
 .loading-fact-toast {
-    /* Removed fixed positioning to rely on flex parent */
-    position: relative;
-    margin-top: 30vh; /* Push to lower portion */
+    position: fixed;
+    /* Position 1/3 up from bottom (approx 33%) */
+    bottom: var(--toast-bottom-position);
+    left: 50%;
+    transform: translateX(-50%);
     z-index: var(--toast-z-index);
     background-color: var(--toast-bg-color); /* Dark background for contrast */
     color: white;
@@ -115,9 +109,6 @@ body.reminder-theme-black #confirmation-popup {
     gap: var(--toast-gap-spacing);
     font-family: 'Montserrat', sans-serif;
     font-size: var(--toast-font-size);
-    /* Ensure multi-line facts stay balanced */
-    width: fit-content;
-    text-align: center;
     min-width: var(--toast-min-width);
     max-width: var(--toast-max-width);
 }

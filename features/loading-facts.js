@@ -74,7 +74,7 @@
                 const isLoading = !!spinner;
 
                 if (isLoading && !this.isVisible) {
-                    this.showToast(spinner);
+                    this.showToast();
                 } else if (!isLoading && this.isVisible) {
                     this.hideToast();
                 }
@@ -86,27 +86,8 @@
             return FACTS[index];
         }
 
-        showToast(spinnerElement) {
+        showToast() {
             if (document.getElementById(this.toastId)) return;
-
-            // Find parent to inject into
-            let parentContainer = document.body;
-            if (spinnerElement && spinnerElement.parentNode) {
-                // If in Shadow DOM, we might need to be careful, but generally appending to parent is safe
-                // unless it's a closed shadow root (which we accessed via utils anyway).
-                // However, standard DOM nodes are safer targets.
-                // If spinner is top level in shadow, parentNode is ShadowRoot.
-                // We should check if we can append there.
-
-                // For simplicity and per instruction "nest them within the loading overlay",
-                // we assume spinner.parentNode is that overlay or close enough.
-                parentContainer = spinnerElement.parentNode;
-
-                // Add class to parent for Flex centering
-                if (parentContainer instanceof Element) {
-                    parentContainer.classList.add('loading-facts-overlay-parent');
-                }
-            }
 
             this.isVisible = true;
             const fact = this.getRandomFact();
@@ -134,12 +115,7 @@
 
             toast.appendChild(contentDiv);
 
-            // Insert after spinner if possible to maintain DOM order logic
-            if (spinnerElement && parentContainer.contains(spinnerElement)) {
-                parentContainer.insertBefore(toast, spinnerElement.nextSibling);
-            } else {
-                parentContainer.appendChild(toast);
-            }
+            document.body.appendChild(toast);
         }
 
         hideToast() {
