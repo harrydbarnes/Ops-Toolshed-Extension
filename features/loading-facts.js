@@ -5,7 +5,7 @@
         "The average person spends 6 months of their life waiting in queues.",
         "The longest traffic jam in history lasted 12 days in Beijing (2010).",
         "The word 'queue' comes from the Latin 'cauda', meaning 'tail'.",
-        "Occupied time feels shorter than unoccupied time—that's why mirrors are by elevators.",
+        "Occupied time feels shorter than unoccupied time - that's why mirrors are by elevators.",
         "Disney deliberately snakes their queues to make them look shorter.",
         "The longest ever sausage roll was 111ft long... quite a queue of pastry.",
         "A 'ji-gong' is a professional line waiter you can hire in China.",

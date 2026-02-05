@@ -228,7 +228,7 @@ body.reminder-theme-black #confirmation-popup {
     --z-index-max: 2147483647;
     --toast-bg-color: #333;
     --primary-pink: #ff3d80;
-    --toast-bottom-position: 33%;
+    --toast-bottom-position: 80px;
     --toast-z-index: var(--z-index-max);
     --toast-border-radius: 50px;
     --toast-gap-spacing: 15px;
