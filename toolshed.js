@@ -66,17 +66,32 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!heatmapContainer) return;
         heatmapContainer.innerHTML = '';
 
-        // Generate dates for the last 52 weeks (approx 365 days)
+        // Ensure JS Tooltip element exists
+        let tooltip = document.getElementById('heatmap-tooltip');
+        if (!tooltip) {
+            tooltip = document.createElement('div');
+            tooltip.id = 'heatmap-tooltip';
+            document.body.appendChild(tooltip);
+        }
+
+        // Logic to start on Sunday 52 weeks ago
         const today = new Date();
-        // Adjust start date to align with the grid (start on Sunday or consistent day)
-        // For simplicity, just last 365 days
         const startDate = new Date(today);
-        startDate.setDate(today.getDate() - 364);
+        startDate.setDate(today.getDate() - (52 * 7)); // Go back 52 weeks
+        // Adjust to previous Sunday (if not already Sunday)
+        const dayOfWeek = startDate.getDay(); // 0 is Sunday
+        startDate.setDate(startDate.getDate() - dayOfWeek);
 
         // Map daily stats to date strings
         const statsMap = dailyStats || {};
 
-        for (let i = 0; i < 365; i++) {
+        // Calculate number of days from startDate to today (inclusive)
+        const timeDiff = today.getTime() - startDate.getTime();
+        const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+        // Add 1 to include today
+        const totalDays = daysDiff + 1;
+
+        for (let i = 0; i < totalDays; i++) {
             const date = new Date(startDate);
             date.setDate(startDate.getDate() + i);
             // Local date string construction to avoid UTC shifting
@@ -98,7 +113,29 @@ document.addEventListener('DOMContentLoaded', () => {
             const dayEl = document.createElement('div');
             dayEl.className = 'heatmap-day';
             dayEl.dataset.level = level;
-            dayEl.title = `${dateStr}: ${placements} placements`;
+
+            // Format for display: dd.mm.yy
+            const yy = String(year).slice(-2);
+            const displayDate = `${day}.${month}.${yy}`;
+            // Store text for tooltip
+            dayEl.dataset.tooltipText = `${displayDate}: ${placements} placements`;
+
+            // JS Tooltip Events
+            dayEl.addEventListener('mouseover', (e) => {
+                tooltip.textContent = e.target.dataset.tooltipText;
+                tooltip.style.display = 'block';
+            });
+
+            dayEl.addEventListener('mousemove', (e) => {
+                const offsetX = 10;
+                const offsetY = 10;
+                tooltip.style.left = (e.clientX + offsetX) + 'px';
+                tooltip.style.top = (e.clientY + offsetY) + 'px';
+            });
+
+            dayEl.addEventListener('mouseleave', () => {
+                tooltip.style.display = 'none';
+            });
 
             heatmapContainer.appendChild(dayEl);
         }
@@ -169,6 +206,29 @@ document.addEventListener('DOMContentLoaded', () => {
         if (monthEl) monthEl.textContent = `Most Active Month: ${mostActiveMonth}`;
     }
 
+    // --- Helper for UK Bank Holidays (2024-2026) ---
+    function isUKBankHoliday(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+
+        // List of known UK Bank Holidays
+        const bankHolidays = [
+            // 2024
+            "2024-01-01", "2024-03-29", "2024-04-01", "2024-05-06",
+            "2024-05-27", "2024-08-26", "2024-12-25", "2024-12-26",
+            // 2025
+            "2025-01-01", "2025-04-18", "2025-04-21", "2025-05-05",
+            "2025-05-26", "2025-08-25", "2025-12-25", "2025-12-26",
+            // 2026
+            "2026-01-01", "2026-04-03", "2026-04-06", "2026-05-04",
+            "2026-05-25", "2026-08-31", "2026-12-25", "2026-12-28" // 26th is Sat
+        ];
+
+        return bankHolidays.includes(dateStr);
+    }
+
     function renderFunStats(dailyStats, totalLoadingTime, totalPlacements) {
         // Kettle Index
         const kettleIndex = Math.floor(totalLoadingTime / 180);
@@ -206,6 +266,71 @@ document.addEventListener('DOMContentLoaded', () => {
                 const percent = Math.round((diff / previousWeekCount) * 100);
                 const arrow = percent > 0 ? '⬆️' : (percent < 0 ? '⬇️' : '➖');
                 beatWeekEl.textContent = `${arrow} ${Math.abs(percent)}%`;
+            }
+        }
+
+        // Streak Counter
+        const streakEl = document.getElementById('streak-counter');
+        if (streakEl) {
+            let streak = 0;
+            const now = new Date();
+            const yesterday = new Date(now);
+            yesterday.setDate(now.getDate() - 1);
+
+            // Format for lookup
+            const getDS = (d) => {
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${y}-${m}-${day}`;
+            };
+
+            const todayStr = getDS(now);
+            const yesterdayStr = getDS(yesterday);
+
+            // Determine anchor date
+            let anchorDate = null;
+            if (dailyStats[todayStr] && dailyStats[todayStr].placements > 0) {
+                anchorDate = new Date(now);
+            } else if (dailyStats[yesterdayStr] && dailyStats[yesterdayStr].placements > 0) {
+                anchorDate = new Date(yesterday);
+            }
+
+            if (anchorDate) {
+                // Count backwards from anchor (inclusive)
+                // Limit to prevent infinite loops (e.g. 1000 days)
+                for (let i = 0; i < 1000; i++) {
+                    const d = new Date(anchorDate);
+                    d.setDate(anchorDate.getDate() - i);
+                    const ds = getDS(d);
+
+                    const stat = dailyStats[ds];
+                    const placements = stat ? (stat.placements || 0) : 0;
+
+                    if (placements > 0) {
+                        streak++;
+                    } else {
+                        // Check if we should skip (Weekend or Bank Holiday)
+                        const dayOfWeek = d.getDay(); // 0=Sun, 6=Sat
+                        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                        if (isWeekend || isUKBankHoliday(d)) {
+                            // Don't increment streak, but continue searching backwards
+                            continue;
+                        } else {
+                            // Break streak
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (streak > 0) {
+                streakEl.textContent = `🔥 ${streak} Day Streak`;
+                streakEl.parentElement.parentElement.style.display = 'flex'; // Show if hidden
+            } else {
+                streakEl.textContent = '';
+                // Optional: Hide element or show placeholder
+                // For now, leaving empty
             }
         }
 

@@ -360,24 +360,22 @@ li {
     border-radius: 2px;
     background-color: #ebedf0;
     position: relative;
+    cursor: pointer;
 }
 
-/* Tooltip for heatmap */
-.heatmap-day:hover::after {
-    content: attr(title);
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0,0,0,0.8);
+/* JS Tooltip Style */
+#heatmap-tooltip {
+    position: fixed;
+    background: rgba(0, 0, 0, 0.85);
     color: white;
-    padding: 4px 8px;
+    padding: 6px 10px;
     border-radius: 4px;
     font-size: 12px;
     white-space: nowrap;
-    z-index: 10;
+    z-index: 1000;
     pointer-events: none;
-    margin-bottom: 5px;
+    display: none;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
 }
 
 /* Pink Colors */
