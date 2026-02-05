@@ -2,24 +2,24 @@
     'use strict';
 
     const FACTS = [
-        "The average person spends 6 months of their life waiting in queues.",
-        "The longest traffic jam in history lasted 12 days in Beijing (2010).",
-        "The word 'queue' comes from the Latin 'cauda', meaning 'tail'.",
-        "Occupied time feels shorter than unoccupied time - that's why mirrors are by elevators.",
-        "Disney deliberately snakes their queues to make them look shorter.",
-        "The longest ever sausage roll was 111ft long... quite a queue of pastry.",
-        "A 'ji-gong' is a professional line waiter you can hire in China.",
-        "The average person spends 2 days a year waiting at traffic lights.",
-        "The 'wait' for the first photo ever taken was 8 hours (1826).",
-        "The Eiffel Tower has one of the longest average wait times: over 2 hours.",
-        "You are currently part of the elite club of people waiting for this specific page.",
-        "The coding for Prisma references the Yes/No field for Actualisation as 'Ok to Pay'.",
-        "The first computer bug was an actual real-life moth found in a relay.",
-        "The first computer mouse was made of wood.",
-        "Technically, the loading spinner is known as a 'throbber' in UI design.",
-        "Domain names were free until 1995.",
-        "Once upon a time, someone in Ops during their first week was caught chain smoking outside whilst 15 minutes late for work.",
-        "In total you have seen this spinning wheel for {{TIME}}. Share this with Harry to help speed up Prisma!"
+        "The average person spends 6 months of their life waiting in queues",
+        "The longest traffic jam in history lasted 12 days in Beijing (2010)",
+        "The word 'queue' comes from the Latin 'cauda', meaning 'tail'",
+        "Occupied time feels shorter than unoccupied time - that's why mirrors are by elevators",
+        "Disney deliberately snakes their queues to make them look shorter",
+        "The longest ever sausage roll was 111ft long... quite a queue of pastry",
+        "A 'ji-gong' is a professional line waiter you can hire in China",
+        "The average person spends 2 days a year waiting at traffic lights",
+        "The 'wait' for the first photo ever taken was 8 hours (1826)",
+        "The Eiffel Tower has one of the longest average wait times: over 2 hours",
+        "You are currently part of the elite club of people waiting for this specific page",
+        "The coding for Prisma references the Yes/No field for Actualisation as 'Ok to Pay'",
+        "The first computer bug was an actual real-life moth found in a relay",
+        "The first computer mouse was made of wood",
+        "Technically, the loading spinner is known as a 'throbber' in UI design",
+        "Domain names were free until 1995",
+        "Once upon a time, someone in Ops during their first week was caught chain smoking outside whilst 15 minutes late for work",
+        "In total, you have seen this spinning wheel for {{TIME}}. Share this with Harry to help speed up Prisma!"
     ];
 
     const DEBOUNCE_DELAY_MS = 200;
