@@ -14,11 +14,11 @@ def test_loading_facts():
         page.goto(f"file://{test_file_path}")
 
         # Wait for the toast to appear
-        toast_selector = "#ops-toolshed-loading-toast"
+        toast_selector = ".loading-fact-toast"
 
         try:
             page.wait_for_selector(toast_selector, state="visible", timeout=WAIT_FOR_SELECTOR_TIMEOUT_MS)
-            print("Toast appeared with Shadow DOM spinner!")
+            print("Toast appeared!")
 
             # Wait a bit for the animation to settle
             page.wait_for_timeout(WAIT_FOR_ANIMATION_TIMEOUT_MS)

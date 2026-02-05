@@ -67,15 +67,18 @@
                 }
 
                 // MATCHING STATS-COLLECTOR LOGIC:
-                // We use the util to pierce Shadow DOM for 'svg.spinner'
-                // OR check for the standard font-awesome spinner.
-                const spinner = window.utils.queryShadowDom('svg.spinner') || document.querySelector('i.fa-spin');
+                // Prioritize mo-spinner, then Shadow DOM 'svg.spinner', then standard FA spinner.
+                const spinner = document.querySelector('.mo-spinner') ||
+                                window.utils.queryShadowDom('svg.spinner') ||
+                                document.querySelector('i.fa-spin');
 
                 const isLoading = !!spinner;
 
                 if (isLoading && !this.isVisible) {
-                    this.showToast();
+                    this.showToast(spinner);
                 } else if (!isLoading && this.isVisible) {
+                    // Check if the spinner we used is actually gone
+                    // (Here we rely on isLoading being false if no spinner is found)
                     this.hideToast();
                 }
             }, DEBOUNCE_DELAY_MS);
@@ -86,11 +89,51 @@
             return FACTS[index];
         }
 
-        showToast() {
+        showToast(spinner) {
             if (document.getElementById(this.toastId)) return;
+            if (!spinner) return;
 
             this.isVisible = true;
             const fact = this.getRandomFact();
+
+            // Check/Create Wrapper
+            let wrapper = spinner.parentNode;
+            // If the parent is not the wrapper, we need to wrap the spinner
+            // Note: spinner.parentNode might be a ShadowRoot which doesn't have classList
+            const isWrapper = wrapper && wrapper.classList && wrapper.classList.contains('loading-facts-wrapper');
+
+            if (!isWrapper) {
+                const parent = spinner.parentNode;
+                wrapper = document.createElement('div');
+                wrapper.className = 'loading-facts-wrapper';
+
+                // Insert the wrapper before the spinner in the DOM
+                if (parent) {
+                    parent.insertBefore(wrapper, spinner);
+                    // Move the spinner inside the wrapper
+                    wrapper.appendChild(spinner);
+                }
+
+                // Shadow DOM Support: Inject styles if inside a Shadow Root
+                // This ensures content.css styles apply to the wrapper and toast
+                const root = wrapper.getRootNode();
+                if (root instanceof ShadowRoot) {
+                    const link = document.createElement('link');
+                    link.rel = 'stylesheet';
+                    if (window.chrome && chrome.runtime && chrome.runtime.getURL) {
+                         try {
+                             link.href = chrome.runtime.getURL('content.css');
+                         } catch (e) {
+                             // Fallback or ignore
+                             link.href = '../content.css';
+                         }
+                    } else {
+                        // Fallback for local testing
+                        link.href = '../content.css';
+                    }
+                    wrapper.appendChild(link);
+                }
+            }
 
             const toast = document.createElement('div');
             toast.id = this.toastId;
@@ -115,7 +158,8 @@
 
             toast.appendChild(contentDiv);
 
-            document.body.appendChild(toast);
+            // Append toast to the wrapper (after spinner)
+            wrapper.appendChild(toast);
         }
 
         hideToast() {

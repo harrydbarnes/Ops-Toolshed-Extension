@@ -40,6 +40,12 @@
                 onChanged: {
                     addListener: () => {}
                 }
+            },
+            runtime: {
+                getURL: (path) => {
+                    // Return relative path for test environment
+                    return '../' + path;
+                }
             }
         };
 
