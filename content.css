@@ -94,44 +94,49 @@ body.reminder-theme-black #confirmation-popup {
 /* --- Loading Facts Toast Styles --- */
 /* The Fact "Pill" */
 .loading-fact-toast {
-    /* LAYOUT: Row = Icon Left | Text Right */
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    gap: 15px;
-
-    /* Positioning (Keep existing) */
+    /* Positioning (Fixed Bottom + Center X) */
     position: fixed;
-    bottom: 80px;
+    bottom: 100px;
     transform: translateX(-50%);
-
-    /* Visuals (Keep existing) */
-    background-color: var(--toast-bg-color, #333);
-    color: white;
-    padding: 15px 25px;
-    border-radius: 50px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
-    font-family: 'Montserrat', sans-serif;
-    font-size: 14px;
-    width: max-content;
-    max-width: 450px;
     z-index: 2147483647 !important;
     pointer-events: none;
+
+    /* Layout & Sizing */
+    display: flex;
+    align-items: center;     /* Vertically center text */
+    justify-content: center; /* Horizontally center text */
+    width: max-content;
+    max-width: 500px;
+    min-height: 60px; /* Ensure height for icon */
+
+    /* VISUAL CENTERING MAGIC: Balanced Padding */
+    /* Left padding holds the icon. Right padding balances it. */
+    padding: 15px 70px 15px 70px;
+
+    /* Styling */
+    background-color: var(--toast-bg-color, #333);
+    color: white;
+    border-radius: 50px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
 }
 
 .loading-fact-icon {
+    /* Absolute positioning to prevent pushing text off-center */
+    position: absolute;
+    left: 25px; /* Sits comfortably in the left padding */
+    top: 50%;
+    transform: translateY(-50%);
+
     font-size: 24px;
-    /* Remove margin-bottom if it was there */
-    margin-bottom: 0;
+    line-height: 1;
 }
 
 .loading-fact-content {
-    /* TEXT STACK: Column = Title Top | Body Bottom */
+    /* Text Stack */
     display: flex;
     flex-direction: column;
-    align-items: center; /* Centers text horizontally within the stack */
-    text-align: center;  /* Ensures multi-line text is centered */
+    align-items: center;
+    text-align: center;
 }
 
 .loading-fact-content strong {
