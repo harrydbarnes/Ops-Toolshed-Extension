@@ -225,10 +225,11 @@ body.reminder-theme-black #confirmation-popup {
     --color-nav-pill-bg: rgba(255, 255, 255, 0.15);
     --color-nav-pill-bg-hover: rgba(255, 255, 255, 0.2);
     --font-primary: 'Inter', 'Roboto', sans-serif;
+    --z-index-max: 2147483647;
     --toast-bg-color: #333;
     --primary-pink: #ff3d80;
     --toast-bottom-position: 33%;
-    --toast-z-index: 2147483647;
+    --toast-z-index: var(--z-index-max);
     --toast-border-radius: 50px;
     --toast-gap-spacing: 15px;
     --toast-font-size: 14px;

@@ -110,7 +110,7 @@
             contentDiv.appendChild(strong);
 
             const span = document.createElement('span');
-            span.innerHTML = window.utils.escapeHTML(fact);
+            span.textContent = fact;
             contentDiv.appendChild(span);
 
             toast.appendChild(contentDiv);
