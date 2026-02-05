@@ -100,7 +100,7 @@ body.reminder-theme-black #confirmation-popup {
     left: 50%;
 
     /* Center X, and Push Down Y */
-    transform: translate(-50%, 130px);
+    transform: translate(-50%, 180px);
 
     /* Visual Styling */
     background-color: var(--toast-bg-color, #333);
@@ -152,21 +152,21 @@ body.reminder-theme-black #confirmation-popup {
 @keyframes slideUpFadeIn {
     0% {
         opacity: 0;
-        transform: translate(-50%, 150px); /* Start slightly lower than 130px */
+        transform: translate(-50%, 200px); /* Start slightly lower than 180px */
     }
     100% {
         opacity: 1;
-        transform: translate(-50%, 130px); /* End at intended position */
+        transform: translate(-50%, 180px); /* End at intended position */
     }
 }
 
 @keyframes slideDownFadeOut {
     0% {
-        transform: translate(-50%, 130px);
+        transform: translate(-50%, 180px);
         opacity: 1;
     }
     100% {
-        transform: translate(-50%, 150px); /* Slide back down */
+        transform: translate(-50%, 200px); /* Slide back down */
         opacity: 0;
     }
 }
