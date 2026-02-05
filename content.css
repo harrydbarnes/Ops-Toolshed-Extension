@@ -94,20 +94,19 @@ body.reminder-theme-black #confirmation-popup {
 /* --- Loading Facts Toast Styles --- */
 /* The Fact "Pill" */
 .loading-fact-toast {
-    /* Positioning Strategy (Absolute relative to spinner container) */
-    position: absolute;
-    top: 50%;
-    left: 50%;
+    /* Viewport Positioning (Vertical) */
+    position: fixed;
+    bottom: 100px; /* Anchored to bottom of screen, consistent on all monitors */
 
-    /* Center X, and Push Down Y */
-    transform: translate(-50%, 180px);
+    /* Horizontal Positioning is handled by JS (left style), this centers it on that point */
+    transform: translateX(-50%);
 
-    /* Visual Styling */
+    /* Visual Styling (Keep existing) */
     background-color: var(--toast-bg-color, #333);
     color: white;
     padding: 15px 20px;
     border-radius: 50px;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.5); /* Slightly stronger shadow for pop */
+    box-shadow: 0 5px 20px rgba(0,0,0,0.5);
     font-family: 'Montserrat', sans-serif;
     font-size: 14px;
     display: flex;
@@ -116,11 +115,8 @@ body.reminder-theme-black #confirmation-popup {
     width: max-content;
     max-width: 500px;
     text-align: center;
-
-    /* Layering Fixes */
-    z-index: 2147483647 !important; /* Max Z-Index to sit on top of backdrops */
-    opacity: 1 !important;
-    pointer-events: none; /* Let clicks pass through */
+    z-index: 2147483647 !important; /* Max Z-Index */
+    pointer-events: none;
 }
 
 /* Restore Inner Elements */
@@ -152,22 +148,22 @@ body.reminder-theme-black #confirmation-popup {
 @keyframes slideUpFadeIn {
     0% {
         opacity: 0;
-        transform: translate(-50%, 200px); /* Start slightly lower than 180px */
+        transform: translate(-50%, 20px); /* Start 20px lower */
     }
     100% {
         opacity: 1;
-        transform: translate(-50%, 180px); /* End at intended position */
+        transform: translate(-50%, 0); /* End at natural position */
     }
 }
 
 @keyframes slideDownFadeOut {
     0% {
-        transform: translate(-50%, 180px);
         opacity: 1;
+        transform: translate(-50%, 0);
     }
     100% {
-        transform: translate(-50%, 200px); /* Slide back down */
         opacity: 0;
+        transform: translate(-50%, 20px);
     }
 }
 /* --- End Loading Facts Toast Styles --- */

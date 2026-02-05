@@ -47,12 +47,13 @@ def test_loading_facts():
             toast_box = page.locator(toast_selector).bounding_box()
             print(f"Toast Y: {toast_box['y']}")
 
-            # In test.html, spinner is at top: 20px. Toast has transform: translate(-50%, 180px).
-            # So Toast Y should be significantly lower (e.g. > 170px).
-            if toast_box['y'] > 170:
-                 print("PASS: Toast is positioned below the top area (likely below spinner)")
+            # In test.html, Toast has position: fixed; bottom: 100px.
+            # With default viewport size (1280x720), Y should be approx 620.
+            # Let's assert it is in the bottom half of the screen (e.g. > 300px).
+            if toast_box['y'] > 300:
+                 print(f"PASS: Toast is positioned near bottom (Y: {toast_box['y']})")
             else:
-                 print(f"FAIL: Toast Y position {toast_box['y']} seems too high")
+                 print(f"FAIL: Toast Y position {toast_box['y']} seems too high for bottom-anchored element")
 
             # Take screenshot
             page.screenshot(path="verification/loading_facts_verification.png")

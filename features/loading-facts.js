@@ -100,57 +100,38 @@
             // Revert Wrapper Logic: Do NOT wrap the spinner.
             // Use sibling injection with absolute positioning.
 
-            if (spinner.parentElement) {
-                // Set parent relative to establish positioning context
-                spinner.parentElement.style.position = 'relative';
+            // Calculate Position: Horizontal Center of Spinner
+            const rect = spinner.getBoundingClientRect();
+            const centerX = rect.left + (rect.width / 2);
 
-                const toast = document.createElement('div');
-                toast.id = this.toastId;
-                toast.className = 'loading-fact-toast slide-up';
+            const toast = document.createElement('div');
+            toast.id = this.toastId;
+            toast.className = 'loading-fact-toast slide-up';
 
-                // Create inner content structure
-                const iconDiv = document.createElement('div');
-                iconDiv.className = 'loading-fact-icon';
-                iconDiv.textContent = '⏳';
-                toast.appendChild(iconDiv);
+            // Apply calculated horizontal position
+            toast.style.left = `${centerX}px`;
 
-                const contentDiv = document.createElement('div');
-                contentDiv.className = 'loading-fact-content';
+            // Create inner content structure
+            const iconDiv = document.createElement('div');
+            iconDiv.className = 'loading-fact-icon';
+            iconDiv.textContent = '⏳';
+            toast.appendChild(iconDiv);
 
-                const strong = document.createElement('strong');
-                strong.textContent = 'Did you know?';
-                contentDiv.appendChild(strong);
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'loading-fact-content';
 
-                const span = document.createElement('span');
-                span.textContent = fact;
-                contentDiv.appendChild(span);
+            const strong = document.createElement('strong');
+            strong.textContent = 'Did you know?';
+            contentDiv.appendChild(strong);
 
-                toast.appendChild(contentDiv);
+            const span = document.createElement('span');
+            span.textContent = fact;
+            contentDiv.appendChild(span);
 
-                // Append toast as a sibling, NOT a child of the spinner
-                spinner.parentElement.appendChild(toast);
+            toast.appendChild(contentDiv);
 
-                // Shadow DOM Support: Inject styles if inside a Shadow Root
-                // This ensures content.css styles apply to the toast
-                const root = spinner.getRootNode();
-                if (root instanceof ShadowRoot) {
-                    // Check if link already exists to avoid duplicates
-                    if (!root.querySelector('link[href*="content.css"]')) {
-                        const link = document.createElement('link');
-                        link.rel = 'stylesheet';
-                        if (window.chrome && chrome.runtime && chrome.runtime.getURL) {
-                             try {
-                                 link.href = chrome.runtime.getURL('content.css');
-                             } catch (e) {
-                                 link.href = '../content.css';
-                             }
-                        } else {
-                            link.href = '../content.css';
-                        }
-                        root.appendChild(link);
-                    }
-                }
-            }
+            // Append to document.body to ensure it floats above all other content
+            document.body.appendChild(toast);
         }
 
         hideToast() {
