@@ -101,8 +101,17 @@ body.reminder-theme-black #confirmation-popup {
     width: 100%;
 }
 
+/* 1. The Spinner (Target standard spinner classes) */
+.loading-facts-wrapper mo-spinner,
+.loading-facts-wrapper .spinner,
+.loading-facts-wrapper svg {
+    order: 1 !important;
+}
+
 /* The Fact "Pill" */
 .loading-fact-toast {
+    order: 2 !important; /* Force below spinner */
+
     /* VISUAL STYLES (Restore these) */
     background-color: var(--toast-bg-color, #333); /* Fallback to #333 if var missing */
     color: white;

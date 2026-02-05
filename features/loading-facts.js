@@ -111,7 +111,7 @@
                 // Insert the wrapper before the spinner in the DOM
                 if (parent) {
                     parent.insertBefore(wrapper, spinner);
-                    // Move the spinner inside the wrapper
+                    // Standard appendChild to guarantee [Spinner] -> [Toast] order
                     wrapper.appendChild(spinner);
                 }
 
@@ -159,7 +159,7 @@
 
             toast.appendChild(contentDiv);
 
-            // Append toast to the wrapper (after spinner)
+            // Append toast to the wrapper (guaranteed to be after spinner as 2nd child)
             wrapper.appendChild(toast);
         }
 
