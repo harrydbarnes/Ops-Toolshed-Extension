@@ -102,6 +102,10 @@ const swapIconSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
             parentContainer.insertBefore(swapButton, userMenu);
 
         } catch (error) {
+            if (error.message && (error.message.includes('not found') || error.message.includes('timeout'))) {
+                console.debug('Swap Accounts: User menu not found, skipping.');
+                return;
+            }
             console.error('Could not add Switch Accounts button:', error);
         }
     }
