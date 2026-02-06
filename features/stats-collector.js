@@ -91,6 +91,14 @@
             console.log('[Stats Collector] Reconciliation clicked.');
             trackStat('RECONCILIATION', 1);
         }
+
+        // Track Reconciliations via Cost Source Dropdown
+        // (User selects an item which changes "Ok to Pay" to Yes)
+        const costSourceLink = event.target.closest('.handle-cost-source-selection-div li a[role="menuitem"]');
+        if (costSourceLink) {
+            console.log('[Stats Collector] Cost Source selection detected (Reconciliation).');
+            trackStat('RECONCILIATION', 1);
+        }
     }
 
     // --- Main Initialization ---
