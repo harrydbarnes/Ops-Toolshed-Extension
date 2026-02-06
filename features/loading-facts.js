@@ -60,14 +60,6 @@
 
             this.isEnabled = data.loadingFactsEnabled !== false;
             this.settingsLoaded = true;
-
-            // Set up MutationObserver to detect dynamically added spinners
-            // This ensures we catch i.fa-spin elements added after initial load
-            const observer = new MutationObserver(() => {
-                this.checkForLoading();
-            });
-            observer.observe(document.body, { childList: true, subtree: true });
-
             // Initial check in case the page loaded with a spinner
             this.checkForLoading();
         }
