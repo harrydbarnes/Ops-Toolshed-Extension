@@ -111,27 +111,33 @@
         }
 
         async getProcessedFact() {
-            let fact = this.getRandomFact();
+            const getStorageData = keys => new Promise(resolve => chrome.storage.local.get(keys, resolve));
 
-            if (fact.includes('{{TIME}}')) {
-                return new Promise((resolve) => {
-                    chrome.storage.local.get(['prismaUserStats'], (data) => {
-                        const stats = data.prismaUserStats;
-                        const time = stats ? stats.totalLoadingTime : 0;
+            // Use a bounded loop to prevent infinite execution
+            for (let i = 0; i < FACTS.length * 2; i++) {
+                const fact = this.getRandomFact();
 
-                        if (time > 0) {
-                            const timeStr = this.formatTime(time);
-                            resolve(fact.replace('{{TIME}}', timeStr));
-                        } else {
-                            // If no time data, pick another fact recursively
-                            // Use a simple retry limit to avoid infinite loops effectively
-                            // But practically just picking another random one is fine.
-                            resolve(this.getProcessedFact());
-                        }
-                    });
-                });
+                if (fact.includes('{{TIME}}')) {
+                    const data = await getStorageData(['prismaUserStats']);
+                    const time = data.prismaUserStats ? data.prismaUserStats.totalLoadingTime : 0;
+
+                    if (time > 0) {
+                        const timeStr = this.formatTime(time);
+                        return fact.replace('{{TIME}}', timeStr);
+                    }
+                    // If time is 0, continue loop to get another fact.
+                } else {
+                    return fact; // Return non-special fact immediately.
+                }
             }
-            return fact;
+
+            // Fallback: if we only picked the TIME fact and time is 0, return a non-TIME fact.
+            const nonTimeFacts = FACTS.filter(f => !f.includes('{{TIME}}'));
+            if (nonTimeFacts.length > 0) {
+                return nonTimeFacts[Math.floor(Math.random() * nonTimeFacts.length)];
+            }
+
+            return "Loading..."; // Ultimate fallback
         }
 
         async showToast(spinner) {

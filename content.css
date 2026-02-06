@@ -141,7 +141,7 @@ body.reminder-theme-black #confirmation-popup {
 
 .loading-fact-content strong {
     display: block;
-    color: #ff3d80;
+    color: var(--primary-pink);
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 1px;
