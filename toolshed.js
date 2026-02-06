@@ -168,31 +168,34 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         // Day of Week Chart
-        const dayCounts = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 }; // Sun-Sat
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        // Store detailed stats per day
+        const dayStats = days.map(() => ({ total: 0, placements: 0, reconciliations: 0, campaigns: 0 }));
 
         Object.keys(dailyStats || {}).forEach(dateStr => {
             // Parse YYYY-MM-DD as local date
             const date = parseDateStr(dateStr);
-            const day = date.getDay();
+            const dayIndex = date.getDay();
             const stat = dailyStats[dateStr];
 
-            // Sum of all productivity metrics
             const placements = stat.placements || 0;
             const reconciliations = stat.reconciliations || 0;
             const campaigns = (stat.visitedCampaigns || []).length;
-            const totalActivity = placements + reconciliations + campaigns;
 
-            dayCounts[day] += totalActivity;
+            const dayStat = dayStats[dayIndex];
+            dayStat.placements += placements;
+            dayStat.reconciliations += reconciliations;
+            dayStat.campaigns += campaigns;
+            dayStat.total += (placements + reconciliations + campaigns);
         });
 
-        const maxCount = Math.max(...Object.values(dayCounts));
+        const maxCount = Math.max(...dayStats.map(s => s.total));
         const chartContainer = document.getElementById('day-of-week-chart');
         if (chartContainer) {
             chartContainer.innerHTML = '';
             days.forEach((day, index) => {
-                const count = dayCounts[index];
-                const percentage = maxCount > 0 ? (count / maxCount) * 100 : 0;
+                const stats = dayStats[index];
+                const percentage = maxCount > 0 ? (stats.total / maxCount) * 100 : 0;
 
                 const bar = document.createElement('div');
                 bar.className = 'chart-bar';
@@ -203,7 +206,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 label.textContent = day;
                 bar.appendChild(label);
 
-                bar.title = `${day}: ${count} actions`;
+                // Detailed Tooltip
+                bar.title = `${day}: ${stats.total} actions (${stats.placements} placements, ${stats.reconciliations} reconciliations, ${stats.campaigns} campaigns)`;
                 chartContainer.appendChild(bar);
             });
         }
@@ -296,13 +300,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const beatWeekEl = document.getElementById('beat-your-week');
         if (beatWeekEl) {
+            const beatWeekLabel = beatWeekEl.nextElementSibling;
             if (previousWeekCount === 0) {
-                beatWeekEl.textContent = currentWeekCount > 0 ? "First Week!" : "-";
+                beatWeekEl.textContent = "First Week!";
+                if (beatWeekLabel) beatWeekLabel.style.display = 'none';
             } else {
                 const diff = currentWeekCount - previousWeekCount;
                 const percent = Math.round((diff / previousWeekCount) * 100);
                 const arrow = percent > 0 ? '⬆️' : (percent < 0 ? '⬇️' : '➖');
                 beatWeekEl.textContent = `${arrow} ${Math.abs(percent)}%`;
+                if (beatWeekLabel) beatWeekLabel.style.display = '';
             }
         }
 
