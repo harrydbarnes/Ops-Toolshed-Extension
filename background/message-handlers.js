@@ -1,5 +1,6 @@
 import { approversData } from '../approvers-data.js';
 import { scrapeAndDownloadCsv } from './meta-billing-scraper.js';
+import { handleTrackStat } from './stats-manager.js';
 
 const PRISMA_DASHBOARD_URL = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns';
 const MAX_RETRIES = 10;
@@ -126,5 +127,6 @@ export const messageHandlers = {
     getClipboardText,
     copyToClipboard,
     getFavouriteApprovers,
-    openApproversPage
+    openApproversPage,
+    TRACK_STAT: handleTrackStat
 };

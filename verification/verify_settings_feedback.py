@@ -4,10 +4,10 @@ import os
 def run(playwright):
     browser = playwright.chromium.launch(headless=True)
     page = browser.new_page()
-    
+
     cwd = os.getcwd()
     url = f"file://{cwd}/settings.html"
-    
+
     # Mock chrome API
     page.add_init_script("""
         window.chrome = {
@@ -36,16 +36,16 @@ def run(playwright):
             }
         };
     """)
-    
+
     page.goto(url)
     page.click('#open-feedback-modal')
-    
+
     # Wait for modal to verify it opens
     page.wait_for_selector('#ops-toolshed-feedback-root')
-    
+
     # Take screenshot
     page.screenshot(path="verification/settings_feedback.png")
-    
+
     browser.close()
 
 with sync_playwright() as playwright:

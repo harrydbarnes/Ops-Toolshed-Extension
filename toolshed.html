@@ -82,23 +82,94 @@
         </div>
 
         <div id="stats" class="tab-content">
-            <h2>Statistics</h2>
-            <ul>
-                <li>
-                    <strong>Campaigns visited:</strong>
-                    <span id="campaigns-visited-stat">0</span>
-                </li>
-                <li>
-                    <strong>Time waiting for Prisma to load:</strong>
-                    <span id="loading-time-stat">0s</span>
-                    <br>
-                    <span id="avg-loading-time-stat" class="avg-stat"></span>
-                </li>
-                <li>
-                    <strong>Number of placements added:</strong>
-                    <span id="placements-added-stat">0</span>
-                </li>
-            </ul>
+            <div class="stats-header">
+                <h2>Statistics</h2>
+                <button id="refresh-stats-button" class="icon-button" title="Refresh Stats">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M23 4v6h-6"></path>
+                        <path d="M1 20v-6h6"></path>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Lifetime Totals -->
+            <div class="stats-overview">
+                <div class="stat-card-overview">
+                    <div class="stat-icon-wrapper">📂</div>
+                    <div class="stat-details">
+                        <span class="stat-value" id="campaigns-visited-stat">0</span>
+                        <span class="stat-label">Campaigns Visited</span>
+                    </div>
+                </div>
+
+                <div class="stat-card-overview">
+                    <div class="stat-icon-wrapper">⏳</div>
+                    <div class="stat-details">
+                        <span class="stat-value" id="loading-time-stat">0s</span>
+                        <span class="stat-label">Time Waiting</span>
+                        <span id="avg-loading-time-stat" class="stat-subtext"></span>
+                    </div>
+                </div>
+
+                <div class="stat-card-overview">
+                    <div class="stat-icon-wrapper">➕</div>
+                    <div class="stat-details">
+                        <span class="stat-value" id="placements-added-stat">0</span>
+                        <span class="stat-label">Placements Added</span>
+                    </div>
+                </div>
+
+                <div class="stat-card-overview">
+                    <div class="stat-icon-wrapper">✅</div>
+                    <div class="stat-details">
+                        <span class="stat-value" id="reconciliations-stat">0</span>
+                        <span class="stat-label">Reconciliations</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Heatmap -->
+            <div class="stats-section">
+                <h3>Activity Heatmap</h3>
+                <div class="heatmap-wrapper">
+                    <div id="heatmap" class="heatmap-container"></div>
+                </div>
+            </div>
+
+            <!-- Charts & Fun Stats -->
+            <div class="stats-grid">
+                <div class="stats-card">
+                    <h3>Weekly Productivity</h3>
+                    <div id="day-of-week-chart" class="chart-container"></div>
+                    <p id="most-active-month" class="stat-summary"></p>
+                </div>
+                <div class="stats-card">
+                    <h3>Fun Metrics</h3>
+                    <div class="fun-stat">
+                        <span class="fun-icon">🫖</span>
+                        <div class="fun-content">
+                            <span id="kettle-index" class="fun-value">0</span>
+                            <span class="fun-label">Kettles Boiled (waiting time)</span>
+                        </div>
+                    </div>
+                    <div class="fun-stat">
+                        <span class="fun-icon">📈</span>
+                        <div class="fun-content">
+                            <span id="beat-your-week" class="fun-value">-</span>
+                            <span class="fun-label">vs Previous Week</span>
+                        </div>
+                    </div>
+                    <div class="fun-stat">
+                        <span class="fun-icon">🔥</span>
+                        <div class="fun-content">
+                            <span id="streak-counter" class="fun-value"></span>
+                            <span class="fun-label">Current Streak</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <button id="reset-stats-button" class="button-secondary">Reset Stats</button>
         </div>
 
@@ -121,6 +192,7 @@
     </div>
 
     <div id="build-info" class="build-info"></div>
+    <script src="features/confetti.js"></script>
     <script src="build-info.js"></script>
     <script src="utils.js"></script>
     <script src="features/feedback-modal.js"></script>
