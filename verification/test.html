@@ -80,6 +80,25 @@
 
         wrapper.appendChild(spinner);
         shadow.appendChild(wrapper);
+
+        // Add the specific VP block spinner to test the new selector
+        // This simulates the structure: div#vp-block > i.fa.fa-circle-o-notch.fa-spin
+        const vpBlock = document.createElement('div');
+        vpBlock.id = 'vp-block';
+        // Initially visible
+        vpBlock.style.display = 'block';
+        vpBlock.style.width = '50px';
+        vpBlock.style.height = '50px';
+
+        const faSpinner = document.createElement('i');
+        faSpinner.className = 'fa fa-circle-o-notch fa-spin';
+        faSpinner.style.display = 'block';
+        faSpinner.style.width = '20px';
+        faSpinner.style.height = '20px'; // Ensure dimensions > 0 for visibility check
+
+        vpBlock.appendChild(faSpinner);
+        document.body.appendChild(vpBlock);
+
     </script>
     <script src="../features/loading-facts.js"></script>
     <script>

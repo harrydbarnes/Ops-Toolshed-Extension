@@ -37,6 +37,7 @@
             this.isVisible = false;
             this.debounceTimer = null;
             this.isEnabled = true; // Default to enabled
+            this.isIntersecting = false; // Track viewport visibility
 
             // State for managing async settings load
             this.settingsLoaded = false;
@@ -60,12 +61,41 @@
 
             this.isEnabled = data.loadingFactsEnabled !== false;
             this.settingsLoaded = true;
+
+            // Set up MutationObserver to detect dynamically added spinners
+            this.mutationObserver = new MutationObserver(() => {
+                this.checkForLoading();
+            });
+            this.mutationObserver.observe(document.body, { childList: true, subtree: true });
+
+            // IntersectionObserver for visibility tracking
+            this.intersectionObserver = new IntersectionObserver((entries) => {
+                // Update state based on the most recent entry
+                if (entries.length > 0) {
+                    this.isIntersecting = entries[0].isIntersecting;
+                }
+                // If the observed spinner changes intersection state, re-check loading
+                this.checkForLoading();
+            }, { threshold: 0.1 }); // Trigger when at least 10% visible
+
             // Initial check in case the page loaded with a spinner
             this.checkForLoading();
         }
 
+        isElementVisible(element) {
+            if (!element) return false;
+
+            const style = window.getComputedStyle(element);
+            if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+                return false;
+            }
+
+            const rect = element.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+        }
+
         checkForLoading() {
-            // Debounce the check to prevent flickering if the spinner pulses
+            // Debounce the check to prevent flickering
             if (this.debounceTimer) clearTimeout(this.debounceTimer);
 
             this.debounceTimer = setTimeout(() => {
@@ -80,21 +110,53 @@
                     return;
                 }
 
-                // MATCHING STATS-COLLECTOR LOGIC:
-                // Prioritize mo-spinner (tag or class), then Shadow DOM 'svg.spinner', then standard FA spinner.
-                const spinner = document.querySelector('mo-spinner') ||
+                // Updated Selector Logic:
+                // 1. Specific VP Block Spinner
+                // 2. mo-spinner (tag or class)
+                // 3. Shadow DOM spinner
+                // 4. Generic FA spinner
+                const spinner = document.querySelector('div#vp-block > i.fa.fa-circle-o-notch.fa-spin') ||
+                                document.querySelector('mo-spinner') ||
                                 document.querySelector('.mo-spinner') ||
                                 window.utils.queryShadowDom('svg.spinner') ||
                                 document.querySelector('i.fa-spin');
 
-                const isLoading = !!spinner;
+                // Strict Visibility Check
+                // We check if it exists AND is visually perceptible
+                // NOTE: 'isIntersecting' is updated asynchronously by the observer callback.
+                // We must attach the observer first to get updates.
+                const domVisible = spinner && this.isElementVisible(spinner);
 
-                if (isLoading && !this.isVisible) {
-                    this.showToast(spinner);
-                } else if (!isLoading && this.isVisible) {
-                    // Check if the spinner we used is actually gone
-                    // (Here we rely on isLoading being false if no spinner is found)
-                    this.hideToast();
+                if (domVisible) {
+                    // Always ensure we are observing the current spinner
+                    this.intersectionObserver.disconnect();
+                    this.intersectionObserver.observe(spinner);
+
+                    // If we are intersecting (visible in viewport) OR if we haven't established intersection yet
+                    // (e.g. first run), we rely on the async callback to eventually toggle 'isIntersecting'.
+                    // However, to prevent "flicker" where we hide immediately because isIntersecting is false initially,
+                    // we might need a grace period or assume visible if domVisible is true but observer hasn't fired.
+                    // BUT per instructions: "When the spinner leaves the viewport... Hide".
+
+                    // Simplified Logic:
+                    // If DOM visible, we rely on isIntersecting state.
+                    // The Observer callback triggers this function again on change.
+
+                    if (this.isIntersecting) {
+                        if (!this.isVisible) {
+                            this.showToast(spinner);
+                        }
+                    } else {
+                        // In DOM but off-screen
+                        if (this.isVisible) this.hideToast();
+                    }
+                } else {
+                    // Not in DOM or hidden by CSS
+                    this.intersectionObserver.disconnect();
+                    this.isIntersecting = false;
+                    if (this.isVisible) {
+                        this.hideToast();
+                    }
                 }
             }, DEBOUNCE_DELAY_MS);
         }
