@@ -1,14 +1,11 @@
 (function() {
-    let isEnabled = true;
+    const TARGET_URL = 'https://cdn.applearn.tv/GroupM/Images/split_screen_icon.png';
+    let isEnabled = null;
 
     function removeTransparency() {
-        // Find the image that we previously tagged.
-        // Note: queryShadowDom might need to be adjusted if we want to find *any* tagged image,
-        // but looking for the specific target URL + the tag is safer.
-        const appLearnImg = window.utils.queryShadowDom(`img[src="${window.appLearnFeature.targetUrl}"]`);
+        const appLearnImg = window.utils.queryShadowDom(`img[src="${TARGET_URL}"]`);
         if (appLearnImg && appLearnImg.dataset.toolshedTranslucent) {
             delete appLearnImg.dataset.toolshedTranslucent;
-            console.log("[Ops Toolshed] AppLearn icon transparency removed.");
         }
     }
 
@@ -16,6 +13,9 @@
         // Initialize state from storage
         chrome.storage.sync.get({ appLearnReplaceEnabled: true }, (data) => {
             isEnabled = data.appLearnReplaceEnabled;
+            if (isEnabled && window.appLearnFeature) {
+                window.appLearnFeature.applyTransparency();
+            }
         });
 
         // Listen for changes to the setting
@@ -35,12 +35,13 @@
     }
 
     window.appLearnFeature = {
-        targetUrl: 'https://cdn.applearn.tv/GroupM/Images/split_screen_icon.png',
+        targetUrl: TARGET_URL,
 
         initialize: function() {
             // The initial check is async and self-contained.
-            chrome.storage.sync.get('appLearnReplaceEnabled', (data) => {
-                if (data.appLearnReplaceEnabled) {
+            chrome.storage.sync.get({ appLearnReplaceEnabled: true }, (data) => {
+                isEnabled = data.appLearnReplaceEnabled;
+                if (isEnabled) {
                     this.injectStyles();
                     this.applyTransparency();
                 }
@@ -66,7 +67,7 @@
         applyTransparency: function() {
             // This is called from the MutationObserver and needs to be fast.
             // It now checks the cached `isEnabled` flag.
-            if (!isEnabled) {
+            if (isEnabled === null || isEnabled === false) {
                 return;
             }
 
@@ -78,7 +79,6 @@
 
             if (appLearnImg && !appLearnImg.dataset.toolshedTranslucent) {
                 appLearnImg.dataset.toolshedTranslucent = "true";
-                console.log("[Ops Toolshed] AppLearn icon transparency applied.");
             }
         }
     };
