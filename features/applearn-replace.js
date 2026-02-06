@@ -10,14 +10,6 @@
     }
 
     if (chrome.storage && chrome.storage.sync) {
-        // Initialize state from storage
-        chrome.storage.sync.get({ appLearnReplaceEnabled: true }, (data) => {
-            isEnabled = data.appLearnReplaceEnabled;
-            if (isEnabled && window.appLearnFeature) {
-                window.appLearnFeature.applyTransparency();
-            }
-        });
-
         // Listen for changes to the setting
         chrome.storage.onChanged.addListener((changes, area) => {
             if (area === 'sync' && changes.appLearnReplaceEnabled) {
@@ -26,9 +18,7 @@
                     removeTransparency();
                 } else {
                     // When re-enabled, trigger the logic again.
-                    if (window.appLearnFeature) {
-                        window.appLearnFeature.applyTransparency();
-                    }
+                    window.appLearnFeature.applyTransparency();
                 }
             }
         });
