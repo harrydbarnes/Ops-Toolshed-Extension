@@ -22,8 +22,14 @@
         "In total, you have seen this spinning wheel for {{TIME}}. Share this with Harry to help speed up Prisma!"
     ];
 
+    // Pre-calculate non-time facts for fallback optimization
+    const NON_TIME_FACTS = FACTS.filter(f => !f.includes('{{TIME}}'));
+
     const DEBOUNCE_DELAY_MS = 200;
     const ANIMATION_DURATION_MS = 500;
+
+    // Helper to promisify chrome.storage.local.get
+    const getStorageData = keys => new Promise(resolve => chrome.storage.local.get(keys, resolve));
 
     class LoadingFactsFeature {
         constructor() {
@@ -47,13 +53,15 @@
             });
         }
 
-        initialize() {
-            chrome.storage.sync.get('loadingFactsEnabled', (data) => {
-                this.isEnabled = data.loadingFactsEnabled !== false;
-                this.settingsLoaded = true;
-                // Initial check in case the page loaded with a spinner
-                this.checkForLoading();
-            });
+        async initialize() {
+            // Use promise wrapper or direct promise if available (using simple wrap here for consistency)
+            const getSyncData = keys => new Promise(resolve => chrome.storage.sync.get(keys, resolve));
+            const data = await getSyncData('loadingFactsEnabled');
+
+            this.isEnabled = data.loadingFactsEnabled !== false;
+            this.settingsLoaded = true;
+            // Initial check in case the page loaded with a spinner
+            this.checkForLoading();
         }
 
         checkForLoading() {
@@ -111,8 +119,6 @@
         }
 
         async getProcessedFact() {
-            const getStorageData = keys => new Promise(resolve => chrome.storage.local.get(keys, resolve));
-
             // Use a bounded loop to prevent infinite execution
             for (let i = 0; i < FACTS.length * 2; i++) {
                 const fact = this.getRandomFact();
@@ -131,10 +137,9 @@
                 }
             }
 
-            // Fallback: if we only picked the TIME fact and time is 0, return a non-TIME fact.
-            const nonTimeFacts = FACTS.filter(f => !f.includes('{{TIME}}'));
-            if (nonTimeFacts.length > 0) {
-                return nonTimeFacts[Math.floor(Math.random() * nonTimeFacts.length)];
+            // Fallback: use pre-calculated non-time facts
+            if (NON_TIME_FACTS.length > 0) {
+                return NON_TIME_FACTS[Math.floor(Math.random() * NON_TIME_FACTS.length)];
             }
 
             return "Loading..."; // Ultimate fallback

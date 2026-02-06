@@ -96,9 +96,9 @@ body.reminder-theme-black #confirmation-popup {
 .loading-fact-toast {
     /* Positioning (Fixed Bottom + Center X) */
     position: fixed;
-    bottom: 80px;
+    bottom: var(--toast-bottom-position);
     transform: translateX(-50%);
-    z-index: 2147483647 !important;
+    z-index: var(--toast-z-index) !important;
     pointer-events: none;
 
     /* Layout & Sizing */
@@ -106,7 +106,7 @@ body.reminder-theme-black #confirmation-popup {
     align-items: center;     /* Vertically center text */
     justify-content: center; /* Horizontally center text */
     width: max-content;
-    max-width: 500px;
+    max-width: var(--toast-max-width);
     min-height: 50px; /* Reduced from 60px to fit tighter padding */
 
     /* VISUAL CENTERING MAGIC: Balanced Padding */
@@ -114,9 +114,9 @@ body.reminder-theme-black #confirmation-popup {
     padding: 10px 70px 10px 70px;
 
     /* Styling */
-    background-color: var(--toast-bg-color, #333);
+    background-color: var(--toast-bg-color);
     color: white;
-    border-radius: 50px;
+    border-radius: var(--toast-border-radius);
     box-shadow: 0 10px 30px rgba(0,0,0,0.4);
 }
 
