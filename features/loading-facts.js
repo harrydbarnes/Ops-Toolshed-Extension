@@ -62,18 +62,35 @@
             this.settingsLoaded = true;
 
             // Set up MutationObserver to detect dynamically added spinners
-            // This ensures we catch i.fa-spin elements added after initial load
-            const observer = new MutationObserver(() => {
+            this.mutationObserver = new MutationObserver(() => {
                 this.checkForLoading();
             });
-            observer.observe(document.body, { childList: true, subtree: true });
+            this.mutationObserver.observe(document.body, { childList: true, subtree: true });
+
+            // IntersectionObserver for visibility tracking
+            this.intersectionObserver = new IntersectionObserver((entries) => {
+                // If the observed spinner changes intersection state, re-check loading
+                this.checkForLoading();
+            }, { threshold: 0.1 }); // Trigger when at least 10% visible
 
             // Initial check in case the page loaded with a spinner
             this.checkForLoading();
         }
 
+        isElementVisible(element) {
+            if (!element) return false;
+
+            const style = window.getComputedStyle(element);
+            if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+                return false;
+            }
+
+            const rect = element.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+        }
+
         checkForLoading() {
-            // Debounce the check to prevent flickering if the spinner pulses
+            // Debounce the check to prevent flickering
             if (this.debounceTimer) clearTimeout(this.debounceTimer);
 
             this.debounceTimer = setTimeout(() => {
@@ -88,21 +105,44 @@
                     return;
                 }
 
-                // MATCHING STATS-COLLECTOR LOGIC:
-                // Prioritize mo-spinner (tag or class), then Shadow DOM 'svg.spinner', then standard FA spinner.
-                const spinner = document.querySelector('mo-spinner') ||
+                // Updated Selector Logic:
+                // 1. Specific VP Block Spinner
+                // 2. mo-spinner (tag or class)
+                // 3. Shadow DOM spinner
+                // 4. Generic FA spinner
+                const spinner = document.querySelector('div#vp-block > i.fa.fa-circle-o-notch.fa-spin') ||
+                                document.querySelector('mo-spinner') ||
                                 document.querySelector('.mo-spinner') ||
                                 window.utils.queryShadowDom('svg.spinner') ||
                                 document.querySelector('i.fa-spin');
 
-                const isLoading = !!spinner;
+                // Strict Visibility Check
+                // We check if it exists AND is visually perceptible
+                const isVisible = spinner && this.isElementVisible(spinner);
 
-                if (isLoading && !this.isVisible) {
-                    this.showToast(spinner);
-                } else if (!isLoading && this.isVisible) {
-                    // Check if the spinner we used is actually gone
-                    // (Here we rely on isLoading being false if no spinner is found)
-                    this.hideToast();
+                if (isVisible) {
+                    // If we have a visible spinner, ensure we are observing it for intersection changes
+                    // Only need to observe if not already observed (simplification: observe ensures callback)
+                    this.intersectionObserver.disconnect(); // Clear old observations to be safe
+                    this.intersectionObserver.observe(spinner);
+
+                    // Note: IntersectionObserver callback is async.
+                    // We can check intersection immediately via checkVisibility if supported,
+                    // but for now relying on isElementVisible (computed styles) is robust for CSS hiding.
+                    // IntersectionObserver helps if it scrolls out of view, which triggers this callback loop again.
+
+                    if (!this.isVisible) {
+                        this.showToast(spinner);
+                    } else {
+                        // Update position if already visible (e.g. dynamic resize)
+                        // This is handled by the resize listener in showToast/hideToast, but strictly
+                        // speaking we might want to update target if spinner element CHANGED.
+                        // For now, assume single spinner flow.
+                    }
+                } else {
+                    if (this.isVisible) {
+                        this.hideToast();
+                    }
                 }
             }, DEBOUNCE_DELAY_MS);
         }
