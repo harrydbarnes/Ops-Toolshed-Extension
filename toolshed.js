@@ -191,6 +191,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const maxCount = Math.max(...dayStats.map(s => s.total));
         const chartContainer = document.getElementById('day-of-week-chart');
+
+        // Ensure shared tooltip element exists (reusing the heatmap tooltip for visual consistency)
+        let tooltip = document.getElementById('heatmap-tooltip');
+        if (!tooltip) {
+            tooltip = document.createElement('div');
+            tooltip.id = 'heatmap-tooltip';
+            document.body.appendChild(tooltip);
+        }
+
         if (chartContainer) {
             chartContainer.innerHTML = '';
             days.forEach((day, index) => {
@@ -206,8 +215,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 label.textContent = day;
                 bar.appendChild(label);
 
-                // Detailed Tooltip
-                bar.title = `${day}: ${stats.total} actions (${stats.placements} placements, ${stats.reconciliations} reconciliations, ${stats.campaigns} campaigns)`;
+                // Detailed Tooltip - Replaced native 'title' attribute with custom tooltip events
+                bar.dataset.tooltipText = `${day}: ${stats.total} actions (${stats.placements} placements, ${stats.reconciliations} reconciliations, ${stats.campaigns} campaigns)`;
+
+                // Event Listeners for Custom Tooltip
+                bar.addEventListener('mouseover', (e) => {
+                    // Use currentTarget to ensure we get data from the bar, not the child label
+                    tooltip.textContent = e.currentTarget.dataset.tooltipText;
+                    tooltip.style.display = 'block';
+                });
+
+                bar.addEventListener('mousemove', (e) => {
+                    const offsetX = 10;
+                    const offsetY = 10;
+                    tooltip.style.left = (e.clientX + offsetX) + 'px';
+                    tooltip.style.top = (e.clientY + offsetY) + 'px';
+                });
+
+                bar.addEventListener('mouseleave', () => {
+                    tooltip.style.display = 'none';
+                });
+
                 chartContainer.appendChild(bar);
             });
         }
