@@ -72,8 +72,7 @@
   "web_accessible_resources": [{
     "resources": [
       "icon.png",
-      "features/swap-accounts.css",
-      "AppLearn-Transparent.png"
+      "features/swap-accounts.css"
     ],
     "matches": ["<all_urls>"]
   }]

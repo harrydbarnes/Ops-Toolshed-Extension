@@ -92,7 +92,7 @@ async function mainContentScriptInit() {
 
     const observer = new MutationObserver(function(mutations) {
         if (window.appLearnFeature) {
-            window.appLearnFeature.checkAndReplace();
+            window.appLearnFeature.applyTransparency();
         }
 
         if (window.logoFeature.shouldReplaceLogoOnThisPage()) {
