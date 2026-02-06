@@ -157,11 +157,6 @@
             }, DEBOUNCE_DELAY_MS);
         }
 
-        getRandomFact() {
-            const index = Math.floor(Math.random() * FACTS.length);
-            return FACTS[index];
-        }
-
         formatTime(seconds) {
             if (!seconds) return '0s';
             const h = Math.floor(seconds / 3600);
@@ -194,11 +189,6 @@
                     return fact.replace('{{TIME}}', timeStr);
                 }
                 return fact;
-            }
-
-            // Fallback if the chosen pool is somehow empty
-            if (NON_TIME_FACTS.length > 0) {
-                return NON_TIME_FACTS[Math.floor(Math.random() * NON_TIME_FACTS.length)];
             }
 
             return "Loading..."; // Ultimate fallback

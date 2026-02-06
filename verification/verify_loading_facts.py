@@ -33,15 +33,27 @@ def test_loading_facts():
                 print("FAIL: Toast missing header")
 
             # Verify Vertical Order (Toast should be below Spinner)
-            spinner_box = page.locator('.spinner').bounding_box() # Target the SVG inside Shadow DOM (via utility or test structure)
-            if not spinner_box:
-                 # In test.html, we inject 'svg.spinner' into Shadow DOM.
-                 # Playwright needs to find it.
-                 # Since test.html structure is: <div id="spinner-container"> #shadow-root <svg class="spinner">
-                 # We can try to locate it.
-                 # Or just locate the wrapper and check children order?
-                 # Let's check bounding box of wrapper children if possible.
-                 pass
+            # Use Shadow DOM piercing to locate the spinner inside #spinner-container
+            spinner_box = page.locator('#spinner-container .spinner').bounding_box()
+
+            if spinner_box:
+                toast_box = page.locator(toast_selector).bounding_box()
+                if toast_box:
+                    # Calculate centers
+                    spinner_center = spinner_box['x'] + spinner_box['width'] / 2
+                    toast_center = toast_box['x'] + toast_box['width'] / 2
+
+                    print(f"Spinner Center X: {spinner_center}, Toast Center X: {toast_center}")
+
+                    # Verify Horizontal Alignment (with slight tolerance)
+                    if abs(spinner_center - toast_center) < 2:
+                        print("PASS: Toast is horizontally centered relative to the spinner")
+                    else:
+                        print(f"FAIL: Toast is not centered. Diff: {abs(spinner_center - toast_center)}")
+                else:
+                    print("FAIL: Toast box not found for alignment check")
+            else:
+                 print("FAIL: Spinner box not found via locator '#spinner-container .spinner'")
 
             # Simplified check: Check if toast Y > 50 (approx top of screen)
             toast_box = page.locator(toast_selector).bounding_box()
