@@ -62,11 +62,7 @@
             this.isEnabled = data.loadingFactsEnabled !== false;
             this.settingsLoaded = true;
 
-            // Set up MutationObserver to detect dynamically added spinners
-            this.mutationObserver = new MutationObserver(() => {
-                this.checkForLoading();
-            });
-            this.mutationObserver.observe(document.body, { childList: true, subtree: true });
+            // MutationObserver removed as per optimization request (content.js handles it)
 
             // IntersectionObserver for visibility tracking
             this.intersectionObserver = new IntersectionObserver((entries) => {
@@ -181,25 +177,26 @@
         }
 
         async getProcessedFact() {
-            // Use a bounded loop to prevent infinite execution
-            for (let i = 0; i < FACTS.length * 2; i++) {
-                const fact = this.getRandomFact();
+            // Fetch storage data once
+            const data = await getStorageData(['prismaUserStats']);
+            const time = data.prismaUserStats ? data.prismaUserStats.totalLoadingTime : 0;
 
+            // If time is available (>0), we can pick from ALL facts (including {{TIME}} ones).
+            // If time is 0, we must restrict selection to NON_TIME_FACTS only.
+            const factPool = (time > 0) ? FACTS : NON_TIME_FACTS;
+
+            if (factPool.length > 0) {
+                const fact = factPool[Math.floor(Math.random() * factPool.length)];
+
+                // If we picked a time-based fact, format and replace the placeholder
                 if (fact.includes('{{TIME}}')) {
-                    const data = await getStorageData(['prismaUserStats']);
-                    const time = data.prismaUserStats ? data.prismaUserStats.totalLoadingTime : 0;
-
-                    if (time > 0) {
-                        const timeStr = this.formatTime(time);
-                        return fact.replace('{{TIME}}', timeStr);
-                    }
-                    // If time is 0, continue loop to get another fact.
-                } else {
-                    return fact; // Return non-special fact immediately.
+                    const timeStr = this.formatTime(time);
+                    return fact.replace('{{TIME}}', timeStr);
                 }
+                return fact;
             }
 
-            // Fallback: use pre-calculated non-time facts
+            // Fallback if the chosen pool is somehow empty
             if (NON_TIME_FACTS.length > 0) {
                 return NON_TIME_FACTS[Math.floor(Math.random() * NON_TIME_FACTS.length)];
             }
