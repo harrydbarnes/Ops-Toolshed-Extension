@@ -77,66 +77,27 @@
     }
 
     // --- 3. Track Click Events (Save Placements & Reconciliations) ---
-    // State to track manual reconciliations that are pending a 'Save'
-    let pendingManualReconciliations = new Set();
-
     function handleClickEvents(event) {
         if (!isEnabled) return;
-        const target = event.target;
 
-        // --- A. Handle Save (Flush Pending Manual Reconciliations) ---
-        // Triggers on: #btn-save, #btn-save-and-add-another, or #save-button
-        if (target.id === 'btn-save' || target.id === 'btn-save-and-add-another' || target.id === 'save-button') {
+        // Track Placement Saves
+        if (event.target.id === 'btn-save' || event.target.id === 'btn-save-and-add-another') {
             console.log('[Stats Collector] Save button clicked.');
             trackStat('PLACEMENT_ADDED', 1);
-
-            // If we have pending manual reconciliations, track them now
-            if (pendingManualReconciliations.size > 0) {
-                console.log(`[Stats Collector] Tracking ${pendingManualReconciliations.size} manual reconciliations on save.`);
-                trackStat('RECONCILIATION', pendingManualReconciliations.size);
-                pendingManualReconciliations.clear();
-            }
         }
 
-        // --- B. Handle Dropdown (Immediate Reconciliation) ---
-        // Trigger: Clicking Planned, Supplier, or Override
-        // Condition: Only count if the "Ok to Pay" button for that row is currently "No"
-        const dropdownItem = target.closest('.actual-cell-menu-item');
-        if (dropdownItem) {
-            const costBasisSpan = dropdownItem.querySelector('.cost-basis');
-            const costBasis = costBasisSpan ? costBasisSpan.textContent.trim() : '';
-
-            if (['Planned', 'Supplier', 'Override'].includes(costBasis)) {
-                const row = target.closest('tr');
-                // Check if the row exists and the button is currently 'No'
-                const okToPayBtn = row ? row.querySelector('.ok-to-pay') : null;
-
-                if (okToPayBtn && okToPayBtn.textContent.trim().toLowerCase() === 'no') {
-                    console.log(`[Stats Collector] Dropdown reconciliation (${costBasis}) detected.`);
-                    trackStat('RECONCILIATION', 1);
-                }
-            }
+        // Track Reconciliations (Ok to Pay = Yes)
+        if (event.target.id === 'ok-to-pay-yes-button') {
+            console.log('[Stats Collector] Reconciliation clicked.');
+            trackStat('RECONCILIATION', 1);
         }
 
-        // --- C. Handle Manual Toggle (Delayed Reconciliation) ---
-        // Trigger: Clicking "Ok to Pay"
-        // Condition: Staged until Save is clicked
-        if (target.classList.contains('ok-to-pay')) {
-            // Use data-row-num as unique ID
-            const rowId = target.getAttribute('data-row-num');
-            if (rowId) {
-                const isCurrentlyNo = target.textContent.trim().toLowerCase() === 'no';
-
-                if (isCurrentlyNo) {
-                    // Toggling No -> Yes: Stage it
-                    pendingManualReconciliations.add(rowId);
-                    console.log(`[Stats Collector] Manual reconciliation staged for row ${rowId}`);
-                } else {
-                    // Toggling Yes -> No: Unstage it
-                    pendingManualReconciliations.delete(rowId);
-                    console.log(`[Stats Collector] Manual reconciliation unstaged for row ${rowId}`);
-                }
-            }
+        // Track Reconciliations via Cost Source Dropdown
+        // (User selects an item which changes "Ok to Pay" to Yes)
+        const costSourceLink = event.target.closest('.handle-cost-source-selection-div li a[role="menuitem"]');
+        if (costSourceLink) {
+            console.log('[Stats Collector] Cost Source selection detected (Reconciliation).');
+            trackStat('RECONCILIATION', 1);
         }
     }
 
