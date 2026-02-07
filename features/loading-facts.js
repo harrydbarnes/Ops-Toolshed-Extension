@@ -107,15 +107,10 @@
                 }
 
                 // Updated Selector Logic:
-                // 1. Specific VP Block Spinner
-                // 2. mo-spinner (tag or class)
-                // 3. Shadow DOM spinner
-                // 4. Generic FA spinner
-                const spinner = document.querySelector('div#vp-block > i.fa.fa-circle-o-notch.fa-spin') ||
-                                document.querySelector('mo-spinner') ||
+                // Removed VP Block Spinner and Generic FA spinner as requested
+                const spinner = document.querySelector('mo-spinner') ||
                                 document.querySelector('.mo-spinner') ||
-                                window.utils.queryShadowDom('svg.spinner') ||
-                                document.querySelector('i.fa-spin');
+                                window.utils.queryShadowDom('svg.spinner');
 
                 // Strict Visibility Check
                 // We check if it exists AND is visually perceptible

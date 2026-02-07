@@ -34,7 +34,7 @@ def test_loading_facts():
 
             # Verify Vertical Order (Toast should be below Spinner)
             # Use Shadow DOM piercing to locate the spinner inside #spinner-container
-            spinner_box = page.locator('div#vp-block > i.fa.fa-circle-o-notch.fa-spin').bounding_box()
+            spinner_box = page.locator('#spinner-container .spinner').bounding_box()
 
             if spinner_box:
                 toast_box = page.locator(toast_selector).bounding_box()
