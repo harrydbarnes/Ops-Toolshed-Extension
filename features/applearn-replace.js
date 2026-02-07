@@ -9,30 +9,18 @@
         }
     }
 
-    if (chrome.storage && chrome.storage.sync) {
-        // Listen for changes to the setting
-        chrome.storage.onChanged.addListener((changes, area) => {
-            if (area === 'sync' && changes.appLearnReplaceEnabled) {
-                isEnabled = changes.appLearnReplaceEnabled.newValue;
-                if (!isEnabled) {
-                    removeTransparency();
-                } else {
-                    // When re-enabled, trigger the logic again.
-                    window.appLearnFeature.applyTransparency();
-                }
-            }
-        });
-    }
-
-    window.appLearnFeature = {
+    const appLearnFeature = {
         targetUrl: TARGET_URL,
 
         initialize: function() {
+            if (!chrome.storage || !chrome.storage.sync) {
+                console.warn("AppLearn Feature: chrome.storage.sync not available.");
+                return;
+            }
             // The initial check is async and self-contained.
             chrome.storage.sync.get({ appLearnReplaceEnabled: true }, (data) => {
                 isEnabled = data.appLearnReplaceEnabled;
                 if (isEnabled) {
-                    this.injectStyles();
                     this.applyTransparency();
                 }
             });
@@ -72,4 +60,21 @@
             }
         }
     };
+
+    if (chrome.storage && chrome.storage.sync) {
+        // Listen for changes to the setting
+        chrome.storage.onChanged.addListener((changes, area) => {
+            if (area === 'sync' && changes.appLearnReplaceEnabled) {
+                isEnabled = changes.appLearnReplaceEnabled.newValue;
+                if (!isEnabled) {
+                    removeTransparency();
+                } else {
+                    // When re-enabled, trigger the logic again.
+                    appLearnFeature.applyTransparency();
+                }
+            }
+        });
+    }
+
+    window.appLearnFeature = appLearnFeature;
 })();
