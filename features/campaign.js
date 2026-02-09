@@ -226,51 +226,44 @@
         });
 
         const actions = [
-            { id: 'campaign-details-menu-option', label: 'Campaign details', icon: 'details' },
-            { id: 'copy-campaign-menu-option', label: 'Copy campaign', icon: 'copy' },
-            { id: 'campaign-history-menu-option', label: 'Campaign history', icon: 'history' }
+            { urlParam: "&osModalId=prsm-cm-cmpdtls", label: "Campaign details", icon: 'details' },
+            { urlParam: "&osModalId=prsm-cm-cmpcopy", label: "Copy campaign", icon: 'copy' },
+            { urlParam: "&osModalId=prsm-cm-hfrm&prsmForm=prsm-cm-hist", label: "Campaign history", icon: 'history' }
         ];
 
         actions.forEach(action => {
             const wrapper = document.createElement('div');
-            wrapper.style.position = 'relative';
-            wrapper.style.cursor = 'pointer';
-            wrapper.style.display = 'flex';
+            // Styles handled by CSS #mo-extracted-actions-toolbar > div
 
             // Create Icon
             const icon = document.createElement('mo-icon');
             icon.setAttribute('name', action.icon);
             icon.setAttribute('size', 'm');
+            // Prevent double tooltip
+            icon.removeAttribute('title');
+            icon.setAttribute('aria-label', action.label);
+            icon.setAttribute('role', 'button');
+            icon.setAttribute('tabindex', '0');
 
-            // Trigger original menu logic
-            wrapper.onclick = () => {
-                const el = document.getElementById(action.id);
-                if (el) el.click();
+            // Handle Click Navigation
+            const handleClick = () => {
+                const currentUrl = window.location.href;
+                if (!currentUrl.includes(action.urlParam)) {
+                    window.location.href = currentUrl + action.urlParam;
+                }
             };
 
-            // Create Custom Tooltip (positioned below)
-            const tooltip = document.createElement('div');
-            tooltip.textContent = action.label;
-            Object.assign(tooltip.style, {
-                position: 'absolute',
-                top: '120%',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                backgroundColor: '#333',
-                color: '#fff',
-                padding: '4px 8px',
-                borderRadius: '4px',
-                fontSize: '12px',
-                whiteSpace: 'nowrap',
-                zIndex: '2147483647',
-                visibility: 'hidden',
-                opacity: '0',
-                transition: 'opacity 0.2s'
+            wrapper.addEventListener('click', handleClick);
+
+            // Handle Keyboard Support
+            wrapper.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') handleClick();
             });
 
-            // Hover logic
-            wrapper.onmouseenter = () => { tooltip.style.visibility = 'visible'; tooltip.style.opacity = '1'; };
-            wrapper.onmouseleave = () => { tooltip.style.visibility = 'hidden'; tooltip.style.opacity = '0'; };
+            // Create Custom Tooltip (styles handled by CSS class)
+            const tooltip = document.createElement('div');
+            tooltip.textContent = action.label;
+            tooltip.className = 'extracted-action-tooltip';
 
             wrapper.appendChild(icon);
             wrapper.appendChild(tooltip);

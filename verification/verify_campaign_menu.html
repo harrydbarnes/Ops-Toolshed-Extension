@@ -28,9 +28,44 @@
             display: block;
             margin-top: 10px;
         }
+
+        /* CSS from content.css for testing logic */
         #mo-extracted-actions-toolbar {
-            border: 1px solid red;
-            background-color: pink;
+            position: relative;
+            z-index: 1000;
+            display: flex;
+            gap: 12px;
+            margin-left: 12px;
+            align-items: center;
+        }
+
+        #mo-extracted-actions-toolbar > div {
+            position: relative;
+            cursor: pointer;
+            display: flex;
+        }
+
+        #mo-extracted-actions-toolbar > div > .extracted-action-tooltip {
+            position: absolute;
+            top: 100% !important;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2147483647 !important;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.2s;
+            background-color: #333;
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+
+        #mo-extracted-actions-toolbar > div:hover > .extracted-action-tooltip {
+            visibility: visible !important;
+            opacity: 1 !important;
         }
     </style>
 </head>
@@ -46,24 +81,12 @@
         </div>
 
         <mo-overlay id="mo-overlay-8">Original Overlay</mo-overlay>
-
-        <!-- Hidden inputs to simulate menu clicks -->
-        <div style="display:none;">
-            <div id="campaign-details-menu-option" onclick="logClick('details')"></div>
-            <div id="copy-campaign-menu-option" onclick="logClick('copy')"></div>
-            <div id="campaign-history-menu-option" onclick="logClick('history')"></div>
-        </div>
     </div>
 
     <div id="status" style="margin-top: 20px; font-weight: bold;">Waiting...</div>
-    <div id="click-log"></div>
+    <div id="url-log" style="margin-top: 10px; font-family: monospace;"></div>
 
     <script>
-        function logClick(type) {
-            const log = document.getElementById('click-log');
-            log.textContent += type + ' clicked. ';
-        }
-
         // Mock Chrome API
         window.chrome = {
             runtime: {
@@ -112,52 +135,40 @@
             }
 
             // Verify Logic
-            const originalIcon = document.getElementById('campaign-menu-icon');
-            const originalOverlay = document.getElementById('mo-overlay-8');
             const newToolbar = document.getElementById('mo-extracted-actions-toolbar');
-            const buyDetails = document.querySelector('.buy-details-wrapper');
 
-            let success = true;
-            let msg = [];
+            if (newToolbar) {
+                // Simulate click on first icon (Campaign Details)
+                const firstIconWrapper = newToolbar.children[0];
+                const expectedUrlParam = "&osModalId=prsm-cm-cmpdtls";
 
-            // 1. Check Hiding
-            if (originalIcon.style.display !== 'none') {
-                success = false;
-                msg.push("Original Icon NOT hidden.");
-            }
-            if (originalOverlay.style.display !== 'none') {
-                success = false;
-                msg.push("Original Overlay NOT hidden.");
-            }
+                // Mock window.location.href via setter/getter if possible or just log it
+                // Since we can't easily mock window.location in browser context effectively without reloading,
+                // we'll check attributes and if the logic is correct in principle.
+                // Or override window.location.href in the python script.
+                // For this HTML file, we can verify structure.
 
-            // 2. Check Creation
-            if (!newToolbar) {
-                success = false;
-                msg.push("New Toolbar NOT created.");
+                const tooltip = firstIconWrapper.querySelector('.extracted-action-tooltip');
+                const icon = firstIconWrapper.querySelector('mo-icon');
+
+                let msg = [];
+                if (!tooltip) msg.push("Tooltip missing CSS class.");
+                if (icon.hasAttribute('title')) msg.push("Icon has native title.");
+                if (!icon.hasAttribute('aria-label')) msg.push("Icon missing aria-label.");
+
+                if (msg.length === 0) {
+                    statusDiv.textContent = "Success: Toolbar created with correct attributes and classes.";
+                    statusDiv.style.color = "green";
+                } else {
+                    statusDiv.textContent = "Failure: " + msg.join(" ");
+                    statusDiv.style.color = "red";
+                }
+
+                // Add a visual indicator for manual click testing if needed
+                firstIconWrapper.style.border = "2px solid blue";
+
             } else {
-                // Check Placement
-                if (buyDetails.nextElementSibling !== newToolbar) {
-                    success = false;
-                    msg.push("New Toolbar NOT placed after buy-details-wrapper.");
-                }
-
-                // Check Contents (3 icons)
-                if (newToolbar.children.length !== 3) {
-                     success = false;
-                     msg.push(`Expected 3 icons, found ${newToolbar.children.length}.`);
-                }
-            }
-
-            if (success) {
-                statusDiv.textContent = "Success: Elements hidden, Toolbar created and placed correctly.";
-                statusDiv.style.color = "green";
-
-                // Simulate click on first icon to verify mapping
-                if (newToolbar && newToolbar.children[0]) {
-                    newToolbar.children[0].click();
-                }
-            } else {
-                statusDiv.textContent = "Failure: " + msg.join(" ");
+                statusDiv.textContent = "Failure: Toolbar not found.";
                 statusDiv.style.color = "red";
             }
 

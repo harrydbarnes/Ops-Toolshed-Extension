@@ -212,3 +212,57 @@ div[slot="right"].ai-style-change-1 {
     display: flex;
     align-items: center;
 }
+
+/* --- Extracted Campaign Actions Toolbar & Tooltips --- */
+
+/* 1. Prevent clipping of tooltips by allowing overflow on header containers */
+#ptb-header,
+.mo-page-header,
+#ptb-header-header-inner,
+#ptb-header-mo-expandable-container-header-0-child-0 {
+  overflow: visible !important;
+}
+
+/* 2. Toolbar and Icon Container Styling */
+#mo-extracted-actions-toolbar {
+  position: relative;
+  z-index: 1000;
+  display: flex;
+  gap: 12px;
+  margin-left: 12px;
+  align-items: center;
+}
+
+#mo-extracted-actions-toolbar > div {
+  position: relative;
+  cursor: pointer;
+  display: flex;
+}
+
+/* 3. Custom Tooltip Positioning and Visibility */
+/* Assuming the tooltip is the direct child div of the wrapper */
+#mo-extracted-actions-toolbar > div > .extracted-action-tooltip {
+  position: absolute;
+  top: 100% !important; /* Positions tooltip directly below the icon */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2147483647 !important; /* High Z-Index */
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s;
+
+  /* Styling match */
+  background-color: #333;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none; /* Prevents tooltip from interfering with mouse events */
+}
+
+/* 4. Show tooltip on hover */
+#mo-extracted-actions-toolbar > div:hover > .extracted-action-tooltip {
+  visibility: visible !important;
+  opacity: 1 !important;
+}
