@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Verify Campaign Menu Relocation</title>
+    <style>
+        .p2b-navbar-wrapper {
+            border: 1px solid blue;
+            padding: 20px;
+            min-height: 100px;
+            display: flex;
+            align-items: center;
+        }
+        .buy-details-wrapper {
+            border: 1px solid green;
+            padding: 10px;
+            background-color: #eee;
+            margin-right: 10px;
+        }
+        mo-toolbar-item {
+            border: 1px solid orange;
+            padding: 5px;
+            display: block;
+        }
+        mo-overlay {
+            border: 1px solid purple;
+            padding: 5px;
+            display: block;
+            margin-top: 10px;
+        }
+        #mo-extracted-actions-toolbar {
+            border: 1px solid red;
+            background-color: pink;
+        }
+    </style>
+</head>
+<body>
+    <h1>Verification: Campaign Menu Relocation</h1>
+
+    <div class="container">
+        <!-- The Header Wrapper -->
+        <div class="p2b-navbar-wrapper">
+            <div class="buy-details-wrapper">Buy Details</div>
+            <!-- The original icon and overlay we want to hide -->
+            <mo-toolbar-item id="campaign-menu-icon">Original Menu Icon</mo-toolbar-item>
+        </div>
+
+        <mo-overlay id="mo-overlay-8">Original Overlay</mo-overlay>
+
+        <!-- Hidden inputs to simulate menu clicks -->
+        <div style="display:none;">
+            <div id="campaign-details-menu-option" onclick="logClick('details')"></div>
+            <div id="copy-campaign-menu-option" onclick="logClick('copy')"></div>
+            <div id="campaign-history-menu-option" onclick="logClick('history')"></div>
+        </div>
+    </div>
+
+    <div id="status" style="margin-top: 20px; font-weight: bold;">Waiting...</div>
+    <div id="click-log"></div>
+
+    <script>
+        function logClick(type) {
+            const log = document.getElementById('click-log');
+            log.textContent += type + ' clicked. ';
+        }
+
+        // Mock Chrome API
+        window.chrome = {
+            runtime: {
+                id: 'mock-id',
+                lastError: null
+            },
+            storage: {
+                sync: {
+                    get: function(keys, callback) {
+                        // Return configuration: Style=New, Optimised=True
+                        callback({
+                            campaignNavStyle: 'new',
+                            optimisedNewNavEnabled: true,
+                            hidingSectionsEnabled: true,
+                            automateFormFieldsEnabled: true,
+                            alwaysShowCommentsEnabled: true
+                        });
+                    },
+                    set: function(data, callback) {
+                        if (callback) callback();
+                    }
+                },
+                onChanged: {
+                    addListener: function(callback) {}
+                }
+            }
+        };
+
+        // Mock utils
+        window.utils = {
+            waitForElement: function() { return Promise.resolve(document.createElement('div')); }
+        };
+    </script>
+
+    <!-- Include the feature script -->
+    <script src="../features/campaign.js"></script>
+
+    <script>
+        // Run verification
+        setTimeout(() => {
+            const statusDiv = document.getElementById('status');
+
+            // Run the function manually (since it's not exported directly, but handleCampaignNavigationOptimisation calls it)
+            if (window.campaignFeature && window.campaignFeature.handleCampaignNavigationOptimisation) {
+                window.campaignFeature.handleCampaignNavigationOptimisation();
+            }
+
+            // Verify Logic
+            const originalIcon = document.getElementById('campaign-menu-icon');
+            const originalOverlay = document.getElementById('mo-overlay-8');
+            const newToolbar = document.getElementById('mo-extracted-actions-toolbar');
+            const buyDetails = document.querySelector('.buy-details-wrapper');
+
+            let success = true;
+            let msg = [];
+
+            // 1. Check Hiding
+            if (originalIcon.style.display !== 'none') {
+                success = false;
+                msg.push("Original Icon NOT hidden.");
+            }
+            if (originalOverlay.style.display !== 'none') {
+                success = false;
+                msg.push("Original Overlay NOT hidden.");
+            }
+
+            // 2. Check Creation
+            if (!newToolbar) {
+                success = false;
+                msg.push("New Toolbar NOT created.");
+            } else {
+                // Check Placement
+                if (buyDetails.nextElementSibling !== newToolbar) {
+                    success = false;
+                    msg.push("New Toolbar NOT placed after buy-details-wrapper.");
+                }
+
+                // Check Contents (3 icons)
+                if (newToolbar.children.length !== 3) {
+                     success = false;
+                     msg.push(`Expected 3 icons, found ${newToolbar.children.length}.`);
+                }
+            }
+
+            if (success) {
+                statusDiv.textContent = "Success: Elements hidden, Toolbar created and placed correctly.";
+                statusDiv.style.color = "green";
+
+                // Simulate click on first icon to verify mapping
+                if (newToolbar && newToolbar.children[0]) {
+                    newToolbar.children[0].click();
+                }
+            } else {
+                statusDiv.textContent = "Failure: " + msg.join(" ");
+                statusDiv.style.color = "red";
+            }
+
+        }, 500);
+    </script>
+</body>
+</html>

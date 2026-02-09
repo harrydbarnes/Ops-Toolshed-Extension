@@ -56,10 +56,11 @@
             storage: {
                 sync: {
                     get: function(keys, callback) {
-                        // Return configuration for testing: both enabled
+                        // Return configuration: Style=New, Optimised=FALSE
+                        // This tests that layout change still happens even if Optimised is off
                         callback({
-                            campaignNavStyle: true,
-                            optimisedNewNavEnabled: true,
+                            campaignNavStyle: 'new',
+                            optimisedNewNavEnabled: false,
                             hidingSectionsEnabled: true,
                             automateFormFieldsEnabled: true,
                             alwaysShowCommentsEnabled: true

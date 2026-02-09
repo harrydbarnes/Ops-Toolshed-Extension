@@ -8,7 +8,7 @@
     let hidingSectionsEnabled = true;
     let automateFormFieldsEnabled = true;
     let alwaysShowCommentsEnabled = true;
-    let campaignNavStyle = false;
+    let campaignNavStyle = 'old';
     let optimisedNewNavEnabled = true;
 
     // Initialize settings
@@ -18,7 +18,14 @@
             if (data.hidingSectionsEnabled !== undefined) hidingSectionsEnabled = data.hidingSectionsEnabled;
             if (data.automateFormFieldsEnabled !== undefined) automateFormFieldsEnabled = data.automateFormFieldsEnabled;
             if (data.alwaysShowCommentsEnabled !== undefined) alwaysShowCommentsEnabled = data.alwaysShowCommentsEnabled;
-            if (data.campaignNavStyle !== undefined) campaignNavStyle = data.campaignNavStyle;
+            if (data.campaignNavStyle !== undefined) {
+                // Handle legacy boolean if present
+                if (typeof data.campaignNavStyle === 'boolean') {
+                    campaignNavStyle = data.campaignNavStyle ? 'new' : 'old';
+                } else {
+                    campaignNavStyle = data.campaignNavStyle;
+                }
+            }
             if (data.optimisedNewNavEnabled !== undefined) optimisedNewNavEnabled = data.optimisedNewNavEnabled;
         });
 
@@ -27,7 +34,14 @@
             if (changes.hidingSectionsEnabled) hidingSectionsEnabled = changes.hidingSectionsEnabled.newValue;
             if (changes.automateFormFieldsEnabled) automateFormFieldsEnabled = changes.automateFormFieldsEnabled.newValue;
             if (changes.alwaysShowCommentsEnabled) alwaysShowCommentsEnabled = changes.alwaysShowCommentsEnabled.newValue;
-            if (changes.campaignNavStyle) campaignNavStyle = changes.campaignNavStyle.newValue;
+            if (changes.campaignNavStyle) {
+                // Handle legacy boolean on change if somehow triggered
+                if (typeof changes.campaignNavStyle.newValue === 'boolean') {
+                    campaignNavStyle = changes.campaignNavStyle.newValue ? 'new' : 'old';
+                } else {
+                    campaignNavStyle = changes.campaignNavStyle.newValue;
+                }
+            }
             if (changes.optimisedNewNavEnabled) optimisedNewNavEnabled = changes.optimisedNewNavEnabled.newValue;
         });
     }
@@ -165,7 +179,7 @@
     }
 
     function handleCampaignNavigationOptimisation() {
-        if (!campaignNavStyle || !optimisedNewNavEnabled) return;
+        if (campaignNavStyle !== 'new') return;
 
         const navbarWrapper = document.querySelector('.p2b-navbar-wrapper');
         const rightSlotDiv = document.querySelector('div[slot="right"]');
@@ -182,6 +196,89 @@
                 rightSlotDiv.classList.add('ai-style-change-1');
             }
         }
+
+        handleCampaignMenuRelocation();
+    }
+
+    function handleCampaignMenuRelocation() {
+        if (campaignNavStyle !== 'new' || !optimisedNewNavEnabled) return;
+
+        // 1. Hide original menu components
+        const originalToolbarItem = document.querySelector('mo-toolbar-item#campaign-menu-icon');
+        const originalOverlay = document.querySelector('mo-overlay#mo-overlay-8');
+        if (originalToolbarItem) originalToolbarItem.style.display = 'none';
+        if (originalOverlay) originalOverlay.style.display = 'none';
+
+        // Check if already created
+        if (document.getElementById('mo-extracted-actions-toolbar')) return;
+
+        // 2. Create the new icon container
+        const buyDetails = document.querySelector('.buy-details-wrapper');
+        if (!buyDetails) return; // Wait until buyDetails exists
+
+        const iconContainer = document.createElement('div');
+        iconContainer.id = 'mo-extracted-actions-toolbar';
+        Object.assign(iconContainer.style, {
+            display: 'flex',
+            gap: '12px',
+            marginLeft: '12px',
+            alignItems: 'center'
+        });
+
+        const actions = [
+            { id: 'campaign-details-menu-option', label: 'Campaign details', icon: 'details' },
+            { id: 'copy-campaign-menu-option', label: 'Copy campaign', icon: 'copy' },
+            { id: 'campaign-history-menu-option', label: 'Campaign history', icon: 'history' }
+        ];
+
+        actions.forEach(action => {
+            const wrapper = document.createElement('div');
+            wrapper.style.position = 'relative';
+            wrapper.style.cursor = 'pointer';
+            wrapper.style.display = 'flex';
+
+            // Create Icon
+            const icon = document.createElement('mo-icon');
+            icon.setAttribute('name', action.icon);
+            icon.setAttribute('size', 'm');
+
+            // Trigger original menu logic
+            wrapper.onclick = () => {
+                const el = document.getElementById(action.id);
+                if (el) el.click();
+            };
+
+            // Create Custom Tooltip (positioned below)
+            const tooltip = document.createElement('div');
+            tooltip.textContent = action.label;
+            Object.assign(tooltip.style, {
+                position: 'absolute',
+                top: '120%',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                backgroundColor: '#333',
+                color: '#fff',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                fontSize: '12px',
+                whiteSpace: 'nowrap',
+                zIndex: '2147483647',
+                visibility: 'hidden',
+                opacity: '0',
+                transition: 'opacity 0.2s'
+            });
+
+            // Hover logic
+            wrapper.onmouseenter = () => { tooltip.style.visibility = 'visible'; tooltip.style.opacity = '1'; };
+            wrapper.onmouseleave = () => { tooltip.style.visibility = 'hidden'; tooltip.style.opacity = '0'; };
+
+            wrapper.appendChild(icon);
+            wrapper.appendChild(tooltip);
+            iconContainer.appendChild(wrapper);
+        });
+
+        // Insert into header
+        buyDetails.insertAdjacentElement('afterend', iconContainer);
     }
 
     window.campaignFeature = {
