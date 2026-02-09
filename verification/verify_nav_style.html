@@ -19,6 +19,12 @@
             display: flex;
             align-items: center;
         }
+        .omni-navigation-preview-link-container {
+            border: 1px solid purple;
+            margin-top: 10px;
+            padding: 5px;
+            background-color: lavender;
+        }
     </style>
 </head>
 <body>
@@ -29,6 +35,8 @@
         <div class="p2b-navbar-wrapper">
             <div id="p2b-navbar">Navbar Content</div>
             <div class="mo-navbar-layouts">Layouts</div>
+            <!-- Simulating the existing container -->
+            <div class="omni-navigation-preview-link-container">Omni Preview Link</div>
         </div>
 
         <div slot="right">
@@ -94,14 +102,21 @@
             // Verify DOM
             const navbarWrapper = document.querySelector('.p2b-navbar-wrapper');
             const rightSlotDiv = document.querySelector('div[slot="right"]');
+            const previewLinkContainer = document.querySelector('.omni-navigation-preview-link-container');
 
             if (rightSlotDiv.parentElement === navbarWrapper) {
-                if (rightSlotDiv.classList.contains('ai-style-change-1')) {
-                    statusDiv.textContent = "Success: Element moved and class added!";
-                    statusDiv.style.color = "green";
+                // Verify position relative to previewLinkContainer
+                if (previewLinkContainer && rightSlotDiv.nextElementSibling === previewLinkContainer) {
+                    if (rightSlotDiv.classList.contains('ai-style-change-1')) {
+                        statusDiv.textContent = "Success: Element moved BEFORE preview container and class added!";
+                        statusDiv.style.color = "green";
+                    } else {
+                        statusDiv.textContent = "Partial Success: Element moved BEFORE but class missing.";
+                        statusDiv.style.color = "orange";
+                    }
                 } else {
-                    statusDiv.textContent = "Partial Success: Element moved but class missing.";
-                    statusDiv.style.color = "orange";
+                    statusDiv.textContent = "Failure: Element moved but NOT before preview container (likely appended at end).";
+                    statusDiv.style.color = "red";
                 }
             } else {
                 statusDiv.textContent = "Failure: Element did not move.";

@@ -169,11 +169,16 @@
 
         const navbarWrapper = document.querySelector('.p2b-navbar-wrapper');
         const rightSlotDiv = document.querySelector('div[slot="right"]');
+        const previewLinkContainer = navbarWrapper ? navbarWrapper.querySelector('.omni-navigation-preview-link-container') : null;
 
         if (navbarWrapper && rightSlotDiv) {
             // Check if already moved to avoid redundancy
             if (rightSlotDiv.parentElement !== navbarWrapper || !rightSlotDiv.classList.contains('ai-style-change-1')) {
-                navbarWrapper.appendChild(rightSlotDiv);
+                if (previewLinkContainer) {
+                    navbarWrapper.insertBefore(rightSlotDiv, previewLinkContainer);
+                } else {
+                    navbarWrapper.appendChild(rightSlotDiv);
+                }
                 rightSlotDiv.classList.add('ai-style-change-1');
             }
         }
