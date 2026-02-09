@@ -84,6 +84,7 @@ async function mainContentScriptInit() {
             window.remindersFeature.checkCustomReminders(); // Initial check for custom reminders
             window.campaignFeature.handleCampaignManagementFeatures();
             window.campaignFeature.handleAlwaysShowComments();
+            window.campaignFeature.handleCampaignNavigationOptimisation();
         }, 2000);
     }
 
@@ -97,6 +98,7 @@ async function mainContentScriptInit() {
                 window.remindersFeature.checkCustomReminders(); // Check for custom reminders on DOM changes
                 window.campaignFeature.handleCampaignManagementFeatures();
                 window.campaignFeature.handleAlwaysShowComments();
+                window.campaignFeature.handleCampaignNavigationOptimisation();
                 window.approverPastingFeature.handleApproverPasting();
                 window.approverPastingFeature.handleManageFavouritesButton();
                 window.gmiChatFeature.handleGmiChatButton();

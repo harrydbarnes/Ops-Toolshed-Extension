@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Verify Campaign Navigation Style</title>
+    <style>
+        .p2b-navbar-wrapper {
+            border: 1px solid blue;
+            padding: 20px;
+            min-height: 100px;
+        }
+        div[slot="right"] {
+            border: 1px solid red;
+            background-color: #eee;
+            padding: 10px;
+        }
+        .ai-style-change-1 {
+            background-color: lightgreen !important;
+            display: flex;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Verification: Campaign Navigation Style</h1>
+
+    <div class="container">
+        <h2>Before Move</h2>
+        <div class="p2b-navbar-wrapper">
+            <div id="p2b-navbar">Navbar Content</div>
+            <div class="mo-navbar-layouts">Layouts</div>
+        </div>
+
+        <div slot="right">
+            <div>Workflow Integration Widget</div>
+        </div>
+    </div>
+
+    <div id="status" style="margin-top: 20px; font-weight: bold;">Waiting...</div>
+
+    <script>
+        // Mock Chrome API
+        window.chrome = {
+            runtime: {
+                id: 'mock-id',
+                lastError: null
+            },
+            storage: {
+                sync: {
+                    get: function(keys, callback) {
+                        // Return configuration for testing: both enabled
+                        callback({
+                            campaignNavStyle: true,
+                            optimisedNewNavEnabled: true,
+                            hidingSectionsEnabled: true,
+                            automateFormFieldsEnabled: true,
+                            alwaysShowCommentsEnabled: true
+                        });
+                    },
+                    set: function(data, callback) {
+                        if (callback) callback();
+                    }
+                },
+                onChanged: {
+                    addListener: function(callback) {}
+                }
+            }
+        };
+
+        // Mock utils if needed
+        window.utils = {
+            waitForElement: function() { return Promise.resolve(document.createElement('div')); }
+        };
+    </script>
+
+    <!-- Include the feature script -->
+    <script src="../features/campaign.js"></script>
+
+    <script>
+        // Run verification
+        setTimeout(() => {
+            const statusDiv = document.getElementById('status');
+
+            // Check if function exists
+            if (!window.campaignFeature || !window.campaignFeature.handleCampaignNavigationOptimisation) {
+                statusDiv.textContent = "Error: Feature function not found.";
+                statusDiv.style.color = "red";
+                return;
+            }
+
+            // Run the function manually
+            window.campaignFeature.handleCampaignNavigationOptimisation();
+
+            // Verify DOM
+            const navbarWrapper = document.querySelector('.p2b-navbar-wrapper');
+            const rightSlotDiv = document.querySelector('div[slot="right"]');
+
+            if (rightSlotDiv.parentElement === navbarWrapper) {
+                if (rightSlotDiv.classList.contains('ai-style-change-1')) {
+                    statusDiv.textContent = "Success: Element moved and class added!";
+                    statusDiv.style.color = "green";
+                } else {
+                    statusDiv.textContent = "Partial Success: Element moved but class missing.";
+                    statusDiv.style.color = "orange";
+                }
+            } else {
+                statusDiv.textContent = "Failure: Element did not move.";
+                statusDiv.style.color = "red";
+                console.log('Parent:', rightSlotDiv.parentElement);
+            }
+
+        }, 500);
+    </script>
+</body>
+</html>

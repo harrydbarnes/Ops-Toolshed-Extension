@@ -206,3 +206,9 @@ body.reminder-theme-black #confirmation-popup {
     line-height: normal;
 }
 /* --- End of Order ID Copy Button Styles --- */
+
+/* --- Campaign Navigation Style Optimisation --- */
+div[slot="right"].ai-style-change-1 {
+    display: flex;
+    align-items: center;
+}

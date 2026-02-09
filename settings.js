@@ -628,6 +628,64 @@ document.addEventListener('DOMContentLoaded', function() {
     setupToggle('orderIdCopyToggle', 'orderIdCopyEnabled', 'Order ID Copy setting saved:'); 
     setupToggle('gmiChatShortcutToggle', 'gmiChatShortcutEnabled', 'GMI Chat Shortcut setting saved:'); 
     setupToggle('autoCopyUrlToggle', 'autoCopyUrlEnabled', 'Auto Copy URL setting saved:'); 
+
+    // --- Campaign Navigation Style Logic ---
+    const campaignNavStyleToggle = document.getElementById('campaignNavStyleToggle');
+    const optimisedNewNavToggle = document.getElementById('optimisedNewNavToggle');
+
+    if (campaignNavStyleToggle && optimisedNewNavToggle) {
+        // Initial Load
+        chrome.storage.sync.get(['campaignNavStyle', 'optimisedNewNavEnabled'], (data) => {
+            const styleEnabled = data.campaignNavStyle || false; // Default to Old
+            campaignNavStyleToggle.checked = styleEnabled;
+
+            const optimiseEnabled = data.optimisedNewNavEnabled !== false; // Default to true
+            optimisedNewNavToggle.checked = optimiseEnabled;
+
+            // Apply disabled state based on style
+            if (!styleEnabled) {
+                optimisedNewNavToggle.disabled = true;
+                // Style the parent container to look disabled
+                const container = optimisedNewNavToggle.closest('.toggle-container');
+                if (container) {
+                    container.style.opacity = '0.5';
+                    container.style.pointerEvents = 'none';
+                }
+            }
+        });
+
+        // Style Toggle Listener
+        campaignNavStyleToggle.addEventListener('change', function() {
+            const isEnabled = this.checked;
+            chrome.storage.sync.set({ campaignNavStyle: isEnabled }, () => {
+                 console.log('Campaign Nav Style saved:', isEnabled);
+            });
+
+            // Update Optimised Toggle state
+            const container = optimisedNewNavToggle.closest('.toggle-container');
+            if (!isEnabled) {
+                optimisedNewNavToggle.disabled = true;
+                if (container) {
+                    container.style.opacity = '0.5';
+                    container.style.pointerEvents = 'none';
+                }
+            } else {
+                optimisedNewNavToggle.disabled = false;
+                if (container) {
+                    container.style.opacity = '1';
+                    container.style.pointerEvents = 'auto';
+                }
+            }
+        });
+
+        // Optimised Toggle Listener
+        optimisedNewNavToggle.addEventListener('change', function() {
+            const isEnabled = this.checked;
+            chrome.storage.sync.set({ optimisedNewNavEnabled: isEnabled }, () => {
+                 console.log('Optimised New Nav saved:', isEnabled);
+            });
+        });
+    }
  
     // Stats Collector with Confirmation 
     const statsCollectorToggle = document.getElementById('statsCollectorToggle'); 

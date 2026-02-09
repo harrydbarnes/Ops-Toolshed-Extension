@@ -8,14 +8,18 @@
     let hidingSectionsEnabled = true;
     let automateFormFieldsEnabled = true;
     let alwaysShowCommentsEnabled = true;
+    let campaignNavStyle = false;
+    let optimisedNewNavEnabled = true;
 
     // Initialize settings
     if (chrome.runtime && chrome.runtime.id) {
-        chrome.storage.sync.get(['hidingSectionsEnabled', 'automateFormFieldsEnabled', 'alwaysShowCommentsEnabled'], (data) => {
+        chrome.storage.sync.get(['hidingSectionsEnabled', 'automateFormFieldsEnabled', 'alwaysShowCommentsEnabled', 'campaignNavStyle', 'optimisedNewNavEnabled'], (data) => {
             if (chrome.runtime.lastError) return;
             if (data.hidingSectionsEnabled !== undefined) hidingSectionsEnabled = data.hidingSectionsEnabled;
             if (data.automateFormFieldsEnabled !== undefined) automateFormFieldsEnabled = data.automateFormFieldsEnabled;
             if (data.alwaysShowCommentsEnabled !== undefined) alwaysShowCommentsEnabled = data.alwaysShowCommentsEnabled;
+            if (data.campaignNavStyle !== undefined) campaignNavStyle = data.campaignNavStyle;
+            if (data.optimisedNewNavEnabled !== undefined) optimisedNewNavEnabled = data.optimisedNewNavEnabled;
         });
 
         chrome.storage.onChanged.addListener((changes, namespace) => {
@@ -23,6 +27,8 @@
             if (changes.hidingSectionsEnabled) hidingSectionsEnabled = changes.hidingSectionsEnabled.newValue;
             if (changes.automateFormFieldsEnabled) automateFormFieldsEnabled = changes.automateFormFieldsEnabled.newValue;
             if (changes.alwaysShowCommentsEnabled) alwaysShowCommentsEnabled = changes.alwaysShowCommentsEnabled.newValue;
+            if (changes.campaignNavStyle) campaignNavStyle = changes.campaignNavStyle.newValue;
+            if (changes.optimisedNewNavEnabled) optimisedNewNavEnabled = changes.optimisedNewNavEnabled.newValue;
         });
     }
 
@@ -158,9 +164,25 @@
         }
     }
 
+    function handleCampaignNavigationOptimisation() {
+        if (!campaignNavStyle || !optimisedNewNavEnabled) return;
+
+        const navbarWrapper = document.querySelector('.p2b-navbar-wrapper');
+        const rightSlotDiv = document.querySelector('div[slot="right"]');
+
+        if (navbarWrapper && rightSlotDiv) {
+            // Check if already moved to avoid redundancy
+            if (rightSlotDiv.parentElement !== navbarWrapper || !rightSlotDiv.classList.contains('ai-style-change-1')) {
+                navbarWrapper.appendChild(rightSlotDiv);
+                rightSlotDiv.classList.add('ai-style-change-1');
+            }
+        }
+    }
+
     window.campaignFeature = {
         handleCampaignManagementFeatures,
         handleAlwaysShowComments,
+        handleCampaignNavigationOptimisation,
         resetCampaignFlags
     };
 })();
