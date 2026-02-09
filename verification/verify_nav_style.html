@@ -105,24 +105,16 @@
             const rightSlotDiv = document.querySelector('div[slot="right"]');
             const previewLinkContainer = document.querySelector('.omni-navigation-preview-link-container');
 
-            if (rightSlotDiv.parentElement === navbarWrapper) {
-                // Verify position relative to previewLinkContainer
-                if (previewLinkContainer && rightSlotDiv.nextElementSibling === previewLinkContainer) {
-                    if (rightSlotDiv.classList.contains('ai-style-change-1')) {
-                        statusDiv.textContent = "Success: Element moved BEFORE preview container and class added!";
-                        statusDiv.style.color = "green";
-                    } else {
-                        statusDiv.textContent = "Partial Success: Element moved BEFORE but class missing.";
-                        statusDiv.style.color = "orange";
-                    }
-                } else {
-                    statusDiv.textContent = "Failure: Element moved but NOT before preview container (likely appended at end).";
-                    statusDiv.style.color = "red";
-                }
+            // With optimisedNewNavEnabled: false, we expect the element NOT to move.
+            // The original parent in this mock HTML is implicitly body or the container div.
+            // Let's check if it's NOT inside p2b-navbar-wrapper
+
+            if (rightSlotDiv.parentElement !== navbarWrapper) {
+                statusDiv.textContent = "Success: Element did NOT move (as expected when Optimised is disabled).";
+                statusDiv.style.color = "green";
             } else {
-                statusDiv.textContent = "Failure: Element did not move.";
+                statusDiv.textContent = "Failure: Element moved but Optimised setting is disabled.";
                 statusDiv.style.color = "red";
-                console.log('Parent:', rightSlotDiv.parentElement);
             }
 
         }, 500);

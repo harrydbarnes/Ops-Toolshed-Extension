@@ -179,7 +179,7 @@
     }
 
     function handleCampaignNavigationOptimisation() {
-        if (campaignNavStyle !== 'new') return;
+        if (campaignNavStyle !== 'new' || !optimisedNewNavEnabled) return;
 
         const navbarWrapper = document.querySelector('.p2b-navbar-wrapper');
         const rightSlotDiv = document.querySelector('div[slot="right"]');
