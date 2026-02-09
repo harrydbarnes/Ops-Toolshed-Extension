@@ -5,11 +5,13 @@
 
     chrome.storage.sync.get('gmiChatShortcutEnabled', (data) => {
         isEnabled = data.gmiChatShortcutEnabled !== false;
+        document.body.classList.toggle('gmi-chat-enabled', isEnabled);
     });
 
     chrome.storage.onChanged.addListener((changes, area) => {
         if (area === 'sync' && changes.gmiChatShortcutEnabled) {
             isEnabled = changes.gmiChatShortcutEnabled.newValue !== false;
+            document.body.classList.toggle('gmi-chat-enabled', isEnabled);
             if (!isEnabled) {
                 const btn = document.querySelector('.gmi-chat-button');
                 if (btn) btn.remove();
