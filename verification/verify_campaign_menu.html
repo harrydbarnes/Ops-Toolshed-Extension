@@ -153,11 +153,16 @@
 
                 let msg = [];
                 if (!tooltip) msg.push("Tooltip missing CSS class.");
+                else {
+                    const arrow = tooltip.querySelector('.tooltip-arrow-custom');
+                    if (!arrow) msg.push("Tooltip missing arrow element.");
+                }
+
                 if (icon.hasAttribute('title')) msg.push("Icon has native title.");
                 if (!icon.hasAttribute('aria-label')) msg.push("Icon missing aria-label.");
 
                 if (msg.length === 0) {
-                    statusDiv.textContent = "Success: Toolbar created with correct attributes and classes.";
+                    statusDiv.textContent = "Success: Toolbar created with correct attributes, classes, and arrow.";
                     statusDiv.style.color = "green";
                 } else {
                     statusDiv.textContent = "Failure: " + msg.join(" ");

@@ -295,8 +295,14 @@
 
             // Create Custom Tooltip (styles handled by CSS class)
             const tooltip = document.createElement('div');
-            tooltip.textContent = action.label;
             tooltip.className = 'extracted-action-tooltip';
+            // Use text node to avoid overwriting with innerHTML if we wanted to be stricter,
+            // but here we append children.
+            tooltip.appendChild(document.createTextNode(action.label));
+
+            const arrow = document.createElement('div');
+            arrow.className = 'tooltip-arrow-custom';
+            tooltip.appendChild(arrow);
 
             wrapper.appendChild(icon);
             wrapper.appendChild(tooltip);

@@ -247,23 +247,35 @@ div[slot="right"].ai-style-change-1 {
 /* 3. Custom Tooltip Positioning and Visibility */
 /* Assuming the tooltip is the direct child div of the wrapper */
 #mo-extracted-actions-toolbar > div > .extracted-action-tooltip {
-  position: absolute;
-  top: 100% !important; /* Positions tooltip directly below the icon */
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 2147483647 !important; /* High Z-Index */
+  position: absolute !important;
+  top: 26px !important;            /* 12px gap from the bottom of the 14px icon */
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  background-color: #333333 !important;
+  color: #ffffff !important;
+  padding: 6px 10px !important;
+  border-radius: 4px !important;
+  font-size: 13px !important;
+  white-space: nowrap !important;
+  z-index: 2147483647 !important;
+  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2) !important;
   visibility: hidden;
   opacity: 0;
   transition: opacity 0.2s;
+  pointer-events: none;            /* Ensures tooltip doesn't interfere with clicks */
+}
 
-  /* Styling match */
-  background-color: #333;
-  color: #fff;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  white-space: nowrap;
-  pointer-events: none; /* Prevents tooltip from interfering with mouse events */
+/* Tooltip Arrow - Centered and pointing UP */
+.extracted-action-tooltip .tooltip-arrow-custom {
+    position: absolute;
+    top: -4px;                       /* Overlaps slightly to prevent sub-pixel gaps */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-bottom: 5px solid #333333; /* Matches tooltip background color */
 }
 
 /* 4. Show tooltip on hover */
