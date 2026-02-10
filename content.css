@@ -223,6 +223,11 @@ div[slot="right"].ai-style-change-1 {
   overflow: visible !important;
 }
 
+#ptb-header {
+  position: relative; /* Ensure position is set to create a stacking context */
+  z-index: 10001;     /* Higher than the modal container's 10000 */
+}
+
 /* 2. Toolbar and Icon Container Styling */
 #mo-extracted-actions-toolbar {
   position: relative;
