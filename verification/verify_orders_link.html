@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Verify Orders Link</title>
+</head>
+<body>
+    <h1>Verify Orders Link</h1>
+
+    <div class="mo-navbar-sections">
+        <a id="p2b-navbar-section-plan" class="mo-navbar-section mo-text-uppercase">Plan</a>
+        <a id="p2b-navbar-section-buy" class="mo-navbar-section mo-text-uppercase">Buy</a>
+        <a id="p2b-navbar-section-traffic" class="mo-navbar-section mo-text-uppercase">Traffic</a>
+        <a id="p2b-navbar-section-analyze" class="mo-navbar-section mo-text-uppercase active" href="#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP3649F&ptb-mod=analyze">Analyze</a>
+    </div>
+
+    <div id="status" style="margin-top: 20px; font-weight: bold;">Waiting...</div>
+
+    <script>
+        // Mock Chrome API
+        window.chrome = {
+            runtime: {
+                id: 'mock-id',
+                lastError: null
+            },
+            storage: {
+                sync: {
+                    get: function(keys, callback) {
+                        // Return configuration: Style=New, Optimised=True
+                        callback({
+                            campaignNavStyle: 'new',
+                            optimisedNewNavEnabled: true,
+                            hidingSectionsEnabled: true,
+                            automateFormFieldsEnabled: true,
+                            alwaysShowCommentsEnabled: true
+                        });
+                    },
+                    set: function(data, callback) {
+                        if (callback) callback();
+                    }
+                },
+                onChanged: {
+                    addListener: function(callback) {}
+                }
+            }
+        };
+
+        // Mock utils
+        window.utils = {
+            waitForElement: function() { return Promise.resolve(document.createElement('div')); }
+        };
+    </script>
+
+    <!-- Include the feature script -->
+    <script src="../features/campaign.js"></script>
+
+    <script>
+        // Run verification
+        setTimeout(() => {
+            const statusDiv = document.getElementById('status');
+
+            // Run manually
+            if (window.campaignFeature && window.campaignFeature.handleCampaignNavigationOptimisation) {
+                window.campaignFeature.handleCampaignNavigationOptimisation();
+            }
+
+            // Verify
+            const analyzeBtn = document.getElementById('p2b-navbar-section-analyze');
+            const ordersBtn = document.getElementById('p2b-navbar-section-orders');
+
+            if (ordersBtn) {
+                let success = true;
+                let msg = [];
+
+                // 1. Check Placement
+                if (analyzeBtn.nextElementSibling !== ordersBtn) {
+                    success = false;
+                    msg.push("Orders button NOT placed immediately after Analyze button.");
+                }
+
+                // 2. Check Text
+                if (ordersBtn.textContent !== 'ORDERS') {
+                    success = false;
+                    msg.push(`Expected text 'ORDERS', got '${ordersBtn.textContent}'.`);
+                }
+
+                // 3. Check Href
+                const expectedHref = "#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP3649F&ptb-mod=orders";
+                if (ordersBtn.getAttribute('href') !== expectedHref) {
+                    success = false;
+                    msg.push(`Expected href '${expectedHref}', got '${ordersBtn.getAttribute('href')}'.`);
+                }
+
+                // 4. Check Class (active removed)
+                if (ordersBtn.classList.contains('active')) {
+                    success = false;
+                    msg.push("Orders button should NOT have 'active' class.");
+                }
+                if (!ordersBtn.classList.contains('mo-navbar-section')) {
+                    success = false;
+                    msg.push("Orders button missing original classes.");
+                }
+
+                if (success) {
+                    statusDiv.textContent = "Success: Orders link created correctly.";
+                    statusDiv.style.color = "green";
+                } else {
+                    statusDiv.textContent = "Failure: " + msg.join(" ");
+                    statusDiv.style.color = "red";
+                }
+
+            } else {
+                statusDiv.textContent = "Failure: Orders button not found.";
+                statusDiv.style.color = "red";
+            }
+
+        }, 500);
+    </script>
+</body>
+</html>

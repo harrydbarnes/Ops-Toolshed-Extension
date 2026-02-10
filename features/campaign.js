@@ -198,6 +198,39 @@
         }
 
         handleCampaignMenuRelocation();
+        handleOrdersNavigationLink();
+    }
+
+    function handleOrdersNavigationLink() {
+        if (campaignNavStyle !== 'new' || !optimisedNewNavEnabled) return;
+
+        // Avoid duplicates
+        if (document.getElementById('p2b-navbar-section-orders')) return;
+
+        const analyzeBtn = document.querySelector('#p2b-navbar-section-analyze');
+        if (analyzeBtn) {
+            // 1. Create the Orders button based on the Analyze button structure
+            const ordersBtn = analyzeBtn.cloneNode(true);
+            ordersBtn.id = 'p2b-navbar-section-orders';
+
+            // Text content handling - careful not to wipe out children if any structure exists,
+            // though analyze button is usually simple text or text node.
+            // cloneNode(true) copies children. Analyze usually has text.
+            // Let's safe-set the text node if possible or just textContent.
+            // Requirement says: Content: The text string "ORDERS".
+            ordersBtn.textContent = 'ORDERS';
+
+            // 2. Update the href dynamically to point to the orders module
+            const analyzeHref = analyzeBtn.getAttribute('href') || '';
+            const ordersHref = analyzeHref.replace('ptb-mod=analyze', 'ptb-mod=orders');
+            ordersBtn.setAttribute('href', ordersHref);
+
+            // 3. Ensure visual state handling (remove active class if cloned from an active button)
+            ordersBtn.classList.remove('active');
+
+            // 4. Insert into the DOM
+            analyzeBtn.after(ordersBtn);
+        }
     }
 
     function handleCampaignMenuRelocation() {
