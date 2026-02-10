@@ -11,6 +11,12 @@
     let campaignNavStyle = 'old';
     let optimisedNewNavEnabled = true;
 
+    // Class selectors for Budget UI
+    const BUDGET_CONTAINER_ID = 'campaign-budget-overview-container';
+    const BUDGET_VALUE_CLASS = '.xb1phb\\+xdUqb87KZK3L\\+Sw\\=\\='; // Escaped for JS querySelector
+    const BUDGET_LABEL_CLASS = '.cbjS\\+XIoeuDmb-oqpXOJpw\\=\\=';   // Escaped for JS querySelector
+    const PROGRESS_BAR_CLASS = '.gDndZofhX67JYdRMGJEFTw\\=\\=';
+
     // Initialize settings
     if (chrome.runtime && chrome.runtime.id) {
         chrome.storage.sync.get(['hidingSectionsEnabled', 'automateFormFieldsEnabled', 'alwaysShowCommentsEnabled', 'campaignNavStyle', 'optimisedNewNavEnabled'], (data) => {
@@ -199,6 +205,164 @@
 
         handleCampaignMenuRelocation();
         handleOrdersNavigationLink();
+        handleBudgetDisplayOptimisation(); // Trigger budget display changes
+    }
+
+    function handleBudgetDisplayOptimisation() {
+        const budgetContainer = document.getElementById(BUDGET_CONTAINER_ID);
+        if (!budgetContainer) return;
+
+        // 1. Inject CSS for Budget Optimisation if not already present
+        const STYLE_ID = 'optimised-budget-styles';
+        if (!document.getElementById(STYLE_ID)) {
+            const style = document.createElement('style');
+            style.id = STYLE_ID;
+            style.textContent = `
+                /* 1. CONTAINER RESET & ALIGNMENT */
+                #${BUDGET_CONTAINER_ID} {
+                    display: flex !important;
+                    align-items: center !important;
+                    gap: 0 !important;
+                    min-height: 0 !important;
+                    padding-right: 0 !important;
+                    white-space: nowrap !important;
+                }
+
+                /* 2. LARGE SCREEN VIEW (Expanded View >= 1200px) */
+                @media (min-width: 1200px) {
+                    /* Shrink bar width to 80px */
+                    ${PROGRESS_BAR_CLASS} {
+                        width: 80px !important;
+                        height: 10px !important;
+                        margin-right: 4px !important;
+                        display: flex !important;
+                        align-items: center !important;
+                        overflow: visible !important;
+                    }
+
+                    /* Ensure inner bar fills height and stays rounded */
+                    ${PROGRESS_BAR_CLASS} div,
+                    ${PROGRESS_BAR_CLASS} span {
+                        height: 100% !important;
+                        border-radius: 5px !important;
+                    }
+
+                    /* Merge Billable and Budget: Prepend the value */
+                    ${BUDGET_VALUE_CLASS}::before {
+                        content: var(--billable-prepend, "");
+                        font-weight: 600;
+                        color: #333;
+                    }
+
+                    /* Fix vertical positioning and font size */
+                    ${BUDGET_VALUE_CLASS} {
+                        font-size: 13px !important;
+                        line-height: 1 !important;
+                        display: inline-flex !important;
+                        align-items: center !important;
+                    }
+
+                    /* Hide the word 'Budget' on large screens */
+                    ${BUDGET_LABEL_CLASS} {
+                        font-size: 0 !important;
+                    }
+
+                    /* Ensure Action Toolbar (Copy/History) is visible */
+                    #mo-extracted-actions-toolbar {
+                        display: flex !important;
+                    }
+                }
+
+                /* 3. SMALL SCREEN VIEW (Compact View < 1200px) */
+                @media (max-width: 1199px) {
+                    /* Slim 15px bar */
+                    ${PROGRESS_BAR_CLASS} {
+                        width: 15px !important;
+                        min-width: 15px !important;
+                        height: 10px !important;
+                        margin-right: 4px !important;
+                        display: flex !important;
+                        align-items: center !important;
+                    }
+
+                    /* Show Compact Rounded Budget (£60k) */
+                    ${BUDGET_VALUE_CLASS} {
+                        font-size: 0 !important;
+                        background-color: transparent !important;
+                    }
+                    ${BUDGET_VALUE_CLASS}::after {
+                        content: var(--rounded-budget, "£0k");
+                        font-size: 13px !important;
+                        font-weight: 600;
+                        line-height: 1 !important;
+                    }
+
+                    /* Restore original text nodes (e.g. 'Budget') */
+                    ${BUDGET_LABEL_CLASS} {
+                        font-size: inherit !important;
+                    }
+
+                    /* Hide Toolbar to save space */
+                    #mo-extracted-actions-toolbar {
+                        display: none !important;
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        // 2. Data Logic: Format Numbers and Update CSS Variables
+        const allValues = budgetContainer.querySelectorAll(BUDGET_VALUE_CLASS);
+        const allLabels = budgetContainer.querySelectorAll(BUDGET_LABEL_CLASS);
+
+        // Assumption based on typical Prisma DOM: [Billable Label, Billable Value, Budget Label, Budget Value]
+        // or just [Value, Value] if labels are separate.
+        // We will assume the LAST value is the "Budget" which we want to act as the primary container.
+
+        let budgetValueSpan = null;
+        let billableValueSpan = null;
+
+        if (allValues.length > 0) {
+            // Target the last value span as the main "Budget" span
+            budgetValueSpan = allValues[allValues.length - 1];
+
+            // If there's more than one value, assume the first one is "Billable"
+            if (allValues.length > 1) {
+                billableValueSpan = allValues[0];
+            }
+        }
+
+        if (budgetValueSpan) {
+            // Update Rounded Budget (for Small Screens)
+            const rawText = budgetValueSpan.textContent.trim();
+            const rawNumber = parseFloat(rawText.replace(/[^0-9.-]+/g, ""));
+
+            if (!isNaN(rawNumber)) {
+                budgetValueSpan.style.setProperty('--rounded-budget', `"${formatCompact(rawNumber)}"`);
+            }
+
+            // Update Billable Prepend (for Large Screens)
+            if (billableValueSpan) {
+                const billableText = billableValueSpan.textContent.trim();
+                budgetValueSpan.style.setProperty('--billable-prepend', `"${billableText} / "`);
+
+                // Hide the original Billable elements to avoid duplication since we merged them
+                // We assume the first label corresponds to the first value (Billable)
+                billableValueSpan.style.setProperty('display', 'none', 'important');
+                if (allLabels.length > 0) {
+                    allLabels[0].style.setProperty('display', 'none', 'important');
+                }
+            } else {
+                // If no billable found, clear the prepend
+                budgetValueSpan.style.setProperty('--billable-prepend', `""`);
+            }
+        }
+    }
+
+    function formatCompact(num) {
+        if (num >= 1000000) return '£' + (num / 1000000).toFixed(num % 1000000 === 0 ? 0 : 1) + 'm';
+        if (num >= 1000) return '£' + (num / 1000).toFixed(0) + 'k';
+        return '£' + num;
     }
 
     function handleOrdersNavigationLink() {
@@ -213,18 +377,11 @@
             const ordersBtn = analyzeBtn.cloneNode(true);
             ordersBtn.id = 'p2b-navbar-section-orders';
 
-            // Text content handling - careful not to wipe out children if any structure exists,
-            // though analyze button is usually simple text or text node.
-            // cloneNode(true) copies children. Analyze usually has text.
-            // Let's safe-set the text node if possible or just textContent.
-            // Requirement says: Content: The text string "ORDERS".
+            // Text content handling
             ordersBtn.textContent = 'ORDERS';
 
             // 2. Update the href dynamically to point to the orders module
             const analyzeHref = analyzeBtn.getAttribute('href') || '';
-
-            // Use regex to keep everything up to and including the campaign-id value
-            // This handles dynamic campaign IDs
             const baseUrlMatch = analyzeHref.match(/^(.*campaign-id=[^&]*)/);
 
             if (baseUrlMatch) {
@@ -232,12 +389,11 @@
                 const ordersHref = baseUrlMatch[1] + newParams;
                 ordersBtn.setAttribute('href', ordersHref);
             } else {
-                // Fallback if match fails (though structurally it should match if analyze link is standard)
                 const ordersHref = analyzeHref.replace('ptb-mod=analyze', 'ptb-mod=orders');
                 ordersBtn.setAttribute('href', ordersHref);
             }
 
-            // 3. Ensure visual state handling (remove active class if cloned from an active button)
+            // 3. Ensure visual state handling
             ordersBtn.classList.remove('active');
 
             // 4. Insert into the DOM
@@ -308,8 +464,6 @@
             // Create Custom Tooltip (styles handled by CSS class)
             const tooltip = document.createElement('div');
             tooltip.className = 'extracted-action-tooltip';
-            // Use text node to avoid overwriting with innerHTML if we wanted to be stricter,
-            // but here we append children.
             tooltip.appendChild(document.createTextNode(action.label));
 
             const arrow = document.createElement('div');

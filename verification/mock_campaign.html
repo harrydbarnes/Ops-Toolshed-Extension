@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Budget Optimization Test</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        /* Add some basic styling so it looks reasonable */
+        .cbjS\+XIoeuDmb-oqpXOJpw\=\= { margin-right: 5px; font-weight: bold; }
+        .xb1phb\+xdUqb87KZK3L\+Sw\=\= { margin-right: 15px; }
+        .gDndZofhX67JYdRMGJEFTw\=\= { display: inline-block; width: 100px; height: 10px; background: #eee; }
+        .gDndZofhX67JYdRMGJEFTw\=\= div { width: 50%; height: 100%; background: green; }
+    </style>
+</head>
+<body>
+    <h1>Budget Optimization Mock</h1>
+
+    <div id="campaign-budget-overview-container">
+        <!-- Mocking the structure: Label Value Label Value -->
+        <span class="cbjS+XIoeuDmb-oqpXOJpw==">Billable</span>
+        <span class="xb1phb+xdUqb87KZK3L+Sw==">£50,000.00</span>
+
+        <span class="cbjS+XIoeuDmb-oqpXOJpw==">Budget</span>
+        <span class="xb1phb+xdUqb87KZK3L+Sw==">£60,000.00</span>
+
+        <div class="gDndZofhX67JYdRMGJEFTw=="><div></div></div>
+    </div>
+
+    <div class="buy-details-wrapper">
+        <!-- Anchor for campaign menu relocation -->
+        Mock Buy Details Wrapper
+    </div>
+
+    <!-- Mocks -->
+    <script>
+        window.chrome = {
+            runtime: { id: 'mock-id' },
+            storage: {
+                sync: {
+                    get: (keys, cb) => {
+                        // Return mocked settings
+                        cb({
+                            campaignNavStyle: 'new',
+                            optimisedNewNavEnabled: true
+                        });
+                    }
+                },
+                onChanged: { addListener: () => {} }
+            }
+        };
+
+        // Mock Utils if needed (used in handleAlwaysShowComments)
+        window.utils = {
+            waitForElement: () => Promise.resolve(document.createElement('div')),
+        };
+    </script>
+
+    <!-- Load the feature script -->
+    <script src="../features/campaign.js"></script>
+
+    <script>
+        // Trigger logic after a short delay to simulate async loading or just manually call
+        setTimeout(() => {
+            if (window.campaignFeature && window.campaignFeature.handleCampaignNavigationOptimisation) {
+                console.log("Triggering optimization...");
+                window.campaignFeature.handleCampaignNavigationOptimisation();
+            } else {
+                console.error("campaignFeature not found");
+            }
+        }, 500);
+    </script>
+</body>
+</html>
