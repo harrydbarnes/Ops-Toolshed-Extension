@@ -85,7 +85,7 @@
                 }
 
                 // 3. Check Href
-                const expectedHref = "#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP3649F&ptb-mod=orders";
+                const expectedHref = "#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP3649F&ptb-mod=buy&ptb-ctx=orderSummary&showOrders=true";
                 if (ordersBtn.getAttribute('href') !== expectedHref) {
                     success = false;
                     msg.push(`Expected href '${expectedHref}', got '${ordersBtn.getAttribute('href')}'.`);

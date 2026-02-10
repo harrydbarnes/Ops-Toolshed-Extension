@@ -222,8 +222,20 @@
 
             // 2. Update the href dynamically to point to the orders module
             const analyzeHref = analyzeBtn.getAttribute('href') || '';
-            const ordersHref = analyzeHref.replace('ptb-mod=analyze', 'ptb-mod=orders');
-            ordersBtn.setAttribute('href', ordersHref);
+
+            // Use regex to keep everything up to and including the campaign-id value
+            // This handles dynamic campaign IDs
+            const baseUrlMatch = analyzeHref.match(/^(.*campaign-id=[^&]*)/);
+
+            if (baseUrlMatch) {
+                const newParams = "&ptb-mod=buy&ptb-ctx=orderSummary&showOrders=true";
+                const ordersHref = baseUrlMatch[1] + newParams;
+                ordersBtn.setAttribute('href', ordersHref);
+            } else {
+                // Fallback if match fails (though structurally it should match if analyze link is standard)
+                const ordersHref = analyzeHref.replace('ptb-mod=analyze', 'ptb-mod=orders');
+                ordersBtn.setAttribute('href', ordersHref);
+            }
 
             // 3. Ensure visual state handling (remove active class if cloned from an active button)
             ordersBtn.classList.remove('active');
