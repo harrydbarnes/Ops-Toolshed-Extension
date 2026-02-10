@@ -6,45 +6,48 @@ def run():
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
 
+        # Load the verification HTML file
         file_path = f"file://{os.getcwd()}/verification/verify_budget_responsive.html"
+        print(f"Loading: {file_path}")
         page.goto(file_path)
-        page.wait_for_timeout(1000)
 
-        # Force display block just in case
-        page.eval_on_selector('.campaign-budget-overview-value', 'el => el.style.display = "inline-flex"')
+        # Wait for JS execution
+        try:
+            page.wait_for_selector("#status:has-text('Success')", timeout=5000)
+            print("DOM Injection Verification: Success")
+        except Exception as e:
+            print(f"DOM Injection Verification Failed: {e}")
+
+        # Test Responsiveness (CSS)
 
         # Large Screen
         page.set_viewport_size({"width": 1300, "height": 800})
-        before_content = page.eval_on_selector(
-            '.campaign-budget-overview-value',
-            "el => window.getComputedStyle(el, '::before').content"
-        )
-        print(f"Large Screen ::before content: {before_content}")
+        # Check expanded visible, compact hidden
+        expanded_visible = page.locator('.budget-expanded').is_visible()
+        compact_visible = page.locator('.budget-compact').is_visible()
+        toolbar_visible = page.locator('#mo-extracted-actions-toolbar').is_visible()
 
-        # Check font size
-        font_size = page.eval_on_selector('.campaign-budget-overview-value', 'el => window.getComputedStyle(el).fontSize')
-        print(f"Large Screen font size: {font_size}")
-
-        if '"£29,999.99 / "' in before_content: # Quote matching can be tricky
-             print("Large Screen Logic: PASS")
+        if expanded_visible and not compact_visible and toolbar_visible:
+            print("Large Screen Layout: Correct")
         else:
-             print("Large Screen Logic: FAIL")
+            print(f"Large Screen Layout Failed: Expanded={expanded_visible}, Compact={compact_visible}, Toolbar={toolbar_visible}")
 
         # Small Screen
         page.set_viewport_size({"width": 1000, "height": 800})
-        after_content = page.eval_on_selector(
-            '.campaign-budget-overview-value',
-            "el => window.getComputedStyle(el, '::after').content"
-        )
-        print(f"Small Screen ::after content: {after_content}")
+        # Check expanded hidden, compact visible, toolbar hidden
+        expanded_visible = page.locator('.budget-expanded').is_visible()
+        compact_visible = page.locator('.budget-compact').is_visible()
+        toolbar_visible = page.locator('#mo-extracted-actions-toolbar').is_visible()
 
-        font_size_small = page.eval_on_selector('.campaign-budget-overview-value', 'el => window.getComputedStyle(el).fontSize')
-        print(f"Small Screen font size: {font_size_small}")
-
-        if '"£60k"' in after_content:
-             print("Small Screen Logic: PASS")
+        if not expanded_visible and compact_visible and not toolbar_visible:
+            print("Small Screen Layout: Correct")
         else:
-             print("Small Screen Logic: FAIL")
+            print(f"Small Screen Layout Failed: Expanded={expanded_visible}, Compact={compact_visible}, Toolbar={toolbar_visible}")
+
+        # Take a screenshot
+        screenshot_path = "verification/budget_responsive_verification.png"
+        page.screenshot(path=screenshot_path)
+        print(f"Screenshot saved to {screenshot_path}")
 
         browser.close()
 

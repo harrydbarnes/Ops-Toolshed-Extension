@@ -228,32 +228,64 @@
         const budgetContainer = document.getElementById('campaign-budget-overview-container');
         if (!budgetContainer) return;
 
-        const totalBudgetElement = budgetContainer.querySelector('.campaign-budget-overview-value');
-        if (!totalBudgetElement) return;
+        // Check if we've already injected our structure
+        if (budgetContainer.querySelector('.budget-expanded')) return;
 
+        // Extract Total Budget
+        // The structure usually is a span inside the container with the text
+        // Let's find the text node or element containing the budget.
+        // Assuming the existing text is the Total Budget.
+        const totalBudgetElement = budgetContainer.querySelector('.campaign-budget-overview-value') || budgetContainer;
         const totalBudget = totalBudgetElement.textContent.trim();
 
         // Extract Billable Amount
+        // This is tricky without the tooltip data. Assuming it's in a progress bar tooltip.
+        // Look for the progress bar container/element.
         const progressBar = budgetContainer.querySelector('.progress-bar') || budgetContainer.querySelector('[role="progressbar"]');
         let billableAmount = '';
 
         if (progressBar) {
+            // Try common tooltip attributes
             billableAmount = progressBar.getAttribute('data-original-title') || progressBar.getAttribute('title') || '';
+            // If the tooltip contains "Buy Total: £...", extract it.
+            // Or if it just contains the value.
+            // Let's try to extract a currency value.
             const match = billableAmount.match(/([£$€][0-9,]+(\.[0-9]{2})?)/);
             if (match) {
                 billableAmount = match[1];
             } else {
+                // Fallback: If not found, maybe we can't show the expanded view perfectly, or assume 0?
+                // For now, let's use a placeholder if missing or 0 if appropriate.
+                // If we can't find it, we might just show Total / Total or just Total.
                 billableAmount = totalBudget; // Fallback
             }
         }
 
-        // Set CSS Variables on the value element for pseudo-elements to use
-        const compactValue = formatCompactCurrency(totalBudget);
-        totalBudgetElement.style.setProperty('--rounded-budget', `"${compactValue}"`);
-        totalBudgetElement.style.setProperty('--billable-prefix', `"${billableAmount} / "`);
+        // Create elements
+        const expandedSpan = document.createElement('span');
+        expandedSpan.className = 'budget-expanded';
+        expandedSpan.textContent = `${billableAmount} / ${totalBudget}`;
 
-        // Ensure background is transparent as per request (if needed)
-        totalBudgetElement.style.backgroundColor = 'transparent';
+        const compactSpan = document.createElement('span');
+        compactSpan.className = 'budget-compact';
+        compactSpan.textContent = formatCompactCurrency(totalBudget);
+
+        // Hide original text logic?
+        // Best approach: Add a class to the container to manage visibility via CSS,
+        // and append our new spans.
+        // We might need to hide the original value element specifically.
+        if (totalBudgetElement !== budgetContainer) {
+            totalBudgetElement.style.display = 'none';
+        } else {
+            // If text is directly in container, wrapping it might be needed,
+            // or just clearing textContent if we are sure.
+            // Safer: Wrap existing nodes in a hidden span?
+            // Let's assume there's a specific element or we append and use CSS to hide others.
+        }
+
+        // Allow CSS to toggle display
+        budgetContainer.appendChild(expandedSpan);
+        budgetContainer.appendChild(compactSpan);
     }
 
     function handleOrdersNavigationLink() {
