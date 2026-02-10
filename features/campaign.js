@@ -249,7 +249,7 @@
                     }
 
                     #${BUDGET_CONTAINER_ID} ${BUDGET_LABEL_SELECTOR}::before {
-                        content: var(--budget-large-text, "");
+                        content: var(--dynamic-buy-total, ""); /* Updated variable name */
                         visibility: visible !important;
                         font-size: 12px !important;
                         font-weight: 700 !important;
@@ -331,72 +331,67 @@
         const allLabels = budgetContainer.querySelectorAll(BUDGET_LABEL_SELECTOR);
 
         let budgetValueSpan = null;
-        let billableValueSpan = null;
-        let budgetLabelSpan = null;
 
         if (allValues.length > 0) {
-            // Target the last value span as the main "Budget" span (or the one with data-cy if present)
-            // If data-cy is present, querySelectorAll preserves order so it should still be in the list.
-            // Let's trust the logic that budget is usually the last one.
+            // Target the last value span as the main "Budget" span
             budgetValueSpan = allValues[allValues.length - 1];
-
-            // If there's more than one value, assume the first one is "Billable"
-            if (allValues.length > 1) {
-                billableValueSpan = allValues[0];
-            }
-        }
-
-        // Find the label corresponding to the budget (usually the last label if paired)
-        if (allLabels.length > 0) {
-            budgetLabelSpan = allLabels[allLabels.length - 1];
         }
 
         if (budgetValueSpan) {
             const rawBudget = parseCurrency(budgetValueSpan.textContent);
-            let rawBillable = 0;
 
-            // Format Rounded Budget (e.g. "£85")
-            // Requirement: "Display only the rounded budget value followed by a lowercase 'k' (e.g., £85k)"
-            // So we just need the number part rounded.
-            const roundedBudgetStr = formatCurrency(Math.round(rawBudget)).replace(/\.00$/, ''); // £85000
-            // Wait, "£85k". So if it is 85000, we want 85.
-            // If it is 850, we want 0.85? Or just 850?
-            // "e.g., £85k". This implies dividing by 1000.
-
+            // Format Rounded Budget (Small Screen)
             let compactBudget = '';
             if (rawBudget >= 1000) {
                  compactBudget = '£' + Math.round(rawBudget / 1000);
             } else {
-                 compactBudget = '£' + rawBudget; // Fallback if small? But usually budget is large.
-                 // If small, k suffix might be weird "£850k" -> no.
-                 // Requirement: "rounded budget value followed by a lowercase 'k'".
-                 // Assuming budgets are usually in k.
+                 compactBudget = '£' + rawBudget;
             }
-            // Set CSS var on the value element
             budgetValueSpan.style.setProperty('--rounded-budget', `"${compactBudget}"`);
 
+            // Format Large Screen Text: New logic from user request
+            // Entry point for data extraction for the buy total amount
+            const entryPoint = document.querySelector('[data-cy="media-budget-overview-container-media_digital"]');
 
-            // Format Large Screen Text: "£85,000 / £85,000"
-            if (billableValueSpan) {
-                rawBillable = parseCurrency(billableValueSpan.textContent);
-                // Hide original billable elements
-                billableValueSpan.style.setProperty('display', 'none', 'important');
+            if (entryPoint) {
+                const moText = entryPoint.querySelector('mo-text[data-cy="budget-purchased"]');
+                if (moText) {
+                    // Access content from Shadow DOM or light DOM
+                    const rawContent = (moText.shadowRoot ? moText.shadowRoot.textContent : moText.textContent) || '';
+
+                    // Match currency (e.g. £85,000.00) and strip .00
+                    const currencyMatch = rawContent.match(/£[0-9,.]+/);
+                    if (currencyMatch) {
+                        const amount = currencyMatch[0].replace('.00', '');
+
+                        // Inject into CSS Variable on the container itself so the label child can access it
+                        budgetContainer.style.setProperty('--dynamic-buy-total', `"${amount} / ${amount}"`);
+
+                        // Hide original billable elements to prevent duplication
+                        if (allValues.length > 1) {
+                            allValues[0].style.setProperty('display', 'none', 'important');
+                        }
+                        if (allLabels.length > 0) {
+                            allLabels[0].style.setProperty('display', 'none', 'important');
+                        }
+                    }
+                }
+            } else {
+                // Fallback if entryPoint is not found?
+                // Maybe retain the old calculation logic?
+                // The user's request seems to imply this is the *new* way.
+                // But if the element isn't there (async load), we might want a fallback.
+                // For now, I will leave it blank or rely on previous iteration's logic if I wanted to be super safe,
+                // but usually "replace with this" means "use this".
+                // I'll keep the billable hiding logic just in case the label structure is still there.
+
+                // Hide original billable elements if they exist, to avoid clutter
+                 if (allValues.length > 1) {
+                    allValues[0].style.setProperty('display', 'none', 'important');
+                }
                 if (allLabels.length > 0) {
                     allLabels[0].style.setProperty('display', 'none', 'important');
                 }
-            }
-
-            const formattedBillable = formatCurrency(rawBillable);
-            const formattedBudget = formatCurrency(rawBudget);
-            const largeText = `${formattedBillable} / ${formattedBudget}`;
-
-            // Set CSS var on the LABEL element (as per CSS reference)
-            if (budgetLabelSpan) {
-                budgetLabelSpan.style.setProperty('--budget-large-text', `"${largeText}"`);
-            } else {
-                // Fallback: put it on the value element if label not found, but CSS expects it on label
-                // If no label, we might be in trouble for the CSS logic.
-                // But budgetContainer is guaranteed.
             }
         }
     }
@@ -407,17 +402,12 @@
     }
 
     function formatCurrency(num) {
-        // "Remove decimal places if they are .00"
-        // toLocaleString 'en-GB' gives "£85,000.00" or "£85,000" depending on options.
-        // Default might include decimals.
         let formatted = num.toLocaleString('en-GB', {
             style: 'currency',
             currency: 'GBP',
             minimumFractionDigits: 0,
             maximumFractionDigits: 2
         });
-
-        // Explicit removal if it ends in .00 (just to be safe against locale quirks)
         return formatted.replace(/\.00$/, '');
     }
 

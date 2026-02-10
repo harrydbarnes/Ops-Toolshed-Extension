@@ -21,24 +21,21 @@ def run(playwright):
         page.screenshot(path="verification/error_screenshot.png")
         raise e
 
-    # 1. Verify Large Screen Logic (Variables on Label)
-    # The label is the last element with class .cbjS+XIoeuDmb-oqpXOJpw==
-    # We need to escape correctly or use a simpler selector if possible.
-    # Since we added data-cy to value, let's look for label relative to it or by text?
-    # The text inside label is "Budget".
+    # 1. Verify Large Screen Logic (Variables on Container)
+    # The new logic sets --dynamic-buy-total on #campaign-budget-overview-container
 
-    budget_label = page.locator(".cbjS\\+XIoeuDmb-oqpXOJpw\\=\\=").nth(1) # Second label (Billable is first)
-    expect(budget_label).to_be_visible()
+    container = page.locator("#campaign-budget-overview-container")
+    expect(container).to_be_visible()
 
-    # Check style attribute for --budget-large-text
-    # Expected: "£50,000 / £60,000" (removed decimals)
-    style_attr_label = budget_label.get_attribute("style")
-    print(f"Label Style attribute: {style_attr_label}")
+    # Check style attribute for --dynamic-buy-total
+    # Expected: "£85,000 / £85,000" (based on mock data "£85,000.00")
+    style_attr = container.get_attribute("style")
+    print(f"Container Style attribute: {style_attr}")
 
-    if '--budget-large-text' in style_attr_label and '£50,000 / £60,000' in style_attr_label:
-        print("Success: --budget-large-text set correctly on label")
+    if '--dynamic-buy-total' in style_attr and '£85,000 / £85,000' in style_attr:
+        print("Success: --dynamic-buy-total set correctly on container")
     else:
-        print("Failure: --budget-large-text not set correctly on label")
+        print("Failure: --dynamic-buy-total not set correctly on container")
 
     # 2. Verify Small Screen Logic (Variables on Value)
     # Switch to small screen first so it becomes visible
@@ -54,21 +51,15 @@ def run(playwright):
     # Debug info
     # print injected CSS
     css_content = page.locator("#optimised-budget-styles").inner_text()
-    print(f"Injected CSS: {css_content}")
+    # print(f"Injected CSS: {css_content}")
 
     print(f"Is visible? {budget_value.is_visible()}")
-    box = budget_value.bounding_box()
-    print(f"Bounding box: {box}")
-    computed_style = budget_value.evaluate("el => window.getComputedStyle(el).display")
-    print(f"Computed display: {computed_style}")
-    computed_font = budget_value.evaluate("el => window.getComputedStyle(el).fontSize")
-    print(f"Computed font-size: {computed_font}")
-
-    # If font-size is 0, playwright might consider it hidden if dimensions are 0
-    # But ::before should give it size.
+    # box = budget_value.bounding_box()
+    # print(f"Bounding box: {box}")
 
     # Check style attribute for --rounded-budget
-    # Expected: "£60" (60000 / 1000)
+    # Expected: "£60k" logic (value is 60000 -> 60)
+    # Note: Logic is still based on the budget value element text "£60,000.00"
     style_attr_value = budget_value.get_attribute("style")
     print(f"Value Style attribute: {style_attr_value}")
 
@@ -81,15 +72,13 @@ def run(playwright):
 
     # 1. Large Screen (Merged View)
     page.set_viewport_size({"width": 1400, "height": 800})
-    # Force layout recalc?
-    page.evaluate("document.body.offsetHeight")
-    page.screenshot(path="verification/budget_optimisation_large.png")
-    print("Screenshot taken: budget_optimisation_large.png")
+    page.screenshot(path="verification/budget_optimisation_large_v2.png")
+    print("Screenshot taken: budget_optimisation_large_v2.png")
 
     # 2. Small Screen (Compact View)
     page.set_viewport_size({"width": 1000, "height": 800})
-    page.screenshot(path="verification/budget_optimisation_small.png")
-    print("Screenshot taken: budget_optimisation_small.png")
+    page.screenshot(path="verification/budget_optimisation_small_v2.png")
+    print("Screenshot taken: budget_optimisation_small_v2.png")
 
     browser.close()
 
