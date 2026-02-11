@@ -64,7 +64,7 @@
         "features/order-id-copy.js",
         "content.js"
       ],
-      "css": ["approvers.css", "content.css", "features/feedback-modal.css"],
+      "css": ["approvers.css", "features/feedback-modal.css"],
       "all_frames": true
     }
   ],
