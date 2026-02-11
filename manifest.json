@@ -71,7 +71,9 @@
   "web_accessible_resources": [{
     "resources": [
       "icon.png",
-      "features/swap-accounts.css"
+      "features/swap-accounts.css",
+      "content.css",
+      "features/feedback-modal.css"
     ],
     "matches": ["<all_urls>"]
   }]
