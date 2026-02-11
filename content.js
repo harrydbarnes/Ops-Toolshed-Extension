@@ -1,15 +1,11 @@
 (function() { // Wrap the entire script in an IIFE to control execution.
   // Function to inject CSS programmatically
   function injectStyles(filename) {
-      const id = `ops-toolshed-styles-${filename.replace(/[^a-zA-Z0-9-]/g, '-')}`;
-      if (document.getElementById(id)) {
-          return; // Already injected
-      }
       const link = document.createElement('link');
       link.href = chrome.runtime.getURL(filename);
       link.type = 'text/css';
       link.rel = 'stylesheet';
-      link.id = id;
+      link.id = 'ops-toolshed-styles'; // Add ID to prevent duplicates
       (document.head || document.documentElement).appendChild(link);
   }
 
@@ -54,9 +50,6 @@
              document.body.classList.add('approver-widget-optimise');
         }
     });
-
-    // Always inject feedback modal styles as it is generally available via triggers
-    injectStyles('features/feedback-modal.css');
 
     console.log("[ContentScript Prisma] Script Injected on URL:", window.location.href, "at", new Date().toLocaleTimeString());
 
