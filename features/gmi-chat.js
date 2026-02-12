@@ -39,8 +39,7 @@
         const gmiChatButton = document.createElement('button');
         gmiChatButton.textContent = 'GMI Chat';
         
-        // REWORKED: Removed 'prisma-paste-button' class. 
-        // This decouples it completely from the paste button styling.
+        // REWORKED: Purely standalone class. No 'prisma-paste-button' or 'filter-button'.
         gmiChatButton.className = 'gmi-chat-button';
 
         gmiChatButton.addEventListener('click', () => {
