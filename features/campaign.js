@@ -215,8 +215,6 @@
         if (!budgetContainer) return;
 
         // Inject CSS for budget container alignment and progress bar tweaks only.
-        // All logic that manipulates the budget value/label elements or augments the
-        // displayed budget figure has been intentionally removed.
         const STYLE_ID = 'optimised-budget-styles';
         if (!document.getElementById(STYLE_ID)) {
             const style = document.createElement('style');
@@ -232,8 +230,8 @@
                     white-space: nowrap !important;
                 }
 
-                /* 2. LARGE SCREEN VIEW (> 1200px) */
-                @media (min-width: 1201px) {
+                /* 2. LARGE SCREEN VIEW (> 1300px) */
+                @media (min-width: 1301px) {
                     /* Shrink bar width */
                     ${PROGRESS_BAR_CLASS} {
                         width: 80px !important;
@@ -256,8 +254,8 @@
                     }
                 }
 
-                /* 3. SMALL SCREEN VIEW (<= 1200px) */
-                @media (max-width: 1200px) {
+                /* 3. SMALL SCREEN VIEW (<= 1300px) */
+                @media (max-width: 1300px) {
                     /* Slim 15px bar */
                     ${PROGRESS_BAR_CLASS} {
                         width: 15px !important;
@@ -275,6 +273,19 @@
                 }
             `;
             document.head.appendChild(style);
+        }
+
+        // Below 1300px, remove the leading "Budget" label text from the total
+        // budget display label to save space on small screens.
+        if (window.innerWidth <= 1300) {
+            const labels = budgetContainer.querySelectorAll(BUDGET_LABEL_SELECTOR);
+            labels.forEach(label => {
+                const original = label.textContent || '';
+                const updated = original.replace(/^\s*Budget\s*/i, '').trimStart();
+                if (updated !== original) {
+                    label.textContent = updated;
+                }
+            });
         }
     }
 
