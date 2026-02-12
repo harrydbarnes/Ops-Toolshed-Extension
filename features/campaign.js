@@ -278,21 +278,6 @@
         }
     }
 
-    function parseCurrency(str) {
-        if (!str) return 0;
-        return parseFloat(str.replace(/[^0-9.-]+/g, "")) || 0;
-    }
-
-    function formatCurrency(num) {
-        let formatted = num.toLocaleString('en-GB', {
-            style: 'currency',
-            currency: 'GBP',
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 2
-        });
-        return formatted.replace(/\.00$/, '');
-    }
-
     function handleOrdersNavigationLink() {
         if (campaignNavStyle !== 'new' || !optimisedNewNavEnabled) return;
 
@@ -347,12 +332,6 @@
 
         const iconContainer = document.createElement('div');
         iconContainer.id = 'mo-extracted-actions-toolbar';
-        Object.assign(iconContainer.style, {
-            display: 'flex',
-            gap: '12px',
-            marginLeft: '12px',
-            alignItems: 'center'
-        });
 
         const actions = [
             { urlParam: "&osModalId=prsm-cm-cmpdtls", label: "Campaign details", icon: 'details' },
