@@ -296,7 +296,7 @@
 
                     ${BUDGET_VALUE_SELECTOR_DATA}::before,
                     ${BUDGET_VALUE_SELECTOR_CLASS}::before {
-                        content: var(--dynamic-budget-only, var(--rounded-budget) "k") !important;
+                        content: var(--rounded-budget) "k" !important;
                         visibility: visible !important;
                         font-size: 12px !important;
                         font-weight: 700 !important;
@@ -367,9 +367,6 @@
 
                         // Inject into CSS Variable on the container itself so the label child can access it
                         budgetContainer.style.setProperty('--dynamic-buy-total', `"${amount} / ${amount}"`);
-
-                        // Inject single value for small screens (full format)
-                        budgetContainer.style.setProperty('--dynamic-budget-only', `"${amount}"`);
 
                         // Add class to activate large screen hiding/replacement logic
                         budgetContainer.classList.add('dynamic-budget-active');
