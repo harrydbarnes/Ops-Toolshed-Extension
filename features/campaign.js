@@ -226,7 +226,7 @@
                 #${BUDGET_CONTAINER_ID} {
                     display: flex !important;
                     align-items: center !important;
-                    gap: 0 !important;
+                    gap: 4px !important;
                     min-height: 0 !important;
                     padding-right: 0 !important;
                     white-space: nowrap !important;
