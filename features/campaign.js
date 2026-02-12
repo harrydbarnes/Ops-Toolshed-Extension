@@ -11,14 +11,6 @@
     let campaignNavStyle = 'old';
     let optimisedNewNavEnabled = true;
 
-    // Class selectors for Budget UI
-    const BUDGET_CONTAINER_ID = 'campaign-budget-overview-container';
-    const BUDGET_VALUE_SELECTOR_DATA = '[data-cy="total-budget"]';
-    const BUDGET_VALUE_SELECTOR_CLASS = '.xb1phb\\+xdUqb87KZK3L\\+Sw\\=\\=';
-    const BUDGET_VALUE_SELECTOR = `${BUDGET_VALUE_SELECTOR_DATA}, ${BUDGET_VALUE_SELECTOR_CLASS}`;
-    const BUDGET_LABEL_SELECTOR = '.cbjS\\+XIoeuDmb-oqpXOJpw\\=\\=';   // Escaped for JS querySelector
-    const PROGRESS_BAR_CLASS = '.gDndZofhX67JYdRMGJEFTw\\=\\=';
-
     // Initialize settings
     if (chrome.runtime && chrome.runtime.id) {
         chrome.storage.sync.get(['hidingSectionsEnabled', 'automateFormFieldsEnabled', 'alwaysShowCommentsEnabled', 'campaignNavStyle', 'optimisedNewNavEnabled'], (data) => {
@@ -207,208 +199,6 @@
 
         handleCampaignMenuRelocation();
         handleOrdersNavigationLink();
-        handleBudgetDisplayOptimisation(); // Trigger budget display changes
-    }
-
-    function handleBudgetDisplayOptimisation() {
-        const budgetContainer = document.getElementById(BUDGET_CONTAINER_ID);
-        if (!budgetContainer) return;
-
-        // 1. Inject CSS for Budget Optimisation if not already present
-        const STYLE_ID = 'optimised-budget-styles';
-        if (!document.getElementById(STYLE_ID)) {
-            const style = document.createElement('style');
-            style.id = STYLE_ID;
-            style.textContent = `
-                /* 1. CONTAINER RESET & ALIGNMENT */
-                #${BUDGET_CONTAINER_ID} {
-                    display: flex !important;
-                    align-items: center !important;
-                    gap: 0 !important;
-                    min-height: 0 !important;
-                    padding-right: 0 !important;
-                    white-space: nowrap !important;
-                }
-
-                #${BUDGET_CONTAINER_ID} ${BUDGET_LABEL_SELECTOR} {
-                  display: flex !important;
-                  align-items: center !important;
-                  height: 100%;
-                }
-
-                /* 2. LARGE SCREEN VIEW (> 1200px) */
-                @media (min-width: 1201px) {
-                    /* Hide the budget value element */
-                    ${BUDGET_VALUE_SELECTOR} {
-                        display: none !important;
-                    }
-
-                    /* Use the label element to display the merged text */
-                    #${BUDGET_CONTAINER_ID} ${BUDGET_LABEL_SELECTOR} {
-                        font-size: 0 !important;
-                    }
-
-                    #${BUDGET_CONTAINER_ID} ${BUDGET_LABEL_SELECTOR}::before {
-                        content: var(--dynamic-buy-total, ""); /* Updated variable name */
-                        visibility: visible !important;
-                        font-size: 12px !important;
-                        font-weight: 700 !important;
-                        line-height: 1 !important;
-                        color: inherit; /* Use standard body color */
-                    }
-
-                    /* Shrink bar width */
-                    ${PROGRESS_BAR_CLASS} {
-                        width: 80px !important;
-                        height: 10px !important;
-                        margin-right: 4px !important;
-                        display: flex !important;
-                        align-items: center !important;
-                        overflow: visible !important;
-                    }
-
-                    ${PROGRESS_BAR_CLASS} div,
-                    ${PROGRESS_BAR_CLASS} span {
-                        height: 100% !important;
-                        border-radius: 5px !important;
-                    }
-
-                    /* Ensure Action Toolbar (Copy/History) is visible */
-                    #mo-extracted-actions-toolbar {
-                        display: flex !important;
-                    }
-                }
-
-                /* 3. SMALL SCREEN VIEW (<= 1200px) */
-                @media (max-width: 1200px) {
-                    /* Hide the label */
-                    #${BUDGET_CONTAINER_ID} ${BUDGET_LABEL_SELECTOR} {
-                        display: none !important;
-                    }
-
-                    /* Show Compact Rounded Budget (£85k) on the value element */
-                    ${BUDGET_VALUE_SELECTOR} {
-                        font-size: 0 !important;
-                        display: flex !important;
-                        align-items: center !important;
-                    }
-
-                    ${BUDGET_VALUE_SELECTOR_DATA}::before,
-                    ${BUDGET_VALUE_SELECTOR_CLASS}::before {
-                        content: var(--rounded-budget) "k" !important;
-                        visibility: visible !important;
-                        font-size: 12px !important;
-                        font-weight: 700 !important;
-                    }
-
-                    ${BUDGET_VALUE_SELECTOR_DATA}::after,
-                    ${BUDGET_VALUE_SELECTOR_CLASS}::after {
-                        content: "" !important;
-                        display: none !important;
-                    }
-
-                    /* Slim 15px bar */
-                    ${PROGRESS_BAR_CLASS} {
-                        width: 15px !important;
-                        min-width: 15px !important;
-                        height: 10px !important;
-                        margin-right: 4px !important;
-                        display: flex !important;
-                        align-items: center !important;
-                    }
-
-                    /* Hide Toolbar to save space */
-                    #mo-extracted-actions-toolbar {
-                        display: none !important;
-                    }
-                }
-            `;
-            document.head.appendChild(style);
-        }
-
-        // 2. Data Logic: Format Numbers and Update CSS Variables
-        const allValues = budgetContainer.querySelectorAll(BUDGET_VALUE_SELECTOR);
-        const allLabels = budgetContainer.querySelectorAll(BUDGET_LABEL_SELECTOR);
-
-        let budgetValueSpan = null;
-
-        if (allValues.length > 0) {
-            // Target the last value span as the main "Budget" span
-            budgetValueSpan = allValues[allValues.length - 1];
-        }
-
-        if (budgetValueSpan) {
-            const rawBudget = parseCurrency(budgetValueSpan.textContent);
-
-            // Format Rounded Budget (Small Screen)
-            let compactBudget = '';
-            if (rawBudget >= 1000) {
-                 compactBudget = '£' + Math.round(rawBudget / 1000);
-            } else {
-                 compactBudget = '£' + rawBudget;
-            }
-            budgetValueSpan.style.setProperty('--rounded-budget', `"${compactBudget}"`);
-
-            // Format Large Screen Text: New logic from user request
-            // Entry point for data extraction for the buy total amount
-            const entryPoint = document.querySelector('[data-cy="media-budget-overview-container-media_digital"]');
-
-            if (entryPoint) {
-                const moText = entryPoint.querySelector('mo-text[data-cy="budget-purchased"]');
-                if (moText) {
-                    // Access content from Shadow DOM or light DOM
-                    const rawContent = (moText.shadowRoot ? moText.shadowRoot.textContent : moText.textContent) || '';
-
-                    // Match currency (e.g. £85,000.00) and strip .00
-                    const currencyMatch = rawContent.match(/£[0-9,.]+/);
-                    if (currencyMatch) {
-                        const amount = currencyMatch[0].replace('.00', '');
-
-                        // Inject into CSS Variable on the container itself so the label child can access it
-                        budgetContainer.style.setProperty('--dynamic-buy-total', `"${amount} / ${amount}"`);
-
-                        // Hide original billable elements to prevent duplication
-                        if (allValues.length > 1) {
-                            allValues[0].style.setProperty('display', 'none', 'important');
-                        }
-                        if (allLabels.length > 0) {
-                            allLabels[0].style.setProperty('display', 'none', 'important');
-                        }
-                    }
-                }
-            } else {
-                // Fallback if entryPoint is not found?
-                // Maybe retain the old calculation logic?
-                // The user's request seems to imply this is the *new* way.
-                // But if the element isn't there (async load), we might want a fallback.
-                // For now, I will leave it blank or rely on previous iteration's logic if I wanted to be super safe,
-                // but usually "replace with this" means "use this".
-                // I'll keep the billable hiding logic just in case the label structure is still there.
-
-                // Hide original billable elements if they exist, to avoid clutter
-                 if (allValues.length > 1) {
-                    allValues[0].style.setProperty('display', 'none', 'important');
-                }
-                if (allLabels.length > 0) {
-                    allLabels[0].style.setProperty('display', 'none', 'important');
-                }
-            }
-        }
-    }
-
-    function parseCurrency(str) {
-        if (!str) return 0;
-        return parseFloat(str.replace(/[^0-9.-]+/g, "")) || 0;
-    }
-
-    function formatCurrency(num) {
-        let formatted = num.toLocaleString('en-GB', {
-            style: 'currency',
-            currency: 'GBP',
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 2
-        });
-        return formatted.replace(/\.00$/, '');
     }
 
     function handleOrdersNavigationLink() {
@@ -423,11 +213,18 @@
             const ordersBtn = analyzeBtn.cloneNode(true);
             ordersBtn.id = 'p2b-navbar-section-orders';
 
-            // Text content handling
+            // Text content handling - careful not to wipe out children if any structure exists,
+            // though analyze button is usually simple text or text node.
+            // cloneNode(true) copies children. Analyze usually has text.
+            // Let's safe-set the text node if possible or just textContent.
+            // Requirement says: Content: The text string "ORDERS".
             ordersBtn.textContent = 'ORDERS';
 
             // 2. Update the href dynamically to point to the orders module
             const analyzeHref = analyzeBtn.getAttribute('href') || '';
+
+            // Use regex to keep everything up to and including the campaign-id value
+            // This handles dynamic campaign IDs
             const baseUrlMatch = analyzeHref.match(/^(.*campaign-id=[^&]*)/);
 
             if (baseUrlMatch) {
@@ -435,11 +232,12 @@
                 const ordersHref = baseUrlMatch[1] + newParams;
                 ordersBtn.setAttribute('href', ordersHref);
             } else {
+                // Fallback if match fails (though structurally it should match if analyze link is standard)
                 const ordersHref = analyzeHref.replace('ptb-mod=analyze', 'ptb-mod=orders');
                 ordersBtn.setAttribute('href', ordersHref);
             }
 
-            // 3. Ensure visual state handling
+            // 3. Ensure visual state handling (remove active class if cloned from an active button)
             ordersBtn.classList.remove('active');
 
             // 4. Insert into the DOM
@@ -510,6 +308,8 @@
             // Create Custom Tooltip (styles handled by CSS class)
             const tooltip = document.createElement('div');
             tooltip.className = 'extracted-action-tooltip';
+            // Use text node to avoid overwriting with innerHTML if we wanted to be stricter,
+            // but here we append children.
             tooltip.appendChild(document.createTextNode(action.label));
 
             const arrow = document.createElement('div');
