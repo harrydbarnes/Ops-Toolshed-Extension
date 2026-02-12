@@ -5,11 +5,13 @@
 
     chrome.storage.sync.get('gmiChatShortcutEnabled', (data) => {
         isEnabled = data.gmiChatShortcutEnabled !== false;
+        document.body.classList.toggle('gmi-chat-enabled', isEnabled);
     });
 
     chrome.storage.onChanged.addListener((changes, area) => {
         if (area === 'sync' && changes.gmiChatShortcutEnabled) {
             isEnabled = changes.gmiChatShortcutEnabled.newValue !== false;
+            document.body.classList.toggle('gmi-chat-enabled', isEnabled);
             if (!isEnabled) {
                 const btn = document.querySelector('.gmi-chat-button');
                 if (btn) btn.remove();
@@ -36,7 +38,9 @@
 
         const gmiChatButton = document.createElement('button');
         gmiChatButton.textContent = 'GMI Chat';
-        gmiChatButton.className = 'filter-button prisma-paste-button gmi-chat-button';
+        
+        // REWORKED: Purely standalone class. No 'prisma-paste-button' or 'filter-button'.
+        gmiChatButton.className = 'gmi-chat-button';
 
         gmiChatButton.addEventListener('click', () => {
             // Use attribute "ends-with" selectors for more resilience

@@ -8,14 +8,33 @@
     let hidingSectionsEnabled = true;
     let automateFormFieldsEnabled = true;
     let alwaysShowCommentsEnabled = true;
+    let campaignNavStyle = 'old';
+    let optimisedNewNavEnabled = true;
+
+    // Class selectors for Budget UI
+    const BUDGET_CONTAINER_ID = 'campaign-budget-overview-container';
+    const BUDGET_VALUE_SELECTOR_DATA = '[data-cy="total-budget"]';
+    const BUDGET_VALUE_SELECTOR_CLASS = '.xb1phb\\+xdUqb87KZK3L\\+Sw\\=\\=';
+    const BUDGET_VALUE_SELECTOR = `${BUDGET_VALUE_SELECTOR_DATA}, ${BUDGET_VALUE_SELECTOR_CLASS}`;
+    const BUDGET_LABEL_SELECTOR = '.cbjS\\+XIoeuDmb-oqpXOJpw\\=\\=';   // Escaped for JS querySelector
+    const PROGRESS_BAR_CLASS = '.gDndZofhX67JYdRMGJEFTw\\=\\=';
 
     // Initialize settings
     if (chrome.runtime && chrome.runtime.id) {
-        chrome.storage.sync.get(['hidingSectionsEnabled', 'automateFormFieldsEnabled', 'alwaysShowCommentsEnabled'], (data) => {
+        chrome.storage.sync.get(['hidingSectionsEnabled', 'automateFormFieldsEnabled', 'alwaysShowCommentsEnabled', 'campaignNavStyle', 'optimisedNewNavEnabled'], (data) => {
             if (chrome.runtime.lastError) return;
             if (data.hidingSectionsEnabled !== undefined) hidingSectionsEnabled = data.hidingSectionsEnabled;
             if (data.automateFormFieldsEnabled !== undefined) automateFormFieldsEnabled = data.automateFormFieldsEnabled;
             if (data.alwaysShowCommentsEnabled !== undefined) alwaysShowCommentsEnabled = data.alwaysShowCommentsEnabled;
+            if (data.campaignNavStyle !== undefined) {
+                // Handle legacy boolean if present
+                if (typeof data.campaignNavStyle === 'boolean') {
+                    campaignNavStyle = data.campaignNavStyle ? 'new' : 'old';
+                } else {
+                    campaignNavStyle = data.campaignNavStyle;
+                }
+            }
+            if (data.optimisedNewNavEnabled !== undefined) optimisedNewNavEnabled = data.optimisedNewNavEnabled;
         });
 
         chrome.storage.onChanged.addListener((changes, namespace) => {
@@ -23,6 +42,15 @@
             if (changes.hidingSectionsEnabled) hidingSectionsEnabled = changes.hidingSectionsEnabled.newValue;
             if (changes.automateFormFieldsEnabled) automateFormFieldsEnabled = changes.automateFormFieldsEnabled.newValue;
             if (changes.alwaysShowCommentsEnabled) alwaysShowCommentsEnabled = changes.alwaysShowCommentsEnabled.newValue;
+            if (changes.campaignNavStyle) {
+                // Handle legacy boolean on change if somehow triggered
+                if (typeof changes.campaignNavStyle.newValue === 'boolean') {
+                    campaignNavStyle = changes.campaignNavStyle.newValue ? 'new' : 'old';
+                } else {
+                    campaignNavStyle = changes.campaignNavStyle.newValue;
+                }
+            }
+            if (changes.optimisedNewNavEnabled) optimisedNewNavEnabled = changes.optimisedNewNavEnabled.newValue;
         });
     }
 
@@ -158,9 +186,221 @@
         }
     }
 
+    function handleCampaignNavigationOptimisation() {
+        if (campaignNavStyle !== 'new' || !optimisedNewNavEnabled) return;
+
+        const navbarWrapper = document.querySelector('.p2b-navbar-wrapper');
+        const rightSlotDiv = document.querySelector('div[slot="right"]');
+        const previewLinkContainer = navbarWrapper ? navbarWrapper.querySelector('.omni-navigation-preview-link-container') : null;
+
+        if (navbarWrapper && rightSlotDiv) {
+            // Check if already moved to avoid redundancy
+            if (rightSlotDiv.parentElement !== navbarWrapper || !rightSlotDiv.classList.contains('ai-style-change-1')) {
+                if (previewLinkContainer) {
+                    navbarWrapper.insertBefore(rightSlotDiv, previewLinkContainer);
+                } else {
+                    navbarWrapper.appendChild(rightSlotDiv);
+                }
+                rightSlotDiv.classList.add('ai-style-change-1');
+            }
+        }
+
+        handleCampaignMenuRelocation();
+        handleOrdersNavigationLink();
+        handleBudgetDisplayOptimisation(); // Trigger budget display changes
+    }
+
+    function handleBudgetDisplayOptimisation() {
+        const budgetContainer = document.getElementById(BUDGET_CONTAINER_ID);
+        if (!budgetContainer) return;
+
+        // Inject CSS for budget container alignment and progress bar tweaks only.
+        const STYLE_ID = 'optimised-budget-styles';
+        if (!document.getElementById(STYLE_ID)) {
+            const style = document.createElement('style');
+            style.id = STYLE_ID;
+            style.textContent = `
+                /* 1. CONTAINER RESET & ALIGNMENT */
+                #${BUDGET_CONTAINER_ID} {
+                    display: flex !important;
+                    align-items: center !important;
+                    gap: 4px !important;
+                    min-height: 0 !important;
+                    padding-right: 0 !important;
+                    white-space: nowrap !important;
+                }
+
+                /* 2. LARGE SCREEN VIEW (> 1300px) */
+                @media (min-width: 1301px) {
+                    /* Shrink bar width */
+                    ${PROGRESS_BAR_CLASS} {
+                        width: 80px !important;
+                        height: 10px !important;
+                        margin-right: 4px !important;
+                        display: flex !important;
+                        align-items: center !important;
+                        overflow: visible !important;
+                    }
+
+                    ${PROGRESS_BAR_CLASS} div,
+                    ${PROGRESS_BAR_CLASS} span {
+                        height: 100% !important;
+                        border-radius: 5px !important;
+                    }
+
+                    /* Ensure Action Toolbar (Copy/History) is visible */
+                    #mo-extracted-actions-toolbar {
+                        display: flex !important;
+                    }
+                }
+
+                /* 3. SMALL SCREEN VIEW (<= 1300px) */
+                @media (max-width: 1300px) {
+                    /* Slim 15px bar */
+                    ${PROGRESS_BAR_CLASS} {
+                        width: 15px !important;
+                        min-width: 15px !important;
+                        height: 10px !important;
+                        margin-right: 4px !important;
+                        display: flex !important;
+                        align-items: center !important;
+                    }
+
+                    /* Hide Toolbar to save space */
+                    #mo-extracted-actions-toolbar {
+                        display: none !important;
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        // Below 1300px, remove the leading "Budget" label text from the total
+        // budget display label to save space on small screens.
+        if (window.innerWidth <= 1300) {
+            const labels = budgetContainer.querySelectorAll(BUDGET_LABEL_SELECTOR);
+            labels.forEach(label => {
+                const original = label.textContent || '';
+                const updated = original.replace(/^\s*Budget\s*/i, '').trimStart();
+                if (updated !== original) {
+                    label.textContent = updated;
+                }
+            });
+        }
+    }
+
+    function handleOrdersNavigationLink() {
+        if (campaignNavStyle !== 'new' || !optimisedNewNavEnabled) return;
+
+        // Avoid duplicates
+        if (document.getElementById('p2b-navbar-section-orders')) return;
+
+        const analyzeBtn = document.querySelector('#p2b-navbar-section-analyze');
+        if (analyzeBtn) {
+            // 1. Create the Orders button based on the Analyze button structure
+            const ordersBtn = analyzeBtn.cloneNode(true);
+            ordersBtn.id = 'p2b-navbar-section-orders';
+
+            // Text content handling
+            ordersBtn.textContent = 'ORDERS';
+
+            // 2. Update the href dynamically to point to the orders module
+            const analyzeHref = analyzeBtn.getAttribute('href') || '';
+            const baseUrlMatch = analyzeHref.match(/^(.*campaign-id=[^&]*)/);
+
+            if (baseUrlMatch) {
+                const newParams = "&ptb-mod=buy&ptb-ctx=orderSummary&showOrders=true";
+                const ordersHref = baseUrlMatch[1] + newParams;
+                ordersBtn.setAttribute('href', ordersHref);
+            } else {
+                const ordersHref = analyzeHref.replace('ptb-mod=analyze', 'ptb-mod=orders');
+                ordersBtn.setAttribute('href', ordersHref);
+            }
+
+            // 3. Ensure visual state handling
+            ordersBtn.classList.remove('active');
+
+            // 4. Insert into the DOM
+            analyzeBtn.after(ordersBtn);
+        }
+    }
+
+    function handleCampaignMenuRelocation() {
+        if (campaignNavStyle !== 'new' || !optimisedNewNavEnabled) return;
+
+        // 1. Hide original menu components
+        const originalToolbarItem = document.querySelector('mo-toolbar-item#campaign-menu-icon');
+        const originalOverlay = document.querySelector('mo-overlay#mo-overlay-8');
+        if (originalToolbarItem) originalToolbarItem.style.display = 'none';
+        if (originalOverlay) originalOverlay.style.display = 'none';
+
+        // Check if already created
+        if (document.getElementById('mo-extracted-actions-toolbar')) return;
+
+        // 2. Create the new icon container
+        const buyDetails = document.querySelector('.buy-details-wrapper');
+        if (!buyDetails) return; // Wait until buyDetails exists
+
+        const iconContainer = document.createElement('div');
+        iconContainer.id = 'mo-extracted-actions-toolbar';
+
+        const actions = [
+            { urlParam: "&osModalId=prsm-cm-cmpdtls", label: "Campaign details", icon: 'details' },
+            { urlParam: "&osModalId=prsm-cm-cmpcopy", label: "Copy campaign", icon: 'copy' },
+            { urlParam: "&osModalId=prsm-cm-hfrm&prsmForm=prsm-cm-hist", label: "Campaign history", icon: 'history' }
+        ];
+
+        actions.forEach(action => {
+            const wrapper = document.createElement('div');
+            // Styles handled by CSS #mo-extracted-actions-toolbar > div
+
+            // Create Icon
+            const icon = document.createElement('mo-icon');
+            icon.setAttribute('name', action.icon);
+            icon.setAttribute('size', 'm');
+            // Prevent double tooltip
+            icon.removeAttribute('title');
+            icon.setAttribute('aria-label', action.label);
+            icon.setAttribute('role', 'button');
+            icon.setAttribute('tabindex', '0');
+
+            // Handle Click Navigation
+            const handleClick = () => {
+                const currentUrl = window.location.href;
+                if (!currentUrl.includes(action.urlParam)) {
+                    window.location.href = currentUrl + action.urlParam;
+                }
+            };
+
+            wrapper.addEventListener('click', handleClick);
+
+            // Handle Keyboard Support
+            wrapper.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') handleClick();
+            });
+
+            // Create Custom Tooltip (styles handled by CSS class)
+            const tooltip = document.createElement('div');
+            tooltip.className = 'extracted-action-tooltip';
+            tooltip.appendChild(document.createTextNode(action.label));
+
+            const arrow = document.createElement('div');
+            arrow.className = 'tooltip-arrow-custom';
+            tooltip.appendChild(arrow);
+
+            wrapper.appendChild(icon);
+            wrapper.appendChild(tooltip);
+            iconContainer.appendChild(wrapper);
+        });
+
+        // Insert into header
+        buyDetails.insertAdjacentElement('afterend', iconContainer);
+    }
+
     window.campaignFeature = {
         handleCampaignManagementFeatures,
         handleAlwaysShowComments,
+        handleCampaignNavigationOptimisation,
         resetCampaignFlags
     };
 })();

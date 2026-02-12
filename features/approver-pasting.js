@@ -16,12 +16,14 @@
 
         const pasteButton = document.createElement('button');
         pasteButton.textContent = 'Paste Approvers';
-        pasteButton.className = 'filter-button prisma-paste-button';
+        // Removed 'filter-button' class to separate styling
+        pasteButton.className = 'prisma-paste-button';
         pasteButton.style.marginLeft = '10px';
 
         const pasteFavouritesButton = document.createElement('button');
         pasteFavouritesButton.textContent = 'Favourites';
-        pasteFavouritesButton.className = 'filter-button prisma-paste-button';
+        // Removed 'filter-button' class to separate styling
+        pasteFavouritesButton.className = 'prisma-paste-button';
         pasteFavouritesButton.style.marginLeft = '5px';
 
         pasteButton.addEventListener('click', async () => {
