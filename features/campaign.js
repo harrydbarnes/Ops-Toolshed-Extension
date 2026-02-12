@@ -238,18 +238,17 @@
 
                 /* 2. LARGE SCREEN VIEW (> 1200px) */
                 @media (min-width: 1201px) {
-                    /* Hide the budget value element ONLY if optimization is active */
-                    #${BUDGET_CONTAINER_ID}.dynamic-budget-active ${BUDGET_VALUE_SELECTOR_DATA},
-                    #${BUDGET_CONTAINER_ID}.dynamic-budget-active ${BUDGET_VALUE_SELECTOR_CLASS} {
+                    /* Hide the budget value element */
+                    ${BUDGET_VALUE_SELECTOR} {
                         display: none !important;
                     }
 
                     /* Use the label element to display the merged text */
-                    #${BUDGET_CONTAINER_ID}.dynamic-budget-active ${BUDGET_LABEL_SELECTOR} {
+                    #${BUDGET_CONTAINER_ID} ${BUDGET_LABEL_SELECTOR} {
                         font-size: 0 !important;
                     }
 
-                    #${BUDGET_CONTAINER_ID}.dynamic-budget-active ${BUDGET_LABEL_SELECTOR}::before {
+                    #${BUDGET_CONTAINER_ID} ${BUDGET_LABEL_SELECTOR}::before {
                         content: var(--dynamic-buy-total, ""); /* Updated variable name */
                         visibility: visible !important;
                         font-size: 12px !important;
@@ -368,9 +367,6 @@
                         // Inject into CSS Variable on the container itself so the label child can access it
                         budgetContainer.style.setProperty('--dynamic-buy-total', `"${amount} / ${amount}"`);
 
-                        // Add class to activate large screen hiding/replacement logic
-                        budgetContainer.classList.add('dynamic-budget-active');
-
                         // Hide original billable elements to prevent duplication
                         if (allValues.length > 1) {
                             allValues[0].style.setProperty('display', 'none', 'important');
@@ -381,7 +377,21 @@
                     }
                 }
             } else {
-               console.warn("Digital budget container not found.");
+                // Fallback if entryPoint is not found?
+                // Maybe retain the old calculation logic?
+                // The user's request seems to imply this is the *new* way.
+                // But if the element isn't there (async load), we might want a fallback.
+                // For now, I will leave it blank or rely on previous iteration's logic if I wanted to be super safe,
+                // but usually "replace with this" means "use this".
+                // I'll keep the billable hiding logic just in case the label structure is still there.
+
+                // Hide original billable elements if they exist, to avoid clutter
+                 if (allValues.length > 1) {
+                    allValues[0].style.setProperty('display', 'none', 'important');
+                }
+                if (allLabels.length > 0) {
+                    allLabels[0].style.setProperty('display', 'none', 'important');
+                }
             }
         }
     }

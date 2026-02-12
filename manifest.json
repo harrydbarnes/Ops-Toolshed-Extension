@@ -64,16 +64,14 @@
         "features/order-id-copy.js",
         "content.js"
       ],
-      "css": [],
+      "css": ["approvers.css", "content.css", "features/feedback-modal.css"],
       "all_frames": true
     }
   ],
   "web_accessible_resources": [{
     "resources": [
       "icon.png",
-      "features/swap-accounts.css",
-      "content.css",
-      "features/feedback-modal.css"
+      "features/swap-accounts.css"
     ],
     "matches": ["<all_urls>"]
   }]
