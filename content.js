@@ -1,4 +1,33 @@
 (function() { // Wrap the entire script in an IIFE to control execution.
+  // Function to inject CSS programmatically
+  function injectStyles(filename) {
+      const id = `ops-toolshed-styles-${filename.replace(/[^a-zA-Z0-9-]/g, '-')}`;
+      if (document.getElementById(id)) {
+          return; // Already injected
+      }
+      const link = document.createElement('link');
+      link.href = chrome.runtime.getURL(filename);
+      link.type = 'text/css';
+      link.rel = 'stylesheet';
+      link.id = id;
+      (document.head || document.documentElement).appendChild(link);
+  }
+
+  // Settings that rely on content.css
+  const CSS_DEPENDENT_SETTINGS = [
+      'approverWidgetOptimiseEnabled',
+      'optimisedNewNavEnabled',
+      'metaReminderEnabled',
+      'iasReminderEnabled',
+      'swapAccountsEnabled',
+      'orderIdCopyEnabled',
+      'resizableChatToggleEnabled',
+      'scheduledChatToggleEnabled',
+      'gmiChatShortcutEnabled',
+      'autoCopyUrlEnabled',
+      'timesheetReminderEnabled'
+  ];
+
   chrome.storage.local.get('timeBombActive', (data) => {
     if (data.timeBombActive) {
       console.log('Ops Toolshed features disabled due to time bomb.');
@@ -9,11 +38,26 @@
   });
 
   function initializeContentScript() {
-    chrome.storage.sync.get('approverWidgetOptimiseEnabled', (data) => {
-        if (data.approverWidgetOptimiseEnabled) {
-            document.body.classList.add('approver-widget-optimise');
+    // Check settings and inject CSS if needed
+    chrome.storage.sync.get(CSS_DEPENDENT_SETTINGS, (data) => {
+        // If any setting is NOT strictly false (undefined defaults to true for most), inject styles.
+        // We check if at least one feature is enabled.
+        const shouldInject = CSS_DEPENDENT_SETTINGS.some(key => data[key] !== false);
+
+        if (shouldInject) {
+            injectStyles('content.css');
+        } else {
+            console.log("[ContentScript Prisma] All visual features disabled. Skipping content.css injection.");
+        }
+
+        if (data.approverWidgetOptimiseEnabled !== false) {
+             document.body.classList.add('approver-widget-optimise');
         }
     });
+
+    // Always inject feedback modal styles as it is generally available via triggers
+    injectStyles('features/feedback-modal.css');
+
     console.log("[ContentScript Prisma] Script Injected on URL:", window.location.href, "at", new Date().toLocaleTimeString());
 
 // Utility functions are now in utils.js

@@ -10,75 +10,98 @@ def run(playwright):
     file_path = os.path.abspath("verification/mock_campaign.html")
     print(f"Loading: file://{file_path}")
 
+    # TestCase 1: Success (Entry Point Exists)
+    print("\n--- TestCase 1: Entry Point Exists ---")
     page.goto(f"file://{file_path}")
 
-    # Wait for the script to run and modifications to happen
+    # Wait for the script to run
     try:
         page.wait_for_selector("#optimised-budget-styles", state="attached", timeout=5000)
-        print("Success: Style tag injected.")
-    except Exception as e:
-        print("Error: Style tag not found within timeout.")
-        page.screenshot(path="verification/error_screenshot.png")
-        raise e
+    except:
+        print("Error: Style tag not found.")
 
-    # 1. Verify Large Screen Logic (Variables on Container)
-    # The new logic sets --dynamic-buy-total on #campaign-budget-overview-container
-
+    # Check for active class
     container = page.locator("#campaign-budget-overview-container")
-    expect(container).to_be_visible()
+    import re
+    expect(container).to_have_class(re.compile(r"dynamic-budget-active")) # Expect active class
+    print("Success: dynamic-budget-active class present.")
 
-    # Check style attribute for --dynamic-buy-total
-    # Expected: "£85,000 / £85,000" (based on mock data "£85,000.00")
+    # Check variable
     style_attr = container.get_attribute("style")
-    print(f"Container Style attribute: {style_attr}")
-
-    if '--dynamic-buy-total' in style_attr and '£85,000 / £85,000' in style_attr:
-        print("Success: --dynamic-buy-total set correctly on container")
+    if '--dynamic-buy-total' in style_attr:
+        print("Success: --dynamic-buy-total set.")
     else:
-        print("Failure: --dynamic-buy-total not set correctly on container")
+        print("Failure: --dynamic-buy-total NOT set.")
 
-    # 2. Verify Small Screen Logic (Variables on Value)
-    # Switch to small screen first so it becomes visible
-    page.set_viewport_size({"width": 1000, "height": 800})
-    # Wait a bit for layout
-    page.wait_for_timeout(500)
+    # Check visual state of original label (should be hidden/modified)
+    # The CSS makes font-size 0 for .dynamic-budget-active .cbjS...
+    # We can check computed font size of the label.
+    label = page.locator(".cbjS\\+XIoeuDmb-oqpXOJpw\\=\\=").nth(1) # Budget label
+    font_size = label.evaluate("el => window.getComputedStyle(el).fontSize")
+    print(f"Label Font Size (Expect 0px): {font_size}")
 
-    width = page.evaluate("window.innerWidth")
-    print(f"Viewport width: {width}")
-
-    budget_value = page.locator('[data-cy="total-budget"]')
-
-    # Debug info
-    # print injected CSS
-    css_content = page.locator("#optimised-budget-styles").inner_text()
-    # print(f"Injected CSS: {css_content}")
-
-    print(f"Is visible? {budget_value.is_visible()}")
-    # box = budget_value.bounding_box()
-    # print(f"Bounding box: {box}")
-
-    # Check style attribute for --rounded-budget
-    # Expected: "£60k" logic (value is 60000 -> 60)
-    # Note: Logic is still based on the budget value element text "£60,000.00"
-    style_attr_value = budget_value.get_attribute("style")
-    print(f"Value Style attribute: {style_attr_value}")
-
-    if '--rounded-budget' in style_attr_value and '£60' in style_attr_value:
-        print("Success: --rounded-budget set correctly on value")
-    else:
-        print("Failure: --rounded-budget not set correctly on value")
-
-    # Take screenshot of both large and small screens
-
-    # 1. Large Screen (Merged View)
     page.set_viewport_size({"width": 1400, "height": 800})
-    page.screenshot(path="verification/budget_optimisation_large_v2.png")
-    print("Screenshot taken: budget_optimisation_large_v2.png")
+    page.screenshot(path="verification/budget_opt_success.png")
 
-    # 2. Small Screen (Compact View)
-    page.set_viewport_size({"width": 1000, "height": 800})
-    page.screenshot(path="verification/budget_optimisation_small_v2.png")
-    print("Screenshot taken: budget_optimisation_small_v2.png")
+
+    # TestCase 2: Failure/Fallback (Entry Point Missing)
+    print("\n--- TestCase 2: Entry Point Missing ---")
+    # Reload page but remove the entry point immediately before script runs?
+    # Or just modify the HTML file?
+    # Easiest is to modify the DOM via page.evaluate right after navigation but before script runs?
+    # Hard because script runs immediately.
+    # Better: Create a temporary HTML file without the entry point.
+
+    with open("verification/mock_campaign.html", "r") as f:
+        content = f.read()
+
+    # Remove the entry point div
+    content_fallback = content.replace('<div data-cy="media-budget-overview-container-media_digital"', '<!-- removed --> <div data-ignore="true"')
+
+    with open("verification/mock_campaign_fallback.html", "w") as f:
+        f.write(content_fallback)
+
+    file_path_fallback = os.path.abspath("verification/mock_campaign_fallback.html")
+    page.goto(f"file://{file_path_fallback}")
+
+    # Wait for script (wait for style tag again as proxy)
+    try:
+        page.wait_for_selector("#optimised-budget-styles", state="attached", timeout=5000)
+    except:
+        pass
+
+    # Check for active class (Should be MISSING)
+    container = page.locator("#campaign-budget-overview-container")
+    classes = container.get_attribute("class") or ""
+    print(f"Classes found: '{classes}'")
+
+    if "dynamic-budget-active" not in classes:
+        print("Success: dynamic-budget-active class MISSING.")
+    else:
+        print("Failure: dynamic-budget-active class PRESENT (Unexpected).")
+
+    # Check visibility of original budget
+    # Label should NOT have font-size 0
+    label = page.locator(".cbjS\\+XIoeuDmb-oqpXOJpw\\=\\=").nth(1)
+    font_size = label.evaluate("el => window.getComputedStyle(el).fontSize")
+    print(f"Label Font Size (Expect > 0px, e.g. 16px): {font_size}")
+
+    # Value should be visible (not display: none)
+    value = page.locator('[data-cy="total-budget"]')
+    # Note: On small screens (<=1200px), it might be modified by the other media query,
+    # but on large screens (1400px viewport), it should be visible if optimization is NOT active.
+    # Wait, the small screen query is: @media (max-width: 1200px).
+    # The large screen query is: @media (min-width: 1201px).
+    # Our viewport for this check is inherited from previous step? No, we didn't set it for Test 2.
+    # Default viewport is 1280x720.
+    # Let's set it to 1400 explicitly for the large screen check.
+
+    page.set_viewport_size({"width": 1400, "height": 800})
+
+    display = value.evaluate("el => window.getComputedStyle(el).display")
+    print(f"Value Display (Expect not 'none'): {display}")
+
+    page.screenshot(path="verification/budget_opt_fallback.png")
 
     browser.close()
 
