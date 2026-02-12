@@ -121,7 +121,7 @@ body.reminder-theme-black #confirmation-popup {
 /* --- GMI Chat Button Styles --- */
 /* Completely separate definition to allow individual margin control */
 .gmi-chat-button {
-    /* Visuals matched to Paste buttons for consistency */
+    /* VISUALS: Copied from prisma-paste-button for consistency */
     background-color: #f4f4f5;
     border: 2px solid #e4e4e7;
     border-radius: 20px;
@@ -132,10 +132,18 @@ body.reminder-theme-black #confirmation-popup {
     color: #333;
     font-size: 12px;
     padding: 4px 17px;
+    
+    /* LAYOUT FIXES */
     display: inline-block !important;
-
-    /* Specific margin control for GMI Chat */
-    margin-bottom: 0 !important;
+    
+    /* 1. Force margin to zero */
+    margin-bottom: 0 !important; 
+    
+    /* 2. Fix "Ghost" spacing caused by baseline alignment */
+    vertical-align: middle !important; 
+    
+    /* 3. Ensure line-height doesn't expand the box unnecessarily */
+    line-height: normal !important;
 }
 
 .gmi-chat-button:hover {
