@@ -73,12 +73,6 @@ const companyUserIdsMap = {
     "NGMCKRM",
     "NGMCCOA"
   ],
-  "MNIKO": [
-    "NGMCLON",
-    "NGMCMBA",
-    "NGMCINT",
-    "NGMCALL"
-  ],
   "NCART": [
     "NGMCLON"
   ],
@@ -109,10 +103,6 @@ const companyUserIdsMap = {
     "NGMCWBA",
     "NGOPEN",
     "NGOPEM"
-  ],
-  "KBEAR": [
-    "NGMCLON",
-    "NGMCWBA"
   ],
   "LASCOT": [
     "NGMCKRM",
@@ -177,11 +167,6 @@ const companyUserIdsMap = {
   "GBARL": [
     "NGMCLON",
     "NGMCINT"
-  ],
-  "MMIND": [
-    "NGMCLON",
-    "NGMCINT",
-    "NGMCALL"
   ],
   "RDIXO": [
     "NGMCLON",
@@ -285,13 +270,7 @@ const companyUserIdsMap = {
     "NGMCINT",
     "NGMCALL"
   ],
-  "ANGIM": [
-    "NGMCINT"
-  ],
   "ANIKO": [
-    "NGMCINT"
-  ],
-  "ASHEI": [
     "NGMCINT"
   ],
   "ASTEP": [
@@ -359,18 +338,8 @@ const companyUserIdsMap = {
     "NGMCALL",
     "NGMCLON"
   ],
-  "HCONS": [
-    "NGMCLON",
-    "NGMCMBA",
-    "NGMCINT"
-  ],
   "HLETR": [
     "NGMCWWD",
-    "NGMCINT",
-    "NGMCALL",
-    "NGMCLON"
-  ],
-  "HWILS": [
     "NGMCINT",
     "NGMCALL",
     "NGMCLON"
@@ -431,11 +400,6 @@ const companyUserIdsMap = {
     "NGMCINT",
     "NGMCALL"
   ],
-  "OJOSH": [
-    "NGMCLON",
-    "NGMCINT",
-    "NGMCCOA"
-  ],
   "PSHRI": [
     "NGMCINT",
     "NGMCALL",
@@ -462,10 +426,6 @@ const companyUserIdsMap = {
   "TMYLE": [
     "NGMCLON",
     "NGMCINT"
-  ],
-  "VLOUD": [
-    "NGMCINT",
-    "NGMCLON"
   ],
   "WBLAN": [
     "NGMCINT",
@@ -594,12 +554,6 @@ const companyUserIdsMap = {
     "NGDOOR",
     "NGMCLON"
   ],
-  "THODE": [
-    "NGMCLON",
-    "NGMCWBA",
-    "NGMCUK",
-    "NGDOOR"
-  ],
   "VIJMU": [
     "NGDOOR"
   ],
@@ -721,9 +675,6 @@ const companyUserIdsMap = {
     "NGMCINT",
     "NGMCALL"
   ],
-  "RBARD": [
-    "NGMCINT"
-  ],
   "SCUSH": [
     "NGMCINT"
   ],
@@ -814,14 +765,6 @@ export const approversData = [{
   securityGroup: "PRAPRGBY",
   businessUnit: "North"
 }, {
-  id: "ANGIM",
-  firstName: "Anna",
-  lastName: "Gim",
-  email: "anna.gim@essencemediacom.com",
-  officeName: "MEDIACOM",
-  securityGroup: "PRAPRBUY",
-  businessUnit: "International"
-}, {
   id: "ANIKO",
   firstName: "Athina",
   lastName: "Nikol",
@@ -846,14 +789,6 @@ export const approversData = [{
   officeName: "MEDIACOM",
   securityGroup: "PRAPRBUY",
   businessUnit: "BU3"
-}, {
-  id: "ASHEI",
-  firstName: "Ashleigh",
-  lastName: "Heitman",
-  email: "ashleigh.heitman@essencemediacom.com",
-  officeName: "MEDIACOM",
-  securityGroup: "PRAPROV",
-  businessUnit: "International"
 }, {
   id: "ASTEP",
   firstName: "Adam",
@@ -1128,14 +1063,6 @@ export const approversData = [{
   securityGroup: "PRAPRBUY",
   businessUnit: "B12"
 }, {
-  id: "HCONS",
-  firstName: "Harley",
-  lastName: "Constable",
-  email: "harley.constable@essencemediacom.com",
-  officeName: "MEDIACOM",
-  securityGroup: "PRAPROV",
-  businessUnit: "International"
-}, {
   id: "HLETR",
   firstName: "Hieu",
   lastName: "Letrung",
@@ -1167,14 +1094,6 @@ export const approversData = [{
   officeName: "MEDIACOM NORTH",
   securityGroup: "PRAPRGBY",
   businessUnit: "North"
-}, {
-  id: "HWILS",
-  firstName: "Holly",
-  lastName: "Parker",
-  email: "holly.parker@essencemediacom.com",
-  officeName: "MEDIACOM",
-  securityGroup: "PRAPRBUY",
-  businessUnit: "International"
 }, {
   id: "IMACD",
   firstName: "Isobel",
@@ -1306,15 +1225,6 @@ export const approversData = [{
   officeName: "MEDIACOM",
   securityGroup: "PRAPRBUY",
   businessUnit: "BU3"
-}, {
-  id: "KBEAR",
-  firstName: "Kayleigh",
-  lastName: "Beard",
-  email: "kayleigh.beard@essencemediacom.com",
-  officeName: "MEDIACOM",
-  securityGroup: "PRAPRPO",
-  businessUnit: "B12",
-  specialty: "Social"
 }, {
   id: "KEMCG",
   firstName: "Kelly",
@@ -1517,22 +1427,6 @@ export const approversData = [{
   securityGroup: "PRAPROV",
   businessUnit: "International"
 }, {
-  id: "MMIND",
-  firstName: "Malina",
-  lastName: "Mindru",
-  email: "malina.mindru@essencemediacom.com",
-  officeName: "MEDIACOM",
-  securityGroup: "PRAPROV",
-  businessUnit: "Dell"
-}, {
-  id: "MNIKO",
-  firstName: "Mariana",
-  lastName: "Nikolakaki",
-  email: "mariana.nikolakaki@essencemediacom.com",
-  officeName: "MEDIACOM",
-  securityGroup: "PRAPRPO",
-  businessUnit: "BU3"
-}, {
   id: "MSTIR3",
   firstName: "Matthew",
   lastName: "Stirland",
@@ -1556,14 +1450,6 @@ export const approversData = [{
   officeName: "MEDIACOM",
   securityGroup: "PRAPRBUY",
   businessUnit: "Global"
-}, {
-  id: "OJOSH",
-  firstName: "Omkar",
-  lastName: "Joshi",
-  email: "omkar.joshi@essencemediacom.com",
-  officeName: "MEDIACOM",
-  securityGroup: "PRAPRBUY",
-  businessUnit: "International"
 }, {
   id: "OMCAL",
   firstName: "Oliver",
@@ -1589,14 +1475,6 @@ export const approversData = [{
   officeName: "MEDIACOM",
   securityGroup: "PRAPRBUY",
   businessUnit: "International"
-}, {
-  id: "RBARD",
-  firstName: "Rebecca",
-  lastName: "Barden",
-  email: "rebecca.barden@essencemediacom.com",
-  officeName: "MEDIACOM",
-  securityGroup: "PRAPRBUY",
-  businessUnit: "PST"
 }, {
   id: "RCHAM",
   firstName: "Richard",
@@ -1776,14 +1654,6 @@ export const approversData = [{
   securityGroup: "PRAPBMQS",
   businessUnit: "BU3"
 }, {
-  id: "THODE",
-  firstName: "Thomas",
-  lastName: "Denman",
-  email: "thomas.denman@groupm.com",
-  officeName: "MEDIACOM",
-  securityGroup: "PRAPRBUY",
-  businessUnit: "OpenDoor"
-}, {
   id: "TLATH",
   firstName: "Tom",
   lastName: "Latham",
@@ -1831,14 +1701,6 @@ export const approversData = [{
   officeName: "MEDIACOM",
   securityGroup: "PRAPROV",
   businessUnit: "Dell"
-}, {
-  id: "VLOUD",
-  firstName: "Veronika",
-  lastName: "Loudova",
-  email: "veronika.loudova@essencemediacom.com",
-  officeName: "MEDIACOM",
-  securityGroup: "PRAPRBUY",
-  businessUnit: "International"
 }, {
   id: "WBLAN",
   firstName: "Will",
