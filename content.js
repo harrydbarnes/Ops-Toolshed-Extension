@@ -87,6 +87,11 @@ async function mainContentScriptInit() {
         window.orderIdCopyFeature.initialize();
     }
 
+    // Initialize Loading Facts Feature
+    if (isPrismaLike && window.loadingFactsFeature) {
+        window.loadingFactsFeature.initialize();
+    }
+
     // Prisma: full enhancement set
     if (isPrismaLike && window.logoFeature.shouldReplaceLogoOnThisPage()) {
         await window.remindersFeature.fetchCustomReminders(); // Fetch initial set of custom reminders
@@ -112,6 +117,10 @@ async function mainContentScriptInit() {
     }
 
     const observer = new MutationObserver(function(mutations) {
+        if (isPrismaLike && window.loadingFactsFeature) {
+            window.loadingFactsFeature.checkForLoading();
+        }
+
         if (window.appLearnFeature) {
             window.appLearnFeature.applyTransparency();
         }

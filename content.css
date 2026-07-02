@@ -91,6 +91,95 @@ body.reminder-theme-black #confirmation-popup {
 }
 /* --- End of Reminder Popup Styles --- */
 
+/* --- Loading Facts Toast Styles --- */
+/* The Fact "Pill" */
+.loading-fact-toast {
+    /* Positioning (Fixed Bottom + Center X) */
+    position: fixed;
+    bottom: var(--toast-bottom-position);
+    transform: translateX(-50%);
+    z-index: var(--toast-z-index);
+    pointer-events: none;
+
+    /* Layout & Sizing */
+    display: flex;
+    align-items: center;     /* Vertically center text */
+    justify-content: center; /* Horizontally center text */
+    width: max-content;
+    min-width: var(--toast-min-width);
+    max-width: var(--toast-max-width);
+    min-height: 50px; /* Reduced from 60px to fit tighter padding */
+    font-size: var(--toast-font-size);
+
+    /* VISUAL CENTERING MAGIC: Balanced Padding */
+    /* Left padding holds the icon. Right padding balances it. */
+    padding: 10px 70px;
+
+    /* Styling */
+    background-color: var(--toast-bg-color);
+    color: white;
+    border-radius: var(--toast-border-radius);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+}
+
+.loading-fact-icon {
+    /* Absolute positioning to prevent pushing text off-center */
+    position: absolute;
+    left: 25px; /* Sits comfortably in the left padding */
+    top: 50%;
+    transform: translateY(-50%);
+
+    font-size: var(--toast-icon-font-size);
+    line-height: 1;
+}
+
+.loading-fact-content {
+    /* Text Stack */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.loading-fact-content strong {
+    display: block;
+    color: var(--primary-pink);
+    font-size: var(--toast-strong-font-size);
+    text-transform: uppercase;
+    letter-spacing: var(--toast-letter-spacing);
+    margin-bottom: var(--toast-content-margin-bottom);
+}
+
+.loading-fact-toast.slide-up {
+    animation: slideUpFadeIn var(--toast-animation-duration) var(--toast-slide-up-bezier) forwards;
+}
+
+.loading-fact-toast.slide-down {
+    animation: slideDownFadeOut var(--toast-animation-duration) ease-in forwards;
+}
+
+@keyframes slideUpFadeIn {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, var(--toast-slide-offset));
+    }
+    100% {
+        opacity: 1;
+        transform: translate(-50%, 0); /* End at natural position */
+    }
+}
+
+@keyframes slideDownFadeOut {
+    0% {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+    100% {
+        opacity: 0;
+        transform: translate(-50%, var(--toast-slide-offset));
+    }
+}
+/* --- End Loading Facts Toast Styles --- */
 /* --- Paste Approvers & Favourites Button Styles --- */
 /* Separated from approvers.css to avoid conflicts and ensure correct application */
 .prisma-paste-button {
@@ -102,11 +191,11 @@ body.reminder-theme-black #confirmation-popup {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     font-weight: 500;
     color: #333;
-    
+
     /* Specific positioning and sizing */
     font-size: 12px;
     padding: 4px 17px;
-    
+
     /* Fix for vertical margin */
     display: inline-block !important;
     margin-bottom: 5px !important;
@@ -132,16 +221,16 @@ body.reminder-theme-black #confirmation-popup {
     color: #333;
     font-size: 12px;
     padding: 4px 17px;
-    
+
     /* LAYOUT FIXES */
     display: inline-block !important;
-    
+
     /* 1. Force margin to zero */
-    margin-bottom: 0 !important; 
-    
+    margin-bottom: 0 !important;
+
     /* 2. Fix "Ghost" spacing caused by baseline alignment */
-    vertical-align: middle !important; 
-    
+    vertical-align: middle !important;
+
     /* 3. Ensure line-height doesn't expand the box unnecessarily */
     line-height: normal !important;
 }
@@ -216,6 +305,22 @@ body.reminder-theme-black #confirmation-popup {
     --color-nav-pill-bg: rgba(255, 255, 255, 0.15);
     --color-nav-pill-bg-hover: rgba(255, 255, 255, 0.2);
     --font-primary: 'Inter', 'Roboto', sans-serif;
+    --z-index-max: 2147483647;
+    --toast-bg-color: #333;
+    --primary-pink: #ff3d80;
+    --toast-bottom-position: 80px;
+    --toast-z-index: var(--z-index-max);
+    --toast-border-radius: 50px;
+    --toast-font-size: 14px;
+    --toast-min-width: 300px;
+    --toast-max-width: 500px;
+    --toast-icon-font-size: 24px;
+    --toast-strong-font-size: 11px;
+    --toast-letter-spacing: 1px;
+    --toast-content-margin-bottom: 3px;
+    --toast-animation-duration: 0.5s;
+    --toast-slide-up-bezier: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    --toast-slide-offset: 20px;
 }
 
 /* --- Switch Account Button Styles --- */

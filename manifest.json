@@ -62,6 +62,7 @@
         "features/swap-accounts.js",
         "features/auto-copy-url.js",
         "features/order-id-copy.js",
+        "features/loading-facts.js",
         "features/applearn-replace.js",
         "content.js"
       ],
