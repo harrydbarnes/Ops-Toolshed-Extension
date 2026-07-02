@@ -1,5 +1,5 @@
 /* General body and container styling */
-body {
+body.approvers-page {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background-color: #fafafa;
     color: #333;
@@ -10,7 +10,7 @@ body {
     box-sizing: border-box;
 }
 
-.container {
+.approvers-page .container {
     background-color: #fafafa;
     padding: 20px;
     width: 70%;
@@ -353,7 +353,7 @@ body {
 }
 
 @media (max-width: 1024px) {
-    .container {
+    .approvers-page .container {
         width: 95%;
     }
 }
@@ -374,10 +374,6 @@ body {
 
 .popping {
     animation: pop-animation 0.3s ease-in-out;
-}
-
-.prisma-paste-button {
-    font-size: 12px;
 }
 
 .manage-favourites-button {

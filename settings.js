@@ -308,7 +308,7 @@ document.addEventListener('DOMContentLoaded', function() {
  
     // General Settings 
     // Theme Settings - Custom Dropdown Logic 
-    function initializeCustomDropdown(dropdownId, storageKey, defaultValue = 'pink') { 
+    function initializeCustomDropdown(dropdownId, storageKey, defaultValue = 'pink', onChange = null) {
         const dropdown = document.getElementById(dropdownId); 
         if (!dropdown) return; 
  
@@ -339,7 +339,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 triggerText.textContent = text; 
  
                 // Update trigger color class (CSP safe) 
-                triggerColor.className = 'color-preview-rect ' + value; 
+                if (triggerColor) triggerColor.className = 'color-preview-rect ' + value;
  
                 // Update selected state in options 
                 options.forEach(opt => { 
@@ -384,8 +384,19 @@ document.addEventListener('DOMContentLoaded', function() {
  
         // Initialize from storage 
         chrome.storage.sync.get(storageKey, (data) => { 
-            const storedValue = data[storageKey] || defaultValue; 
-            updateUI(storedValue); 
+            let storedValue = data[storageKey];
+            if (storedValue === undefined) {
+                // If specific default needs to be saved
+                storedValue = defaultValue;
+                chrome.storage.sync.set({ [storageKey]: storedValue });
+            }
+            // Handle boolean legacy (specifically for campaignNavStyle)
+            if (storageKey === 'campaignNavStyle' && typeof storedValue === 'boolean') {
+                storedValue = storedValue ? 'new' : 'old';
+                // Migrate storage? Maybe later, just handle it for UI
+            }
+            updateUI(storedValue);
+            if (onChange) onChange(storedValue);
         }); 
  
         // Toggle dropdown open/close on click 
@@ -409,6 +420,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateUI(value); 
                 chrome.storage.sync.set({ [storageKey]: value }, () => { 
                     console.log(`${storageKey} saved:`, value); 
+                    if (onChange) onChange(value);
                 }); 
                 closeDropdown(); 
             }; 
@@ -452,6 +464,27 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize the two theme dropdowns 
     initializeCustomDropdown('uiThemeDropdown', 'uiTheme', 'pink'); 
     initializeCustomDropdown('reminderThemeDropdown', 'reminderTheme', 'pink'); 
+
+    // Campaign Navigation Style Dropdown
+    const optimisedNewNavToggle = document.getElementById('optimisedNewNavToggle');
+    initializeCustomDropdown('campaignNavStyleDropdown', 'campaignNavStyle', 'old', (value) => {
+        if (!optimisedNewNavToggle) return;
+        const isNew = value === 'new';
+        const container = optimisedNewNavToggle.closest('.toggle-container');
+        if (!isNew) {
+            optimisedNewNavToggle.disabled = true;
+            if (container) {
+                container.style.opacity = '0.5';
+                container.style.pointerEvents = 'none';
+            }
+        } else {
+            optimisedNewNavToggle.disabled = false;
+            if (container) {
+                container.style.opacity = '1';
+                container.style.pointerEvents = 'auto';
+            }
+        }
+    });
  
     const logoToggle = document.getElementById('logoToggle'); 
     if (logoToggle) { 
@@ -630,6 +663,23 @@ document.addEventListener('DOMContentLoaded', function() {
     setupToggle('orderIdCopyToggle', 'orderIdCopyEnabled', 'Order ID Copy setting saved:'); 
     setupToggle('gmiChatShortcutToggle', 'gmiChatShortcutEnabled', 'GMI Chat Shortcut setting saved:'); 
     setupToggle('autoCopyUrlToggle', 'autoCopyUrlEnabled', 'Auto Copy URL setting saved:'); 
+
+    // --- Campaign Navigation Style Logic ---
+    // (Moved to dropdown logic above)
+    if (optimisedNewNavToggle) {
+        // Only need to handle the optimised toggle here
+        chrome.storage.sync.get(['optimisedNewNavEnabled'], (data) => {
+            const optimiseEnabled = data.optimisedNewNavEnabled !== false; // Default to true
+            optimisedNewNavToggle.checked = optimiseEnabled;
+        });
+
+        optimisedNewNavToggle.addEventListener('change', function() {
+            const isEnabled = this.checked;
+            chrome.storage.sync.set({ optimisedNewNavEnabled: isEnabled }, () => {
+                 console.log('Optimised New Nav saved:', isEnabled);
+            });
+        });
+    }
  
     // Stats Collector with Confirmation 
     const statsCollectorToggle = document.getElementById('statsCollectorToggle'); 

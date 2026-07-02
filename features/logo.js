@@ -85,6 +85,10 @@
         }
         const { hostname } = new URL(window.location.href);
         const allowedDomains = ['aura.mediaocean.com', 'prisma.mediaocean.com', 'go.demo.mediaocean.com'];
+
+        // Logo replacement itself is still gated by the user-controlled
+        // `logoReplaceEnabled` setting; this function only defines where
+        // the feature is *allowed* to run.
         return allowedDomains.some(domain => hostname.endsWith(domain));
     }
 

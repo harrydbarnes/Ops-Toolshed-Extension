@@ -1,5 +1,6 @@
 (function() {
     const TARGET_URL = 'https://cdn.applearn.tv/GroupM/Images/split_screen_icon.png';
+    const STYLE_ID = 'toolshed-applearn-styles';
     let isEnabled = null;
 
     function removeTransparency() {
@@ -26,10 +27,12 @@
             });
         },
 
-        injectStyles: function() {
-            if (document.getElementById('toolshed-applearn-styles')) return;
+        injectStyles: function(root = document) {
+            const styleHost = root === document ? document.head : root;
+            if (!styleHost || root.querySelector(`#${STYLE_ID}`)) return;
+
             const style = document.createElement('style');
-            style.id = 'toolshed-applearn-styles';
+            style.id = STYLE_ID;
             style.textContent = `
                 img[data-toolshed-translucent="true"] {
                     opacity: 0.5 !important;
@@ -39,7 +42,7 @@
                     opacity: 1 !important;
                 }
             `;
-            document.head.appendChild(style);
+            styleHost.appendChild(style);
         },
 
         applyTransparency: function() {
@@ -49,13 +52,13 @@
                 return;
             }
 
-            // Ensure styles are present if feature was just re-enabled.
-            this.injectStyles();
-
             // Locate the original AppLearn image, even if in Shadow DOM
             const appLearnImg = window.utils.queryShadowDom(`img[src="${this.targetUrl}"]`);
 
             if (appLearnImg && !appLearnImg.dataset.toolshedTranslucent) {
+                // Styles from document.head do not cross a Shadow DOM boundary, so
+                // install the rule in the same root as the AppLearn image.
+                this.injectStyles(appLearnImg.getRootNode());
                 appLearnImg.dataset.toolshedTranslucent = "true";
             }
         }
