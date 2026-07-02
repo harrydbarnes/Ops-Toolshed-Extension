@@ -16,64 +16,32 @@ def test_loading_facts():
         # Wait for the toast to appear
         toast_selector = ".loading-fact-toast"
 
-        try:
-            page.wait_for_selector(toast_selector, state="visible", timeout=WAIT_FOR_SELECTOR_TIMEOUT_MS)
-            print("Toast appeared!")
+        page.wait_for_selector(toast_selector, state="visible", timeout=WAIT_FOR_SELECTOR_TIMEOUT_MS)
+        print("Toast appeared!")
 
-            # Wait a bit for the animation to settle
-            page.wait_for_timeout(WAIT_FOR_ANIMATION_TIMEOUT_MS)
+        # Wait a bit for the animation to settle
+        page.wait_for_timeout(WAIT_FOR_ANIMATION_TIMEOUT_MS)
 
-            # Verify content
-            content = page.text_content(toast_selector)
-            print(f"Toast content: {content}")
+        # Verify content
+        content = page.text_content(toast_selector)
+        print("Toast content verified")
+        assert content and "Did you know?" in content, "Toast is missing its heading"
 
-            if "Did you know?" in content:
-                print("Toast contains 'Did you know?'")
-            else:
-                print("FAIL: Toast missing header")
+        # Verify alignment with the Shadow DOM spinner.
+        spinner_box = page.locator('#spinner-container .spinner').bounding_box()
+        assert spinner_box, "Spinner box was not found"
+        toast_box = page.locator(toast_selector).bounding_box()
+        assert toast_box, "Toast box was not found"
 
-            # Verify Vertical Order (Toast should be below Spinner)
-            # Use Shadow DOM piercing to locate the spinner inside #spinner-container
-            spinner_box = page.locator('#spinner-container .spinner').bounding_box()
+        spinner_center = spinner_box['x'] + spinner_box['width'] / 2
+        toast_center = toast_box['x'] + toast_box['width'] / 2
+        assert abs(spinner_center - toast_center) < 2, "Toast is not centered on the spinner"
 
-            if spinner_box:
-                toast_box = page.locator(toast_selector).bounding_box()
-                if toast_box:
-                    # Calculate centers
-                    spinner_center = spinner_box['x'] + spinner_box['width'] / 2
-                    toast_center = toast_box['x'] + toast_box['width'] / 2
+        assert toast_box['y'] > 300, "Toast is not positioned near the bottom of the viewport"
 
-                    print(f"Spinner Center X: {spinner_center}, Toast Center X: {toast_center}")
-
-                    # Verify Horizontal Alignment (with slight tolerance)
-                    if abs(spinner_center - toast_center) < 2:
-                        print("PASS: Toast is horizontally centered relative to the spinner")
-                    else:
-                        print(f"FAIL: Toast is not centered. Diff: {abs(spinner_center - toast_center)}")
-                else:
-                    print("FAIL: Toast box not found for alignment check")
-            else:
-                 print("FAIL: Spinner box not found via locator '#spinner-container .spinner'")
-
-            # Simplified check: Check if toast Y > 50 (approx top of screen)
-            toast_box = page.locator(toast_selector).bounding_box()
-            print(f"Toast Y: {toast_box['y']}")
-
-            # In test.html, Toast has position: fixed; bottom: 100px.
-            # With default viewport size (1280x720), Y should be approx 620.
-            # Let's assert it is in the bottom half of the screen (e.g. > 300px).
-            if toast_box['y'] > 300:
-                 print(f"PASS: Toast is positioned near bottom (Y: {toast_box['y']})")
-            else:
-                 print(f"FAIL: Toast Y position {toast_box['y']} seems too high for bottom-anchored element")
-
-            # Take screenshot
-            page.screenshot(path="verification/loading_facts_verification.png")
-            print("Screenshot saved to verification/loading_facts_verification.png")
-
-        except Exception as e:
-            print(f"Error: {e}")
-            page.screenshot(path="verification/error.png")
+        # Removing the spinner must remove the toast, including across async checks.
+        page.evaluate("document.querySelector('#spinner-container').remove()")
+        page.wait_for_selector(toast_selector, state="detached", timeout=WAIT_FOR_SELECTOR_TIMEOUT_MS)
 
         browser.close()
 

@@ -63,6 +63,7 @@
         "features/auto-copy-url.js",
         "features/order-id-copy.js",
         "features/loading-facts.js",
+        "features/applearn-replace.js",
         "content.js"
       ],
       "css": ["approvers.css", "content.css", "features/feedback-modal.css"],

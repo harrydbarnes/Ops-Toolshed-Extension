@@ -28,8 +28,7 @@
     const DEBOUNCE_DELAY_MS = 200;
     const ANIMATION_DURATION_MS = 500;
 
-    // Helper to promisify chrome.storage.local.get
-    const getStorageData = keys => new Promise(resolve => chrome.storage.local.get(keys, resolve));
+    const getStorageData = (area, keys) => new Promise(resolve => chrome.storage[area].get(keys, resolve));
 
     class LoadingFactsFeature {
         constructor() {
@@ -38,6 +37,9 @@
             this.debounceTimer = null;
             this.isEnabled = true; // Default to enabled
             this.isIntersecting = false; // Track viewport visibility
+            this.observedSpinner = null;
+            this.pendingShow = false;
+            this.requestId = 0;
 
             // State for managing async settings load
             this.settingsLoaded = false;
@@ -55,9 +57,7 @@
         }
 
         async initialize() {
-            // Use promise wrapper or direct promise if available (using simple wrap here for consistency)
-            const getSyncData = keys => new Promise(resolve => chrome.storage.sync.get(keys, resolve));
-            const data = await getSyncData('loadingFactsEnabled');
+            const data = await getStorageData('sync', 'loadingFactsEnabled');
 
             this.isEnabled = data.loadingFactsEnabled !== false;
             this.settingsLoaded = true;
@@ -66,12 +66,15 @@
 
             // IntersectionObserver for visibility tracking
             this.intersectionObserver = new IntersectionObserver((entries) => {
-                // Update state based on the most recent entry
-                if (entries.length > 0) {
-                    this.isIntersecting = entries[0].isIntersecting;
+                const entry = entries.find(item => item.target === this.observedSpinner);
+                if (!entry) return;
+
+                this.isIntersecting = entry.isIntersecting;
+                if (this.isIntersecting && this.isElementVisible(this.observedSpinner)) {
+                    this.showToast(this.observedSpinner);
+                } else {
+                    this.hideToast();
                 }
-                // If the observed spinner changes intersection state, re-check loading
-                this.checkForLoading();
             }, { threshold: 0.1 }); // Trigger when at least 10% visible
 
             // Initial check in case the page loaded with a spinner
@@ -119,35 +122,20 @@
                 const domVisible = spinner && this.isElementVisible(spinner);
 
                 if (domVisible) {
-                    // Always ensure we are observing the current spinner
-                    this.intersectionObserver.disconnect();
-                    this.intersectionObserver.observe(spinner);
-
-                    // If we are intersecting (visible in viewport) OR if we haven't established intersection yet
-                    // (e.g. first run), we rely on the async callback to eventually toggle 'isIntersecting'.
-                    // However, to prevent "flicker" where we hide immediately because isIntersecting is false initially,
-                    // we might need a grace period or assume visible if domVisible is true but observer hasn't fired.
-                    // BUT per instructions: "When the spinner leaves the viewport... Hide".
-
-                    // Simplified Logic:
-                    // If DOM visible, we rely on isIntersecting state.
-                    // The Observer callback triggers this function again on change.
-
-                    if (this.isIntersecting) {
-                        if (!this.isVisible) {
-                            this.showToast(spinner);
-                        }
-                    } else {
-                        // In DOM but off-screen
-                        if (this.isVisible) this.hideToast();
+                    if (spinner !== this.observedSpinner) {
+                        this.intersectionObserver.disconnect();
+                        this.observedSpinner = spinner;
+                        this.isIntersecting = false;
+                        this.hideToast();
+                        this.intersectionObserver.observe(spinner);
+                    } else if (this.isIntersecting) {
+                        this.showToast(spinner);
                     }
                 } else {
-                    // Not in DOM or hidden by CSS
                     this.intersectionObserver.disconnect();
+                    this.observedSpinner = null;
                     this.isIntersecting = false;
-                    if (this.isVisible) {
-                        this.hideToast();
-                    }
+                    this.hideToast();
                 }
             }, DEBOUNCE_DELAY_MS);
         }
@@ -168,7 +156,7 @@
 
         async getProcessedFact() {
             // Fetch storage data once
-            const data = await getStorageData(['prismaUserStats']);
+            const data = await getStorageData('local', ['prismaUserStats']);
             const time = data.prismaUserStats ? data.prismaUserStats.totalLoadingTime : 0;
 
             // If time is available (>0), we can pick from ALL facts (including {{TIME}} ones).
@@ -190,11 +178,22 @@
         }
 
         async showToast(spinner) {
-            if (document.getElementById(this.toastId)) return;
-            if (!spinner) return;
+            if (document.getElementById(this.toastId) || this.pendingShow || !spinner) return;
 
-            this.isVisible = true;
+            this.pendingShow = true;
+            const requestId = ++this.requestId;
             const fact = await this.getProcessedFact();
+            this.pendingShow = false;
+
+            if (requestId !== this.requestId ||
+                !this.isEnabled ||
+                !this.isIntersecting ||
+                spinner !== this.observedSpinner ||
+                !spinner.isConnected ||
+                !this.isElementVisible(spinner) ||
+                document.getElementById(this.toastId)) {
+                return;
+            }
 
             // Revert Wrapper Logic: Do NOT wrap the spinner.
             // Use sibling injection with absolute positioning.
@@ -252,9 +251,12 @@
 
             // Append to document.body to ensure it floats above all other content
             document.body.appendChild(toast);
+            this.isVisible = true;
         }
 
         hideToast() {
+            this.requestId += 1;
+            this.pendingShow = false;
             const toast = document.getElementById(this.toastId);
             if (!toast) {
                 this.isVisible = false;

@@ -1,4 +1,5 @@
 import { messageHandlers } from './background/message-handlers.js';
+import { migrateStats } from './background/stats-manager.js';
 
 // --- Time-Bomb Feature ---
 const timeBombConfig = {
@@ -48,6 +49,7 @@ async function checkTimeBomb() {
 // --- Alarms and Notifications ---
 
 chrome.runtime.onInstalled.addListener(() => {
+  migrateStats();
   checkTimeBomb().catch(error => console.error("Error during initial time bomb check:", error));
   if (!chrome.runtime || !chrome.runtime.id) return;
 

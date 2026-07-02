@@ -43,37 +43,16 @@ def test_settings_toggle():
         settings_path = os.path.abspath("settings.html")
         page.goto(f"file://{settings_path}")
 
-        try:
-            # Wait for content to load
-            page.wait_for_selector(".container", state="visible")
+        # Wait for content to load
+        page.wait_for_selector(".container", state="visible")
 
-            # Check for the toggle
-            toggle_selector = "#loadingFactsToggle"
-            if page.locator(toggle_selector).count() > 0:
-                print("Loading Facts toggle found!")
+        toggle_selector = "#loadingFactsToggle"
+        assert page.locator(toggle_selector).count() == 1, "Loading Facts toggle was not found"
 
-                # Check if checked (mocked to true)
-                is_checked = page.is_checked(toggle_selector)
-                print(f"Toggle initial state checked: {is_checked}")
+        assert page.is_checked(toggle_selector), "Loading Facts toggle should default to enabled"
 
-                if is_checked:
-                    print("PASS: Toggle defaults to enabled")
-                else:
-                    print("FAIL: Toggle not enabled by default")
-
-                # Scroll to the element to ensure it's in the screenshot
-                page.locator(toggle_selector).scroll_into_view_if_needed()
-
-            else:
-                print("FAIL: Loading Facts toggle not found")
-
-            # Take screenshot
-            page.screenshot(path="verification/settings_toggle.png")
-            print("Screenshot saved to verification/settings_toggle.png")
-
-        except Exception as e:
-            print(f"Error: {e}")
-            page.screenshot(path="verification/settings_error.png")
+        page.evaluate("document.querySelector('#loadingFactsToggle').click()")
+        assert not page.is_checked(toggle_selector), "Loading Facts toggle did not respond to input"
 
         browser.close()
 

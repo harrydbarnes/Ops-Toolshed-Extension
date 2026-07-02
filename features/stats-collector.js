@@ -1,7 +1,6 @@
 (function() {
     'use strict';
 
-    let isUpdatingStats = false;
     let isEnabled = true;
 
     chrome.storage.sync.get('statsCollectorEnabled', (data) => {
@@ -14,48 +13,21 @@
         }
     });
 
-    // --- Utility function to get and set stats ---
-    async function updateStats(updateFunction) {
+    // --- Utility function to track stats ---
+    function trackStat(type, value) {
         if (!isEnabled) return;
 
-        if (isUpdatingStats) {
-            console.warn('[Stats Collector] Concurrent update dropped to prevent race condition.');
-            return;
-        }
-        isUpdatingStats = true;
         try {
-            const data = await chrome.storage.local.get(['prismaUserStats', 'statsStartDate', 'visitTimestamps']);
-            let stats = data.prismaUserStats;
-            let timestamps = data.visitTimestamps || [];
-
-            // If stats object doesn't exist, this is the first time.
-            if (!stats) {
-                stats = {
-                    visitedCampaigns: [],
-                    totalLoadingTime: 0,
-                    placementsAdded: 0
-                };
-                // Set the start date only if it doesn't already exist.
-                if (!data.statsStartDate) {
-                    await chrome.storage.local.set({ statsStartDate: new Date().toISOString() });
-                }
-            }
-
-            const updatedStats = updateFunction(stats);
-            timestamps.push(new Date().toISOString());
-
-            await chrome.storage.local.set({
-                'prismaUserStats': updatedStats,
-                'visitTimestamps': timestamps
+            chrome.runtime.sendMessage({
+                action: 'TRACK_STAT',
+                type: type,
+                value: value
             });
         } catch (error) {
-            if (error.message.includes('Extension context invalidated')) {
-                console.warn('[Stats Collector] Extension context invalidated. Aborting stats update.');
-            } else {
-                console.error('[Stats Collector] Unexpected error during stats update:', error);
+            // Silence "Extension context invalidated" errors
+            if (!error.message.includes('Extension context invalidated')) {
+                console.error('[Stats Collector] Error sending stat:', error);
             }
-        } finally {
-            isUpdatingStats = false;
         }
     }
 
@@ -69,13 +41,8 @@
         const campaignIdMatch = lastUrl.match(/campaign-id=([^&]+)/);
         if (campaignIdMatch && campaignIdMatch[1]) {
             const campaignId = campaignIdMatch[1];
-            updateStats(stats => {
-                if (!stats.visitedCampaigns.includes(campaignId)) {
-                    stats.visitedCampaigns.push(campaignId);
-                    console.log(`[Stats Collector] New campaign tracked: ${campaignId}`);
-                }
-                return stats;
-            });
+            trackStat('CAMPAIGN_VISIT', campaignId);
+            console.log(`[Stats Collector] Campaign tracked: ${campaignId}`);
         }
     }
 
@@ -105,22 +72,32 @@
             const duration = (Date.now() - loadingSpinnerStartTime) / 1000; // in seconds
             loadingSpinnerStartTime = null;
             console.log(`[Stats Collector] Loading finished. Duration: ${duration.toFixed(2)}s`);
-            updateStats(stats => {
-                stats.totalLoadingTime += duration;
-                return stats;
-            });
+            trackStat('LOADING_TIME', duration);
         }
     }
 
-    // --- 3. Track Placement "Save" Clicks using Event Delegation ---
-    function handleSaveButtonClick(event) {
+    // --- 3. Track Click Events (Save Placements & Reconciliations) ---
+    function handleClickEvents(event) {
         if (!isEnabled) return;
+
+        // Track Placement Saves
         if (event.target.id === 'btn-save' || event.target.id === 'btn-save-and-add-another') {
             console.log('[Stats Collector] Save button clicked.');
-            updateStats(stats => {
-                stats.placementsAdded += 1;
-                return stats;
-            });
+            trackStat('PLACEMENT_ADDED', 1);
+        }
+
+        // Track Reconciliations (Ok to Pay = Yes)
+        if (event.target.id === 'ok-to-pay-yes-button') {
+            console.log('[Stats Collector] Reconciliation clicked.');
+            trackStat('RECONCILIATION', 1);
+        }
+
+        // Track Reconciliations via Cost Source Dropdown
+        // (User selects an item which changes "Ok to Pay" to Yes)
+        const costSourceLink = event.target.closest('.handle-cost-source-selection-div li a[role="menuitem"]');
+        if (costSourceLink) {
+            console.log('[Stats Collector] Cost Source selection detected (Reconciliation).');
+            trackStat('RECONCILIATION', 1);
         }
     }
 
@@ -132,8 +109,8 @@
         const observer = new MutationObserver(observeLoadingSpinner);
         observer.observe(document.body, { childList: true, subtree: true });
 
-        // Use event delegation for save buttons
-        document.body.addEventListener('click', handleSaveButtonClick);
+        // Use event delegation for buttons
+        document.body.addEventListener('click', handleClickEvents);
 
         isInitialized = true;
         console.log("Stats Collector Initialized");

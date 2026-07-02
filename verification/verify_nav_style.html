@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Verify Campaign Navigation Style</title>
+    <style>
+        .p2b-navbar-wrapper {
+            border: 1px solid blue;
+            padding: 20px;
+            min-height: 100px;
+        }
+        div[slot="right"] {
+            border: 1px solid red;
+            background-color: #eee;
+            padding: 10px;
+        }
+        .ai-style-change-1 {
+            background-color: lightgreen !important;
+            display: flex;
+            align-items: center;
+        }
+        .omni-navigation-preview-link-container {
+            border: 1px solid purple;
+            margin-top: 10px;
+            padding: 5px;
+            background-color: lavender;
+        }
+    </style>
+</head>
+<body>
+    <h1>Verification: Campaign Navigation Style</h1>
+
+    <div class="container">
+        <h2>Before Move</h2>
+        <div class="p2b-navbar-wrapper">
+            <div id="p2b-navbar">Navbar Content</div>
+            <div class="mo-navbar-layouts">Layouts</div>
+            <!-- Simulating the existing container -->
+            <div class="omni-navigation-preview-link-container">Omni Preview Link</div>
+        </div>
+
+        <div slot="right">
+            <div>Workflow Integration Widget</div>
+        </div>
+    </div>
+
+    <div id="status" style="margin-top: 20px; font-weight: bold;">Waiting...</div>
+
+    <script>
+        // Mock Chrome API
+        window.chrome = {
+            runtime: {
+                id: 'mock-id',
+                lastError: null
+            },
+            storage: {
+                sync: {
+                    get: function(keys, callback) {
+                        // Return configuration: Style=New, Optimised=FALSE
+                        // This tests that layout change still happens even if Optimised is off
+                        callback({
+                            campaignNavStyle: 'new',
+                            optimisedNewNavEnabled: false,
+                            hidingSectionsEnabled: true,
+                            automateFormFieldsEnabled: true,
+                            alwaysShowCommentsEnabled: true
+                        });
+                    },
+                    set: function(data, callback) {
+                        if (callback) callback();
+                    }
+                },
+                onChanged: {
+                    addListener: function(callback) {}
+                }
+            }
+        };
+
+        // Mock utils if needed
+        window.utils = {
+            waitForElement: function() { return Promise.resolve(document.createElement('div')); }
+        };
+    </script>
+
+    <!-- Include the feature script -->
+    <script src="../features/campaign.js"></script>
+
+    <script>
+        // Run verification
+        setTimeout(() => {
+            const statusDiv = document.getElementById('status');
+
+            // Check if function exists
+            if (!window.campaignFeature || !window.campaignFeature.handleCampaignNavigationOptimisation) {
+                statusDiv.textContent = "Error: Feature function not found.";
+                statusDiv.style.color = "red";
+                return;
+            }
+
+            // Run the function manually
+            window.campaignFeature.handleCampaignNavigationOptimisation();
+
+            // Verify DOM
+            const navbarWrapper = document.querySelector('.p2b-navbar-wrapper');
+            const rightSlotDiv = document.querySelector('div[slot="right"]');
+            const previewLinkContainer = document.querySelector('.omni-navigation-preview-link-container');
+
+            // With optimisedNewNavEnabled: false, we expect the element NOT to move.
+            // The original parent in this mock HTML is implicitly body or the container div.
+            // Let's check if it's NOT inside p2b-navbar-wrapper
+
+            if (rightSlotDiv.parentElement !== navbarWrapper) {
+                statusDiv.textContent = "Success: Element did NOT move (as expected when Optimised is disabled).";
+                statusDiv.style.color = "green";
+            } else {
+                statusDiv.textContent = "Failure: Element moved but Optimised setting is disabled.";
+                statusDiv.style.color = "red";
+            }
+
+        }, 500);
+    </script>
+</body>
+</html>

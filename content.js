@@ -54,33 +54,46 @@ if (document.readyState === 'loading') {
 async function mainContentScriptInit() {
     console.log("[ContentScript Prisma] DOMContentLoaded or already loaded. Initializing checks.");
 
+    const hostname = window.location.hostname || new URL(window.location.href).hostname;
+    const isPrismaLike =
+        hostname.includes('prisma.mediaocean.com') ||
+        hostname.includes('go.demo.mediaocean.com');
+    const isAura = hostname.includes('aura.mediaocean.com');
+
     // Initialize features that should run once
     window.statsCollector.initialize();
+    if (window.appLearnFeature) {
+        window.appLearnFeature.initialize();
+    }
     window.statsCollector.trackCampaignId(); // Initial call on page load
 
-    // NEW LINE ADDED: Initialize the placement counter feature
-    if (window.placementCounterFeature) {
+    // Placement counter is Prisma-only
+    if (isPrismaLike && window.placementCounterFeature) {
         window.placementCounterFeature.initialize();
     }
 
-    if (window.swapAccountsFeature) {
+    // Switch accounts is allowed on Prisma + Aura (gated by its own setting)
+    if ((isPrismaLike || isAura) && window.swapAccountsFeature) {
         window.swapAccountsFeature.initialize();
     }
 
-    if (window.autoCopyUrlFeature) {
+    // Auto-copy URL is allowed on Prisma + Aura (gated by its own setting)
+    if ((isPrismaLike || isAura) && window.autoCopyUrlFeature) {
         window.autoCopyUrlFeature.initialize();
     }
 
-    if (window.orderIdCopyFeature) {
+    // Order ID copy is Prisma-only
+    if (isPrismaLike && window.orderIdCopyFeature) {
         window.orderIdCopyFeature.initialize();
     }
 
     // Initialize Loading Facts Feature
-    if (window.loadingFactsFeature) {
+    if (isPrismaLike && window.loadingFactsFeature) {
         window.loadingFactsFeature.initialize();
     }
 
-    if (window.logoFeature.shouldReplaceLogoOnThisPage()) {
+    // Prisma: full enhancement set
+    if (isPrismaLike && window.logoFeature.shouldReplaceLogoOnThisPage()) {
         await window.remindersFeature.fetchCustomReminders(); // Fetch initial set of custom reminders
         window.logoFeature.checkAndReplaceLogo();
         setTimeout(() => {
@@ -89,16 +102,30 @@ async function mainContentScriptInit() {
             window.remindersFeature.checkCustomReminders(); // Initial check for custom reminders
             window.campaignFeature.handleCampaignManagementFeatures();
             window.campaignFeature.handleAlwaysShowComments();
+            window.campaignFeature.handleCampaignNavigationOptimisation();
+        }, 2000);
+    // Aura: only logo replacement + popup reminders (custom or otherwise)
+    } else if (isAura && window.logoFeature.shouldReplaceLogoOnThisPage()) {
+        await window.remindersFeature.fetchCustomReminders();
+        window.logoFeature.checkAndReplaceLogo();
+        setTimeout(() => {
+            // Meta/IAS reminders are themselves URL / setting gated; safe to call.
+            window.remindersFeature.checkForMetaConditions();
+            window.remindersFeature.checkForIASConditions();
+            window.remindersFeature.checkCustomReminders();
         }, 2000);
     }
 
     const observer = new MutationObserver(function(mutations) {
-        // Always check for loading spinner regardless of logo settings
-        if (window.loadingFactsFeature) {
+        if (isPrismaLike && window.loadingFactsFeature) {
             window.loadingFactsFeature.checkForLoading();
         }
 
-        if (window.logoFeature.shouldReplaceLogoOnThisPage()) {
+        if (window.appLearnFeature) {
+            window.appLearnFeature.applyTransparency();
+        }
+
+        if (isPrismaLike && window.logoFeature.shouldReplaceLogoOnThisPage()) {
             window.logoFeature.checkAndReplaceLogo();
             // No need to iterate mutations for these checks, just run them if any mutation occurred
             setTimeout(() => { // Debounce/delay slightly
@@ -107,6 +134,7 @@ async function mainContentScriptInit() {
                 window.remindersFeature.checkCustomReminders(); // Check for custom reminders on DOM changes
                 window.campaignFeature.handleCampaignManagementFeatures();
                 window.campaignFeature.handleAlwaysShowComments();
+                window.campaignFeature.handleCampaignNavigationOptimisation();
                 window.approverPastingFeature.handleApproverPasting();
                 window.approverPastingFeature.handleManageFavouritesButton();
                 window.gmiChatFeature.handleGmiChatButton();
@@ -125,6 +153,18 @@ async function mainContentScriptInit() {
                     window.orderIdCopyFeature.checkAndAddCopyButtons();
                 }
 
+            }, 300);
+        } else if (isAura && window.logoFeature.shouldReplaceLogoOnThisPage()) {
+            window.logoFeature.checkAndReplaceLogo();
+            setTimeout(() => {
+                // Aura: only popup reminders + auto-copy URL are allowed here.
+                window.remindersFeature.checkForMetaConditions();
+                window.remindersFeature.checkForIASConditions();
+                window.remindersFeature.checkCustomReminders();
+
+                if (window.autoCopyUrlFeature) {
+                    window.autoCopyUrlFeature.handleAutoCopy();
+                }
             }, 300);
         }
     });

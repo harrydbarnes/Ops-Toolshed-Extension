@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Verify GMI Width Logic</title>
+    <style>
+        /* Mock relevant CSS */
+        .approver-widget-optimise.gmi-chat-enabled .workflow-widget-wrapper {
+            min-width: 260px;
+            max-width: 300px;
+            border: 5px solid green; /* Visual indicator */
+        }
+
+        /* Other styles for context */
+        .workflow-widget-wrapper {
+            border: 1px solid red;
+            display: inline-block;
+        }
+        .approver-widget-optimise #campaignHeader .mo.pull-right.container-fluid.workflow-cell {
+            height: 45px;
+            background: #eee;
+        }
+    </style>
+</head>
+<body class="">
+    <h1>Verify GMI Width Logic</h1>
+    <div id="campaignHeader">
+        <div class="mo pull-right container-fluid workflow-cell">
+            <div class="workflow-widget-wrapper">
+                Content
+            </div>
+        </div>
+    </div>
+
+    <div id="status">Waiting...</div>
+
+    <script>
+        // Mock Chrome API
+        window.chrome = {
+            runtime: {
+                id: 'mock-id',
+                lastError: null
+            },
+            storage: {
+                sync: {
+                    get: function(keys, callback) {
+                        // Return configuration: GMI Enabled
+                        callback({
+                            gmiChatShortcutEnabled: true
+                        });
+                    },
+                    set: function(data, callback) {
+                        if (callback) callback();
+                    }
+                },
+                onChanged: {
+                    addListener: function(callback) {
+                        window.testStorageListener = callback;
+                    }
+                }
+            }
+        };
+    </script>
+    <script src="../features/gmi-chat.js"></script>
+
+    <script>
+        // Simulation
+        const wrapper = document.querySelector('.workflow-widget-wrapper');
+        const status = document.getElementById('status');
+
+        // Assume approver widget optimise is ON (added by content.js usually)
+        document.body.classList.add('approver-widget-optimise');
+
+        setTimeout(() => {
+            // Check initial state (Enabled)
+            const style1 = getComputedStyle(wrapper);
+            const isWidthApplied1 = style1.minWidth === '260px';
+
+            if (isWidthApplied1 && document.body.classList.contains('gmi-chat-enabled')) {
+                console.log("Pass 1: Width applied when GMI enabled.");
+
+                // Simulate Disable
+                window.testStorageListener({
+                    gmiChatShortcutEnabled: { newValue: false }
+                }, 'sync');
+
+                setTimeout(() => {
+                    const style2 = getComputedStyle(wrapper);
+                    const isWidthApplied2 = style2.minWidth === '260px';
+
+                    if (!isWidthApplied2 && !document.body.classList.contains('gmi-chat-enabled')) {
+                        status.textContent = "Success: Width applied only when GMI enabled.";
+                        status.style.color = "green";
+                    } else {
+                        status.textContent = "Failure: Width still applied or class not removed.";
+                        status.style.color = "red";
+                    }
+                }, 100);
+
+            } else {
+                status.textContent = "Failure: Width not applied initially.";
+                status.style.color = "red";
+            }
+        }, 500);
+    </script>
+</body>
+</html>

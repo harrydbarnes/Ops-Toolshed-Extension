@@ -50,6 +50,21 @@
                         </div>
                     </div>
                 </div>
+                <!-- Campaign Navigation Style Dropdown (Moved Here) -->
+                <div class="toggle-container">
+                    <label for="campaignNavStyleSelector">Campaign Navigation Style:</label>
+                    <div class="theme-select-wrapper">
+                         <div class="custom-dropdown" id="campaignNavStyleDropdown">
+                            <div class="dropdown-trigger" tabindex="0">
+                                <span class="selected-text">Old</span>
+                            </div>
+                            <div class="dropdown-options">
+                                <div class="dropdown-option" data-value="old">Old</div>
+                                <div class="dropdown-option" data-value="new">New</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div class="toggle-container">
                         <span>Replace Prisma Logo:</span>
                         <label class="toggle">
@@ -71,10 +86,24 @@
                             <span class="slider"></span>
                         </label>
                     </div>
+                    <div class="toggle-container">
+                        <span>Translucent 'AppLearn' Logo:</span>
+                        <label class="toggle">
+                            <input type="checkbox" id="appLearnReplaceToggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
                 </section>
 
                 <section id="campaign-management-settings">
                     <h2>Prisma Efficiency Gains</h2>
+                    <div class="toggle-container">
+                        <span>Optimised New Campaign Navigation:</span>
+                        <label class="toggle">
+                            <input type="checkbox" id="optimisedNewNavToggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
                     <div class="toggle-container">
                         <span>GMI Chat Shortcut:</span>
                         <label class="toggle">

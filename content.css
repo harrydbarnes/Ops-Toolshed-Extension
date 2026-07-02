@@ -98,7 +98,7 @@ body.reminder-theme-black #confirmation-popup {
     position: fixed;
     bottom: var(--toast-bottom-position);
     transform: translateX(-50%);
-    z-index: var(--toast-z-index) !important;
+    z-index: var(--toast-z-index);
     pointer-events: none;
 
     /* Layout & Sizing */
@@ -106,12 +106,14 @@ body.reminder-theme-black #confirmation-popup {
     align-items: center;     /* Vertically center text */
     justify-content: center; /* Horizontally center text */
     width: max-content;
+    min-width: var(--toast-min-width);
     max-width: var(--toast-max-width);
     min-height: 50px; /* Reduced from 60px to fit tighter padding */
+    font-size: var(--toast-font-size);
 
     /* VISUAL CENTERING MAGIC: Balanced Padding */
     /* Left padding holds the icon. Right padding balances it. */
-    padding: 10px 70px 10px 70px;
+    padding: 10px 70px;
 
     /* Styling */
     background-color: var(--toast-bg-color);
@@ -127,7 +129,7 @@ body.reminder-theme-black #confirmation-popup {
     top: 50%;
     transform: translateY(-50%);
 
-    font-size: 24px;
+    font-size: var(--toast-icon-font-size);
     line-height: 1;
 }
 
@@ -142,10 +144,10 @@ body.reminder-theme-black #confirmation-popup {
 .loading-fact-content strong {
     display: block;
     color: var(--primary-pink);
-    font-size: 11px;
+    font-size: var(--toast-strong-font-size);
     text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 3px;
+    letter-spacing: var(--toast-letter-spacing);
+    margin-bottom: var(--toast-content-margin-bottom);
 }
 
 .loading-fact-toast.slide-up {
@@ -159,7 +161,7 @@ body.reminder-theme-black #confirmation-popup {
 @keyframes slideUpFadeIn {
     0% {
         opacity: 0;
-        transform: translate(-50%, 20px); /* Start 20px lower */
+        transform: translate(-50%, var(--toast-slide-offset));
     }
     100% {
         opacity: 1;
@@ -174,10 +176,70 @@ body.reminder-theme-black #confirmation-popup {
     }
     100% {
         opacity: 0;
-        transform: translate(-50%, 20px);
+        transform: translate(-50%, var(--toast-slide-offset));
     }
 }
 /* --- End Loading Facts Toast Styles --- */
+/* --- Paste Approvers & Favourites Button Styles --- */
+/* Separated from approvers.css to avoid conflicts and ensure correct application */
+.prisma-paste-button {
+    background-color: #f4f4f5;
+    border: 2px solid #e4e4e7;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-weight: 500;
+    color: #333;
+
+    /* Specific positioning and sizing */
+    font-size: 12px;
+    padding: 4px 17px;
+
+    /* Fix for vertical margin */
+    display: inline-block !important;
+    margin-bottom: 5px !important;
+}
+
+.prisma-paste-button:hover {
+    background-color: #fde8f2;
+    border-color: #e84399;
+}
+/* --- End of Paste Approvers Button Styles --- */
+
+/* --- GMI Chat Button Styles --- */
+/* Completely separate definition to allow individual margin control */
+.gmi-chat-button {
+    /* VISUALS: Copied from prisma-paste-button for consistency */
+    background-color: #f4f4f5;
+    border: 2px solid #e4e4e7;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-weight: 500;
+    color: #333;
+    font-size: 12px;
+    padding: 4px 17px;
+
+    /* LAYOUT FIXES */
+    display: inline-block !important;
+
+    /* 1. Force margin to zero */
+    margin-bottom: 0 !important;
+
+    /* 2. Fix "Ghost" spacing caused by baseline alignment */
+    vertical-align: middle !important;
+
+    /* 3. Ensure line-height doesn't expand the box unnecessarily */
+    line-height: normal !important;
+}
+
+.gmi-chat-button:hover {
+    background-color: #fde8f2;
+    border-color: #e84399;
+}
+/* --- End of GMI Chat Button Styles --- */
 
 /* --- Live Chat Enhancement Styles --- */
 #resizable-chat-handle {
@@ -229,7 +291,7 @@ body.reminder-theme-black #confirmation-popup {
     margin-left: 8px;
 }
 
-.approver-widget-optimise .workflow-widget-wrapper {
+.approver-widget-optimise.gmi-chat-enabled .workflow-widget-wrapper {
     min-width: 260px;
     max-width: 300px;
 }
@@ -249,17 +311,16 @@ body.reminder-theme-black #confirmation-popup {
     --toast-bottom-position: 80px;
     --toast-z-index: var(--z-index-max);
     --toast-border-radius: 50px;
-    --toast-gap-spacing: 15px;
     --toast-font-size: 14px;
     --toast-min-width: 300px;
     --toast-max-width: 500px;
-    --toast-icon-font-size: 20px;
+    --toast-icon-font-size: 24px;
     --toast-strong-font-size: 11px;
-    --toast-letter-spacing: 0.5px;
-    --toast-content-margin-bottom: 2px;
+    --toast-letter-spacing: 1px;
+    --toast-content-margin-bottom: 3px;
     --toast-animation-duration: 0.5s;
     --toast-slide-up-bezier: cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    --toast-slide-offset: 100px;
+    --toast-slide-offset: 20px;
 }
 
 /* --- Switch Account Button Styles --- */
@@ -311,3 +372,80 @@ body.reminder-theme-black #confirmation-popup {
     line-height: normal;
 }
 /* --- End of Order ID Copy Button Styles --- */
+
+/* --- Campaign Navigation Style Optimisation --- */
+div[slot="right"].ai-style-change-1 {
+    display: flex;
+    align-items: center;
+}
+
+/* --- Extracted Campaign Actions Toolbar & Tooltips --- */
+
+/* 1. Prevent clipping of tooltips by allowing overflow on header containers */
+#ptb-header,
+.mo-page-header,
+#ptb-header-header-inner,
+#ptb-header-mo-expandable-container-header-0-child-0 {
+  overflow: visible !important;
+}
+
+#ptb-header {
+  position: relative; /* Ensure position is set to create a stacking context */
+  z-index: 10001;     /* Higher than the modal container's 10000 */
+}
+
+/* 2. Toolbar and Icon Container Styling */
+#mo-extracted-actions-toolbar {
+  position: relative;
+  z-index: 1000;
+  display: flex;
+  gap: 12px;
+  margin-left: 12px;
+  align-items: center;
+}
+
+#mo-extracted-actions-toolbar > div {
+  position: relative;
+  cursor: pointer;
+  display: flex;
+}
+
+/* 3. Custom Tooltip Positioning and Visibility */
+/* Assuming the tooltip is the direct child div of the wrapper */
+#mo-extracted-actions-toolbar > div > .extracted-action-tooltip {
+  position: absolute !important;
+  top: 26px !important;            /* 12px gap from the bottom of the 14px icon */
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  background-color: #333333 !important;
+  color: #ffffff !important;
+  padding: 6px 10px !important;
+  border-radius: 4px !important;
+  font-size: 13px !important;
+  white-space: nowrap !important;
+  z-index: 2147483647 !important;
+  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2) !important;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;            /* Ensures tooltip doesn't interfere with clicks */
+}
+
+/* Tooltip Arrow - Centered and pointing UP */
+.extracted-action-tooltip .tooltip-arrow-custom {
+    position: absolute;
+    top: -4px;                       /* Overlaps slightly to prevent sub-pixel gaps */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-bottom: 5px solid #333333; /* Matches tooltip background color */
+}
+
+/* 4. Show tooltip on hover */
+#mo-extracted-actions-toolbar > div:hover > .extracted-action-tooltip {
+  visibility: visible !important;
+  opacity: 1 !important;
+}

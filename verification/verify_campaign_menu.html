@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Verify Campaign Menu Relocation</title>
+    <style>
+        .p2b-navbar-wrapper {
+            border: 1px solid blue;
+            padding: 20px;
+            min-height: 100px;
+            display: flex;
+            align-items: center;
+        }
+        .buy-details-wrapper {
+            border: 1px solid green;
+            padding: 10px;
+            background-color: #eee;
+            margin-right: 10px;
+        }
+        mo-toolbar-item {
+            border: 1px solid orange;
+            padding: 5px;
+            display: block;
+        }
+        mo-overlay {
+            border: 1px solid purple;
+            padding: 5px;
+            display: block;
+            margin-top: 10px;
+        }
+
+        /* CSS from content.css for testing logic */
+        #mo-extracted-actions-toolbar {
+            position: relative;
+            z-index: 1000;
+            display: flex;
+            gap: 12px;
+            margin-left: 12px;
+            align-items: center;
+        }
+
+        #mo-extracted-actions-toolbar > div {
+            position: relative;
+            cursor: pointer;
+            display: flex;
+        }
+
+        #mo-extracted-actions-toolbar > div > .extracted-action-tooltip {
+            position: absolute;
+            top: 100% !important;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2147483647 !important;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.2s;
+            background-color: #333;
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+
+        #mo-extracted-actions-toolbar > div:hover > .extracted-action-tooltip {
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+    </style>
+</head>
+<body>
+    <h1>Verification: Campaign Menu Relocation</h1>
+
+    <div class="container">
+        <!-- The Header Wrapper -->
+        <div class="p2b-navbar-wrapper">
+            <div class="buy-details-wrapper">Buy Details</div>
+            <!-- The original icon and overlay we want to hide -->
+            <mo-toolbar-item id="campaign-menu-icon">Original Menu Icon</mo-toolbar-item>
+        </div>
+
+        <mo-overlay id="mo-overlay-8">Original Overlay</mo-overlay>
+    </div>
+
+    <div id="status" style="margin-top: 20px; font-weight: bold;">Waiting...</div>
+    <div id="url-log" style="margin-top: 10px; font-family: monospace;"></div>
+
+    <script>
+        // Mock Chrome API
+        window.chrome = {
+            runtime: {
+                id: 'mock-id',
+                lastError: null
+            },
+            storage: {
+                sync: {
+                    get: function(keys, callback) {
+                        // Return configuration: Style=New, Optimised=True
+                        callback({
+                            campaignNavStyle: 'new',
+                            optimisedNewNavEnabled: true,
+                            hidingSectionsEnabled: true,
+                            automateFormFieldsEnabled: true,
+                            alwaysShowCommentsEnabled: true
+                        });
+                    },
+                    set: function(data, callback) {
+                        if (callback) callback();
+                    }
+                },
+                onChanged: {
+                    addListener: function(callback) {}
+                }
+            }
+        };
+
+        // Mock utils
+        window.utils = {
+            waitForElement: function() { return Promise.resolve(document.createElement('div')); }
+        };
+    </script>
+
+    <!-- Include the feature script -->
+    <script src="../features/campaign.js"></script>
+
+    <script>
+        // Run verification
+        setTimeout(() => {
+            const statusDiv = document.getElementById('status');
+
+            // Run the function manually (since it's not exported directly, but handleCampaignNavigationOptimisation calls it)
+            if (window.campaignFeature && window.campaignFeature.handleCampaignNavigationOptimisation) {
+                window.campaignFeature.handleCampaignNavigationOptimisation();
+            }
+
+            // Verify Logic
+            const newToolbar = document.getElementById('mo-extracted-actions-toolbar');
+
+            if (newToolbar) {
+                // Simulate click on first icon (Campaign Details)
+                const firstIconWrapper = newToolbar.children[0];
+                const expectedUrlParam = "&osModalId=prsm-cm-cmpdtls";
+
+                // Mock window.location.href via setter/getter if possible or just log it
+                // Since we can't easily mock window.location in browser context effectively without reloading,
+                // we'll check attributes and if the logic is correct in principle.
+                // Or override window.location.href in the python script.
+                // For this HTML file, we can verify structure.
+
+                const tooltip = firstIconWrapper.querySelector('.extracted-action-tooltip');
+                const icon = firstIconWrapper.querySelector('mo-icon');
+
+                let msg = [];
+                if (!tooltip) msg.push("Tooltip missing CSS class.");
+                else {
+                    const arrow = tooltip.querySelector('.tooltip-arrow-custom');
+                    if (!arrow) msg.push("Tooltip missing arrow element.");
+                }
+
+                if (icon.hasAttribute('title')) msg.push("Icon has native title.");
+                if (!icon.hasAttribute('aria-label')) msg.push("Icon missing aria-label.");
+
+                if (msg.length === 0) {
+                    statusDiv.textContent = "Success: Toolbar created with correct attributes, classes, and arrow.";
+                    statusDiv.style.color = "green";
+                } else {
+                    statusDiv.textContent = "Failure: " + msg.join(" ");
+                    statusDiv.style.color = "red";
+                }
+
+                // Add a visual indicator for manual click testing if needed
+                firstIconWrapper.style.border = "2px solid blue";
+
+            } else {
+                statusDiv.textContent = "Failure: Toolbar not found.";
+                statusDiv.style.color = "red";
+            }
+
+        }, 500);
+    </script>
+</body>
+</html>

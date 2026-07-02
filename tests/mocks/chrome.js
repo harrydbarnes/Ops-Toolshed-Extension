@@ -4,6 +4,7 @@ const createStorageAreaMock = () => {
   return {
     get: jest.fn((keys, callback) => {
       return new Promise(resolve => {
+        // Always use setTimeout to ensure compatibility with Jest fake timers
         setTimeout(() => {
           const result = {};
           if (!keys) { // Get all items
@@ -91,6 +92,9 @@ global.chrome = {
   storage: {
     sync: syncStorage,
     local: localStorage,
+    onChanged: {
+        addListener: jest.fn()
+    }
   },
   alarms: {
     create: jest.fn(),
@@ -151,6 +155,8 @@ global.resetMocks = () => {
     global.chrome.storage.local.remove.mockClear();
     global.chrome.storage.local.clear.mockClear();
     global.chrome.storage.local.__resetStore();
+
+    global.chrome.storage.onChanged.addListener.mockClear();
 
     // Reset lastError
     global.chrome.runtime.lastError = undefined;
