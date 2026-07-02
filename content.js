@@ -62,6 +62,9 @@ async function mainContentScriptInit() {
 
     // Initialize features that should run once
     window.statsCollector.initialize();
+    if (window.appLearnFeature) {
+        window.appLearnFeature.initialize();
+    }
     window.statsCollector.trackCampaignId(); // Initial call on page load
 
     // Placement counter is Prisma-only
@@ -109,6 +112,10 @@ async function mainContentScriptInit() {
     }
 
     const observer = new MutationObserver(function(mutations) {
+        if (window.appLearnFeature) {
+            window.appLearnFeature.applyTransparency();
+        }
+
         if (isPrismaLike && window.logoFeature.shouldReplaceLogoOnThisPage()) {
             window.logoFeature.checkAndReplaceLogo();
             // No need to iterate mutations for these checks, just run them if any mutation occurred

@@ -505,6 +505,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }); 
         }); 
     } 
+
+    setupToggle('appLearnReplaceToggle', 'appLearnReplaceEnabled', 'AppLearn transparency setting saved:');
  
     // Prisma Reminders 
     const prismaReminderFrequency = document.getElementById('prismaReminderFrequency'); 
