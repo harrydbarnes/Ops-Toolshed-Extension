@@ -34,6 +34,7 @@ body::-webkit-scrollbar-thumb:hover {
 }
 
 .header {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -43,6 +44,11 @@ body::-webkit-scrollbar-thumb:hover {
 .header-left {
     display: flex;
     align-items: center;
+}
+
+.header-actions {
+    display: flex;
+    align-items: flex-end;
 }
 
 .version {
@@ -58,6 +64,58 @@ body::-webkit-scrollbar-thumb:hover {
 
 .disabled-version {
     font-size: 0.8em; /* Make the text slightly smaller */
+}
+
+.features-kill-switch {
+    position: absolute;
+    top: 31px;
+    right: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 24px;
+    padding: 4px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #374151;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.features-kill-switch:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+}
+
+.features-kill-switch:focus-visible {
+    outline: 2px solid #ff4087;
+    outline-offset: 2px;
+}
+
+.features-kill-switch.is-off {
+    background: #b42318;
+    border-color: #b42318;
+    color: #ffffff;
+}
+
+.features-kill-switch.is-off:hover {
+    background: #912018;
+    border-color: #912018;
+}
+
+.features-kill-switch:disabled {
+    cursor: wait;
+    opacity: 0.65;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .features-kill-switch {
+        transition: none;
+    }
 }
 
 .logo {

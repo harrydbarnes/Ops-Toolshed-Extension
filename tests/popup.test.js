@@ -1,4 +1,37 @@
-const { generateUrlFromData, isValidDNumber, isValidCampaignId } = require('../popup');
+const {
+    FEATURE_SETTING_KEYS,
+    buildDisabledFeatureState,
+    generateUrlFromData,
+    isValidDNumber,
+    isValidCampaignId
+} = require('../popup');
+
+describe('buildDisabledFeatureState', () => {
+    test('backs up existing choices and disables every feature', () => {
+        const currentSettings = {
+            logoReplaceEnabled: false,
+            statsCollectorEnabled: true,
+            customReminders: [
+                { id: 'one', enabled: true },
+                { id: 'two', enabled: false }
+            ]
+        };
+
+        const { backup, disabledSettings } = buildDisabledFeatureState(currentSettings);
+
+        expect(backup.logoReplaceEnabled).toBe(false);
+        expect(backup.statsCollectorEnabled).toBe(true);
+        expect(backup.loadingFactsEnabled).toBe(true);
+        FEATURE_SETTING_KEYS.forEach(key => {
+            expect(disabledSettings[key]).toBe(false);
+        });
+        expect(disabledSettings.customReminders).toEqual([
+            { id: 'one', enabled: false },
+            { id: 'two', enabled: false }
+        ]);
+        expect(backup.customReminders).toEqual(currentSettings.customReminders);
+    });
+});
 
 describe('generateUrlFromData', () => {
     const campaignId = 'TEST_CAMPAIGN';

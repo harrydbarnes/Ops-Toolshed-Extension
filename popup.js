@@ -19,7 +19,104 @@ function formatTimeRemaining(deadline) {
     return " - Less than an hour left";
 }
 
+const FEATURE_SETTING_KEYS = [
+    'logoReplaceEnabled',
+    'statsCollectorEnabled',
+    'loadingFactsEnabled',
+    'appLearnReplaceEnabled',
+    'optimisedNewNavEnabled',
+    'gmiChatShortcutEnabled',
+    'autoCopyUrlEnabled',
+    'orderIdCopyEnabled',
+    'addCampaignShortcutEnabled',
+    'hidingSectionsEnabled',
+    'automateFormFieldsEnabled',
+    'approverWidgetOptimiseEnabled',
+    'countPlacementsSelectedEnabled',
+    'swapAccountsEnabled',
+    'alwaysShowCommentsEnabled',
+    'fontSizeToggleEnabled',
+    'resizableChatToggleEnabled',
+    'scheduledChatToggleEnabled',
+    'metaReminderEnabled',
+    'iasReminderEnabled',
+    'timesheetReminderEnabled'
+];
+
+function buildDisabledFeatureState(currentSettings) {
+    const backup = {};
+    const disabledSettings = {};
+
+    FEATURE_SETTING_KEYS.forEach(key => {
+        backup[key] = currentSettings[key] === undefined ? true : currentSettings[key];
+        disabledSettings[key] = false;
+    });
+
+    const customReminders = Array.isArray(currentSettings.customReminders)
+        ? currentSettings.customReminders
+        : [];
+    backup.customReminders = customReminders;
+    disabledSettings.customReminders = customReminders.map(reminder => ({
+        ...reminder,
+        enabled: false
+    }));
+
+    return { backup, disabledSettings };
+}
+
+function setKillSwitchAppearance(button, featuresDisabled) {
+    if (!button) return;
+
+    const label = button.querySelector('span');
+    button.classList.toggle('is-off', featuresDisabled);
+    button.setAttribute('aria-checked', String(featuresDisabled));
+    button.title = featuresDisabled
+        ? 'Restore your previous Settings features'
+        : 'Turn off all Settings features';
+    if (label) label.textContent = featuresDisabled ? 'Features off' : 'Features on';
+}
+
+function initialiseFeaturesKillSwitch() {
+    const button = document.getElementById('featuresKillSwitch');
+    if (!button) return;
+
+    chrome.storage.sync.get('allFeaturesDisabled', data => {
+        setKillSwitchAppearance(button, data.allFeaturesDisabled === true);
+    });
+
+    button.addEventListener('click', () => {
+        button.disabled = true;
+        chrome.storage.sync.get(null, currentSettings => {
+            const featuresDisabled = currentSettings.allFeaturesDisabled === true;
+
+            if (featuresDisabled) {
+                const restoredSettings = currentSettings.featureKillSwitchBackup || {};
+                chrome.storage.sync.set({
+                    ...restoredSettings,
+                    allFeaturesDisabled: false
+                }, () => {
+                    button.disabled = false;
+                    setKillSwitchAppearance(button, false);
+                });
+                return;
+            }
+
+            const { backup, disabledSettings } = buildDisabledFeatureState(currentSettings);
+            chrome.storage.sync.set({
+                ...disabledSettings,
+                featureKillSwitchBackup: backup,
+                allFeaturesDisabled: true
+            }, () => {
+                button.disabled = false;
+                setKillSwitchAppearance(button, true);
+            });
+        });
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+    initialiseFeaturesKillSwitch();
+
     chrome.storage.local.get(['timeBombActive', 'initialDeadline'], function(data) {
         const versionLink = document.getElementById('version-link');
         const manifest = chrome.runtime.getManifest();
@@ -391,5 +488,12 @@ function addClickListener(id, url) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { handleGenerateUrl, generateUrlFromData, isValidDNumber, isValidCampaignId };
+    module.exports = {
+        FEATURE_SETTING_KEYS,
+        buildDisabledFeatureState,
+        handleGenerateUrl,
+        generateUrlFromData,
+        isValidDNumber,
+        isValidCampaignId
+    };
 }
