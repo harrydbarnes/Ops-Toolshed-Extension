@@ -28,6 +28,7 @@ const FEATURE_SETTING_KEYS = [
     'gmiChatShortcutEnabled',
     'autoCopyUrlEnabled',
     'orderIdCopyEnabled',
+    'newOrderUiOptimisationEnabled',
     'addCampaignShortcutEnabled',
     'hidingSectionsEnabled',
     'automateFormFieldsEnabled',
