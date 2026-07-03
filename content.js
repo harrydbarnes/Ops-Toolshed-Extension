@@ -28,6 +28,7 @@ setInterval(() => {
         console.log("[ContentScript Prisma] URL changed, reminder dismissal flags reset.");
         window.remindersFeature.resetReminderDismissalFlags();
         window.campaignFeature.resetCampaignFlags();
+        window.campaignFeature.handleCampaignNavigationOptimisation();
         window.statsCollector.trackCampaignId(); // Centralized call
         currentUrlForDismissFlags = window.location.href;
     }

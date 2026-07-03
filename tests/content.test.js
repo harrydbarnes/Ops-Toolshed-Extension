@@ -36,7 +36,10 @@ describe('Content Script Main Logic', () => {
         };
 
         // Mock setInterval to prevent infinite loops when using jest.runAllTimers()
-        window.setInterval = jest.fn();
+        window.eval(`
+            window.__intervalCallbacks = [];
+            window.setInterval = callback => window.__intervalCallbacks.push(callback);
+        `);
 
         const mutationCallbackMap = new Map();
         window.MutationObserver = jest.fn(function(callback) {
@@ -61,7 +64,7 @@ describe('Content Script Main Logic', () => {
         // Manually dispatch DOMContentLoaded to ensure the script's main logic runs
         document.dispatchEvent(new window.Event('DOMContentLoaded', { bubbles: true, cancelable: true }));
 
-        return { window, document };
+        return { window, document, intervalCallbacks: window.__intervalCallbacks };
     };
 
     beforeEach(() => {
@@ -89,6 +92,31 @@ describe('Content Script Main Logic', () => {
         const hasInitializationLog = consoleSpy.mock.calls.some(call => call.join(' ').includes('[ContentScript Prisma] Script Injected'));
         expect(hasInitializationLog).toBe(true);
         expect(window.statsCollector).toBeDefined();
+    });
+
+    test('cleans campaign budget styles immediately when the URL changes to the dashboard', () => {
+        const { window, document, intervalCallbacks } = setupJSDOM(
+            'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-buy&route=actualize',
+            false
+        );
+        jest.advanceTimersByTime(100);
+        const staleStyle = document.createElement('style');
+        staleStyle.id = 'optimised-budget-styles';
+        document.head.appendChild(staleStyle);
+
+        window.history.replaceState(
+            {},
+            '',
+            '#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns'
+        );
+        const urlWatcher = intervalCallbacks.find(callback =>
+            typeof callback === 'function' &&
+            callback.toString().includes('currentUrlForDismissFlags')
+        );
+        expect(urlWatcher).toEqual(expect.any(Function));
+        urlWatcher();
+
+        expect(document.getElementById('optimised-budget-styles')).toBeNull();
     });
 
     // This test is skipped due to a fundamental timing issue between the application code's

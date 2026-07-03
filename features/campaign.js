@@ -18,6 +18,7 @@
     const BUDGET_VALUE_SELECTOR = `${BUDGET_VALUE_SELECTOR_DATA}, ${BUDGET_VALUE_SELECTOR_CLASS}`;
     const BUDGET_LABEL_SELECTOR = '.cbjS\\+XIoeuDmb-oqpXOJpw\\=\\=';   // Escaped for JS querySelector
     const PROGRESS_BAR_CLASS = '.gDndZofhX67JYdRMGJEFTw\\=\\=';
+    const BUDGET_STYLE_ID = 'optimised-budget-styles';
 
     // Initialize settings
     if (chrome.runtime && chrome.runtime.id) {
@@ -187,6 +188,11 @@
     }
 
     function handleCampaignNavigationOptimisation() {
+        if (window.location.href.includes('cm-dashboard')) {
+            document.getElementById(BUDGET_STYLE_ID)?.remove();
+            return;
+        }
+
         if (campaignNavStyle !== 'new' || !optimisedNewNavEnabled) return;
 
         const navbarWrapper = document.querySelector('.p2b-navbar-wrapper');
@@ -211,14 +217,18 @@
     }
 
     function handleBudgetDisplayOptimisation() {
+        if (window.location.href.includes('cm-dashboard')) {
+            document.getElementById(BUDGET_STYLE_ID)?.remove();
+            return;
+        }
+
         const budgetContainer = document.getElementById(BUDGET_CONTAINER_ID);
         if (!budgetContainer) return;
 
         // Inject CSS for budget container alignment and progress bar tweaks only.
-        const STYLE_ID = 'optimised-budget-styles';
-        if (!document.getElementById(STYLE_ID)) {
+        if (!document.getElementById(BUDGET_STYLE_ID)) {
             const style = document.createElement('style');
-            style.id = STYLE_ID;
+            style.id = BUDGET_STYLE_ID;
             style.textContent = `
                 /* 1. CONTAINER RESET & ALIGNMENT */
                 #${BUDGET_CONTAINER_ID} {
