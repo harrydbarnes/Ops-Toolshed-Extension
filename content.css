@@ -296,6 +296,39 @@ body.reminder-theme-black #confirmation-popup {
     max-width: 300px;
 }
 
+/* Centre the workflow controls within Prisma's available header cell. */
+#campaignHeader .mo.pull-right.container-fluid.workflow-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* The optimised nav moves the workflow slot beside #p2b-navbar. Let that
+   slot fill the remaining row width, then centre its contents within it. */
+.p2b-navbar-wrapper > .ai-style-change-1 {
+    flex: 1 1 auto;
+    min-width: 0;
+    align-items: center;
+    justify-content: center;
+}
+
+/* On wide screens there is enough clearance to centre the workflow controls
+   against the full page. Narrower screens retain the available-space layout. */
+@media (min-width: 1440px) {
+    .p2b-navbar-wrapper {
+        position: relative;
+    }
+
+    .p2b-navbar-wrapper > .ai-style-change-1 {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: max-content;
+        flex: 0 0 auto;
+        transform: translate(-50%, -50%);
+    }
+}
+
 /* Set a fixed height for the workflow widget cell for consistent alignment */
 .approver-widget-optimise #campaignHeader .mo.pull-right.container-fluid.workflow-cell {
     height: 45px;
