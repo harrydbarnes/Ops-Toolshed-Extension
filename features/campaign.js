@@ -246,15 +246,26 @@
         if (campaignNameCopyListenerAttached) return;
         campaignNameCopyListenerAttached = true;
 
-        document.addEventListener('click', event => {
-            const nameElement = event.target.closest?.('.mo-campaign-name-wrapper[contenteditable="true"]');
+        document.addEventListener('pointerdown', event => {
+            const eventPath = event.composedPath();
+            const nameElement = eventPath.find(node =>
+                node instanceof Element &&
+                node.matches('.mo-campaign-name-wrapper[contenteditable="true"]')
+            ) || eventPath.find(node =>
+                node instanceof Element && node.matches('.mo-campaign-name-popover')
+            )?.querySelector('.mo-campaign-name-wrapper');
             if (!nameElement) return;
 
             const campaignName = nameElement.textContent.trim();
             if (!campaignName) return;
 
-            navigator.clipboard.writeText(campaignName)
-                .then(() => showCampaignNameCopiedToast(nameElement))
+            chrome.runtime.sendMessage({ action: 'copyToClipboard', text: campaignName })
+                .then(response => {
+                    if (response?.status !== 'success') {
+                        throw new Error(response?.message || 'Clipboard service did not confirm the copy.');
+                    }
+                    showCampaignNameCopiedToast(nameElement);
+                })
                 .catch(error => console.error('Failed to copy campaign name:', error));
         }, true);
     }

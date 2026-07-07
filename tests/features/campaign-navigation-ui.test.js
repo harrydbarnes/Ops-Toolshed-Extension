@@ -28,7 +28,11 @@ function createPage() {
     });
 
     dom.window.chrome = {
-        runtime: { id: 'test-extension', lastError: null },
+        runtime: {
+            id: 'test-extension',
+            lastError: null,
+            sendMessage: jest.fn().mockResolvedValue({ status: 'success' })
+        },
         storage: {
             sync: {
                 get: (_keys, callback) => callback({
@@ -85,13 +89,18 @@ describe('campaign navigation UI optimisation', () => {
 
     test('copies the campaign name and shows confirmation when its editable area is clicked', async () => {
         const dom = createPage();
-        const { document, navigator } = dom.window;
+        const { document, chrome } = dom.window;
         dom.window.campaignFeature.handleCampaignNavigationOptimisation();
 
-        document.querySelector('.mo-campaign-name-wrapper').click();
+        document.querySelector('.mo-campaign-name-wrapper').dispatchEvent(
+            new dom.window.MouseEvent('pointerdown', { bubbles: true, composed: true })
+        );
         await Promise.resolve();
 
-        expect(navigator.clipboard.writeText).toHaveBeenCalledWith('Test Campaign Name');
+        expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+            action: 'copyToClipboard',
+            text: 'Test Campaign Name'
+        });
         const toast = document.getElementById('campaign-name-copy-toast');
         expect(toast.textContent).toBe('Campaign Name Copied to Clipboard!');
         expect(toast.classList.contains('show')).toBe(true);
@@ -100,16 +109,21 @@ describe('campaign navigation UI optimisation', () => {
 
     test('copies on the first click after Prisma replaces the editable name element', async () => {
         const dom = createPage();
-        const { document, navigator } = dom.window;
+        const { document, chrome } = dom.window;
         const originalName = document.querySelector('.mo-campaign-name-wrapper');
         const replacementName = originalName.cloneNode(true);
         originalName.replaceWith(replacementName);
 
-        replacementName.click();
+        replacementName.dispatchEvent(
+            new dom.window.MouseEvent('pointerdown', { bubbles: true, composed: true })
+        );
         await Promise.resolve();
 
-        expect(navigator.clipboard.writeText).toHaveBeenCalledTimes(1);
-        expect(navigator.clipboard.writeText).toHaveBeenCalledWith('Test Campaign Name');
+        expect(chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
+        expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+            action: 'copyToClipboard',
+            text: 'Test Campaign Name'
+        });
         dom.window.close();
     });
 });
