@@ -407,7 +407,7 @@ body.reminder-theme-black #confirmation-popup {
 
 /* --- Order version segmented control --- */
 #cm-buy-sidebar-order-revisions-header.order-view-toggle-active
-    .mo-nav-list-item-accessory-content > mo-popover {
+    .mo-nav-list-item-accessory-content > :is(mo-popover, mo-menu) {
     position: absolute;
     width: 1px;
     height: 1px;
