@@ -12,6 +12,7 @@
     let optimisedNewNavEnabled = true;
     let relocatedWorkflowSlot = null;
     let campaignNameToastTimeout = null;
+    let campaignNameCopyListenerAttached = false;
 
     // Class selectors for Budget UI
     const BUDGET_CONTAINER_ID = 'campaign-budget-overview-container';
@@ -242,18 +243,20 @@
     }
 
     function handleCampaignNameCopy() {
-        const nameElement = document.querySelector('.mo-campaign-name-wrapper[contenteditable="true"]');
-        if (!nameElement || nameElement.dataset.campaignNameCopyEnabled === 'true') return;
+        if (campaignNameCopyListenerAttached) return;
+        campaignNameCopyListenerAttached = true;
 
-        nameElement.dataset.campaignNameCopyEnabled = 'true';
-        nameElement.addEventListener('click', () => {
+        document.addEventListener('click', event => {
+            const nameElement = event.target.closest?.('.mo-campaign-name-wrapper[contenteditable="true"]');
+            if (!nameElement) return;
+
             const campaignName = nameElement.textContent.trim();
             if (!campaignName) return;
 
             navigator.clipboard.writeText(campaignName)
                 .then(() => showCampaignNameCopiedToast(nameElement))
                 .catch(error => console.error('Failed to copy campaign name:', error));
-        });
+        }, true);
     }
 
     function handleBudgetDisplayOptimisation() {
@@ -464,6 +467,10 @@
         }
         if (originalToolbarItem) originalToolbarItem.style.display = 'none';
     }
+
+    // Use document-level delegation so Prisma can replace the editable name
+    // during the first click without losing the copy handler.
+    handleCampaignNameCopy();
 
     window.campaignFeature = {
         handleCampaignManagementFeatures,

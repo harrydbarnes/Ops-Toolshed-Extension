@@ -97,4 +97,19 @@ describe('campaign navigation UI optimisation', () => {
         expect(toast.classList.contains('show')).toBe(true);
         dom.window.close();
     });
+
+    test('copies on the first click after Prisma replaces the editable name element', async () => {
+        const dom = createPage();
+        const { document, navigator } = dom.window;
+        const originalName = document.querySelector('.mo-campaign-name-wrapper');
+        const replacementName = originalName.cloneNode(true);
+        originalName.replaceWith(replacementName);
+
+        replacementName.click();
+        await Promise.resolve();
+
+        expect(navigator.clipboard.writeText).toHaveBeenCalledTimes(1);
+        expect(navigator.clipboard.writeText).toHaveBeenCalledWith('Test Campaign Name');
+        dom.window.close();
+    });
 });
