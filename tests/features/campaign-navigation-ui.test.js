@@ -52,7 +52,7 @@ function createPage() {
 }
 
 describe('campaign navigation UI optimisation', () => {
-    test('reattaches the approver workflow slot when Actualise replaces the navbar', () => {
+    test('keeps the approver workflow slot visible while Actualise removes the navbar', () => {
         const dom = createPage();
         const { document } = dom.window;
 
@@ -61,14 +61,27 @@ describe('campaign navigation UI optimisation', () => {
         expect(workflowSlot.parentElement).toBe(document.querySelector('.p2b-navbar-wrapper'));
 
         document.querySelector('.p2b-navbar-wrapper').remove();
-        const actualiseNavbar = document.createElement('div');
-        actualiseNavbar.className = 'p2b-navbar-wrapper';
-        document.body.prepend(actualiseNavbar);
+        const actualiseMonthRow = document.createElement('div');
+        actualiseMonthRow.id = 'month-filter-toolbar';
+        actualiseMonthRow.innerHTML = '<div id="mos-paginator"><a>Jun 26</a></div>';
+        document.body.prepend(actualiseMonthRow);
+        dom.window.history.replaceState({}, '', '#ptb-ctx=actualize&route=actualize');
 
         dom.window.campaignFeature.handleCampaignNavigationOptimisation();
 
-        expect(actualiseNavbar.contains(workflowSlot)).toBe(true);
-        expect(actualiseNavbar.textContent).toContain('Approvers');
+        expect(actualiseMonthRow.contains(workflowSlot)).toBe(true);
+        expect(actualiseMonthRow.classList.contains('toolshed-actualise-month-row')).toBe(true);
+        expect(workflowSlot.classList.contains('actualise-workflow-slot')).toBe(true);
+        expect(actualiseMonthRow.textContent).toContain('Approvers');
+
+        const restoredNavbar = document.createElement('div');
+        restoredNavbar.className = 'p2b-navbar-wrapper';
+        document.body.prepend(restoredNavbar);
+        dom.window.history.replaceState({}, '', '#ptb-ctx=digital&route=online');
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+
+        expect(restoredNavbar.contains(workflowSlot)).toBe(true);
+        expect(workflowSlot.classList.contains('actualise-workflow-slot')).toBe(false);
         dom.window.close();
     });
 

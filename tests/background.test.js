@@ -165,3 +165,66 @@ describe('getNextAlarmDate (existing tests)', () => {
         expect(nextAlarm.getTime()).toBe(expectedDate.getTime());
     });
 });
+
+describe('AppLearn popup blocking', () => {
+    let maybeBlockAppLearnPopup;
+
+    beforeEach(() => {
+        resetMocks();
+        jest.resetModules();
+        ({ maybeBlockAppLearnPopup } = require('../background'));
+    });
+
+    test.each([
+        'https://splitscreen-adopt.applearn.tv/',
+        'https://wpp.okta.com/app/wpp_groupmapplearndev_1/example/sso/saml'
+    ])('closes %s when it was opened by a Mediaocean page', async popupUrl => {
+        chrome.tabs.get.mockResolvedValue({
+            id: 10,
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/'
+        });
+        chrome.tabs.remove.mockResolvedValue(undefined);
+
+        await expect(maybeBlockAppLearnPopup(20, popupUrl, 10)).resolves.toBe(true);
+        expect(chrome.tabs.remove).toHaveBeenCalledWith(20);
+        expect(chrome.storage.local.__getStore().appLearnPopupsBlocked).toBe(1);
+    });
+
+    test('leaves the popup open when blocking is disabled', async () => {
+        chrome.storage.sync.__getStore().blockAppLearnPopupsEnabled = false;
+
+        await expect(maybeBlockAppLearnPopup(
+            20,
+            'https://splitscreen-adopt.applearn.tv/',
+            10
+        )).resolves.toBe(false);
+        expect(chrome.tabs.remove).not.toHaveBeenCalled();
+    });
+
+    test('does not close the same URLs when opened outside Mediaocean', async () => {
+        chrome.tabs.get.mockResolvedValue({ id: 10, url: 'https://example.com/' });
+
+        await expect(maybeBlockAppLearnPopup(
+            20,
+            'https://wpp.okta.com/app/wpp_groupmapplearndev_1/example/sso/saml',
+            10
+        )).resolves.toBe(false);
+        expect(chrome.tabs.remove).not.toHaveBeenCalled();
+    });
+
+    test('closes a noopener AppLearn popup while a Mediaocean tab is active', async () => {
+        chrome.tabs.query.mockResolvedValue([
+            { id: 10, url: 'https://aura.mediaocean.com/timesheets/' },
+            { id: 20, url: 'https://splitscreen-adopt.applearn.tv/' }
+        ]);
+        chrome.tabs.remove.mockResolvedValue(undefined);
+
+        await expect(maybeBlockAppLearnPopup(
+            20,
+            'https://splitscreen-adopt.applearn.tv/',
+            undefined
+        )).resolves.toBe(true);
+        expect(chrome.tabs.remove).toHaveBeenCalledWith(20);
+        expect(chrome.storage.local.__getStore().appLearnPopupsBlocked).toBe(1);
+    });
+});

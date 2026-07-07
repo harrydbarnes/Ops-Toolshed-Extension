@@ -26,7 +26,7 @@ describe('Toolshed Stats UI', () => {
             '2023-10-01': { placements: 10, loadingTime: 180, visitedCampaigns: ['c2'] }
         };
 
-        await chrome.storage.local.set({ legacyStats, dailyStats });
+        await chrome.storage.local.set({ legacyStats, dailyStats, appLearnPopupsBlocked: 7 });
 
         // Load script
         require('../toolshed.js');
@@ -44,6 +44,7 @@ describe('Toolshed Stats UI', () => {
         expect(document.getElementById('loading-time-stat').textContent).toContain('6 mins');
         // Placements: 100 + 10 = 110
         expect(document.getElementById('placements-added-stat').textContent).toBe('110');
+        expect(document.getElementById('applearn-popups-blocked-stat').textContent).toBe('7');
 
         // Check Kettle Index: 360 / 45 = 8
         expect(document.getElementById('kettle-index').textContent).toBe('8');

@@ -22,6 +22,8 @@
     const BUDGET_LABEL_SELECTOR = '.cbjS\\+XIoeuDmb-oqpXOJpw\\=\\=';   // Escaped for JS querySelector
     const PROGRESS_BAR_CLASS = '.gDndZofhX67JYdRMGJEFTw\\=\\=';
     const BUDGET_STYLE_ID = 'optimised-budget-styles';
+    const ACTUALISE_WORKFLOW_CLASS = 'actualise-workflow-slot';
+    const ACTUALISE_MONTH_ROW_CLASS = 'toolshed-actualise-month-row';
 
     // Initialize settings
     if (chrome.runtime && chrome.runtime.id) {
@@ -203,8 +205,31 @@
         if (connectedRightSlot) relocatedWorkflowSlot = connectedRightSlot;
         const rightSlotDiv = connectedRightSlot || relocatedWorkflowSlot;
         const previewLinkContainer = navbarWrapper ? navbarWrapper.querySelector('.omni-navigation-preview-link-container') : null;
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const isActualise = hashParams.get('ptb-ctx') === 'actualize' || hashParams.get('route') === 'actualize';
+
+        const findActualiseMonthRow = () => {
+            const monthPattern = /^(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\s+\d{2,4}$/i;
+            const matchingControls = Array.from(document.querySelectorAll('a, button, mo-button, mo-tab, [role="button"], [role="tab"]'))
+                .filter(element => monthPattern.test(element.textContent.trim()));
+            const monthButtons = matchingControls.filter(element =>
+                !matchingControls.some(other => other !== element && other.contains(element))
+            );
+
+            if (monthButtons.length === 0) return null;
+            if (monthButtons.length === 1) return monthButtons[0].parentElement;
+
+            let candidate = monthButtons[0].parentElement;
+            while (candidate && candidate !== document.body) {
+                if (monthButtons.filter(button => candidate.contains(button)).length >= 2) return candidate;
+                candidate = candidate.parentElement;
+            }
+            return null;
+        };
 
         if (navbarWrapper && rightSlotDiv) {
+            rightSlotDiv.classList.remove(ACTUALISE_WORKFLOW_CLASS);
+            rightSlotDiv.parentElement?.classList.remove(ACTUALISE_MONTH_ROW_CLASS);
             // Check if already moved to avoid redundancy
             if (rightSlotDiv.parentElement !== navbarWrapper || !rightSlotDiv.classList.contains('ai-style-change-1')) {
                 if (previewLinkContainer) {
@@ -213,6 +238,15 @@
                     navbarWrapper.appendChild(rightSlotDiv);
                 }
                 rightSlotDiv.classList.add('ai-style-change-1');
+            }
+        } else if (isActualise && rightSlotDiv) {
+            const actualiseMonthRow = document.querySelector('#month-filter-toolbar') || findActualiseMonthRow();
+            if (actualiseMonthRow && rightSlotDiv.parentElement !== actualiseMonthRow) {
+                actualiseMonthRow.appendChild(rightSlotDiv);
+            }
+            if (actualiseMonthRow) {
+                actualiseMonthRow.classList.add(ACTUALISE_MONTH_ROW_CLASS);
+                rightSlotDiv.classList.add(ACTUALISE_WORKFLOW_CLASS);
             }
         }
 

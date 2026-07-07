@@ -312,6 +312,31 @@ body.reminder-theme-black #confirmation-popup {
     justify-content: center;
 }
 
+/* Actualise replaces the campaign navbar completely. Place the cached workflow
+   widget in the month-selector row so compact screens do not overlap the
+   campaign header. */
+.toolshed-actualise-month-row {
+    position: relative !important;
+    pointer-events: none;
+}
+
+.toolshed-actualise-month-row > .btn-group,
+.toolshed-actualise-month-row > #mos-paginator,
+.toolshed-actualise-month-row > div[slot="right"].actualise-workflow-slot {
+    pointer-events: auto;
+}
+
+.toolshed-actualise-month-row > div[slot="right"].actualise-workflow-slot {
+    position: absolute;
+    right: 16px;
+    left: auto;
+    top: 50%;
+    width: max-content;
+    max-width: 100%;
+    z-index: 2;
+    transform: translateY(-50%);
+}
+
 /* On wide screens there is enough clearance to centre the workflow controls
    against the full page. Narrower screens retain the available-space layout. */
 @media (min-width: 1440px) {
