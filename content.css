@@ -494,7 +494,43 @@ div[slot="right"].ai-style-change-1 {
   display: flex;
   gap: 12px;
   margin-left: 12px;
+  margin-right: 0;
   align-items: center;
+}
+
+#campaign-name-copy-toast {
+  position: fixed;
+  z-index: 2147483647;
+  transform: translateX(-50%) translateY(-4px);
+  padding: 6px 10px;
+  border-radius: 4px;
+  background: #333333;
+  color: #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  font: 13px/18px Arial, sans-serif;
+  white-space: nowrap;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s 0.2s;
+}
+
+#campaign-name-copy-toast::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-bottom: 5px solid #333333;
+}
+
+#campaign-name-copy-toast.show {
+  visibility: visible;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  transition-delay: 0s;
 }
 
 #mo-extracted-actions-toolbar > div {

@@ -10,6 +10,8 @@
     let alwaysShowCommentsEnabled = true;
     let campaignNavStyle = 'old';
     let optimisedNewNavEnabled = true;
+    let relocatedWorkflowSlot = null;
+    let campaignNameToastTimeout = null;
 
     // Class selectors for Budget UI
     const BUDGET_CONTAINER_ID = 'campaign-budget-overview-container';
@@ -196,7 +198,9 @@
         if (campaignNavStyle !== 'new' || !optimisedNewNavEnabled) return;
 
         const navbarWrapper = document.querySelector('.p2b-navbar-wrapper');
-        const rightSlotDiv = document.querySelector('div[slot="right"]');
+        const connectedRightSlot = document.querySelector('div[slot="right"]');
+        if (connectedRightSlot) relocatedWorkflowSlot = connectedRightSlot;
+        const rightSlotDiv = connectedRightSlot || relocatedWorkflowSlot;
         const previewLinkContainer = navbarWrapper ? navbarWrapper.querySelector('.omni-navigation-preview-link-container') : null;
 
         if (navbarWrapper && rightSlotDiv) {
@@ -212,8 +216,44 @@
         }
 
         handleCampaignMenuRelocation();
+        handleCampaignNameCopy();
         handleOrdersNavigationLink();
         handleBudgetDisplayOptimisation(); // Trigger budget display changes
+    }
+
+    function showCampaignNameCopiedToast(nameElement) {
+        let toast = document.getElementById('campaign-name-copy-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'campaign-name-copy-toast';
+            toast.textContent = 'Campaign Name Copied to Clipboard!';
+            document.body.appendChild(toast);
+        }
+
+        const rect = nameElement.getBoundingClientRect();
+        toast.style.left = `${rect.left + (rect.width / 2)}px`;
+        toast.style.top = `${rect.bottom + 8}px`;
+        toast.classList.add('show');
+
+        window.clearTimeout(campaignNameToastTimeout);
+        campaignNameToastTimeout = window.setTimeout(() => {
+            toast?.classList.remove('show');
+        }, 2500);
+    }
+
+    function handleCampaignNameCopy() {
+        const nameElement = document.querySelector('.mo-campaign-name-wrapper[contenteditable="true"]');
+        if (!nameElement || nameElement.dataset.campaignNameCopyEnabled === 'true') return;
+
+        nameElement.dataset.campaignNameCopyEnabled = 'true';
+        nameElement.addEventListener('click', () => {
+            const campaignName = nameElement.textContent.trim();
+            if (!campaignName) return;
+
+            navigator.clipboard.writeText(campaignName)
+                .then(() => showCampaignNameCopiedToast(nameElement))
+                .catch(error => console.error('Failed to copy campaign name:', error));
+        });
     }
 
     function handleBudgetDisplayOptimisation() {
@@ -338,18 +378,28 @@
     function handleCampaignMenuRelocation() {
         if (campaignNavStyle !== 'new' || !optimisedNewNavEnabled) return;
 
-        // 1. Hide original menu components
+        // 1. Find the native menu position and hide its original components.
         const originalToolbarItem = document.querySelector('mo-toolbar-item#campaign-menu-icon');
         const originalOverlay = document.querySelector('mo-overlay#mo-overlay-8');
-        if (originalToolbarItem) originalToolbarItem.style.display = 'none';
+        const campaignNamePopover = document.querySelector('.mo-campaign-name-popover');
         if (originalOverlay) originalOverlay.style.display = 'none';
 
-        // Check if already created
-        if (document.getElementById('mo-extracted-actions-toolbar')) return;
+        // Keep an existing extracted toolbar anchored to a newly rendered native
+        // cog when Prisma rebuilds the campaign header.
+        const existingToolbar = document.getElementById('mo-extracted-actions-toolbar');
+        if (existingToolbar) {
+            if (campaignNamePopover && existingToolbar.previousElementSibling !== campaignNamePopover) {
+                campaignNamePopover.insertAdjacentElement('afterend', existingToolbar);
+            } else if (!campaignNamePopover && originalToolbarItem && existingToolbar.nextElementSibling !== originalToolbarItem) {
+                originalToolbarItem.insertAdjacentElement('beforebegin', existingToolbar);
+            }
+            if (originalToolbarItem) originalToolbarItem.style.display = 'none';
+            return;
+        }
 
         // 2. Create the new icon container
         const buyDetails = document.querySelector('.buy-details-wrapper');
-        if (!buyDetails) return; // Wait until buyDetails exists
+        if (!originalToolbarItem && !buyDetails) return;
 
         const iconContainer = document.createElement('div');
         iconContainer.id = 'mo-extracted-actions-toolbar';
@@ -403,8 +453,16 @@
             iconContainer.appendChild(wrapper);
         });
 
-        // Insert into header
-        buyDetails.insertAdjacentElement('afterend', iconContainer);
+        // Keep the extracted actions immediately to the right of the campaign
+        // name. Fall back to the native cog position while the name renders.
+        if (campaignNamePopover) {
+            campaignNamePopover.insertAdjacentElement('afterend', iconContainer);
+        } else if (originalToolbarItem) {
+            originalToolbarItem.insertAdjacentElement('beforebegin', iconContainer);
+        } else {
+            buyDetails.insertAdjacentElement('beforebegin', iconContainer);
+        }
+        if (originalToolbarItem) originalToolbarItem.style.display = 'none';
     }
 
     window.campaignFeature = {
