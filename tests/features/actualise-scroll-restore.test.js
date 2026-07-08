@@ -15,7 +15,7 @@ function makeScrollable(element, scrollLeft = 0) {
 }
 
 function createPage(enabled = true, parentEnabled = true) {
-    const dom = new JSDOM('<!doctype html><html><body><div id="actualise-grid" class="actualise-grid"></div><button id="save">Save</button></body></html>', {
+    const dom = new JSDOM('<!doctype html><html><body><div id="actualise-grid" class="actualise-grid"></div><button id="approval">Yes</button><button id="save">Save</button><button id="cancel">Cancel</button></body></html>', {
         url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#ptb-ctx=actualize&route=actualize',
         runScripts: 'dangerously'
     });
@@ -82,6 +82,29 @@ describe('Actualise horizontal scroll restoration', () => {
 
         expect(master.scrollLeft).toBe(346);
         expect(headerClone.scrollLeft).toBe(346);
+        dom.window.close();
+    });
+
+    test('preserves the pre-editor position when Prisma scrolls before Save', () => {
+        const dom = createPage();
+        const { document } = dom.window;
+        const grid = makeScrollable(document.getElementById('actualise-grid'), 346);
+
+        dom.window.actualiseScrollRestoreFeature.initialize();
+        grid.dispatchEvent(new dom.window.Event('scroll'));
+        document.getElementById('approval').dispatchEvent(
+            new dom.window.MouseEvent('pointerdown', { bubbles: true })
+        );
+
+        grid.scrollLeft = 20;
+        grid.dispatchEvent(new dom.window.Event('scroll'));
+        document.getElementById('save').dispatchEvent(
+            new dom.window.MouseEvent('pointerdown', { bubbles: true })
+        );
+        grid.scrollLeft = 0;
+        dom.window.actualiseScrollRestoreFeature.restoreScrollPosition();
+
+        expect(grid.scrollLeft).toBe(346);
         dom.window.close();
     });
 

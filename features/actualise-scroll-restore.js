@@ -15,6 +15,8 @@
     let trackedScroller = null;
     let trackedScrollerKey = '';
     let savedScrollLeft = 0;
+    let actionScrollLeft = 0;
+    let actionScrollerKey = '';
     let restoreUntil = 0;
     let restoreQueued = false;
 
@@ -65,13 +67,60 @@
         return [candidates.sort((a, b) => b.scrollWidth - a.scrollWidth)[0]];
     }
 
-    function captureBeforeAction() {
+    function freezeActionPosition() {
         if (!isActive()) return;
 
         if (trackedScroller?.isConnected && trackedScroller.scrollLeft > 0) {
             rememberScroller(trackedScroller);
         }
-        if (savedScrollLeft > 0) restoreUntil = Date.now() + RESTORE_WINDOW_MS;
+        if (savedScrollLeft > 0) {
+            actionScrollLeft = savedScrollLeft;
+            actionScrollerKey = trackedScrollerKey;
+        }
+    }
+
+    function armRestoration() {
+        if (!isActive()) return;
+        if (actionScrollLeft <= 0) freezeActionPosition();
+        if (actionScrollLeft <= 0) return;
+
+        savedScrollLeft = actionScrollLeft;
+        trackedScrollerKey = actionScrollerKey;
+        restoreUntil = Date.now() + RESTORE_WINDOW_MS;
+        const armedUntil = restoreUntil;
+        window.setTimeout(() => {
+            if (restoreUntil === armedUntil) clearActionState();
+        }, RESTORE_WINDOW_MS);
+    }
+
+    function captureBeforeAction() {
+        freezeActionPosition();
+        armRestoration();
+    }
+
+    function clearActionState() {
+        actionScrollLeft = 0;
+        actionScrollerKey = '';
+        restoreUntil = 0;
+    }
+
+    function handleActionPointerDown(event) {
+        if (!isActive()) return;
+        const control = event.target.closest('button, [role="button"]');
+        if (!control) return;
+
+        const label = control.textContent.trim().toLowerCase();
+        if (label === 'cancel') {
+            clearActionState();
+            return;
+        }
+        if (label === 'save') {
+            armRestoration();
+            return;
+        }
+        if (['yes', 'no', 'reviewing'].includes(label) && actionScrollLeft <= 0) {
+            freezeActionPosition();
+        }
     }
 
     function restoreScrollPosition() {
@@ -105,8 +154,10 @@
         const element = event.target === document ? document.scrollingElement : event.target;
         if (!isActive() || !isHorizontalScroller(element)) return;
 
-        if (Date.now() <= restoreUntil && element.scrollLeft === 0 && getScrollerKey(element) === trackedScrollerKey) {
-            queueRestore();
+        if (actionScrollLeft > 0) {
+            if (Date.now() <= restoreUntil && element.scrollLeft === 0 && getScrollerKey(element) === trackedScrollerKey) {
+                queueRestore();
+            }
             return;
         }
         rememberScroller(element);
@@ -123,9 +174,9 @@
         });
 
         document.addEventListener('scroll', handleScroll, true);
-        document.addEventListener('pointerdown', captureBeforeAction, true);
+        document.addEventListener('pointerdown', handleActionPointerDown, true);
         document.addEventListener('keydown', event => {
-            if (event.key === 'Enter' || event.key === ' ') captureBeforeAction();
+            if (event.key === 'Enter' || event.key === ' ') handleActionPointerDown(event);
         }, true);
 
         const observer = new MutationObserver(() => {
@@ -139,7 +190,7 @@
         if (changes[SETTING_KEY]) featureEnabled = changes[SETTING_KEY].newValue !== false;
         if (changes[PARENT_SETTING_KEY]) parentEnabled = changes[PARENT_SETTING_KEY].newValue !== false;
         settingsLoaded = true;
-        if (!featureEnabled || !parentEnabled) restoreUntil = 0;
+        if (!featureEnabled || !parentEnabled) clearActionState();
     });
 
     window.actualiseScrollRestoreFeature = {
