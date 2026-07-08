@@ -1,10 +1,10 @@
 # Ops Toolshed Chrome Extension 🛠️
 
-**Current version: 1.4**
+**Current version: 1.5**
 
 Ops Toolshed is a Chrome extension that streamlines day-to-day campaign management in Prisma and provides quick access to common Operations tools.
 
-## What's new in 1.4
+## What's new in 1.5
 
 - Copy clean Order IDs from Campaign Order pages without the version suffix.
 - Choose a compact campaign navigation style that moves campaign links into the header, including direct Orders navigation.
