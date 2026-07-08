@@ -16,7 +16,8 @@ describe('campaign navigation settings', () => {
         ['quickCampaignActionsToggle', 'quickCampaignActionsEnabled'],
         ['budgetWidgetOptimisedToggle', 'budgetWidgetOptimisedEnabled'],
         ['campaignNameQuickCopyToggle', 'campaignNameQuickCopyEnabled'],
-        ['newOrderUiOptimisationToggle', 'newOrderUiOptimisationEnabled']
+        ['newOrderUiOptimisationToggle', 'newOrderUiOptimisationEnabled'],
+        ['actualiseScrollRestoreToggle', 'actualiseScrollRestoreEnabled']
     ])('exposes enabled-by-default sub-option %s', (toggleId, storageKey) => {
         expect(settingsHtml).toContain(`id="${toggleId}"`);
         expect(settingsScript).toContain(`setupToggle('${toggleId}', '${storageKey}'`);

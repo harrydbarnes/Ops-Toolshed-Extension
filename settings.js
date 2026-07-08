@@ -645,6 +645,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupToggle('quickCampaignActionsToggle', 'quickCampaignActionsEnabled', 'Quick campaign actions setting saved:');
     setupToggle('budgetWidgetOptimisedToggle', 'budgetWidgetOptimisedEnabled', 'Budget widget optimisation setting saved:');
     setupToggle('campaignNameQuickCopyToggle', 'campaignNameQuickCopyEnabled', 'Campaign name quick copy setting saved:');
+    setupToggle('actualiseScrollRestoreToggle', 'actualiseScrollRestoreEnabled', 'Actualise scroll restoration setting saved:');
     setupToggle('gmiChatShortcutToggle', 'gmiChatShortcutEnabled', 'GMI Chat Shortcut setting saved:'); 
     setupToggle('autoCopyUrlToggle', 'autoCopyUrlEnabled', 'Auto Copy URL setting saved:'); 
     setupToggle('loadingFactsToggle', 'loadingFactsEnabled', 'Show Loading Facts setting saved:');

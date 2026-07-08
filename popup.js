@@ -30,6 +30,7 @@ const FEATURE_SETTING_KEYS = [
     'quickCampaignActionsEnabled',
     'budgetWidgetOptimisedEnabled',
     'campaignNameQuickCopyEnabled',
+    'actualiseScrollRestoreEnabled',
     'gmiChatShortcutEnabled',
     'autoCopyUrlEnabled',
     'orderIdCopyEnabled',

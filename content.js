@@ -92,6 +92,10 @@ async function mainContentScriptInit() {
         window.orderViewToggleFeature.initialize();
     }
 
+    if (isPrismaLike && window.actualiseScrollRestoreFeature) {
+        window.actualiseScrollRestoreFeature.initialize();
+    }
+
     // Initialize Loading Facts Feature
     if (isPrismaLike && window.loadingFactsFeature) {
         window.loadingFactsFeature.initialize();

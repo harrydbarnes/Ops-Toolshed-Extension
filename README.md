@@ -15,6 +15,7 @@ Ops Toolshed is a Chrome extension that streamlines day-to-day campaign manageme
 - Block broken AppLearn and Okta login popups launched from Prisma or Aura, with a setting to disable the blocker when needed.
 - Copy the campaign name to the clipboard on the first click and keep Campaign Details, Copy, and History actions beside the campaign name.
 - Keep the approver widget available in Actualise without covering the campaign header or native controls.
+- Preserve the horizontal position of the Actualise grid when Prisma soft-refreshes it after an action.
 - Submit feedback from the popup, Settings, Approvers, or Toolshed pages.
 - Use refreshed Approver data with retired approvers removed.
 
@@ -34,7 +35,7 @@ All optional enhancements can be controlled from **Settings**.
 
 | Feature | What it does |
 | --- | --- |
-| Campaign navigation | Offers optimised campaign navigation, direct Orders access, responsive booked-budget information, campaign-name click-to-copy, and Campaign Details, Copy, and History actions beside the campaign name. |
+| Campaign navigation | Offers configurable optimised navigation, direct Orders access, responsive booked-budget information, campaign-name click-to-copy, Actualise scroll restoration, and Campaign Details, Copy, and History actions beside the campaign name. |
 | Order ID Copy | Adds a button that copies an Order ID without its version suffix. |
 | Auto Copy Campaign URL | Copies the campaign URL when Prisma's link-copy control is used. |
 | Add Campaign automation | Opens the full-details flow, hides unused sections, and can select Digital media mix and Total Cost budget type automatically. |
@@ -77,7 +78,7 @@ Stats collection can be disabled or reset at any time. Feedback can be submitted
 
 ## Settings
 
-Open the extension options page to configure UI and reminder themes, campaign navigation style, individual Prisma enhancements, chat tools, reminders, stats collection, loading facts, and custom reminders. Settings are stored through Chrome extension storage.
+Open the extension options page to configure UI and reminder themes, optimised campaign-navigation features, individual Prisma enhancements, chat tools, reminders, stats collection, loading facts, and custom reminders. Settings are stored through Chrome extension storage.
 
 ## Development
 
