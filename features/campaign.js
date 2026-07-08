@@ -11,8 +11,6 @@
     let campaignNavStyle = 'old';
     let optimisedNewNavEnabled = true;
     let relocatedWorkflowSlot = null;
-    let campaignNameToastTimeout = null;
-    let campaignNameCopyListenerAttached = false;
 
     // Class selectors for Budget UI
     const BUDGET_CONTAINER_ID = 'campaign-budget-overview-container';
@@ -251,57 +249,8 @@
         }
 
         handleCampaignMenuRelocation();
-        handleCampaignNameCopy();
         handleOrdersNavigationLink();
         handleBudgetDisplayOptimisation(); // Trigger budget display changes
-    }
-
-    function showCampaignNameCopiedToast(nameElement) {
-        let toast = document.getElementById('campaign-name-copy-toast');
-        if (!toast) {
-            toast = document.createElement('div');
-            toast.id = 'campaign-name-copy-toast';
-            toast.textContent = 'Campaign Name Copied to Clipboard!';
-            document.body.appendChild(toast);
-        }
-
-        const rect = nameElement.getBoundingClientRect();
-        toast.style.left = `${rect.left + (rect.width / 2)}px`;
-        toast.style.top = `${rect.bottom + 8}px`;
-        toast.classList.add('show');
-
-        window.clearTimeout(campaignNameToastTimeout);
-        campaignNameToastTimeout = window.setTimeout(() => {
-            toast?.classList.remove('show');
-        }, 2500);
-    }
-
-    function handleCampaignNameCopy() {
-        if (campaignNameCopyListenerAttached) return;
-        campaignNameCopyListenerAttached = true;
-
-        document.addEventListener('pointerdown', event => {
-            const eventPath = event.composedPath();
-            const nameElement = eventPath.find(node =>
-                node instanceof Element &&
-                node.matches('.mo-campaign-name-wrapper[contenteditable="true"]')
-            ) || eventPath.find(node =>
-                node instanceof Element && node.matches('.mo-campaign-name-popover')
-            )?.querySelector('.mo-campaign-name-wrapper');
-            if (!nameElement) return;
-
-            const campaignName = nameElement.textContent.trim();
-            if (!campaignName) return;
-
-            chrome.runtime.sendMessage({ action: 'copyToClipboard', text: campaignName })
-                .then(response => {
-                    if (response?.status !== 'success') {
-                        throw new Error(response?.message || 'Clipboard service did not confirm the copy.');
-                    }
-                    showCampaignNameCopiedToast(nameElement);
-                })
-                .catch(error => console.error('Failed to copy campaign name:', error));
-        }, true);
     }
 
     function handleBudgetDisplayOptimisation() {
@@ -512,10 +461,6 @@
         }
         if (originalToolbarItem) originalToolbarItem.style.display = 'none';
     }
-
-    // Use document-level delegation so Prisma can replace the editable name
-    // during the first click without losing the copy handler.
-    handleCampaignNameCopy();
 
     window.campaignFeature = {
         handleCampaignManagementFeatures,

@@ -26,7 +26,7 @@ describe('Toolshed Stats UI', () => {
             '2023-10-01': { placements: 10, loadingTime: 180, visitedCampaigns: ['c2'] }
         };
 
-        await chrome.storage.local.set({ legacyStats, dailyStats, appLearnPopupsBlocked: 7 });
+        await chrome.storage.local.set({ legacyStats, dailyStats });
 
         // Load script
         require('../toolshed.js');
@@ -44,23 +44,12 @@ describe('Toolshed Stats UI', () => {
         expect(document.getElementById('loading-time-stat').textContent).toContain('6 mins');
         // Placements: 100 + 10 = 110
         expect(document.getElementById('placements-added-stat').textContent).toBe('110');
-        expect(document.getElementById('applearn-popups-blocked-stat').textContent).toBe('7');
 
         // Check Kettle Index: 360 / 45 = 8
         expect(document.getElementById('kettle-index').textContent).toBe('8');
 
         // Check Heatmap presence (at least one day should be generated)
         expect(document.getElementById('heatmap').children.length).toBeGreaterThan(300);
-    });
-
-    test('shows the AppLearn count as a separate row immediately above Reset Stats', () => {
-        const appLearnRow = document.getElementById('applearn-popups-blocked-stat').closest('.fun-stat');
-        const resetButton = document.getElementById('reset-stats-button');
-
-        expect(appLearnRow).not.toBeNull();
-        expect(appLearnRow).toHaveClass('applearn-stat-row');
-        expect(appLearnRow.nextElementSibling).toBe(resetButton);
-        expect(document.querySelector('.stats-overview #applearn-popups-blocked-stat')).toBeNull();
     });
 
     test('should trigger confetti on milestone', async () => {

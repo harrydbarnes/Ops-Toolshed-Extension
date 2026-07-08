@@ -88,10 +88,6 @@ async function mainContentScriptInit() {
         window.orderIdCopyFeature.initialize();
     }
 
-    if (isPrismaLike && window.orderViewToggleFeature) {
-        window.orderViewToggleFeature.initialize();
-    }
-
     // Initialize Loading Facts Feature
     if (isPrismaLike && window.loadingFactsFeature) {
         window.loadingFactsFeature.initialize();
@@ -122,10 +118,6 @@ async function mainContentScriptInit() {
     }
 
     const observer = new MutationObserver(function(mutations) {
-        if (isPrismaLike && window.orderViewToggleFeature) {
-            window.orderViewToggleFeature.handleOrderViewToggle();
-        }
-
         if (isPrismaLike && window.loadingFactsFeature) {
             window.loadingFactsFeature.checkForLoading();
         }

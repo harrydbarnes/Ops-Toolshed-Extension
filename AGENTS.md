@@ -59,9 +59,9 @@ Run the smallest relevant test first, followed by the full suite when the change
 
 | Area | Primary source | Targeted tests |
 | --- | --- | --- |
-| Campaign header, navigation, Actualise, name copy | `features/campaign.js`, `content.css` | `tests/features/campaign-navigation-ui.test.js`, `tests/features/campaign-budget-route.test.js` |
-| Order controls | `features/order-id-copy.js`, `features/order-view-toggle.js` | `tests/features/order-id-copy.test.js`, `tests/features/order-view-toggle.test.js` |
-| AppLearn overlay and popup blocking | `features/applearn-replace.js`, `background.js`, `settings.js` | `tests/features/applearn-replace.test.js`, `tests/background.test.js`, `tests/settings-applearn-popup.test.js` |
+| Campaign header, navigation, and Actualise | `features/campaign.js`, `content.css` | `tests/features/campaign-navigation-ui.test.js`, `tests/features/campaign-budget-route.test.js` |
+| Order ID copy | `features/order-id-copy.js` | `tests/features/order-id-copy.test.js` |
+| AppLearn overlay | `features/applearn-replace.js`, `settings.js` | `tests/features/applearn-replace.test.js` |
 | Approver workflow | `features/approver-pasting.js`, `approvers.js`, `approvers-data.js` | `tests/workflow-centering.test.js`, `tests/security/approvers_xss.test.js` |
 | Stats and Toolshed | `features/stats-collector.js`, `toolshed.js`, `toolshed.html` | `tests/stats-manager.test.js`, `tests/toolshed-stats.test.js` |
 | Feedback modal | `features/feedback-modal.js`, `features/feedback-modal.css` | `tests/features/feedback-modal-styles.test.js` |

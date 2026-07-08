@@ -240,81 +240,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true; // Indicates async response.
 });
 
-// --- URL-based Features ---
-function isBlockedAppLearnUrl(rawUrl) {
-    if (!rawUrl) return false;
-
-    try {
-        const url = new URL(rawUrl);
-        if (url.hostname === 'splitscreen-adopt.applearn.tv') return true;
-
-        return url.hostname === 'wpp.okta.com' &&
-            url.pathname.toLowerCase().startsWith('/app/wpp_groupmapplearndev_1');
-    } catch {
-        return false;
-    }
-}
-
-function isMediaoceanUrl(rawUrl) {
-    if (!rawUrl) return false;
-
-    try {
-        const hostname = new URL(rawUrl).hostname;
-        return hostname === 'mediaocean.com' || hostname.endsWith('.mediaocean.com');
-    } catch {
-        return false;
-    }
-}
-
-let appLearnPopupStatUpdate = Promise.resolve();
-
-function incrementAppLearnPopupBlockedStat() {
-    appLearnPopupStatUpdate = appLearnPopupStatUpdate.then(async () => {
-        const data = await chrome.storage.local.get({ appLearnPopupsBlocked: 0 });
-        const currentCount = Number(data.appLearnPopupsBlocked) || 0;
-        await chrome.storage.local.set({ appLearnPopupsBlocked: currentCount + 1 });
-    });
-    return appLearnPopupStatUpdate;
-}
-
-async function maybeBlockAppLearnPopup(tabId, url, openerTabId) {
-    if (!isBlockedAppLearnUrl(url)) return false;
-
-    const data = await chrome.storage.sync.get({ blockAppLearnPopupsEnabled: true });
-    if (data.blockAppLearnPopupsEnabled === false) return false;
-
-    try {
-        let openedFromMediaocean = false;
-        if (openerTabId) {
-            const openerTab = await chrome.tabs.get(openerTabId);
-            openedFromMediaocean = isMediaoceanUrl(openerTab?.url);
-        } else {
-            // AppLearn sometimes creates a noopener popup, so Chrome omits
-            // openerTabId. Active tabs are reported once per window; the
-            // original Prisma/Aura window remains active behind the popup.
-            const activeTabs = await chrome.tabs.query({ active: true });
-            openedFromMediaocean = activeTabs.some(tab => isMediaoceanUrl(tab.url));
-        }
-        if (!openedFromMediaocean) return false;
-
-        await chrome.tabs.remove(tabId);
-        await incrementAppLearnPopupBlockedStat();
-        return true;
-    } catch (error) {
-        // The popup or its opener may already have closed during navigation.
-        console.debug('AppLearn popup check ended before completion:', error.message);
-        return false;
-    }
-}
-
-chrome.tabs.onCreated.addListener(tab => {
-    maybeBlockAppLearnPopup(tab.id, tab.pendingUrl || tab.url, tab.openerTabId);
-});
-
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.url) {
-        maybeBlockAppLearnPopup(tabId, changeInfo.url, tab.openerTabId);
-
         if (!chrome.runtime || !chrome.runtime.id) return;
         chrome.storage.sync.get('addCampaignShortcutEnabled', (data) => {
             if (chrome.runtime.lastError) {
@@ -344,9 +271,6 @@ if (typeof module !== 'undefined' && module.exports) {
         createTimesheetAlarm,
         getNextDeadline,
         checkTimeBomb,
-        triggerTimesheetNotification,
-        isBlockedAppLearnUrl,
-        isMediaoceanUrl,
-        maybeBlockAppLearnPopup
+        triggerTimesheetNotification
     };
 }

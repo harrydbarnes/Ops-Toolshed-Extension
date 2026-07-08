@@ -430,65 +430,6 @@ body.reminder-theme-black #confirmation-popup {
     line-height: normal;
 }
 
-/* --- Order version segmented control --- */
-#cm-buy-sidebar-order-revisions-header.order-view-toggle-active
-    .mo-nav-list-item-accessory-content > :is(mo-popover, mo-menu) {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    opacity: 0;
-    pointer-events: none;
-}
-
-.order-view-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 1px;
-    padding: 2px;
-    border: 1px solid #aeb9c8;
-    border-radius: 5px;
-    background: #f3f5f8;
-    white-space: nowrap;
-}
-
-.order-view-toggle button {
-    min-width: 32px;
-    height: 20px;
-    padding: 0 6px;
-    border: 0;
-    border-radius: 3px;
-    background: transparent;
-    color: #334155;
-    font: 600 10px/20px Arial, sans-serif;
-    cursor: pointer;
-}
-
-.order-view-toggle button[aria-pressed="true"] {
-    background: #2f6fdd;
-    color: #ffffff;
-}
-
-.order-view-toggle button:hover:not([aria-pressed="true"]):not(:disabled) {
-    background: #e2e7ef;
-}
-
-.order-view-toggle button:focus-visible {
-    outline: 2px solid #205cc0;
-    outline-offset: 1px;
-}
-
-.order-view-toggle button:disabled {
-    cursor: wait;
-    opacity: 0.7;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .order-view-toggle button {
-        transition: none;
-    }
-}
-/* --- End order version segmented control --- */
 /* --- End of Order ID Copy Button Styles --- */
 
 /* --- Campaign Navigation Style Optimisation --- */
@@ -521,41 +462,6 @@ div[slot="right"].ai-style-change-1 {
   margin-left: 12px;
   margin-right: 0;
   align-items: center;
-}
-
-#campaign-name-copy-toast {
-  position: fixed;
-  z-index: 2147483647;
-  transform: translateX(-50%) translateY(-4px);
-  padding: 6px 10px;
-  border-radius: 4px;
-  background: #333333;
-  color: #ffffff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  font: 13px/18px Arial, sans-serif;
-  white-space: nowrap;
-  pointer-events: none;
-  visibility: hidden;
-  opacity: 0;
-  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s 0.2s;
-}
-
-#campaign-name-copy-toast::before {
-  content: '';
-  position: absolute;
-  top: -5px;
-  left: 50%;
-  transform: translateX(-50%);
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-bottom: 5px solid #333333;
-}
-
-#campaign-name-copy-toast.show {
-  visibility: visible;
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-  transition-delay: 0s;
 }
 
 #mo-extracted-actions-toolbar > div {

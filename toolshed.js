@@ -427,7 +427,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function displayStats() {
-        chrome.storage.local.get(['legacyStats', 'dailyStats', 'statsStartDate', 'appLearnPopupsBlocked'], (data) => {
+        chrome.storage.local.get(['legacyStats', 'dailyStats', 'statsStartDate'], (data) => {
             const legacyStats = data.legacyStats || {
                 visitedCampaigns: [],
                 totalLoadingTime: 0,
@@ -459,13 +459,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const avgLoadingTimeEl = document.getElementById('avg-loading-time-stat');
             const placementsAddedEl = document.getElementById('placements-added-stat');
             const reconciliationsEl = document.getElementById('reconciliations-stat');
-            const appLearnPopupsBlockedEl = document.getElementById('applearn-popups-blocked-stat');
 
             if (campaignsVisitedEl) campaignsVisitedEl.textContent = allCampaigns.size;
             if (loadingTimeEl) loadingTimeEl.innerHTML = formatLoadingTime(totalLoadingTime);
             if (placementsAddedEl) placementsAddedEl.textContent = totalPlacements;
             if (reconciliationsEl) reconciliationsEl.textContent = totalReconciliations;
-            if (appLearnPopupsBlockedEl) appLearnPopupsBlockedEl.textContent = Number(data.appLearnPopupsBlocked) || 0;
 
             // Render Visualizations
             renderHeatmap(dailyStats);
@@ -525,7 +523,6 @@ document.addEventListener('DOMContentLoaded', () => {
         chrome.storage.local.set({
             'legacyStats': { visitedCampaigns: [], totalLoadingTime: 0, placementsAdded: 0, reconciliations: 0 },
             'dailyStats': {},
-            'appLearnPopupsBlocked': 0,
             'statsStartDate': new Date().toISOString()
         }, () => {
             console.log('Stats have been reset.');
@@ -541,7 +538,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Real-Time Update Listener ---
     chrome.storage.onChanged.addListener((changes, namespace) => {
-        if (namespace === 'local' && (changes.legacyStats || changes.dailyStats || changes.appLearnPopupsBlocked)) {
+        if (namespace === 'local' && (changes.legacyStats || changes.dailyStats)) {
             displayStats();
         }
     });
