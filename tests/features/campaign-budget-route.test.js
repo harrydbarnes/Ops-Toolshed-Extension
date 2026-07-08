@@ -26,7 +26,6 @@ function createCampaignPage(url, settings = {}) {
         storage: {
             sync: {
                 get: (_keys, callback) => callback({
-                    campaignNavStyle: 'new',
                     optimisedNewNavEnabled: true,
                     ...settings
                 })
@@ -72,7 +71,7 @@ describe('campaign budget optimisation route scope', () => {
     test('removes stale budget styles even when navigation optimisation is disabled', () => {
         const dom = createCampaignPage(
             'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns',
-            { campaignNavStyle: 'old', optimisedNewNavEnabled: false }
+            { optimisedNewNavEnabled: false }
         );
         const staleStyle = dom.window.document.createElement('style');
         staleStyle.id = 'optimised-budget-styles';

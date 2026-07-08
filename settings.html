@@ -50,21 +50,6 @@
                         </div>
                     </div>
                 </div>
-                <!-- Campaign Navigation Style Dropdown (Moved Here) -->
-                <div class="toggle-container">
-                    <label for="campaignNavStyleSelector">Campaign Navigation Style:</label>
-                    <div class="theme-select-wrapper">
-                         <div class="custom-dropdown" id="campaignNavStyleDropdown">
-                            <div class="dropdown-trigger" tabindex="0">
-                                <span class="selected-text">Old</span>
-                            </div>
-                            <div class="dropdown-options">
-                                <div class="dropdown-option" data-value="old">Old</div>
-                                <div class="dropdown-option" data-value="new">New</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
                 <div class="toggle-container">
                         <span>Replace Prisma Logo:</span>
                         <label class="toggle">
@@ -110,6 +95,43 @@
                             <input type="checkbox" id="optimisedNewNavToggle">
                             <span class="slider"></span>
                         </label>
+                    </div>
+                    <div id="optimisedNewNavSubOptions" class="nested-toggle-group" aria-label="Optimised new campaign navigation options">
+                        <div class="toggle-container nested-toggle-container">
+                            <span>Add Orders shortcut tab to menu</span>
+                            <label class="toggle">
+                                <input type="checkbox" id="ordersShortcutToggle">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-container nested-toggle-container">
+                            <span>Optimise placement of Approver Widget</span>
+                            <label class="toggle">
+                                <input type="checkbox" id="approverWidgetPlacementToggle">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-container nested-toggle-container">
+                            <span>Quick details, copy campaign and history buttons</span>
+                            <label class="toggle">
+                                <input type="checkbox" id="quickCampaignActionsToggle">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-container nested-toggle-container">
+                            <span>Budget widget optimised</span>
+                            <label class="toggle">
+                                <input type="checkbox" id="budgetWidgetOptimisedToggle">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-container nested-toggle-container">
+                            <span>Campaign name quick copy</span>
+                            <label class="toggle">
+                                <input type="checkbox" id="campaignNameQuickCopyToggle">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
                     </div>
                     <div class="toggle-container">
                         <span>New Order UI Optimisation:</span>

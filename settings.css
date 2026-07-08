@@ -317,6 +317,28 @@ button:disabled, .settings-button:disabled {
     color: #333;
 }
 
+.nested-toggle-group {
+    margin: -4px 0 14px 20px;
+    padding-left: 12px;
+    border-left: 1px solid #d8d8d8;
+    transition: opacity 180ms ease-out;
+}
+
+.nested-toggle-container {
+    margin-bottom: 6px;
+    padding: 6px 8px;
+    background-color: #f4f4f4;
+    font-size: 0.94em;
+}
+
+.nested-toggle-group.is-disabled {
+    opacity: 0.48;
+}
+
+.nested-toggle-group.is-disabled .slider {
+    cursor: not-allowed;
+}
+
 .button-and-toggle-group {
     display: flex;
     align-items: center;

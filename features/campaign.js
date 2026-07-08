@@ -8,8 +8,12 @@
     let hidingSectionsEnabled = true;
     let automateFormFieldsEnabled = true;
     let alwaysShowCommentsEnabled = true;
-    let campaignNavStyle = 'old';
     let optimisedNewNavEnabled = true;
+    let ordersShortcutEnabled = true;
+    let approverWidgetPlacementEnabled = true;
+    let quickCampaignActionsEnabled = true;
+    let budgetWidgetOptimisedEnabled = true;
+    let campaignNameQuickCopyEnabled = true;
     let relocatedWorkflowSlot = null;
     let campaignNameToastTimeout = null;
     let campaignNameCopyListenerAttached = false;
@@ -27,20 +31,27 @@
 
     // Initialize settings
     if (chrome.runtime && chrome.runtime.id) {
-        chrome.storage.sync.get(['hidingSectionsEnabled', 'automateFormFieldsEnabled', 'alwaysShowCommentsEnabled', 'campaignNavStyle', 'optimisedNewNavEnabled'], (data) => {
+        chrome.storage.sync.get([
+            'hidingSectionsEnabled',
+            'automateFormFieldsEnabled',
+            'alwaysShowCommentsEnabled',
+            'optimisedNewNavEnabled',
+            'ordersShortcutEnabled',
+            'approverWidgetPlacementEnabled',
+            'quickCampaignActionsEnabled',
+            'budgetWidgetOptimisedEnabled',
+            'campaignNameQuickCopyEnabled'
+        ], (data) => {
             if (chrome.runtime.lastError) return;
             if (data.hidingSectionsEnabled !== undefined) hidingSectionsEnabled = data.hidingSectionsEnabled;
             if (data.automateFormFieldsEnabled !== undefined) automateFormFieldsEnabled = data.automateFormFieldsEnabled;
             if (data.alwaysShowCommentsEnabled !== undefined) alwaysShowCommentsEnabled = data.alwaysShowCommentsEnabled;
-            if (data.campaignNavStyle !== undefined) {
-                // Handle legacy boolean if present
-                if (typeof data.campaignNavStyle === 'boolean') {
-                    campaignNavStyle = data.campaignNavStyle ? 'new' : 'old';
-                } else {
-                    campaignNavStyle = data.campaignNavStyle;
-                }
-            }
             if (data.optimisedNewNavEnabled !== undefined) optimisedNewNavEnabled = data.optimisedNewNavEnabled;
+            if (data.ordersShortcutEnabled !== undefined) ordersShortcutEnabled = data.ordersShortcutEnabled;
+            if (data.approverWidgetPlacementEnabled !== undefined) approverWidgetPlacementEnabled = data.approverWidgetPlacementEnabled;
+            if (data.quickCampaignActionsEnabled !== undefined) quickCampaignActionsEnabled = data.quickCampaignActionsEnabled;
+            if (data.budgetWidgetOptimisedEnabled !== undefined) budgetWidgetOptimisedEnabled = data.budgetWidgetOptimisedEnabled;
+            if (data.campaignNameQuickCopyEnabled !== undefined) campaignNameQuickCopyEnabled = data.campaignNameQuickCopyEnabled;
         });
 
         chrome.storage.onChanged.addListener((changes, namespace) => {
@@ -48,15 +59,12 @@
             if (changes.hidingSectionsEnabled) hidingSectionsEnabled = changes.hidingSectionsEnabled.newValue;
             if (changes.automateFormFieldsEnabled) automateFormFieldsEnabled = changes.automateFormFieldsEnabled.newValue;
             if (changes.alwaysShowCommentsEnabled) alwaysShowCommentsEnabled = changes.alwaysShowCommentsEnabled.newValue;
-            if (changes.campaignNavStyle) {
-                // Handle legacy boolean on change if somehow triggered
-                if (typeof changes.campaignNavStyle.newValue === 'boolean') {
-                    campaignNavStyle = changes.campaignNavStyle.newValue ? 'new' : 'old';
-                } else {
-                    campaignNavStyle = changes.campaignNavStyle.newValue;
-                }
-            }
             if (changes.optimisedNewNavEnabled) optimisedNewNavEnabled = changes.optimisedNewNavEnabled.newValue;
+            if (changes.ordersShortcutEnabled) ordersShortcutEnabled = changes.ordersShortcutEnabled.newValue;
+            if (changes.approverWidgetPlacementEnabled) approverWidgetPlacementEnabled = changes.approverWidgetPlacementEnabled.newValue;
+            if (changes.quickCampaignActionsEnabled) quickCampaignActionsEnabled = changes.quickCampaignActionsEnabled.newValue;
+            if (changes.budgetWidgetOptimisedEnabled) budgetWidgetOptimisedEnabled = changes.budgetWidgetOptimisedEnabled.newValue;
+            if (changes.campaignNameQuickCopyEnabled) campaignNameQuickCopyEnabled = changes.campaignNameQuickCopyEnabled.newValue;
         });
     }
 
@@ -198,7 +206,10 @@
             return;
         }
 
-        if (campaignNavStyle !== 'new' || !optimisedNewNavEnabled) return;
+        if (!optimisedNewNavEnabled) {
+            document.getElementById(BUDGET_STYLE_ID)?.remove();
+            return;
+        }
 
         const navbarWrapper = document.querySelector('.p2b-navbar-wrapper');
         const connectedRightSlot = document.querySelector('div[slot="right"]');
@@ -227,7 +238,7 @@
             return null;
         };
 
-        if (navbarWrapper && rightSlotDiv) {
+        if (approverWidgetPlacementEnabled && navbarWrapper && rightSlotDiv) {
             rightSlotDiv.classList.remove(ACTUALISE_WORKFLOW_CLASS);
             rightSlotDiv.parentElement?.classList.remove(ACTUALISE_MONTH_ROW_CLASS);
             // Check if already moved to avoid redundancy
@@ -239,7 +250,7 @@
                 }
                 rightSlotDiv.classList.add('ai-style-change-1');
             }
-        } else if (isActualise && rightSlotDiv) {
+        } else if (approverWidgetPlacementEnabled && isActualise && rightSlotDiv) {
             const actualiseMonthRow = document.querySelector('#month-filter-toolbar') || findActualiseMonthRow();
             if (actualiseMonthRow && rightSlotDiv.parentElement !== actualiseMonthRow) {
                 actualiseMonthRow.appendChild(rightSlotDiv);
@@ -281,6 +292,8 @@
         campaignNameCopyListenerAttached = true;
 
         document.addEventListener('pointerdown', event => {
+            if (!optimisedNewNavEnabled || !campaignNameQuickCopyEnabled) return;
+
             const eventPath = event.composedPath();
             const nameElement = eventPath.find(node =>
                 node instanceof Element &&
@@ -305,6 +318,11 @@
     }
 
     function handleBudgetDisplayOptimisation() {
+        if (!optimisedNewNavEnabled || !budgetWidgetOptimisedEnabled) {
+            document.getElementById(BUDGET_STYLE_ID)?.remove();
+            return;
+        }
+
         if (window.location.href.includes('cm-dashboard')) {
             document.getElementById(BUDGET_STYLE_ID)?.remove();
             return;
@@ -388,7 +406,7 @@
     }
 
     function handleOrdersNavigationLink() {
-        if (campaignNavStyle !== 'new' || !optimisedNewNavEnabled) return;
+        if (!optimisedNewNavEnabled || !ordersShortcutEnabled) return;
 
         // Avoid duplicates
         if (document.getElementById('p2b-navbar-section-orders')) return;
@@ -424,7 +442,7 @@
     }
 
     function handleCampaignMenuRelocation() {
-        if (campaignNavStyle !== 'new' || !optimisedNewNavEnabled) return;
+        if (!optimisedNewNavEnabled || !quickCampaignActionsEnabled) return;
 
         // 1. Find the native menu position and hide its original components.
         const originalToolbarItem = document.querySelector('mo-toolbar-item#campaign-menu-icon');

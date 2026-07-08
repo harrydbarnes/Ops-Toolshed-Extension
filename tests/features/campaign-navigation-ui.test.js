@@ -7,12 +7,14 @@ const featureScript = fs.readFileSync(
     'utf8'
 );
 
-function createPage() {
+function createPage(settings = {}) {
     const dom = new JSDOM(`<!doctype html><html><head></head><body>
         <div id="native-header">
             <div slot="right"><div class="workflow-widget-wrapper">Approvers</div></div>
         </div>
-        <div class="p2b-navbar-wrapper"></div>
+        <div class="p2b-navbar-wrapper">
+            <a id="p2b-navbar-section-analyze" href="#campaign-id=CP123&ptb-mod=analyze">ANALYSE</a>
+        </div>
         <div class="mo-page-header">
             <mo-popover class="mo-campaign-name-popover">
                 <mo-text class="mo-campaign-name-wrapper" contenteditable="true">Test Campaign Name</mo-text>
@@ -36,8 +38,8 @@ function createPage() {
         storage: {
             sync: {
                 get: (_keys, callback) => callback({
-                    campaignNavStyle: 'new',
-                    optimisedNewNavEnabled: true
+                    optimisedNewNavEnabled: true,
+                    ...settings
                 })
             },
             onChanged: { addListener: () => {} }
@@ -137,6 +139,28 @@ describe('campaign navigation UI optimisation', () => {
             action: 'copyToClipboard',
             text: 'Test Campaign Name'
         });
+        dom.window.close();
+    });
+
+    test('respects individually disabled navigation enhancements', async () => {
+        const dom = createPage({
+            ordersShortcutEnabled: false,
+            approverWidgetPlacementEnabled: false,
+            quickCampaignActionsEnabled: false,
+            campaignNameQuickCopyEnabled: false
+        });
+        const { document, chrome } = dom.window;
+
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+        document.querySelector('.mo-campaign-name-wrapper').dispatchEvent(
+            new dom.window.MouseEvent('pointerdown', { bubbles: true, composed: true })
+        );
+        await Promise.resolve();
+
+        expect(document.getElementById('p2b-navbar-section-orders')).toBeNull();
+        expect(document.getElementById('mo-extracted-actions-toolbar')).toBeNull();
+        expect(document.querySelector('div[slot="right"]').parentElement.id).toBe('native-header');
+        expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
         dom.window.close();
     });
 });

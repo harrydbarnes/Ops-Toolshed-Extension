@@ -390,11 +390,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 storedValue = defaultValue;
                 chrome.storage.sync.set({ [storageKey]: storedValue });
             }
-            // Handle boolean legacy (specifically for campaignNavStyle)
-            if (storageKey === 'campaignNavStyle' && typeof storedValue === 'boolean') {
-                storedValue = storedValue ? 'new' : 'old';
-                // Migrate storage? Maybe later, just handle it for UI
-            }
             updateUI(storedValue);
             if (onChange) onChange(storedValue);
         }); 
@@ -465,27 +460,6 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeCustomDropdown('uiThemeDropdown', 'uiTheme', 'pink'); 
     initializeCustomDropdown('reminderThemeDropdown', 'reminderTheme', 'pink'); 
 
-    // Campaign Navigation Style Dropdown
-    const optimisedNewNavToggle = document.getElementById('optimisedNewNavToggle');
-    initializeCustomDropdown('campaignNavStyleDropdown', 'campaignNavStyle', 'old', (value) => {
-        if (!optimisedNewNavToggle) return;
-        const isNew = value === 'new';
-        const container = optimisedNewNavToggle.closest('.toggle-container');
-        if (!isNew) {
-            optimisedNewNavToggle.disabled = true;
-            if (container) {
-                container.style.opacity = '0.5';
-                container.style.pointerEvents = 'none';
-            }
-        } else {
-            optimisedNewNavToggle.disabled = false;
-            if (container) {
-                container.style.opacity = '1';
-                container.style.pointerEvents = 'auto';
-            }
-        }
-    });
- 
     const logoToggle = document.getElementById('logoToggle'); 
     if (logoToggle) { 
         chrome.storage.sync.get('logoReplaceEnabled', function(data) { 
@@ -663,21 +637,46 @@ document.addEventListener('DOMContentLoaded', function() {
     setupToggle('seeCommentsOnLockedBuysToggle', 'alwaysShowCommentsEnabled', 'See Comments on Locked Buys setting saved:'); 
     setupToggle('orderIdCopyToggle', 'orderIdCopyEnabled', 'Order ID Copy setting saved:'); 
     setupToggle('newOrderUiOptimisationToggle', 'newOrderUiOptimisationEnabled', 'New Order UI Optimisation setting saved:');
+    setupToggle('ordersShortcutToggle', 'ordersShortcutEnabled', 'Orders shortcut setting saved:');
+    setupToggle('approverWidgetPlacementToggle', 'approverWidgetPlacementEnabled', 'Approver Widget placement setting saved:');
+    setupToggle('quickCampaignActionsToggle', 'quickCampaignActionsEnabled', 'Quick campaign actions setting saved:');
+    setupToggle('budgetWidgetOptimisedToggle', 'budgetWidgetOptimisedEnabled', 'Budget widget optimisation setting saved:');
+    setupToggle('campaignNameQuickCopyToggle', 'campaignNameQuickCopyEnabled', 'Campaign name quick copy setting saved:');
     setupToggle('gmiChatShortcutToggle', 'gmiChatShortcutEnabled', 'GMI Chat Shortcut setting saved:'); 
     setupToggle('autoCopyUrlToggle', 'autoCopyUrlEnabled', 'Auto Copy URL setting saved:'); 
     setupToggle('loadingFactsToggle', 'loadingFactsEnabled', 'Show Loading Facts setting saved:');
 
-    // --- Campaign Navigation Style Logic ---
-    // (Moved to dropdown logic above)
+    // Optimised campaign navigation master toggle. Child preferences remain
+    // stored while the parent is off, so they return exactly as configured.
+    const optimisedNewNavToggle = document.getElementById('optimisedNewNavToggle');
+    const optimisedNewNavSubOptions = document.getElementById('optimisedNewNavSubOptions');
+    const navigationSubOptionInputs = optimisedNewNavSubOptions
+        ? Array.from(optimisedNewNavSubOptions.querySelectorAll('input[type="checkbox"]'))
+        : [];
+
+    const setNavigationSubOptionsEnabled = (isEnabled) => {
+        navigationSubOptionInputs.forEach(input => {
+            input.disabled = !isEnabled;
+        });
+        if (optimisedNewNavSubOptions) {
+            optimisedNewNavSubOptions.classList.toggle('is-disabled', !isEnabled);
+            optimisedNewNavSubOptions.setAttribute('aria-disabled', String(!isEnabled));
+        }
+    };
+
     if (optimisedNewNavToggle) {
-        // Only need to handle the optimised toggle here
         chrome.storage.sync.get(['optimisedNewNavEnabled'], (data) => {
             const optimiseEnabled = data.optimisedNewNavEnabled !== false; // Default to true
             optimisedNewNavToggle.checked = optimiseEnabled;
+            if (data.optimisedNewNavEnabled === undefined) {
+                chrome.storage.sync.set({ optimisedNewNavEnabled: true });
+            }
+            setNavigationSubOptionsEnabled(optimiseEnabled);
         });
 
         optimisedNewNavToggle.addEventListener('change', function() {
             const isEnabled = this.checked;
+            setNavigationSubOptionsEnabled(isEnabled);
             chrome.storage.sync.set({ optimisedNewNavEnabled: isEnabled }, () => {
                  console.log('Optimised New Nav saved:', isEnabled);
             });
