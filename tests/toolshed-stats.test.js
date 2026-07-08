@@ -53,6 +53,16 @@ describe('Toolshed Stats UI', () => {
         expect(document.getElementById('heatmap').children.length).toBeGreaterThan(300);
     });
 
+    test('shows the AppLearn count as a separate row immediately above Reset Stats', () => {
+        const appLearnRow = document.getElementById('applearn-popups-blocked-stat').closest('.fun-stat');
+        const resetButton = document.getElementById('reset-stats-button');
+
+        expect(appLearnRow).not.toBeNull();
+        expect(appLearnRow).toHaveClass('applearn-stat-row');
+        expect(appLearnRow.nextElementSibling).toBe(resetButton);
+        expect(document.querySelector('.stats-overview #applearn-popups-blocked-stat')).toBeNull();
+    });
+
     test('should trigger confetti on milestone', async () => {
         window.confetti = jest.fn();
 
