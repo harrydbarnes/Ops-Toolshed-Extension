@@ -54,15 +54,15 @@
         savedScrollLeft = Math.max(0, element.scrollLeft);
     }
 
-    function findReplacementScroller() {
+    function findMatchingScrollers() {
         const candidates = Array.from(document.querySelectorAll('*'))
             .filter(isHorizontalScroller);
-        if (candidates.length === 0) return null;
+        if (candidates.length === 0) return [];
 
-        const exactMatch = candidates.find(candidate => getScrollerKey(candidate) === trackedScrollerKey);
-        if (exactMatch) return exactMatch;
+        const exactMatches = candidates.filter(candidate => getScrollerKey(candidate) === trackedScrollerKey);
+        if (exactMatches.length > 0) return exactMatches;
 
-        return candidates.sort((a, b) => b.scrollWidth - a.scrollWidth)[0];
+        return [candidates.sort((a, b) => b.scrollWidth - a.scrollWidth)[0]];
     }
 
     function captureBeforeAction() {
@@ -77,14 +77,17 @@
     function restoreScrollPosition() {
         if (!isActive() || savedScrollLeft <= 0 || Date.now() > restoreUntil) return false;
 
-        const candidate = trackedScroller?.isConnected && isHorizontalScroller(trackedScroller)
-            ? trackedScroller
-            : findReplacementScroller();
-        if (!candidate) return false;
+        const candidates = findMatchingScrollers();
+        if (candidates.length === 0) return false;
 
-        candidate.scrollLeft = Math.min(savedScrollLeft, Math.max(0, candidate.scrollWidth - candidate.clientWidth));
-        trackedScroller = candidate;
-        trackedScrollerKey = getScrollerKey(candidate);
+        candidates.forEach(candidate => {
+            candidate.scrollLeft = Math.min(
+                savedScrollLeft,
+                Math.max(0, candidate.scrollWidth - candidate.clientWidth)
+            );
+        });
+        trackedScroller = candidates[0];
+        trackedScrollerKey = getScrollerKey(candidates[0]);
         return true;
     }
 

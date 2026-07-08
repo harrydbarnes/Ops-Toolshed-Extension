@@ -67,6 +67,24 @@ describe('Actualise horizontal scroll restoration', () => {
         dom.window.close();
     });
 
+    test('restores all synchronized Handsontable scrollers after Save', () => {
+        const dom = createPage();
+        const master = makeScrollable(dom.window.document.getElementById('actualise-grid'), 346);
+        master.className = 'wtHolder';
+        const headerClone = makeScrollable(master.cloneNode(), 346);
+        master.after(headerClone);
+
+        dom.window.actualiseScrollRestoreFeature.initialize();
+        headerClone.dispatchEvent(new dom.window.Event('scroll'));
+        dom.window.actualiseScrollRestoreFeature.captureBeforeAction();
+        master.scrollLeft = 0;
+        dom.window.actualiseScrollRestoreFeature.restoreScrollPosition();
+
+        expect(master.scrollLeft).toBe(346);
+        expect(headerClone.scrollLeft).toBe(346);
+        dom.window.close();
+    });
+
     test('keeps the position through Prisma save cycles lasting up to fifteen seconds', () => {
         const dom = createPage();
         const grid = makeScrollable(dom.window.document.getElementById('actualise-grid'), 510);
