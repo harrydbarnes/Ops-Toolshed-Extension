@@ -112,8 +112,13 @@ global.chrome = {
   },
   tabs: {
     create: jest.fn(),
+    get: jest.fn(),
     query: jest.fn(),
+    remove: jest.fn(),
     update: jest.fn(),
+    onCreated: {
+      addListener: jest.fn(),
+    },
     onUpdated: {
       addListener: jest.fn(),
     },
@@ -138,8 +143,11 @@ global.resetMocks = () => {
     global.chrome.notifications.onButtonClicked.addListener.mockClear();
     global.chrome.notifications.clear.mockClear();
     global.chrome.tabs.create.mockClear();
+    global.chrome.tabs.get.mockClear();
     global.chrome.tabs.query.mockClear();
+    global.chrome.tabs.remove.mockClear();
     global.chrome.tabs.update.mockClear();
+    global.chrome.tabs.onCreated.addListener.mockClear();
     global.chrome.tabs.onUpdated.addListener.mockClear();
     global.chrome.scripting.executeScript.mockClear();
 

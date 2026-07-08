@@ -12,6 +12,9 @@ Ops Toolshed is a Chrome extension that streamlines day-to-day campaign manageme
 - See rotating facts while Prisma is loading, including a summary of time spent waiting.
 - Track campaigns visited, loading time, placements added, and reconciliations in the redesigned Stats dashboard, with an activity heatmap, weekly comparisons, and streaks.
 - Make the AppLearn logo translucent so it does not obstruct the interface, including when it is rendered inside Shadow DOM.
+- Block broken AppLearn and Okta login popups launched from Prisma or Aura, with a setting to disable the blocker when needed.
+- Copy the campaign name to the clipboard on the first click and keep Campaign Details, Copy, and History actions beside the campaign name.
+- Keep the approver widget available in Actualise without covering the campaign header or native controls.
 - Submit feedback from the popup, Settings, Approvers, or Toolshed pages.
 - Use refreshed Approver data with retired approvers removed.
 
@@ -31,17 +34,18 @@ All optional enhancements can be controlled from **Settings**.
 
 | Feature | What it does |
 | --- | --- |
-| Campaign navigation | Offers optimised campaign navigation, direct Orders access, and responsive booked-budget information in the header. |
+| Campaign navigation | Offers optimised campaign navigation, direct Orders access, responsive booked-budget information, campaign-name click-to-copy, and Campaign Details, Copy, and History actions beside the campaign name. |
 | Order ID Copy | Adds a button that copies an Order ID without its version suffix. |
 | Auto Copy Campaign URL | Copies the campaign URL when Prisma's link-copy control is used. |
 | Add Campaign automation | Opens the full-details flow, hides unused sections, and can select Digital media mix and Total Cost budget type automatically. |
 | Placement Counter | Shows the number of selected placements in the Prisma grid. |
-| Approver Widget Optimise | Improves the approval widget layout and provides fast approver entry. |
+| Approver Widget Optimise | Improves the approval widget layout, keeps it available in Actualise, and provides fast approver entry. |
 | See Comments on Locked Buys | Makes comments accessible when a Buy is locked. |
 | GMI Chat and Live Chat tools | Adds a GMI Chat shortcut plus smaller-font, resizable-window, and scheduled-launch options for Live Chat. |
 | Switch Accounts | Adds a shortcut for changing account context. |
 | Replace Prisma Logo | Uses the Ops Toolshed icon to show that the extension is active. |
 | Translucent AppLearn Logo | Reduces obstruction from the AppLearn overlay, including Shadow DOM variants. |
+| Block broken AppLearn popups | Closes non-working AppLearn and associated Okta login popups opened from Prisma or Aura. |
 | Loading Facts | Displays rotating facts while Prisma loads and can include tracked waiting-time context. |
 
 ### Approver tools
@@ -66,6 +70,7 @@ The **Release Notes, Roadmap + Stats** page records local Prisma activity, inclu
 - Time spent waiting and average load time
 - Placements added
 - Reconciliations
+- Broken AppLearn popups blocked
 - Activity heatmap, weekly productivity, streak, and comparison metrics
 
 Stats collection can be disabled or reset at any time. Feedback can be submitted from the extension's main pages through the built-in feedback form.

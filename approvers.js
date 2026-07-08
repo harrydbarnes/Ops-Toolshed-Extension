@@ -346,7 +346,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const menuFeedback = document.getElementById('menu-feedback-btn');
     if (menuFeedback) {
         menuFeedback.addEventListener('click', () => {
-            chrome.tabs.create({ url: 'https://teams.microsoft.com/l/chat/0/0?users=harry.barnes@essencemediacom.com&topicname=Chat' });
+            if (window.feedbackModalFeature) {
+                window.feedbackModalFeature.open();
+            }
         });
     }
 

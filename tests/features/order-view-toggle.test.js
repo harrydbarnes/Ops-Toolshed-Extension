@@ -6,6 +6,10 @@ const featureScript = fs.readFileSync(
     path.resolve(__dirname, '../../features/order-view-toggle.js'),
     'utf8'
 );
+const contentStyles = fs.readFileSync(
+    path.resolve(__dirname, '../../content.css'),
+    'utf8'
+);
 
 function createPage(enabled = true) {
     const dom = new JSDOM(`<!doctype html><html><body>
@@ -64,6 +68,12 @@ function createPage(enabled = true) {
 const flushAsync = () => new Promise(resolve => setTimeout(resolve, 0));
 
 describe('new order UI optimisation', () => {
+    test('keeps the native menu hidden when Prisma reparents it after selection', () => {
+        expect(contentStyles).toMatch(
+            /\.mo-nav-list-item-accessory-content\s*>\s*:is\(mo-popover, mo-menu\)/
+        );
+    });
+
     test('defaults to Latest and uses Prisma native menu actions', async () => {
         const page = createPage();
         page.dom.window.orderViewToggleFeature.initialize();

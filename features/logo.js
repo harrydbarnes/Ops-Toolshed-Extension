@@ -27,6 +27,17 @@
     }
 
     function replaceLogo() {
+        // Reloading an unpacked extension invalidates content scripts that are
+        // already running. Exit before touching Prisma's native logo; the page
+        // refresh that loads the new extension instance will retry normally.
+        let replacementLogoUrl;
+        try {
+            if (!chrome.runtime?.id) return;
+            replacementLogoUrl = chrome.runtime.getURL('icon.png');
+        } catch {
+            return;
+        }
+
         // Use the utility function from utils.js
         const uniquePath = window.utils.queryShadowDom('path[d="M9.23616 0C4.13364 0 0 3.78471 0 8.455C0 13.1253 4.13364 16.91 9.23616 16.91"]');
         const specificSvg = uniquePath ? uniquePath.closest('svg') : null;
@@ -46,7 +57,7 @@
             }
 
             const newLogoImg = document.createElement('img');
-            newLogoImg.src = chrome.runtime.getURL('icon.png');
+            newLogoImg.src = replacementLogoUrl;
             newLogoImg.style.width = '32px';
             newLogoImg.style.height = '28px';
             newLogoImg.style.objectFit = 'contain';
