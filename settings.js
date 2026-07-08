@@ -191,10 +191,13 @@ function showConfirmationPopup({ title, message, confirmText, cancelText, onConf
     }); 
 } 
  
+const syncedToggleInputs = new Map();
+
 // Helper function to set up a toggle switch 
 function setupToggle(toggleId, storageKey, logMessage) { 
     const toggle = document.getElementById(toggleId); 
     if (toggle) { 
+        syncedToggleInputs.set(storageKey, toggle);
         chrome.storage.sync.get(storageKey, function(data) { 
             toggle.checked = data[storageKey] === undefined ? true : data[storageKey]; 
             if (data[storageKey] === undefined) { 
@@ -665,6 +668,7 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     if (optimisedNewNavToggle) {
+        syncedToggleInputs.set('optimisedNewNavEnabled', optimisedNewNavToggle);
         chrome.storage.sync.get(['optimisedNewNavEnabled'], (data) => {
             const optimiseEnabled = data.optimisedNewNavEnabled !== false; // Default to true
             optimisedNewNavToggle.checked = optimiseEnabled;
@@ -682,10 +686,26 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
+
+    // Keep an already-open Settings page in sync with changes made by the
+    // popup kill switch or any other extension surface.
+    chrome.storage.onChanged.addListener((changes, area) => {
+        if (area !== 'sync') return;
+
+        syncedToggleInputs.forEach((input, storageKey) => {
+            if (!changes[storageKey]) return;
+            input.checked = changes[storageKey].newValue !== false;
+        });
+
+        if (changes.optimisedNewNavEnabled) {
+            setNavigationSubOptionsEnabled(changes.optimisedNewNavEnabled.newValue !== false);
+        }
+    });
  
     // Stats Collector with Confirmation 
     const statsCollectorToggle = document.getElementById('statsCollectorToggle'); 
     if (statsCollectorToggle) { 
+        syncedToggleInputs.set('statsCollectorEnabled', statsCollectorToggle);
         chrome.storage.sync.get('statsCollectorEnabled', function(data) { 
             statsCollectorToggle.checked = data.statsCollectorEnabled === undefined ? true : data.statsCollectorEnabled; 
             if (data.statsCollectorEnabled === undefined) { 

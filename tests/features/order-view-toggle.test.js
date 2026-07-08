@@ -11,7 +11,7 @@ const contentStyles = fs.readFileSync(
     'utf8'
 );
 
-function createPage(enabled = true) {
+function createPage(enabled = true, parentEnabled = true) {
     const dom = new JSDOM(`<!doctype html><html><body>
         <div id="cm-buy-sidebar-order-revisions-header">
             <span>ORDERS</span>
@@ -42,7 +42,8 @@ function createPage(enabled = true) {
         storage: {
             sync: {
                 get: (_key, callback) => callback({
-                    newOrderUiOptimisationEnabled: enabled
+                    newOrderUiOptimisationEnabled: enabled,
+                    optimisedNewNavEnabled: parentEnabled
                 })
             },
             onChanged: {
@@ -60,6 +61,11 @@ function createPage(enabled = true) {
         setEnabled(value) {
             storageListener({
                 newOrderUiOptimisationEnabled: { newValue: value }
+            }, 'sync');
+        },
+        setParentEnabled(value) {
+            storageListener({
+                optimisedNewNavEnabled: { newValue: value }
             }, 'sync');
         }
     };
@@ -115,6 +121,21 @@ describe('new order UI optimisation', () => {
 
         expect(page.dom.window.document.querySelector('.order-view-toggle')).toBeNull();
         expect(page.nativeSelections).toEqual([]);
+        page.dom.window.close();
+    });
+
+    test('is removed while the navigation parent is off and returns with its preference', async () => {
+        const page = createPage();
+        page.dom.window.orderViewToggleFeature.initialize();
+        await flushAsync();
+
+        expect(page.dom.window.document.querySelector('.order-view-toggle')).not.toBeNull();
+        page.setParentEnabled(false);
+        expect(page.dom.window.document.querySelector('.order-view-toggle')).toBeNull();
+
+        page.setParentEnabled(true);
+        await flushAsync();
+        expect(page.dom.window.document.querySelector('.order-view-toggle')).not.toBeNull();
         page.dom.window.close();
     });
 });
