@@ -152,10 +152,11 @@
                         opacity: 0;
                         transition: opacity 0.3s ease-in-out;
                         color: white;
+                        pointer-events: none;
                     }
                     #${toastId}.show { opacity: 1; }
                     #${toastId}.toast-info { background-color: #0288D1; }
-                    #${toastId}.toast-success { background-color: #388E3C; }
+                    #${toastId}.toast-success { background-color: #333668; }
                     #${toastId}.toast-error { background-color: #D32F2F; }
                 `;
                 document.head.appendChild(style);

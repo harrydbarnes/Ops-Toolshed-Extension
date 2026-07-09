@@ -1,54 +1,154 @@
 (function() {
     'use strict';
 
+    const TOAST_ID = 'ops-toolshed-toast';
+
+    function getText(element) {
+        return (element?.innerText || element?.textContent || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function queryAllDeep(root = document) {
+        const results = [];
+        const visit = (currentRoot) => {
+            if (!currentRoot?.querySelectorAll) return;
+
+            currentRoot.querySelectorAll('*').forEach(element => {
+                results.push(element);
+                if (element.shadowRoot) visit(element.shadowRoot);
+            });
+        };
+
+        visit(root);
+        return results;
+    }
+
+    function waitForDeepElement(predicate, timeout = 5000, description = 'element') {
+        return new Promise((resolve, reject) => {
+            const intervalTime = 100;
+            const startedAt = Date.now();
+
+            const interval = setInterval(() => {
+                const element = queryAllDeep().find(predicate);
+                if (element) {
+                    clearInterval(interval);
+                    resolve(element);
+                    return;
+                }
+
+                if (Date.now() - startedAt >= timeout) {
+                    clearInterval(interval);
+                    reject(new Error(`${description} not found within ${timeout}ms`));
+                }
+            }, intervalTime);
+        });
+    }
+
+    function clickElement(element) {
+        if (!element) return;
+
+        const rect = element.getBoundingClientRect();
+        const view = element.ownerDocument?.defaultView || window;
+        const clientX = rect.left + Math.min(Math.max(rect.width / 2, 8), rect.width - 1);
+        const clientY = rect.top + Math.min(Math.max(rect.height / 2, 8), rect.height - 1);
+        const baseOptions = {
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+            clientX,
+            clientY,
+            button: 0,
+            view
+        };
+
+        if (view.PointerEvent) {
+            element.dispatchEvent(new view.PointerEvent('pointerdown', {
+                ...baseOptions,
+                buttons: 1,
+                pointerId: 1,
+                pointerType: 'mouse',
+                isPrimary: true
+            }));
+        }
+
+        element.dispatchEvent(new view.MouseEvent('mousedown', { ...baseOptions, buttons: 1 }));
+
+        if (view.PointerEvent) {
+            element.dispatchEvent(new view.PointerEvent('pointerup', {
+                ...baseOptions,
+                buttons: 0,
+                pointerId: 1,
+                pointerType: 'mouse',
+                isPrimary: true
+            }));
+        }
+
+        element.dispatchEvent(new view.MouseEvent('mouseup', { ...baseOptions, buttons: 0 }));
+        element.dispatchEvent(new view.MouseEvent('click', { ...baseOptions, buttons: 0 }));
+    }
+
+    function removeExistingToast() {
+        document.getElementById(TOAST_ID)?.remove();
+    }
+
+    async function openUserProfileMenuItem() {
+        const userMenu = await waitForDeepElement(
+            element => element.tagName === 'MO-BANNER-USER-MENU',
+            10000,
+            'Account menu'
+        );
+
+        const accountMenu = queryAllDeep(userMenu.shadowRoot || userMenu).find(element =>
+            element.tagName === 'MO-MENU'
+        );
+        if (!accountMenu) throw new Error('Account menu trigger not found');
+
+        clickElement(accountMenu);
+
+        const userProfileItem = await waitForDeepElement(
+            element => element.tagName === 'MO-MENU-ITEM' && /^User profile$/i.test(getText(element)),
+            5000,
+            'User profile menu option'
+        );
+        clickElement(userProfileItem);
+    }
+
+    async function selectAlternativePid() {
+        const pidOptionsContainer = await waitForDeepElement(
+            element => element.matches?.('div.pid-options'),
+            10000,
+            'PID options container'
+        );
+
+        const pidButtons = Array.from(pidOptionsContainer.querySelectorAll('button.mo-btn'));
+        const inactiveButton = pidButtons.find(button =>
+            !button.classList.contains('mo-active') &&
+            !button.classList.contains('active') &&
+            button.getAttribute('aria-pressed') !== 'true' &&
+            !button.disabled
+        );
+
+        if (!inactiveButton) throw new Error('Could not find an alternative PID to swap to.');
+        clickElement(inactiveButton);
+    }
+
     async function handleSwap(swapButton) {
         const textSpan = swapButton.querySelector('.switch-account-text');
         swapButton.disabled = true;
         if (textSpan) textSpan.textContent = 'Swapping...';
 
         try {
-            // 1. Find the user menu component.
-            const userMenu = await utils.waitForElementInShadow('mo-banner-user-menu');
-            if (!userMenu || !userMenu.shadowRoot) throw new Error('Could not find user menu component or its shadow root.');
+            removeExistingToast();
+            await openUserProfileMenuItem();
+            await selectAlternativePid();
 
-            // 2. Traverse the first shadow root to find the widget.
-            const bannerWidget = userMenu.shadowRoot.querySelector('mo-banner-widget');
-            if(!bannerWidget || !bannerWidget.shadowRoot) throw new Error('Could not find banner widget or its shadow root.');
-
-            // 3. Traverse the second shadow root to find the clickable menu.
-            const clickableMenu = bannerWidget.shadowRoot.querySelector('mo-menu');
-            if(!clickableMenu) throw new Error('Could not find clickable menu element.');
-            clickableMenu.click();
-
-
-            // 4. Wait for the menu content, then find and click "User Registration".
-            const userMenuContent = await utils.waitForElementInShadow('mo-banner-user-menu-content', document, 5000);
-            if (!userMenuContent) throw new Error('User menu content not found.');
-
-            // The items are in the light DOM of the content element, not a shadow root.
-            const labels = userMenuContent.querySelectorAll('.user-menu-item-label');
-            const userRegistrationButton = Array.from(labels).find(el => el.textContent.trim() === 'User Registration');
-            if (!userRegistrationButton) throw new Error('"User Registration" button not found in menu.');
-            userRegistrationButton.click();
-
-            // 5. Wait for the dialog and find the PID buttons.
-            const pidOptionsContainer = await utils.waitForElement('div.pid-options', 5000);
-            if (!pidOptionsContainer) throw new Error('PID options container not found in dialog.');
-
-            // 6. Find the inactive PID button and click it.
-            const inactiveButton = pidOptionsContainer.querySelector('button.mo-btn:not(.active)');
-            if (!inactiveButton) throw new Error('Could not find an alternative PID to swap to.');
-            inactiveButton.click();
-
-            // 7. Find and click the Save button.
             const saveButton = await utils.waitForElement('#saveButton');
             if (!saveButton) throw new Error('Save button not found.');
-            saveButton.click();
+            clickElement(saveButton);
 
             utils.showToast('Accounts swapped! Page will reload.', 'success');
 
             // Wait for the dialog to disappear and then reload.
-            await utils.waitForElementToDisappear('#userRegistrationDialog', 5000);
+            await utils.waitForElementToDisappear('#userRegistrationDialog', 10000);
             setTimeout(() => window.location.reload(), 500); // Brief delay before reload.
 
         } catch (error) {
