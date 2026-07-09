@@ -107,7 +107,10 @@
     function handleActionPointerDown(event) {
         if (!isActive()) return;
         const control = event.target.closest('button, [role="button"]');
-        if (!control) return;
+        if (!control) {
+            cancelRestoreForManualScroll(event.target);
+            return;
+        }
 
         const label = control.textContent.trim().toLowerCase();
         if (label === 'cancel') {
@@ -121,6 +124,31 @@
         if (['yes', 'no', 'reviewing'].includes(label) && actionScrollLeft <= 0) {
             freezeActionPosition();
         }
+    }
+
+    function findClosestScroller(element) {
+        let current = element;
+        while (current && current !== document.documentElement) {
+            if (isHorizontalScroller(current)) return current;
+            current = current.parentElement;
+        }
+        return null;
+    }
+
+    function cancelRestoreForManualScroll(target) {
+        if (actionScrollLeft <= 0 && Date.now() > restoreUntil) return;
+
+        const scroller = findClosestScroller(target);
+        if (!scroller) return;
+
+        clearActionState();
+        rememberScroller(scroller);
+    }
+
+    function handleWheel(event) {
+        if (!isActive()) return;
+        if (Math.abs(event.deltaX) <= 0 && !event.shiftKey) return;
+        cancelRestoreForManualScroll(event.target);
     }
 
     function restoreScrollPosition() {
@@ -175,6 +203,7 @@
 
         document.addEventListener('scroll', handleScroll, true);
         document.addEventListener('pointerdown', handleActionPointerDown, true);
+        document.addEventListener('wheel', handleWheel, true);
         document.addEventListener('keydown', event => {
             if (event.key === 'Enter' || event.key === ' ') handleActionPointerDown(event);
         }, true);

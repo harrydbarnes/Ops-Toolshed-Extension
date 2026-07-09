@@ -31,6 +31,7 @@ function createPage(enabled = true, parentEnabled = true) {
             onChanged: { addListener: () => {} }
         }
     };
+    dom.window.setTimeout = () => 0;
     dom.window.eval(featureScript);
     return dom;
 }
@@ -122,6 +123,28 @@ describe('Actualise horizontal scroll restoration', () => {
         dom.window.actualiseScrollRestoreFeature.restoreScrollPosition();
 
         expect(grid.scrollLeft).toBe(510);
+        dom.window.close();
+    });
+
+    test('allows a manual horizontal scroll during the restore window', () => {
+        const dom = createPage();
+        const grid = makeScrollable(dom.window.document.getElementById('actualise-grid'), 640);
+
+        dom.window.actualiseScrollRestoreFeature.initialize();
+        grid.dispatchEvent(new dom.window.Event('scroll'));
+        dom.window.actualiseScrollRestoreFeature.captureBeforeAction();
+        grid.scrollLeft = 0;
+        dom.window.actualiseScrollRestoreFeature.restoreScrollPosition();
+
+        grid.dispatchEvent(new dom.window.WheelEvent('wheel', {
+            bubbles: true,
+            deltaX: -180
+        }));
+        grid.scrollLeft = 260;
+        grid.dispatchEvent(new dom.window.Event('scroll'));
+        dom.window.actualiseScrollRestoreFeature.restoreScrollPosition();
+
+        expect(grid.scrollLeft).toBe(260);
         dom.window.close();
     });
 
