@@ -15,6 +15,7 @@
     let budgetWidgetOptimisedEnabled = true;
     let campaignNameQuickCopyEnabled = true;
     let campaignHeaderQuickCopyEnabled = true;
+    let campaignDateShortcutEnabled = true;
     let relocatedWorkflowSlot = null;
     let campaignNameToastTimeout = null;
     let campaignNameCopyListenerAttached = false;
@@ -42,7 +43,8 @@
             'quickCampaignActionsEnabled',
             'budgetWidgetOptimisedEnabled',
             'campaignNameQuickCopyEnabled',
-            'campaignHeaderQuickCopyEnabled'
+            'campaignHeaderQuickCopyEnabled',
+            'campaignDateShortcutEnabled'
         ], (data) => {
             if (chrome.runtime.lastError) return;
             if (data.hidingSectionsEnabled !== undefined) hidingSectionsEnabled = data.hidingSectionsEnabled;
@@ -55,6 +57,7 @@
             if (data.budgetWidgetOptimisedEnabled !== undefined) budgetWidgetOptimisedEnabled = data.budgetWidgetOptimisedEnabled;
             if (data.campaignNameQuickCopyEnabled !== undefined) campaignNameQuickCopyEnabled = data.campaignNameQuickCopyEnabled;
             if (data.campaignHeaderQuickCopyEnabled !== undefined) campaignHeaderQuickCopyEnabled = data.campaignHeaderQuickCopyEnabled;
+            if (data.campaignDateShortcutEnabled !== undefined) campaignDateShortcutEnabled = data.campaignDateShortcutEnabled;
         });
 
         chrome.storage.onChanged.addListener((changes, namespace) => {
@@ -69,6 +72,7 @@
             if (changes.budgetWidgetOptimisedEnabled) budgetWidgetOptimisedEnabled = changes.budgetWidgetOptimisedEnabled.newValue;
             if (changes.campaignNameQuickCopyEnabled) campaignNameQuickCopyEnabled = changes.campaignNameQuickCopyEnabled.newValue;
             if (changes.campaignHeaderQuickCopyEnabled) campaignHeaderQuickCopyEnabled = changes.campaignHeaderQuickCopyEnabled.newValue;
+            if (changes.campaignDateShortcutEnabled) campaignDateShortcutEnabled = changes.campaignDateShortcutEnabled.newValue;
         });
     }
 
@@ -404,6 +408,237 @@
         return true;
     }
 
+    function getRouteUrlWithParams(params) {
+        const [baseUrl, hash = ''] = window.location.href.split('#');
+        const routeParams = new URLSearchParams(hash);
+        Object.entries(params).forEach(([key, value]) => routeParams.set(key, value));
+        return `${baseUrl}#${routeParams.toString()}`;
+    }
+
+    function getCampaignDetailsUrl() {
+        return getRouteUrlWithParams({ osModalId: 'prsm-cm-cmpdtls' });
+    }
+
+    function dispatchWindowEvent(type) {
+        try {
+            window.dispatchEvent(new Event(type));
+            return;
+        } catch (error) {
+            // Older embedded browser contexts can lack constructable Events.
+        }
+
+        try {
+            const event = document.createEvent('Event');
+            event.initEvent(type, true, true);
+            window.dispatchEvent(event);
+        } catch (error) {
+            // Best effort only; direct navigation still happens below.
+        }
+    }
+
+    function nudgePrismaRouter() {
+        dispatchWindowEvent('hashchange');
+        dispatchWindowEvent('popstate');
+    }
+
+    function openCampaignDetails() {
+        const detailsUrl = getCampaignDetailsUrl();
+        const wasAlreadyThere = window.location.href === detailsUrl;
+        if (!wasAlreadyThere) {
+            window.location.href = detailsUrl;
+        }
+
+        window.setTimeout(nudgePrismaRouter, 0);
+        window.setTimeout(nudgePrismaRouter, 250);
+        return !wasAlreadyThere;
+    }
+
+    function findBasicCampaignDetailsSection() {
+        const anchoredBasicSection = document.getElementById('campaign-details-flight')?.closest('.well.editable') ||
+            document.getElementById('campaign-details-basics-pencil-icon')?.closest('.well.editable');
+        if (anchoredBasicSection) return anchoredBasicSection;
+
+        const allElements = getElementsIncludingShadowDom();
+        const basicHeadings = allElements.filter(element =>
+            element.matches?.('h1, h2, h3, h4, .panel-heading, .card-header')
+        );
+        const matchingHeading = basicHeadings.find(element =>
+            /^Basic\b/i.test((element.textContent || '').replace(/\s+/g, ' ').trim())
+        );
+        if (matchingHeading) {
+            let section = matchingHeading.parentElement;
+            while (section && section !== document.body) {
+                const rect = section.getBoundingClientRect();
+                const text = (section.textContent || '').replace(/\s+/g, ' ').trim();
+                if (
+                    rect.width > 100 &&
+                    rect.height > 80 &&
+                    /^Basic\b/i.test(text) &&
+                    /\bStart and end\b/i.test(text) &&
+                    /\bAdvertiser\b/i.test(text)
+                ) {
+                    return section;
+                }
+                section = section.parentElement;
+            }
+        }
+
+        const candidates = allElements.filter(element =>
+            element.matches?.('section, article, div, mo-card, mo-panel, mo-accordion, h1, h2, h3, h4')
+        );
+        const visibleCandidates = candidates.map(element => {
+            const rect = element.getBoundingClientRect();
+            const text = (element.textContent || '').replace(/\s+/g, ' ').trim();
+            return { element, rect, text, area: rect.width * rect.height };
+        }).filter(candidate => candidate.rect.width > 100 && candidate.rect.height > 80);
+
+        const bestCard = visibleCandidates
+            .filter(candidate =>
+                /^Basic\b/i.test(candidate.text) &&
+                /\bStart and end\b/i.test(candidate.text) &&
+                /\bAdvertiser\b/i.test(candidate.text)
+            )
+            .sort((a, b) => a.area - b.area)[0] || visibleCandidates
+            .filter(candidate =>
+                /^Basic\b/i.test(candidate.text) &&
+                /\bStart and end\b/i.test(candidate.text)
+            )
+            .sort((a, b) => a.area - b.area)[0];
+
+        return bestCard?.element || null;
+    }
+
+    function getElementsIncludingShadowDom(root = document, visited = new Set()) {
+        if (!root || visited.has(root)) return [];
+        visited.add(root);
+
+        const elements = [];
+        const queryRoot = root.nodeType === Node.DOCUMENT_NODE && root.body ? root.body : root;
+        let rootElements = [];
+        try {
+            rootElements = queryRoot.querySelectorAll ? Array.from(queryRoot.querySelectorAll('*')) : [];
+        } catch (error) {
+            const stack = Array.from(queryRoot.childNodes || []).filter(node => node.nodeType === Node.ELEMENT_NODE);
+            while (stack.length) {
+                const element = stack.shift();
+                rootElements.push(element);
+                if (element.tagName !== 'IFRAME') {
+                    stack.push(...Array.from(element.childNodes || []).filter(node => node.nodeType === Node.ELEMENT_NODE));
+                }
+            }
+        }
+
+        rootElements.forEach(element => {
+            if (visited.has(element)) return;
+            visited.add(element);
+            elements.push(element);
+            if (element.shadowRoot) {
+                elements.push(...getElementsIncludingShadowDom(element.shadowRoot, visited));
+            }
+            if (element.tagName === 'IFRAME') {
+                try {
+                    if (element.contentDocument) {
+                        elements.push(...getElementsIncludingShadowDom(element.contentDocument, visited));
+                    }
+                } catch (error) {
+                    // Cross-origin frames are expected in some Mediaocean shells.
+                }
+            }
+        });
+
+        return elements;
+    }
+
+    function getDeepElementFromPoint(x, y, root = document) {
+        let element = root.elementFromPoint?.(x, y) || document.elementFromPoint?.(x, y);
+
+        if (element?.tagName === 'IFRAME') {
+            try {
+                const frameRect = element.getBoundingClientRect();
+                const frameDocument = element.contentDocument;
+                if (frameDocument?.elementFromPoint) {
+                    const frameElement = getDeepElementFromPoint(x - frameRect.left, y - frameRect.top, frameDocument);
+                    if (frameElement) return frameElement;
+                }
+            } catch (error) {
+                return element;
+            }
+        }
+
+        while (element?.shadowRoot?.elementFromPoint) {
+            const nestedElement = element.shadowRoot.elementFromPoint(x, y);
+            if (!nestedElement || nestedElement === element) break;
+            element = nestedElement;
+        }
+
+        return element;
+    }
+
+    function activateElement(element, point = {}) {
+        const rect = element.getBoundingClientRect?.();
+        const clientX = rect
+            ? rect.left + Math.min(Math.max(point.x ?? rect.width / 2, 1), Math.max(rect.width - 1, 1))
+            : 0;
+        const clientY = rect
+            ? rect.top + Math.min(Math.max(point.y ?? rect.height / 2, 1), Math.max(rect.height - 1, 1))
+            : 0;
+        const eventView = element.ownerDocument?.defaultView || window;
+        const MouseEventConstructor = eventView.MouseEvent || MouseEvent;
+        const eventOptions = {
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+            clientX,
+            clientY,
+            button: 0,
+            buttons: 1,
+            view: eventView
+        };
+        const target = point.deep
+            ? getDeepElementFromPoint(clientX, clientY, element.ownerDocument || document) || element
+            : element;
+
+        target.dispatchEvent?.(new MouseEventConstructor('mousedown', eventOptions));
+        target.dispatchEvent?.(new MouseEventConstructor('mouseup', { ...eventOptions, buttons: 0 }));
+        target.click?.();
+    }
+
+    function focusBasicCampaignDetailsSection(deadline = Date.now() + 12000) {
+        const basicSection = findBasicCampaignDetailsSection();
+        if (basicSection) {
+            basicSection.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+            activateElement(basicSection, { x: 70, y: 62, deep: true });
+            return true;
+        }
+
+        if (Date.now() < deadline) {
+            window.setTimeout(() => focusBasicCampaignDetailsSection(deadline), 300);
+        }
+        return false;
+    }
+
+    function activateCampaignDetailsShortcut() {
+        const shortcut = document.querySelector('[data-toolshed-action="campaign-details"]');
+        if (!shortcut) return false;
+
+        activateElement(shortcut);
+        return true;
+    }
+
+    function handleCampaignDateShortcut(event) {
+        const dateElement = event.target.closest?.('.mo-date-field-wrapper');
+        if (!dateElement) return false;
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (!activateCampaignDetailsShortcut()) {
+            openCampaignDetails();
+        }
+        window.setTimeout(() => focusBasicCampaignDetailsSection(Date.now() + 15000), 300);
+        return true;
+    }
+
     function handleCampaignNameCopy() {
         if (campaignNameCopyListenerAttached) return;
         campaignNameCopyListenerAttached = true;
@@ -411,6 +646,7 @@
         document.addEventListener('pointerdown', event => {
             if (!optimisedNewNavEnabled) return;
 
+            if (campaignDateShortcutEnabled && handleCampaignDateShortcut(event)) return;
             if (campaignHeaderQuickCopyEnabled && handleBuyDetailsCopy(event)) return;
             if (!campaignNameQuickCopyEnabled) return;
 
@@ -585,13 +821,16 @@
         iconContainer.id = 'mo-extracted-actions-toolbar';
 
         const actions = [
-            { urlParam: "&osModalId=prsm-cm-cmpdtls", label: "Campaign details", icon: 'details' },
+            { modalId: "prsm-cm-cmpdtls", label: "Campaign details", icon: 'details' },
             { urlParam: "&osModalId=prsm-cm-cmpcopy", label: "Copy campaign", icon: 'copy' },
             { urlParam: "&osModalId=prsm-cm-hfrm&prsmForm=prsm-cm-hist", label: "Campaign history", icon: 'history' }
         ];
 
         actions.forEach(action => {
             const wrapper = document.createElement('div');
+            if (action.modalId === 'prsm-cm-cmpdtls') {
+                wrapper.dataset.toolshedAction = 'campaign-details';
+            }
             // Styles handled by CSS #mo-extracted-actions-toolbar > div
 
             // Create Icon
@@ -606,6 +845,11 @@
 
             // Handle Click Navigation
             const handleClick = () => {
+                if (action.modalId === 'prsm-cm-cmpdtls') {
+                    openCampaignDetails();
+                    return;
+                }
+
                 const currentUrl = window.location.href;
                 if (!currentUrl.includes(action.urlParam)) {
                     window.location.href = currentUrl + action.urlParam;

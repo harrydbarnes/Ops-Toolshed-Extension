@@ -20,6 +20,7 @@ function createPage(settings = {}) {
                 <mo-text class="mo-campaign-name-wrapper" contenteditable="true">Test Campaign Name</mo-text>
             </mo-popover>
             <div class="mo-header-right-section">
+                <mo-text class="mo-date-field-wrapper" data-full-text="(JUN 23 - JUL 20, 2026)">(JUN 23 - JUL 20, 2026)</mo-text>
                 <mo-toolbar-item id="campaign-menu-icon">Cog</mo-toolbar-item>
                 <div class="buy-details-wrapper">CP3FMRK | D/LB9/2/245</div>
             </div>
@@ -237,6 +238,79 @@ describe('campaign navigation UI optimisation', () => {
             action: 'copyToClipboard',
             text: 'LB9/2/245'
         });
+        dom.window.close();
+    });
+
+    test('opens Campaign details and focuses Basic when campaign dates are clicked', () => {
+        const dom = createPage();
+        const { document } = dom.window;
+        const dates = document.querySelector('.mo-date-field-wrapper');
+        const basic = document.createElement('div');
+        basic.className = 'well editable';
+        basic.textContent = 'Basic Name Start and end Advertiser';
+        const basicClick = jest.fn();
+        const basicMouseDownEvents = [];
+        basic.addEventListener('mousedown', event => {
+            basicMouseDownEvents.push({ clientX: event.clientX, clientY: event.clientY });
+        });
+        basic.click = basicClick;
+        basic.scrollIntoView = jest.fn();
+        const editIcon = document.createElement('mo-icon');
+        editIcon.id = 'campaign-details-basics-pencil-icon';
+        editIcon.setAttribute('name', 'edit');
+        editIcon.setAttribute('role', 'button');
+        const editClick = jest.fn();
+        editIcon.click = editClick;
+        const flight = document.createElement('td');
+        flight.id = 'campaign-details-flight';
+        flight.textContent = '23/06/2026 - 20/07/2026';
+        basic.appendChild(editIcon);
+        basic.appendChild(flight);
+        Object.defineProperty(basic, 'getBoundingClientRect', {
+            configurable: true,
+            value: () => ({ left: 10, top: 120, width: 900, height: 240, bottom: 360 })
+        });
+        dom.window.setTimeout = callback => {
+            callback();
+            return 0;
+        };
+        const dispatchedWindowEvents = [];
+        const originalDispatchEvent = dom.window.dispatchEvent.bind(dom.window);
+        jest.spyOn(dom.window, 'dispatchEvent').mockImplementation(event => {
+            dispatchedWindowEvents.push(event.type);
+            return originalDispatchEvent(event);
+        });
+
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+        document.body.appendChild(basic);
+        dates.dispatchEvent(
+            new dom.window.MouseEvent('pointerdown', { bubbles: true, composed: true })
+        );
+
+        expect(dom.window.location.href).toContain('osModalId=prsm-cm-cmpdtls');
+        expect(dispatchedWindowEvents).toEqual(
+            expect.arrayContaining(['hashchange', 'popstate'])
+        );
+        expect(basic.scrollIntoView).toHaveBeenCalledWith({ block: 'center', behavior: 'smooth' });
+        expect(basicClick).toHaveBeenCalled();
+        expect(basicMouseDownEvents).toEqual(
+            expect.arrayContaining([{ clientX: 80, clientY: 182 }])
+        );
+        expect(editClick).not.toHaveBeenCalled();
+        dom.window.close();
+    });
+
+    test('does not open Campaign details from campaign dates when the shortcut is disabled', () => {
+        const dom = createPage({ campaignDateShortcutEnabled: false });
+        const { document } = dom.window;
+        const dates = document.querySelector('.mo-date-field-wrapper');
+
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+        dates.dispatchEvent(
+            new dom.window.MouseEvent('pointerdown', { bubbles: true, composed: true })
+        );
+
+        expect(dom.window.location.href).not.toContain('osModalId=prsm-cm-cmpdtls');
         dom.window.close();
     });
 
