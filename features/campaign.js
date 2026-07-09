@@ -14,6 +14,7 @@
     let quickCampaignActionsEnabled = true;
     let budgetWidgetOptimisedEnabled = true;
     let campaignNameQuickCopyEnabled = true;
+    let campaignHeaderQuickCopyEnabled = true;
     let relocatedWorkflowSlot = null;
     let campaignNameToastTimeout = null;
     let campaignNameCopyListenerAttached = false;
@@ -40,7 +41,8 @@
             'approverWidgetPlacementEnabled',
             'quickCampaignActionsEnabled',
             'budgetWidgetOptimisedEnabled',
-            'campaignNameQuickCopyEnabled'
+            'campaignNameQuickCopyEnabled',
+            'campaignHeaderQuickCopyEnabled'
         ], (data) => {
             if (chrome.runtime.lastError) return;
             if (data.hidingSectionsEnabled !== undefined) hidingSectionsEnabled = data.hidingSectionsEnabled;
@@ -52,6 +54,7 @@
             if (data.quickCampaignActionsEnabled !== undefined) quickCampaignActionsEnabled = data.quickCampaignActionsEnabled;
             if (data.budgetWidgetOptimisedEnabled !== undefined) budgetWidgetOptimisedEnabled = data.budgetWidgetOptimisedEnabled;
             if (data.campaignNameQuickCopyEnabled !== undefined) campaignNameQuickCopyEnabled = data.campaignNameQuickCopyEnabled;
+            if (data.campaignHeaderQuickCopyEnabled !== undefined) campaignHeaderQuickCopyEnabled = data.campaignHeaderQuickCopyEnabled;
         });
 
         chrome.storage.onChanged.addListener((changes, namespace) => {
@@ -65,6 +68,7 @@
             if (changes.quickCampaignActionsEnabled) quickCampaignActionsEnabled = changes.quickCampaignActionsEnabled.newValue;
             if (changes.budgetWidgetOptimisedEnabled) budgetWidgetOptimisedEnabled = changes.budgetWidgetOptimisedEnabled.newValue;
             if (changes.campaignNameQuickCopyEnabled) campaignNameQuickCopyEnabled = changes.campaignNameQuickCopyEnabled.newValue;
+            if (changes.campaignHeaderQuickCopyEnabled) campaignHeaderQuickCopyEnabled = changes.campaignHeaderQuickCopyEnabled.newValue;
         });
     }
 
@@ -267,16 +271,18 @@
         handleBudgetDisplayOptimisation(); // Trigger budget display changes
     }
 
-    function showCampaignNameCopiedToast(nameElement) {
+    function showCampaignNameCopiedToast(nameElement, message = 'Campaign Name Copied to Clipboard!') {
         let toast = document.getElementById('campaign-name-copy-toast');
         if (!toast) {
             toast = document.createElement('div');
             toast.id = 'campaign-name-copy-toast';
-            toast.textContent = 'Campaign Name Copied to Clipboard!';
             document.body.appendChild(toast);
         }
+        toast.textContent = message;
 
-        const rect = nameElement.getBoundingClientRect();
+        const rect = typeof nameElement.getBoundingClientRect === 'function'
+            ? nameElement.getBoundingClientRect()
+            : nameElement;
         toast.style.left = `${rect.left + (rect.width / 2)}px`;
         toast.style.top = `${rect.bottom + 8}px`;
         toast.classList.add('show');
@@ -287,12 +293,126 @@
         }, 2500);
     }
 
+    function getCampaignIdFromUrl() {
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        return hashParams.get('campaign-id') || '';
+    }
+
+    function parseBuyDetails(text) {
+        const normalized = (text || '').replace(/\s+/g, ' ').trim();
+        if (!normalized) return null;
+
+        const campaignId = getCampaignIdFromUrl();
+        const pattern = campaignId
+            ? new RegExp(`(${campaignId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\s*\\|\\s*((?:[DP]/)?[A-Z0-9]+/\\d+/\\d+)`, 'i')
+            : /([A-Z0-9]{5,})\s*\|\s*((?:[DP]\/)?[A-Z0-9]+\/\d+\/\d+)/i;
+        const match = normalized.match(pattern);
+        if (!match) return null;
+
+        const rawClPrCa = match[2];
+        return {
+            campaignId: match[1],
+            rawClPrCa,
+            clPrCa: rawClPrCa.replace(/^[DP]\//i, '')
+        };
+    }
+
+    function copyHeaderValue(value, target, message) {
+        if (!value) return;
+
+        chrome.runtime.sendMessage({ action: 'copyToClipboard', text: value })
+            .then(response => {
+                if (response?.status !== 'success') {
+                    throw new Error(response?.message || 'Clipboard service did not confirm the copy.');
+                }
+                showCampaignNameCopiedToast(target, message);
+            })
+            .catch(error => console.error('Failed to copy campaign header value:', error));
+    }
+
+    function findBuyDetailsTextElement(buyDetails, parsed) {
+        const textElements = Array.from(buyDetails.querySelectorAll('[data-full-text], mo-text'));
+        return textElements.find(element => {
+            const rect = element.getBoundingClientRect();
+            const text = element.getAttribute('data-full-text') || element.textContent || '';
+            return rect.width > 0 &&
+                rect.height > 0 &&
+                text.includes(parsed.campaignId) &&
+                text.includes(parsed.rawClPrCa);
+        }) || buyDetails;
+    }
+
+    function getTextWidth(text, element) {
+        const canvas = getTextWidth.canvas || document.createElement('canvas');
+        getTextWidth.canvas = canvas;
+        let context = null;
+        try {
+            context = canvas.getContext?.('2d') || null;
+        } catch (_error) {
+            context = null;
+        }
+        if (!context) return null;
+
+        const style = window.getComputedStyle(element);
+        context.font = style.font || `${style.fontStyle} ${style.fontVariant} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+        return context.measureText(text).width;
+    }
+
+    function getBuyDetailsCopyTarget(event, buyDetails, parsed) {
+        const textElement = findBuyDetailsTextElement(buyDetails, parsed);
+        const displayText = textElement.getAttribute?.('data-full-text') || textElement.textContent || buyDetails.textContent || '';
+        const pipeIndex = displayText.indexOf('|');
+        if (pipeIndex < 0) return null;
+
+        const rect = textElement.getBoundingClientRect();
+        const beforePipeWidth = getTextWidth(displayText.slice(0, pipeIndex), textElement);
+        if (!rect.width || event.clientX <= rect.left) return null;
+
+        const pipeRatio = displayText.length > 0 ? pipeIndex / displayText.length : 0.5;
+        const pipeX = rect.left + (beforePipeWidth !== null ? beforePipeWidth : rect.width * pipeRatio);
+        const copyClPrCa = event.clientX > pipeX;
+        const anchorRect = copyClPrCa
+            ? {
+                left: pipeX,
+                width: Math.max(1, (rect.left + rect.width) - pipeX),
+                bottom: rect.bottom
+            }
+            : {
+                left: rect.left,
+                width: Math.max(1, pipeX - rect.left),
+                bottom: rect.bottom
+            };
+
+        return {
+            value: copyClPrCa ? parsed.clPrCa : parsed.campaignId,
+            message: copyClPrCa ? 'CL/PR/CA Copied to Clipboard!' : 'Campaign ID Copied to Clipboard!',
+            anchorRect
+        };
+    }
+
+    function handleBuyDetailsCopy(event) {
+        const buyDetails = event.target.closest?.('.buy-details-wrapper');
+        if (!buyDetails) return false;
+
+        const parsed = parseBuyDetails(buyDetails.textContent);
+        if (!parsed) return false;
+
+        const copyTarget = getBuyDetailsCopyTarget(event, buyDetails, parsed);
+        if (!copyTarget) return false;
+
+        copyHeaderValue(copyTarget.value, copyTarget.anchorRect, copyTarget.message);
+        return true;
+    }
+
     function handleCampaignNameCopy() {
         if (campaignNameCopyListenerAttached) return;
         campaignNameCopyListenerAttached = true;
 
         document.addEventListener('pointerdown', event => {
-            if (!optimisedNewNavEnabled || !campaignNameQuickCopyEnabled) return;
+            if (!optimisedNewNavEnabled) return;
+
+            if (campaignHeaderQuickCopyEnabled && handleBuyDetailsCopy(event)) return;
+            if (!campaignNameQuickCopyEnabled) return;
 
             const eventPath = event.composedPath();
             const nameElement = eventPath.find(node =>
@@ -306,15 +426,9 @@
             const campaignName = nameElement.textContent.trim();
             if (!campaignName) return;
 
-            chrome.runtime.sendMessage({ action: 'copyToClipboard', text: campaignName })
-                .then(response => {
-                    if (response?.status !== 'success') {
-                        throw new Error(response?.message || 'Clipboard service did not confirm the copy.');
-                    }
-                    showCampaignNameCopiedToast(nameElement);
-                })
-                .catch(error => console.error('Failed to copy campaign name:', error));
+            copyHeaderValue(campaignName, nameElement, 'Campaign Name Copied to Clipboard!');
         }, true);
+
     }
 
     function handleBudgetDisplayOptimisation() {

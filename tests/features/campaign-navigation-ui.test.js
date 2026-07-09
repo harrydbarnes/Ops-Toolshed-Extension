@@ -21,11 +21,11 @@ function createPage(settings = {}) {
             </mo-popover>
             <div class="mo-header-right-section">
                 <mo-toolbar-item id="campaign-menu-icon">Cog</mo-toolbar-item>
-                <div class="buy-details-wrapper">Campaign dates and buy details</div>
+                <div class="buy-details-wrapper">CP3FMRK | D/LB9/2/245</div>
             </div>
         </div>
     </body></html>`, {
-        url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-buy&route=online',
+        url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-buy&campaign-id=CP3FMRK&route=online',
         runScripts: 'dangerously'
     });
 
@@ -49,8 +49,27 @@ function createPage(settings = {}) {
         value: { writeText: jest.fn().mockResolvedValue(undefined) },
         configurable: true
     });
+    dom.window.HTMLCanvasElement.prototype.getContext = () => null;
     dom.window.eval(featureScript);
     return dom;
+}
+
+function mockBuyDetailsTextMetrics(dom, buyDetails, beforePipeWidth = 80) {
+    const { document } = dom.window;
+    const originalCreateElement = document.createElement.bind(document);
+    jest.spyOn(document, 'createElement').mockImplementation(tagName => {
+        if (tagName !== 'canvas') return originalCreateElement(tagName);
+        return {
+            getContext: () => ({
+                font: '',
+                measureText: text => ({ width: text === 'CP3FMRK ' ? beforePipeWidth : text.length * 10 })
+            })
+        };
+    });
+    Object.defineProperty(buyDetails, 'getBoundingClientRect', {
+        configurable: true,
+        value: () => ({ left: 100, width: 180, bottom: 70 })
+    });
 }
 
 describe('campaign navigation UI optimisation', () => {
@@ -142,23 +161,109 @@ describe('campaign navigation UI optimisation', () => {
         dom.window.close();
     });
 
+    test('copies the Campaign ID from the buy details header', async () => {
+        const dom = createPage();
+        const { document, chrome } = dom.window;
+        const buyDetails = document.querySelector('.buy-details-wrapper');
+        mockBuyDetailsTextMetrics(dom, buyDetails);
+
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+        expect(buyDetails.innerHTML).toBe('CP3FMRK | D/LB9/2/245');
+        buyDetails.dispatchEvent(
+            new dom.window.MouseEvent('pointerdown', { bubbles: true, composed: true, clientX: 120 })
+        );
+        await Promise.resolve();
+
+        expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+            action: 'copyToClipboard',
+            text: 'CP3FMRK'
+        });
+        const toast = document.getElementById('campaign-name-copy-toast');
+        expect(toast.textContent).toBe('Campaign ID Copied to Clipboard!');
+        expect(toast.style.left).toBe('140px');
+        dom.window.close();
+    });
+
+    test('copies the Campaign ID when clicking the right side of its text before the pipe', async () => {
+        const dom = createPage();
+        const { document, chrome } = dom.window;
+        const buyDetails = document.querySelector('.buy-details-wrapper');
+        mockBuyDetailsTextMetrics(dom, buyDetails, 110);
+
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+        buyDetails.dispatchEvent(
+            new dom.window.MouseEvent('pointerdown', { bubbles: true, composed: true, clientX: 190, clientY: 50 })
+        );
+        await Promise.resolve();
+
+        expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+            action: 'copyToClipboard',
+            text: 'CP3FMRK'
+        });
+        dom.window.close();
+    });
+
+    test('copies CL/PR/CA from the buy details header without D or P prefix', async () => {
+        const dom = createPage();
+        const { document, chrome } = dom.window;
+        const buyDetails = document.querySelector('.buy-details-wrapper');
+        mockBuyDetailsTextMetrics(dom, buyDetails);
+
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+        expect(buyDetails.innerHTML).toBe('CP3FMRK | D/LB9/2/245');
+        buyDetails.dispatchEvent(
+            new dom.window.MouseEvent('pointerdown', { bubbles: true, composed: true, clientX: 260 })
+        );
+        await Promise.resolve();
+
+        expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+            action: 'copyToClipboard',
+            text: 'LB9/2/245'
+        });
+        const toast = document.getElementById('campaign-name-copy-toast');
+        expect(toast.textContent).toBe('CL/PR/CA Copied to Clipboard!');
+        expect(toast.style.left).toBe('230px');
+
+        chrome.runtime.sendMessage.mockClear();
+        buyDetails.textContent = 'CP3FMRK | P/LB9/2/245';
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+        expect(buyDetails.innerHTML).toBe('CP3FMRK | P/LB9/2/245');
+        buyDetails.dispatchEvent(
+            new dom.window.MouseEvent('pointerdown', { bubbles: true, composed: true, clientX: 260 })
+        );
+        await Promise.resolve();
+
+        expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+            action: 'copyToClipboard',
+            text: 'LB9/2/245'
+        });
+        dom.window.close();
+    });
+
     test('respects individually disabled navigation enhancements', async () => {
         const dom = createPage({
             ordersShortcutEnabled: false,
             approverWidgetPlacementEnabled: false,
             quickCampaignActionsEnabled: false,
-            campaignNameQuickCopyEnabled: false
+            campaignNameQuickCopyEnabled: false,
+            campaignHeaderQuickCopyEnabled: false
         });
         const { document, chrome } = dom.window;
+        const buyDetails = document.querySelector('.buy-details-wrapper');
+        mockBuyDetailsTextMetrics(dom, buyDetails);
 
         dom.window.campaignFeature.handleCampaignNavigationOptimisation();
         document.querySelector('.mo-campaign-name-wrapper').dispatchEvent(
             new dom.window.MouseEvent('pointerdown', { bubbles: true, composed: true })
         );
+        buyDetails.dispatchEvent(
+            new dom.window.MouseEvent('pointerdown', { bubbles: true, composed: true, clientX: 120 })
+        );
         await Promise.resolve();
 
         expect(document.getElementById('p2b-navbar-section-orders')).toBeNull();
         expect(document.getElementById('mo-extracted-actions-toolbar')).toBeNull();
+        expect(document.querySelector('.buy-details-wrapper').innerHTML).toBe('CP3FMRK | D/LB9/2/245');
         expect(document.querySelector('div[slot="right"]').parentElement.id).toBe('native-header');
         expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
         dom.window.close();

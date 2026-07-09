@@ -16,6 +16,7 @@ describe('campaign navigation settings', () => {
         ['quickCampaignActionsToggle', 'quickCampaignActionsEnabled'],
         ['budgetWidgetOptimisedToggle', 'budgetWidgetOptimisedEnabled'],
         ['campaignNameQuickCopyToggle', 'campaignNameQuickCopyEnabled'],
+        ['campaignHeaderQuickCopyToggle', 'campaignHeaderQuickCopyEnabled'],
         ['newOrderUiOptimisationToggle', 'newOrderUiOptimisationEnabled'],
         ['actualiseScrollRestoreToggle', 'actualiseScrollRestoreEnabled']
     ])('exposes enabled-by-default sub-option %s', (toggleId, storageKey) => {
@@ -27,6 +28,7 @@ describe('campaign navigation settings', () => {
         expect(settingsScript).toContain('input.disabled = !isEnabled');
         expect(settingsScript).not.toContain('ordersShortcutEnabled: isEnabled');
         expect(settingsScript).not.toContain('campaignNameQuickCopyEnabled: isEnabled');
+        expect(settingsScript).not.toContain('campaignHeaderQuickCopyEnabled: isEnabled');
     });
 
     test('keeps an open Settings page synced with popup storage changes', () => {
