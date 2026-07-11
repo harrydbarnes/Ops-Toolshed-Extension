@@ -37,7 +37,7 @@ All optional enhancements can be controlled from **Settings**.
 | --- | --- |
 | Campaign navigation | Offers configurable optimised navigation, direct Orders access, responsive booked-budget information, campaign-name click-to-copy, Actualise scroll restoration, and Campaign Details, Copy, and History actions beside the campaign name. |
 | Order ID Copy | Adds a button that copies an Order ID without its version suffix. |
-| Auto Copy Campaign URL | Copies the campaign URL when Prisma's link-copy control is used. |
+| Auto Copy Campaign URL | Copies either Prisma's short campaign link or the full current URL when the link-copy control is used. |
 | Add Campaign automation | Opens the full-details flow, hides unused sections, and can select Digital media mix and Total Cost budget type automatically. |
 | Placement Counter | Shows the number of selected placements in the Prisma grid. |
 | Approver Widget Optimise | Improves the approval widget layout, keeps it available in Actualise, and provides fast approver entry. |

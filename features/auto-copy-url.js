@@ -3,15 +3,21 @@
 
     let listenerAttached = false;
     let isEnabled = true;
+    let urlMode = 'short';
+    let ignoreNextTrigger = false;
 
-    chrome.storage.sync.get('autoCopyUrlEnabled', (data) => {
+    chrome.storage.sync.get(['autoCopyUrlEnabled', 'autoCopyUrlMode'], (data) => {
         isEnabled = data.autoCopyUrlEnabled !== false;
+        urlMode = data.autoCopyUrlMode === 'full' ? 'full' : 'short';
     });
 
     chrome.storage.onChanged.addListener((changes, area) => {
         if (area === 'sync' && changes.autoCopyUrlEnabled) {
             isEnabled = changes.autoCopyUrlEnabled.newValue !== false;
             updateLinkIconCue();
+        }
+        if (area === 'sync' && changes.autoCopyUrlMode) {
+            urlMode = changes.autoCopyUrlMode.newValue === 'full' ? 'full' : 'short';
         }
     });
 
@@ -105,13 +111,22 @@
 
     function isPageLinkTriggerClick(event) {
         const path = event.composedPath ? event.composedPath() : [];
-        const clickedLinkIcon = path.some(element =>
-            element?.tagName === 'MO-ICON' && element.getAttribute?.('name') === 'link'
-        );
-        const clickedBannerLinkPopover = path.some(element => element?.tagName === 'MO-POPOVER') &&
-            path.some(element => element?.tagName === 'MO-BANNER');
+        const clickedBanner = path.some(element => element?.tagName === 'MO-BANNER');
+        const clickedLinkControl = path.some(element => {
+            if (element?.tagName === 'MO-ICON' && element.getAttribute?.('name') === 'link') {
+                return true;
+            }
 
-        return clickedLinkIcon && clickedBannerLinkPopover;
+            if (element?.tagName !== 'MO-POPOVER' && element?.tagName !== 'MO-BANNER-WIDGET') {
+                return false;
+            }
+
+            return queryAllDeep(element).some(descendant =>
+                descendant.tagName === 'MO-ICON' && descendant.getAttribute('name') === 'link'
+            );
+        });
+
+        return clickedBanner && clickedLinkControl;
     }
 
     function updateLinkIconCue() {
@@ -133,6 +148,102 @@
         return pageLinkInput?.value || pageLinkInput?.getAttribute?.('value') || '';
     }
 
+    function findPageLinkPanel() {
+        const pageLinkInput = queryAllDeep().find(element =>
+            (element.tagName === 'MO-INPUT' || element.tagName === 'INPUT') &&
+            /^https:\/\/tiny\.mediaocean\.com\//i.test(element.value || element.getAttribute?.('value') || '')
+        );
+        if (!pageLinkInput) return null;
+
+        let candidate = pageLinkInput;
+        while (candidate && candidate !== document.documentElement) {
+            const containsCopyButton = queryAllDeep(candidate).some(element =>
+                element.tagName === 'MO-BUTTON' &&
+                element.classList.contains('copy-button') &&
+                /^Copy$/i.test(getText(element))
+            );
+            if (containsCopyButton) return candidate;
+            candidate = candidate.parentElement || candidate.getRootNode?.().host || null;
+        }
+
+        return null;
+    }
+
+    function suppressPageLinkPanel() {
+        let active = true;
+        let animationFrameId = null;
+        const hiddenPanels = new Set();
+        const scheduleFrame = window.requestAnimationFrame
+            ? window.requestAnimationFrame.bind(window)
+            : callback => setTimeout(callback, 16);
+        const cancelFrame = window.cancelAnimationFrame
+            ? window.cancelAnimationFrame.bind(window)
+            : clearTimeout;
+
+        const hidePanel = () => {
+            const panel = findPageLinkPanel();
+            if (panel && !hiddenPanels.has(panel)) {
+                panel.style.setProperty('visibility', 'hidden', 'important');
+                hiddenPanels.add(panel);
+            }
+        };
+
+        const hideBeforePaint = () => {
+            if (!active) return;
+            hidePanel();
+            animationFrameId = scheduleFrame(hideBeforePaint);
+        };
+
+        hidePanel();
+        animationFrameId = scheduleFrame(hideBeforePaint);
+
+        return () => {
+            active = false;
+            if (animationFrameId !== null) cancelFrame(animationFrameId);
+            hiddenPanels.forEach(panel => panel.style.removeProperty('visibility'));
+        };
+    }
+
+    async function copyWithExtensionClipboard(pageLink) {
+        const response = await chrome.runtime.sendMessage({
+            action: 'copyToClipboard',
+            text: pageLink
+        });
+
+        if (response?.status !== 'success') {
+            throw new Error(response?.message || 'Clipboard service did not confirm the copy.');
+        }
+    }
+
+    function showCopiedToast() {
+        utils.showToast('Campaign URL copied to clipboard!', 'success');
+        document.getElementById('ops-toolshed-toast')?.classList.add('toast-offset-native');
+    }
+
+    async function copyFullUrl() {
+        try {
+            await copyWithExtensionClipboard(window.location.href);
+            showCopiedToast();
+        } catch (error) {
+            console.error('Failed to copy the full campaign URL', error);
+        }
+    }
+
+    function closePageLinkPopover() {
+        const linkIcon = queryAllDeep().find(element =>
+            element.tagName === 'MO-ICON' &&
+            element.getAttribute('name') === 'link' &&
+            element.closest?.('mo-popover')
+        );
+        if (!linkIcon) return;
+
+        ignoreNextTrigger = true;
+        clickElement(linkIcon);
+        setTimeout(() => {
+            ignoreNextTrigger = false;
+        }, 0);
+    }
+
     async function clickNativeCopyButton() {
         const copyButton = await waitForDeepElement(
             element =>
@@ -140,7 +251,7 @@
                 element.classList.contains('copy-button') &&
                 /^Copy$/i.test(getText(element)) &&
                 isVisible(element),
-            5000,
+            7000,
             'Page link Copy button'
         );
 
@@ -148,16 +259,17 @@
         return findPageLinkValue();
     }
 
-    async function automateCopyFromPopover() {
+    async function automateCopyFromPopover(stopSuppressingPanel = () => {}) {
         try {
-            const pageLink = await clickNativeCopyButton();
-            utils.showToast(pageLink ? 'Campaign URL copied to clipboard!' : 'URL copied to clipboard!', 'success');
+            await clickNativeCopyButton();
+            showCopiedToast();
         } catch (error) {
             const pageLink = findPageLinkValue();
             if (pageLink) {
                 try {
-                    await navigator.clipboard.writeText(pageLink);
-                    utils.showToast('Campaign URL copied to clipboard!', 'success');
+                    await copyWithExtensionClipboard(pageLink);
+                    showCopiedToast();
+                    closePageLinkPopover();
                     return;
                 } catch (clipboardError) {
                     console.error('Failed to copy campaign URL from page link input', clipboardError);
@@ -165,6 +277,8 @@
             }
 
             console.error('Failed to auto-copy campaign URL', error);
+        } finally {
+            setTimeout(stopSuppressingPanel, 500);
         }
     }
 
@@ -174,10 +288,23 @@
         if (listenerAttached) return;
 
         document.addEventListener('click', (event) => {
+            if (ignoreNextTrigger) {
+                ignoreNextTrigger = false;
+                return;
+            }
             if (!isEnabled || !isPageLinkTriggerClick(event)) return;
 
+            if (urlMode === 'full') {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                copyFullUrl();
+                return;
+            }
+
+            const stopSuppressingPanel = suppressPageLinkPanel();
+
             setTimeout(() => {
-                automateCopyFromPopover();
+                automateCopyFromPopover(stopSuppressingPanel);
             }, 0);
         }, true);
 
@@ -185,8 +312,9 @@
     }
 
     function initialize() {
-        chrome.storage.sync.get('autoCopyUrlEnabled', (data) => {
+        chrome.storage.sync.get(['autoCopyUrlEnabled', 'autoCopyUrlMode'], (data) => {
             isEnabled = data.autoCopyUrlEnabled !== false;
+            urlMode = data.autoCopyUrlMode === 'full' ? 'full' : 'short';
             handleAutoCopy();
         });
     }
@@ -197,7 +325,9 @@
         _test: {
             isPageLinkTriggerClick,
             queryAllDeep,
-            findPageLinkValue
+            findPageLinkValue,
+            showCopiedToast,
+            findPageLinkPanel
         }
     };
 

@@ -361,6 +361,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } 
  
         function openDropdown() { 
+            if (dropdown.classList.contains('is-disabled')) return;
             // Close other dropdowns first 
             document.querySelectorAll('.custom-dropdown.active').forEach(d => { 
                 if (d !== dropdown) { 
@@ -400,11 +401,13 @@ document.addEventListener('DOMContentLoaded', function() {
         // Toggle dropdown open/close on click 
         trigger.addEventListener('click', (e) => { 
             e.stopPropagation(); 
+            if (dropdown.classList.contains('is-disabled')) return;
             toggleDropdown(); 
         }); 
  
         // Trigger Keyboard Events 
         trigger.addEventListener('keydown', (e) => { 
+            if (dropdown.classList.contains('is-disabled')) return;
             if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown' || e.key === 'ArrowUp') { 
                 e.preventDefault(); 
                 openDropdown(); 
@@ -414,6 +417,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Handle option selection 
         options.forEach((option, index) => { 
             const selectOption = () => { 
+                if (dropdown.classList.contains('is-disabled')) return;
                 const value = option.dataset.value; 
                 updateUI(value); 
                 chrome.storage.sync.set({ [storageKey]: value }, () => { 
@@ -446,6 +450,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 } 
             }); 
         }); 
+
+        dropdown.addEventListener('custom-dropdown:set-value', (event) => {
+            updateUI(event.detail);
+        });
     } 
  
     // Close dropdown when clicking outside (Global Listener) 
@@ -462,6 +470,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize the two theme dropdowns 
     initializeCustomDropdown('uiThemeDropdown', 'uiTheme', 'pink'); 
     initializeCustomDropdown('reminderThemeDropdown', 'reminderTheme', 'pink'); 
+    initializeCustomDropdown('autoCopyUrlModeDropdown', 'autoCopyUrlMode', 'short');
 
     const logoToggle = document.getElementById('logoToggle'); 
     if (logoToggle) { 
@@ -652,6 +661,33 @@ document.addEventListener('DOMContentLoaded', function() {
     setupToggle('autoCopyUrlToggle', 'autoCopyUrlEnabled', 'Auto Copy URL setting saved:'); 
     setupToggle('loadingFactsToggle', 'loadingFactsEnabled', 'Show Loading Facts setting saved:');
 
+    const autoCopyUrlToggle = document.getElementById('autoCopyUrlToggle');
+    const autoCopyUrlModeDropdown = document.getElementById('autoCopyUrlModeDropdown');
+    const autoCopyUrlSubOptions = document.getElementById('autoCopyUrlSubOptions');
+    const setAutoCopyUrlSubOptionsEnabled = (enabled) => {
+        if (autoCopyUrlModeDropdown) {
+            autoCopyUrlModeDropdown.classList.toggle('is-disabled', !enabled);
+            autoCopyUrlModeDropdown.setAttribute('aria-disabled', String(!enabled));
+            const trigger = autoCopyUrlModeDropdown.querySelector('.dropdown-trigger');
+            if (trigger) trigger.tabIndex = enabled ? 0 : -1;
+            if (!enabled) autoCopyUrlModeDropdown.classList.remove('active');
+        }
+        if (autoCopyUrlSubOptions) {
+            autoCopyUrlSubOptions.classList.toggle('is-disabled', !enabled);
+            autoCopyUrlSubOptions.setAttribute('aria-disabled', String(!enabled));
+        }
+    };
+
+    if (autoCopyUrlModeDropdown) {
+        chrome.storage.sync.get(['autoCopyUrlEnabled'], (data) => {
+            setAutoCopyUrlSubOptionsEnabled(data.autoCopyUrlEnabled !== false);
+        });
+    }
+
+    autoCopyUrlToggle?.addEventListener('change', () => {
+        setAutoCopyUrlSubOptionsEnabled(autoCopyUrlToggle.checked);
+    });
+
     // Optimised campaign navigation master toggle. Child preferences remain
     // stored while the parent is off, so they return exactly as configured.
     const optimisedNewNavToggle = document.getElementById('optimisedNewNavToggle');
@@ -702,6 +738,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (changes.optimisedNewNavEnabled) {
             setNavigationSubOptionsEnabled(changes.optimisedNewNavEnabled.newValue !== false);
+        }
+        if (changes.autoCopyUrlEnabled) {
+            setAutoCopyUrlSubOptionsEnabled(changes.autoCopyUrlEnabled.newValue !== false);
+        }
+        if (changes.autoCopyUrlMode && autoCopyUrlModeDropdown) {
+            autoCopyUrlModeDropdown.dispatchEvent(new CustomEvent('custom-dropdown:set-value', {
+                detail: changes.autoCopyUrlMode.newValue === 'full' ? 'full' : 'short'
+            }));
         }
     });
  

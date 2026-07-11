@@ -194,6 +194,26 @@ section h2 {
     display: block;
 }
 
+.custom-dropdown.is-disabled {
+    pointer-events: none;
+    cursor: not-allowed;
+}
+
+.custom-dropdown.is-disabled .dropdown-trigger {
+    background-color: #f1f1f1;
+    cursor: not-allowed;
+}
+
+.compact-custom-dropdown {
+    width: 145px;
+}
+
+.compact-custom-dropdown .dropdown-trigger {
+    box-sizing: border-box;
+    height: 24px;
+    padding: 2px 30px 2px 8px;
+}
+
 /* While active (open), remove bottom radius from trigger to merge with options */
 .custom-dropdown.active .dropdown-trigger {
     border-bottom-left-radius: 0;

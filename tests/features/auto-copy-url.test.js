@@ -7,10 +7,16 @@ const featureScript = fs.readFileSync(path.resolve(__dirname, '../../features/au
 describe('Auto Copy Campaign URL Feature', () => {
     let window, document, storageState, showToast;
 
-    function setupDom(autoCopyUrlEnabled = true) {
+    function setupDom(autoCopyUrlEnabled = true, autoCopyUrlMode = 'short') {
         jest.useFakeTimers();
-        storageState = { autoCopyUrlEnabled };
-        showToast = jest.fn();
+        storageState = { autoCopyUrlEnabled, autoCopyUrlMode };
+        showToast = jest.fn(() => {
+            if (!document.getElementById('ops-toolshed-toast')) {
+                const toast = document.createElement('div');
+                toast.id = 'ops-toolshed-toast';
+                document.body.appendChild(toast);
+            }
+        });
 
         const dom = new JSDOM(`<!DOCTYPE html><html><body>
             <mo-banner>
@@ -35,6 +41,9 @@ describe('Auto Copy Campaign URL Feature', () => {
         document = window.document;
 
         window.chrome = {
+            runtime: {
+                sendMessage: jest.fn().mockResolvedValue({ status: 'success' })
+            },
             storage: {
                 sync: {
                     get: jest.fn((key, callback) => callback(storageState))
@@ -82,6 +91,15 @@ describe('Auto Copy Campaign URL Feature', () => {
         }));
     }
 
+    function clickPageLinkControl() {
+        const popover = document.querySelector('mo-popover');
+        popover.dispatchEvent(new window.MouseEvent('click', {
+            bubbles: true,
+            cancelable: true,
+            composed: true
+        }));
+    }
+
     async function flushAutomation() {
         jest.advanceTimersByTime(0);
         await Promise.resolve();
@@ -100,6 +118,33 @@ describe('Auto Copy Campaign URL Feature', () => {
         await flushAutomation();
 
         expect(copyHandler).toHaveBeenCalled();
+        expect(showToast).toHaveBeenCalledWith('Campaign URL copied to clipboard!', 'success');
+        expect(document.getElementById('ops-toolshed-toast')?.classList.contains('toast-offset-native')).toBe(true);
+        expect(document.querySelector('.grid-container').style.visibility).toBe('hidden');
+    });
+
+    test('recognises clicks on the surrounding Prisma page-link control', async () => {
+        const { copyHandler } = setupDom(true);
+
+        clickPageLinkControl();
+        await flushAutomation();
+
+        expect(copyHandler).toHaveBeenCalled();
+        expect(showToast).toHaveBeenCalledWith('Campaign URL copied to clipboard!', 'success');
+    });
+
+    test('copies the current full URL without opening or using Prisma page-link UI', async () => {
+        const { copyHandler } = setupDom(true, 'full');
+
+        clickPageLinkIcon();
+        await window.chrome.runtime.sendMessage.mock.results[0].value;
+        await Promise.resolve();
+
+        expect(window.chrome.runtime.sendMessage).toHaveBeenCalledWith({
+            action: 'copyToClipboard',
+            text: window.location.href
+        });
+        expect(copyHandler).not.toHaveBeenCalled();
         expect(showToast).toHaveBeenCalledWith('Campaign URL copied to clipboard!', 'success');
     });
 

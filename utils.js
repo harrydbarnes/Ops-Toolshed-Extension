@@ -155,6 +155,7 @@
                         pointer-events: none;
                     }
                     #${toastId}.show { opacity: 1; }
+                    #${toastId}.toast-offset-native { top: 44px; }
                     #${toastId}.toast-info { background-color: #0288D1; }
                     #${toastId}.toast-success { background-color: #333668; }
                     #${toastId}.toast-error { background-color: #D32F2F; }
