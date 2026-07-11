@@ -29,26 +29,34 @@
             <section id="general-settings">
                 <h2>General</h2>
                 <div class="toggle-container">
-                    <label for="uiThemeSelector">Popup UI Theme:</label>
-                    <div class="theme-select-wrapper">
-                        <!-- Custom Dropdown for UI Theme -->
-                        <div class="custom-dropdown" id="uiThemeDropdown">
-                            <div class="dropdown-trigger" tabindex="0">
-                                <span class="color-preview-rect"></span>
-                                <span class="selected-text">Pink</span>
-                            </div>
-                            <div class="dropdown-options">
-                                <div class="dropdown-option" data-value="pink">
-                                    <span class="color-preview-rect pink"></span>
-                                    Pink
+                    <span>Popup UI Theme:</span>
+                    <div class="segmented-control" id="uiThemeSegmented" role="group" aria-label="Popup UI Theme">
+                        <button type="button" data-value="pink" aria-pressed="true">
+                            <span class="segment-color-swatch pink" aria-hidden="true"></span>
+                            Pink
+                        </button>
+                        <button type="button" data-value="black" aria-pressed="false">
+                            <span class="segment-color-swatch black" aria-hidden="true"></span>
+                            Black
+                        </button>
+                    </div>
+                    <!--
+                        DROPDOWN ROLLBACK (Popup UI Theme)
+                        Replace uiThemeSegmented above with the markup below, then switch the
+                        initializer in settings.js as described beside initializeSegmentedControl:
+                        <div class="theme-select-wrapper">
+                            <div class="custom-dropdown" id="uiThemeDropdown">
+                                <div class="dropdown-trigger" tabindex="0">
+                                    <span class="color-preview-rect"></span>
+                                    <span class="selected-text">Pink</span>
                                 </div>
-                                <div class="dropdown-option" data-value="black">
-                                    <span class="color-preview-rect black"></span>
-                                    Black
+                                <div class="dropdown-options">
+                                    <div class="dropdown-option" data-value="pink"><span class="color-preview-rect pink"></span>Pink</div>
+                                    <div class="dropdown-option" data-value="black"><span class="color-preview-rect black"></span>Black</div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    -->
                 </div>
                 <div class="toggle-container">
                         <span>Replace Prisma Logo:</span>
@@ -178,15 +186,22 @@
                     <div id="autoCopyUrlSubOptions" class="nested-toggle-group" aria-label="Auto Copy Campaign URL options">
                         <div class="toggle-container nested-toggle-container">
                             <span>URL format</span>
-                            <div class="custom-dropdown compact-custom-dropdown" id="autoCopyUrlModeDropdown">
-                                <div class="dropdown-trigger" tabindex="0">
-                                    <span class="selected-text">Short URL</span>
-                                </div>
-                                <div class="dropdown-options">
-                                    <div class="dropdown-option" data-value="short">Short URL</div>
-                                    <div class="dropdown-option" data-value="full">Full URL</div>
-                                </div>
+                            <div class="segmented-control" id="autoCopyUrlModeSegmented" role="group" aria-label="URL format">
+                                <button type="button" data-value="short" aria-pressed="true">Short</button>
+                                <button type="button" data-value="full" aria-pressed="false">Full</button>
                             </div>
+                            <!--
+                                DROPDOWN ROLLBACK (URL format)
+                                Replace autoCopyUrlModeSegmented above with:
+                                <div class="custom-dropdown compact-custom-dropdown" id="autoCopyUrlModeDropdown">
+                                    <div class="dropdown-trigger" tabindex="0"><span class="selected-text">Short URL</span></div>
+                                    <div class="dropdown-options">
+                                        <div class="dropdown-option" data-value="short">Short URL</div>
+                                        <div class="dropdown-option" data-value="full">Full URL</div>
+                                    </div>
+                                </div>
+                                Then use the dropdown initializer and variable names documented in settings.js.
+                            -->
                         </div>
                     </div>
                     <div class="toggle-container">

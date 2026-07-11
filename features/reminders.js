@@ -16,8 +16,20 @@
     // Reminder Theme State
     let reminderTheme = 'pink';
 
+    function hasValidExtensionContext() {
+        try {
+            return Boolean(chrome?.runtime?.id && chrome?.storage?.local && chrome?.storage?.sync);
+        } catch (error) {
+            return false;
+        }
+    }
+
+    function isInvalidatedContextError(error) {
+        return /extension context invalidated/i.test(error?.message || '');
+    }
+
     // Initialize settings
-    if (chrome.runtime && chrome.runtime.id) {
+    if (hasValidExtensionContext()) {
         chrome.storage.sync.get(['metaReminderEnabled', 'iasReminderEnabled', 'prismaReminderFrequency', 'prismaCountdownDuration', 'customReminders', 'reminderTheme'], (settings) => {
             if (chrome.runtime.lastError) {
                 console.error('Error retrieving reminder settings:', chrome.runtime.lastError);
@@ -65,41 +77,71 @@
     }
 
     function shouldShowReminder(storageKey, frequency, callback) {
-        chrome.storage.local.get([storageKey], (data) => {
-            const lastShownTimestamp = data[storageKey];
-            if (!lastShownTimestamp) {
-                callback(true);
-                return;
-            }
+        if (!hasValidExtensionContext()) {
+            callback(false);
+            return;
+        }
 
-            const now = new Date();
-            const lastShown = new Date(lastShownTimestamp);
-            let show = false;
+        try {
+            chrome.storage.local.get([storageKey], (data) => {
+                if (chrome.runtime.lastError) {
+                    console.warn('Unable to read reminder state:', chrome.runtime.lastError.message);
+                    callback(false);
+                    return;
+                }
 
-            switch (frequency) {
-                case 'daily':
-                    if (now.toDateString() !== lastShown.toDateString()) show = true;
-                    break;
-                case 'weekly':
-                    const oneWeek = 7 * 24 * 60 * 60 * 1000;
-                    if (now.getTime() - lastShown.getTime() > oneWeek) show = true;
-                    break;
-                case 'monthly':
-                    if (now.getMonth() !== lastShown.getMonth() || now.getFullYear() !== lastShown.getFullYear()) show = true;
-                    break;
-                case 'once':
-                    show = false;
-                    break;
-                default:
-                    if (now.toDateString() !== lastShown.toDateString()) show = true;
-                    break;
+                const lastShownTimestamp = data[storageKey];
+                if (!lastShownTimestamp) {
+                    callback(true);
+                    return;
+                }
+
+                const now = new Date();
+                const lastShown = new Date(lastShownTimestamp);
+                let show = false;
+
+                switch (frequency) {
+                    case 'daily':
+                        if (now.toDateString() !== lastShown.toDateString()) show = true;
+                        break;
+                    case 'weekly': {
+                        const oneWeek = 7 * 24 * 60 * 60 * 1000;
+                        if (now.getTime() - lastShown.getTime() > oneWeek) show = true;
+                        break;
+                    }
+                    case 'monthly':
+                        if (now.getMonth() !== lastShown.getMonth() || now.getFullYear() !== lastShown.getFullYear()) show = true;
+                        break;
+                    case 'once':
+                        show = false;
+                        break;
+                    default:
+                        if (now.toDateString() !== lastShown.toDateString()) show = true;
+                        break;
+                }
+                callback(show);
+            });
+        } catch (error) {
+            if (!isInvalidatedContextError(error)) {
+                console.error('Unable to read reminder state:', error);
             }
-            callback(show);
-        });
+            callback(false);
+        }
     }
 
     function setReminderShown(storageKey) {
-        chrome.storage.local.set({ [storageKey]: Date.now() });
+        if (!hasValidExtensionContext()) return;
+        try {
+            chrome.storage.local.set({ [storageKey]: Date.now() }, () => {
+                if (chrome.runtime.lastError) {
+                    console.warn('Unable to save reminder state:', chrome.runtime.lastError.message);
+                }
+            });
+        } catch (error) {
+            if (!isInvalidatedContextError(error)) {
+                console.error('Unable to save reminder state:', error);
+            }
+        }
     }
 
     function createPrismaReminderPopup({ popupId, content, countdownSeconds, storageKey }) {
@@ -348,6 +390,12 @@
         checkCustomReminders,
         resetReminderDismissalFlags,
         forceShowMetaReminder,
+
+        _test: {
+            hasValidExtensionContext,
+            shouldShowReminder,
+            setReminderShown
+        },
 
         // Expose for message listener
         getShownCustomReminderIds: () => shownCustomReminderIds

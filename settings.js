@@ -455,6 +455,54 @@ document.addEventListener('DOMContentLoaded', function() {
             updateUI(event.detail);
         });
     } 
+
+    function initializeSegmentedControl(controlId, storageKey, defaultValue) {
+        const control = document.getElementById(controlId);
+        if (!control) return;
+
+        const buttons = Array.from(control.querySelectorAll('button[data-value]'));
+        const updateUI = (value) => {
+            const validValue = buttons.some(button => button.dataset.value === value) ? value : defaultValue;
+            buttons.forEach(button => {
+                const selected = button.dataset.value === validValue;
+                button.classList.toggle('is-selected', selected);
+                button.setAttribute('aria-pressed', String(selected));
+                button.tabIndex = selected ? 0 : -1;
+            });
+        };
+
+        const selectValue = (value) => {
+            if (control.classList.contains('is-disabled')) return;
+            updateUI(value);
+            chrome.storage.sync.set({ [storageKey]: value }, () => {
+                console.log(`${storageKey} saved:`, value);
+            });
+        };
+
+        chrome.storage.sync.get(storageKey, (data) => {
+            const storedValue = data[storageKey] || defaultValue;
+            if (data[storageKey] === undefined) {
+                chrome.storage.sync.set({ [storageKey]: defaultValue });
+            }
+            updateUI(storedValue);
+        });
+
+        buttons.forEach((button, index) => {
+            button.addEventListener('click', () => selectValue(button.dataset.value));
+            button.addEventListener('keydown', (event) => {
+                if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+                event.preventDefault();
+                const offset = event.key === 'ArrowRight' ? 1 : -1;
+                const nextIndex = (index + offset + buttons.length) % buttons.length;
+                selectValue(buttons[nextIndex].dataset.value);
+                buttons[nextIndex].focus();
+            });
+        });
+
+        control.addEventListener('segmented-control:set-value', (event) => {
+            updateUI(event.detail);
+        });
+    }
  
     // Close dropdown when clicking outside (Global Listener) 
     document.addEventListener('click', (e) => { 
@@ -467,10 +515,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }); 
     }); 
  
-    // Initialize the two theme dropdowns 
-    initializeCustomDropdown('uiThemeDropdown', 'uiTheme', 'pink'); 
+    // Initialize theme and two-choice settings controls.
+    // DROPDOWN ROLLBACK:
+    // 1. Restore the commented dropdown markup beside each segmented control in settings.html.
+    // 2. Replace the uiThemeSegmented call with:
+    //    initializeCustomDropdown('uiThemeDropdown', 'uiTheme', 'pink');
+    // 3. Replace the autoCopyUrlModeSegmented call with:
+    //    initializeCustomDropdown('autoCopyUrlModeDropdown', 'autoCopyUrlMode', 'short');
+    // 4. In the URL enable/sync block below, rename autoCopyUrlModeSegmented to
+    //    autoCopyUrlModeDropdown and restore the dropdown is-disabled/custom-dropdown:set-value handling.
+    initializeSegmentedControl('uiThemeSegmented', 'uiTheme', 'pink');
     initializeCustomDropdown('reminderThemeDropdown', 'reminderTheme', 'pink'); 
-    initializeCustomDropdown('autoCopyUrlModeDropdown', 'autoCopyUrlMode', 'short');
+    initializeSegmentedControl('autoCopyUrlModeSegmented', 'autoCopyUrlMode', 'short');
 
     const logoToggle = document.getElementById('logoToggle'); 
     if (logoToggle) { 
@@ -662,15 +718,15 @@ document.addEventListener('DOMContentLoaded', function() {
     setupToggle('loadingFactsToggle', 'loadingFactsEnabled', 'Show Loading Facts setting saved:');
 
     const autoCopyUrlToggle = document.getElementById('autoCopyUrlToggle');
-    const autoCopyUrlModeDropdown = document.getElementById('autoCopyUrlModeDropdown');
+    const autoCopyUrlModeSegmented = document.getElementById('autoCopyUrlModeSegmented');
     const autoCopyUrlSubOptions = document.getElementById('autoCopyUrlSubOptions');
     const setAutoCopyUrlSubOptionsEnabled = (enabled) => {
-        if (autoCopyUrlModeDropdown) {
-            autoCopyUrlModeDropdown.classList.toggle('is-disabled', !enabled);
-            autoCopyUrlModeDropdown.setAttribute('aria-disabled', String(!enabled));
-            const trigger = autoCopyUrlModeDropdown.querySelector('.dropdown-trigger');
-            if (trigger) trigger.tabIndex = enabled ? 0 : -1;
-            if (!enabled) autoCopyUrlModeDropdown.classList.remove('active');
+        if (autoCopyUrlModeSegmented) {
+            autoCopyUrlModeSegmented.classList.toggle('is-disabled', !enabled);
+            autoCopyUrlModeSegmented.setAttribute('aria-disabled', String(!enabled));
+            autoCopyUrlModeSegmented.querySelectorAll('button').forEach(button => {
+                button.disabled = !enabled;
+            });
         }
         if (autoCopyUrlSubOptions) {
             autoCopyUrlSubOptions.classList.toggle('is-disabled', !enabled);
@@ -678,7 +734,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
-    if (autoCopyUrlModeDropdown) {
+    if (autoCopyUrlModeSegmented) {
         chrome.storage.sync.get(['autoCopyUrlEnabled'], (data) => {
             setAutoCopyUrlSubOptionsEnabled(data.autoCopyUrlEnabled !== false);
         });
@@ -742,9 +798,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if (changes.autoCopyUrlEnabled) {
             setAutoCopyUrlSubOptionsEnabled(changes.autoCopyUrlEnabled.newValue !== false);
         }
-        if (changes.autoCopyUrlMode && autoCopyUrlModeDropdown) {
-            autoCopyUrlModeDropdown.dispatchEvent(new CustomEvent('custom-dropdown:set-value', {
+        if (changes.autoCopyUrlMode && autoCopyUrlModeSegmented) {
+            autoCopyUrlModeSegmented.dispatchEvent(new CustomEvent('segmented-control:set-value', {
                 detail: changes.autoCopyUrlMode.newValue === 'full' ? 'full' : 'short'
+            }));
+        }
+        if (changes.uiTheme) {
+            document.getElementById('uiThemeSegmented')?.dispatchEvent(new CustomEvent('segmented-control:set-value', {
+                detail: changes.uiTheme.newValue === 'black' ? 'black' : 'pink'
             }));
         }
     });

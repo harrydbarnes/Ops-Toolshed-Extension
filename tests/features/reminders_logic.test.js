@@ -196,4 +196,16 @@ describe('Reminders Feature Logic', () => {
              expect(document.getElementById('custom-reminder-display-popup')).not.toBeNull();
         });
     });
+
+    test('does not throw or show a reminder when the extension context is invalidated', () => {
+        window.chrome.storage.local.get = jest.fn(() => {
+            throw new Error('Extension context invalidated.');
+        });
+        const callback = jest.fn();
+
+        expect(() => {
+            window.remindersFeature._test.shouldShowReminder('metaReminderLastShown', 'daily', callback);
+        }).not.toThrow();
+        expect(callback).toHaveBeenCalledWith(false);
+    });
 });
