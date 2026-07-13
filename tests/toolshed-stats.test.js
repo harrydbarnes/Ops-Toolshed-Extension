@@ -58,7 +58,7 @@ describe('Toolshed Stats UI', () => {
         const resetButton = document.getElementById('reset-stats-button');
 
         expect(appLearnRow).not.toBeNull();
-        expect(appLearnRow).toHaveClass('applearn-stat-row');
+        expect(appLearnRow.classList.contains('applearn-stat-row')).toBe(true);
         expect(appLearnRow.nextElementSibling).toBe(resetButton);
         expect(document.querySelector('.stats-overview #applearn-popups-blocked-stat')).toBeNull();
     });
