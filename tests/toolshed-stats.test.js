@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 const html = fs.readFileSync(path.resolve(__dirname, '../toolshed.html'), 'utf8');
+const css = fs.readFileSync(path.resolve(__dirname, '../toolshed.css'), 'utf8');
 
 describe('Toolshed Stats UI', () => {
     beforeEach(() => {
@@ -61,6 +62,19 @@ describe('Toolshed Stats UI', () => {
         expect(appLearnRow.classList.contains('applearn-stat-row')).toBe(true);
         expect(appLearnRow.nextElementSibling).toBe(resetButton);
         expect(document.querySelector('.stats-overview #applearn-popups-blocked-stat')).toBeNull();
+    });
+
+    test('lists the planned Timesheet Helper and Meta Spend Check features', () => {
+        const roadmapItems = Array.from(document.querySelectorAll('#roadmap li'))
+            .map(item => item.textContent.trim());
+
+        expect(roadmapItems).toContain('Timesheet Helper');
+        expect(roadmapItems).toContain('Meta Spend Check');
+    });
+
+    test('keeps every tab at the same content width without scrollbar layout shifts', () => {
+        expect(css).toMatch(/html\s*{[^}]*scrollbar-gutter:\s*stable;/s);
+        expect(css).toMatch(/\.tab-content\s*{[^}]*width:\s*100%;[^}]*box-sizing:\s*border-box;/s);
     });
 
     test('should trigger confetti on milestone', async () => {

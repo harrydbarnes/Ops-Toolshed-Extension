@@ -1,3 +1,7 @@
+html {
+    scrollbar-gutter: stable;
+}
+
 body {
     font-family: 'Outfit', sans-serif;
     margin: 0;
@@ -117,6 +121,8 @@ li {
 
 .tab-content {
     display: none;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .tab-content.active {
