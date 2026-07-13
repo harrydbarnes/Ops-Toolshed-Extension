@@ -6,7 +6,7 @@ Ops Toolshed is a Chrome extension that streamlines day-to-day campaign manageme
 
 ## What's new in 1.6
 
-- Redesigned Custom Reminders with Simple and Advanced URL matching, a site-only shortcut, and a complete animated editor for reminder rules and popup content.
+- Redesigned Custom Reminders with Simple and Advanced URL matching, a site-only shortcut, and an animated editor that keeps the background Settings layout fixed.
 - Improved reminder matching on dynamic Prisma pages, with edited rules applied immediately and clearer custom versus built-in popup styling.
 - The replacement Prisma logo now applies or restores immediately when its setting changes, without refreshing the page.
 - Fixed clipped dropdown text in the Submit Feedback modal when it is opened over Prisma.

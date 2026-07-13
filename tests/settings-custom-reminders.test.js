@@ -89,7 +89,9 @@ describe('Custom reminder settings', () => {
             popupMessage: '<h3>⚠️ CRUK RFL ⚠️</h3><p>Old intro</p>',
             enabled: true
         };
-        const { document, store } = setupSettings([reminder]);
+        const { window, document, store } = setupSettings([reminder]);
+        Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1000 });
+        Object.defineProperty(document.documentElement, 'clientWidth', { configurable: true, value: 983 });
         const editButton = Array.from(document.querySelectorAll('button')).find(button => button.textContent === 'Edit');
 
         editButton.click();
@@ -97,6 +99,7 @@ describe('Custom reminder settings', () => {
         expect(document.getElementById('reminderModalEditor').classList).toContain('reminder-modal--editing');
         expect(document.getElementById('reminderModalOverlay').classList).toContain('reminder-modal-overlay--editing');
         expect(document.body.classList).toContain('reminder-modal-open');
+        expect(document.body.style.getPropertyValue('--reminder-scrollbar-compensation')).toBe('17px');
         expect(document.getElementById('reminderModalEditor').getAttribute('role')).toBe('dialog');
         expect(document.getElementById('modalEditorTitle').textContent).toBe('Edit Custom Reminder');
         expect(document.getElementById('modalEditReminderName').value).toBe('CRUK RFL');
@@ -130,6 +133,7 @@ describe('Custom reminder settings', () => {
         expect(store.customReminders[0].popupMessage).toContain('Updated title');
         expect(store.customReminders[0].popupMessage).toContain('Updated intro');
         expect(document.body.classList).not.toContain('reminder-modal-open');
+        expect(document.body.style.getPropertyValue('--reminder-scrollbar-compensation')).toBe('');
     });
 
     test('reduces a pasted long URL to its site in simple contains mode', () => {

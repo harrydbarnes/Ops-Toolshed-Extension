@@ -560,6 +560,7 @@ input:checked + .slider:before {
 
 body.reminder-modal-open {
     overflow: hidden !important;
+    padding-right: calc(20px + var(--reminder-scrollbar-compensation, 0px)) !important;
 }
 
 .reminder-modal {

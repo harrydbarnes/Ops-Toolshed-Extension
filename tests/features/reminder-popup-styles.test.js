@@ -35,6 +35,8 @@ describe('Reminder popup and editor styles', () => {
         expect(cssRule(settingsCss, '.reminder-modal.reminder-modal--closing')).toMatch(/animation:\s*reminder-modal-zoom-out\s+0\.2s\s+ease-in\s+forwards/i);
         expect(settingsCss).toContain('@keyframes reminder-modal-overlay-in');
         expect(settingsCss).toContain('@keyframes reminder-modal-overlay-out');
-        expect(cssRule(settingsCss, 'body.reminder-modal-open')).toMatch(/overflow:\s*hidden\s*!important/i);
+        const scrollLockRule = cssRule(settingsCss, 'body.reminder-modal-open');
+        expect(scrollLockRule).toMatch(/overflow:\s*hidden\s*!important/i);
+        expect(scrollLockRule).toMatch(/padding-right:\s*calc\(20px\s*\+\s*var\(--reminder-scrollbar-compensation,\s*0px\)\)\s*!important/i);
     });
 });

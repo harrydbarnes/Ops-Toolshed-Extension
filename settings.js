@@ -1179,6 +1179,18 @@ document.addEventListener('DOMContentLoaded', function() {
             inputClass: 'modal-trigger-input'
         }));
     }
+
+    function lockReminderModalBackground() {
+        const documentWidth = document.documentElement.clientWidth;
+        const scrollbarWidth = documentWidth > 0 ? Math.max(0, window.innerWidth - documentWidth) : 0;
+        document.body.style.setProperty('--reminder-scrollbar-compensation', `${scrollbarWidth}px`);
+        document.body.classList.add('reminder-modal-open');
+    }
+
+    function unlockReminderModalBackground() {
+        document.body.classList.remove('reminder-modal-open');
+        document.body.style.removeProperty('--reminder-scrollbar-compensation');
+    }
  
     function openReminderModal(isEditMode = false, reminderDataForEdit = null) {
         previousReminderModalFocus = document.activeElement;
@@ -1247,7 +1259,7 @@ document.addEventListener('DOMContentLoaded', function() {
         modalSaveButton.textContent = isEditMode ? 'Save Changes' : 'Save Reminder';
         if (reminderModalOverlay) reminderModalOverlay.style.display = 'block';
         if (reminderModalEditor) reminderModalEditor.style.display = 'block';
-        document.body.classList.add('reminder-modal-open');
+        lockReminderModalBackground();
         if (!isEditMode && createReminderInitialStepDiv) createReminderInitialStepDiv.style.display = 'none';
         (isEditMode ? modalEditReminderName : modalInputReminderTitle).focus();
     }
@@ -1260,7 +1272,7 @@ document.addEventListener('DOMContentLoaded', function() {
         reminderModalEditor.classList.remove('reminder-modal--closing');
         reminderModalOverlay.classList.remove('reminder-modal-overlay--editing');
         reminderModalOverlay.classList.remove('reminder-modal-overlay--closing');
-        document.body.classList.remove('reminder-modal-open');
+        unlockReminderModalBackground();
         modalEditConditions.classList.add('hidden-initially');
         modalReminderSummary.style.display = 'block';
         modalEditorSubtitle.textContent = '';
