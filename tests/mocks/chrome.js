@@ -87,6 +87,7 @@ global.chrome = {
       listener: null, // to hold the registered listener
     },
     getURL: jest.fn(path => 'mock-url/' + path),
+    sendMessage: jest.fn(),
     lastError: undefined,
   },
   storage: {
@@ -115,6 +116,7 @@ global.chrome = {
     get: jest.fn(),
     query: jest.fn(),
     remove: jest.fn(),
+    sendMessage: jest.fn(),
     update: jest.fn(),
     onCreated: {
       addListener: jest.fn(),
@@ -136,6 +138,7 @@ global.resetMocks = () => {
     global.chrome.runtime.onMessage.addListener.mockClear();
     global.chrome.runtime.onMessage.listener = null;
     global.chrome.runtime.getURL.mockClear();
+    global.chrome.runtime.sendMessage.mockReset();
     global.chrome.alarms.create.mockClear();
     global.chrome.alarms.clear.mockClear();
     global.chrome.alarms.onAlarm.addListener.mockClear();
@@ -146,6 +149,7 @@ global.resetMocks = () => {
     global.chrome.tabs.get.mockClear();
     global.chrome.tabs.query.mockClear();
     global.chrome.tabs.remove.mockClear();
+    global.chrome.tabs.sendMessage.mockReset();
     global.chrome.tabs.update.mockClear();
     global.chrome.tabs.onCreated.addListener.mockClear();
     global.chrome.tabs.onUpdated.addListener.mockClear();

@@ -208,32 +208,50 @@ async function handleOffscreenClipboard(request, sendResponse) {
 
 // --- Main Message Router ---
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    const { action } = request;
-
-    if (action === 'disableTimeBomb') {
-        messageHandlers.disableTimeBomb(request, sender, sendResponse);
+    let hasResponded = false;
+    const respondOnce = (response) => {
+        if (hasResponded) return false;
+        hasResponded = true;
+        sendResponse(response);
         return true;
-    }
+    };
 
     (async () => {
-        const data = await chrome.storage.local.get('timeBombActive');
-        if (data.timeBombActive) {
-            sendResponse({ status: 'error', message: 'All features have been disabled.' });
-            return;
-        }
+        try {
+            if (!request || typeof request !== 'object' || typeof request.action !== 'string' || !request.action.trim()) {
+                respondOnce({ status: 'error', message: 'Invalid message request.' });
+                return;
+            }
 
-        const handler = messageHandlers[action];
-        if (handler) {
+            const { action } = request;
+            const handler = Object.prototype.hasOwnProperty.call(messageHandlers, action)
+                ? messageHandlers[action]
+                : null;
+            if (typeof handler !== 'function') {
+                console.warn(`No handler found for action: ${action}`);
+                respondOnce({ status: 'error', message: `Unknown action: ${action}` });
+                return;
+            }
+
+            if (action !== 'disableTimeBomb') {
+                const data = await chrome.storage.local.get('timeBombActive');
+                if (data.timeBombActive) {
+                    respondOnce({ status: 'error', message: 'All features have been disabled.' });
+                    return;
+                }
+            }
+
             const context = {
                 playAlarmSound,
                 createTimesheetAlarm,
                 handleOffscreenClipboard,
                 triggerTimesheetNotification
             };
-            handler(request, sender, sendResponse, context);
-        } else {
-            console.warn(`No handler found for action: ${action}`);
-            sendResponse({ status: 'error', message: `Unknown action: ${action}` });
+            await handler(request, sender, respondOnce, context);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error || 'Unknown background error.');
+            console.error('Background message handler failed:', error);
+            respondOnce({ status: 'error', message });
         }
     })();
 

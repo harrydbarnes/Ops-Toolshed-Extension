@@ -119,6 +119,100 @@ describe('Content Script Main Logic', () => {
         expect(document.getElementById('optimised-budget-styles')).toBeNull();
     });
 
+    test('closes the message channel immediately for unknown actions', () => {
+        setupJSDOM('https://other.mediaocean.com/', false);
+        jest.advanceTimersByTime(100);
+        const sendResponse = jest.fn();
+
+        const keepChannelOpen = chrome.runtime.onMessage.listener(
+            { action: 'notHandledByContentScript' },
+            {},
+            sendResponse
+        );
+
+        expect(keepChannelOpen).toBe(false);
+        expect(sendResponse).not.toHaveBeenCalled();
+    });
+
+    test('closes the message channel after a synchronous recognised action', () => {
+        const { window } = setupJSDOM('https://other.mediaocean.com/', false);
+        jest.advanceTimersByTime(100);
+        window.remindersFeature.forceShowMetaReminder = jest.fn();
+        const sendResponse = jest.fn();
+
+        const keepChannelOpen = chrome.runtime.onMessage.listener(
+            { action: 'showMetaReminder' },
+            {},
+            sendResponse
+        );
+
+        expect(keepChannelOpen).toBe(false);
+        expect(window.remindersFeature.forceShowMetaReminder).toHaveBeenCalledTimes(1);
+        expect(sendResponse).toHaveBeenCalledWith({
+            status: 'Meta reminder shown by content script'
+        });
+    });
+
+    test('applies the explicit disabled logo state immediately', () => {
+        const { window } = setupJSDOM('https://groupmuk-prisma.mediaocean.com/', false);
+        jest.advanceTimersByTime(100);
+        window.logoFeature.setLogoReplaceEnabled = jest.fn();
+        const sendResponse = jest.fn();
+
+        const keepChannelOpen = chrome.runtime.onMessage.listener(
+            { action: 'checkLogoReplaceEnabled', enabled: false },
+            {},
+            sendResponse
+        );
+
+        expect(keepChannelOpen).toBe(false);
+        expect(window.logoFeature.setLogoReplaceEnabled).toHaveBeenCalledWith(false);
+        expect(sendResponse).toHaveBeenCalledWith({
+            status: 'Logo check processed by content script'
+        });
+    });
+
+    test('returns a synchronous error when D/O search data is missing', () => {
+        setupJSDOM('https://other.mediaocean.com/', false);
+        jest.advanceTimersByTime(100);
+        const sendResponse = jest.fn();
+
+        const keepChannelOpen = chrome.runtime.onMessage.listener(
+            { action: 'executeDNumberSearch' },
+            {},
+            sendResponse
+        );
+
+        expect(keepChannelOpen).toBe(false);
+        expect(sendResponse).toHaveBeenCalledWith({
+            status: 'error',
+            message: 'A D or O number is required.'
+        });
+    });
+
+    test('reports a failed custom-reminder refresh through the async response', async () => {
+        const { window } = setupJSDOM('https://other.mediaocean.com/', false);
+        jest.advanceTimersByTime(100);
+        window.remindersFeature.fetchCustomReminders = jest
+            .fn()
+            .mockRejectedValue(new Error('Reminder sync failed'));
+        const sendResponse = jest.fn();
+
+        const keepChannelOpen = chrome.runtime.onMessage.listener(
+            { action: 'customRemindersUpdated' },
+            {},
+            sendResponse
+        );
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(keepChannelOpen).toBe(true);
+        expect(sendResponse).toHaveBeenCalledWith({
+            status: 'error',
+            message: 'Reminder sync failed'
+        });
+    });
+
     // This test is skipped due to a fundamental timing issue between the application code's
     // nested asynchronous operations (chrome.storage.get -> setTimeout) and Jest's fake timer
     // environment. Attempts to fix this with advanced timer mocks or real timers with waitFor

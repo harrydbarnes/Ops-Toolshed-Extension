@@ -228,3 +228,190 @@ describe('AppLearn popup blocking', () => {
         expect(chrome.storage.local.__getStore().appLearnPopupsBlocked).toBe(1);
     });
 });
+
+describe('Background message routing', () => {
+    const waitForResponse = async (sendResponse) => {
+        for (let attempt = 0; attempt < 20 && sendResponse.mock.calls.length === 0; attempt++) {
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+    };
+
+    const loadMessageListener = () => {
+        jest.resetModules();
+        require('../background');
+        return chrome.runtime.onMessage.listener;
+    };
+
+    beforeEach(() => {
+        resetMocks();
+        jest.useRealTimers();
+    });
+
+    test('rejects malformed messages without throwing', async () => {
+        const listener = loadMessageListener();
+        const sendResponse = jest.fn();
+
+        expect(listener(null, {}, sendResponse)).toBe(true);
+        await waitForResponse(sendResponse);
+
+        expect(sendResponse).toHaveBeenCalledTimes(1);
+        expect(sendResponse).toHaveBeenCalledWith({
+            status: 'error',
+            message: 'Invalid message request.'
+        });
+    });
+
+    test('returns an explicit error for unknown actions', async () => {
+        const listener = loadMessageListener();
+        const sendResponse = jest.fn();
+
+        expect(listener({ action: 'notRegistered' }, {}, sendResponse)).toBe(true);
+        await waitForResponse(sendResponse);
+
+        expect(sendResponse).toHaveBeenCalledTimes(1);
+        expect(sendResponse).toHaveBeenCalledWith({
+            status: 'error',
+            message: 'Unknown action: notRegistered'
+        });
+    });
+
+    test('does not treat inherited object properties as handlers', async () => {
+        const listener = loadMessageListener();
+        const sendResponse = jest.fn();
+
+        listener({ action: 'toString' }, {}, sendResponse);
+        await waitForResponse(sendResponse);
+
+        expect(sendResponse).toHaveBeenCalledTimes(1);
+        expect(sendResponse).toHaveBeenCalledWith({
+            status: 'error',
+            message: 'Unknown action: toString'
+        });
+    });
+
+    test('reports storage failures instead of leaving the caller waiting', async () => {
+        chrome.storage.local.get.mockRejectedValueOnce(new Error('Storage unavailable'));
+        const listener = loadMessageListener();
+        const sendResponse = jest.fn();
+
+        listener({ action: 'removeTimesheetAlarm' }, {}, sendResponse);
+        await waitForResponse(sendResponse);
+
+        expect(sendResponse).toHaveBeenCalledTimes(1);
+        expect(sendResponse).toHaveBeenCalledWith({
+            status: 'error',
+            message: 'Storage unavailable'
+        });
+    });
+
+    test('reports rejected handlers exactly once', async () => {
+        chrome.tabs.create.mockRejectedValueOnce(new Error('Tab creation failed'));
+        const listener = loadMessageListener();
+        const sendResponse = jest.fn();
+
+        listener({ action: 'openApproversPage' }, {}, sendResponse);
+        await waitForResponse(sendResponse);
+
+        expect(sendResponse).toHaveBeenCalledTimes(1);
+        expect(sendResponse).toHaveBeenCalledWith({
+            status: 'error',
+            message: 'Tab creation failed'
+        });
+    });
+
+    test('preserves existing successful handler responses', async () => {
+        const listener = loadMessageListener();
+        const sendResponse = jest.fn();
+
+        listener({ action: 'removeTimesheetAlarm' }, {}, sendResponse);
+        await waitForResponse(sendResponse);
+
+        expect(chrome.alarms.clear).toHaveBeenCalledWith('timesheetReminder');
+        expect(sendResponse).toHaveBeenCalledTimes(1);
+        expect(sendResponse).toHaveBeenCalledWith({ status: 'Alarm removed' });
+    });
+
+    test('blocks normal actions while the time bomb is active', async () => {
+        chrome.storage.local.__getStore().timeBombActive = true;
+        const listener = loadMessageListener();
+        const sendResponse = jest.fn();
+
+        listener({ action: 'removeTimesheetAlarm' }, {}, sendResponse);
+        await waitForResponse(sendResponse);
+
+        expect(chrome.alarms.clear).not.toHaveBeenCalled();
+        expect(sendResponse).toHaveBeenCalledWith({
+            status: 'error',
+            message: 'All features have been disabled.'
+        });
+    });
+
+    test('allows the time bomb disable action through the active gate', async () => {
+        chrome.storage.local.__getStore().timeBombActive = true;
+        chrome.storage.local.__getStore().initialDeadline = 123;
+        const listener = loadMessageListener();
+        const sendResponse = jest.fn();
+
+        listener({ action: 'disableTimeBomb' }, {}, sendResponse);
+        await waitForResponse(sendResponse);
+
+        expect(chrome.storage.local.__getStore().timeBombActive).toBeUndefined();
+        expect(chrome.storage.local.__getStore().initialDeadline).toBeUndefined();
+        expect(sendResponse).toHaveBeenCalledWith({ status: 'success' });
+    });
+});
+
+describe('D/O-number search receiver readiness', () => {
+    let performDNumberSearch;
+
+    beforeEach(() => {
+        resetMocks();
+        jest.resetModules();
+        ({ performDNumberSearch } = require('../background/message-handlers').messageHandlers);
+        chrome.tabs.create.mockResolvedValue({ id: 42 });
+    });
+
+    test.each([
+        'Could not establish connection. Receiving end does not exist.',
+        'Receiving end does not exist.'
+    ])('retries a transient receiver error: %s', async errorMessage => {
+        chrome.tabs.sendMessage
+            .mockRejectedValueOnce(new Error(errorMessage))
+            .mockResolvedValueOnce({ status: 'success', message: 'Search started' });
+        const sendResponse = jest.fn();
+
+        await performDNumberSearch({ dNumber: 'D12345678' }, {}, sendResponse);
+
+        expect(chrome.tabs.sendMessage).toHaveBeenCalledTimes(2);
+        expect(sendResponse).toHaveBeenCalledWith({ status: 'success', message: 'Search started' });
+    });
+
+    test('does not retry a terminal content-script failure', async () => {
+        chrome.tabs.sendMessage.mockResolvedValue({
+            status: 'error',
+            message: 'Campaign was not found.'
+        });
+        const sendResponse = jest.fn();
+
+        await performDNumberSearch({ dNumber: 'D00000000' }, {}, sendResponse);
+
+        expect(chrome.tabs.sendMessage).toHaveBeenCalledTimes(1);
+        expect(sendResponse).toHaveBeenCalledWith({
+            status: 'error',
+            message: 'Campaign was not found.'
+        });
+    });
+
+    test('fails clearly when the created tab has no id', async () => {
+        chrome.tabs.create.mockResolvedValue({});
+        const sendResponse = jest.fn();
+
+        await performDNumberSearch({ dNumber: 'D12345678' }, {}, sendResponse);
+
+        expect(chrome.tabs.sendMessage).not.toHaveBeenCalled();
+        expect(sendResponse).toHaveBeenCalledWith({
+            status: 'error',
+            message: 'Could not create a Prisma search tab.'
+        });
+    });
+});

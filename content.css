@@ -30,9 +30,34 @@ body.reminder-theme-black #confirmation-popup {
 #meta-reminder-popup ul, #ias-reminder-popup ul, #custom-reminder-display-popup ul, #confirmation-popup ul { text-align: left; margin-bottom: 20px; font-size: 14px; padding-left: 20px; }
 #meta-reminder-popup li, #ias-reminder-popup li, #custom-reminder-display-popup li, #confirmation-popup li { margin-bottom: 5px; }
 
-.reminder-close-button {
+#custom-reminder-display-popup {
+    font-family: 'Outfit', sans-serif;
+}
+
+.custom-reminder-close-button {
+    padding: 10px 15px;
+    margin: 5px;
+    border: 0;
+    border-radius: 4px;
     background-color: white;
     color: #ff3d80;
+    font: inherit;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+.custom-reminder-close-button:hover {
+    background-color: #f8f8f8;
+}
+
+.custom-reminder-close-button:active {
+    transform: translateY(2px);
+}
+
+.reminder-close-button {
+    background-color: #07009a;
+    color: #ffffff;
     border: none;
     padding: 8px 16px;
     border-radius: 4px;
@@ -42,7 +67,7 @@ body.reminder-theme-black #confirmation-popup {
 }
 
 .reminder-close-button:hover:not(:disabled) {
-    background-color: #f8f8f8;
+    background-color: #05006a;
     animation: vibrate 0.3s ease-in-out; /* This vibrate is for reminder buttons */
 }
 

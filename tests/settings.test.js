@@ -1,4 +1,4 @@
-const { escapeHTML } = require('../settings');
+const { escapeHTML, isMissingContentScriptReceiverError } = require('../settings');
 
 describe('escapeHTML', () => {
     test('should return an empty string for null or undefined input', () => {
@@ -17,5 +17,20 @@ describe('escapeHTML', () => {
     // The current implementation doesn't handle quotes, so this test reflects that.
     test('should not escape single or double quotes', () => {
         expect(escapeHTML('"hello\'s world"')).toBe('"hello\'s world"');
+    });
+});
+
+describe('logo setting live-update errors', () => {
+    test('recognises tabs without a receiving content script as an expected condition', () => {
+        expect(isMissingContentScriptReceiverError(
+            new Error('Could not establish connection. Receiving end does not exist.')
+        )).toBe(true);
+        expect(isMissingContentScriptReceiverError(
+            new Error('The message port closed before a response was received.')
+        )).toBe(true);
+    });
+
+    test('does not hide unexpected tab messaging failures', () => {
+        expect(isMissingContentScriptReceiverError(new Error('Tabs permission denied.'))).toBe(false);
     });
 });

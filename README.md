@@ -1,23 +1,16 @@
 # Ops Toolshed Chrome Extension 🛠️
 
-**Current version: 1.5**
+**Current version: 1.6**
 
 Ops Toolshed is a Chrome extension that streamlines day-to-day campaign management in Prisma and provides quick access to common Operations tools.
 
-## What's new in 1.5
+## What's new in 1.6
 
-- Copy clean Order IDs from Campaign Order pages without the version suffix.
-- Choose a compact campaign navigation style that moves campaign links into the header, including direct Orders navigation.
-- Keep the booked budget visible in the campaign header with a responsive layout for smaller screens.
-- See rotating facts while Prisma is loading, including a summary of time spent waiting.
-- Track campaigns visited, loading time, placements added, and reconciliations in the redesigned Stats dashboard, with an activity heatmap, weekly comparisons, and streaks.
-- Make the AppLearn logo translucent so it does not obstruct the interface, including when it is rendered inside Shadow DOM.
-- Block broken AppLearn and Okta login popups launched from Prisma or Aura, with a setting to disable the blocker when needed.
-- Copy the campaign name to the clipboard on the first click and keep Campaign Details, Copy, and History actions beside the campaign name.
-- Keep the approver widget available in Actualise without covering the campaign header or native controls.
-- Preserve the horizontal position of the Actualise grid when Prisma soft-refreshes it after an action.
-- Submit feedback from the popup, Settings, Approvers, or Toolshed pages.
-- Use refreshed Approver data with retired approvers removed.
+- Redesigned Custom Reminders with Simple and Advanced URL matching, a site-only shortcut, and a complete animated editor for reminder rules and popup content.
+- Improved reminder matching on dynamic Prisma pages, with edited rules applied immediately and clearer custom versus built-in popup styling.
+- The replacement Prisma logo now applies or restores immediately when its setting changes, without refreshing the page.
+- Fixed clipped dropdown text in the Submit Feedback modal when it is opened over Prisma.
+- Improved D/O number search and extension message handling so failures return clearer errors instead of silently timing out.
 
 ## Features
 

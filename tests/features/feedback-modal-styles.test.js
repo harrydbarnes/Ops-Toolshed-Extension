@@ -10,6 +10,7 @@ describe('feedback modal shared appearance', () => {
     test('owns its modal sizing and select appearance across host pages', () => {
         expect(feedbackStyles).toMatch(/\.otf-modal\s*\{[^}]*box-sizing:\s*border-box/s);
         expect(feedbackStyles).toMatch(/\.otf-select\s*\{[^}]*appearance:\s*none/s);
+        expect(feedbackStyles).toMatch(/\.otf-select\s*\{[^}]*height:\s*38px/s);
         expect(feedbackStyles).toMatch(/\.otf-select\s*\{[^}]*background-image:\s*url/s);
     });
 });

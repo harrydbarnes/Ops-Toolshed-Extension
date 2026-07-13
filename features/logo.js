@@ -20,8 +20,7 @@
 
         chrome.storage.onChanged.addListener((changes, namespace) => {
             if (namespace === 'sync' && changes.logoReplaceEnabled) {
-                isLogoReplaceEnabled = changes.logoReplaceEnabled.newValue;
-                checkAndReplaceLogo();
+                setLogoReplaceEnabled(changes.logoReplaceEnabled.newValue);
             }
         });
     }
@@ -68,14 +67,17 @@
     }
 
     function restoreOriginalLogo() {
-        const customLogoImg = document.querySelector('i.logo > img.custom-prisma-logo');
+        const customLogoImg = window.utils.queryShadowDom('img.custom-prisma-logo');
         if (customLogoImg) {
             const logoContainer = customLogoImg.parentElement;
             if (logoContainer && logoContainer.dataset.originalSvgContent) {
-                customLogoImg.remove();
-                if (!logoContainer.querySelector('svg[width="20"][height="28"]')) {
-                     logoContainer.innerHTML = logoContainer.dataset.originalSvgContent + logoContainer.innerHTML;
+                const template = document.createElement('template');
+                template.innerHTML = logoContainer.dataset.originalSvgContent;
+                const originalSvg = template.content.firstElementChild;
+                if (originalSvg && !logoContainer.querySelector('svg')) {
+                    logoContainer.insertBefore(originalSvg, customLogoImg);
                 }
+                customLogoImg.remove();
             } else if (logoContainer) {
                 customLogoImg.remove();
             }
@@ -88,6 +90,11 @@
         } else {
             restoreOriginalLogo();
         }
+    }
+
+    function setLogoReplaceEnabled(enabled) {
+        isLogoReplaceEnabled = enabled;
+        checkAndReplaceLogo();
     }
 
     function shouldReplaceLogoOnThisPage() {
@@ -106,6 +113,7 @@
     // Expose the functions to the global scope
     window.logoFeature = {
         checkAndReplaceLogo,
+        setLogoReplaceEnabled,
         shouldReplaceLogoOnThisPage
     };
 })();

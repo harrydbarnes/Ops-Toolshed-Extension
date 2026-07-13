@@ -75,10 +75,10 @@ describe('Reminders Feature Security (XSS)', () => {
         const popup = document.getElementById('custom-reminder-display-popup');
         expect(popup).not.toBeNull();
 
-        expect(popup.querySelector('h3').textContent).toBe('Valid Reminder'); // The outer name
         const headers = popup.querySelectorAll('h3');
-        expect(headers.length).toBe(2);
-        expect(headers[1].textContent).toBe('Valid Title');
+        expect(headers.length).toBe(1);
+        expect(headers[0].textContent).toBe('Valid Title');
+        expect(popup.querySelector('#custom-reminder-display-close').classList).toContain('custom-reminder-close-button');
 
         expect(popup.querySelector('p').textContent).toBe('This is a valid reminder.');
 

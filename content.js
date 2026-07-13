@@ -187,45 +187,83 @@ async function mainContentScriptInit() {
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     console.log("[ContentScript Prisma] Message received in listener:", request);
 
-    if (request.action === "checkLogoReplaceEnabled") {
-        console.log("[ContentScript Prisma] 'checkLogoReplaceEnabled' action received.");
-        if (window.logoFeature.shouldReplaceLogoOnThisPage()) {
-            window.logoFeature.checkAndReplaceLogo();
-        }
-        sendResponse({status: "Logo check processed by content script"});
-    } else if (request.action === "showMetaReminder") {
-        console.log("[ContentScript Prisma] 'showMetaReminder' action received. Attempting to create popup.");
-        window.remindersFeature.forceShowMetaReminder();
-        sendResponse({status: "Meta reminder shown by content script"});
-    } else if (request.action === "customRemindersUpdated") {
-        console.log("[ContentScript Prisma] Received 'customRemindersUpdated' message. Re-fetching reminders.");
-        window.remindersFeature.fetchCustomReminders().then(() => {
-            window.remindersFeature.resetReminderDismissalFlags();
-            window.remindersFeature.checkCustomReminders();
-            sendResponse({status: "Custom reminders re-fetched and IDs reset by content script"});
-        });
-        return true; // Keep message port open for async response
-    } else if (request.action === "executeDNumberSearch" && request.dNumber) {
-        (async () => {
-            try {
-                await window.dNumberSearchFeature.handleDNumberSearch(request.dNumber);
-                sendResponse({ status: 'success', message: 'D-Number search initiated successfully.' });
-            } catch (error) {
-                console.error("D-Number search failed:", error);
-                sendResponse({ status: 'error', message: error.message });
+    const action = request?.action;
+    try {
+        if (action === "checkLogoReplaceEnabled") {
+            console.log("[ContentScript Prisma] 'checkLogoReplaceEnabled' action received.");
+            if (window.logoFeature.shouldReplaceLogoOnThisPage()) {
+                if (typeof request.enabled === 'boolean') {
+                    window.logoFeature.setLogoReplaceEnabled(request.enabled);
+                } else {
+                    window.logoFeature.checkAndReplaceLogo();
+                }
             }
-        })();
-        return true; // Keep the message channel open for asynchronous response
-    } else if (request.action === "openFeedbackModal") {
-        console.log("[ContentScript] Opening Feedback Modal");
-        if (window.feedbackModalFeature) {
-            window.feedbackModalFeature.open();
+            sendResponse({status: "Logo check processed by content script"});
+            return false;
         }
-        sendResponse({ status: "opened" });
-    } else {
-        console.log("[ContentScript Prisma] Unknown action received or no action taken:", request.action);
+
+        if (action === "showMetaReminder") {
+            console.log("[ContentScript Prisma] 'showMetaReminder' action received. Attempting to create popup.");
+            window.remindersFeature.forceShowMetaReminder();
+            sendResponse({status: "Meta reminder shown by content script"});
+            return false;
+        }
+
+        if (action === "customRemindersUpdated") {
+            console.log("[ContentScript Prisma] Received 'customRemindersUpdated' message. Re-fetching reminders.");
+            window.remindersFeature.fetchCustomReminders()
+                .then(() => {
+                    window.remindersFeature.resetReminderDismissalFlags();
+                    window.remindersFeature.checkCustomReminders();
+                    sendResponse({status: "Custom reminders re-fetched and IDs reset by content script"});
+                })
+                .catch(error => {
+                    console.error("Failed to refresh custom reminders:", error);
+                    sendResponse({
+                        status: 'error',
+                        message: error?.message || 'Failed to refresh custom reminders.'
+                    });
+                });
+            return true; // Keep message port open for async response
+        }
+
+        if (action === "executeDNumberSearch") {
+            if (!request.dNumber) {
+                sendResponse({ status: 'error', message: 'A D or O number is required.' });
+                return false;
+            }
+
+            (async () => {
+                try {
+                    await window.dNumberSearchFeature.handleDNumberSearch(request.dNumber);
+                    sendResponse({ status: 'success', message: 'D-Number search initiated successfully.' });
+                } catch (error) {
+                    console.error("D-Number search failed:", error);
+                    sendResponse({ status: 'error', message: error.message });
+                }
+            })();
+            return true; // Keep the message channel open for asynchronous response
+        }
+
+        if (action === "openFeedbackModal") {
+            console.log("[ContentScript] Opening Feedback Modal");
+            if (window.feedbackModalFeature) {
+                window.feedbackModalFeature.open();
+            }
+            sendResponse({ status: "opened" });
+            return false;
+        }
+
+        console.log("[ContentScript Prisma] Unknown action received or no action taken:", action);
+        return false;
+    } catch (error) {
+        console.error(`Content-script message handler failed for action "${action || 'unknown'}":`, error);
+        sendResponse({
+            status: 'error',
+            message: error?.message || 'Content-script message handling failed.'
+        });
+        return false;
     }
-    return true; // Keep the message channel open for asynchronous response if needed
 });
 
     console.log("[ContentScript Prisma] Event listeners, including onMessage, should be set up now.");

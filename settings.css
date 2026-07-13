@@ -547,6 +547,21 @@ input:checked + .slider:before {
     display: none; /* Initially hidden */
 }
 
+.reminder-modal-overlay.reminder-modal-overlay--editing {
+    background-color: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(4px);
+    animation: reminder-modal-overlay-in 0.2s ease-out;
+}
+
+.reminder-modal-overlay.reminder-modal-overlay--closing {
+    animation: reminder-modal-overlay-out 0.2s ease-in forwards;
+    pointer-events: none;
+}
+
+body.reminder-modal-open {
+    overflow: hidden !important;
+}
+
 .reminder-modal {
     position: fixed;
     top: 50%;
@@ -724,6 +739,118 @@ body::after {
 /* Add Button Spacing */
 .add-trigger-btn {
     margin-top: 5px;
+}
+
+.reminder-modal.reminder-modal--editing {
+    max-width: 640px;
+    animation: reminder-modal-zoom-in 0.2s ease-out;
+}
+
+.reminder-modal.reminder-modal--closing {
+    animation: reminder-modal-zoom-out 0.2s ease-in forwards;
+    pointer-events: none;
+}
+
+.reminder-modal--editing .reminder-modal-header {
+    padding-top: 12px;
+    border-top: 4px solid #ff4087;
+    background: #fff7fb;
+}
+
+.reminder-modal-subtitle {
+    color: #6b7280;
+}
+
+.reminder-edit-conditions {
+    display: grid;
+    gap: 14px;
+}
+
+.reminder-edit-conditions.hidden-initially {
+    display: none;
+}
+
+.reminder-edit-conditions input[type="text"] {
+    width: 100%;
+}
+
+.reminder-edit-conditions .modal-trigger-input {
+    min-width: 0;
+    flex-grow: 1;
+}
+
+.reminder-url-input-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.reminder-url-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.reminder-url-label-row label {
+    margin: 0;
+}
+
+.reminder-match-segmented {
+    flex: 0 0 auto;
+    margin-left: 2px;
+}
+
+.reminder-url-input-row input {
+    flex: 1;
+    margin-bottom: 0;
+}
+
+.reminder-url-input-row .settings-button {
+    flex: 0 0 auto;
+    margin: 0;
+    white-space: nowrap;
+}
+
+.reminder-match-logic {
+    margin-top: 18px;
+}
+
+@keyframes reminder-modal-overlay-in {
+    from {
+        opacity: 0;
+        background-color: rgba(0, 0, 0, 0);
+        backdrop-filter: blur(0);
+    }
+    to {
+        opacity: 1;
+        background-color: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(4px);
+    }
+}
+
+@keyframes reminder-modal-overlay-out {
+    from {
+        opacity: 1;
+        background-color: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(4px);
+    }
+    to {
+        opacity: 0;
+        background-color: rgba(0, 0, 0, 0);
+        backdrop-filter: blur(0);
+    }
+}
+
+@keyframes reminder-modal-zoom-in {
+    from { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
+    to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes reminder-modal-zoom-out {
+    from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    to { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
 }
 
 .feedback {

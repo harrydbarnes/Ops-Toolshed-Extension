@@ -7,6 +7,11 @@ function escapeHTML(str) {
     div.appendChild(document.createTextNode(str)); 
     return div.innerHTML; 
 } 
+
+function isMissingContentScriptReceiverError(error) {
+    const message = error?.message || String(error || '');
+    return /could not establish connection|receiving end does not exist|message port closed before a response was received/i.test(message);
+}
  
  
 // Function to show a test custom reminder on the settings page 
@@ -26,11 +31,11 @@ function showTestCustomReminderOnSettingsPage(reminder) {
     popup.id = 'custom-reminder-display-popup'; // Ensure this ID is styled in settings.css or style.css 
  
     // Safely parse and append the reminder's HTML content 
-    popup.innerHTML = window.utils.sanitizeReminderHTML(reminder.popupMessage); 
+    popup.innerHTML = window.utils.buildReminderPopupHTML(reminder);
  
     const closeButton = document.createElement('button'); 
     closeButton.id = 'custom-reminder-display-close'; 
-    closeButton.className = 'settings-button'; 
+    closeButton.className = 'settings-button custom-reminder-close-button';
     closeButton.textContent = 'Got it!'; 
     popup.appendChild(closeButton); 
  
@@ -541,7 +546,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 chrome.tabs.query({url: ["*://*.mediaocean.com/*"]}, (tabs) => { 
                     tabs.forEach(tab => { 
                         if (tab.id) chrome.tabs.sendMessage(tab.id, { action: "checkLogoReplaceEnabled", enabled: isEnabled }) 
-                            .catch(e => console.warn("Error sending logo toggle message to tab ID " + tab.id + ":", e.message)); 
+                            .catch(error => {
+                                if (!isMissingContentScriptReceiverError(error)) {
+                                    console.error("Unexpected error sending logo toggle message to tab ID " + tab.id + ":", error);
+                                }
+                            });
                     }); 
                 }); 
             }); 
@@ -959,16 +968,24 @@ document.addEventListener('DOMContentLoaded', function() {
  
     // --- Custom Reminders - Modal Workflow --- 
     const createReminderInitialStepDiv = document.getElementById('createReminderInitialStep'); 
+    const reminderFormHeading = document.getElementById('reminderFormHeading');
     const reminderNameInput = document.getElementById('reminderName'); 
     const reminderUrlPatternInput = document.getElementById('reminderUrlPattern'); 
+    const reminderUrlMatchType = document.getElementById('reminderUrlMatchType');
+    const reminderUrlMatchTypeSegmented = document.getElementById('reminderUrlMatchTypeSegmented');
+    const reminderUrlPatternLabel = document.getElementById('reminderUrlPatternLabel');
+    const reminderUrlHelp = document.getElementById('reminderUrlHelp');
+    const useReminderSiteOnlyButton = document.getElementById('useReminderSiteOnly');
     // REMOVED: const reminderTextTriggerInput = document.getElementById('reminderTextTrigger'); 
     const nextButton = document.getElementById('nextButton'); 
     const customReminderStatus = document.getElementById('customReminderStatus'); 
     const customRemindersListDiv = document.getElementById('customRemindersList'); 
  
     // Helper: Dynamic Trigger Inputs 
-    function renderTriggerInput(value = '') { 
-        const container = document.getElementById('reminderTriggersContainer'); 
+    function renderTriggerInput(value = '', options = {}) {
+        const containerId = options.containerId || 'reminderTriggersContainer';
+        const inputClass = options.inputClass || 'trigger-input';
+        const container = document.getElementById(containerId);
         if (!container) return; 
  
         const wrapper = document.createElement('div'); 
@@ -976,7 +993,7 @@ document.addEventListener('DOMContentLoaded', function() {
  
         const input = document.createElement('input'); 
         input.type = 'text'; 
-        input.className = 'trigger-input'; 
+        input.className = inputClass;
         input.value = value; 
         input.placeholder = "e.g., Order Complete"; 
  
@@ -1009,116 +1026,284 @@ document.addEventListener('DOMContentLoaded', function() {
     const reminderModalOverlay = document.getElementById('reminderModalOverlay'); 
     const reminderModalEditor = document.getElementById('reminderModalEditor'); 
     const modalEditorTitle = document.getElementById('modalEditorTitle'); // h2 title of modal 
+    const modalEditorSubtitle = document.getElementById('modalEditorSubtitle');
     const modalCloseButton = document.getElementById('modalCloseButton'); // X button 
+    const modalReminderSummary = document.getElementById('modalReminderSummary');
+    const modalEditConditions = document.getElementById('modalEditConditions');
     const modalReminderNameDisplay = document.getElementById('modalReminderNameDisplay'); 
     const modalReminderUrlPatternDisplay = document.getElementById('modalReminderUrlPatternDisplay'); 
     const modalReminderTextTriggerDisplay = document.getElementById('modalReminderTextTriggerDisplay'); 
     const modalInputReminderTitle = document.getElementById('modalInputReminderTitle'); 
     const modalInputIntroSentence = document.getElementById('modalInputIntroSentence'); 
     const modalInputBulletPoints = document.getElementById('modalInputBulletPoints'); 
+    const modalEditReminderName = document.getElementById('modalEditReminderName');
+    const modalEditUrlMatchType = document.getElementById('modalEditUrlMatchType');
+    const modalEditUrlMatchTypeSegmented = document.getElementById('modalEditUrlMatchTypeSegmented');
+    const modalEditUrlPatternLabel = document.getElementById('modalEditUrlPatternLabel');
+    const modalEditUrlPattern = document.getElementById('modalEditUrlPattern');
+    const modalUseReminderSiteOnly = document.getElementById('modalUseReminderSiteOnly');
+    const modalAddTriggerBtn = document.getElementById('modalAddTriggerBtn');
+    const modalEditTriggerLogic = document.getElementById('modalEditTriggerLogic');
     const modalSaveButton = document.getElementById('modalSaveButton'); 
     const modalCancelButton = document.getElementById('modalCancelButton'); 
  
     let currentReminderData = {}; // Holds data for modal (name, url, textTrigger) 
     let editingReminderId = null; // Used to distinguish between create and edit 
+    let previousReminderModalFocus = null;
+
+    function getUrlEditorState(urlPattern = '') {
+        const trimmedPattern = urlPattern.trim();
+        const isSimpleContainsPattern = trimmedPattern.startsWith('*') &&
+            trimmedPattern.endsWith('*') &&
+            !trimmedPattern.slice(1, -1).includes('*');
+
+        if (isSimpleContainsPattern) {
+            return { matchType: 'contains', value: trimmedPattern.slice(1, -1) };
+        }
+        if (!trimmedPattern.includes('*')) {
+            return { matchType: 'contains', value: trimmedPattern };
+        }
+        return { matchType: 'pattern', value: trimmedPattern };
+    }
+
+    function serializeUrlPattern(value, matchType) {
+        const trimmedValue = value.trim();
+        if (matchType !== 'contains') return trimmedValue;
+        const unwrappedValue = trimmedValue.replace(/^\*+|\*+$/g, '');
+        return `*${unwrappedValue}*`;
+    }
+
+    function initializeLocalSegmentedControl(control, valueInput, defaultValue, onChange) {
+        if (!control || !valueInput) return { setValue: () => {} };
+        const buttons = Array.from(control.querySelectorAll('button[data-value]'));
+        const setValue = (value) => {
+            const nextValue = buttons.some(button => button.dataset.value === value) ? value : defaultValue;
+            valueInput.value = nextValue;
+            buttons.forEach(button => {
+                const selected = button.dataset.value === nextValue;
+                button.classList.toggle('is-selected', selected);
+                button.setAttribute('aria-pressed', String(selected));
+            });
+            if (onChange) onChange(nextValue);
+        };
+        buttons.forEach(button => button.addEventListener('click', () => setValue(button.dataset.value)));
+        control.addEventListener('segmented-control:set-value', event => setValue(event.detail));
+        setValue(valueInput.value || defaultValue);
+        return { setValue };
+    }
+
+    function updateUrlMatchHelp() {
+        const isContainsMode = !reminderUrlMatchType || reminderUrlMatchType.value === 'contains';
+        if (reminderUrlPatternLabel) {
+            reminderUrlPatternLabel.textContent = isContainsMode ? 'URL text to match:' : 'URL wildcard pattern:';
+        }
+        if (reminderUrlPatternInput) {
+            reminderUrlPatternInput.placeholder = isContainsMode ? 'e.g., mediaocean.com' : 'e.g., *://*.example.com/path*';
+        }
+        if (reminderUrlHelp) {
+            reminderUrlHelp.textContent = isContainsMode
+                ? 'Simple mode matches this text anywhere in the page URL. Paste a full URL and choose “Use site only” to match every page on that site.'
+                : 'Advanced mode supports * as a wildcard. For example, *://*.example.com/path* matches that path and anything after it.';
+        }
+    }
+
+    function updateModalUrlMatchHelp() {
+        const isContainsMode = modalEditUrlMatchType.value === 'contains';
+        modalEditUrlPatternLabel.textContent = isContainsMode ? 'URL text to match:' : 'URL wildcard pattern:';
+        modalEditUrlPattern.placeholder = isContainsMode ? 'e.g., mediaocean.com' : 'e.g., *://*.example.com/path*';
+    }
+
+    const reminderMatchControl = initializeLocalSegmentedControl(
+        reminderUrlMatchTypeSegmented,
+        reminderUrlMatchType,
+        'contains',
+        updateUrlMatchHelp
+    );
+    const modalReminderMatchControl = initializeLocalSegmentedControl(
+        modalEditUrlMatchTypeSegmented,
+        modalEditUrlMatchType,
+        'contains',
+        updateModalUrlMatchHelp
+    );
+
+    function useSiteOnly(input, matchControl, onInvalid) {
+        const rawValue = input.value.trim();
+        if (!rawValue) return;
+        try {
+            const parsedUrl = new URL(/^https?:\/\//i.test(rawValue) ? rawValue : `https://${rawValue}`);
+            input.value = parsedUrl.hostname;
+            matchControl.setValue('contains');
+        } catch (error) {
+            onInvalid();
+        }
+    }
+
+    function resetReminderForm() {
+        if (reminderNameInput) reminderNameInput.value = '';
+        reminderMatchControl.setValue('contains');
+        if (reminderUrlPatternInput) reminderUrlPatternInput.value = 'mediaocean.com';
+        const triggersContainer = document.getElementById('reminderTriggersContainer');
+        if (triggersContainer) {
+            triggersContainer.replaceChildren();
+            renderTriggerInput();
+        }
+        const triggerLogicSelect = document.getElementById('reminderTriggerLogic');
+        if (triggerLogicSelect) triggerLogicSelect.value = 'OR';
+        if (reminderFormHeading) reminderFormHeading.textContent = 'Create Custom Reminder';
+        if (nextButton) nextButton.textContent = 'Next';
+    }
+
+    function beginReminderEdit(reminder) {
+        openReminderModal(true, reminder);
+    }
+
+    if (useReminderSiteOnlyButton) {
+        useReminderSiteOnlyButton.addEventListener('click', () => {
+            useSiteOnly(reminderUrlPatternInput, reminderMatchControl, () => {
+                customReminderStatus.textContent = 'Enter a valid full URL before choosing “Use site only”.';
+                customReminderStatus.style.color = 'red';
+                customReminderStatus.classList.remove('hidden-initially');
+            });
+        });
+    }
+    if (modalUseReminderSiteOnly) {
+        modalUseReminderSiteOnly.addEventListener('click', () => {
+            useSiteOnly(modalEditUrlPattern, modalReminderMatchControl, () => {
+                modalEditorSubtitle.textContent = 'Enter a valid full URL before choosing “Use site only”.';
+            });
+        });
+    }
+    if (modalAddTriggerBtn) {
+        modalAddTriggerBtn.addEventListener('click', () => renderTriggerInput('', {
+            containerId: 'modalReminderTriggersContainer',
+            inputClass: 'modal-trigger-input'
+        }));
+    }
  
-    function openReminderModal(isEditMode = false, reminderDataForEdit = null) { 
-        if (isEditMode && reminderDataForEdit) { 
-            editingReminderId = reminderDataForEdit.id; 
-            currentReminderData = { // Store the non-popupMessage parts 
-                name: reminderDataForEdit.name, 
-                urlPattern: reminderDataForEdit.urlPattern, 
-                textTrigger: reminderDataForEdit.textTrigger, 
-                triggerLogic: reminderDataForEdit.triggerLogic 
-            }; 
-            modalEditorTitle.textContent = 'Edit Custom Reminder'; 
-            modalReminderNameDisplay.textContent = reminderDataForEdit.name; 
-            modalReminderUrlPatternDisplay.textContent = reminderDataForEdit.urlPattern; 
- 
-            // Display triggers - handle Array or String 
-            const triggers = window.utils.normalizeTriggers(reminderDataForEdit.textTrigger); 
-            if (triggers.length > 0) { 
-                modalReminderTextTriggerDisplay.textContent = triggers.join(', '); 
-            } else { 
-                modalReminderTextTriggerDisplay.textContent = 'N/A'; 
-            } 
- 
-            // Populate hidden inputs for editing as requested 
-            const container = document.getElementById('reminderTriggersContainer'); 
-            if (container) { 
-                container.replaceChildren(); // Clear existing 
-                const editTriggers = window.utils.normalizeTriggers(reminderDataForEdit.textTrigger); 
-                if (editTriggers.length === 0) { 
-                    renderTriggerInput(''); 
-                } else { 
-                    editTriggers.forEach(t => renderTriggerInput(t)); 
-                } 
-            } 
- 
- 
-            // Parse reminderDataForEdit.popupMessage to fill modal inputs 
-            const parser = new DOMParser(); 
-            const doc = parser.parseFromString(reminderDataForEdit.popupMessage, 'text/html'); 
-            const titleElem = doc.querySelector('h3'); 
-            const introElem = doc.querySelector('p'); 
-            const bulletsElems = doc.querySelectorAll('ul li'); 
- 
-            modalInputReminderTitle.value = titleElem ? titleElem.textContent : ''; 
-            modalInputIntroSentence.value = introElem ? introElem.textContent : ''; 
-            modalInputBulletPoints.value = Array.from(bulletsElems).map(li => `• ${li.textContent.trim()}`).join('\n'); 
- 
-        } else { // This is for creating a new reminder 
-            editingReminderId = null; 
-            // currentReminderData should have been set by the "Next" button logic 
-            modalEditorTitle.textContent = 'Create Custom Reminder'; 
-            modalReminderNameDisplay.textContent = currentReminderData.name || 'N/A'; 
-            modalReminderUrlPatternDisplay.textContent = currentReminderData.urlPattern || 'N/A'; 
- 
-            // Display triggers 
-            const triggers = window.utils.normalizeTriggers(currentReminderData.textTrigger); 
-            if (triggers.length > 0) { 
-                modalReminderTextTriggerDisplay.textContent = triggers.join(', '); 
-            } else { 
-                modalReminderTextTriggerDisplay.textContent = 'N/A'; 
-            } 
- 
- 
-            // Pre-fill with defaults for new reminder 
-            modalInputReminderTitle.value = "⚠️ Reminder Title ⚠️"; 
-            modalInputIntroSentence.value = "This is a reminder to..."; 
-            modalInputBulletPoints.value = "• Step 1\n• Step 2\n• Step 3"; 
-        } 
- 
-        if (reminderModalOverlay) reminderModalOverlay.style.display = 'block'; 
-        if (reminderModalEditor) reminderModalEditor.style.display = 'block'; 
-        if (createReminderInitialStepDiv) createReminderInitialStepDiv.style.display = 'none'; // Hide step 1 
-    } 
- 
-    function closeReminderModal() { 
-        if (reminderModalOverlay) reminderModalOverlay.style.display = 'none'; 
-        if (reminderModalEditor) reminderModalEditor.style.display = 'none'; 
-        if (createReminderInitialStepDiv) createReminderInitialStepDiv.style.display = 'block'; // Show step 1 
- 
-        // Clear modal form fields 
-        if(modalInputReminderTitle) modalInputReminderTitle.value = ''; 
-        if(modalInputIntroSentence) modalInputIntroSentence.value = ''; 
-        if(modalInputBulletPoints) modalInputBulletPoints.value = ''; 
-        // Reset display fields in modal 
-        if(modalReminderNameDisplay) modalReminderNameDisplay.textContent = ''; 
-        if(modalReminderUrlPatternDisplay) modalReminderUrlPatternDisplay.textContent = ''; 
-        if(modalReminderTextTriggerDisplay) modalReminderTextTriggerDisplay.textContent = ''; 
- 
-        currentReminderData = {}; // Clear intermediate data 
-        editingReminderId = null; // Reset editing state 
-    } 
+    function openReminderModal(isEditMode = false, reminderDataForEdit = null) {
+        previousReminderModalFocus = document.activeElement;
+        reminderModalEditor.classList.remove('reminder-modal--closing');
+        reminderModalOverlay.classList.remove('reminder-modal-overlay--closing');
+        if (isEditMode && reminderDataForEdit) {
+            editingReminderId = reminderDataForEdit.id;
+            currentReminderData = {
+                name: reminderDataForEdit.name,
+                urlPattern: reminderDataForEdit.urlPattern,
+                textTrigger: reminderDataForEdit.textTrigger,
+                triggerLogic: reminderDataForEdit.triggerLogic
+            };
+            reminderModalEditor.classList.add('reminder-modal--editing');
+            reminderModalOverlay.classList.add('reminder-modal-overlay--editing');
+            modalEditorTitle.textContent = 'Edit Custom Reminder';
+            modalEditorSubtitle.textContent = `Editing “${reminderDataForEdit.name}”. Update the matching rules and popup content below.`;
+            modalReminderSummary.style.display = 'none';
+            modalEditConditions.classList.remove('hidden-initially');
+            modalEditReminderName.value = reminderDataForEdit.name;
+
+            const urlState = getUrlEditorState(reminderDataForEdit.urlPattern);
+            modalReminderMatchControl.setValue(urlState.matchType);
+            modalEditUrlPattern.value = urlState.value;
+            modalEditTriggerLogic.value = reminderDataForEdit.triggerLogic || 'OR';
+
+            const container = document.getElementById('modalReminderTriggersContainer');
+            if (container) {
+                container.replaceChildren();
+                const editTriggers = window.utils.normalizeTriggers(reminderDataForEdit.textTrigger);
+                const triggersToRender = editTriggers.length > 0 ? editTriggers : [''];
+                triggersToRender.forEach(trigger => renderTriggerInput(trigger, {
+                    containerId: 'modalReminderTriggersContainer',
+                    inputClass: 'modal-trigger-input'
+                }));
+            }
+
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(reminderDataForEdit.popupMessage, 'text/html');
+            const titleElem = doc.querySelector('h3');
+            const introElem = doc.querySelector('p');
+            const bulletsElems = doc.querySelectorAll('ul li');
+
+            modalInputReminderTitle.value = titleElem ? titleElem.textContent : '';
+            modalInputIntroSentence.value = introElem ? introElem.textContent : '';
+            modalInputBulletPoints.value = Array.from(bulletsElems).map(li => `• ${li.textContent.trim()}`).join('\n');
+        } else {
+            editingReminderId = null;
+            reminderModalEditor.classList.remove('reminder-modal--editing');
+            reminderModalOverlay.classList.remove('reminder-modal-overlay--editing');
+            modalEditorTitle.textContent = 'Create Custom Reminder';
+            modalEditorSubtitle.textContent = 'Review the popup content before saving.';
+            modalReminderSummary.style.display = 'block';
+            modalEditConditions.classList.add('hidden-initially');
+            modalReminderNameDisplay.textContent = currentReminderData.name || 'N/A';
+            modalReminderUrlPatternDisplay.textContent = currentReminderData.urlPattern || 'N/A';
+
+            const triggers = window.utils.normalizeTriggers(currentReminderData.textTrigger);
+            modalReminderTextTriggerDisplay.textContent = triggers.length > 0 ? triggers.join(', ') : 'N/A';
+
+            modalInputReminderTitle.value = `⚠️ ${currentReminderData.name} ⚠️`;
+            modalInputIntroSentence.value = 'This is a reminder to...';
+            modalInputBulletPoints.value = '• Step 1\n• Step 2\n• Step 3';
+        }
+
+        modalSaveButton.textContent = isEditMode ? 'Save Changes' : 'Save Reminder';
+        if (reminderModalOverlay) reminderModalOverlay.style.display = 'block';
+        if (reminderModalEditor) reminderModalEditor.style.display = 'block';
+        document.body.classList.add('reminder-modal-open');
+        if (!isEditMode && createReminderInitialStepDiv) createReminderInitialStepDiv.style.display = 'none';
+        (isEditMode ? modalEditReminderName : modalInputReminderTitle).focus();
+    }
+
+    function finishClosingReminderModal(wasEditing) {
+        if (reminderModalOverlay) reminderModalOverlay.style.display = 'none';
+        if (reminderModalEditor) reminderModalEditor.style.display = 'none';
+        if (createReminderInitialStepDiv) createReminderInitialStepDiv.style.display = 'block';
+        reminderModalEditor.classList.remove('reminder-modal--editing');
+        reminderModalEditor.classList.remove('reminder-modal--closing');
+        reminderModalOverlay.classList.remove('reminder-modal-overlay--editing');
+        reminderModalOverlay.classList.remove('reminder-modal-overlay--closing');
+        document.body.classList.remove('reminder-modal-open');
+        modalEditConditions.classList.add('hidden-initially');
+        modalReminderSummary.style.display = 'block';
+        modalEditorSubtitle.textContent = '';
+        modalSaveButton.textContent = 'Save Reminder';
+
+        if (modalInputReminderTitle) modalInputReminderTitle.value = '';
+        if (modalInputIntroSentence) modalInputIntroSentence.value = '';
+        if (modalInputBulletPoints) modalInputBulletPoints.value = '';
+        if (modalReminderNameDisplay) modalReminderNameDisplay.textContent = '';
+        if (modalReminderUrlPatternDisplay) modalReminderUrlPatternDisplay.textContent = '';
+        if (modalReminderTextTriggerDisplay) modalReminderTextTriggerDisplay.textContent = '';
+
+        currentReminderData = {};
+        editingReminderId = null;
+        if (!wasEditing) resetReminderForm();
+        if (previousReminderModalFocus?.isConnected) previousReminderModalFocus.focus();
+        previousReminderModalFocus = null;
+    }
+
+    function closeReminderModal() {
+        if (reminderModalEditor.classList.contains('reminder-modal--closing')) return;
+
+        const wasEditing = Boolean(editingReminderId);
+        if (!wasEditing) {
+            finishClosingReminderModal(false);
+            return;
+        }
+
+        reminderModalEditor.classList.add('reminder-modal--closing');
+        reminderModalOverlay.classList.add('reminder-modal-overlay--closing');
+        setTimeout(() => finishClosingReminderModal(true), 200);
+    }
  
     if (nextButton) { 
         nextButton.addEventListener('click', function() { 
             const name = reminderNameInput.value.trim(); 
-            const urlPattern = reminderUrlPatternInput.value.trim(); 
+            const urlValue = reminderUrlPatternInput.value.trim();
  
-            if (!name || !urlPattern) { 
-                customReminderStatus.textContent = 'Reminder Name and URL Pattern are required.'; 
+            if (!name || !urlValue) {
+                const missingFields = [];
+                if (!name) missingFields.push('Reminder Name');
+                if (!urlValue) missingFields.push('URL match');
+                customReminderStatus.textContent = `${missingFields.join(' and ')} ${missingFields.length === 1 ? 'is' : 'are'} required.`;
                 customReminderStatus.style.color = 'red'; 
                 customReminderStatus.classList.remove('hidden-initially'); 
                 setTimeout(() => customReminderStatus.classList.add('hidden-initially'), 3000); 
@@ -1128,6 +1313,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Gather triggers from dynamic inputs 
             const triggerInputs = document.querySelectorAll('.trigger-input'); 
             const textTrigger = Array.from(triggerInputs).map(i => i.value.trim()).filter(v => v !== ''); 
+            const urlPattern = serializeUrlPattern(urlValue, reminderUrlMatchType.value);
  
             currentReminderData = { 
                 name, 
@@ -1135,22 +1321,42 @@ document.addEventListener('DOMContentLoaded', function() {
                 textTrigger, // Array of strings 
                 triggerLogic: document.getElementById('reminderTriggerLogic').value 
             }; 
-            // editingReminderId = null; // This is set in openReminderModal 
-            openReminderModal(false); // Open for new reminder 
+            openReminderModal(false);
         }); 
     } 
  
     if (modalCloseButton) modalCloseButton.addEventListener('click', closeReminderModal); 
     if (modalCancelButton) modalCancelButton.addEventListener('click', closeReminderModal); 
+    if (reminderModalOverlay) reminderModalOverlay.addEventListener('click', closeReminderModal);
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && reminderModalEditor?.style.display === 'block') closeReminderModal();
+    });
  
     if (modalSaveButton) { 
         modalSaveButton.addEventListener('click', function() { 
-            // These are from currentReminderData, set when modal was opened (for new or edit) 
-            const reminderName = currentReminderData.name; 
-            const urlPattern = currentReminderData.urlPattern; 
- 
-            const textTrigger = currentReminderData.textTrigger; 
-            const triggerLogic = currentReminderData.triggerLogic || 'OR'; 
+            let reminderName;
+            let urlPattern;
+            let textTrigger;
+            let triggerLogic;
+
+            if (editingReminderId) {
+                reminderName = modalEditReminderName.value.trim();
+                const urlValue = modalEditUrlPattern.value.trim();
+                if (!reminderName || !urlValue) {
+                    alert('Reminder Name and URL match are required.');
+                    return;
+                }
+                urlPattern = serializeUrlPattern(urlValue, modalEditUrlMatchType.value);
+                textTrigger = Array.from(document.querySelectorAll('#modalReminderTriggersContainer .modal-trigger-input'))
+                    .map(input => input.value.trim())
+                    .filter(Boolean);
+                triggerLogic = modalEditTriggerLogic.value || 'OR';
+            } else {
+                reminderName = currentReminderData.name;
+                urlPattern = currentReminderData.urlPattern;
+                textTrigger = currentReminderData.textTrigger;
+                triggerLogic = currentReminderData.triggerLogic || 'OR';
+            }
  
             const title = modalInputReminderTitle.value.trim(); 
             const intro = modalInputIntroSentence.value.trim(); 
@@ -1220,23 +1426,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         customReminderStatus.textContent = statusMessage; 
                         customReminderStatus.style.color = 'green'; 
  
-                        if (!editingReminderId) { // Clear initial step inputs only for new reminders 
-                           if(reminderNameInput) reminderNameInput.value = ''; 
-                           if(reminderUrlPatternInput) reminderUrlPatternInput.value = ''; 
-                           // Clear triggers 
-                           const container = document.getElementById('reminderTriggersContainer'); 
-                           if (container) { 
-                               container.replaceChildren(); 
-                               renderTriggerInput(); // Add one back 
-                           } 
-                        } 
                     } 
                     customReminderStatus.classList.remove('hidden-initially'); 
                     setTimeout(() => customReminderStatus.classList.add('hidden-initially'), 3000); 
  
                     closeReminderModal(); 
                     displayCustomReminders(); 
-                    chrome.runtime.sendMessage({ action: "customRemindersUpdated" }).catch(e => console.warn("Error sending customRemindersUpdated message:", e.message)); 
                 }); 
             }); 
         }); 
@@ -1324,7 +1519,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         chrome.storage.sync.set({customReminders: updatedReminders}, () => { 
                             if (chrome.runtime.lastError) console.error("Error updating reminder state:", chrome.runtime.lastError); 
                             else console.log('Reminder state updated for ID:', reminderIdToToggle, 'to', isEnabled); 
-                            chrome.runtime.sendMessage({ action: "customRemindersUpdated" }).catch(e => console.warn("Error sending update message:", e.message)); 
                         }); 
                     }); 
                 }); 
@@ -1341,7 +1535,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // editButton.style.backgroundColor = '#ffc107'; // Using class instead 
                 editButton.style.marginLeft = '10px'; 
                 editButton.addEventListener('click', () => { 
-                    openReminderModal(true, reminder); // Pass true for isEditMode and the reminder object 
+                    beginReminderEdit(reminder);
                 }); 
  
                 const deleteButton = document.createElement('button'); 
@@ -1368,7 +1562,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (chrome.runtime.lastError) console.error("Error deleting reminder:", chrome.runtime.lastError); 
                 else console.log('Custom reminder deleted by ID:', idToDelete); 
                 displayCustomReminders(); 
-                chrome.runtime.sendMessage({ action: "customRemindersUpdated" }).catch(e => console.warn("Error sending update message:", e.message)); 
             }); 
         }); 
     } 
@@ -1417,6 +1610,7 @@ document.addEventListener('DOMContentLoaded', function() {
  
 if (typeof module !== 'undefined' && module.exports) { 
     module.exports = { 
-        escapeHTML, 
+        escapeHTML,
+        isMissingContentScriptReceiverError,
     }; 
 }

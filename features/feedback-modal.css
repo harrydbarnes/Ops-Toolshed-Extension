@@ -135,6 +135,7 @@
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
+    height: 38px; /* Override Prisma's global 28px select height, which clips this control's text. */
     padding-right: 36px;
     background-color: #ffffff;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2309090b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E");

@@ -6,6 +6,13 @@ const PRISMA_DASHBOARD_URL = 'https://groupmuk-prisma.mediaocean.com/campaign-ma
 const MAX_RETRIES = 10;
 const RETRY_DELAY_MS = 500;
 
+function isTransientReceiverError(error) {
+    const message = String(error?.message || error || '').toLowerCase();
+    return message.includes('could not establish connection') ||
+        message.includes('receiving end does not exist') ||
+        message.includes('message port closed before a response was received');
+}
+
 async function disableTimeBomb(request, sender, sendResponse) {
     try {
         await chrome.storage.local.remove(['timeBombActive', 'initialDeadline']);
@@ -57,6 +64,9 @@ async function performDNumberSearch(request, sender, sendResponse) {
         const newTab = await chrome.tabs.create({ url: PRISMA_DASHBOARD_URL });
         const tabId = newTab.id;
         const dNumber = request.dNumber;
+        if (!tabId) {
+            throw new Error('Could not create a Prisma search tab.');
+        }
 
         // Wait for the content script to be ready by retrying the message and awaiting its response.
         let response;
@@ -72,7 +82,7 @@ async function performDNumberSearch(request, sender, sendResponse) {
                 }
             } catch (e) {
                 // Only retry for connection errors. For other errors (like failures from the content script), fail immediately.
-                if (e.message?.includes('Could not establish connection') && i < MAX_RETRIES - 1) {
+                if (isTransientReceiverError(e) && i < MAX_RETRIES - 1) {
                     await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
                 } else {
                     throw e; // Rethrow terminal errors or on last retry.

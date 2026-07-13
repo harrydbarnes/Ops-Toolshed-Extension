@@ -62,7 +62,15 @@
             if (changes.prismaCountdownDuration) prismaCountdownDuration = parseInt(changes.prismaCountdownDuration.newValue, 10) || 0;
             if (changes.customReminders) {
                 const newReminders = changes.customReminders.newValue || [];
+                const previousRemindersById = new Map(activeCustomReminders.map(reminder => [reminder.id, reminder]));
+                newReminders.forEach(reminder => {
+                    const previousReminder = previousRemindersById.get(reminder.id);
+                    if (!previousReminder || JSON.stringify(previousReminder) !== JSON.stringify(reminder)) {
+                        shownCustomReminderIds.delete(reminder.id);
+                    }
+                });
                 activeCustomReminders = newReminders.filter(r => r.enabled);
+                checkCustomReminders();
             }
             // Listen for theme changes
             if (changes.reminderTheme) {
@@ -303,12 +311,11 @@
         const popup = document.createElement('div');
         popup.id = 'custom-reminder-display-popup';
 
-        const safeContent = window.utils.sanitizeReminderHTML(reminder.popupMessage);
+        const safeContent = window.utils.buildReminderPopupHTML(reminder);
 
         popup.innerHTML = `
-            <h3>${window.utils.escapeHTML(reminder.name)}</h3>
             ${safeContent}
-            <button id="custom-reminder-display-close">Got it!</button>
+            <button id="custom-reminder-display-close" class="custom-reminder-close-button">Got it!</button>
         `;
         document.body.appendChild(popup);
 
@@ -324,7 +331,7 @@
         if (document.getElementById('custom-reminder-display-popup')) return;
 
         const currentUrl = window.location.href;
-        const pageText = document.body.innerText; // Keep original case for display, but regex will be case-insensitive
+        const pageText = `${document.title}\n${document.body.innerText}`; // Include the visible tab title for SPA campaign names.
 
         for (const reminder of activeCustomReminders) {
             if (shownCustomReminderIds.has(reminder.id)) continue;
@@ -341,8 +348,8 @@
 
                     const checkTrigger = (trigger) => {
                          try {
-                             // Whole word matching (\b), case insensitive (i)
-                             const regex = new RegExp('\\b' + window.utils.escapeRegExp(trigger) + '\\b', 'i');
+                             // Treat Prisma separators such as underscores and hyphens as word boundaries.
+                             const regex = new RegExp('(^|[^A-Za-z0-9])' + window.utils.escapeRegExp(trigger) + '(?=$|[^A-Za-z0-9])', 'i');
                              return regex.test(pageText);
                          } catch (e) {
                              console.warn('[Reminders] Invalid regex for trigger:', trigger, e);

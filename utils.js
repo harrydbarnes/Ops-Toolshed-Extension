@@ -53,6 +53,12 @@
             return processNodes(doc.body.childNodes);
         },
 
+        buildReminderPopupHTML(reminder) {
+            const safeContent = utils.sanitizeReminderHTML(reminder?.popupMessage || '');
+            if (/<h3(?:\s|>)/i.test(safeContent)) return safeContent;
+            return `<h3>${utils.escapeHTML(reminder?.name || 'Reminder')}</h3>${safeContent}`;
+        },
+
         normalizeTriggers(triggers) {
             if (typeof triggers === 'string') {
                 return triggers.split(',').map(t => t.trim()).filter(Boolean);

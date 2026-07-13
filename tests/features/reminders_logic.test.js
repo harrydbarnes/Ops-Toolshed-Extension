@@ -197,6 +197,47 @@ describe('Reminders Feature Logic', () => {
         });
     });
 
+    test('immediately evaluates a newly saved reminder on an already-loaded Prisma page', () => {
+        document.title = 'Prisma Media - CRUK_Display_RFL_Jan_2026';
+        document.body.textContent = 'Order summary for RFL';
+        const storageChangeListener = window.chrome.storage.onChanged.addListener.mock.calls[0][0];
+        const reminder = {
+            id: 'live-update-1',
+            name: 'CRUK RFL',
+            urlPattern: '*example.com*',
+            textTrigger: ['RFL'],
+            triggerLogic: 'OR',
+            enabled: true,
+            popupMessage: '<p>Check RFL</p>'
+        };
+
+        storageChangeListener({
+            customReminders: { oldValue: [], newValue: [reminder] }
+        }, 'sync');
+
+        expect(document.getElementById('custom-reminder-display-popup')).not.toBeNull();
+        expect(document.getElementById('custom-reminder-display-popup').textContent).toContain('CRUK RFL');
+    });
+
+    test('matches campaign text exposed in the Prisma tab title', async () => {
+        const reminder = {
+            id: 'title-match-1',
+            name: 'CRUK RFL',
+            urlPattern: '*example.com*',
+            textTrigger: ['RFL'],
+            enabled: true,
+            popupMessage: '<p>Check RFL</p>'
+        };
+        window.chrome.storage.sync.get = jest.fn((keys, callback) => callback({ customReminders: [reminder] }));
+        await window.remindersFeature.fetchCustomReminders();
+        document.title = 'Prisma Media - CRUK_Display_RFL_Jan_2026';
+        document.body.textContent = 'Order summary';
+
+        window.remindersFeature.checkCustomReminders();
+
+        expect(document.getElementById('custom-reminder-display-popup')).not.toBeNull();
+    });
+
     test('does not throw or show a reminder when the extension context is invalidated', () => {
         window.chrome.storage.local.get = jest.fn(() => {
             throw new Error('Extension context invalidated.');

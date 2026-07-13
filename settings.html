@@ -395,15 +395,26 @@
 
         <div id="custom-reminders" class="tab-content" role="tabpanel" aria-labelledby="tab-custom-reminders">
             <section id="create-reminder">
-                <h2>Create Custom Reminder</h2>
+                <h2 id="reminderFormHeading">Create Custom Reminder</h2>
                 <div id="createReminderInitialStep">
                     <div>
                         <label for="reminderName">Reminder Name:</label>
                         <input type="text" id="reminderName" placeholder="e.g., Snapchat Task">
                     </div>
                     <div>
-                        <label for="reminderUrlPattern">URL Pattern (e.g., *://*.example.com/path*):</label>
-                        <input type="text" id="reminderUrlPattern" placeholder="*://*.example.com/*">
+                        <div class="reminder-url-label-row">
+                            <label for="reminderUrlPattern" id="reminderUrlPatternLabel">URL text to match:</label>
+                            <div class="segmented-control reminder-match-segmented" id="reminderUrlMatchTypeSegmented" role="group" aria-label="URL matching mode">
+                                <button type="button" data-value="contains" aria-pressed="true">Simple</button>
+                                <button type="button" data-value="pattern" aria-pressed="false">Advanced</button>
+                            </div>
+                            <input type="hidden" id="reminderUrlMatchType" value="contains">
+                        </div>
+                        <div class="reminder-url-input-row">
+                            <input type="text" id="reminderUrlPattern" value="mediaocean.com" placeholder="e.g., mediaocean.com">
+                            <button type="button" id="useReminderSiteOnly" class="settings-button settings-button-secondary">Use site only</button>
+                        </div>
+                        <p id="reminderUrlHelp" class="input-help">Simple mode matches this text anywhere in the page URL. Paste a full URL and choose “Use site only” to match every page on that site.</p>
                     </div>
                     <div>
                         <fieldset>
@@ -412,7 +423,7 @@
                             <button type="button" id="addTriggerBtn" class="settings-button settings-button-secondary add-trigger-btn">+ Add another keyword</button>
                         </fieldset>
                     </div>
-                    <div>
+                    <div class="reminder-match-logic">
                         <label for="reminderTriggerLogic">Match Logic:</label>
                         <div class="select-container">
                             <select id="reminderTriggerLogic">
@@ -454,17 +465,55 @@
 
     <!-- New Reminder Modal Editor -->
     <div id="reminderModalOverlay" class="reminder-modal-overlay"></div>
-    <div id="reminderModalEditor" class="reminder-modal">
+    <div id="reminderModalEditor" class="reminder-modal" role="dialog" aria-modal="true" aria-labelledby="modalEditorTitle" aria-describedby="modalEditorSubtitle">
         <div class="reminder-modal-content">
             <div class="reminder-modal-header">
                 <h2 id="modalEditorTitle">Create Custom Reminder</h2>
-                <button id="modalCloseButton" class="modal-close-button">&times;</button>
+                <button id="modalCloseButton" class="modal-close-button" type="button" aria-label="Close reminder editor">&times;</button>
             </div>
             <div class="reminder-modal-body">
-                <p><strong>Name:</strong> <span id="modalReminderNameDisplay"></span></p>
-                <p><strong>URL Pattern:</strong> <span id="modalReminderUrlPatternDisplay"></span></p>
-                <p><strong>Text Trigger:</strong> <span id="modalReminderTextTriggerDisplay"></span></p>
-                <hr>
+                <p id="modalEditorSubtitle" class="reminder-modal-subtitle"></p>
+                <div id="modalReminderSummary">
+                    <p><strong>Name:</strong> <span id="modalReminderNameDisplay"></span></p>
+                    <p><strong>URL Pattern:</strong> <span id="modalReminderUrlPatternDisplay"></span></p>
+                    <p><strong>Text Trigger:</strong> <span id="modalReminderTextTriggerDisplay"></span></p>
+                    <hr>
+                </div>
+                <div id="modalEditConditions" class="reminder-edit-conditions hidden-initially">
+                    <div>
+                        <label for="modalEditReminderName">Reminder Name:</label>
+                        <input type="text" id="modalEditReminderName">
+                    </div>
+                    <div>
+                        <div class="reminder-url-label-row">
+                            <label for="modalEditUrlPattern" id="modalEditUrlPatternLabel">URL text to match:</label>
+                            <div class="segmented-control reminder-match-segmented" id="modalEditUrlMatchTypeSegmented" role="group" aria-label="Edit URL matching mode">
+                                <button type="button" data-value="contains" aria-pressed="true">Simple</button>
+                                <button type="button" data-value="pattern" aria-pressed="false">Advanced</button>
+                            </div>
+                            <input type="hidden" id="modalEditUrlMatchType" value="contains">
+                        </div>
+                        <div class="reminder-url-input-row">
+                            <input type="text" id="modalEditUrlPattern" placeholder="e.g., mediaocean.com">
+                            <button type="button" id="modalUseReminderSiteOnly" class="settings-button settings-button-secondary">Use site only</button>
+                        </div>
+                    </div>
+                    <fieldset>
+                        <legend>Text to look for on site:</legend>
+                        <div id="modalReminderTriggersContainer"></div>
+                        <button type="button" id="modalAddTriggerBtn" class="settings-button settings-button-secondary add-trigger-btn">+ Add another keyword</button>
+                    </fieldset>
+                    <div class="reminder-match-logic">
+                        <label for="modalEditTriggerLogic">Match Logic:</label>
+                        <div class="select-container">
+                            <select id="modalEditTriggerLogic">
+                                <option value="OR">Match ANY text (OR)</option>
+                                <option value="ALL">Match ALL text (AND)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <hr>
+                </div>
                 <div>
                     <label for="modalInputReminderTitle">Reminder Title:</label>
                     <input type="text" id="modalInputReminderTitle" placeholder="⚠️ Your Title Here ⚠️">
