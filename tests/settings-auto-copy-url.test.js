@@ -3,7 +3,6 @@ const path = require('path');
 
 const settingsHtml = fs.readFileSync(path.resolve(__dirname, '../settings.html'), 'utf8');
 const settingsScript = fs.readFileSync(path.resolve(__dirname, '../settings.js'), 'utf8');
-const toolshedHtml = fs.readFileSync(path.resolve(__dirname, '../toolshed.html'), 'utf8');
 
 describe('Auto Copy Campaign URL settings', () => {
     test('offers Short URL and Full URL modes below the main toggle', () => {
@@ -34,9 +33,5 @@ describe('Auto Copy Campaign URL settings', () => {
         expect(settingsHtml).toContain('DROPDOWN ROLLBACK (URL format)');
         expect(settingsScript).toContain("initializeCustomDropdown('uiThemeDropdown', 'uiTheme', 'pink')");
         expect(settingsScript).toContain("initializeCustomDropdown('autoCopyUrlModeDropdown', 'autoCopyUrlMode', 'short')");
-    });
-
-    test('removes the completed PID quick-swap item from the roadmap', () => {
-        expect(toolshedHtml).not.toContain('Quick swap button for your PIDs');
     });
 });

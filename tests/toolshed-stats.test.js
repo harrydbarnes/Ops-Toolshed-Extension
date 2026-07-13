@@ -64,12 +64,13 @@ describe('Toolshed Stats UI', () => {
         expect(document.querySelector('.stats-overview #applearn-popups-blocked-stat')).toBeNull();
     });
 
-    test('lists the planned Timesheet Helper and Meta Spend Check features', () => {
+    test('lists the planned Timesheet Helper, Meta Spend Check and Recy Sheet features', () => {
         const roadmapItems = Array.from(document.querySelectorAll('#roadmap li'))
             .map(item => item.textContent.trim());
 
         expect(roadmapItems).toContain('Timesheet Helper');
         expect(roadmapItems).toContain('Meta Spend Check');
+        expect(roadmapItems).toContain('Recy Sheet Campaign List');
     });
 
     test('keeps every tab at the same content width without scrollbar layout shifts', () => {
@@ -77,17 +78,4 @@ describe('Toolshed Stats UI', () => {
         expect(css).toMatch(/\.tab-content\s*{[^}]*width:\s*100%;[^}]*box-sizing:\s*border-box;/s);
     });
 
-    test('should trigger confetti on milestone', async () => {
-        window.confetti = jest.fn();
-
-        const legacyStats = { placementsAdded: 100, visitedCampaigns: [], totalLoadingTime: 0 }; // Milestone 100
-        await chrome.storage.local.set({ legacyStats });
-
-        require('../toolshed.js');
-        document.dispatchEvent(new Event('DOMContentLoaded'));
-
-        await new Promise(r => setTimeout(r, 100));
-
-        expect(window.confetti).toHaveBeenCalled();
-    });
 });

@@ -19,15 +19,55 @@ describe('Content Script Main Logic', () => {
     let document;
     let consoleSpy;
 
-    const setupJSDOM = (url, timeBombActive = false, customReminders = []) => {
+    const setupJSDOM = (url, timeBombActive = false, customReminders = [], options = {}) => {
         require('./mocks/chrome');
+        chrome.runtime.id = 'test-extension-id';
         chrome.storage.local.__getStore().timeBombActive = timeBombActive;
         chrome.storage.sync.__getStore().customReminders = customReminders;
+
+        const configureStorageGet = (storageArea) => {
+            storageArea.get.mockImplementation((keys, callback) => {
+                const readStoredValues = () => {
+                    const store = storageArea.__getStore();
+                    const result = {};
+                    if (!keys) {
+                        Object.assign(result, store);
+                    } else if (Array.isArray(keys)) {
+                        keys.forEach(key => {
+                            if (store[key] !== undefined) result[key] = store[key];
+                        });
+                    } else if (typeof keys === 'object') {
+                        Object.keys(keys).forEach(key => {
+                            result[key] = store[key] === undefined ? keys[key] : store[key];
+                        });
+                    } else if (store[keys] !== undefined) {
+                        result[keys] = store[keys];
+                    }
+                    if (callback) callback(result);
+                    return result;
+                };
+
+                if (options.synchronousStorage) {
+                    return Promise.resolve(readStoredValues());
+                }
+                return new Promise(resolve => {
+                    setTimeout(() => resolve(readStoredValues()), 0);
+                });
+            });
+        };
+        configureStorageGet(chrome.storage.local);
+        configureStorageGet(chrome.storage.sync);
 
         const dom = new JSDOM('<!DOCTYPE html><html><body><p>Some initial content</p></body></html>', { url, runScripts: 'dangerously' });
         window = dom.window;
         document = window.document;
         window.chrome = global.chrome;
+        Object.defineProperty(document.body, 'innerText', {
+            configurable: true,
+            get() {
+                return this.textContent;
+            }
+        });
 
         // Mock feature modules before loading scripts
         window.statsCollector = {
@@ -61,8 +101,10 @@ describe('Content Script Main Logic', () => {
             document.head.appendChild(scriptEl);
         });
 
-        // Manually dispatch DOMContentLoaded to ensure the script's main logic runs
-        document.dispatchEvent(new window.Event('DOMContentLoaded', { bubbles: true, cancelable: true }));
+        // Manually dispatch DOMContentLoaded to ensure the script's main logic runs.
+        if (options.dispatchDOMContentLoaded !== false) {
+            document.dispatchEvent(new window.Event('DOMContentLoaded', { bubbles: true, cancelable: true }));
+        }
 
         return { window, document, intervalCallbacks: window.__intervalCallbacks };
     };
@@ -213,33 +255,54 @@ describe('Content Script Main Logic', () => {
         });
     });
 
-    // This test is skipped due to a fundamental timing issue between the application code's
-    // nested asynchronous operations (chrome.storage.get -> setTimeout) and Jest's fake timer
-    // environment. Attempts to fix this with advanced timer mocks or real timers with waitFor
-    // have been unsuccessful, leading to deadlocks or test environment leaks.
-    // The core issue is that the script's async initialization logic is not compatible with
-    // a unit testing environment that relies on precise timer control.
-    // TODO: Re-evaluate this test. It may need to be rewritten as a full end-to-end
-    // test with a tool like Playwright or Puppeteer to be reliable.
-    test.skip('should show a custom reminder on initial load when conditions are met', () => {
+    test('shows an existing custom reminder during the initial Prisma load', async () => {
         const reminder = {
             id: 'test1',
             name: 'Test Reminder',
             urlPattern: '*mediaocean.com*',
             textTrigger: 'initial content',
-            popupMessage: '<h3>A Sub-Title</h3>',
+            popupMessage: '<p>A reminder message</p>',
             enabled: true,
         };
-        const { document } = setupJSDOM('https://groupmuk-prisma.mediaocean.com/', false, [reminder]);
+        const { window, document } = setupJSDOM(
+            'https://groupmuk-prisma.mediaocean.com/',
+            false,
+            [reminder],
+            {
+                synchronousStorage: true,
+                dispatchDOMContentLoaded: false
+            }
+        );
+        const originalFetchCustomReminders = window.remindersFeature.fetchCustomReminders;
+        let initialReminderFetch;
+        jest.spyOn(window.remindersFeature, 'fetchCustomReminders')
+            .mockImplementation(() => {
+                initialReminderFetch = originalFetchCustomReminders();
+                return initialReminderFetch;
+            });
+        const initialReminderCheck = jest.spyOn(
+            window.remindersFeature,
+            'checkCustomReminders'
+        );
 
-        // The script runs checkCustomReminders after a 2000ms timeout on initialization.
-        // Run all timers to execute this initial check.
-        jest.runAllTimers();
+        document.dispatchEvent(new window.Event('DOMContentLoaded', {
+            bubbles: true,
+            cancelable: true
+        }));
 
-        // Now assert the popup exists
+        expect(initialReminderFetch).toBeDefined();
+        await initialReminderFetch;
+        await Promise.resolve();
+
+        // mainContentScriptInit checks existing reminders two seconds after settings load.
+        jest.advanceTimersByTime(2000);
+        await Promise.resolve();
+
+        expect(initialReminderCheck).toHaveBeenCalled();
         const popup = document.getElementById('custom-reminder-display-popup');
         expect(popup).not.toBeNull();
-        expect(popup.innerHTML).toContain('<h3>A Sub-Title</h3>');
+        expect(popup.innerHTML).toContain('<h3>Test Reminder</h3>');
+        expect(popup.textContent).toContain('A reminder message');
         expect(popup.textContent).toContain('Test Reminder');
     });
 });

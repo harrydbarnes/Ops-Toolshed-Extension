@@ -11,6 +11,7 @@ Ops Toolshed is a Chrome extension that streamlines day-to-day campaign manageme
 - The replacement Prisma logo now applies or restores immediately when its setting changes, without refreshing the page.
 - Fixed clipped dropdown text in the Submit Feedback modal when it is opened over Prisma.
 - Improved D/O number search and extension message handling so failures return clearer errors instead of silently timing out.
+- Added a Social Booking Report that compares Meta campaign-month activity with Prisma Partner Line IDs, planned values and available schedule dates, then exports an evidence-labelled exception CSV.
 
 ## Features
 
@@ -20,7 +21,7 @@ Ops Toolshed is a Chrome extension that streamlines day-to-day campaign manageme
 - Open a campaign's **Actualize** route using its Campaign ID and month/year.
 - Find and open a campaign from its D number.
 - Switch quickly between NGM locations in Prisma.
-- Launch the Meta Billing Check on the Meta Ads Manager campaigns page to export campaign names, dates, impressions, budgets, and spend as CSV.
+- Open the Social Booking Report to compare a Meta campaign export against a Prisma PlacementDetailTable. Exact Campaign ID and month evidence drives the result; campaign-name similarity is used only to identify likely unlinked bookings for investigation.
 
 ### Prisma workflow enhancements
 

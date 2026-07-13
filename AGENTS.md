@@ -64,8 +64,11 @@ Run the smallest relevant test first, followed by the full suite when the change
 | AppLearn overlay and popup blocking | `features/applearn-replace.js`, `background.js`, `settings.js` | `tests/features/applearn-replace.test.js`, `tests/background.test.js`, `tests/settings-applearn-popup.test.js` |
 | Approver workflow | `features/approver-pasting.js`, `approvers.js`, `approvers-data.js` | `tests/workflow-centering.test.js`, `tests/security/approvers_xss.test.js` |
 | Stats and Toolshed | `features/stats-collector.js`, `toolshed.js`, `toolshed.html` | `tests/stats-manager.test.js`, `tests/toolshed-stats.test.js` |
-| Feedback modal | `features/feedback-modal.js`, `features/feedback-modal.css` | `tests/features/feedback-modal-styles.test.js` |
-| Reminders | `features/reminders.js`, `settings.js` | `tests/features/reminders_logic.test.js`, `tests/security/reminders_xss.test.js` |
+| Feedback modal | `features/feedback-modal.js`, `features/feedback-modal.css` | `tests/features/feedback-modal.test.js`, `tests/features/feedback-modal-styles.test.js` |
+| Loading facts and GMI chat | `features/loading-facts.js`, `features/gmi-chat.js`, `content.css` | `tests/features/loading-facts.test.js`, `tests/features/gmi-chat.test.js`, `tests/workflow-centering.test.js` |
+| Reminders | `features/reminders.js`, `settings.js`, `content.js` | `tests/features/reminders_logic.test.js`, `tests/content.test.js`, `tests/security/reminders_xss.test.js` |
+| Offscreen clipboard and audio | `offscreen.js` | `tests/offscreen.test.js` |
+| Content-script wiring | `manifest.json` | `tests/manifest-script-order.test.js` |
 
 Useful commands:
 

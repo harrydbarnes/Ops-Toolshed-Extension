@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Booking Comparison</title>
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="social-finance.css">
+</head>
+<body>
+    <main class="report-shell">
+        <header class="report-hero">
+            <div>
+                <p class="eyebrow">Ops Toolshed · Finance control</p>
+                <h1>Social booking comparison</h1>
+                <p class="hero-copy">Compare the complete Meta population with Prisma booking evidence. The report separates missing or unlinked activity from date, month and budget updates.</p>
+            </div>
+            <div class="hero-mark" aria-hidden="true"><span>£</span><span>↔</span><span>ID</span></div>
+        </header>
+
+        <section class="control-panel" aria-labelledby="source-heading">
+            <div class="section-heading">
+                <div><span class="step">01</span><h2 id="source-heading">Load source evidence</h2></div>
+                <p>CSV files stay in this browser tab and are not uploaded.</p>
+            </div>
+            <div class="source-grid">
+                <label class="file-card" for="metaFile">
+                    <span class="file-kicker">Complete population</span>
+                    <strong>Meta campaign report</strong>
+                    <span>Campaign ID, month, spend and budget</span>
+                    <input id="metaFile" type="file" accept=".csv,text/csv">
+                    <em id="metaFileName">Choose Meta CSV</em>
+                </label>
+                <label class="file-card" for="prismaFile">
+                    <span class="file-kicker">Booking evidence</span>
+                    <strong>Prisma PlacementDetailTable</strong>
+                    <span>Partner line id, Period and planned value</span>
+                    <input id="prismaFile" type="file" accept=".csv,text/csv">
+                    <em id="prismaFileName">Choose Prisma CSV</em>
+                </label>
+            </div>
+            <div id="accountScopePanel" class="account-scope hidden">
+                <div class="account-scope-heading">
+                    <div><strong>Meta account scope</strong><span>Select the accounts covered by the Prisma export.</span></div>
+                    <div><button id="selectAllAccounts" class="text-action" type="button">Select all</button><button id="clearAccounts" class="text-action" type="button">Clear</button></div>
+                </div>
+                <div id="accountOptions" class="account-options"></div>
+            </div>
+            <div class="settings-row">
+                <label>As-of date<input id="asOfDate" type="date"></label>
+                <label>Variance tolerance (£)<input id="tolerance" type="number" min="0" step="0.01" value="1"></label>
+                <label>Closed after working day<input id="closedWorkingDay" type="number" min="1" max="15" value="5"></label>
+                <button id="runComparison" type="button">Build exception report</button>
+            </div>
+            <label class="population-check">
+                <input id="populationConfirmed" type="checkbox">
+                <span>I confirm the Meta and Prisma exports cover the same client/account population and reporting months. This is required before “missing from Prisma” can be treated as definitive.</span>
+            </label>
+            <div id="validationMessages" class="messages" aria-live="polite"></div>
+        </section>
+
+        <section id="results" class="results hidden" aria-labelledby="results-heading">
+            <div class="section-heading result-heading">
+                <div><span class="step">02</span><h2 id="results-heading">Evidence-led findings</h2></div>
+                <button id="downloadReport" class="secondary-action" type="button">Download report CSV</button>
+            </div>
+            <div id="summaryCards" class="summary-grid"></div>
+            <div id="coverageWarnings" class="coverage-warnings"></div>
+            <div class="report-toolbar">
+                <label>Show
+                    <select id="evidenceFilter">
+                        <option value="actionable">All exceptions</option>
+                        <option value="Missing/unlinked">Missing / unlinked</option>
+                        <option value="Needs update">Needs update</option>
+                        <option value="Investigate">Investigate</option>
+                        <option value="Matched">Matched</option>
+                        <option value="all">Everything</option>
+                    </select>
+                </label>
+                <label>Search<input id="reportSearch" type="search" placeholder="Campaign ID, name or account"></label>
+                <span id="visibleCount" class="visible-count"></span>
+            </div>
+            <div class="table-frame">
+                <table>
+                    <thead><tr><th>Evidence</th><th>Campaign / month</th><th>Account and campaign</th><th class="number">Meta spend</th><th class="number">Prisma</th><th class="number">Variance</th><th>Finding</th><th>Supporting evidence</th></tr></thead>
+                    <tbody id="reportBody"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+    <script src="social-finance-engine.js"></script>
+    <script src="social-finance.js"></script>
+</body>
+</html>

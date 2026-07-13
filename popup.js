@@ -235,21 +235,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Logic for saveReminderSettingsButton is removed.
 
-    const metaBillingCheckButton = document.getElementById('metaBillingCheckButton');
-    if (metaBillingCheckButton) {
-        metaBillingCheckButton.addEventListener('click', function() {
-            // Send a message to the background script to initiate the check.
-            // The background script will handle the URL check and script injection.
-            chrome.runtime.sendMessage({ action: "metaBillingCheck" }, (response) => {
-                if (chrome.runtime.lastError) {
-                    // This could happen if the background script has an error.
-                    console.error("Error messaging background script:", chrome.runtime.lastError.message);
-                    alert("An error occurred. Check the extension's console for details.");
-                } else if (response && response.status === 'error') {
-                    // Handle specific errors reported by the background script, like wrong URL.
-                    alert(response.message);
-                }
-            });
+    const socialFinanceReportButton = document.getElementById('socialFinanceReportButton');
+    if (socialFinanceReportButton) {
+        socialFinanceReportButton.addEventListener('click', function() {
+            chrome.tabs.create({ url: chrome.runtime.getURL('social-finance.html') });
         });
     }
 

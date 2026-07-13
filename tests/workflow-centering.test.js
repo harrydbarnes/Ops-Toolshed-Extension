@@ -78,4 +78,20 @@ describe('workflow widget alignment', () => {
         });
         dom.window.close();
     });
+
+    test('keeps the Prisma page header above native modal layers', () => {
+        const dom = new JSDOM(`<!doctype html>
+            <html>
+                <head><style>${contentStyles}</style></head>
+                <body><div id="ptb-header">Campaign header</div></body>
+            </html>`);
+        const styles = dom.window.getComputedStyle(
+            dom.window.document.getElementById('ptb-header')
+        );
+
+        expect(styles.position).toBe('relative');
+        expect(styles.zIndex).toBe('10001');
+        expect(styles.overflow).toBe('visible');
+        dom.window.close();
+    });
 });
