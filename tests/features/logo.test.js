@@ -41,8 +41,16 @@ function setupLogoFeature() {
 }
 
 describe('Prisma logo replacement', () => {
+    let window;
+
+    afterEach(() => {
+        window?.close();
+    });
+
     test('restores the original SVG when the setting is disabled without requiring an i.logo parent', () => {
-        const { shadowRoot, storageListeners } = setupLogoFeature();
+        const environment = setupLogoFeature();
+        window = environment.window;
+        const { shadowRoot, storageListeners } = environment;
         expect(shadowRoot.querySelector('.custom-prisma-logo')).not.toBeNull();
         expect(shadowRoot.querySelector('.current-prisma-brand svg')).toBeNull();
 

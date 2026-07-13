@@ -5,12 +5,14 @@ const { JSDOM } = require('jsdom');
 const settingsHtml = fs.readFileSync(path.resolve(__dirname, '../settings.html'), 'utf8');
 const settingsScript = fs.readFileSync(path.resolve(__dirname, '../settings.js'), 'utf8');
 const utilsScript = fs.readFileSync(path.resolve(__dirname, '../utils.js'), 'utf8');
+let activeDom;
 
 function setupSettings(customReminders = []) {
     const dom = new JSDOM(settingsHtml, {
         url: 'chrome-extension://test/settings.html',
         runScripts: 'outside-only'
     });
+    activeDom = dom;
     const { window } = dom;
     const store = { customReminders };
 
@@ -59,6 +61,8 @@ function setupSettings(customReminders = []) {
 
 describe('Custom reminder settings', () => {
     afterEach(() => {
+        activeDom?.window.close();
+        activeDom = undefined;
         jest.useRealTimers();
     });
 

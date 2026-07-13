@@ -16,11 +16,16 @@ describe('release metadata', () => {
 
     test('lists the manifest version first in the release history', () => {
         const toolshed = fs.readFileSync(path.join(root, 'toolshed.html'), 'utf8');
-        const document = new JSDOM(toolshed).window.document;
-        const releases = Array.from(document.querySelectorAll('#release-notes .release h2'))
-            .map(heading => heading.textContent.trim());
+        const dom = new JSDOM(toolshed);
 
-        expect(releases[0]).toBe(expectedRelease);
-        expect(new Set(releases).size).toBe(releases.length);
+        try {
+            const releases = Array.from(dom.window.document.querySelectorAll('#release-notes .release h2'))
+                .map(heading => heading.textContent.trim());
+
+            expect(releases[0]).toBe(expectedRelease);
+            expect(new Set(releases).size).toBe(releases.length);
+        } finally {
+            dom.window.close();
+        }
     });
 });

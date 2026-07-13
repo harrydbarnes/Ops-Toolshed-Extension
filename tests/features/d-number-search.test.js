@@ -5,14 +5,13 @@ const path = require('path');
 const scriptContent = fs.readFileSync(path.resolve(__dirname, '../../features/d-number-search.js'), 'utf8');
 
 describe('D-Number Search Feature', () => {
-    let window, document;
+    let dom, window, document;
     const dNumber = 'D12345678';
     let mockSearchIcon, mockInput, mockLink, mockToggle, mockFinalButton;
 
     beforeEach(() => {
-        const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
-            runScripts: "dangerously",
-            resources: "usable"
+        dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
+            runScripts: "dangerously"
         });
         window = dom.window;
         document = window.document;
@@ -36,6 +35,10 @@ describe('D-Number Search Feature', () => {
         window.utils.waitForElementInShadow
             .mockResolvedValueOnce(mockSearchIcon) // 1. Icon
             .mockResolvedValueOnce(mockInput);     // 2. Input
+    });
+
+    afterEach(() => {
+        dom?.window.close();
     });
 
     describe('when result link is found immediately', () => {

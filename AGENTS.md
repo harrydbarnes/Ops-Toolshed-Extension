@@ -74,10 +74,10 @@ Useful commands:
 
 ```bash
 npm test
-node node_modules/jest/bin/jest.js --runTestsByPath tests/toolshed-stats.test.js --runInBand --forceExit --coverage=false
+node node_modules/jest/bin/jest.js --runTestsByPath tests/toolshed-stats.test.js --runInBand --coverage=false
 ```
 
-Jest can occasionally take a long time to exit in this OneDrive-backed checkout even with `--forceExit`. Distinguish a runner/process-exit problem from a failed assertion, and report incomplete verification honestly.
+Do not use `--forceExit`; it can hide leaked timers or unclosed JSDOM windows. If Jest does not exit, rerun the affected suite with `--detectOpenHandles`, close every manually created JSDOM window, and report incomplete verification honestly.
 
 ## Browser Verification
 

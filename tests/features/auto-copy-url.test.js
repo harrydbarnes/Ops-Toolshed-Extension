@@ -5,7 +5,7 @@ const path = require('path');
 const featureScript = fs.readFileSync(path.resolve(__dirname, '../../features/auto-copy-url.js'), 'utf8');
 
 describe('Auto Copy Campaign URL Feature', () => {
-    let window, document, storageState, showToast;
+    let dom, window, document, storageState, showToast;
 
     function setupDom(autoCopyUrlEnabled = true, autoCopyUrlMode = 'short') {
         jest.useFakeTimers();
@@ -18,7 +18,7 @@ describe('Auto Copy Campaign URL Feature', () => {
             }
         });
 
-        const dom = new JSDOM(`<!DOCTYPE html><html><body>
+        dom = new JSDOM(`<!DOCTYPE html><html><body>
             <mo-banner>
                 <mo-popover>
                     <mo-banner-widget>
@@ -33,8 +33,7 @@ describe('Auto Copy Campaign URL Feature', () => {
             </div>
         </body></html>`, {
             url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP123',
-            runScripts: 'dangerously',
-            resources: 'usable'
+            runScripts: 'dangerously'
         });
 
         window = dom.window;
@@ -108,6 +107,7 @@ describe('Auto Copy Campaign URL Feature', () => {
     }
 
     afterEach(() => {
+        dom?.window.close();
         jest.useRealTimers();
     });
 

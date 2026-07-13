@@ -5,14 +5,13 @@ const path = require('path');
 const featureScript = fs.readFileSync(path.resolve(__dirname, '../../features/order-id-copy.js'), 'utf8');
 
 describe('Order ID Copy Feature', () => {
-    let window, document;
+    let dom, window, document;
 
     beforeEach(() => {
         jest.useFakeTimers();
-        const dom = new JSDOM('<!DOCTYPE html><html><body><table><tbody><tr><td class="pad"><a href="#">O-12345-R0</a></td></tr></tbody></table></body></html>', {
+        dom = new JSDOM('<!DOCTYPE html><html><body><table><tbody><tr><td class="pad"><a href="#">O-12345-R0</a></td></tr></tbody></table></body></html>', {
             url: "https://example.com/page?type=prsm-cm-ord&campaign-id=999",
-            runScripts: "dangerously",
-            resources: "usable"
+            runScripts: "dangerously"
         });
         window = dom.window;
         document = window.document;
@@ -44,6 +43,7 @@ describe('Order ID Copy Feature', () => {
     });
 
     afterEach(() => {
+        dom?.window.close();
         jest.useRealTimers();
     });
 

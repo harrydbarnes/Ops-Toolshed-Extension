@@ -6,14 +6,13 @@ const path = require('path');
 const placementCounterScript = fs.readFileSync(path.resolve(__dirname, '../../features/placement-counter.js'), 'utf8');
 
 describe('Placement Counter Feature', () => {
-    let window, document;
+    let dom, window, document;
 
     beforeEach(() => {
         jest.useFakeTimers();
         // Setup JSDOM with necessary globals
-        const dom = new JSDOM('<!DOCTYPE html><html><body><div id="grid-container_hot"></div></body></html>', {
-            runScripts: "dangerously",
-            resources: "usable"
+        dom = new JSDOM('<!DOCTYPE html><html><body><div id="grid-container_hot"></div></body></html>', {
+            runScripts: "dangerously"
         });
         window = dom.window;
         document = window.document;
@@ -35,6 +34,7 @@ describe('Placement Counter Feature', () => {
     });
 
     afterEach(() => {
+        dom?.window.close();
         jest.useRealTimers();
     });
 
