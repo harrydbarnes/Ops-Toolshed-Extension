@@ -107,6 +107,30 @@ describe('campaign navigation UI optimisation', () => {
         dom.window.close();
     });
 
+    test('moves the replacement workflow slot after Orders empties the previously relocated slot', () => {
+        const dom = createPage();
+        const { document } = dom.window;
+        const navbar = document.querySelector('.p2b-navbar-wrapper');
+
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+        const staleSlot = navbar.querySelector('div[slot="right"]');
+        staleSlot.replaceChildren();
+
+        const replacementToolbar = document.createElement('mo-toolbar');
+        const replacementSlot = document.createElement('div');
+        replacementSlot.setAttribute('slot', 'right');
+        replacementSlot.innerHTML = '<div class="workflow-widget-wrapper">Approvers</div>';
+        replacementToolbar.appendChild(replacementSlot);
+        document.body.appendChild(replacementToolbar);
+
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+
+        expect(replacementSlot.parentElement).toBe(navbar);
+        expect(replacementSlot.classList.contains('ai-style-change-1')).toBe(true);
+        expect(staleSlot.classList.contains('ai-style-change-1')).toBe(false);
+        dom.window.close();
+    });
+
     test('places extracted actions immediately to the right of the campaign name', () => {
         const dom = createPage();
         const { document } = dom.window;

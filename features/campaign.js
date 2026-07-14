@@ -220,9 +220,15 @@
         }
 
         const navbarWrapper = document.querySelector('.p2b-navbar-wrapper');
-        const connectedRightSlot = document.querySelector('div[slot="right"]');
-        if (connectedRightSlot) relocatedWorkflowSlot = connectedRightSlot;
-        const rightSlotDiv = connectedRightSlot || relocatedWorkflowSlot;
+        const connectedWorkflowSlot = Array.from(document.querySelectorAll('div[slot="right"]'))
+            .find(slot => slot.querySelector('.workflow-widget-wrapper')) || null;
+        if (connectedWorkflowSlot && connectedWorkflowSlot !== relocatedWorkflowSlot) {
+            relocatedWorkflowSlot?.classList.remove('ai-style-change-1', ACTUALISE_WORKFLOW_CLASS);
+            relocatedWorkflowSlot?.parentElement?.classList.remove(ACTUALISE_MONTH_ROW_CLASS);
+            relocatedWorkflowSlot = connectedWorkflowSlot;
+        }
+        const rightSlotDiv = connectedWorkflowSlot ||
+            (relocatedWorkflowSlot?.querySelector('.workflow-widget-wrapper') ? relocatedWorkflowSlot : null);
         const previewLinkContainer = navbarWrapper ? navbarWrapper.querySelector('.omni-navigation-preview-link-container') : null;
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const isActualise = hashParams.get('ptb-ctx') === 'actualize' || hashParams.get('route') === 'actualize';
