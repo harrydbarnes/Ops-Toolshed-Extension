@@ -415,3 +415,60 @@ describe('D/O-number search receiver readiness', () => {
         });
     });
 });
+
+describe('Campaign Details frame messaging', () => {
+    let requestCampaignDetailsBasicFocus;
+
+    beforeEach(() => {
+        resetMocks();
+        jest.resetModules();
+        ({ requestCampaignDetailsBasicFocus } = require('../background/message-handlers').messageHandlers);
+    });
+
+    test('relays the Basic focus request to every content-script frame in the sender tab', async () => {
+        chrome.tabs.sendMessage.mockResolvedValue({ status: 'accepted' });
+        const sendResponse = jest.fn();
+
+        await requestCampaignDetailsBasicFocus(
+            {},
+            {
+                tab: { id: 42 },
+                url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP123'
+            },
+            sendResponse
+        );
+
+        expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(42, {
+            action: 'focusCampaignDetailsBasic'
+        });
+        expect(sendResponse).toHaveBeenCalledWith({ status: 'accepted' });
+    });
+
+    test('rejects a relay request without a Mediaocean sender tab', async () => {
+        const sendResponse = jest.fn();
+
+        await requestCampaignDetailsBasicFocus({}, {}, sendResponse);
+
+        expect(chrome.tabs.sendMessage).not.toHaveBeenCalled();
+        expect(sendResponse).toHaveBeenCalledWith({
+            status: 'error',
+            message: 'Campaign Details focus request must come from a Mediaocean tab.'
+        });
+    });
+
+    test('reports pending while the Campaign Details frame is still loading', async () => {
+        chrome.tabs.sendMessage.mockRejectedValue(new Error('Receiving end does not exist.'));
+        const sendResponse = jest.fn();
+
+        await requestCampaignDetailsBasicFocus(
+            {},
+            {
+                tab: { id: 42 },
+                url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP123'
+            },
+            sendResponse
+        );
+
+        expect(sendResponse).toHaveBeenCalledWith({ status: 'pending' });
+    });
+});

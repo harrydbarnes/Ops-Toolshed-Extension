@@ -127,6 +127,41 @@ async function openApproversPage(request, sender, sendResponse) {
     sendResponse({ status: 'success' });
 }
 
+async function requestCampaignDetailsBasicFocus(request, sender, sendResponse) {
+    const tabId = sender?.tab?.id;
+    let senderUrl;
+    try {
+        senderUrl = new URL(sender?.url || '');
+    } catch {
+        senderUrl = null;
+    }
+
+    if (
+        !tabId ||
+        !senderUrl ||
+        !senderUrl.hostname.endsWith('.mediaocean.com') ||
+        !senderUrl.pathname.startsWith('/campaign-management/')
+    ) {
+        sendResponse({
+            status: 'error',
+            message: 'Campaign Details focus request must come from a Mediaocean tab.'
+        });
+        return;
+    }
+
+    try {
+        const response = await chrome.tabs.sendMessage(tabId, {
+            action: 'focusCampaignDetailsBasic'
+        });
+        sendResponse(response?.status === 'accepted'
+            ? { status: 'accepted' }
+            : { status: 'pending' });
+    } catch (error) {
+        // The Campaign Details frame may not have loaded its content script yet.
+        sendResponse({ status: 'pending' });
+    }
+}
+
 export const messageHandlers = {
     disableTimeBomb,
     showTimesheetNotification,
@@ -138,5 +173,6 @@ export const messageHandlers = {
     copyToClipboard,
     getFavouriteApprovers,
     openApproversPage,
+    requestCampaignDetailsBasicFocus,
     TRACK_STAT: handleTrackStat
 };

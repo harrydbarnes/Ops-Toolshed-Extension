@@ -7,7 +7,7 @@ const featureScript = fs.readFileSync(
     'utf8'
 );
 
-function createPage(settings = {}) {
+function createPage(settings = {}, url = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-buy&campaign-id=CP3FMRK&route=online') {
     const dom = new JSDOM(`<!doctype html><html><head></head><body>
         <div id="native-header">
             <div slot="right"><div class="workflow-widget-wrapper">Approvers</div></div>
@@ -26,7 +26,7 @@ function createPage(settings = {}) {
             </div>
         </div>
     </body></html>`, {
-        url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-buy&campaign-id=CP3FMRK&route=online',
+        url,
         runScripts: 'dangerously'
     });
 
@@ -34,7 +34,8 @@ function createPage(settings = {}) {
         runtime: {
             id: 'test-extension',
             lastError: null,
-            sendMessage: jest.fn().mockResolvedValue({ status: 'success' })
+            sendMessage: jest.fn().mockResolvedValue({ status: 'success' }),
+            onMessage: { addListener: jest.fn() }
         },
         storage: {
             sync: {
@@ -265,35 +266,11 @@ describe('campaign navigation UI optimisation', () => {
         dom.window.close();
     });
 
-    test('opens Campaign details and focuses Basic when campaign dates are clicked', () => {
+    test('opens Campaign details and requests Basic focus from the Campaign Details iframe', async () => {
         const dom = createPage();
-        const { document } = dom.window;
+        const { document, chrome } = dom.window;
         const dates = document.querySelector('.mo-date-field-wrapper');
-        const basic = document.createElement('div');
-        basic.className = 'well editable';
-        basic.textContent = 'Basic Name Start and end Advertiser';
-        const basicClick = jest.fn();
-        const basicMouseDownEvents = [];
-        basic.addEventListener('mousedown', event => {
-            basicMouseDownEvents.push({ clientX: event.clientX, clientY: event.clientY });
-        });
-        basic.click = basicClick;
-        basic.scrollIntoView = jest.fn();
-        const editIcon = document.createElement('mo-icon');
-        editIcon.id = 'campaign-details-basics-pencil-icon';
-        editIcon.setAttribute('name', 'edit');
-        editIcon.setAttribute('role', 'button');
-        const editClick = jest.fn();
-        editIcon.click = editClick;
-        const flight = document.createElement('td');
-        flight.id = 'campaign-details-flight';
-        flight.textContent = '23/06/2026 - 20/07/2026';
-        basic.appendChild(editIcon);
-        basic.appendChild(flight);
-        Object.defineProperty(basic, 'getBoundingClientRect', {
-            configurable: true,
-            value: () => ({ left: 10, top: 120, width: 900, height: 240, bottom: 360 })
-        });
+        chrome.runtime.sendMessage.mockResolvedValue({ status: 'accepted' });
         dom.window.setTimeout = callback => {
             callback();
             return 0;
@@ -306,21 +283,71 @@ describe('campaign navigation UI optimisation', () => {
         });
 
         dom.window.campaignFeature.handleCampaignNavigationOptimisation();
-        document.body.appendChild(basic);
         dates.dispatchEvent(
             new dom.window.MouseEvent('pointerdown', { bubbles: true, composed: true })
         );
+        await Promise.resolve();
 
         expect(dom.window.location.href).toContain('osModalId=prsm-cm-cmpdtls');
         expect(dispatchedWindowEvents).toEqual(
             expect.arrayContaining(['hashchange', 'popstate'])
         );
-        expect(basic.scrollIntoView).toHaveBeenCalledWith({ block: 'center', behavior: 'smooth' });
-        expect(basicClick).toHaveBeenCalled();
-        expect(basicMouseDownEvents).toEqual(
-            expect.arrayContaining([{ clientX: 80, clientY: 182 }])
+        expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+            action: 'requestCampaignDetailsBasicFocus'
+        });
+        dom.window.close();
+    });
+
+    test('Campaign Details iframe activates its own Basic edit control', () => {
+        const dom = createPage({}, 'https://groupmuk-prisma.mediaocean.com/idesk/prisma-campaign-details/index.html?osModalId=prsm-cm-cmpdtls');
+        const { document, chrome } = dom.window;
+        const editIcon = document.createElement('mo-icon');
+        editIcon.id = 'campaign-details-basics-pencil-icon';
+        editIcon.click = jest.fn();
+        editIcon.scrollIntoView = jest.fn();
+        Object.defineProperty(editIcon, 'getBoundingClientRect', {
+            configurable: true,
+            value: () => ({ left: 720, top: 60, width: 14, height: 14, bottom: 74 })
+        });
+        document.body.appendChild(editIcon);
+        const sendResponse = jest.fn();
+        const listener = chrome.runtime.onMessage.addListener.mock.calls[0]?.[0];
+
+        expect(listener).toEqual(expect.any(Function));
+        listener({ action: 'focusCampaignDetailsBasic' }, {}, sendResponse);
+
+        expect(sendResponse).toHaveBeenCalledWith({ status: 'accepted' });
+        expect(editIcon.scrollIntoView).toHaveBeenCalledWith({ block: 'center', behavior: 'smooth' });
+        expect(editIcon.click).toHaveBeenCalledTimes(1);
+        dom.window.close();
+    });
+
+    test('retries the frame request until Campaign Details is ready', async () => {
+        const dom = createPage();
+        const { document, chrome } = dom.window;
+        chrome.runtime.sendMessage
+            .mockResolvedValueOnce({ status: 'pending' })
+            .mockResolvedValueOnce({ status: 'accepted' });
+        dom.window.setTimeout = callback => {
+            callback();
+            return 0;
+        };
+
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+        document.querySelector('.mo-date-field-wrapper').dispatchEvent(
+            new dom.window.MouseEvent('pointerdown', { bubbles: true, composed: true })
         );
-        expect(editClick).not.toHaveBeenCalled();
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(chrome.runtime.sendMessage).toHaveBeenCalledTimes(2);
+        expect(chrome.runtime.sendMessage).toHaveBeenNthCalledWith(1, {
+            action: 'requestCampaignDetailsBasicFocus'
+        });
+        expect(chrome.runtime.sendMessage).toHaveBeenNthCalledWith(2, {
+            action: 'requestCampaignDetailsBasicFocus'
+        });
         dom.window.close();
     });
 

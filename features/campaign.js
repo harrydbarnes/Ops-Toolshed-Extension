@@ -19,6 +19,10 @@
     let relocatedWorkflowSlot = null;
     let campaignNameToastTimeout = null;
     let campaignNameCopyListenerAttached = false;
+    let campaignDetailsRequestAttempt = 0;
+    let campaignDetailsRequestTimeout = null;
+    let localBasicFocusAttempt = 0;
+    let localBasicFocusTimeout = null;
 
     // Class selectors for Budget UI
     const BUDGET_CONTAINER_ID = 'campaign-budget-overview-container';
@@ -72,7 +76,10 @@
             if (changes.budgetWidgetOptimisedEnabled) budgetWidgetOptimisedEnabled = changes.budgetWidgetOptimisedEnabled.newValue;
             if (changes.campaignNameQuickCopyEnabled) campaignNameQuickCopyEnabled = changes.campaignNameQuickCopyEnabled.newValue;
             if (changes.campaignHeaderQuickCopyEnabled) campaignHeaderQuickCopyEnabled = changes.campaignHeaderQuickCopyEnabled.newValue;
-            if (changes.campaignDateShortcutEnabled) campaignDateShortcutEnabled = changes.campaignDateShortcutEnabled.newValue;
+            if (changes.campaignDateShortcutEnabled) {
+                campaignDateShortcutEnabled = changes.campaignDateShortcutEnabled.newValue;
+                if (!campaignDateShortcutEnabled) cancelCampaignDetailsRequest();
+            }
         });
     }
 
@@ -609,18 +616,77 @@
         target.click?.();
     }
 
-    function focusBasicCampaignDetailsSection(deadline = Date.now() + 12000) {
-        const basicSection = findBasicCampaignDetailsSection();
-        if (basicSection) {
-            basicSection.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
-            activateElement(basicSection, { x: 70, y: 62, deep: true });
+    function isCampaignDetailsFrame() {
+        return window.location.pathname.includes('/idesk/prisma-campaign-details/');
+    }
+
+    function isCampaignDetailsOpen() {
+        const [, hash = ''] = window.location.href.split('#');
+        return new URLSearchParams(hash).get('osModalId') === 'prsm-cm-cmpdtls';
+    }
+
+    function cancelCampaignDetailsRequest() {
+        campaignDetailsRequestAttempt += 1;
+        if (campaignDetailsRequestTimeout !== null) {
+            window.clearTimeout(campaignDetailsRequestTimeout);
+            campaignDetailsRequestTimeout = null;
+        }
+    }
+
+    function focusBasicInCurrentFrame(attemptId, deadline = Date.now() + 12000) {
+        if (attemptId !== localBasicFocusAttempt || !isCampaignDetailsFrame()) return false;
+        if (document.getElementById('gwt-debug-campaignFlightStart')) {
+            localBasicFocusTimeout = null;
             return true;
         }
 
+        const editControl = document.getElementById('campaign-details-basics-pencil-icon');
+        const rect = editControl?.getBoundingClientRect?.();
+        if (editControl && rect && rect.width > 0 && rect.height > 0) {
+            editControl.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+            activateElement(editControl);
+        }
+
         if (Date.now() < deadline) {
-            window.setTimeout(() => focusBasicCampaignDetailsSection(deadline), 300);
+            localBasicFocusTimeout = window.setTimeout(
+                () => focusBasicInCurrentFrame(attemptId, deadline),
+                300
+            );
         }
         return false;
+    }
+
+    function startBasicFocusInCurrentFrame() {
+        localBasicFocusAttempt += 1;
+        if (localBasicFocusTimeout !== null) {
+            window.clearTimeout(localBasicFocusTimeout);
+            localBasicFocusTimeout = null;
+        }
+        focusBasicInCurrentFrame(localBasicFocusAttempt, Date.now() + 12000);
+    }
+
+    function requestCampaignDetailsBasicFocus(attemptId, deadline) {
+        if (attemptId !== campaignDetailsRequestAttempt || !isCampaignDetailsOpen()) return;
+
+        Promise.resolve(chrome.runtime.sendMessage({
+            action: 'requestCampaignDetailsBasicFocus'
+        })).then(response => {
+            if (attemptId !== campaignDetailsRequestAttempt || response?.status === 'accepted') return;
+            if (Date.now() < deadline && isCampaignDetailsOpen()) {
+                campaignDetailsRequestTimeout = window.setTimeout(
+                    () => requestCampaignDetailsBasicFocus(attemptId, deadline),
+                    400
+                );
+            }
+        }).catch(() => {
+            if (attemptId !== campaignDetailsRequestAttempt) return;
+            if (Date.now() < deadline && isCampaignDetailsOpen()) {
+                campaignDetailsRequestTimeout = window.setTimeout(
+                    () => requestCampaignDetailsBasicFocus(attemptId, deadline),
+                    400
+                );
+            }
+        });
     }
 
     function activateCampaignDetailsShortcut() {
@@ -641,7 +707,11 @@
         if (!activateCampaignDetailsShortcut()) {
             openCampaignDetails();
         }
-        window.setTimeout(() => focusBasicCampaignDetailsSection(Date.now() + 15000), 300);
+        cancelCampaignDetailsRequest();
+        requestCampaignDetailsBasicFocus(
+            campaignDetailsRequestAttempt,
+            Date.now() + 12000
+        );
         return true;
     }
 
@@ -898,6 +968,15 @@
     // Use document-level delegation so Prisma can replace the editable name
     // during the first click without losing the copy handler.
     handleCampaignNameCopy();
+
+    if (chrome.runtime?.onMessage?.addListener) {
+        chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+            if (request?.action !== 'focusCampaignDetailsBasic' || !isCampaignDetailsFrame()) return;
+
+            sendResponse({ status: 'accepted' });
+            startBasicFocusInCurrentFrame();
+        });
+    }
 
     window.campaignFeature = {
         handleCampaignManagementFeatures,
