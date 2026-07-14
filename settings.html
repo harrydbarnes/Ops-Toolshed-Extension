@@ -98,6 +98,13 @@
                 <section id="campaign-management-settings">
                     <h2>Prisma Efficiency Gains</h2>
                     <div class="toggle-container">
+                        <span>Use campaign name as tab title:</span>
+                        <label class="toggle">
+                            <input type="checkbox" id="campaignTabTitleToggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-container">
                         <span>Optimised New Campaign Navigation:</span>
                         <label class="toggle">
                             <input type="checkbox" id="optimisedNewNavToggle">
@@ -296,25 +303,16 @@
                 </div>
                 <div class="prisma-reminder-options">
                     <div class="setting-row">
-                        <label for="reminderThemeSelector">Reminder Theme:</label>
-                        <div class="theme-select-wrapper">
-                            <!-- Custom Dropdown for Reminder Theme -->
-                            <div class="custom-dropdown" id="reminderThemeDropdown">
-                                <div class="dropdown-trigger" tabindex="0">
-                                    <span class="color-preview-rect"></span>
-                                    <span class="selected-text">Pink</span>
-                                </div>
-                                <div class="dropdown-options">
-                                    <div class="dropdown-option" data-value="pink">
-                                        <span class="color-preview-rect pink"></span>
-                                        Pink
-                                    </div>
-                                    <div class="dropdown-option" data-value="black">
-                                        <span class="color-preview-rect black"></span>
-                                        Black
-                                    </div>
-                                </div>
-                            </div>
+                        <span class="setting-label" id="reminderThemeLabel">Reminder Theme:</span>
+                        <div class="segmented-control" id="reminderThemeSegmented" role="group" aria-labelledby="reminderThemeLabel">
+                            <button type="button" data-value="pink" aria-pressed="true">
+                                <span class="segment-color-swatch pink" aria-hidden="true"></span>
+                                Pink
+                            </button>
+                            <button type="button" data-value="black" aria-pressed="false">
+                                <span class="segment-color-swatch black" aria-hidden="true"></span>
+                                Black
+                            </button>
                         </div>
                     </div>
                     <div class="setting-row">

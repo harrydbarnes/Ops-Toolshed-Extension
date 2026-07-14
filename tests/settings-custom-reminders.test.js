@@ -161,4 +161,32 @@ describe('Custom reminder settings', () => {
         expect(buttons[0].classList).toContain('is-selected');
         expect(buttons[1].textContent.trim()).toBe('Advanced');
     });
+
+    test('uses the shared Pink and Black segmented control for the reminder theme', () => {
+        const { window, document, store } = setupSettings();
+        const control = document.getElementById('reminderThemeSegmented');
+        const buttons = control.querySelectorAll('button[data-value]');
+
+        expect(control.classList).toContain('segmented-control');
+        expect(buttons).toHaveLength(2);
+        expect(buttons[0].textContent.trim()).toBe('Pink');
+        expect(buttons[0].classList).toContain('is-selected');
+        expect(buttons[0].querySelector('.segment-color-swatch.pink')).not.toBeNull();
+        expect(buttons[1].textContent.trim()).toBe('Black');
+        expect(buttons[1].querySelector('.segment-color-swatch.black')).not.toBeNull();
+
+        buttons[1].click();
+
+        expect(store.reminderTheme).toBe('black');
+        expect(buttons[1].classList).toContain('is-selected');
+        expect(buttons[1].getAttribute('aria-pressed')).toBe('true');
+        expect(buttons[0].getAttribute('aria-pressed')).toBe('false');
+
+        const storageChangeListener = window.chrome.storage.onChanged.addListener.mock.calls[0][0];
+        storageChangeListener({ reminderTheme: { oldValue: 'black', newValue: 'pink' } }, 'sync');
+
+        expect(buttons[0].classList).toContain('is-selected');
+        expect(buttons[0].getAttribute('aria-pressed')).toBe('true');
+        expect(buttons[1].getAttribute('aria-pressed')).toBe('false');
+    });
 });

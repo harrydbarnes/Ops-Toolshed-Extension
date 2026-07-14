@@ -33,6 +33,11 @@ describe('campaign navigation settings', () => {
         expect(settingsScript).not.toContain('campaignDateShortcutEnabled: isEnabled');
     });
 
+    test('exposes the campaign-only tab title toggle', () => {
+        expect(settingsHtml).toContain('id="campaignTabTitleToggle"');
+        expect(settingsScript).toContain("setupToggle('campaignTabTitleToggle', 'campaignTabTitleEnabled'");
+    });
+
     test('keeps an open Settings page synced with popup storage changes', () => {
         expect(settingsScript).toContain("chrome.storage.onChanged.addListener((changes, area) =>");
         expect(settingsScript).toContain('input.checked = changes[storageKey].newValue !== false');

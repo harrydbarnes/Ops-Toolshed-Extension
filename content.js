@@ -96,6 +96,10 @@ async function mainContentScriptInit() {
         window.actualiseScrollRestoreFeature.initialize();
     }
 
+    if (isPrismaLike && window.campaignTabTitleFeature) {
+        window.campaignTabTitleFeature.initialize();
+    }
+
     // Initialize Loading Facts Feature
     if (isPrismaLike && window.loadingFactsFeature) {
         window.loadingFactsFeature.initialize();

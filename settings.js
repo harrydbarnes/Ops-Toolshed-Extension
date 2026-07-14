@@ -530,7 +530,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 4. In the URL enable/sync block below, rename autoCopyUrlModeSegmented to
     //    autoCopyUrlModeDropdown and restore the dropdown is-disabled/custom-dropdown:set-value handling.
     initializeSegmentedControl('uiThemeSegmented', 'uiTheme', 'pink');
-    initializeCustomDropdown('reminderThemeDropdown', 'reminderTheme', 'pink'); 
+    initializeSegmentedControl('reminderThemeSegmented', 'reminderTheme', 'pink');
     initializeSegmentedControl('autoCopyUrlModeSegmented', 'autoCopyUrlMode', 'short');
 
     const logoToggle = document.getElementById('logoToggle'); 
@@ -722,6 +722,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupToggle('campaignHeaderQuickCopyToggle', 'campaignHeaderQuickCopyEnabled', 'Campaign header quick copy setting saved:');
     setupToggle('campaignDateShortcutToggle', 'campaignDateShortcutEnabled', 'Campaign date shortcut setting saved:');
     setupToggle('actualiseScrollRestoreToggle', 'actualiseScrollRestoreEnabled', 'Actualise scroll restoration setting saved:');
+    setupToggle('campaignTabTitleToggle', 'campaignTabTitleEnabled', 'Campaign tab title setting saved:');
     setupToggle('gmiChatShortcutToggle', 'gmiChatShortcutEnabled', 'GMI Chat Shortcut setting saved:'); 
     setupToggle('autoCopyUrlToggle', 'autoCopyUrlEnabled', 'Auto Copy URL setting saved:'); 
     setupToggle('loadingFactsToggle', 'loadingFactsEnabled', 'Show Loading Facts setting saved:');
@@ -815,6 +816,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (changes.uiTheme) {
             document.getElementById('uiThemeSegmented')?.dispatchEvent(new CustomEvent('segmented-control:set-value', {
                 detail: changes.uiTheme.newValue === 'black' ? 'black' : 'pink'
+            }));
+        }
+        if (changes.reminderTheme) {
+            document.getElementById('reminderThemeSegmented')?.dispatchEvent(new CustomEvent('segmented-control:set-value', {
+                detail: changes.reminderTheme.newValue === 'black' ? 'black' : 'pink'
             }));
         }
     });
