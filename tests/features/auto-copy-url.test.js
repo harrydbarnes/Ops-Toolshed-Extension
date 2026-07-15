@@ -138,7 +138,7 @@ describe('Auto Copy Campaign URL Feature', () => {
 
         clickPageLinkIcon();
         await window.chrome.runtime.sendMessage.mock.results[0].value;
-        await Promise.resolve();
+        await jest.advanceTimersByTimeAsync(0);
 
         expect(window.chrome.runtime.sendMessage).toHaveBeenCalledWith({
             action: 'copyToClipboard',

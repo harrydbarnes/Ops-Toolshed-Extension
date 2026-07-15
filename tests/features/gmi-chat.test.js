@@ -54,4 +54,36 @@ describe('GMI Chat behaviour', () => {
         expect(workflowWidget.querySelector('.gmi-chat-button')).toBeNull();
         dom.window.close();
     });
+
+    test('builds the Teams message from the current campaign header without guessing a client', () => {
+        const dom = new JSDOM(`<!doctype html><html><body>
+            <div class="workflow-widget-wrapper"></div>
+            <mo-text class="mo-campaign-name-wrapper">CRUK_Display_RFL_Jan_2026_1164704</mo-text>
+        </body></html>`, {
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP36746',
+            runScripts: 'outside-only'
+        });
+        const { window } = dom;
+
+        window.chrome = {
+            storage: {
+                sync: {
+                    get: jest.fn((key, callback) => callback({ gmiChatShortcutEnabled: true }))
+                },
+                onChanged: { addListener: jest.fn() }
+            }
+        };
+        window.open = jest.fn();
+
+        window.eval(gmiChatScript);
+        window.gmiChatFeature.handleGmiChatButton();
+        window.document.querySelector('.gmi-chat-button').click();
+
+        expect(window.open).toHaveBeenCalledTimes(1);
+        const teamsUrl = new URL(window.open.mock.calls[0][0]);
+        expect(teamsUrl.searchParams.get('message')).toBe(
+            `CRUK_Display_RFL_Jan_2026_1164704 ${window.location.href}`
+        );
+        dom.window.close();
+    });
 });
