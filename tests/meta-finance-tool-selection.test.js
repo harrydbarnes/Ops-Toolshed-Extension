@@ -12,8 +12,8 @@ const { getMetaFinanceToolConfig, launchMetaFinanceTool } = require('../popup');
 describe('Meta finance tool selection', () => {
     test('offers a Settings segmented control with the Social Booking Report as default', () => {
         expect(settingsHtml).toContain('id="metaFinanceToolSegmented"');
-        expect(settingsHtml).toContain('data-value="social" aria-pressed="true">Social report</button>');
-        expect(settingsHtml).toContain('data-value="legacy" aria-pressed="false">Billing check</button>');
+        expect(settingsHtml).toContain('data-value="social" aria-pressed="true">Social Report</button>');
+        expect(settingsHtml).toContain('data-value="legacy" aria-pressed="false">Billing Check</button>');
         expect(settingsScript).toContain("initializeSegmentedControl('metaFinanceToolSegmented', 'metaFinanceToolMode', 'social')");
     });
 
