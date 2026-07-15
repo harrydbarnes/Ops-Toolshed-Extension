@@ -75,6 +75,7 @@ describe('Stats Manager', () => {
         const store = chrome.storage.local.__getStore();
         // Check if dailyStats exists first
         expect(store.dailyStats).toBeDefined();
+        expect(store.statsStartDate).toBe('2023-10-27T02:00:00.000Z');
 
         const daily = store.dailyStats[today];
         expect(daily).toBeDefined();
@@ -99,5 +100,24 @@ describe('Stats Manager', () => {
         const daily = store.dailyStats[today];
 
         expect(daily.visitedCampaigns.length).toBe(1);
+    });
+
+    test('handleTrackStat should recover the start date from existing daily stats', async () => {
+        await chrome.storage.local.set({
+            dailyStats: {
+                '2023-01-15': {
+                    placements: 1,
+                    loadingTime: 0,
+                    visitedCampaigns: [],
+                    reconciliations: 0
+                }
+            }
+        });
+
+        handleTrackStat({ type: 'PLACEMENT_ADDED', value: 1 }, {}, () => {});
+        await waitForAsync();
+
+        const store = chrome.storage.local.__getStore();
+        expect(store.statsStartDate).toBe('2023-01-15T00:00:00.000Z');
     });
 });

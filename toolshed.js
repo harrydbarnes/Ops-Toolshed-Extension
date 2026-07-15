@@ -475,8 +475,14 @@ document.addEventListener('DOMContentLoaded', () => {
             // Start Date
             const statsTitle = document.querySelector('#stats h2');
 
-            if (data.statsStartDate && statsTitle) {
-                const startDate = new Date(data.statsStartDate);
+            const earliestRecordedDate = Object.keys(dailyStats)
+                .filter(date => /^\d{4}-\d{2}-\d{2}$/.test(date))
+                .sort()[0];
+            const statsStartDate = data.statsStartDate
+                || (earliestRecordedDate ? `${earliestRecordedDate}T00:00:00` : null);
+
+            if (statsStartDate && statsTitle) {
+                const startDate = new Date(statsStartDate);
                 const dateString = startDate.toLocaleString(undefined, {
                     year: 'numeric',
                     month: 'long',

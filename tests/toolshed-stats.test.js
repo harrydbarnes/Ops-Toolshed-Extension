@@ -47,6 +47,10 @@ describe('Toolshed Stats UI', () => {
         expect(document.getElementById('placements-added-stat').textContent).toBe('110');
         expect(document.getElementById('applearn-popups-blocked-stat').textContent).toBe('7');
 
+        // Existing daily stats should restore the missing collection start date.
+        expect(document.querySelector('#stats h2 .since-date').textContent)
+            .toMatch(/^\(since (?:1 October 2023|October 1, 2023)\)$/);
+
         // Check Kettle Index: 360 / 45 = 8
         expect(document.getElementById('kettle-index').textContent).toBe('8');
 

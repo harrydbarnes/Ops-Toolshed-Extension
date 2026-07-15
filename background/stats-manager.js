@@ -28,8 +28,19 @@ export function handleTrackStat(request, sender, sendResponse) {
     updatePromise = updatePromise.then(async () => {
         const d = new Date();
         const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        const data = await chrome.storage.local.get(['dailyStats']);
+        const data = await chrome.storage.local.get(['dailyStats', 'statsStartDate']);
         let dailyStats = data.dailyStats || {};
+        let statsStartDate = data.statsStartDate;
+
+        if (!statsStartDate) {
+            const earliestRecordedDate = Object.keys(dailyStats)
+                .filter(date => /^\d{4}-\d{2}-\d{2}$/.test(date))
+                .sort()[0];
+
+            statsStartDate = earliestRecordedDate
+                ? new Date(`${earliestRecordedDate}T00:00:00`).toISOString()
+                : d.toISOString();
+        }
 
         if (!dailyStats[today]) {
             dailyStats[today] = {
@@ -68,7 +79,7 @@ export function handleTrackStat(request, sender, sendResponse) {
         }
 
         dailyStats[today] = stats;
-        await chrome.storage.local.set({ dailyStats });
+        await chrome.storage.local.set({ dailyStats, statsStartDate });
         sendResponse({ status: 'success' });
     }).catch(err => {
         console.error('[Stats Manager] Error updating stats:', err);
