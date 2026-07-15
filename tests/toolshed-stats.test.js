@@ -9,6 +9,7 @@ const css = fs.readFileSync(path.resolve(__dirname, '../toolshed.css'), 'utf8');
 
 describe('Toolshed Stats UI', () => {
     beforeEach(() => {
+        window.history.replaceState({}, '', '/toolshed.html');
         document.documentElement.innerHTML = html.toString();
         global.resetMocks();
         jest.resetModules();
@@ -66,6 +67,24 @@ describe('Toolshed Stats UI', () => {
         expect(appLearnRow.classList.contains('applearn-stat-row')).toBe(true);
         expect(appLearnRow.nextElementSibling).toBe(resetButton);
         expect(document.querySelector('.stats-overview #applearn-popups-blocked-stat')).toBeNull();
+    });
+
+    test('deep-links tabs and keeps the selected tab across navigation', async () => {
+        window.history.replaceState({}, '', '/toolshed.html#stats');
+        require('../toolshed.js');
+        document.dispatchEvent(new Event('DOMContentLoaded'));
+        await new Promise(r => setTimeout(r, 20));
+
+        expect(document.querySelector('[data-tab="stats"]').classList).toContain('active');
+        expect(document.getElementById('stats').classList).toContain('active');
+
+        document.querySelector('[data-tab="roadmap"]').click();
+        expect(window.location.hash).toBe('#roadmap');
+        expect(document.getElementById('roadmap').classList).toContain('active');
+
+        window.history.replaceState({}, '', '#release-notes');
+        window.dispatchEvent(new PopStateEvent('popstate'));
+        expect(document.getElementById('release-notes').classList).toContain('active');
     });
 
     test('lists the planned Timesheet Helper, Meta Spend Check and Recy Sheet features', () => {

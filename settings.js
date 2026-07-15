@@ -234,35 +234,55 @@ document.addEventListener('DOMContentLoaded', function() {
     // Tab switching logic 
     const tabContainer = document.querySelector('.tab-container'); 
     if (tabContainer) { 
-        tabContainer.addEventListener('click', function(event) { 
-            const clickedButton = event.target.closest('.tab-button'); 
-            if (!clickedButton) return; 
- 
-            const tabName = clickedButton.dataset.tab; 
- 
-            // Deactivate all tabs and panels 
-            document.querySelectorAll('[role="tab"]').forEach(tab => { 
-                tab.classList.remove('active'); 
-                tab.setAttribute('aria-selected', 'false'); 
-                tab.setAttribute('tabindex', '-1'); 
-            }); 
-            document.querySelectorAll('[role="tabpanel"]').forEach(panel => { 
-                panel.classList.remove('active'); 
-                panel.hidden = true; 
-            }); 
- 
-            // Activate the clicked tab and corresponding panel 
-            clickedButton.classList.add('active'); 
-            clickedButton.setAttribute('aria-selected', 'true'); 
-            clickedButton.removeAttribute('tabindex'); 
- 
-            const newActiveContent = document.getElementById(tabName); 
-            if (newActiveContent) { 
-                newActiveContent.classList.add('active'); 
-                newActiveContent.hidden = false; 
-            } 
-            clickedButton.focus(); 
+        const tabButtons = Array.from(tabContainer.querySelectorAll('.tab-button'));
+        const tabPanels = Array.from(document.querySelectorAll('[role="tabpanel"]'));
+        const defaultTab = tabButtons.find(tab => tab.classList.contains('active'))?.dataset.tab
+            || tabButtons[0]?.dataset.tab;
+
+        const getTabFromUrl = () => {
+            const requestedTab = window.location.hash.slice(1);
+            return tabButtons.some(tab => tab.dataset.tab === requestedTab)
+                ? requestedTab
+                : defaultTab;
+        };
+
+        const activateTab = (tabName, { updateUrl = false, focus = false } = {}) => {
+            const activeButton = tabButtons.find(tab => tab.dataset.tab === tabName);
+            const activePanel = document.getElementById(tabName);
+            if (!activeButton || !activePanel) return;
+
+            tabButtons.forEach(tab => {
+                tab.classList.remove('active');
+                tab.setAttribute('aria-selected', 'false');
+                tab.setAttribute('tabindex', '-1');
+            });
+            tabPanels.forEach(panel => {
+                panel.classList.remove('active');
+                panel.hidden = true;
+            });
+
+            activeButton.classList.add('active');
+            activeButton.setAttribute('aria-selected', 'true');
+            activeButton.removeAttribute('tabindex');
+            activePanel.classList.add('active');
+            activePanel.hidden = false;
+
+            if (updateUrl && window.location.hash !== `#${tabName}`) {
+                window.history.pushState({}, document.title, `#${tabName}`);
+            }
+            if (focus) activeButton.focus();
+        };
+
+        tabContainer.addEventListener('click', function(event) {
+            const clickedButton = event.target.closest('.tab-button');
+            if (!clickedButton) return;
+            activateTab(clickedButton.dataset.tab, { updateUrl: true, focus: true });
         }); 
+
+        const syncTabFromUrl = () => activateTab(getTabFromUrl());
+        window.addEventListener('popstate', syncTabFromUrl);
+        window.addEventListener('hashchange', syncTabFromUrl);
+        syncTabFromUrl();
     } 
  
     // --- Time-Bomb Disablement --- 

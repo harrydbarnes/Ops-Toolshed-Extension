@@ -7,9 +7,9 @@ const settingsScript = fs.readFileSync(path.resolve(__dirname, '../settings.js')
 const utilsScript = fs.readFileSync(path.resolve(__dirname, '../utils.js'), 'utf8');
 let activeDom;
 
-function setupSettings(customReminders = []) {
+function setupSettings(customReminders = [], url = 'chrome-extension://test/settings.html') {
     const dom = new JSDOM(settingsHtml, {
-        url: 'chrome-extension://test/settings.html',
+        url,
         runScripts: 'outside-only'
     });
     activeDom = dom;
@@ -64,6 +64,24 @@ describe('Custom reminder settings', () => {
         activeDom?.window.close();
         activeDom = undefined;
         jest.useRealTimers();
+    });
+
+    test('deep-links tabs and keeps the selected tab across navigation', () => {
+        const { window, document } = setupSettings(
+            [],
+            'chrome-extension://test/settings.html#custom-reminders'
+        );
+
+        expect(document.getElementById('tab-custom-reminders').classList).toContain('active');
+        expect(document.getElementById('custom-reminders').classList).toContain('active');
+
+        document.getElementById('tab-reminders').click();
+        expect(window.location.hash).toBe('#reminders');
+        expect(document.getElementById('reminders').classList).toContain('active');
+
+        window.history.replaceState({}, '', '#features');
+        window.dispatchEvent(new window.PopStateEvent('popstate'));
+        expect(document.getElementById('features').classList).toContain('active');
     });
 
     test('identifies the missing URL field and pre-fills a new popup title from the reminder name', () => {

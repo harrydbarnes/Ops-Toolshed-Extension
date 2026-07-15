@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('feedback') === 'true') {
         openFeedback();
-        window.history.replaceState({}, document.title, window.location.pathname);
+        window.history.replaceState({}, document.title, `${window.location.pathname}${window.location.hash}`);
     }
 
     const tabContainer = document.querySelector('.tab-container');
@@ -30,21 +30,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Tab Switching Logic ---
     if (tabContainer) {
-        tabContainer.addEventListener('click', (e) => {
-            const clickedButton = e.target.closest('.tab-button');
-            if (!clickedButton) return;
+        const defaultTab = Array.from(tabButtons)
+            .find(button => button.classList.contains('active'))?.dataset.tab
+            || tabButtons[0]?.dataset.tab;
 
-            const tabId = clickedButton.dataset.tab;
-            const targetContent = document.getElementById(tabId);
+        const getTabFromUrl = () => {
+            const requestedTab = window.location.hash.slice(1);
+            return Array.from(tabButtons).some(button => button.dataset.tab === requestedTab)
+                ? requestedTab
+                : defaultTab;
+        };
+
+        const activateTab = (tabId, { updateUrl = false } = {}) => {
+            const activeButton = Array.from(tabButtons)
+                .find(button => button.dataset.tab === tabId);
+            const activeContent = document.getElementById(tabId);
+            if (!activeButton || !activeContent) return;
 
             tabButtons.forEach(button => button.classList.remove('active'));
             tabContents.forEach(content => content.classList.remove('active'));
 
-            clickedButton.classList.add('active');
-            if (targetContent) {
-                targetContent.classList.add('active');
+            activeButton.classList.add('active');
+            activeContent.classList.add('active');
+
+            if (updateUrl && window.location.hash !== `#${tabId}`) {
+                window.history.pushState({}, document.title, `#${tabId}`);
             }
+        };
+
+        tabContainer.addEventListener('click', (e) => {
+            const clickedButton = e.target.closest('.tab-button');
+            if (!clickedButton) return;
+            activateTab(clickedButton.dataset.tab, { updateUrl: true });
         });
+
+        const syncTabFromUrl = () => activateTab(getTabFromUrl());
+        window.addEventListener('popstate', syncTabFromUrl);
+        window.addEventListener('hashchange', syncTabFromUrl);
+        syncTabFromUrl();
     }
 
     // --- Stats Display Logic ---
