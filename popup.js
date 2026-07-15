@@ -85,6 +85,43 @@ function setKillSwitchAppearance(button, featuresDisabled) {
     if (label) label.textContent = featuresDisabled ? 'Features off' : 'Features on';
 }
 
+function getMetaFinanceToolConfig(mode) {
+    if (mode === 'legacy') {
+        return {
+            mode: 'legacy',
+            label: 'Meta Billing Check',
+            action: 'metaBillingCheck'
+        };
+    }
+
+    return {
+        mode: 'social',
+        label: 'Social Booking Report',
+        extensionPage: 'social-finance.html'
+    };
+}
+
+function launchMetaFinanceTool(mode, dependencies = {}) {
+    const runtime = dependencies.runtime || chrome.runtime;
+    const tabs = dependencies.tabs || chrome.tabs;
+    const alertUser = dependencies.alertUser || (message => window.alert(message));
+    const config = getMetaFinanceToolConfig(mode);
+
+    if (config.extensionPage) {
+        tabs.create({ url: runtime.getURL(config.extensionPage) });
+        return;
+    }
+
+    runtime.sendMessage({ action: config.action }, response => {
+        if (runtime.lastError) {
+            console.error('Error messaging background script:', runtime.lastError.message);
+            alertUser("Meta Billing Check couldn't start. Check the extension console for details.");
+        } else if (response?.status === 'error') {
+            alertUser(response.message);
+        }
+    });
+}
+
 function initialiseFeaturesKillSwitch() {
     const button = document.getElementById('featuresKillSwitch');
     if (!button) return;
@@ -237,8 +274,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const socialFinanceReportButton = document.getElementById('socialFinanceReportButton');
     if (socialFinanceReportButton) {
+        const updateMetaFinanceButton = mode => {
+            const config = getMetaFinanceToolConfig(mode);
+            socialFinanceReportButton.textContent = config.label;
+            socialFinanceReportButton.dataset.mode = config.mode;
+        };
+
+        chrome.storage.sync.get({ metaFinanceToolMode: 'social' }, data => {
+            updateMetaFinanceButton(data.metaFinanceToolMode);
+        });
+
         socialFinanceReportButton.addEventListener('click', function() {
-            chrome.tabs.create({ url: chrome.runtime.getURL('social-finance.html') });
+            chrome.storage.sync.get({ metaFinanceToolMode: 'social' }, data => {
+                launchMetaFinanceTool(data.metaFinanceToolMode);
+            });
         });
     }
 
@@ -492,6 +541,8 @@ if (typeof module !== 'undefined' && module.exports) {
         handleGenerateUrl,
         generateUrlFromData,
         isValidDNumber,
-        isValidCampaignId
+        isValidCampaignId,
+        getMetaFinanceToolConfig,
+        launchMetaFinanceTool
     };
 }

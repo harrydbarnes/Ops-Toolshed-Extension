@@ -532,6 +532,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeSegmentedControl('uiThemeSegmented', 'uiTheme', 'pink');
     initializeSegmentedControl('reminderThemeSegmented', 'reminderTheme', 'pink');
     initializeSegmentedControl('autoCopyUrlModeSegmented', 'autoCopyUrlMode', 'short');
+    initializeSegmentedControl('metaFinanceToolSegmented', 'metaFinanceToolMode', 'social');
 
     const logoToggle = document.getElementById('logoToggle'); 
     if (logoToggle) { 
@@ -821,6 +822,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (changes.reminderTheme) {
             document.getElementById('reminderThemeSegmented')?.dispatchEvent(new CustomEvent('segmented-control:set-value', {
                 detail: changes.reminderTheme.newValue === 'black' ? 'black' : 'pink'
+            }));
+        }
+        if (changes.metaFinanceToolMode) {
+            document.getElementById('metaFinanceToolSegmented')?.dispatchEvent(new CustomEvent('segmented-control:set-value', {
+                detail: changes.metaFinanceToolMode.newValue === 'legacy' ? 'legacy' : 'social'
             }));
         }
     });

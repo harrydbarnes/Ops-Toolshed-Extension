@@ -90,6 +90,9 @@ export function scrapeAndDownloadCsv() {
             const escapeCsvCell = (cell) => {
                 if (cell === null || cell === undefined) return '';
                 let cellStr = String(cell);
+                // Meta table text is untrusted spreadsheet input. Prefix
+                // formula-like strings before quoting so Excel treats them as text.
+                if (/^\s*[=+\-@]/.test(cellStr)) cellStr = `'${cellStr}`;
                 if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
                     return `"${cellStr.replace(/"/g, '""')}"`;
                 }
