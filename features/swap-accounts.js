@@ -148,7 +148,7 @@
             utils.showToast('Accounts swapped! Page will reload.', 'success');
 
             // Wait for the dialog to disappear and then reload.
-            await utils.waitForElementToDisappear('#userRegistrationDialog', 10000);
+            await utils.waitForElementToDisappear('#userRegistrationDialog', 15000);
             setTimeout(() => window.location.reload(), 500); // Brief delay before reload.
 
         } catch (error) {
