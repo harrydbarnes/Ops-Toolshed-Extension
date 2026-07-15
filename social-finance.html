@@ -23,19 +23,39 @@
                 <div><span class="step">01</span><h2 id="source-heading">Load source evidence</h2></div>
                 <p>CSV files stay in this browser tab and are not uploaded.</p>
             </div>
+            <aside class="upload-readiness" aria-label="Before you upload">
+                <strong>Before you upload</strong>
+                <span>Use the raw CSV export with its header row intact. Both reports must cover the same client/account population and the same reporting months.</span>
+            </aside>
             <div class="source-grid">
                 <label class="file-card" for="metaFile">
-                    <span class="file-kicker">Complete population</span>
+                    <span class="file-kicker">Report 1 · Complete population</span>
                     <strong>Meta campaign report</strong>
-                    <span>Campaign ID, month, spend and budget</span>
-                    <input id="metaFile" type="file" accept=".csv,text/csv">
+                    <span class="export-source">Export from Meta Ads Manager at campaign level.</span>
+                    <span class="requirement-label">Your CSV must include</span>
+                    <ul class="report-requirements">
+                        <li><b>Campaign ID</b></li>
+                        <li><b>Amount spent</b></li>
+                        <li><b>Month</b> or <b>Reporting starts</b></li>
+                    </ul>
+                    <span class="helpful-fields"><b>For fuller checks:</b> Account name, Campaign name, Campaign budget, Delivery, and start/end dates.</span>
+                    <input id="metaFile" type="file" accept=".csv,text/csv" aria-label="Choose Meta campaign CSV" aria-describedby="metaUploadScope">
+                    <span id="metaUploadScope" class="scope-note"><b>Scope:</b> include every relevant Meta account and campaign for the months being checked.</span>
                     <em id="metaFileName">Choose Meta CSV</em>
                 </label>
                 <label class="file-card" for="prismaFile">
-                    <span class="file-kicker">Booking evidence</span>
+                    <span class="file-kicker">Report 2 · Booking evidence</span>
                     <strong>Prisma PlacementDetailTable</strong>
-                    <span>Partner line id, Period and planned value</span>
-                    <input id="prismaFile" type="file" accept=".csv,text/csv">
+                    <span class="export-source">Export the raw PlacementDetailTable from Prisma.</span>
+                    <span class="requirement-label">Your CSV must include</span>
+                    <ul class="report-requirements">
+                        <li><b>Partner line id</b></li>
+                        <li><b>Period</b></li>
+                        <li><b>PLANNED_AMOUNT</b> or <b>Gross Amount</b></li>
+                    </ul>
+                    <span class="helpful-fields"><b>For fuller checks:</b> Campaign/Plan/Order name, Client name, Placement start/end dates, and owner.</span>
+                    <input id="prismaFile" type="file" accept=".csv,text/csv" aria-label="Choose Prisma PlacementDetailTable CSV" aria-describedby="prismaUploadScope">
+                    <span id="prismaUploadScope" class="scope-note"><b>Scope:</b> use the same client/accounts and reporting months as the Meta report.</span>
                     <em id="prismaFileName">Choose Prisma CSV</em>
                 </label>
             </div>
