@@ -624,13 +624,13 @@ a.settings-page-link:active {
     transition: background-color 0.2s ease;
 }
 
-/* Give "Settings" less space, and "Roadmap" more space */
+/* Keep Settings compact so the combined Toolshed label stays on one line */
 #menu-settings {
-    flex: 0.7; /* Takes up ~35% of width */
+    flex: 0.6; /* Takes up 30% of width */
 }
 
 #menu-roadmap {
-    flex: 1.3; /* Takes up ~65% of width */
+    flex: 1.4; /* Takes up 70% of width */
 }
 
 .split-menu-item:hover {
