@@ -12,6 +12,7 @@ Ops Toolshed is a Chrome extension that streamlines day-to-day campaign manageme
 - Fixed clipped dropdown text in the Submit Feedback modal when it is opened over Prisma.
 - Improved D/O number search and extension message handling so failures return clearer errors instead of silently timing out.
 - Added a Social Booking Report that compares Meta campaign-month activity with Prisma Partner Line IDs, planned values and available schedule dates, then exports an evidence-labelled exception CSV.
+- Campaign tabs now keep the campaign name across Prisma routes, campaign-date shortcuts wait for the Basic editor to become ready, and the approver widget returns to its optimised position after Buy/Orders navigation.
 
 ## Features
 
@@ -29,7 +30,7 @@ All optional enhancements can be controlled from **Settings**.
 
 | Feature | What it does |
 | --- | --- |
-| Campaign navigation | Offers configurable optimised navigation, direct Orders access, responsive booked-budget information, campaign-name click-to-copy, Actualise scroll restoration, and Campaign Details, Copy, and History actions beside the campaign name. |
+| Campaign navigation | Offers configurable optimised navigation, direct Orders access, responsive booked-budget information, campaign-name click-to-copy, campaign-name browser tabs, a campaign-date shortcut to the Basic editor, Actualise scroll restoration, and Campaign Details, Copy, and History actions beside the campaign name. |
 | Order ID Copy | Adds a button that copies an Order ID without its version suffix. |
 | Auto Copy Campaign URL | Copies either Prisma's short campaign link or the full current URL when the link-copy control is used. |
 | Add Campaign automation | Opens the full-details flow, hides unused sections, and can select Digital media mix and Total Cost budget type automatically. |
