@@ -22,6 +22,16 @@ describe('Help Guides side panel', () => {
         expect(dom.window.document.querySelectorAll('.guide-card')).toHaveLength(12);
         expect(dom.window.document.querySelectorAll('.category-filter')).toHaveLength(6);
         expect(dom.window.document.getElementById('results-summary').textContent).toBe('12 guides');
+        expect(dom.window.document.getElementById('clear-search').textContent).toBe('Reset filters');
+        dom.window.close();
+    });
+
+    test('focuses search as soon as the side panel opens', () => {
+        const dom = createApp();
+
+        expect(dom.window.document.activeElement).toBe(
+            dom.window.document.getElementById('guide-search')
+        );
         dom.window.close();
     });
 
@@ -42,6 +52,24 @@ describe('Help Guides side panel', () => {
         dom.window.close();
     });
 
+    test('updates category selection without replacing or unfocusing the controls', () => {
+        const dom = createApp();
+        const { document } = dom.window;
+        const metaFilter = document.querySelector('[data-category="Meta"]');
+        metaFilter.focus();
+        metaFilter.click();
+
+        expect(document.querySelector('[data-category="Meta"]')).toBe(metaFilter);
+        expect(document.activeElement).toBe(metaFilter);
+        expect(metaFilter.getAttribute('aria-pressed')).toBe('true');
+        expect(document.querySelectorAll('.guide-card')).toHaveLength(2);
+
+        document.getElementById('clear-search').click();
+        expect(document.querySelector('[data-category="All"]').getAttribute('aria-pressed')).toBe('true');
+        expect(document.querySelectorAll('.guide-card')).toHaveLength(12);
+        dom.window.close();
+    });
+
     test('opens the selected PDF inside the panel and offers a new-tab fallback', () => {
         const dom = createApp();
         const { document } = dom.window;
@@ -52,6 +80,11 @@ describe('Help Guides side panel', () => {
         expect(document.getElementById('viewer-title').textContent).toBe('Exporting delivery from Meta');
         expect(document.getElementById('pdf-frame').src).toContain('dummy.pdf');
         expect(document.getElementById('open-external').href).toContain('dummy.pdf');
+        expect(document.getElementById('open-external').textContent.trim()).toBe('Open');
+        expect(document.getElementById('viewer-fallback').hidden).toBe(true);
+
+        document.getElementById('pdf-frame').dispatchEvent(new dom.window.Event('error'));
+        expect(document.getElementById('viewer-fallback').hidden).toBe(false);
 
         document.getElementById('back-to-guides').click();
         expect(document.getElementById('library-view').hidden).toBe(false);
@@ -71,6 +104,7 @@ describe('Help Guides side panel', () => {
         dom.window.helpGuidesApp.openGuide(guide);
         expect(dom.window.document.getElementById('viewer-title').textContent).toBe(guide.title);
         expect(dom.window.document.getElementById('viewer-title').querySelector('img')).toBeNull();
+        dom.window.helpGuidesApp.closeGuide();
         dom.window.close();
     });
 });

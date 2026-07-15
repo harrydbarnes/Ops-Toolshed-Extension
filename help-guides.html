@@ -4,33 +4,32 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Help Guides</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="help-guides.css">
 </head>
 <body>
     <main class="guide-shell">
         <section id="library-view" class="library-view" aria-labelledby="library-title">
             <header class="library-header">
-                <span class="eyebrow">Ops field manual</span>
+                <span class="eyebrow">MM&amp;D Ops Toolshed</span>
                 <div class="title-row">
-                    <div>
-                        <h1 id="library-title">Help Guides</h1>
-                        <p>Practical answers, right beside your work.</p>
-                    </div>
-                    <span class="guide-count-badge" aria-label="12 guides">12</span>
+                    <h1 id="library-title">Help Guides</h1>
                 </div>
 
                 <label class="search-box" for="guide-search">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.3-4.3m2.3-5.2a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"/></svg>
-                    <input id="guide-search" type="search" placeholder="Search titles, topics or tags…" autocomplete="off">
+                    <input id="guide-search" type="search" placeholder="Search titles, topics or tags…" autocomplete="off" autofocus>
                     <kbd>Ctrl K</kbd>
                 </label>
             </header>
 
-            <nav id="category-filters" class="category-filters" aria-label="Guide categories"></nav>
+            <div class="category-filters-shell">
+                <nav id="category-filters" class="category-filters" aria-label="Guide categories"></nav>
+            </div>
 
             <div class="results-heading">
                 <span id="results-summary" role="status" aria-live="polite"></span>
-                <button id="clear-search" type="button" hidden>Clear search</button>
+                <button id="clear-search" type="button" hidden>Reset filters</button>
             </div>
             <div id="guide-list" class="guide-list"></div>
             <div id="empty-state" class="empty-state" hidden>
@@ -51,6 +50,7 @@
                 </div>
                 <a id="open-external" class="external-button" target="_blank" rel="noopener noreferrer" aria-label="Open PDF in a new tab" title="Open in SharePoint">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5m0-5-8 8M19 14v5H5V5h5"/></svg>
+                    <span>Open</span>
                 </a>
             </header>
             <div class="pdf-frame-wrap">
@@ -59,8 +59,8 @@
                 </div>
                 <iframe id="pdf-frame" title="Help guide PDF"></iframe>
             </div>
-            <footer class="viewer-footer">
-                If SharePoint blocks the preview, use <strong>open in SharePoint</strong> above.
+            <footer id="viewer-fallback" class="viewer-footer" role="status" hidden>
+                This guide is taking longer than expected. Use <strong>Open</strong> above to view it in SharePoint.
             </footer>
         </section>
     </main>

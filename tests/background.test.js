@@ -365,6 +365,20 @@ describe('Background message routing', () => {
         expect(sendResponse).toHaveBeenCalledWith({ status: 'Alarm removed' });
     });
 
+    test('opens Help Guides before any asynchronous storage gate can consume the user gesture', async () => {
+        chrome.sidePanel.open.mockResolvedValue(undefined);
+        chrome.sidePanel.setOptions.mockResolvedValue(undefined);
+        const listener = loadMessageListener();
+        const sendResponse = jest.fn();
+
+        listener({ action: 'openHelpGuides' }, { tab: { id: 42 } }, sendResponse);
+        await waitForResponse(sendResponse);
+
+        expect(chrome.storage.local.get).not.toHaveBeenCalled();
+        expect(chrome.sidePanel.open).toHaveBeenCalledWith({ tabId: 42 });
+        expect(sendResponse).toHaveBeenCalledWith({ status: 'success' });
+    });
+
     test('blocks normal actions while the time bomb is active', async () => {
         chrome.storage.local.__getStore().timeBombActive = true;
         const listener = loadMessageListener();

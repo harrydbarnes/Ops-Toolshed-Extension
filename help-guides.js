@@ -11,6 +11,7 @@
 
     let activeCategory = 'All';
     let searchQuery = '';
+    let viewerFallbackTimer = null;
 
     const elements = {
         library: document.getElementById('library-view'),
@@ -26,6 +27,7 @@
         viewerCategory: document.getElementById('viewer-category'),
         frame: document.getElementById('pdf-frame'),
         loading: document.getElementById('viewer-loading'),
+        fallback: document.getElementById('viewer-fallback'),
         external: document.getElementById('open-external')
     };
 
@@ -82,11 +84,7 @@
         button.textContent = category;
         button.dataset.category = category;
         button.setAttribute('aria-pressed', String(category === activeCategory));
-        button.addEventListener('click', () => {
-            activeCategory = category;
-            renderFilters();
-            renderGuides();
-        });
+        button.addEventListener('click', () => setActiveCategory(category, button));
         return button;
     }
 
@@ -94,7 +92,20 @@
         elements.filters.replaceChildren(...categories.map(createFilter));
     }
 
-    function createGuideCard(guide, index) {
+    function updateFilterSelection(selectedButton) {
+        elements.filters.querySelectorAll('.category-filter').forEach(button => {
+            button.setAttribute('aria-pressed', String(button.dataset.category === activeCategory));
+        });
+        selectedButton?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+
+    function setActiveCategory(category, selectedButton) {
+        activeCategory = category;
+        updateFilterSelection(selectedButton);
+        renderGuides();
+    }
+
+    function createGuideCard(guide) {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'guide-card';
@@ -143,19 +154,26 @@
     }
 
     function openGuide(guide) {
+        window.clearTimeout(viewerFallbackTimer);
         elements.viewerTitle.textContent = guide.title;
         elements.viewerCategory.textContent = guide.category;
         elements.external.href = guide.url;
         elements.loading.hidden = false;
+        elements.fallback.hidden = true;
         elements.frame.src = guide.url;
         elements.library.hidden = true;
         elements.viewer.hidden = false;
         document.title = `${guide.title} – Help Guides`;
         elements.back.focus();
+        viewerFallbackTimer = window.setTimeout(() => {
+            if (!elements.loading.hidden) elements.fallback.hidden = false;
+        }, 8000);
     }
 
     function closeGuide() {
+        window.clearTimeout(viewerFallbackTimer);
         elements.frame.src = 'about:blank';
+        elements.fallback.hidden = true;
         elements.viewer.hidden = true;
         elements.library.hidden = false;
         document.title = 'Help Guides';
@@ -172,13 +190,22 @@
         searchQuery = '';
         activeCategory = 'All';
         elements.search.value = '';
-        renderFilters();
+        const allFilter = elements.filters.querySelector('[data-category="All"]');
+        updateFilterSelection(allFilter);
         renderGuides();
         elements.search.focus();
     });
 
     elements.back.addEventListener('click', closeGuide);
-    elements.frame.addEventListener('load', () => { elements.loading.hidden = true; });
+    elements.frame.addEventListener('load', () => {
+        window.clearTimeout(viewerFallbackTimer);
+        elements.loading.hidden = true;
+    });
+    elements.frame.addEventListener('error', () => {
+        window.clearTimeout(viewerFallbackTimer);
+        elements.loading.hidden = true;
+        elements.fallback.hidden = false;
+    });
 
     document.addEventListener('keydown', event => {
         if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
@@ -192,12 +219,14 @@
 
     renderFilters();
     renderGuides();
+    elements.search.focus();
 
     window.helpGuidesApp = {
         normalize,
         fuzzyTokenScore,
         scoreGuide,
         getFilteredGuides,
+        setActiveCategory,
         openGuide,
         closeGuide
     };

@@ -233,6 +233,22 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 return;
             }
 
+            const context = {
+                playAlarmSound,
+                createTimesheetAlarm,
+                handleOffscreenClipboard,
+                triggerTimesheetNotification
+            };
+
+            // chrome.sidePanel.open() must be the first asynchronous operation
+            // after the page click or Chrome discards the user gesture. The
+            // content script is already prevented from initializing while the
+            // time bomb is active, so an additional storage gate is redundant.
+            if (action === 'openHelpGuides') {
+                await handler(request, sender, respondOnce, context);
+                return;
+            }
+
             if (action !== 'disableTimeBomb') {
                 const data = await chrome.storage.local.get('timeBombActive');
                 if (data.timeBombActive) {
@@ -241,12 +257,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 }
             }
 
-            const context = {
-                playAlarmSound,
-                createTimesheetAlarm,
-                handleOffscreenClipboard,
-                triggerTimesheetNotification
-            };
             await handler(request, sender, respondOnce, context);
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error || 'Unknown background error.');

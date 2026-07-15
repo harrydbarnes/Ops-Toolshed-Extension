@@ -32,6 +32,11 @@ describe('Help Guides page launcher', () => {
 
         expect(buttons).toHaveLength(1);
         expect(buttons[0].getAttribute('aria-label')).toBe('Open Help Guides');
+        expect(buttons[0].querySelector('.toolshed-help-guides-icon svg')).not.toBeNull();
+        const launcherStyles = window.document.getElementById('toolshed-help-guides-launcher-styles').textContent;
+        expect(launcherStyles).toContain('min-height: 44px');
+        expect(launcherStyles).toContain('background: #06088d');
+        expect(launcherStyles).toContain('"Outfit"');
         buttons[0].click();
         expect(window.chrome.runtime.sendMessage).toHaveBeenCalledWith({ action: 'openHelpGuides' });
         dom.window.close();
