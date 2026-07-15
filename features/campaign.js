@@ -967,7 +967,9 @@
 
     // Use document-level delegation so Prisma can replace the editable name
     // during the first click without losing the copy handler.
-    handleCampaignNameCopy();
+    if (window.top === window.self) {
+        handleCampaignNameCopy();
+    }
 
     if (chrome.runtime?.onMessage?.addListener) {
         chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {

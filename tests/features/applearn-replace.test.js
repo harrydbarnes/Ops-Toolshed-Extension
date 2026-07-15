@@ -33,9 +33,19 @@ function createFeature({ enabled = true, inShadowRoot = false } = {}) {
     window.utils = {
         queryShadowDom: jest.fn(() => image)
     };
+    window.helpGuidesLauncherFeature = {
+        openHelpGuides: jest.fn()
+    };
     window.eval(featureCode);
 
-    return { dom, image, root, storageListener, feature: window.appLearnFeature };
+    return {
+        dom,
+        image,
+        root,
+        storageListener,
+        feature: window.appLearnFeature,
+        launcher: window.helpGuidesLauncherFeature
+    };
 }
 
 describe('AppLearn transparency feature', () => {
@@ -75,6 +85,21 @@ describe('AppLearn transparency feature', () => {
             'sync'
         );
         expect(context.image.dataset.toolshedTranslucent).toBe('true');
+        context.dom.window.close();
+    });
+
+    test('uses the AppLearn replacement icon to open Help Guides', () => {
+        const context = createFeature({ enabled: true });
+        context.feature.initialize();
+
+        expect(context.image.getAttribute('role')).toBe('button');
+        expect(context.image.getAttribute('aria-label')).toBe('Open Help Guides');
+        context.image.dispatchEvent(new context.dom.window.MouseEvent('click', {
+            bubbles: true,
+            cancelable: true
+        }));
+
+        expect(context.launcher.openHelpGuides).toHaveBeenCalledTimes(1);
         context.dom.window.close();
     });
 });

@@ -128,6 +128,10 @@ global.chrome = {
   scripting: {
     executeScript: jest.fn(),
   },
+  sidePanel: {
+    open: jest.fn(),
+    setOptions: jest.fn(),
+  },
 };
 
 // Function to reset mocks before each test
@@ -154,6 +158,8 @@ global.resetMocks = () => {
     global.chrome.tabs.onCreated.addListener.mockClear();
     global.chrome.tabs.onUpdated.addListener.mockClear();
     global.chrome.scripting.executeScript.mockClear();
+    global.chrome.sidePanel.open.mockReset();
+    global.chrome.sidePanel.setOptions.mockReset();
 
     // Reset storage mocks
     global.chrome.storage.sync.get.mockClear();

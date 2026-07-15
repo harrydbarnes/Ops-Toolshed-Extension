@@ -12,6 +12,83 @@ function isMissingContentScriptReceiverError(error) {
     const message = error?.message || String(error || '');
     return /could not establish connection|receiving end does not exist|message port closed before a response was received/i.test(message);
 }
+
+const SETTINGS_DEFAULTS = Object.freeze({
+    uiTheme: 'pink',
+    reminderTheme: 'pink',
+    autoCopyUrlMode: 'short',
+    metaFinanceToolMode: 'social',
+    logoReplaceEnabled: true,
+    appLearnReplaceEnabled: true,
+    blockAppLearnPopupsEnabled: true,
+    prismaReminderFrequency: 'daily',
+    prismaCountdownDuration: '5',
+    metaReminderEnabled: true,
+    iasReminderEnabled: true,
+    fontSizeToggleEnabled: true,
+    resizableChatToggleEnabled: true,
+    scheduledChatToggleEnabled: true,
+    addCampaignShortcutEnabled: true,
+    hidingSectionsEnabled: true,
+    automateFormFieldsEnabled: true,
+    countPlacementsSelectedEnabled: true,
+    approverWidgetOptimiseEnabled: true,
+    swapAccountsEnabled: true,
+    alwaysShowCommentsEnabled: true,
+    orderIdCopyEnabled: true,
+    newOrderUiOptimisationEnabled: true,
+    ordersShortcutEnabled: true,
+    approverWidgetPlacementEnabled: true,
+    quickCampaignActionsEnabled: true,
+    budgetWidgetOptimisedEnabled: true,
+    campaignNameQuickCopyEnabled: true,
+    campaignHeaderQuickCopyEnabled: true,
+    campaignDateShortcutEnabled: true,
+    actualiseScrollRestoreEnabled: true,
+    campaignTabTitleEnabled: true,
+    gmiChatShortcutEnabled: true,
+    autoCopyUrlEnabled: true,
+    loadingFactsEnabled: true,
+    optimisedNewNavEnabled: true,
+    statsCollectorEnabled: true,
+    timesheetReminderEnabled: true,
+    reminderDay: 'Friday',
+    reminderTime: '14:30',
+    customReminders: Object.freeze([])
+});
+
+async function loadSettingsWithDefaults(storageArea, defaults = SETTINGS_DEFAULTS) {
+    const callStorage = (method, ...args) => new Promise((resolve, reject) => {
+        let settled = false;
+        const finish = (value) => {
+            if (settled) return;
+            settled = true;
+            resolve(value);
+        };
+
+        try {
+            const result = storageArea[method](...args, finish);
+            if (result?.then) {
+                result.then(finish, reject);
+            }
+        } catch (error) {
+            reject(error);
+        }
+    });
+
+    const storedSettings = await callStorage('get', Object.keys(defaults));
+    const missingDefaults = {};
+
+    Object.entries(defaults).forEach(([key, defaultValue]) => {
+        if (storedSettings[key] === undefined) missingDefaults[key] = defaultValue;
+    });
+
+    if (Object.keys(missingDefaults).length > 0) {
+        await callStorage('set', missingDefaults);
+    }
+
+    return { ...defaults, ...storedSettings };
+}
  
  
 // Function to show a test custom reminder on the settings page 
@@ -197,18 +274,14 @@ function showConfirmationPopup({ title, message, confirmText, cancelText, onConf
 } 
  
 const syncedToggleInputs = new Map();
+let settingsPageInitialized = false;
 
 // Helper function to set up a toggle switch 
-function setupToggle(toggleId, storageKey, logMessage) { 
+function setupToggle(toggleId, storageKey, logMessage, settings) {
     const toggle = document.getElementById(toggleId); 
     if (toggle) { 
         syncedToggleInputs.set(storageKey, toggle);
-        chrome.storage.sync.get(storageKey, function(data) { 
-            toggle.checked = data[storageKey] === undefined ? true : data[storageKey]; 
-            if (data[storageKey] === undefined) { 
-                chrome.storage.sync.set({ [storageKey]: true }); 
-            } 
-        }); 
+        toggle.checked = settings[storageKey];
         toggle.addEventListener('change', function() { 
             const isEnabled = this.checked; 
             chrome.storage.sync.set({ [storageKey]: isEnabled }, () => { 
@@ -219,7 +292,17 @@ function setupToggle(toggleId, storageKey, logMessage) {
 } 
  
  
-document.addEventListener('DOMContentLoaded', function() { 
+document.addEventListener('DOMContentLoaded', async function() {
+    if (settingsPageInitialized) return;
+    settingsPageInitialized = true;
+
+    let settings;
+    try {
+        settings = await loadSettingsWithDefaults(chrome.storage.sync);
+    } catch (error) {
+        console.error('Failed to load Settings preferences; using defaults for this page:', error);
+        settings = { ...SETTINGS_DEFAULTS };
+    }
     // --- Feedback Modal Logic --- 
     const feedbackLink = document.getElementById('open-feedback-modal'); 
     if (feedbackLink) { 
@@ -481,7 +564,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     } 
 
-    function initializeSegmentedControl(controlId, storageKey, defaultValue) {
+    function initializeSegmentedControl(controlId, storageKey, defaultValue, initialSettings) {
         const control = document.getElementById(controlId);
         if (!control) return;
 
@@ -504,13 +587,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         };
 
-        chrome.storage.sync.get(storageKey, (data) => {
-            const storedValue = data[storageKey] || defaultValue;
-            if (data[storageKey] === undefined) {
-                chrome.storage.sync.set({ [storageKey]: defaultValue });
-            }
-            updateUI(storedValue);
-        });
+        updateUI(initialSettings[storageKey] ?? defaultValue);
 
         buttons.forEach((button, index) => {
             button.addEventListener('click', () => selectValue(button.dataset.value));
@@ -549,17 +626,14 @@ document.addEventListener('DOMContentLoaded', function() {
     //    initializeCustomDropdown('autoCopyUrlModeDropdown', 'autoCopyUrlMode', 'short');
     // 4. In the URL enable/sync block below, rename autoCopyUrlModeSegmented to
     //    autoCopyUrlModeDropdown and restore the dropdown is-disabled/custom-dropdown:set-value handling.
-    initializeSegmentedControl('uiThemeSegmented', 'uiTheme', 'pink');
-    initializeSegmentedControl('reminderThemeSegmented', 'reminderTheme', 'pink');
-    initializeSegmentedControl('autoCopyUrlModeSegmented', 'autoCopyUrlMode', 'short');
-    initializeSegmentedControl('metaFinanceToolSegmented', 'metaFinanceToolMode', 'social');
+    initializeSegmentedControl('uiThemeSegmented', 'uiTheme', 'pink', settings);
+    initializeSegmentedControl('reminderThemeSegmented', 'reminderTheme', 'pink', settings);
+    initializeSegmentedControl('autoCopyUrlModeSegmented', 'autoCopyUrlMode', 'short', settings);
+    initializeSegmentedControl('metaFinanceToolSegmented', 'metaFinanceToolMode', 'social', settings);
 
     const logoToggle = document.getElementById('logoToggle'); 
     if (logoToggle) { 
-        chrome.storage.sync.get('logoReplaceEnabled', function(data) { 
-            logoToggle.checked = data.logoReplaceEnabled === undefined ? true : data.logoReplaceEnabled; 
-            if (data.logoReplaceEnabled === undefined) chrome.storage.sync.set({logoReplaceEnabled: true}); 
-        }); 
+        logoToggle.checked = settings.logoReplaceEnabled;
         logoToggle.addEventListener('change', function() { 
             const isEnabled = this.checked; 
             chrome.storage.sync.set({logoReplaceEnabled: isEnabled}, () => { 
@@ -578,8 +652,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }); 
     } 
 
-    setupToggle('appLearnReplaceToggle', 'appLearnReplaceEnabled', 'AppLearn transparency setting saved:');
-    setupToggle('blockAppLearnPopupsToggle', 'blockAppLearnPopupsEnabled', 'AppLearn popup blocking setting saved:');
+    setupToggle('appLearnReplaceToggle', 'appLearnReplaceEnabled', 'AppLearn transparency setting saved:', settings);
+    setupToggle('blockAppLearnPopupsToggle', 'blockAppLearnPopupsEnabled', 'AppLearn popup blocking setting saved:', settings);
  
     // Prisma Reminders 
     const prismaReminderFrequency = document.getElementById('prismaReminderFrequency'); 
@@ -587,11 +661,8 @@ document.addEventListener('DOMContentLoaded', function() {
  
     // Load and save settings for Prisma Reminders 
     if (prismaReminderFrequency && prismaCountdownDuration) { 
-        const settingsToGet = ['prismaReminderFrequency', 'prismaCountdownDuration']; 
-        chrome.storage.sync.get(settingsToGet, (data) => { 
-            prismaReminderFrequency.value = data.prismaReminderFrequency || 'daily'; 
-            prismaCountdownDuration.value = data.prismaCountdownDuration || '5'; 
-        }); 
+        prismaReminderFrequency.value = settings.prismaReminderFrequency;
+        prismaCountdownDuration.value = settings.prismaCountdownDuration;
  
         prismaReminderFrequency.addEventListener('change', () => { 
             chrome.storage.sync.set({ prismaReminderFrequency: prismaReminderFrequency.value }, () => { 
@@ -665,8 +736,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }); 
     } 
  
-    setupToggle('metaReminderToggle', 'metaReminderEnabled', 'Meta reminder setting saved:'); 
-    setupToggle('iasReminderToggle', 'iasReminderEnabled', 'IAS reminder setting saved:'); 
+    setupToggle('metaReminderToggle', 'metaReminderEnabled', 'Meta reminder setting saved:', settings);
+    setupToggle('iasReminderToggle', 'iasReminderEnabled', 'IAS reminder setting saved:', settings);
  
     const triggerMetaReminderButton = document.getElementById('triggerMetaReminder'); 
     if (triggerMetaReminderButton) { 
@@ -721,32 +792,32 @@ document.addEventListener('DOMContentLoaded', function() {
  
  
     // Live Chat Enhancements 
-    setupToggle('fontSizeToggle', 'fontSizeToggleEnabled', 'Font Size Toggle setting saved:'); 
-    setupToggle('resizableChatToggle', 'resizableChatToggleEnabled', 'Resizable Chat setting saved:'); 
-    setupToggle('scheduledChatToggle', 'scheduledChatToggleEnabled', 'Scheduled Chat setting saved:'); 
+    setupToggle('fontSizeToggle', 'fontSizeToggleEnabled', 'Font Size Toggle setting saved:', settings);
+    setupToggle('resizableChatToggle', 'resizableChatToggleEnabled', 'Resizable Chat setting saved:', settings);
+    setupToggle('scheduledChatToggle', 'scheduledChatToggleEnabled', 'Scheduled Chat setting saved:', settings);
  
     // Campaign Management Settings 
-    setupToggle('addCampaignShortcutToggle', 'addCampaignShortcutEnabled', 'Add Campaign shortcut setting saved:'); 
-    setupToggle('hidingSectionsToggle', 'hidingSectionsEnabled', 'Hiding Sections setting saved:'); 
-    setupToggle('automateFormFieldsToggle', 'automateFormFieldsEnabled', 'Automate Form Fields setting saved:'); 
-    setupToggle('countPlacementsSelectedToggle', 'countPlacementsSelectedEnabled', 'Count Placements Selected setting saved:'); 
-    setupToggle('approverWidgetOptimiseToggle', 'approverWidgetOptimiseEnabled', 'Approver Widget Optimise setting saved:'); 
-    setupToggle('swapAccountsToggle', 'swapAccountsEnabled', 'Switch Accounts setting saved:'); 
-    setupToggle('seeCommentsOnLockedBuysToggle', 'alwaysShowCommentsEnabled', 'See Comments on Locked Buys setting saved:'); 
-    setupToggle('orderIdCopyToggle', 'orderIdCopyEnabled', 'Order ID Copy setting saved:'); 
-    setupToggle('newOrderUiOptimisationToggle', 'newOrderUiOptimisationEnabled', 'New Order UI Optimisation setting saved:');
-    setupToggle('ordersShortcutToggle', 'ordersShortcutEnabled', 'Orders shortcut setting saved:');
-    setupToggle('approverWidgetPlacementToggle', 'approverWidgetPlacementEnabled', 'Approver Widget placement setting saved:');
-    setupToggle('quickCampaignActionsToggle', 'quickCampaignActionsEnabled', 'Quick campaign actions setting saved:');
-    setupToggle('budgetWidgetOptimisedToggle', 'budgetWidgetOptimisedEnabled', 'Budget widget optimisation setting saved:');
-    setupToggle('campaignNameQuickCopyToggle', 'campaignNameQuickCopyEnabled', 'Campaign name quick copy setting saved:');
-    setupToggle('campaignHeaderQuickCopyToggle', 'campaignHeaderQuickCopyEnabled', 'Campaign header quick copy setting saved:');
-    setupToggle('campaignDateShortcutToggle', 'campaignDateShortcutEnabled', 'Campaign date shortcut setting saved:');
-    setupToggle('actualiseScrollRestoreToggle', 'actualiseScrollRestoreEnabled', 'Actualise scroll restoration setting saved:');
-    setupToggle('campaignTabTitleToggle', 'campaignTabTitleEnabled', 'Campaign tab title setting saved:');
-    setupToggle('gmiChatShortcutToggle', 'gmiChatShortcutEnabled', 'GMI Chat Shortcut setting saved:'); 
-    setupToggle('autoCopyUrlToggle', 'autoCopyUrlEnabled', 'Auto Copy URL setting saved:'); 
-    setupToggle('loadingFactsToggle', 'loadingFactsEnabled', 'Show Loading Facts setting saved:');
+    setupToggle('addCampaignShortcutToggle', 'addCampaignShortcutEnabled', 'Add Campaign shortcut setting saved:', settings);
+    setupToggle('hidingSectionsToggle', 'hidingSectionsEnabled', 'Hiding Sections setting saved:', settings);
+    setupToggle('automateFormFieldsToggle', 'automateFormFieldsEnabled', 'Automate Form Fields setting saved:', settings);
+    setupToggle('countPlacementsSelectedToggle', 'countPlacementsSelectedEnabled', 'Count Placements Selected setting saved:', settings);
+    setupToggle('approverWidgetOptimiseToggle', 'approverWidgetOptimiseEnabled', 'Approver Widget Optimise setting saved:', settings);
+    setupToggle('swapAccountsToggle', 'swapAccountsEnabled', 'Switch Accounts setting saved:', settings);
+    setupToggle('seeCommentsOnLockedBuysToggle', 'alwaysShowCommentsEnabled', 'See Comments on Locked Buys setting saved:', settings);
+    setupToggle('orderIdCopyToggle', 'orderIdCopyEnabled', 'Order ID Copy setting saved:', settings);
+    setupToggle('newOrderUiOptimisationToggle', 'newOrderUiOptimisationEnabled', 'New Order UI Optimisation setting saved:', settings);
+    setupToggle('ordersShortcutToggle', 'ordersShortcutEnabled', 'Orders shortcut setting saved:', settings);
+    setupToggle('approverWidgetPlacementToggle', 'approverWidgetPlacementEnabled', 'Approver Widget placement setting saved:', settings);
+    setupToggle('quickCampaignActionsToggle', 'quickCampaignActionsEnabled', 'Quick campaign actions setting saved:', settings);
+    setupToggle('budgetWidgetOptimisedToggle', 'budgetWidgetOptimisedEnabled', 'Budget widget optimisation setting saved:', settings);
+    setupToggle('campaignNameQuickCopyToggle', 'campaignNameQuickCopyEnabled', 'Campaign name quick copy setting saved:', settings);
+    setupToggle('campaignHeaderQuickCopyToggle', 'campaignHeaderQuickCopyEnabled', 'Campaign header quick copy setting saved:', settings);
+    setupToggle('campaignDateShortcutToggle', 'campaignDateShortcutEnabled', 'Campaign date shortcut setting saved:', settings);
+    setupToggle('actualiseScrollRestoreToggle', 'actualiseScrollRestoreEnabled', 'Actualise scroll restoration setting saved:', settings);
+    setupToggle('campaignTabTitleToggle', 'campaignTabTitleEnabled', 'Campaign tab title setting saved:', settings);
+    setupToggle('gmiChatShortcutToggle', 'gmiChatShortcutEnabled', 'GMI Chat Shortcut setting saved:', settings);
+    setupToggle('autoCopyUrlToggle', 'autoCopyUrlEnabled', 'Auto Copy URL setting saved:', settings);
+    setupToggle('loadingFactsToggle', 'loadingFactsEnabled', 'Show Loading Facts setting saved:', settings);
 
     const autoCopyUrlToggle = document.getElementById('autoCopyUrlToggle');
     const autoCopyUrlModeSegmented = document.getElementById('autoCopyUrlModeSegmented');
@@ -766,9 +837,7 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     if (autoCopyUrlModeSegmented) {
-        chrome.storage.sync.get(['autoCopyUrlEnabled'], (data) => {
-            setAutoCopyUrlSubOptionsEnabled(data.autoCopyUrlEnabled !== false);
-        });
+        setAutoCopyUrlSubOptionsEnabled(settings.autoCopyUrlEnabled);
     }
 
     autoCopyUrlToggle?.addEventListener('change', () => {
@@ -795,14 +864,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (optimisedNewNavToggle) {
         syncedToggleInputs.set('optimisedNewNavEnabled', optimisedNewNavToggle);
-        chrome.storage.sync.get(['optimisedNewNavEnabled'], (data) => {
-            const optimiseEnabled = data.optimisedNewNavEnabled !== false; // Default to true
-            optimisedNewNavToggle.checked = optimiseEnabled;
-            if (data.optimisedNewNavEnabled === undefined) {
-                chrome.storage.sync.set({ optimisedNewNavEnabled: true });
-            }
-            setNavigationSubOptionsEnabled(optimiseEnabled);
-        });
+        optimisedNewNavToggle.checked = settings.optimisedNewNavEnabled;
+        setNavigationSubOptionsEnabled(settings.optimisedNewNavEnabled);
 
         optimisedNewNavToggle.addEventListener('change', function() {
             const isEnabled = this.checked;
@@ -855,12 +918,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const statsCollectorToggle = document.getElementById('statsCollectorToggle'); 
     if (statsCollectorToggle) { 
         syncedToggleInputs.set('statsCollectorEnabled', statsCollectorToggle);
-        chrome.storage.sync.get('statsCollectorEnabled', function(data) { 
-            statsCollectorToggle.checked = data.statsCollectorEnabled === undefined ? true : data.statsCollectorEnabled; 
-            if (data.statsCollectorEnabled === undefined) { 
-                chrome.storage.sync.set({ 'statsCollectorEnabled': true }); 
-            } 
-        }); 
+        statsCollectorToggle.checked = settings.statsCollectorEnabled;
         statsCollectorToggle.addEventListener('click', function(e) { 
             if (!this.checked) { 
                 // User trying to disable 
@@ -901,7 +959,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const timesheetReminderUpdateMessage = document.getElementById('timesheetReminderUpdateMessage'); 
     const triggerTimesheetReminderButton = document.getElementById('triggerTimesheetReminder'); 
  
-    function updateTimesheetTimeOptions(day) { 
+    function updateTimesheetTimeOptions(day, preferredTime = null) {
         if (!reminderTimeSelect) return; 
         const currentSelectedTime = reminderTimeSelect.value; 
         reminderTimeSelect.innerHTML = ''; 
@@ -917,17 +975,15 @@ document.addEventListener('DOMContentLoaded', function() {
             reminderTimeSelect.add(option); 
         } 
  
-        chrome.storage.sync.get('reminderTime', (data) => { 
-            if (data.reminderTime && Array.from(reminderTimeSelect.options).some(o => o.value === data.reminderTime)) { 
-                reminderTimeSelect.value = data.reminderTime; 
-            } else if (currentSelectedTime && Array.from(reminderTimeSelect.options).some(o => o.value === currentSelectedTime)) { 
-                reminderTimeSelect.value = currentSelectedTime; 
-            } else { 
-                const defaultTime = (day === 'Friday') ? "14:30" : "09:00"; 
-                if (Array.from(reminderTimeSelect.options).some(o => o.value === defaultTime)) reminderTimeSelect.value = defaultTime; 
-                else if (reminderTimeSelect.options.length > 0) reminderTimeSelect.value = reminderTimeSelect.options[0].value; 
-            } 
-        }); 
+        if (preferredTime && Array.from(reminderTimeSelect.options).some(o => o.value === preferredTime)) {
+            reminderTimeSelect.value = preferredTime;
+        } else if (currentSelectedTime && Array.from(reminderTimeSelect.options).some(o => o.value === currentSelectedTime)) {
+            reminderTimeSelect.value = currentSelectedTime;
+        } else {
+            const defaultTime = (day === 'Friday') ? "14:30" : "09:00";
+            if (Array.from(reminderTimeSelect.options).some(o => o.value === defaultTime)) reminderTimeSelect.value = defaultTime;
+            else if (reminderTimeSelect.options.length > 0) reminderTimeSelect.value = reminderTimeSelect.options[0].value;
+        }
     } 
  
     function updateTimesheetAlarm(showMsg = true) { 
@@ -955,12 +1011,13 @@ document.addEventListener('DOMContentLoaded', function() {
     } 
  
     if (timesheetReminderToggle) { 
-        chrome.storage.sync.get(['timesheetReminderEnabled', 'reminderDay'], (data) => { 
-            timesheetReminderToggle.checked = data.timesheetReminderEnabled !== false; 
-            if (timesheetReminderSettingsDiv) timesheetReminderSettingsDiv.style.display = timesheetReminderToggle.checked ? 'block' : 'none'; 
-            if (reminderDaySelect) reminderDaySelect.value = data.reminderDay || "Friday"; 
-            updateTimesheetTimeOptions(reminderDaySelect ? reminderDaySelect.value : 'Friday'); 
-        }); 
+        timesheetReminderToggle.checked = settings.timesheetReminderEnabled;
+        if (timesheetReminderSettingsDiv) timesheetReminderSettingsDiv.style.display = timesheetReminderToggle.checked ? 'block' : 'none';
+        if (reminderDaySelect) reminderDaySelect.value = settings.reminderDay;
+        updateTimesheetTimeOptions(
+            reminderDaySelect ? reminderDaySelect.value : settings.reminderDay,
+            settings.reminderTime
+        );
  
         timesheetReminderToggle.addEventListener('change', function() { 
             const isEnabled = this.checked; 
@@ -1481,8 +1538,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }); 
     } 
  
-    function displayCustomReminders() { 
-        chrome.storage.sync.get({customReminders: []}, (data) => { 
+    function displayCustomReminders(initialReminders) {
+        const renderReminders = (data) => {
             const reminders = data.customReminders; 
             if (!customRemindersListDiv) return; 
             customRemindersListDiv.textContent = ''; // Clear previous content safely 
@@ -1595,7 +1652,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 ul.appendChild(li); 
             }); 
             customRemindersListDiv.appendChild(ul); 
-        }); 
+        };
+
+        if (initialReminders !== undefined) {
+            renderReminders({ customReminders: initialReminders });
+            return;
+        }
+        chrome.storage.sync.get({customReminders: []}, renderReminders);
     } 
  
     function deleteCustomReminderById(event) { 
@@ -1610,7 +1673,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }); 
     } 
  
-    displayCustomReminders(); // Initial display 
+    displayCustomReminders(settings.customReminders); // Initial display from the batched settings read.
  
     // Export Settings 
     const generateExportDataButton = document.getElementById('generateExportData'); 
@@ -1656,5 +1719,7 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = { 
         escapeHTML,
         isMissingContentScriptReceiverError,
+        SETTINGS_DEFAULTS,
+        loadSettingsWithDefaults,
     }; 
 }

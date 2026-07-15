@@ -1,5 +1,6 @@
 {
   "manifest_version": 3,
+  "minimum_chrome_version": "116",
   "name": "Ops Toolshed",
   "version": "1.6",
   "description": "Enhances Prisma functionality and provides quick access to various tools. Built by Harry Barnes.",
@@ -12,7 +13,8 @@
     "offscreen",
     "scripting",
     "clipboardRead",
-    "clipboardWrite"
+    "clipboardWrite",
+    "sidePanel"
   ],
   "host_permissions": [
     "https://groupmuk-prisma.mediaocean.com/*",
@@ -44,6 +46,9 @@
     "page": "settings.html",
     "open_in_tab": true
   },
+  "side_panel": {
+    "default_path": "help-guides.html"
+  },
   "content_scripts": [
     {
       "matches": ["*://*.mediaocean.com/*"],
@@ -66,6 +71,7 @@
         "features/order-view-toggle.js",
         "features/actualise-scroll-restore.js",
         "features/loading-facts.js",
+        "features/help-guides-launcher.js",
         "features/applearn-replace.js",
         "content.js"
       ],
@@ -78,6 +84,6 @@
       "icon.png",
       "features/swap-accounts.css"
     ],
-    "matches": ["<all_urls>"]
+    "matches": ["*://*.mediaocean.com/*"]
   }]
 }

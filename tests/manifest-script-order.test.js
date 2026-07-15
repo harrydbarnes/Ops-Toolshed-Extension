@@ -23,4 +23,14 @@ describe('Manifest content-script order', () => {
         });
         expect(scripts[scripts.length - 1]).toBe('content.js');
     });
+
+    test('declares the Help Guides side panel and launcher wiring', () => {
+        expect(manifest.permissions).toContain('sidePanel');
+        expect(manifest.side_panel).toEqual({ default_path: 'help-guides.html' });
+
+        const mediaoceanRegistration = manifest.content_scripts.find(entry =>
+            entry.matches.includes('*://*.mediaocean.com/*')
+        );
+        expect(mediaoceanRegistration.js).toContain('features/help-guides-launcher.js');
+    });
 });

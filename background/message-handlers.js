@@ -127,6 +127,24 @@ async function openApproversPage(request, sender, sendResponse) {
     sendResponse({ status: 'success' });
 }
 
+async function openHelpGuides(request, sender, sendResponse) {
+    const tabId = sender?.tab?.id;
+    if (!tabId) {
+        sendResponse({ status: 'error', message: 'Could not identify the current tab.' });
+        return;
+    }
+
+    // open() must stay directly tied to the content-script click. Configure the
+    // tab-specific instance afterwards, matching Chrome's supported pattern.
+    await chrome.sidePanel.open({ tabId });
+    await chrome.sidePanel.setOptions({
+        tabId,
+        path: 'help-guides.html',
+        enabled: true
+    });
+    sendResponse({ status: 'success' });
+}
+
 async function requestCampaignDetailsBasicFocus(request, sender, sendResponse) {
     const tabId = sender?.tab?.id;
     let senderUrl;
@@ -173,6 +191,7 @@ export const messageHandlers = {
     copyToClipboard,
     getFavouriteApprovers,
     openApproversPage,
+    openHelpGuides,
     requestCampaignDetailsBasicFocus,
     TRACK_STAT: handleTrackStat
 };

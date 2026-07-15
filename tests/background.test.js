@@ -227,6 +227,40 @@ describe('AppLearn popup blocking', () => {
         expect(chrome.tabs.remove).toHaveBeenCalledWith(20);
         expect(chrome.storage.local.__getStore().appLearnPopupsBlocked).toBe(1);
     });
+
+    test('recovers the blocked-popup counter after a storage failure', async () => {
+        chrome.tabs.get.mockResolvedValue({
+            id: 10,
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/'
+        });
+        chrome.tabs.remove.mockResolvedValue(undefined);
+        chrome.storage.local.get.mockRejectedValueOnce(new Error('Temporary storage failure'));
+
+        await expect(maybeBlockAppLearnPopup(
+            20,
+            'https://splitscreen-adopt.applearn.tv/',
+            10
+        )).resolves.toBe(false);
+        await expect(maybeBlockAppLearnPopup(
+            21,
+            'https://splitscreen-adopt.applearn.tv/',
+            10
+        )).resolves.toBe(true);
+
+        expect(chrome.tabs.remove).toHaveBeenCalledTimes(2);
+        expect(chrome.storage.local.__getStore().appLearnPopupsBlocked).toBe(1);
+    });
+
+    test('contains a failed settings read instead of rejecting the tab listener task', async () => {
+        chrome.storage.sync.get.mockRejectedValueOnce(new Error('Settings unavailable'));
+
+        await expect(maybeBlockAppLearnPopup(
+            20,
+            'https://splitscreen-adopt.applearn.tv/',
+            10
+        )).resolves.toBe(false);
+        expect(chrome.tabs.remove).not.toHaveBeenCalled();
+    });
 });
 
 describe('Background message routing', () => {
@@ -470,5 +504,43 @@ describe('Campaign Details frame messaging', () => {
         );
 
         expect(sendResponse).toHaveBeenCalledWith({ status: 'pending' });
+    });
+});
+
+describe('Help Guides side panel messaging', () => {
+    let openHelpGuides;
+
+    beforeEach(() => {
+        resetMocks();
+        jest.resetModules();
+        chrome.sidePanel.open.mockResolvedValue(undefined);
+        chrome.sidePanel.setOptions.mockResolvedValue(undefined);
+        ({ openHelpGuides } = require('../background/message-handlers').messageHandlers);
+    });
+
+    test('opens and configures a tab-specific panel from the page launcher', async () => {
+        const sendResponse = jest.fn();
+
+        await openHelpGuides({}, { tab: { id: 42 } }, sendResponse);
+
+        expect(chrome.sidePanel.open).toHaveBeenCalledWith({ tabId: 42 });
+        expect(chrome.sidePanel.setOptions).toHaveBeenCalledWith({
+            tabId: 42,
+            path: 'help-guides.html',
+            enabled: true
+        });
+        expect(sendResponse).toHaveBeenCalledWith({ status: 'success' });
+    });
+
+    test('rejects requests that do not come from a browser tab', async () => {
+        const sendResponse = jest.fn();
+
+        await openHelpGuides({}, {}, sendResponse);
+
+        expect(chrome.sidePanel.open).not.toHaveBeenCalled();
+        expect(sendResponse).toHaveBeenCalledWith({
+            status: 'error',
+            message: 'Could not identify the current tab.'
+        });
     });
 });

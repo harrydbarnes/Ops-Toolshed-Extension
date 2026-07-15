@@ -7,7 +7,7 @@ const settingsScript = fs.readFileSync(path.resolve(__dirname, '../settings.js')
 const utilsScript = fs.readFileSync(path.resolve(__dirname, '../utils.js'), 'utf8');
 let activeDom;
 
-function setupSettings(customReminders = [], url = 'chrome-extension://test/settings.html') {
+async function setupSettings(customReminders = [], url = 'chrome-extension://test/settings.html') {
     const dom = new JSDOM(settingsHtml, {
         url,
         runScripts: 'outside-only'
@@ -55,6 +55,9 @@ function setupSettings(customReminders = [], url = 'chrome-extension://test/sett
     window.eval(utilsScript);
     window.eval(settingsScript);
     window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
 
     return { window, document: window.document, store };
 }
@@ -66,8 +69,8 @@ describe('Custom reminder settings', () => {
         jest.useRealTimers();
     });
 
-    test('deep-links tabs and keeps the selected tab across navigation', () => {
-        const { window, document } = setupSettings(
+    test('deep-links tabs and keeps the selected tab across navigation', async () => {
+        const { window, document } = await setupSettings(
             [],
             'chrome-extension://test/settings.html#custom-reminders'
         );
@@ -84,8 +87,8 @@ describe('Custom reminder settings', () => {
         expect(document.getElementById('features').classList).toContain('active');
     });
 
-    test('identifies the missing URL field and pre-fills a new popup title from the reminder name', () => {
-        const { document } = setupSettings();
+    test('identifies the missing URL field and pre-fills a new popup title from the reminder name', async () => {
+        const { document } = await setupSettings();
         document.getElementById('reminderName').value = 'CRUK RFL';
         document.getElementById('reminderUrlPattern').value = '';
 
@@ -100,7 +103,7 @@ describe('Custom reminder settings', () => {
         expect(document.getElementById('modalReminderUrlPatternDisplay').textContent).toBe('*mediaocean.com*');
     });
 
-    test('opens a clearly labelled overlay containing all editable reminder fields', () => {
+    test('opens a clearly labelled overlay containing all editable reminder fields', async () => {
         jest.useFakeTimers();
         const reminder = {
             id: 'custom_1',
@@ -111,7 +114,7 @@ describe('Custom reminder settings', () => {
             popupMessage: '<h3>⚠️ CRUK RFL ⚠️</h3><p>Old intro</p>',
             enabled: true
         };
-        const { window, document, store } = setupSettings([reminder]);
+        const { window, document, store } = await setupSettings([reminder]);
         Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1000 });
         Object.defineProperty(document.documentElement, 'clientWidth', { configurable: true, value: 983 });
         const editButton = Array.from(document.querySelectorAll('button')).find(button => button.textContent === 'Edit');
@@ -158,8 +161,8 @@ describe('Custom reminder settings', () => {
         expect(document.body.style.getPropertyValue('--reminder-scrollbar-compensation')).toBe('');
     });
 
-    test('reduces a pasted long URL to its site in simple contains mode', () => {
-        const { document } = setupSettings();
+    test('reduces a pasted long URL to its site in simple contains mode', async () => {
+        const { document } = await setupSettings();
         document.getElementById('reminderUrlPattern').value = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP36746';
 
         document.getElementById('useReminderSiteOnly').click();
@@ -168,8 +171,8 @@ describe('Custom reminder settings', () => {
         expect(document.getElementById('reminderUrlPattern').value).toBe('groupmuk-prisma.mediaocean.com');
     });
 
-    test('uses the shared segmented-control appearance for URL matching mode', () => {
-        const { document } = setupSettings();
+    test('uses the shared segmented-control appearance for URL matching mode', async () => {
+        const { document } = await setupSettings();
         const control = document.getElementById('reminderUrlMatchTypeSegmented');
         const buttons = control.querySelectorAll('button[data-value]');
 
@@ -180,8 +183,8 @@ describe('Custom reminder settings', () => {
         expect(buttons[1].textContent.trim()).toBe('Advanced');
     });
 
-    test('uses the shared Pink and Black segmented control for the reminder theme', () => {
-        const { window, document, store } = setupSettings();
+    test('uses the shared Pink and Black segmented control for the reminder theme', async () => {
+        const { window, document, store } = await setupSettings();
         const control = document.getElementById('reminderThemeSegmented');
         const buttons = control.querySelectorAll('button[data-value]');
 

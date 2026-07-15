@@ -14,7 +14,7 @@ describe('Meta finance tool selection', () => {
         expect(settingsHtml).toContain('id="metaFinanceToolSegmented"');
         expect(settingsHtml).toContain('data-value="social" aria-pressed="true">Social Report</button>');
         expect(settingsHtml).toContain('data-value="legacy" aria-pressed="false">Billing Check</button>');
-        expect(settingsScript).toContain("initializeSegmentedControl('metaFinanceToolSegmented', 'metaFinanceToolMode', 'social')");
+        expect(settingsScript).toContain("initializeSegmentedControl('metaFinanceToolSegmented', 'metaFinanceToolMode', 'social', settings)");
     });
 
     test('keeps the popup on the new report when the setting is absent or invalid', () => {

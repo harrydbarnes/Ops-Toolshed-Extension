@@ -1,4 +1,10 @@
 (function() { // Wrap the entire script in an IIFE to control execution.
+  // The manifest intentionally injects feature modules into child frames so
+  // Campaign Details can focus its Basic control from inside its iframe.
+  // Page-level orchestration belongs only to the top frame, however; running
+  // it in every frame duplicates polling, observers, stats, and UI work.
+  if (window.top !== window.self) return;
+
   chrome.storage.local.get('timeBombActive', (data) => {
     if (data.timeBombActive) {
       console.log('Ops Toolshed features disabled due to time bomb.');
@@ -65,6 +71,9 @@ async function mainContentScriptInit() {
     window.statsCollector.initialize();
     if (window.appLearnFeature) {
         window.appLearnFeature.initialize();
+    }
+    if (window.helpGuidesLauncherFeature) {
+        window.helpGuidesLauncherFeature.initialize();
     }
     window.statsCollector.trackCampaignId(); // Initial call on page load
 
@@ -140,6 +149,10 @@ async function mainContentScriptInit() {
 
         if (window.appLearnFeature) {
             window.appLearnFeature.applyTransparency();
+        }
+
+        if (window.helpGuidesLauncherFeature) {
+            window.helpGuidesLauncherFeature.ensureLauncher();
         }
 
         if (isPrismaLike && window.logoFeature.shouldReplaceLogoOnThisPage()) {

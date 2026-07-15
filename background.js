@@ -287,7 +287,9 @@ function isMediaoceanUrl(rawUrl) {
 let appLearnPopupStatUpdate = Promise.resolve();
 
 function incrementAppLearnPopupBlockedStat() {
-    appLearnPopupStatUpdate = appLearnPopupStatUpdate.then(async () => {
+    // Recover the queue before scheduling the next update. Without this, one
+    // rejected storage operation leaves the promise chain permanently rejected.
+    appLearnPopupStatUpdate = appLearnPopupStatUpdate.catch(() => undefined).then(async () => {
         const data = await chrome.storage.local.get({ appLearnPopupsBlocked: 0 });
         const currentCount = Number(data.appLearnPopupsBlocked) || 0;
         await chrome.storage.local.set({ appLearnPopupsBlocked: currentCount + 1 });
@@ -298,10 +300,10 @@ function incrementAppLearnPopupBlockedStat() {
 async function maybeBlockAppLearnPopup(tabId, url, openerTabId) {
     if (!isBlockedAppLearnUrl(url)) return false;
 
-    const data = await chrome.storage.sync.get({ blockAppLearnPopupsEnabled: true });
-    if (data.blockAppLearnPopupsEnabled === false) return false;
-
     try {
+        const data = await chrome.storage.sync.get({ blockAppLearnPopupsEnabled: true });
+        if (data.blockAppLearnPopupsEnabled === false) return false;
+
         let openedFromMediaocean = false;
         if (openerTabId) {
             const openerTab = await chrome.tabs.get(openerTabId);
@@ -326,12 +328,14 @@ async function maybeBlockAppLearnPopup(tabId, url, openerTabId) {
 }
 
 chrome.tabs.onCreated.addListener(tab => {
-    maybeBlockAppLearnPopup(tab.id, tab.pendingUrl || tab.url, tab.openerTabId);
+    maybeBlockAppLearnPopup(tab.id, tab.pendingUrl || tab.url, tab.openerTabId)
+        .catch(error => console.error('Unexpected AppLearn popup check failure:', error));
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.url) {
-        maybeBlockAppLearnPopup(tabId, changeInfo.url, tab.openerTabId);
+        maybeBlockAppLearnPopup(tabId, changeInfo.url, tab.openerTabId)
+            .catch(error => console.error('Unexpected AppLearn popup check failure:', error));
 
         if (!chrome.runtime || !chrome.runtime.id) return;
         chrome.storage.sync.get('addCampaignShortcutEnabled', (data) => {

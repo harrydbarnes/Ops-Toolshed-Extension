@@ -10,7 +10,7 @@ describe('Auto Copy Campaign URL settings', () => {
         expect(settingsHtml).toContain('id="autoCopyUrlModeSegmented"');
         expect(settingsHtml).toContain('data-value="short" aria-pressed="true">Short</button>');
         expect(settingsHtml).toContain('data-value="full" aria-pressed="false">Full</button>');
-        expect(settingsScript).toContain("initializeSegmentedControl('autoCopyUrlModeSegmented', 'autoCopyUrlMode', 'short')");
+        expect(settingsScript).toContain("initializeSegmentedControl('autoCopyUrlModeSegmented', 'autoCopyUrlMode', 'short', settings)");
     });
 
     test('disables the URL mode control with the main toggle and syncs live changes', () => {
@@ -25,7 +25,7 @@ describe('Auto Copy Campaign URL settings', () => {
         expect(settingsHtml).toContain('data-value="black" aria-pressed="false"');
         expect(settingsHtml).toContain('class="segment-color-swatch pink"');
         expect(settingsHtml).toContain('class="segment-color-swatch black"');
-        expect(settingsScript).toContain("initializeSegmentedControl('uiThemeSegmented', 'uiTheme', 'pink')");
+        expect(settingsScript).toContain("initializeSegmentedControl('uiThemeSegmented', 'uiTheme', 'pink', settings)");
     });
 
     test('keeps documented rollback instructions for both previous dropdowns', () => {
