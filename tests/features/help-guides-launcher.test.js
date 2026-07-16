@@ -12,10 +12,14 @@ describe('Help Guides page launcher', () => {
         enabled = true,
         position = null,
         panelInitiallyOpen = false,
+        bannerReady = true,
         url = 'https://groupmuk-prisma.mediaocean.com/campaign-management/'
     } = {}) {
         const listeners = [];
-        const dom = new JSDOM('<!doctype html><html><head></head><body></body></html>', {
+        const bannerMarkup = bannerReady
+            ? '<div class="center" id="mo-banner-module-container"></div>'
+            : '';
+        const dom = new JSDOM(`<!doctype html><html><head></head><body>${bannerMarkup}</body></html>`, {
             runScripts: 'dangerously',
             url
         });
@@ -43,6 +47,25 @@ describe('Help Guides page launcher', () => {
         dom.window.eval(featureCode);
         return { dom, listeners };
     }
+
+    test('waits for the Mediaocean banner before showing the launcher', async () => {
+        const { dom } = createFeature({ bannerReady: false });
+        const { window } = dom;
+
+        window.helpGuidesLauncherFeature.initialize();
+        expect(window.helpGuidesLauncherFeature.isBannerReady()).toBe(false);
+        expect(window.document.getElementById('toolshed-help-guides-launcher')).toBeNull();
+
+        const banner = window.document.createElement('div');
+        banner.id = 'mo-banner-module-container';
+        banner.className = 'center';
+        window.document.body.appendChild(banner);
+        await new Promise(resolve => window.setTimeout(resolve, 0));
+
+        expect(window.helpGuidesLauncherFeature.isBannerReady()).toBe(true);
+        expect(window.document.getElementById('toolshed-help-guides-launcher')).not.toBeNull();
+        dom.window.close();
+    });
 
     test('adds one accessible translucent launcher and opens the side panel on click', () => {
         const { dom } = createFeature();

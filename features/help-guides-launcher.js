@@ -1,6 +1,7 @@
 (function() {
     const BUTTON_ID = 'toolshed-help-guides-launcher';
     const STYLE_ID = 'toolshed-help-guides-launcher-styles';
+    const BANNER_ID = 'mo-banner-module-container';
     const POSITION_KEY = 'helpGuidesLauncherPosition';
     const EDGE_GAP = 18;
     const CORNER_ZONE = 72;
@@ -12,9 +13,14 @@
     let isPanelOpen = false;
     let panelStateRevision = 0;
     let routeListenersBound = false;
+    let bannerObserver = null;
 
     function isLauncherExcluded() {
         return window.location.href.toLowerCase().includes('ideskos-viewport');
+    }
+
+    function isBannerReady() {
+        return Boolean(document.getElementById(BANNER_ID));
     }
     let storageListenerBound = false;
     let runtimeListenerBound = false;
@@ -340,8 +346,37 @@
         document.getElementById(BUTTON_ID)?.remove();
     }
 
+    function stopWaitingForBanner() {
+        bannerObserver?.disconnect();
+        bannerObserver = null;
+    }
+
+    function waitForBannerAndEnsureLauncher() {
+        if (window.top !== window.self || isEnabled !== true || isLauncherExcluded()) {
+            stopWaitingForBanner();
+            removeLauncher();
+            return;
+        }
+
+        if (isBannerReady()) {
+            stopWaitingForBanner();
+            ensureLauncher();
+            return;
+        }
+
+        removeLauncher();
+        if (bannerObserver || !document.documentElement) return;
+
+        bannerObserver = new MutationObserver(() => {
+            if (!isBannerReady()) return;
+            stopWaitingForBanner();
+            ensureLauncher();
+        });
+        bannerObserver.observe(document.documentElement, { childList: true, subtree: true });
+    }
+
     function ensureLauncher() {
-        if (window.top !== window.self || isEnabled !== true || isLauncherExcluded() || document.getElementById(BUTTON_ID)) return;
+        if (window.top !== window.self || isEnabled !== true || isLauncherExcluded() || !isBannerReady() || document.getElementById(BUTTON_ID)) return;
 
         injectStyles();
         const button = document.createElement('button');
@@ -372,8 +407,7 @@
 
         chrome.storage.sync.get({ helpGuidesEnabled: true }, data => {
             isEnabled = data.helpGuidesEnabled !== false;
-            if (isEnabled && !isLauncherExcluded()) ensureLauncher();
-            else removeLauncher();
+            waitForBannerAndEnsureLauncher();
             window.appLearnFeature?.applyTransparency();
         });
 
@@ -393,8 +427,7 @@
             chrome.storage.onChanged.addListener((changes, area) => {
                 if (area !== 'sync' || !changes.helpGuidesEnabled) return;
                 isEnabled = changes.helpGuidesEnabled.newValue !== false;
-                if (isEnabled && !isLauncherExcluded()) ensureLauncher();
-                else removeLauncher();
+                waitForBannerAndEnsureLauncher();
                 window.appLearnFeature?.applyTransparency();
             });
         }
@@ -411,8 +444,7 @@
         if (!routeListenersBound) {
             routeListenersBound = true;
             const syncLauncherForRoute = () => {
-                if (isLauncherExcluded()) removeLauncher();
-                else if (isEnabled === true) ensureLauncher();
+                waitForBannerAndEnsureLauncher();
             };
             window.addEventListener('hashchange', syncLauncherForRoute);
             window.addEventListener('popstate', syncLauncherForRoute);
@@ -434,6 +466,7 @@
         isEnabled: () => isEnabled === true,
         isPanelOpen: () => isPanelOpen,
         isLauncherExcluded,
+        isBannerReady,
         snapToEdge
     };
 })();
