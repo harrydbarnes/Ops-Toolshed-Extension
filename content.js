@@ -75,6 +75,9 @@ async function mainContentScriptInit() {
     if (window.helpGuidesLauncherFeature) {
         window.helpGuidesLauncherFeature.initialize();
     }
+    if (isPrismaLike && window.bannerUsernameFeature) {
+        window.bannerUsernameFeature.initialize();
+    }
     window.statsCollector.trackCampaignId(); // Initial call on page load
 
     // Placement counter is Prisma-only
@@ -103,6 +106,14 @@ async function mainContentScriptInit() {
 
     if (isPrismaLike && window.actualiseScrollRestoreFeature) {
         window.actualiseScrollRestoreFeature.initialize();
+    }
+
+    if (isPrismaLike && window.actualiseNavbarFeature) {
+        window.actualiseNavbarFeature.initialize();
+    }
+
+    if (isPrismaLike && window.actualiseShortcutFeature) {
+        window.actualiseShortcutFeature.initialize();
     }
 
     if (isPrismaLike && window.campaignTabTitleFeature) {
@@ -143,6 +154,14 @@ async function mainContentScriptInit() {
             window.orderViewToggleFeature.handleOrderViewToggle();
         }
 
+        if (isPrismaLike && window.actualiseNavbarFeature) {
+            window.actualiseNavbarFeature.apply();
+        }
+
+        if (isPrismaLike && window.actualiseShortcutFeature) {
+            window.actualiseShortcutFeature.apply();
+        }
+
         if (isPrismaLike && window.loadingFactsFeature) {
             window.loadingFactsFeature.checkForLoading();
         }
@@ -153,6 +172,10 @@ async function mainContentScriptInit() {
 
         if (window.helpGuidesLauncherFeature) {
             window.helpGuidesLauncherFeature.ensureLauncher();
+        }
+
+        if (isPrismaLike && window.bannerUsernameFeature) {
+            window.bannerUsernameFeature.apply();
         }
 
         if (isPrismaLike && window.logoFeature.shouldReplaceLogoOnThisPage()) {

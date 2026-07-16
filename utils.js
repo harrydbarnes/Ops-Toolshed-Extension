@@ -82,6 +82,42 @@
             return null;
         },
 
+        queryAllShadowDom(selector, root = document) {
+            const matches = new Set(root.querySelectorAll(selector));
+            root.querySelectorAll('*').forEach(element => {
+                if (!element.shadowRoot) return;
+                this.queryAllShadowDom(selector, element.shadowRoot).forEach(match => matches.add(match));
+            });
+            return Array.from(matches);
+        },
+
+        isElementVisible(element) {
+            if (!element?.isConnected) return false;
+
+            let current = element;
+            while (current) {
+                const style = window.getComputedStyle(current);
+                if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+                    return false;
+                }
+                const root = current.getRootNode?.();
+                current = current.parentElement || root?.host || null;
+            }
+
+            const rect = element.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+        },
+
+        findVisibleLoadingSpinners(root = document) {
+            const selector = [
+                '#vp-block > i.fa.fa-circle-o-notch.fa-spin',
+                'mo-spinner',
+                '.mo-spinner',
+                'svg.spinner'
+            ].join(', ');
+            return this.queryAllShadowDom(selector, root).filter(element => this.isElementVisible(element));
+        },
+
         waitForElement(selector, timeout = 2000) {
             return new Promise((resolve, reject) => {
                 const interval = setInterval(() => {

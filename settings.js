@@ -35,10 +35,12 @@ const SETTINGS_DEFAULTS = Object.freeze({
     countPlacementsSelectedEnabled: true,
     approverWidgetOptimiseEnabled: true,
     swapAccountsEnabled: true,
+    bannerUsernameEnabled: true,
     alwaysShowCommentsEnabled: true,
     orderIdCopyEnabled: true,
     newOrderUiOptimisationEnabled: true,
     ordersShortcutEnabled: true,
+    actualiseShortcutEnabled: true,
     approverWidgetPlacementEnabled: true,
     quickCampaignActionsEnabled: true,
     budgetWidgetOptimisedEnabled: true,
@@ -46,6 +48,7 @@ const SETTINGS_DEFAULTS = Object.freeze({
     campaignHeaderQuickCopyEnabled: true,
     campaignDateShortcutEnabled: true,
     actualiseScrollRestoreEnabled: true,
+    actualiseNavbarEnabled: true,
     campaignTabTitleEnabled: true,
     gmiChatShortcutEnabled: true,
     autoCopyUrlEnabled: true,
@@ -805,10 +808,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupToggle('countPlacementsSelectedToggle', 'countPlacementsSelectedEnabled', 'Count Placements Selected setting saved:', settings);
     setupToggle('approverWidgetOptimiseToggle', 'approverWidgetOptimiseEnabled', 'Approver Widget Optimise setting saved:', settings);
     setupToggle('swapAccountsToggle', 'swapAccountsEnabled', 'Switch Accounts setting saved:', settings);
+    setupToggle('bannerUsernameToggle', 'bannerUsernameEnabled', 'Prisma banner username setting saved:', settings);
     setupToggle('seeCommentsOnLockedBuysToggle', 'alwaysShowCommentsEnabled', 'See Comments on Locked Buys setting saved:', settings);
     setupToggle('orderIdCopyToggle', 'orderIdCopyEnabled', 'Order ID Copy setting saved:', settings);
     setupToggle('newOrderUiOptimisationToggle', 'newOrderUiOptimisationEnabled', 'New Order UI Optimisation setting saved:', settings);
     setupToggle('ordersShortcutToggle', 'ordersShortcutEnabled', 'Orders shortcut setting saved:', settings);
+    setupToggle('actualiseShortcutToggle', 'actualiseShortcutEnabled', 'Actualise shortcut setting saved:', settings);
     setupToggle('approverWidgetPlacementToggle', 'approverWidgetPlacementEnabled', 'Approver Widget placement setting saved:', settings);
     setupToggle('quickCampaignActionsToggle', 'quickCampaignActionsEnabled', 'Quick campaign actions setting saved:', settings);
     setupToggle('budgetWidgetOptimisedToggle', 'budgetWidgetOptimisedEnabled', 'Budget widget optimisation setting saved:', settings);
@@ -816,6 +821,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupToggle('campaignHeaderQuickCopyToggle', 'campaignHeaderQuickCopyEnabled', 'Campaign header quick copy setting saved:', settings);
     setupToggle('campaignDateShortcutToggle', 'campaignDateShortcutEnabled', 'Campaign date shortcut setting saved:', settings);
     setupToggle('actualiseScrollRestoreToggle', 'actualiseScrollRestoreEnabled', 'Actualise scroll restoration setting saved:', settings);
+    setupToggle('actualiseNavbarToggle', 'actualiseNavbarEnabled', 'Actualise navigation bar setting saved:', settings);
     setupToggle('campaignTabTitleToggle', 'campaignTabTitleEnabled', 'Campaign tab title setting saved:', settings);
     setupToggle('gmiChatShortcutToggle', 'gmiChatShortcutEnabled', 'GMI Chat Shortcut setting saved:', settings);
     setupToggle('autoCopyUrlToggle', 'autoCopyUrlEnabled', 'Auto Copy URL setting saved:', settings);

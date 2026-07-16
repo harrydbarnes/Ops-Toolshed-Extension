@@ -10,6 +10,8 @@
     chrome.storage.onChanged.addListener((changes, area) => {
         if (area === 'sync' && changes.statsCollectorEnabled) {
             isEnabled = changes.statsCollectorEnabled.newValue !== false;
+            if (!isEnabled) loadingSpinnerStartTime = null;
+            else scheduleLoadingCheck();
         }
     });
 
@@ -47,33 +49,46 @@
     }
 
     function observeLoadingSpinner() {
-        if (!isEnabled) return;
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(findAndTrackSpinner, 150); // Debounce for 150ms
+        scheduleLoadingCheck();
     }
 
     // --- 2. Track Loading Spinner Time ---
     let loadingSpinnerStartTime = null;
-    let debounceTimer = null;
+    let loadingCheckScheduled = false;
 
-    function findAndTrackSpinner() {
+    function scheduleLoadingCheck() {
+        if (!isEnabled || loadingCheckScheduled) return;
+        loadingCheckScheduled = true;
+        const schedule = window.requestAnimationFrame || (callback => window.setTimeout(callback, 0));
+        schedule(() => {
+            loadingCheckScheduled = false;
+            checkLoadingState();
+        });
+    }
+
+    function checkLoadingState() {
         if (!isEnabled) {
             loadingSpinnerStartTime = null;
             return;
         }
-        const spinner = window.utils.queryShadowDom('svg.spinner') || document.querySelector('i.fa-spin');
+        const hasVisibleSpinner = window.utils.findVisibleLoadingSpinners().length > 0;
 
-        if (spinner && loadingSpinnerStartTime === null) {
-            // Spinner appeared
+        if (hasVisibleSpinner && loadingSpinnerStartTime === null) {
             loadingSpinnerStartTime = Date.now();
             console.log('[Stats Collector] Loading spinner detected. Timer started.');
-        } else if (!spinner && loadingSpinnerStartTime !== null) {
-            // Spinner disappeared
+        } else if (!hasVisibleSpinner && loadingSpinnerStartTime !== null) {
             const duration = (Date.now() - loadingSpinnerStartTime) / 1000; // in seconds
             loadingSpinnerStartTime = null;
             console.log(`[Stats Collector] Loading finished. Duration: ${duration.toFixed(2)}s`);
-            trackStat('LOADING_TIME', duration);
+            if (duration > 0) trackStat('LOADING_TIME', duration);
         }
+    }
+
+    function finishActiveLoadingMeasurement() {
+        if (!isEnabled || loadingSpinnerStartTime === null) return;
+        const duration = (Date.now() - loadingSpinnerStartTime) / 1000;
+        loadingSpinnerStartTime = null;
+        if (duration > 0) trackStat('LOADING_TIME', duration);
     }
 
     // --- 3. Track Click Events (Save Placements & Reconciliations) ---
@@ -107,10 +122,17 @@
         if (isInitialized) return;
 
         const observer = new MutationObserver(observeLoadingSpinner);
-        observer.observe(document.body, { childList: true, subtree: true });
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['class', 'style', 'hidden']
+        });
+        checkLoadingState();
 
         // Use event delegation for buttons
         document.body.addEventListener('click', handleClickEvents);
+        window.addEventListener('pagehide', finishActiveLoadingMeasurement);
 
         isInitialized = true;
         console.log("Stats Collector Initialized");
@@ -118,7 +140,8 @@
 
     window.statsCollector = {
         initialize: initializeStatsCollector,
-        trackCampaignId: trackCampaignId // Expose for centralized observer
+        trackCampaignId: trackCampaignId,
+        checkLoadingState
     };
 
 })();

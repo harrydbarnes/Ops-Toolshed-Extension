@@ -34,6 +34,9 @@ describe('Manifest content-script order', () => {
             entry.matches.includes('*://*.mediaocean.com/*')
         );
         expect(mediaoceanRegistration.js).toContain('features/help-guides-launcher.js');
+        expect(mediaoceanRegistration.js).toContain('features/banner-username.js');
+        expect(mediaoceanRegistration.js).toContain('features/actualise-navbar.js');
+        expect(mediaoceanRegistration.js).toContain('features/actualise-shortcut.js');
     });
 
     test('loads the custom PDF viewer before the Help Guides application', () => {

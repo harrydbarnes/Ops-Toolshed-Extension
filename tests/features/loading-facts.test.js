@@ -48,7 +48,9 @@ describe('Loading Facts behaviour', () => {
             };
         });
         window.utils = {
-            queryShadowDom: jest.fn(() => null)
+            queryShadowDom: jest.fn(() => null),
+            isElementVisible: jest.fn(element => element === spinner && element.isConnected),
+            findVisibleLoadingSpinners: jest.fn(() => spinner.isConnected ? [spinner] : [])
         };
         window.chrome = {
             storage: {
@@ -57,7 +59,8 @@ describe('Loading Facts behaviour', () => {
                 },
                 local: {
                     get: jest.fn((keys, callback) => callback({
-                        prismaUserStats: { totalLoadingTime: 3665 }
+                        legacyStats: { totalLoadingTime: 3600 },
+                        dailyStats: { '2026-07-16': { loadingTime: 65 } }
                     }))
                 },
                 onChanged: { addListener: jest.fn() }
@@ -82,6 +85,42 @@ describe('Loading Facts behaviour', () => {
         runScheduledTimer(scheduledTimers, 500);
 
         expect(document.getElementById('ops-toolshed-loading-toast')).toBeNull();
+        dom.window.close();
+    });
+
+    test('uses migrated legacy and daily loading totals in time-based facts', async () => {
+        const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/',
+            runScripts: 'outside-only'
+        });
+        const { window } = dom;
+        window.Math.random = () => 0.999;
+        window.utils = {
+            queryShadowDom: jest.fn(() => null),
+            isElementVisible: jest.fn(() => false),
+            findVisibleLoadingSpinners: jest.fn(() => [])
+        };
+        window.IntersectionObserver = jest.fn(() => ({ observe: jest.fn(), disconnect: jest.fn() }));
+        window.chrome = {
+            storage: {
+                sync: { get: jest.fn((_keys, callback) => callback({ loadingFactsEnabled: true })) },
+                local: {
+                    get: jest.fn((_keys, callback) => callback({
+                        legacyStats: { totalLoadingTime: 3600 },
+                        dailyStats: {
+                            '2026-07-15': { loadingTime: 5 },
+                            '2026-07-16': { loadingTime: 60 }
+                        }
+                    }))
+                },
+                onChanged: { addListener: jest.fn() }
+            }
+        };
+
+        window.eval(loadingFactsScript);
+        await window.loadingFactsFeature.initialize();
+        await expect(window.loadingFactsFeature.getProcessedFact())
+            .resolves.toContain('1h 1m 5s');
         dom.window.close();
     });
 });

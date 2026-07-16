@@ -12,6 +12,7 @@ describe('campaign navigation settings', () => {
 
     test.each([
         ['ordersShortcutToggle', 'ordersShortcutEnabled'],
+        ['actualiseShortcutToggle', 'actualiseShortcutEnabled'],
         ['approverWidgetPlacementToggle', 'approverWidgetPlacementEnabled'],
         ['quickCampaignActionsToggle', 'quickCampaignActionsEnabled'],
         ['budgetWidgetOptimisedToggle', 'budgetWidgetOptimisedEnabled'],
@@ -19,7 +20,8 @@ describe('campaign navigation settings', () => {
         ['campaignHeaderQuickCopyToggle', 'campaignHeaderQuickCopyEnabled'],
         ['campaignDateShortcutToggle', 'campaignDateShortcutEnabled'],
         ['newOrderUiOptimisationToggle', 'newOrderUiOptimisationEnabled'],
-        ['actualiseScrollRestoreToggle', 'actualiseScrollRestoreEnabled']
+        ['actualiseScrollRestoreToggle', 'actualiseScrollRestoreEnabled'],
+        ['actualiseNavbarToggle', 'actualiseNavbarEnabled']
     ])('exposes enabled-by-default sub-option %s', (toggleId, storageKey) => {
         expect(settingsHtml).toContain(`id="${toggleId}"`);
         expect(settingsScript).toContain(`setupToggle('${toggleId}', '${storageKey}'`);

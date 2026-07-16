@@ -1,0 +1,190 @@
+(function() {
+    'use strict';
+
+    const SETTING_KEY = 'bannerUsernameEnabled';
+    const ORIGINAL_LABEL_ATTRIBUTE = 'data-ops-toolshed-original-account-label';
+    const DISCOVERY_TIMEOUT_MS = 2500;
+
+    let isEnabled = true;
+    let settingsLoaded = false;
+    let resolvedUsername = null;
+    let discoveryPromise = null;
+    let storageListenerBound = false;
+    const attemptedMenus = new WeakSet();
+
+    function queryAllDeep(root = document) {
+        const results = [];
+        const visit = currentRoot => {
+            if (!currentRoot?.querySelectorAll) return;
+            currentRoot.querySelectorAll('*').forEach(element => {
+                results.push(element);
+                if (element.shadowRoot) visit(element.shadowRoot);
+            });
+        };
+        visit(root);
+        return results;
+    }
+
+    function findDeep(selector, root = document) {
+        if (!root?.querySelector) return null;
+        const directMatch = root.querySelector(selector);
+        if (directMatch) return directMatch;
+
+        for (const element of root.querySelectorAll('*')) {
+            if (!element.shadowRoot) continue;
+            const shadowMatch = findDeep(selector, element.shadowRoot);
+            if (shadowMatch) return shadowMatch;
+        }
+        return null;
+    }
+
+    function parseUsername(value) {
+        const match = String(value || '').trim().match(/^([a-z0-9._-]+)@[^\s@]+$/i);
+        return match ? match[1] : null;
+    }
+
+    function readUsernameFromMenu() {
+        const usernameElement = findDeep('#mo-user-name');
+        if (!usernameElement) return null;
+        return parseUsername(
+            usernameElement.getAttribute('data-full-text') || usernameElement.textContent
+        );
+    }
+
+    function getBannerParts() {
+        const userMenu = findDeep('mo-banner-user-menu');
+        if (!userMenu) return {};
+        const menuRoot = userMenu.shadowRoot || userMenu;
+        return {
+            userMenu,
+            accountLabel: findDeep('.user-company-name', menuRoot),
+            menuTrigger: findDeep('mo-menu', menuRoot)
+        };
+    }
+
+    function replaceAccountLabel(accountLabel) {
+        if (!accountLabel || !resolvedUsername) return;
+        if (!accountLabel.hasAttribute(ORIGINAL_LABEL_ATTRIBUTE)) {
+            accountLabel.setAttribute(
+                ORIGINAL_LABEL_ATTRIBUTE,
+                (accountLabel.textContent || '').replace(/\s+/g, ' ').trim()
+            );
+        }
+        if (accountLabel.textContent !== resolvedUsername) {
+            accountLabel.textContent = resolvedUsername;
+        }
+    }
+
+    function restoreAccountLabels() {
+        queryAllDeep().forEach(element => {
+            if (!element.matches?.(`.user-company-name[${ORIGINAL_LABEL_ATTRIBUTE}]`)) return;
+            element.textContent = element.getAttribute(ORIGINAL_LABEL_ATTRIBUTE) || '';
+            element.removeAttribute(ORIGINAL_LABEL_ATTRIBUTE);
+        });
+    }
+
+    function clickMenuTrigger(menuTrigger) {
+        if (!menuTrigger) return;
+        menuTrigger.dispatchEvent(new MouseEvent('click', {
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+            view: window
+        }));
+    }
+
+    function getObservableRoots() {
+        const roots = [document.documentElement];
+        queryAllDeep().forEach(element => {
+            if (element.shadowRoot) roots.push(element.shadowRoot);
+        });
+        return roots.filter(Boolean);
+    }
+
+    function discoverUsername(userMenu, menuTrigger) {
+        if (!userMenu || !menuTrigger || discoveryPromise || attemptedMenus.has(userMenu)) return;
+        attemptedMenus.add(userMenu);
+
+        const menuWasOpen = menuTrigger.getAttribute('aria-expanded') === 'true';
+        discoveryPromise = new Promise(resolve => {
+            const observers = [];
+            let timeoutId = null;
+            let finished = false;
+
+            const finish = username => {
+                if (finished) return;
+                finished = true;
+                observers.forEach(observer => observer.disconnect());
+                if (timeoutId) clearTimeout(timeoutId);
+                if (username) resolvedUsername = username;
+                if (!menuWasOpen && menuTrigger.getAttribute('aria-expanded') === 'true') {
+                    clickMenuTrigger(menuTrigger);
+                }
+                resolve(username);
+            };
+
+            const checkForUsername = () => {
+                const username = readUsernameFromMenu();
+                if (username) finish(username);
+            };
+
+            getObservableRoots().forEach(root => {
+                const observer = new MutationObserver(checkForUsername);
+                observer.observe(root, { childList: true, subtree: true, attributes: true });
+                observers.push(observer);
+            });
+
+            timeoutId = setTimeout(() => finish(null), DISCOVERY_TIMEOUT_MS);
+            if (!menuWasOpen) clickMenuTrigger(menuTrigger);
+            checkForUsername();
+        }).finally(() => {
+            discoveryPromise = null;
+            apply();
+        });
+    }
+
+    function apply() {
+        if (!settingsLoaded) return;
+        if (!isEnabled) {
+            restoreAccountLabels();
+            return;
+        }
+
+        const { userMenu, accountLabel, menuTrigger } = getBannerParts();
+        if (!userMenu || !accountLabel) return;
+
+        const visibleUsername = readUsernameFromMenu();
+        if (visibleUsername) resolvedUsername = visibleUsername;
+        if (resolvedUsername) {
+            replaceAccountLabel(accountLabel);
+            return;
+        }
+
+        discoverUsername(userMenu, menuTrigger);
+    }
+
+    function initialize() {
+        chrome.storage.sync.get({ [SETTING_KEY]: true }, data => {
+            isEnabled = data[SETTING_KEY] !== false;
+            settingsLoaded = true;
+            apply();
+        });
+
+        if (!storageListenerBound && chrome.storage.onChanged) {
+            storageListenerBound = true;
+            chrome.storage.onChanged.addListener((changes, area) => {
+                if (area !== 'sync' || !changes[SETTING_KEY]) return;
+                isEnabled = changes[SETTING_KEY].newValue !== false;
+                apply();
+            });
+        }
+    }
+
+    window.bannerUsernameFeature = {
+        initialize,
+        apply,
+        parseUsername,
+        isEnabled: () => settingsLoaded && isEnabled,
+        getResolvedUsername: () => resolvedUsername
+    };
+})();

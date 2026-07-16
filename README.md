@@ -30,7 +30,7 @@ All optional enhancements can be controlled from **Settings**.
 
 | Feature | What it does |
 | --- | --- |
-| Campaign navigation | Offers configurable optimised navigation, direct Orders access, responsive booked-budget information, campaign-name click-to-copy, campaign-name browser tabs, a campaign-date shortcut to the Basic editor, Actualise scroll restoration, and Campaign Details, Copy, and History actions beside the campaign name. |
+| Campaign navigation | Offers configurable optimised navigation, direct Orders and Actualise tabs, an optional navbar in Actualise, responsive booked-budget information, campaign-name click-to-copy, campaign-name browser tabs, a campaign-date shortcut to the Basic editor, Actualise scroll restoration, and Campaign Details, Copy, and History actions beside the campaign name. |
 | Order ID Copy | Adds a button that copies an Order ID without its version suffix. |
 | Auto Copy Campaign URL | Copies either Prisma's short campaign link or the full current URL when the link-copy control is used. |
 | Add Campaign automation | Opens the full-details flow, hides unused sections, and can select Digital media mix and Total Cost budget type automatically. |
@@ -39,6 +39,7 @@ All optional enhancements can be controlled from **Settings**.
 | See Comments on Locked Buys | Makes comments accessible when a Buy is locked. |
 | GMI Chat and Live Chat tools | Adds a GMI Chat shortcut plus smaller-font, resizable-window, and scheduled-launch options for Live Chat. |
 | Switch Accounts | Adds a shortcut for changing account context. |
+| Prisma banner username | Replaces the organisation label with the signed-in Mediaocean username so the active account is immediately visible. |
 | Replace Prisma Logo | Uses the Ops Toolshed icon to show that the extension is active. |
 | Translucent AppLearn Logo | Reduces obstruction from the AppLearn overlay, including Shadow DOM variants. |
 | Block broken AppLearn popups | Closes non-working AppLearn and associated Okta login popups opened from Prisma or Aura. |

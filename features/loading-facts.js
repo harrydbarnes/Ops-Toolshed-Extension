@@ -82,15 +82,7 @@
         }
 
         isElementVisible(element) {
-            if (!element) return false;
-
-            const style = window.getComputedStyle(element);
-            if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
-                return false;
-            }
-
-            const rect = element.getBoundingClientRect();
-            return rect.width > 0 && rect.height > 0;
+            return window.utils.isElementVisible(element);
         }
 
         checkForLoading() {
@@ -109,11 +101,7 @@
                     return;
                 }
 
-                // Updated Selector Logic:
-                // Removed VP Block Spinner and Generic FA spinner as requested
-                const spinner = document.querySelector('mo-spinner') ||
-                                document.querySelector('.mo-spinner') ||
-                                window.utils.queryShadowDom('svg.spinner');
+                const spinner = window.utils.findVisibleLoadingSpinners()[0] || null;
 
                 // Strict Visibility Check
                 // We check if it exists AND is visually perceptible
@@ -155,9 +143,15 @@
         }
 
         async getProcessedFact() {
-            // Fetch storage data once
-            const data = await getStorageData('local', ['prismaUserStats']);
-            const time = data.prismaUserStats ? data.prismaUserStats.totalLoadingTime : 0;
+            const data = await getStorageData('local', ['legacyStats', 'dailyStats', 'prismaUserStats']);
+            const historicTime = data.legacyStats?.totalLoadingTime ??
+                data.prismaUserStats?.totalLoadingTime ??
+                0;
+            const dailyTime = Object.values(data.dailyStats || {}).reduce(
+                (total, stats) => total + (Number(stats?.loadingTime) || 0),
+                0
+            );
+            const time = historicTime + dailyTime;
 
             // If time is available (>0), we can pick from ALL facts (including {{TIME}} ones).
             // If time is 0, we must restrict selection to NON_TIME_FACTS only.
