@@ -8,6 +8,7 @@ const EXPECTED_DEFAULTS = {
     logoReplaceEnabled: true,
     appLearnReplaceEnabled: true,
     blockAppLearnPopupsEnabled: true,
+    helpGuidesEnabled: true,
     prismaReminderFrequency: 'daily',
     prismaCountdownDuration: '5',
     metaReminderEnabled: true,

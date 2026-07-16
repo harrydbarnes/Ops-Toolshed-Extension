@@ -1,17 +1,27 @@
 (function() {
     const guides = Array.isArray(window.HELP_GUIDES) ? window.HELP_GUIDES : [];
-    const categories = ['All', 'Booking', 'Reconciliation', 'DST', 'Meta', 'Supplier'];
+    const categories = ['All', 'Access', 'Approval', 'Booking', 'Reconcile', 'Supplier Integrations', 'Traffic'];
     const categoryColors = {
+        Access: '#2f6fb1',
+        Approval: '#9a5eae',
         Booking: '#d28b25',
-        Reconciliation: '#3b7c95',
-        DST: '#a05b7d',
-        Meta: '#4772c6',
-        Supplier: '#5d8c68'
+        Reconcile: '#3b7c95',
+        'Supplier Integrations': '#5d8c68',
+        Traffic: '#c15d76'
     };
+    const categoryOrder = new Map(categories.slice(1).map((category, index) => [category, index]));
+    const RECENT_LIMIT = 3;
 
     let activeCategory = 'All';
     let searchQuery = '';
+    let sortMode = 'alpha';
+    let favourites = new Set();
+    let recentGuideIds = [];
+    let currentGuide = null;
     let viewerFallbackTimer = null;
+    let toastTimer = null;
+    let toastCloseTimer = null;
+    let disableConfirmationActive = false;
 
     const elements = {
         library: document.getElementById('library-view'),
@@ -19,17 +29,65 @@
         filters: document.getElementById('category-filters'),
         search: document.getElementById('guide-search'),
         clear: document.getElementById('clear-search'),
+        sort: document.getElementById('sort-guides'),
         summary: document.getElementById('results-summary'),
         list: document.getElementById('guide-list'),
         empty: document.getElementById('empty-state'),
+        disableFeature: document.getElementById('disable-help-guides'),
         back: document.getElementById('back-to-guides'),
         viewerTitle: document.getElementById('viewer-title'),
         viewerCategory: document.getElementById('viewer-category'),
         frame: document.getElementById('pdf-frame'),
         loading: document.getElementById('viewer-loading'),
         fallback: document.getElementById('viewer-fallback'),
-        external: document.getElementById('open-external')
+        share: document.getElementById('share-guide'),
+        favourite: document.getElementById('favourite-guide'),
+        external: document.getElementById('open-external'),
+        toastLayer: document.getElementById('panel-toast-layer'),
+        toastMessage: document.getElementById('panel-toast-message')
     };
+
+    function storageGet(area, defaults) {
+        return new Promise(resolve => {
+            if (!area?.get) {
+                resolve({ ...defaults });
+                return;
+            }
+            let settled = false;
+            const finish = value => {
+                if (settled) return;
+                settled = true;
+                resolve({ ...defaults, ...(value || {}) });
+            };
+            try {
+                const result = area.get(defaults, finish);
+                if (result?.then) result.then(finish, () => finish(defaults));
+            } catch {
+                finish(defaults);
+            }
+        });
+    }
+
+    function storageSet(area, values) {
+        return new Promise(resolve => {
+            if (!area?.set) {
+                resolve();
+                return;
+            }
+            let settled = false;
+            const finish = () => {
+                if (settled) return;
+                settled = true;
+                resolve();
+            };
+            try {
+                const result = area.set(values, finish);
+                if (result?.then) result.then(finish, finish);
+            } catch {
+                finish();
+            }
+        });
+    }
 
     function normalize(value) {
         return String(value || '')
@@ -68,12 +126,20 @@
         return total;
     }
 
+    function compareGuides(a, b) {
+        if (sortMode === 'category') {
+            const categoryDifference = (categoryOrder.get(a.category) ?? 99) - (categoryOrder.get(b.category) ?? 99);
+            if (categoryDifference !== 0) return categoryDifference;
+        }
+        return a.title.localeCompare(b.title);
+    }
+
     function getFilteredGuides() {
         return guides
             .filter(guide => activeCategory === 'All' || guide.category === activeCategory)
             .map(guide => ({ guide, score: scoreGuide(guide, searchQuery) }))
             .filter(result => result.score !== null)
-            .sort((a, b) => a.score - b.score || a.guide.title.localeCompare(b.guide.title))
+            .sort((a, b) => compareGuides(a.guide, b.guide))
             .map(result => result.guide);
     }
 
@@ -110,7 +176,7 @@
         button.type = 'button';
         button.className = 'guide-card';
         button.dataset.guideId = guide.id;
-        button.style.setProperty('--category-color', categoryColors[guide.category] || '#d28b25');
+        button.style.setProperty('--category-color', categoryColors[guide.category] || '#06088d');
         button.setAttribute('aria-label', `Open ${guide.title}, ${guide.category}`);
 
         const icon = document.createElement('span');
@@ -144,17 +210,90 @@
         return button;
     }
 
+    function createGuideSection(label, sectionGuides, icon = '') {
+        const section = document.createElement('section');
+        section.className = 'guide-section';
+        if (label) {
+            const heading = document.createElement('h2');
+            heading.className = 'guide-section-title';
+            if (icon) {
+                const marker = document.createElement('span');
+                marker.className = 'section-icon';
+                marker.setAttribute('aria-hidden', 'true');
+                marker.textContent = icon;
+                heading.appendChild(marker);
+            }
+            heading.appendChild(document.createTextNode(label));
+            section.appendChild(heading);
+        }
+        section.append(...sectionGuides.map(createGuideCard));
+        return section;
+    }
+
+    function getGuideSections(filteredGuides) {
+        if (activeCategory !== 'All') return [{ label: '', guides: filteredGuides }];
+
+        const filteredIds = new Set(filteredGuides.map(guide => guide.id));
+        const favouriteGuides = filteredGuides.filter(guide => favourites.has(guide.id));
+        const favouriteIds = new Set(favouriteGuides.map(guide => guide.id));
+        const recentGuides = recentGuideIds
+            .filter(id => filteredIds.has(id) && !favouriteIds.has(id))
+            .map(id => guides.find(guide => guide.id === id))
+            .filter(Boolean)
+            .slice(0, RECENT_LIMIT);
+        const pinnedIds = new Set([...favouriteIds, ...recentGuides.map(guide => guide.id)]);
+        const remainingGuides = filteredGuides.filter(guide => !pinnedIds.has(guide.id));
+        const sections = [];
+
+        if (favouriteGuides.length) sections.push({ label: 'Favourites', icon: '★', guides: favouriteGuides });
+        if (recentGuides.length) sections.push({ label: 'Recently accessed', icon: '↻', guides: recentGuides });
+
+        if (sortMode === 'category') {
+            categories.slice(1).forEach(category => {
+                const categoryGuides = remainingGuides.filter(guide => guide.category === category);
+                if (categoryGuides.length) sections.push({ label: category, guides: categoryGuides });
+            });
+        } else if (remainingGuides.length) {
+            sections.push({ label: favouriteGuides.length || recentGuides.length ? 'All guides' : '', guides: remainingGuides });
+        }
+        return sections;
+    }
+
     function renderGuides() {
         const filteredGuides = getFilteredGuides();
-        elements.list.replaceChildren(...filteredGuides.map(createGuideCard));
+        const sections = getGuideSections(filteredGuides);
+        elements.list.replaceChildren(...sections.map(section =>
+            createGuideSection(section.label, section.guides, section.icon)
+        ));
         elements.empty.hidden = filteredGuides.length > 0;
         elements.list.hidden = filteredGuides.length === 0;
         elements.clear.hidden = !searchQuery && activeCategory === 'All';
         elements.summary.textContent = `${filteredGuides.length} ${filteredGuides.length === 1 ? 'guide' : 'guides'}`;
     }
 
+    function updateSortButton() {
+        const label = sortMode === 'alpha' ? 'A–Z' : 'Category';
+        elements.sort.querySelector('span').textContent = label;
+        elements.sort.setAttribute('aria-label', sortMode === 'alpha' ? 'Sort guides by category' : 'Sort guides A to Z');
+    }
+
+    function recordRecentGuide(guideId) {
+        recentGuideIds = [guideId, ...recentGuideIds.filter(id => id !== guideId)].slice(0, RECENT_LIMIT);
+        storageSet(globalThis.chrome?.storage?.local, { helpGuideRecentIds: recentGuideIds });
+    }
+
+    function updateFavouriteButton() {
+        const isFavourite = Boolean(currentGuide && favourites.has(currentGuide.id));
+        elements.favourite.classList.toggle('is-favourite', isFavourite);
+        elements.favourite.setAttribute('aria-pressed', String(isFavourite));
+        elements.favourite.setAttribute('aria-label', isFavourite ? 'Remove this guide from favourites' : 'Add this guide to favourites');
+        elements.favourite.title = isFavourite ? 'Remove favourite' : 'Favourite guide';
+    }
+
     function openGuide(guide) {
         window.clearTimeout(viewerFallbackTimer);
+        currentGuide = guide;
+        recordRecentGuide(guide.id);
         elements.viewerTitle.textContent = guide.title;
         elements.viewerCategory.textContent = guide.category;
         elements.external.href = guide.url;
@@ -164,6 +303,7 @@
         elements.library.hidden = true;
         elements.viewer.hidden = false;
         document.title = `${guide.title} – Help Guides`;
+        updateFavouriteButton();
         elements.back.focus();
         viewerFallbackTimer = window.setTimeout(() => {
             if (!elements.loading.hidden) elements.fallback.hidden = false;
@@ -177,8 +317,100 @@
         elements.viewer.hidden = true;
         elements.library.hidden = false;
         document.title = 'Help Guides';
-        const previousCard = elements.list.querySelector('.guide-card');
+        renderGuides();
+        const previousCard = currentGuide
+            ? elements.list.querySelector(`[data-guide-id="${currentGuide.id}"]`)
+            : null;
         (previousCard || elements.search).focus();
+    }
+
+    function toggleFavourite() {
+        if (!currentGuide) return;
+        if (favourites.has(currentGuide.id)) favourites.delete(currentGuide.id);
+        else favourites.add(currentGuide.id);
+        storageSet(globalThis.chrome?.storage?.sync, { helpGuideFavouriteIds: [...favourites] });
+        updateFavouriteButton();
+    }
+
+    function hidePanelToast(onComplete) {
+        window.clearTimeout(toastTimer);
+        window.clearTimeout(toastCloseTimer);
+        elements.toastLayer.classList.add('is-closing');
+        toastCloseTimer = window.setTimeout(() => {
+            elements.toastLayer.hidden = true;
+            elements.toastLayer.classList.remove('is-closing');
+            onComplete?.();
+        }, 220);
+    }
+
+    function showPanelToast(message, options = {}) {
+        const { duration = 1500, onComplete } = options;
+        window.clearTimeout(toastTimer);
+        window.clearTimeout(toastCloseTimer);
+        elements.toastMessage.textContent = message;
+        elements.toastLayer.classList.remove('is-closing');
+        elements.toastLayer.hidden = false;
+        toastTimer = window.setTimeout(() => hidePanelToast(onComplete), duration);
+    }
+
+    async function shareCurrentGuide() {
+        if (!currentGuide) return;
+        const shareData = { title: currentGuide.title, text: `${currentGuide.title} – MM&D Ops Toolshed`, url: currentGuide.url };
+        try {
+            if (typeof navigator.share === 'function') {
+                await navigator.share(shareData);
+                return;
+            }
+            await navigator.clipboard.writeText(currentGuide.url);
+            showPanelToast('Guide link copied');
+        } catch (error) {
+            if (error?.name !== 'AbortError') showPanelToast('Could not share this guide');
+        }
+    }
+
+    async function closeSidePanel() {
+        try {
+            const response = await globalThis.chrome?.runtime?.sendMessage?.({ action: 'closeHelpGuides' });
+            if (response?.status !== 'success') window.close();
+        } catch {
+            window.close();
+        }
+    }
+
+    function handleDisableFeature() {
+        if (!disableConfirmationActive) {
+            disableConfirmationActive = true;
+            elements.disableFeature.classList.add('is-confirming');
+            elements.disableFeature.querySelector('span').textContent = 'Are You Sure?';
+            return;
+        }
+
+        elements.disableFeature.disabled = true;
+        storageSet(globalThis.chrome?.storage?.sync, { helpGuidesEnabled: false });
+        showPanelToast('You can turn this on again in the Ops Toolshed settings', {
+            duration: 2200,
+            onComplete: closeSidePanel
+        });
+    }
+
+    function dispose() {
+        window.clearTimeout(viewerFallbackTimer);
+        window.clearTimeout(toastTimer);
+        window.clearTimeout(toastCloseTimer);
+    }
+
+    async function hydratePreferences() {
+        const [syncData, localData] = await Promise.all([
+            storageGet(globalThis.chrome?.storage?.sync, { helpGuideFavouriteIds: [] }),
+            storageGet(globalThis.chrome?.storage?.local, { helpGuideRecentIds: [], helpGuidesSortMode: 'alpha' })
+        ]);
+        favourites = new Set((syncData.helpGuideFavouriteIds || []).filter(id => guides.some(guide => guide.id === id)));
+        recentGuideIds = (localData.helpGuideRecentIds || [])
+            .filter(id => guides.some(guide => guide.id === id))
+            .slice(0, RECENT_LIMIT);
+        sortMode = localData.helpGuidesSortMode === 'category' ? 'category' : 'alpha';
+        updateSortButton();
+        renderGuides();
     }
 
     elements.search.addEventListener('input', event => {
@@ -196,6 +428,16 @@
         elements.search.focus();
     });
 
+    elements.sort.addEventListener('click', () => {
+        sortMode = sortMode === 'alpha' ? 'category' : 'alpha';
+        storageSet(globalThis.chrome?.storage?.local, { helpGuidesSortMode: sortMode });
+        updateSortButton();
+        renderGuides();
+    });
+
+    elements.disableFeature.addEventListener('click', handleDisableFeature);
+    elements.share.addEventListener('click', shareCurrentGuide);
+    elements.favourite.addEventListener('click', toggleFavourite);
     elements.back.addEventListener('click', closeGuide);
     elements.frame.addEventListener('load', () => {
         window.clearTimeout(viewerFallbackTimer);
@@ -218,8 +460,10 @@
     });
 
     renderFilters();
+    updateSortButton();
     renderGuides();
     elements.search.focus();
+    const hydration = hydratePreferences();
 
     window.helpGuidesApp = {
         normalize,
@@ -228,6 +472,20 @@
         getFilteredGuides,
         setActiveCategory,
         openGuide,
-        closeGuide
+        closeGuide,
+        toggleFavourite,
+        shareCurrentGuide,
+        handleDisableFeature,
+        showPanelToast,
+        dispose,
+        hydratePreferences: () => hydration,
+        getState: () => ({
+            activeCategory,
+            searchQuery,
+            sortMode,
+            favourites: [...favourites],
+            recentGuideIds: [...recentGuideIds],
+            currentGuideId: currentGuide?.id || null
+        })
     };
 })();

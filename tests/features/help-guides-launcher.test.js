@@ -8,7 +8,8 @@ const featureCode = fs.readFileSync(
 );
 
 describe('Help Guides page launcher', () => {
-    function createFeature() {
+    function createFeature({ enabled = true, position = null } = {}) {
+        const listeners = [];
         const dom = new JSDOM('<!doctype html><html><head></head><body></body></html>', {
             runScripts: 'dangerously',
             url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/'
@@ -16,14 +17,26 @@ describe('Help Guides page launcher', () => {
         dom.window.chrome = {
             runtime: {
                 sendMessage: jest.fn().mockResolvedValue({ status: 'success' })
+            },
+            storage: {
+                sync: {
+                    get: jest.fn((defaults, callback) => callback({ ...defaults, helpGuidesEnabled: enabled }))
+                },
+                local: {
+                    get: jest.fn((defaults, callback) => callback({ ...defaults, helpGuidesLauncherPosition: position })),
+                    set: jest.fn((values, callback) => callback?.())
+                },
+                onChanged: {
+                    addListener: jest.fn(listener => listeners.push(listener))
+                }
             }
         };
         dom.window.eval(featureCode);
-        return dom;
+        return { dom, listeners };
     }
 
-    test('adds one accessible launcher and opens the side panel on click', async () => {
-        const dom = createFeature();
+    test('adds one accessible translucent launcher and opens the side panel on click', () => {
+        const { dom } = createFeature();
         const { window } = dom;
 
         window.helpGuidesLauncherFeature.initialize();
@@ -35,10 +48,38 @@ describe('Help Guides page launcher', () => {
         expect(buttons[0].querySelector('.toolshed-help-guides-icon svg')).not.toBeNull();
         const launcherStyles = window.document.getElementById('toolshed-help-guides-launcher-styles').textContent;
         expect(launcherStyles).toContain('min-height: 44px');
-        expect(launcherStyles).toContain('background: #06088d');
+        expect(launcherStyles).toContain('rgba(6, 8, 141, 0.94)');
+        expect(launcherStyles).toContain('touch-action: none');
         expect(launcherStyles).toContain('"Outfit"');
         buttons[0].click();
         expect(window.chrome.runtime.sendMessage).toHaveBeenCalledWith({ action: 'openHelpGuides' });
+        dom.window.close();
+    });
+
+    test('does not render when disabled and responds to the synced setting', () => {
+        const { dom, listeners } = createFeature({ enabled: false });
+        const { window } = dom;
+
+        window.helpGuidesLauncherFeature.initialize();
+        expect(window.document.getElementById('toolshed-help-guides-launcher')).toBeNull();
+
+        listeners[0]({ helpGuidesEnabled: { oldValue: false, newValue: true } }, 'sync');
+        expect(window.document.getElementById('toolshed-help-guides-launcher')).not.toBeNull();
+
+        listeners[0]({ helpGuidesEnabled: { oldValue: true, newValue: false } }, 'sync');
+        expect(window.document.getElementById('toolshed-help-guides-launcher')).toBeNull();
+        dom.window.close();
+    });
+
+    test('restores a persisted snapped position', () => {
+        const { dom } = createFeature({ position: { left: 12, top: 18 } });
+        dom.window.helpGuidesLauncherFeature.initialize();
+        const launcher = dom.window.document.getElementById('toolshed-help-guides-launcher');
+
+        expect(launcher.style.left).toBe('12px');
+        expect(launcher.style.top).toBe('18px');
+        expect(launcher.style.right).toBe('auto');
+        expect(launcher.style.bottom).toBe('auto');
         dom.window.close();
     });
 });

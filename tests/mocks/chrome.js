@@ -131,6 +131,7 @@ global.chrome = {
   sidePanel: {
     open: jest.fn(),
     setOptions: jest.fn(),
+    close: jest.fn(),
   },
 };
 
@@ -160,6 +161,7 @@ global.resetMocks = () => {
     global.chrome.scripting.executeScript.mockClear();
     global.chrome.sidePanel.open.mockReset();
     global.chrome.sidePanel.setOptions.mockReset();
+    global.chrome.sidePanel.close.mockReset();
 
     // Reset storage mocks
     global.chrome.storage.sync.get.mockClear();

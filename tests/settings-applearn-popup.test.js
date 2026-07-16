@@ -12,4 +12,13 @@ describe('AppLearn popup blocking setting', () => {
             "setupToggle('blockAppLearnPopupsToggle', 'blockAppLearnPopupsEnabled'"
         );
     });
+
+    test('exposes the enabled-by-default Help Guides feature toggle', () => {
+        expect(settingsHtml).toContain('id="helpGuidesToggle"');
+        expect(settingsHtml).toContain('Help Guides launcher:');
+        expect(settingsScript).toContain('helpGuidesEnabled: true');
+        expect(settingsScript).toContain(
+            "setupToggle('helpGuidesToggle', 'helpGuidesEnabled'"
+        );
+    });
 });

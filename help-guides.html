@@ -28,7 +28,13 @@
             </div>
 
             <div class="results-heading">
-                <span id="results-summary" role="status" aria-live="polite"></span>
+                <div class="results-tools">
+                    <span id="results-summary" role="status" aria-live="polite"></span>
+                    <button id="sort-guides" class="sort-guides-button" type="button" aria-label="Sort guides by category" title="Change guide sorting">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M4 12h7M4 17h4m10-9v9m0 0-3-3m3 3 3-3"/></svg>
+                        <span>A–Z</span>
+                    </button>
+                </div>
                 <button id="clear-search" type="button" hidden>Reset filters</button>
             </div>
             <div id="guide-list" class="guide-list"></div>
@@ -36,6 +42,11 @@
                 <span aria-hidden="true">?</span>
                 <h2>No guide found</h2>
                 <p>Try a broader phrase or choose another category.</p>
+            </div>
+            <div class="feature-disable-wrap">
+                <button id="disable-help-guides" class="feature-disable-button" type="button">
+                    <span>Turn Off Feature</span>
+                </button>
             </div>
         </section>
 
@@ -48,10 +59,18 @@
                     <span id="viewer-category"></span>
                     <h1 id="viewer-title"></h1>
                 </div>
-                <a id="open-external" class="external-button" target="_blank" rel="noopener noreferrer" aria-label="Open PDF in a new tab" title="Open in SharePoint">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5m0-5-8 8M19 14v5H5V5h5"/></svg>
-                    <span>Open</span>
-                </a>
+                <div class="viewer-actions">
+                    <button id="share-guide" class="viewer-icon-button" type="button" aria-label="Share this guide" title="Share guide">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 12v7h11V8h-7m-4 4 8-8m0 0h-5m5 0v5"/></svg>
+                    </button>
+                    <button id="favourite-guide" class="viewer-icon-button" type="button" aria-label="Add this guide to favourites" aria-pressed="false" title="Favourite guide">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3Z"/></svg>
+                    </button>
+                    <a id="open-external" class="external-button" target="_blank" rel="noopener noreferrer" aria-label="Open PDF in a new tab" title="Open in SharePoint">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5m0-5-8 8M19 14v5H5V5h5"/></svg>
+                        <span>Open</span>
+                    </a>
+                </div>
             </header>
             <div class="pdf-frame-wrap">
                 <div id="viewer-loading" class="viewer-loading" aria-live="polite">
@@ -63,6 +82,12 @@
                 This guide is taking longer than expected. Use <strong>Open</strong> above to view it in SharePoint.
             </footer>
         </section>
+        <div id="panel-toast-layer" class="panel-toast-layer" role="status" aria-live="polite" hidden>
+            <div class="panel-toast-card">
+                <span class="panel-toast-mark" aria-hidden="true">✓</span>
+                <p id="panel-toast-message"></p>
+            </div>
+        </div>
     </main>
     <script src="help-guides-data.js"></script>
     <script src="help-guides.js"></script>

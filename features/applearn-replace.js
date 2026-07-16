@@ -86,7 +86,10 @@
                 appLearnImg.dataset.toolshedTranslucent = "true";
             }
 
-            if (appLearnImg && !appLearnImg.dataset.toolshedHelpGuides) {
+            const helpGuidesEnabled = window.helpGuidesLauncherFeature?.isEnabled() === true;
+            if (appLearnImg && !helpGuidesEnabled) {
+                removeHelpGuidesLauncher(appLearnImg);
+            } else if (appLearnImg && !appLearnImg.dataset.toolshedHelpGuides) {
                 appLearnImg.dataset.toolshedHelpGuides = 'true';
                 appLearnImg.setAttribute('role', 'button');
                 appLearnImg.setAttribute('tabindex', '0');

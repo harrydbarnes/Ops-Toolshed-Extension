@@ -145,6 +145,22 @@ async function openHelpGuides(request, sender, sendResponse) {
     sendResponse({ status: 'success' });
 }
 
+async function closeHelpGuides(request, sender, sendResponse) {
+    if (typeof chrome.sidePanel?.close !== 'function') {
+        sendResponse({ status: 'unsupported' });
+        return;
+    }
+
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!activeTab?.id) {
+        sendResponse({ status: 'error', message: 'Could not identify the active tab.' });
+        return;
+    }
+
+    await chrome.sidePanel.close({ tabId: activeTab.id });
+    sendResponse({ status: 'success' });
+}
+
 async function requestCampaignDetailsBasicFocus(request, sender, sendResponse) {
     const tabId = sender?.tab?.id;
     let senderUrl;
@@ -192,6 +208,7 @@ export const messageHandlers = {
     getFavouriteApprovers,
     openApproversPage,
     openHelpGuides,
+    closeHelpGuides,
     requestCampaignDetailsBasicFocus,
     TRACK_STAT: handleTrackStat
 };

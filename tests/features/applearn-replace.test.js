@@ -34,7 +34,8 @@ function createFeature({ enabled = true, inShadowRoot = false } = {}) {
         queryShadowDom: jest.fn(() => image)
     };
     window.helpGuidesLauncherFeature = {
-        openHelpGuides: jest.fn()
+        openHelpGuides: jest.fn(),
+        isEnabled: jest.fn(() => true)
     };
     window.eval(featureCode);
 

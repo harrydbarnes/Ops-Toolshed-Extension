@@ -523,13 +523,15 @@ describe('Campaign Details frame messaging', () => {
 
 describe('Help Guides side panel messaging', () => {
     let openHelpGuides;
+    let closeHelpGuides;
 
     beforeEach(() => {
         resetMocks();
         jest.resetModules();
         chrome.sidePanel.open.mockResolvedValue(undefined);
         chrome.sidePanel.setOptions.mockResolvedValue(undefined);
-        ({ openHelpGuides } = require('../background/message-handlers').messageHandlers);
+        chrome.sidePanel.close.mockResolvedValue(undefined);
+        ({ openHelpGuides, closeHelpGuides } = require('../background/message-handlers').messageHandlers);
     });
 
     test('opens and configures a tab-specific panel from the page launcher', async () => {
@@ -556,5 +558,15 @@ describe('Help Guides side panel messaging', () => {
             status: 'error',
             message: 'Could not identify the current tab.'
         });
+    });
+
+    test('closes the active tab-specific Help Guides panel', async () => {
+        chrome.tabs.query.mockResolvedValue([{ id: 42, windowId: 7 }]);
+        const sendResponse = jest.fn();
+
+        await closeHelpGuides({}, {}, sendResponse);
+
+        expect(chrome.sidePanel.close).toHaveBeenCalledWith({ tabId: 42 });
+        expect(sendResponse).toHaveBeenCalledWith({ status: 'success' });
     });
 });

@@ -21,6 +21,7 @@ const SETTINGS_DEFAULTS = Object.freeze({
     logoReplaceEnabled: true,
     appLearnReplaceEnabled: true,
     blockAppLearnPopupsEnabled: true,
+    helpGuidesEnabled: true,
     prismaReminderFrequency: 'daily',
     prismaCountdownDuration: '5',
     metaReminderEnabled: true,
@@ -654,6 +655,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     setupToggle('appLearnReplaceToggle', 'appLearnReplaceEnabled', 'AppLearn transparency setting saved:', settings);
     setupToggle('blockAppLearnPopupsToggle', 'blockAppLearnPopupsEnabled', 'AppLearn popup blocking setting saved:', settings);
+    setupToggle('helpGuidesToggle', 'helpGuidesEnabled', 'Help Guides setting saved:', settings);
  
     // Prisma Reminders 
     const prismaReminderFrequency = document.getElementById('prismaReminderFrequency'); 
