@@ -11,6 +11,11 @@
     let isEnabled = null;
     let isPanelOpen = false;
     let panelStateRevision = 0;
+    let routeListenersBound = false;
+
+    function isLauncherExcluded() {
+        return window.location.href.toLowerCase().includes('ideskos-viewport');
+    }
     let storageListenerBound = false;
     let runtimeListenerBound = false;
     let preferredPosition = null;
@@ -336,7 +341,7 @@
     }
 
     function ensureLauncher() {
-        if (window.top !== window.self || isEnabled !== true || document.getElementById(BUTTON_ID)) return;
+        if (window.top !== window.self || isEnabled !== true || isLauncherExcluded() || document.getElementById(BUTTON_ID)) return;
 
         injectStyles();
         const button = document.createElement('button');
@@ -367,7 +372,7 @@
 
         chrome.storage.sync.get({ helpGuidesEnabled: true }, data => {
             isEnabled = data.helpGuidesEnabled !== false;
-            if (isEnabled) ensureLauncher();
+            if (isEnabled && !isLauncherExcluded()) ensureLauncher();
             else removeLauncher();
             window.appLearnFeature?.applyTransparency();
         });
@@ -388,7 +393,7 @@
             chrome.storage.onChanged.addListener((changes, area) => {
                 if (area !== 'sync' || !changes.helpGuidesEnabled) return;
                 isEnabled = changes.helpGuidesEnabled.newValue !== false;
-                if (isEnabled) ensureLauncher();
+                if (isEnabled && !isLauncherExcluded()) ensureLauncher();
                 else removeLauncher();
                 window.appLearnFeature?.applyTransparency();
             });
@@ -401,6 +406,17 @@
                 panelStateRevision += 1;
                 isPanelOpen = message.open === true;
             });
+        }
+
+        if (!routeListenersBound) {
+            routeListenersBound = true;
+            const syncLauncherForRoute = () => {
+                if (isLauncherExcluded()) removeLauncher();
+                else if (isEnabled === true) ensureLauncher();
+            };
+            window.addEventListener('hashchange', syncLauncherForRoute);
+            window.addEventListener('popstate', syncLauncherForRoute);
+            window.addEventListener('pageshow', syncLauncherForRoute);
         }
 
         window.addEventListener('resize', () => {
@@ -417,6 +433,7 @@
         openHelpGuides,
         isEnabled: () => isEnabled === true,
         isPanelOpen: () => isPanelOpen,
+        isLauncherExcluded,
         snapToEdge
     };
 })();

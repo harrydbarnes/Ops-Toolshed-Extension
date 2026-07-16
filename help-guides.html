@@ -142,21 +142,23 @@
                 </div>
                 <iframe id="pdf-frame" title="Help guide PDF"></iframe>
             </div>
-            <aside id="viewer-coachmark" class="viewer-coachmark" role="dialog" aria-modal="false" aria-labelledby="viewer-coachmark-title" hidden>
-                <button id="dismiss-viewer-hint" class="viewer-coachmark-close" type="button" aria-label="Dismiss message">×</button>
-                <span class="viewer-coachmark-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24"><path d="M8 6 3 12l5 6M16 6l5 6-5 6M3 12h18"/></svg>
-                </span>
-                <div class="viewer-coachmark-copy">
-                    <strong id="viewer-coachmark-title">Need more room?</strong>
-                    <p id="viewer-coachmark-message">Drag the panel edge to expand it, or choose <b>Open</b> for a full-size tab.</p>
-                    <label id="viewer-coachmark-optout" class="viewer-coachmark-optout">
-                        <input id="viewer-coachmark-disable" type="checkbox">
-                        <span>Don't remind me again</span>
-                    </label>
-                </div>
-                <span class="viewer-coachmark-progress" aria-hidden="true"></span>
-            </aside>
+            <div id="viewer-coachmark" class="viewer-coachmark-layer" role="dialog" aria-modal="true" aria-labelledby="viewer-coachmark-title" hidden>
+                <aside class="viewer-coachmark">
+                    <button id="dismiss-viewer-hint" class="viewer-coachmark-close" type="button" aria-label="Dismiss message">×</button>
+                    <span class="viewer-coachmark-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24"><path d="M8 6 3 12l5 6M16 6l5 6-5 6M3 12h18"/></svg>
+                    </span>
+                    <div class="viewer-coachmark-copy">
+                        <strong id="viewer-coachmark-title">Need more room?</strong>
+                        <p id="viewer-coachmark-message">Drag the panel edge to expand it, or choose <b>Open</b> for a full-size tab.</p>
+                        <label id="viewer-coachmark-optout" class="viewer-coachmark-optout">
+                            <input id="viewer-coachmark-disable" type="checkbox">
+                            <span>Don't remind me again</span>
+                        </label>
+                    </div>
+                    <span class="viewer-coachmark-progress" aria-hidden="true"></span>
+                </aside>
+            </div>
             <footer id="viewer-fallback" class="viewer-footer" role="status" hidden>
                 This guide could not be displayed here. Use <strong>Open</strong> above to view it in SharePoint.
             </footer>

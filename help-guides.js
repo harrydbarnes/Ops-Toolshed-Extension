@@ -157,6 +157,14 @@
         });
     }
 
+    function resetLibraryScroll({ focusSearch = false } = {}) {
+        if (elements.library.hidden) return;
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+        window.scrollTo?.(0, 0);
+        if (focusSearch) elements.search.focus({ preventScroll: true });
+    }
+
     function normalize(value) {
         return String(value || '')
             .normalize('NFD')
@@ -435,7 +443,7 @@
         viewerHintCloseTimer = window.setTimeout(() => {
             elements.viewerHint.hidden = true;
             elements.viewerHint.classList.remove('is-closing');
-        }, 180);
+        }, 210);
     }
 
     function showViewerCoachmark({ title, message, showOptout = false, kind = 'tip' }) {
@@ -741,6 +749,7 @@
         viewerHintDismissed = localData.helpGuideViewerHintDismissed === true;
         updateSortControls();
         renderGuides();
+        resetLibraryScroll({ focusSearch: true });
     }
 
     elements.search.addEventListener('input', event => {
@@ -802,6 +811,8 @@
             event.preventDefault();
             if (elements.library.hidden) closeGuide();
             elements.search.focus();
+        } else if (event.key === 'Escape' && !elements.viewerHint.hidden) {
+            hideViewerHint({ animate: true });
         } else if (event.key === 'Escape' && !elements.viewer.hidden) {
             closeGuide();
         }
@@ -809,11 +820,16 @@
     if (!globalThis.chrome?.sidePanel?.onClosed) {
         window.addEventListener('pagehide', () => notifyPanelState('helpGuidesPanelClosed'), { once: true });
     }
+    window.addEventListener('pageshow', () => resetLibraryScroll());
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) resetLibraryScroll();
+    });
 
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
     renderFilters();
     updateSortControls();
     renderGuides();
-    elements.search.focus();
+    resetLibraryScroll({ focusSearch: true });
     notifyPanelState('helpGuidesPanelOpened');
     const hydration = hydratePreferences();
 

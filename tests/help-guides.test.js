@@ -17,7 +17,8 @@ async function createApp({
     sharePointBytes = null,
     viewerHintCount = 0,
     viewerHintDismissed = false,
-    enableResizeObserver = false
+    enableResizeObserver = false,
+    initialScrollTop = 0
 } = {}) {
     const dom = new JSDOM(html, {
         runScripts: 'outside-only',
@@ -49,6 +50,8 @@ async function createApp({
     };
     dom.window.matchMedia = jest.fn(() => ({ matches: reducedMotion }));
     dom.window.scrollTo = jest.fn();
+    dom.window.document.documentElement.scrollTop = initialScrollTop;
+    dom.window.document.body.scrollTop = initialScrollTop;
     const resizeObserver = jest.fn(function(callback) {
         this.observe = jest.fn();
         this.disconnect = jest.fn();
@@ -110,6 +113,15 @@ function closeApp(dom) {
 }
 
 describe('Help Guides side panel', () => {
+    test('opens the guide library at the top even when Chrome restores side-panel scroll', async () => {
+        const { dom } = await createApp({ initialScrollTop: 240 });
+
+        expect(dom.window.document.documentElement.scrollTop).toBe(0);
+        expect(dom.window.document.body.scrollTop).toBe(0);
+        expect(dom.window.scrollTo).toHaveBeenCalledWith(0, 0);
+        closeApp(dom);
+    });
+
     test('confines PDF scrolling to a fixed-height viewer viewport', () => {
         const viewerRule = styles.match(/\.viewer-view\s*\{([^}]+)\}/)?.[1] || '';
         const scrollerRule = styles.match(/\.pdf-canvas-scroll\s*\{([^}]+)\}/)?.[1] || '';
@@ -122,6 +134,16 @@ describe('Help Guides side panel', () => {
     test('smoothly collapses optional PDF controls in a narrow panel', () => {
         expect(styles).toMatch(/@container\s*\(max-width:\s*410px\)/);
         expect(styles).toMatch(/#pdf-fit-width,[\s\S]*#pdf-search-toggle,[\s\S]*\.pdf-zoom-label[\s\S]*visibility:\s*hidden/);
+    });
+
+    test('uses an animated blurred modal layer for the larger viewer coachmarks', () => {
+        const layerRule = styles.match(/\.viewer-coachmark-layer\s*\{([^}]+)\}/)?.[1] || '';
+        const coachmarkRule = styles.match(/(?:^|\n)\.viewer-coachmark\s*\{([^}]+)\}/)?.[1] || '';
+
+        expect(layerRule).toMatch(/backdrop-filter:\s*blur\(5px\)/);
+        expect(layerRule).toMatch(/background:\s*rgba\(6,\s*8,\s*35,\s*0\.52\)/);
+        expect(coachmarkRule).toMatch(/420px/);
+        expect(styles).toMatch(/viewer-coachmark-layer\.is-closing/);
     });
 
     test('renders the 21 library guides plus two SharePoint proof-of-concept PDFs', async () => {

@@ -8,11 +8,16 @@ const featureCode = fs.readFileSync(
 );
 
 describe('Help Guides page launcher', () => {
-    function createFeature({ enabled = true, position = null, panelInitiallyOpen = false } = {}) {
+    function createFeature({
+        enabled = true,
+        position = null,
+        panelInitiallyOpen = false,
+        url = 'https://groupmuk-prisma.mediaocean.com/campaign-management/'
+    } = {}) {
         const listeners = [];
         const dom = new JSDOM('<!doctype html><html><head></head><body></body></html>', {
             runScripts: 'dangerously',
-            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/'
+            url
         });
         dom.window.chrome = {
             runtime: {
@@ -61,6 +66,19 @@ describe('Help Guides page launcher', () => {
         expect(launcherStyles).toContain('"Outfit"');
         buttons[0].click();
         expect(window.chrome.runtime.sendMessage).toHaveBeenCalledWith({ action: 'openHelpGuides' });
+        dom.window.close();
+    });
+
+    test('does not show the launcher inside an ideskos viewport URL', () => {
+        const { dom } = createFeature({
+            url: 'https://groupmuk-prisma.mediaocean.com/ideskos-viewport/campaign-management/'
+        });
+
+        dom.window.helpGuidesLauncherFeature.initialize();
+        dom.window.helpGuidesLauncherFeature.ensureLauncher();
+
+        expect(dom.window.helpGuidesLauncherFeature.isLauncherExcluded()).toBe(true);
+        expect(dom.window.document.getElementById('toolshed-help-guides-launcher')).toBeNull();
         dom.window.close();
     });
 
