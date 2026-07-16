@@ -89,14 +89,27 @@ describe('Help Guides side panel', () => {
         const { dom, localSet } = await createApp();
         const { document } = dom.window;
 
-        document.getElementById('sort-guides').click();
-        expect(document.querySelector('#sort-guides span').textContent).toBe('Category');
+        document.querySelector('[data-sort="category"]').click();
+        expect(document.querySelector('[data-sort="category"]').getAttribute('aria-pressed')).toBe('true');
         expect([...document.querySelectorAll('.guide-section-title')].map(node => node.textContent))
             .toEqual(['Access', 'Approval', 'Booking', 'Reconcile', 'Supplier Integrations', 'Traffic']);
         expect(localSet).toHaveBeenCalledWith({ helpGuidesSortMode: 'category' }, expect.any(Function));
 
-        document.getElementById('sort-guides').click();
-        expect(document.querySelector('#sort-guides span').textContent).toBe('A–Z');
+        document.querySelector('[data-sort="alpha"]').click();
+        expect(document.querySelector('[data-sort="alpha"]').getAttribute('aria-pressed')).toBe('true');
+        closeApp(dom);
+    });
+
+    test('uses coloured category abbreviations and visually distinct tag chips', async () => {
+        const { dom } = await createApp();
+        const { document } = dom.window;
+        const expected = ['Acc', 'Appr', 'Book', 'Rec', 'Int', 'Tfc'];
+
+        expect(new Set([...document.querySelectorAll('.guide-file-icon')].map(node => node.textContent)))
+            .toEqual(new Set(expected));
+        expect(document.querySelector('.guide-file-icon').closest('.guide-card').style.getPropertyValue('--category-color'))
+            .not.toBe('');
+        expect(document.querySelectorAll('.guide-tag').length).toBeGreaterThan(20);
         closeApp(dom);
     });
 
@@ -148,6 +161,41 @@ describe('Help Guides side panel', () => {
         const sectionTitles = [...document.querySelectorAll('.guide-section-title')].map(node => node.textContent);
         expect(sectionTitles[0]).toContain('Favourites');
         expect(document.querySelector('.guide-section .guide-card strong').textContent).toBe('Budget Approval');
+        expect(document.querySelector('.guide-card-favourite').getAttribute('aria-label'))
+            .toBe('Remove Budget Approval from favourites');
+        closeApp(dom);
+    });
+
+    test('animates a favourite out when its card star is clicked', async () => {
+        const { dom, syncSet } = await createApp({ favourites: ['approval-budget'] });
+        const { document } = dom.window;
+        const star = document.querySelector('.guide-card-favourite');
+        const shell = star.closest('.guide-card-shell');
+
+        star.click();
+        expect(shell.classList.contains('is-removing-favourite')).toBe(true);
+        expect(syncSet).toHaveBeenCalledWith({ helpGuideFavouriteIds: [] }, expect.any(Function));
+        await new Promise(resolve => dom.window.setTimeout(resolve, 260));
+        expect(document.querySelector('.guide-section-title')?.textContent || '').not.toContain('Favourites');
+        closeApp(dom);
+    });
+
+    test('offers feedback both at the bottom and alongside empty search results', async () => {
+        const { dom } = await createApp();
+        const { document, Event } = dom.window;
+        const openFeedback = jest.fn();
+        dom.window.feedbackModalFeature = { open: openFeedback };
+
+        document.querySelector('.help-feedback-prompt .help-feedback-trigger').click();
+        expect(openFeedback).toHaveBeenCalledTimes(1);
+
+        const search = document.getElementById('guide-search');
+        search.value = 'zzzzzzmissing';
+        search.dispatchEvent(new Event('input', { bubbles: true }));
+        expect(document.getElementById('empty-state').hidden).toBe(false);
+        expect(document.querySelector('.help-feedback-prompt').hidden).toBe(true);
+        document.querySelector('.empty-state .help-feedback-trigger').click();
+        expect(openFeedback).toHaveBeenCalledTimes(2);
         closeApp(dom);
     });
 

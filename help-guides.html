@@ -6,6 +6,7 @@
     <title>Help Guides</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="help-guides.css">
+    <link rel="stylesheet" href="features/feedback-modal.css">
 </head>
 <body>
     <main class="guide-shell">
@@ -30,10 +31,11 @@
             <div class="results-heading">
                 <div class="results-tools">
                     <span id="results-summary" role="status" aria-live="polite"></span>
-                    <button id="sort-guides" class="sort-guides-button" type="button" aria-label="Sort guides by category" title="Change guide sorting">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M4 12h7M4 17h4m10-9v9m0 0-3-3m3 3 3-3"/></svg>
-                        <span>A–Z</span>
-                    </button>
+                </div>
+                <div class="sort-control" role="group" aria-label="Sort guides">
+                    <span>Sort by:</span>
+                    <button type="button" data-sort="alpha" aria-pressed="true">A–Z</button>
+                    <button type="button" data-sort="category" aria-pressed="false">Category</button>
                 </div>
                 <button id="clear-search" type="button" hidden>Reset filters</button>
             </div>
@@ -42,7 +44,16 @@
                 <span aria-hidden="true">?</span>
                 <h2>No guide found</h2>
                 <p>Try a broader phrase or choose another category.</p>
+                <p class="empty-feedback-copy">Think we are missing something that should be here?</p>
+                <button class="help-feedback-trigger" type="button">Submit Feedback</button>
             </div>
+            <aside class="help-feedback-prompt">
+                <div>
+                    <strong>Think we are missing something?</strong>
+                    <span>Let us know what guide would help.</span>
+                </div>
+                <button class="help-feedback-trigger" type="button">Submit Feedback</button>
+            </aside>
             <div class="feature-disable-wrap">
                 <button id="disable-help-guides" class="feature-disable-button" type="button">
                     <span>Turn Off Feature</span>
@@ -61,7 +72,7 @@
                 </div>
                 <div class="viewer-actions">
                     <button id="share-guide" class="viewer-icon-button" type="button" aria-label="Share this guide" title="Share guide">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 12v7h11V8h-7m-4 4 8-8m0 0h-5m5 0v5"/></svg>
+                        <svg class="material-share-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7a3.2 3.2 0 0 0 0-1.39l7.05-4.11A3 3 0 1 0 15 5c0 .23.03.46.08.67L8.03 9.78a3 3 0 1 0 0 4.44l7.13 4.16c-.04.2-.06.41-.06.62a2.9 2.9 0 1 0 2.9-2.92Z"/></svg>
                     </button>
                     <button id="favourite-guide" class="viewer-icon-button" type="button" aria-label="Add this guide to favourites" aria-pressed="false" title="Favourite guide">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3Z"/></svg>
@@ -90,6 +101,7 @@
         </div>
     </main>
     <script src="help-guides-data.js"></script>
+    <script src="features/feedback-modal.js"></script>
     <script src="help-guides.js"></script>
 </body>
 </html>

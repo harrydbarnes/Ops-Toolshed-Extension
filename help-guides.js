@@ -9,6 +9,14 @@
         'Supplier Integrations': '#5d8c68',
         Traffic: '#c15d76'
     };
+    const categoryAbbreviations = {
+        Access: 'Acc',
+        Approval: 'Appr',
+        Booking: 'Book',
+        Reconcile: 'Rec',
+        'Supplier Integrations': 'Int',
+        Traffic: 'Tfc'
+    };
     const categoryOrder = new Map(categories.slice(1).map((category, index) => [category, index]));
     const RECENT_LIMIT = 3;
 
@@ -21,6 +29,7 @@
     let viewerFallbackTimer = null;
     let toastTimer = null;
     let toastCloseTimer = null;
+    const favouriteAnimationTimers = new Set();
     let disableConfirmationActive = false;
 
     const elements = {
@@ -29,10 +38,11 @@
         filters: document.getElementById('category-filters'),
         search: document.getElementById('guide-search'),
         clear: document.getElementById('clear-search'),
-        sort: document.getElementById('sort-guides'),
+        sortOptions: document.querySelectorAll('[data-sort]'),
         summary: document.getElementById('results-summary'),
         list: document.getElementById('guide-list'),
         empty: document.getElementById('empty-state'),
+        feedbackPrompt: document.querySelector('.help-feedback-prompt'),
         disableFeature: document.getElementById('disable-help-guides'),
         back: document.getElementById('back-to-guides'),
         viewerTitle: document.getElementById('viewer-title'),
@@ -172,6 +182,10 @@
     }
 
     function createGuideCard(guide) {
+        const shell = document.createElement('div');
+        shell.className = 'guide-card-shell';
+        shell.dataset.guideShellId = guide.id;
+
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'guide-card';
@@ -182,7 +196,7 @@
         const icon = document.createElement('span');
         icon.className = 'guide-file-icon';
         icon.setAttribute('aria-hidden', 'true');
-        icon.textContent = 'PDF';
+        icon.textContent = categoryAbbreviations[guide.category] || 'Guide';
 
         const copy = document.createElement('span');
         copy.className = 'guide-card-copy';
@@ -196,7 +210,12 @@
         category.textContent = guide.category;
         const tags = document.createElement('span');
         tags.className = 'guide-tags';
-        tags.textContent = guide.tags.slice(0, 2).join(' · ');
+        guide.tags.slice(0, 2).forEach(tag => {
+            const tagLabel = document.createElement('span');
+            tagLabel.className = 'guide-tag';
+            tagLabel.textContent = tag;
+            tags.appendChild(tagLabel);
+        });
         meta.append(dot, category, tags);
         copy.append(title, meta);
 
@@ -207,7 +226,27 @@
 
         button.append(icon, copy, arrow);
         button.addEventListener('click', () => openGuide(guide));
-        return button;
+        shell.appendChild(button);
+
+        if (favourites.has(guide.id)) {
+            shell.classList.add('has-favourite');
+            const favouriteButton = document.createElement('button');
+            favouriteButton.type = 'button';
+            favouriteButton.className = 'guide-card-favourite';
+            favouriteButton.setAttribute('aria-label', `Remove ${guide.title} from favourites`);
+            favouriteButton.title = 'Remove favourite';
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('viewBox', '0 0 24 24');
+            svg.setAttribute('aria-hidden', 'true');
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', 'm12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3Z');
+            svg.appendChild(path);
+            favouriteButton.appendChild(svg);
+            favouriteButton.addEventListener('click', () => removeFavouriteFromCard(guide, shell));
+            shell.appendChild(favouriteButton);
+        }
+
+        return shell;
     }
 
     function createGuideSection(label, sectionGuides, icon = '') {
@@ -267,14 +306,15 @@
         ));
         elements.empty.hidden = filteredGuides.length > 0;
         elements.list.hidden = filteredGuides.length === 0;
+        elements.feedbackPrompt.hidden = filteredGuides.length === 0;
         elements.clear.hidden = !searchQuery && activeCategory === 'All';
         elements.summary.textContent = `${filteredGuides.length} ${filteredGuides.length === 1 ? 'guide' : 'guides'}`;
     }
 
-    function updateSortButton() {
-        const label = sortMode === 'alpha' ? 'A–Z' : 'Category';
-        elements.sort.querySelector('span').textContent = label;
-        elements.sort.setAttribute('aria-label', sortMode === 'alpha' ? 'Sort guides by category' : 'Sort guides A to Z');
+    function updateSortControls() {
+        elements.sortOptions.forEach(button => {
+            button.setAttribute('aria-pressed', String(button.dataset.sort === sortMode));
+        });
     }
 
     function recordRecentGuide(guideId) {
@@ -330,6 +370,18 @@
         else favourites.add(currentGuide.id);
         storageSet(globalThis.chrome?.storage?.sync, { helpGuideFavouriteIds: [...favourites] });
         updateFavouriteButton();
+    }
+
+    function removeFavouriteFromCard(guide, shell) {
+        if (!favourites.has(guide.id)) return;
+        favourites.delete(guide.id);
+        storageSet(globalThis.chrome?.storage?.sync, { helpGuideFavouriteIds: [...favourites] });
+        shell.classList.add('is-removing-favourite');
+        const timer = window.setTimeout(() => {
+            favouriteAnimationTimers.delete(timer);
+            renderGuides();
+        }, 240);
+        favouriteAnimationTimers.add(timer);
     }
 
     function hidePanelToast(onComplete) {
@@ -397,6 +449,17 @@
         window.clearTimeout(viewerFallbackTimer);
         window.clearTimeout(toastTimer);
         window.clearTimeout(toastCloseTimer);
+        favouriteAnimationTimers.forEach(timer => window.clearTimeout(timer));
+        favouriteAnimationTimers.clear();
+    }
+
+    function notifyPanelState(action) {
+        try {
+            const result = globalThis.chrome?.runtime?.sendMessage?.({ action });
+            result?.catch?.(() => {});
+        } catch {
+            // The panel may be closing after the extension context has gone away.
+        }
     }
 
     async function hydratePreferences() {
@@ -409,7 +472,7 @@
             .filter(id => guides.some(guide => guide.id === id))
             .slice(0, RECENT_LIMIT);
         sortMode = localData.helpGuidesSortMode === 'category' ? 'category' : 'alpha';
-        updateSortButton();
+        updateSortControls();
         renderGuides();
     }
 
@@ -428,11 +491,15 @@
         elements.search.focus();
     });
 
-    elements.sort.addEventListener('click', () => {
-        sortMode = sortMode === 'alpha' ? 'category' : 'alpha';
+    elements.sortOptions.forEach(button => button.addEventListener('click', () => {
+        sortMode = button.dataset.sort === 'category' ? 'category' : 'alpha';
         storageSet(globalThis.chrome?.storage?.local, { helpGuidesSortMode: sortMode });
-        updateSortButton();
+        updateSortControls();
         renderGuides();
+    }));
+
+    document.querySelectorAll('.help-feedback-trigger').forEach(button => {
+        button.addEventListener('click', () => window.feedbackModalFeature?.open());
     });
 
     elements.disableFeature.addEventListener('click', handleDisableFeature);
@@ -458,11 +525,13 @@
             closeGuide();
         }
     });
+    window.addEventListener('pagehide', () => notifyPanelState('helpGuidesPanelClosed'), { once: true });
 
     renderFilters();
-    updateSortButton();
+    updateSortControls();
     renderGuides();
     elements.search.focus();
+    notifyPanelState('helpGuidesPanelOpened');
     const hydration = hydratePreferences();
 
     window.helpGuidesApp = {
@@ -474,6 +543,7 @@
         openGuide,
         closeGuide,
         toggleFavourite,
+        removeFavouriteFromCard,
         shareCurrentGuide,
         handleDisableFeature,
         showPanelToast,

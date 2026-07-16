@@ -15,6 +15,7 @@
         <div class="header">
             <h1>Prisma Approver Search</h1>
             <p>Find and manage your preferred approvers</p>
+            <p class="approver-training-prompt">Need more approvers? <button id="need-more-approvers" type="button">Click here</button></p>
         </div>
 
         <div class="search-container">
@@ -102,8 +103,29 @@
         </div>
         <div id="build-info" class="build-info"></div>
     </div>
+    <div id="approver-training-root" hidden>
+        <div class="otf-overlay" data-training-close></div>
+        <section class="otf-modal approver-training-modal" role="dialog" aria-modal="true" aria-labelledby="approver-training-title">
+            <button id="close-approver-training" class="otf-btn-close" type="button" aria-label="Close">×</button>
+            <header class="otf-header">
+                <h2 id="approver-training-title">Need more approvers?</h2>
+            </header>
+            <div class="approver-training-copy">
+                <p>Keep in mind that whoever sends the plans shouldn't also be approving them, ideally it should be their manager or a senior counterpart instead.</p>
+                <p>Please ask your planning teams to get their seniors to complete the required training:</p>
+            </div>
+            <div class="approver-training-actions">
+                <button id="copy-approver-training" class="otf-btn otf-btn-primary" type="button">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-2M8 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M8 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m1 6h5m0 0-2-2m2 2-2 2"/></svg>
+                    <span>Copy training link</span>
+                </button>
+            </div>
+            <div id="approver-training-toast" class="otf-toast success" role="status" aria-live="polite">Training link copied</div>
+        </section>
+    </div>
     <script src="build-info.js" defer></script>
     <script src="features/feedback-modal.js"></script>
+    <script src="features/approver-training-modal.js"></script>
     <script type="module" src="approvers.js"></script>
     <div id="toast-notification" class="toast">
       <div class="toast-message">Approver emails copied to clipboard!</div>

@@ -376,7 +376,7 @@ describe('Background message routing', () => {
 
         expect(chrome.storage.local.get).not.toHaveBeenCalled();
         expect(chrome.sidePanel.open).toHaveBeenCalledWith({ tabId: 42 });
-        expect(sendResponse).toHaveBeenCalledWith({ status: 'success' });
+        expect(sendResponse).toHaveBeenCalledWith({ status: 'success', panelState: 'open' });
     });
 
     test('blocks normal actions while the time bomb is active', async () => {
@@ -545,7 +545,7 @@ describe('Help Guides side panel messaging', () => {
             path: 'help-guides.html',
             enabled: true
         });
-        expect(sendResponse).toHaveBeenCalledWith({ status: 'success' });
+        expect(sendResponse).toHaveBeenCalledWith({ status: 'success', panelState: 'open' });
     });
 
     test('rejects requests that do not come from a browser tab', async () => {
@@ -558,6 +558,18 @@ describe('Help Guides side panel messaging', () => {
             status: 'error',
             message: 'Could not identify the current tab.'
         });
+    });
+
+    test('clicking the launcher again closes an already-open panel', async () => {
+        const firstResponse = jest.fn();
+        const secondResponse = jest.fn();
+
+        await openHelpGuides({}, { tab: { id: 42 } }, firstResponse);
+        await openHelpGuides({}, { tab: { id: 42 } }, secondResponse);
+
+        expect(chrome.sidePanel.open).toHaveBeenCalledTimes(1);
+        expect(chrome.sidePanel.close).toHaveBeenCalledWith({ tabId: 42 });
+        expect(secondResponse).toHaveBeenCalledWith({ status: 'success', panelState: 'closed' });
     });
 
     test('closes the active tab-specific Help Guides panel', async () => {

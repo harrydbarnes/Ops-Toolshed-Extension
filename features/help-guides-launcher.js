@@ -2,10 +2,12 @@
     const BUTTON_ID = 'toolshed-help-guides-launcher';
     const STYLE_ID = 'toolshed-help-guides-launcher-styles';
     const POSITION_KEY = 'helpGuidesLauncherPosition';
-    const EDGE_GAP = 10;
-    const CORNER_ZONE = 96;
+    const EDGE_GAP = 18;
+    const CORNER_ZONE = 72;
+    const SNAP_DISTANCE = 86;
     let isEnabled = null;
     let storageListenerBound = false;
+    let preferredPosition = null;
 
     function openHelpGuides(event) {
         event?.preventDefault();
@@ -13,7 +15,7 @@
         if (isEnabled !== true) return;
 
         chrome.runtime.sendMessage({ action: 'openHelpGuides' })
-            .catch(error => console.warn('Could not open Help Guides:', error.message));
+            .catch(error => console.warn('Could not toggle Help Guides:', error.message));
     }
 
     function injectStyles() {
@@ -34,7 +36,7 @@
                 padding: 0 16px 0 10px;
                 border: 1px solid rgba(255, 255, 255, 0.26);
                 border-radius: 999px;
-                background: rgba(6, 8, 141, 0.94);
+                background: rgba(6, 8, 141, 0.88);
                 backdrop-filter: blur(6px);
                 box-shadow: 0 4px 14px rgba(6, 8, 141, 0.22);
                 color: #fff;
@@ -55,6 +57,9 @@
                 cursor: grabbing;
                 box-shadow: 0 8px 22px rgba(6, 8, 141, 0.3);
                 transform: scale(1.02);
+            }
+            #${BUTTON_ID}.is-dragging {
+                transition: none;
             }
             #${BUTTON_ID}:focus-visible {
                 outline: 3px solid #ff4087;
@@ -79,7 +84,10 @@
                 stroke-linejoin: round;
                 stroke-width: 1.8;
             }
-            #${BUTTON_ID} > span:last-child { pointer-events: none; }
+            #${BUTTON_ID} > span:last-child {
+                pointer-events: none;
+                white-space: nowrap;
+            }
             @media (prefers-reduced-motion: reduce) {
                 #${BUTTON_ID} { transition-duration: 0.01ms !important; }
             }
@@ -108,6 +116,7 @@
     }
 
     function savePosition(position) {
+        preferredPosition = { left: position.left, top: position.top };
         chrome.storage?.local?.set?.({
             [POSITION_KEY]: { left: Math.round(position.left), top: Math.round(position.top) }
         });
@@ -123,6 +132,11 @@
             bottom: position.maxTop - position.top
         };
         const nearestEdge = Object.entries(distances).sort((a, b) => a[1] - b[1])[0][0];
+        if (distances[nearestEdge] > SNAP_DISTANCE) {
+            const restingPosition = placeButton(button, position.left, position.top);
+            savePosition(restingPosition);
+            return;
+        }
         let { left, top } = position;
 
         if (nearestEdge === 'left') left = EDGE_GAP;
@@ -144,6 +158,7 @@
         chrome.storage.local.get({ [POSITION_KEY]: null }, data => {
             const saved = data?.[POSITION_KEY];
             if (!saved || !Number.isFinite(saved.left) || !Number.isFinite(saved.top)) return;
+            preferredPosition = { left: saved.left, top: saved.top };
             placeButton(button, saved.left, saved.top);
         });
     }
@@ -261,10 +276,8 @@
 
         window.addEventListener('resize', () => {
             const button = document.getElementById(BUTTON_ID);
-            if (!button || !button.style.left) return;
-            const rect = button.getBoundingClientRect();
-            const position = placeButton(button, rect.left, rect.top);
-            savePosition(position);
+            if (!button || !preferredPosition) return;
+            placeButton(button, preferredPosition.left, preferredPosition.top);
         }, { passive: true });
     }
 

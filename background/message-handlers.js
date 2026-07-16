@@ -1,4 +1,6 @@
 import { approversData } from '../approvers-data.js';
+
+const openHelpGuideTabs = new Set();
 import { scrapeAndDownloadCsv } from './meta-billing-scraper.js';
 import { handleTrackStat } from './stats-manager.js';
 
@@ -134,6 +136,13 @@ async function openHelpGuides(request, sender, sendResponse) {
         return;
     }
 
+    if (openHelpGuideTabs.has(tabId) && typeof chrome.sidePanel?.close === 'function') {
+        await chrome.sidePanel.close({ tabId });
+        openHelpGuideTabs.delete(tabId);
+        sendResponse({ status: 'success', panelState: 'closed' });
+        return;
+    }
+
     // open() must stay directly tied to the content-script click. Configure the
     // tab-specific instance afterwards, matching Chrome's supported pattern.
     await chrome.sidePanel.open({ tabId });
@@ -142,7 +151,8 @@ async function openHelpGuides(request, sender, sendResponse) {
         path: 'help-guides.html',
         enabled: true
     });
-    sendResponse({ status: 'success' });
+    openHelpGuideTabs.add(tabId);
+    sendResponse({ status: 'success', panelState: 'open' });
 }
 
 async function closeHelpGuides(request, sender, sendResponse) {
@@ -158,6 +168,20 @@ async function closeHelpGuides(request, sender, sendResponse) {
     }
 
     await chrome.sidePanel.close({ tabId: activeTab.id });
+    openHelpGuideTabs.delete(activeTab.id);
+    sendResponse({ status: 'success' });
+}
+
+async function updateHelpGuidesPanelState(request, sender, sendResponse) {
+    let tabId = sender?.tab?.id || request?.tabId;
+    if (!tabId) {
+        const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        tabId = activeTab?.id;
+    }
+    if (tabId) {
+        if (request.action === 'helpGuidesPanelOpened') openHelpGuideTabs.add(tabId);
+        else openHelpGuideTabs.delete(tabId);
+    }
     sendResponse({ status: 'success' });
 }
 
@@ -209,6 +233,8 @@ export const messageHandlers = {
     openApproversPage,
     openHelpGuides,
     closeHelpGuides,
+    helpGuidesPanelOpened: updateHelpGuidesPanelState,
+    helpGuidesPanelClosed: updateHelpGuidesPanelState,
     requestCampaignDetailsBasicFocus,
     TRACK_STAT: handleTrackStat
 };
