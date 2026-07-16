@@ -146,6 +146,20 @@ async function getHelpGuidesPanelState(request, sender, sendResponse) {
     const stored = await chrome.storage?.session?.get?.({ [OPEN_HELP_GUIDE_TABS_KEY]: [] });
     const storedTabIds = stored?.[OPEN_HELP_GUIDE_TABS_KEY] || [];
     storedTabIds.forEach(storedTabId => openHelpGuideTabs.add(storedTabId));
+
+    if (typeof chrome.runtime?.getContexts === 'function') {
+        const contexts = await chrome.runtime.getContexts({
+            contextTypes: ['SIDE_PANEL'],
+            tabIds: [tabId]
+        });
+        if (Array.isArray(contexts)) {
+            const panelUrl = chrome.runtime.getURL('help-guides.html');
+            const isOpen = contexts.some(context => context.documentUrl === panelUrl || context.documentUrl?.startsWith(`${panelUrl}?`));
+            if (isOpen) openHelpGuideTabs.add(tabId);
+            else openHelpGuideTabs.delete(tabId);
+            await persistOpenHelpGuideTabs();
+        }
+    }
     sendResponse({ status: 'success', open: openHelpGuideTabs.has(tabId) });
 }
 
@@ -211,23 +225,35 @@ async function closeHelpGuidesFromLauncher(request, sender, sendResponse) {
     sendResponse({ status: 'success', panelState: 'closed' });
 }
 
+async function setHelpGuidesPanelState(tabId, isOpen) {
+    if (!tabId) return;
+    if (isOpen) openHelpGuideTabs.add(tabId);
+    else openHelpGuideTabs.delete(tabId);
+    await persistOpenHelpGuideTabs();
+    try {
+        await chrome.tabs.sendMessage(tabId, { action: 'helpGuidesPanelState', open: isOpen });
+    } catch {
+        // The page content script may be between route loads while the panel changes state.
+    }
+}
+
+export async function handleHelpGuidesPanelEvent(info, isOpen) {
+    if (String(info?.path || '').replace(/^\//, '') !== 'help-guides.html') return;
+    let tabId = info?.tabId;
+    if (!tabId) {
+        const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        tabId = activeTab?.id;
+    }
+    await setHelpGuidesPanelState(tabId, isOpen);
+}
+
 async function updateHelpGuidesPanelState(request, sender, sendResponse) {
     let tabId = sender?.tab?.id || request?.tabId;
     if (!tabId) {
         const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
         tabId = activeTab?.id;
     }
-    if (tabId) {
-        const isOpen = request.action === 'helpGuidesPanelOpened';
-        if (isOpen) openHelpGuideTabs.add(tabId);
-        else openHelpGuideTabs.delete(tabId);
-        await persistOpenHelpGuideTabs();
-        try {
-            await chrome.tabs.sendMessage(tabId, { action: 'helpGuidesPanelState', open: isOpen });
-        } catch {
-            // The page content script may be between route loads while the panel closes.
-        }
-    }
+    await setHelpGuidesPanelState(tabId, request.action === 'helpGuidesPanelOpened');
     sendResponse({ status: 'success' });
 }
 

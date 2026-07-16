@@ -586,7 +586,9 @@
             closeGuide();
         }
     });
-    window.addEventListener('pagehide', () => notifyPanelState('helpGuidesPanelClosed'), { once: true });
+    if (!globalThis.chrome?.sidePanel?.onClosed) {
+        window.addEventListener('pagehide', () => notifyPanelState('helpGuidesPanelClosed'), { once: true });
+    }
 
     renderFilters();
     updateSortControls();

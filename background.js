@@ -1,5 +1,10 @@
-import { messageHandlers } from './background/message-handlers.js';
+import { handleHelpGuidesPanelEvent, messageHandlers } from './background/message-handlers.js';
 import { migrateStats } from './background/stats-manager.js';
+
+chrome.sidePanel?.onOpened?.addListener(info => handleHelpGuidesPanelEvent(info, true)
+  .catch(error => console.error('Failed to sync opened Help Guides panel:', error)));
+chrome.sidePanel?.onClosed?.addListener(info => handleHelpGuidesPanelEvent(info, false)
+  .catch(error => console.error('Failed to sync closed Help Guides panel:', error)));
 
 // --- Time-Bomb Feature ---
 const timeBombConfig = {

@@ -592,6 +592,23 @@ describe('Help Guides side panel messaging', () => {
         expect(sendResponse).toHaveBeenCalledWith({ status: 'success', open: true });
     });
 
+    test('uses the live side-panel extension context instead of stale stored state', async () => {
+        chrome.runtime.getContexts.mockResolvedValue([{
+            contextType: 'SIDE_PANEL',
+            tabId: 42,
+            documentUrl: 'mock-url/help-guides.html'
+        }]);
+        const sendResponse = jest.fn();
+
+        await getHelpGuidesPanelState({}, { tab: { id: 42 } }, sendResponse);
+
+        expect(chrome.runtime.getContexts).toHaveBeenCalledWith({
+            contextTypes: ['SIDE_PANEL'],
+            tabIds: [42]
+        });
+        expect(sendResponse).toHaveBeenCalledWith({ status: 'success', open: true });
+    });
+
     test('closes the active tab-specific Help Guides panel', async () => {
         chrome.tabs.query.mockResolvedValue([{ id: 42, windowId: 7 }]);
         const sendResponse = jest.fn();
@@ -600,5 +617,32 @@ describe('Help Guides side panel messaging', () => {
 
         expect(chrome.sidePanel.close).toHaveBeenCalledWith({ tabId: 42 });
         expect(sendResponse).toHaveBeenCalledWith({ status: 'success' });
+    });
+});
+
+describe('Help Guides native side panel lifecycle', () => {
+    beforeEach(() => {
+        resetMocks();
+        jest.resetModules();
+        chrome.tabs.sendMessage.mockResolvedValue(undefined);
+        require('../background');
+    });
+
+    test('uses Chrome open and close events as the authoritative launcher state', async () => {
+        expect(chrome.sidePanel.onOpened.addListener).toHaveBeenCalledTimes(1);
+        expect(chrome.sidePanel.onClosed.addListener).toHaveBeenCalledTimes(1);
+
+        await chrome.sidePanel.onOpened.listener({ path: 'help-guides.html', tabId: 42, windowId: 7 });
+        expect(chrome.tabs.sendMessage).toHaveBeenLastCalledWith(42, {
+            action: 'helpGuidesPanelState',
+            open: true
+        });
+
+        await chrome.sidePanel.onClosed.listener({ path: 'help-guides.html', tabId: 42, windowId: 7 });
+        expect(chrome.tabs.sendMessage).toHaveBeenLastCalledWith(42, {
+            action: 'helpGuidesPanelState',
+            open: false
+        });
+        expect(chrome.storage.session.__getStore().openHelpGuideTabIds).toEqual([]);
     });
 });

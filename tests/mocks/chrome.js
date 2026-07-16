@@ -88,6 +88,7 @@ global.chrome = {
       listener: null, // to hold the registered listener
     },
     getURL: jest.fn(path => 'mock-url/' + path),
+    getContexts: jest.fn(),
     sendMessage: jest.fn(),
     lastError: undefined,
   },
@@ -134,6 +135,14 @@ global.chrome = {
     open: jest.fn(),
     setOptions: jest.fn(),
     close: jest.fn(),
+    onOpened: {
+      addListener: jest.fn(listener => { global.chrome.sidePanel.onOpened.listener = listener; }),
+      listener: null,
+    },
+    onClosed: {
+      addListener: jest.fn(listener => { global.chrome.sidePanel.onClosed.listener = listener; }),
+      listener: null,
+    },
   },
 };
 
@@ -145,6 +154,7 @@ global.resetMocks = () => {
     global.chrome.runtime.onMessage.addListener.mockClear();
     global.chrome.runtime.onMessage.listener = null;
     global.chrome.runtime.getURL.mockClear();
+    global.chrome.runtime.getContexts.mockReset();
     global.chrome.runtime.sendMessage.mockReset();
     global.chrome.alarms.create.mockClear();
     global.chrome.alarms.clear.mockClear();
@@ -164,6 +174,10 @@ global.resetMocks = () => {
     global.chrome.sidePanel.open.mockReset();
     global.chrome.sidePanel.setOptions.mockReset();
     global.chrome.sidePanel.close.mockReset();
+    global.chrome.sidePanel.onOpened.addListener.mockClear();
+    global.chrome.sidePanel.onOpened.listener = null;
+    global.chrome.sidePanel.onClosed.addListener.mockClear();
+    global.chrome.sidePanel.onClosed.listener = null;
 
     // Reset storage mocks
     global.chrome.storage.sync.get.mockClear();

@@ -6,7 +6,7 @@ const html = fs.readFileSync(path.resolve(__dirname, '../help-guides.html'), 'ut
 const dataCode = fs.readFileSync(path.resolve(__dirname, '../help-guides-data.js'), 'utf8');
 const appCode = fs.readFileSync(path.resolve(__dirname, '../help-guides.js'), 'utf8');
 
-async function createApp({ favourites = [], recent = [], sortMode = 'alpha', reducedMotion = true } = {}) {
+async function createApp({ favourites = [], recent = [], sortMode = 'alpha', reducedMotion = true, nativePanelEvents = false } = {}) {
     const dom = new JSDOM(html, {
         runScripts: 'outside-only',
         url: 'chrome-extension://test/help-guides.html'
@@ -30,7 +30,8 @@ async function createApp({ favourites = [], recent = [], sortMode = 'alpha', red
         },
         runtime: {
             sendMessage: jest.fn().mockResolvedValue({ status: 'success' })
-        }
+        },
+        sidePanel: nativePanelEvents ? { onClosed: { addListener: jest.fn() } } : undefined
     };
     dom.window.matchMedia = jest.fn(() => ({ matches: reducedMotion }));
     dom.window.scrollTo = jest.fn();
@@ -71,6 +72,16 @@ describe('Help Guides side panel', () => {
     test('focuses search as soon as the side panel opens', async () => {
         const { dom } = await createApp();
         expect(dom.window.document.activeElement).toBe(dom.window.document.getElementById('guide-search'));
+        closeApp(dom);
+    });
+
+    test('does not report a false close during a panel document refresh when native close events exist', async () => {
+        const { dom } = await createApp({ nativePanelEvents: true });
+        dom.window.chrome.runtime.sendMessage.mockClear();
+
+        dom.window.dispatchEvent(new dom.window.Event('pagehide'));
+
+        expect(dom.window.chrome.runtime.sendMessage).not.toHaveBeenCalledWith({ action: 'helpGuidesPanelClosed' });
         closeApp(dom);
     });
 
