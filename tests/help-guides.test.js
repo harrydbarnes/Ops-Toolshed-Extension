@@ -3,6 +3,7 @@ const path = require('path');
 const { JSDOM } = require('jsdom');
 
 const html = fs.readFileSync(path.resolve(__dirname, '../help-guides.html'), 'utf8');
+const styles = fs.readFileSync(path.resolve(__dirname, '../help-guides.css'), 'utf8');
 const dataCode = fs.readFileSync(path.resolve(__dirname, '../help-guides-data.js'), 'utf8');
 const pdfViewerCode = fs.readFileSync(path.resolve(__dirname, '../features/help-guide-pdf-viewer.js'), 'utf8');
 const appCode = fs.readFileSync(path.resolve(__dirname, '../help-guides.js'), 'utf8');
@@ -15,7 +16,8 @@ async function createApp({
     nativePanelEvents = false,
     sharePointBytes = null,
     viewerHintCount = 0,
-    viewerHintDismissed = false
+    viewerHintDismissed = false,
+    enableResizeObserver = false
 } = {}) {
     const dom = new JSDOM(html, {
         runScripts: 'outside-only',
@@ -34,7 +36,7 @@ async function createApp({
                     ...defaults,
                     helpGuideRecentIds: recent,
                     helpGuidesSortMode: sortMode,
-                    helpGuideViewerHintCount: viewerHintCount,
+                    helpGuideViewerCoachmarkCount: viewerHintCount,
                     helpGuideViewerHintDismissed: viewerHintDismissed
                 })),
                 set: localSet
@@ -47,6 +49,12 @@ async function createApp({
     };
     dom.window.matchMedia = jest.fn(() => ({ matches: reducedMotion }));
     dom.window.scrollTo = jest.fn();
+    const resizeObserver = jest.fn(function(callback) {
+        this.observe = jest.fn();
+        this.disconnect = jest.fn();
+        this.callback = callback;
+    });
+    if (enableResizeObserver) dom.window.ResizeObserver = resizeObserver;
     const fetchMock = jest.fn();
     if (sharePointBytes) {
         fetchMock.mockResolvedValue({
@@ -93,7 +101,7 @@ async function createApp({
     dom.window.eval(pdfViewerCode);
     dom.window.eval(appCode);
     await dom.window.helpGuidesApp.hydratePreferences();
-    return { dom, syncSet, localSet, fetchMock, pdfDocument, pdfPage };
+    return { dom, syncSet, localSet, fetchMock, pdfDocument, pdfPage, resizeObserver };
 }
 
 function closeApp(dom) {
@@ -102,6 +110,20 @@ function closeApp(dom) {
 }
 
 describe('Help Guides side panel', () => {
+    test('confines PDF scrolling to a fixed-height viewer viewport', () => {
+        const viewerRule = styles.match(/\.viewer-view\s*\{([^}]+)\}/)?.[1] || '';
+        const scrollerRule = styles.match(/\.pdf-canvas-scroll\s*\{([^}]+)\}/)?.[1] || '';
+
+        expect(viewerRule).toMatch(/(?:^|\n)\s*height:\s*100vh/);
+        expect(viewerRule).toMatch(/overflow:\s*hidden/);
+        expect(scrollerRule).toMatch(/overflow:\s*auto/);
+    });
+
+    test('smoothly collapses optional PDF controls in a narrow panel', () => {
+        expect(styles).toMatch(/@container\s*\(max-width:\s*410px\)/);
+        expect(styles).toMatch(/#pdf-fit-width,[\s\S]*#pdf-search-toggle,[\s\S]*\.pdf-zoom-label[\s\S]*visibility:\s*hidden/);
+    });
+
     test('renders the 21 library guides plus two SharePoint proof-of-concept PDFs', async () => {
         const { dom } = await createApp();
         const labels = [...dom.window.document.querySelectorAll('.category-filter')].map(node => node.textContent);
@@ -357,6 +379,25 @@ describe('Help Guides side panel', () => {
         closeApp(dom);
     });
 
+    test('rerenders fit-to-width pages once per panel resize without observing PDF content changes', async () => {
+        const pdfBytes = Uint8Array.from([37, 80, 68, 70, 45, 49, 46, 55]).buffer;
+        const { dom, pdfPage, resizeObserver } = await createApp({
+            sharePointBytes: pdfBytes,
+            enableResizeObserver: true
+        });
+        const guide = dom.window.HELP_GUIDES.find(item => item.id === 'debug-sharepoint-pdf-1');
+        await dom.window.helpGuidesApp.openGuide(guide);
+        expect(pdfPage.render).toHaveBeenCalledTimes(9);
+
+        dom.window.dispatchEvent(new dom.window.Event('resize'));
+        await new Promise(resolve => dom.window.setTimeout(resolve, 160));
+        expect(pdfPage.render).toHaveBeenCalledTimes(18);
+        await new Promise(resolve => dom.window.setTimeout(resolve, 160));
+        expect(pdfPage.render).toHaveBeenCalledTimes(18);
+        expect(resizeObserver).not.toHaveBeenCalled();
+        closeApp(dom);
+    });
+
     test('shows the resize and Open reminder only for the first three PDF loads', async () => {
         const pdfBytes = Uint8Array.from([37, 80, 68, 70, 45, 49, 46, 55]).buffer;
         const { dom, localSet } = await createApp({
@@ -369,7 +410,7 @@ describe('Help Guides side panel', () => {
         await dom.window.helpGuidesApp.openGuide(firstGuide);
         expect(dom.window.document.getElementById('viewer-coachmark').hidden).toBe(false);
         expect(dom.window.document.getElementById('viewer-coachmark-title').textContent).toBe('Need more room?');
-        expect(localSet).toHaveBeenCalledWith({ helpGuideViewerHintCount: 3 }, expect.any(Function));
+        expect(localSet).toHaveBeenCalledWith({ helpGuideViewerCoachmarkCount: 3 }, expect.any(Function));
 
         dom.window.helpGuidesApp.closeGuide();
         await Promise.resolve();

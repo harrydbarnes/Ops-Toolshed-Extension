@@ -457,7 +457,7 @@
     function maybeShowViewerHint() {
         if (!currentGuide || viewerHintDismissed || viewerHintCount >= VIEWER_HINT_LIMIT) return;
         viewerHintCount += 1;
-        storageSet(globalThis.chrome?.storage?.local, { helpGuideViewerHintCount: viewerHintCount });
+        storageSet(globalThis.chrome?.storage?.local, { helpGuideViewerCoachmarkCount: viewerHintCount });
         showViewerCoachmark({
             title: 'Need more room?',
             message: 'Drag the panel edge to expand it, or choose Open for a full-size tab.',
@@ -725,7 +725,7 @@
             storageGet(globalThis.chrome?.storage?.local, {
                 helpGuideRecentIds: [],
                 helpGuidesSortMode: 'alpha',
-                helpGuideViewerHintCount: 0,
+                helpGuideViewerCoachmarkCount: 0,
                 helpGuideViewerHintDismissed: false
             })
         ]);
@@ -736,7 +736,7 @@
         sortMode = localData.helpGuidesSortMode === 'category' ? 'category' : 'alpha';
         viewerHintCount = Math.min(
             VIEWER_HINT_LIMIT,
-            Math.max(0, Number.parseInt(localData.helpGuideViewerHintCount, 10) || 0)
+            Math.max(0, Number.parseInt(localData.helpGuideViewerCoachmarkCount, 10) || 0)
         );
         viewerHintDismissed = localData.helpGuideViewerHintDismissed === true;
         updateSortControls();

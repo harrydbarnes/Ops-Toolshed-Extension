@@ -320,14 +320,13 @@
             scrollFrame = schedule(trackVisiblePage);
         }, { passive: true });
 
-        const resizeObserver = globalThis.ResizeObserver
-            ? new ResizeObserver(() => {
-                if (!pdfDocument || zoomMode !== 'fit') return;
-                window.clearTimeout(resizeTimer);
-                resizeTimer = window.setTimeout(() => renderAllPages(), 120);
-            })
-            : null;
-        resizeObserver?.observe(elements.scroller);
+        function handleViewportResize() {
+            if (!pdfDocument || zoomMode !== 'fit') return;
+            window.clearTimeout(resizeTimer);
+            resizeTimer = window.setTimeout(() => renderAllPages(), 120);
+        }
+
+        window.addEventListener('resize', handleViewportResize);
         updateControls();
         updateSearchControls();
 
@@ -337,7 +336,7 @@
             renderAllPages,
             performSearch,
             dispose: async () => {
-                resizeObserver?.disconnect();
+                window.removeEventListener('resize', handleViewportResize);
                 await clear();
             },
             getState: () => ({
