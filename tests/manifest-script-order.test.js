@@ -27,6 +27,7 @@ describe('Manifest content-script order', () => {
     test('declares the Help Guides side panel and launcher wiring', () => {
         expect(manifest.permissions).toContain('sidePanel');
         expect(manifest.side_panel).toEqual({ default_path: 'help-guides.html' });
+        expect(manifest.host_permissions).toContain('https://insidemedia.sharepoint.com/*');
 
         const mediaoceanRegistration = manifest.content_scripts.find(entry =>
             entry.matches.includes('*://*.mediaocean.com/*')

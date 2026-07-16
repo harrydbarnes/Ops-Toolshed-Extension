@@ -6,7 +6,14 @@ const html = fs.readFileSync(path.resolve(__dirname, '../help-guides.html'), 'ut
 const dataCode = fs.readFileSync(path.resolve(__dirname, '../help-guides-data.js'), 'utf8');
 const appCode = fs.readFileSync(path.resolve(__dirname, '../help-guides.js'), 'utf8');
 
-async function createApp({ favourites = [], recent = [], sortMode = 'alpha', reducedMotion = true, nativePanelEvents = false } = {}) {
+async function createApp({
+    favourites = [],
+    recent = [],
+    sortMode = 'alpha',
+    reducedMotion = true,
+    nativePanelEvents = false,
+    sharePointBytes = null
+} = {}) {
     const dom = new JSDOM(html, {
         runScripts: 'outside-only',
         url: 'chrome-extension://test/help-guides.html'
@@ -35,6 +42,18 @@ async function createApp({ favourites = [], recent = [], sortMode = 'alpha', red
     };
     dom.window.matchMedia = jest.fn(() => ({ matches: reducedMotion }));
     dom.window.scrollTo = jest.fn();
+    const fetchMock = jest.fn();
+    if (sharePointBytes) {
+        fetchMock.mockResolvedValue({
+            ok: true,
+            status: 200,
+            url: 'https://insidemedia.sharepoint.com/sites/TPO-SharePoint/test.pdf',
+            arrayBuffer: jest.fn().mockResolvedValue(sharePointBytes)
+        });
+        dom.window.fetch = fetchMock;
+    }
+    dom.window.URL.createObjectURL = jest.fn(() => 'blob:chrome-extension://test/sharepoint-pdf');
+    dom.window.URL.revokeObjectURL = jest.fn();
     Object.defineProperty(dom.window.navigator, 'clipboard', {
         configurable: true,
         value: { writeText: jest.fn().mockResolvedValue(undefined) }
@@ -43,7 +62,7 @@ async function createApp({ favourites = [], recent = [], sortMode = 'alpha', red
     dom.window.eval(dataCode);
     dom.window.eval(appCode);
     await dom.window.helpGuidesApp.hydratePreferences();
-    return { dom, syncSet, localSet };
+    return { dom, syncSet, localSet, fetchMock };
 }
 
 function closeApp(dom) {
@@ -258,14 +277,36 @@ describe('Help Guides side panel', () => {
     });
 
     test('bypasses the SharePoint preview shell for embedded proof-of-concept PDFs', async () => {
-        const { dom } = await createApp();
+        const pdfBytes = Uint8Array.from([37, 80, 68, 70, 45, 49, 46, 55, 10, 37, 226, 227, 207, 211]).buffer;
+        const { dom, fetchMock } = await createApp({ sharePointBytes: pdfBytes });
         const { document } = dom.window;
-        const originalUrl = dom.window.HELP_GUIDES.find(guide => guide.id === 'debug-sharepoint-pdf-1').url;
+        const guide = dom.window.HELP_GUIDES.find(item => item.id === 'debug-sharepoint-pdf-1');
 
-        document.querySelector('[data-guide-id="debug-sharepoint-pdf-1"]').click();
+        await dom.window.helpGuidesApp.openGuide(guide);
 
-        expect(document.getElementById('pdf-frame').src).toBe(`${originalUrl}?download=1`);
-        expect(document.getElementById('open-external').href).toBe(originalUrl);
+        expect(fetchMock).toHaveBeenCalledWith(`${guide.url}?download=1`, {
+            cache: 'no-store',
+            credentials: 'include',
+            redirect: 'follow'
+        });
+        expect(document.getElementById('pdf-frame').src).toBe('blob:chrome-extension://test/sharepoint-pdf');
+        expect(document.getElementById('open-external').href).toBe(guide.url);
+
+        dom.window.helpGuidesApp.closeGuide();
+        expect(dom.window.URL.revokeObjectURL).toHaveBeenCalledWith('blob:chrome-extension://test/sharepoint-pdf');
+        closeApp(dom);
+    });
+
+    test('rejects a SharePoint sign-in page instead of rendering it as a PDF', async () => {
+        const htmlBytes = Uint8Array.from([60, 104, 116, 109, 108, 62]).buffer;
+        const { dom } = await createApp({ sharePointBytes: htmlBytes });
+        const guide = dom.window.HELP_GUIDES.find(item => item.id === 'debug-sharepoint-pdf-2');
+
+        await dom.window.helpGuidesApp.openGuide(guide);
+
+        expect(dom.window.URL.createObjectURL).not.toHaveBeenCalled();
+        expect(dom.window.document.getElementById('pdf-frame').src).toBe('about:blank');
+        expect(dom.window.document.getElementById('viewer-fallback').hidden).toBe(false);
         closeApp(dom);
     });
 

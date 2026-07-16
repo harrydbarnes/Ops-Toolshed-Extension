@@ -32,6 +32,8 @@
     let toastTimer = null;
     let toastCloseTimer = null;
     let viewTransitionTimer = null;
+    let activePdfObjectUrl = null;
+    let guideLoadRevision = 0;
     const favouriteAnimationTimers = new Set();
     let disableConfirmationActive = false;
     const viewTransitionDuration = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 0 : 280;
@@ -353,9 +355,63 @@
         }
     }
 
-    function openGuide(guide) {
+    function isSharePointPdfShare(rawUrl) {
+        try {
+            const url = new URL(rawUrl);
+            return url.hostname.toLowerCase() === 'insidemedia.sharepoint.com' &&
+                url.pathname.includes('/:b:/');
+        } catch {
+            return false;
+        }
+    }
+
+    function releasePdfObjectUrl() {
+        if (!activePdfObjectUrl) return;
+        URL.revokeObjectURL(activePdfObjectUrl);
+        activePdfObjectUrl = null;
+    }
+
+    async function loadGuideIntoFrame(guide, revision) {
+        const frameUrl = getEmbeddableGuideUrl(guide.url);
+        if (!isSharePointPdfShare(guide.url)) {
+            elements.frame.src = frameUrl;
+            return;
+        }
+
+        elements.frame.src = 'about:blank';
+        try {
+            const response = await fetch(frameUrl, {
+                cache: 'no-store',
+                credentials: 'include',
+                redirect: 'follow'
+            });
+            if (!response.ok) throw new Error(`SharePoint returned HTTP ${response.status}.`);
+
+            const buffer = await response.arrayBuffer();
+            const signature = String.fromCharCode(...new Uint8Array(buffer, 0, Math.min(5, buffer.byteLength)));
+            if (signature !== '%PDF-') throw new Error('SharePoint did not return a PDF file.');
+
+            const objectUrl = URL.createObjectURL(new Blob([buffer], { type: 'application/pdf' }));
+            if (revision !== guideLoadRevision || currentGuide?.id !== guide.id) {
+                URL.revokeObjectURL(objectUrl);
+                return;
+            }
+
+            activePdfObjectUrl = objectUrl;
+            elements.frame.src = objectUrl;
+        } catch {
+            if (revision !== guideLoadRevision || currentGuide?.id !== guide.id) return;
+            window.clearTimeout(viewerFallbackTimer);
+            elements.loading.hidden = true;
+            elements.fallback.hidden = false;
+        }
+    }
+
+    async function openGuide(guide) {
         window.clearTimeout(viewerFallbackTimer);
         window.clearTimeout(viewTransitionTimer);
+        releasePdfObjectUrl();
+        const loadRevision = ++guideLoadRevision;
         currentGuide = guide;
         recordRecentGuide(guide.id);
         elements.viewerTitle.textContent = guide.title;
@@ -363,7 +419,6 @@
         elements.external.href = guide.url;
         elements.loading.hidden = false;
         elements.fallback.hidden = true;
-        elements.frame.src = getEmbeddableGuideUrl(guide.url);
         elements.viewer.hidden = false;
         elements.viewer.classList.add('is-entering');
         elements.library.classList.add('is-leaving');
@@ -379,11 +434,14 @@
         viewerFallbackTimer = window.setTimeout(() => {
             if (!elements.loading.hidden) elements.fallback.hidden = false;
         }, 8000);
+        await loadGuideIntoFrame(guide, loadRevision);
     }
 
     function closeGuide() {
         window.clearTimeout(viewerFallbackTimer);
         window.clearTimeout(viewTransitionTimer);
+        guideLoadRevision += 1;
+        releasePdfObjectUrl();
         elements.library.hidden = false;
         elements.library.classList.add('is-returning');
         elements.viewer.classList.add('is-leaving');
@@ -499,6 +557,8 @@
     }
 
     function dispose() {
+        guideLoadRevision += 1;
+        releasePdfObjectUrl();
         window.clearTimeout(viewerFallbackTimer);
         window.clearTimeout(toastTimer);
         window.clearTimeout(toastCloseTimer);
