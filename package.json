@@ -31,5 +31,8 @@
     "jest-environment-jsdom": "^30.4.1",
     "jsdom": "^26.1.0",
     "playwright": "^1.57.0"
+  },
+  "dependencies": {
+    "pdfjs-dist": "^6.1.200"
   }
 }

@@ -87,8 +87,76 @@
                 <div id="viewer-loading" class="viewer-loading" aria-live="polite">
                     <span></span> Loading guide…
                 </div>
+                <div id="custom-pdf-viewer" class="custom-pdf-viewer" hidden>
+                    <div class="pdf-toolbar" role="toolbar" aria-label="PDF controls">
+                        <div class="pdf-control-group page-controls">
+                            <button id="pdf-previous-page" type="button" aria-label="Previous page" title="Previous page">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+                            </button>
+                            <label class="pdf-page-field">
+                                <span class="sr-only">Page number</span>
+                                <input id="pdf-page-number" type="number" min="1" value="1" inputmode="numeric">
+                            </label>
+                            <span class="pdf-page-total">of <b id="pdf-page-total">–</b></span>
+                            <button id="pdf-next-page" type="button" aria-label="Next page" title="Next page">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+                            </button>
+                        </div>
+                        <span class="pdf-toolbar-divider" aria-hidden="true"></span>
+                        <div class="pdf-control-group zoom-controls">
+                            <button id="pdf-zoom-out" type="button" aria-label="Zoom out" title="Zoom out">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 12h10"/></svg>
+                            </button>
+                            <span id="pdf-zoom-label" class="pdf-zoom-label" aria-live="polite">–</span>
+                            <button id="pdf-zoom-in" type="button" aria-label="Zoom in" title="Zoom in">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 7v10M7 12h10"/></svg>
+                            </button>
+                            <button id="pdf-fit-width" type="button" aria-label="Fit page to panel width" aria-pressed="true" title="Fit to width">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>
+                            </button>
+                        </div>
+                        <span class="pdf-toolbar-spacer"></span>
+                        <button id="pdf-search-toggle" type="button" aria-label="Search this PDF" aria-pressed="false" title="Search PDF">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.3-4.3m2.3-5.2a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"/></svg>
+                        </button>
+                        <a id="pdf-download" class="pdf-download-button" aria-label="Download PDF" title="Download PDF">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+                        </a>
+                    </div>
+                    <form id="pdf-search-bar" class="pdf-search-bar" role="search" hidden>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.3-4.3m2.3-5.2a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"/></svg>
+                        <label class="sr-only" for="pdf-search-input">Search within this PDF</label>
+                        <input id="pdf-search-input" type="search" placeholder="Search in document" autocomplete="off">
+                        <span id="pdf-search-count" class="pdf-search-count" aria-live="polite">0 of 0</span>
+                        <button id="pdf-search-previous" type="button" aria-label="Previous search result" title="Previous result">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 14 5-5 5 5"/></svg>
+                        </button>
+                        <button id="pdf-search-next" type="button" aria-label="Next search result" title="Next result">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+                        </button>
+                        <button id="pdf-search-close" type="button" aria-label="Close PDF search" title="Close search">×</button>
+                    </form>
+                    <div id="pdf-canvas-scroll" class="pdf-canvas-scroll">
+                        <div id="pdf-pages" class="pdf-pages" aria-label="PDF pages"></div>
+                    </div>
+                </div>
                 <iframe id="pdf-frame" title="Help guide PDF"></iframe>
             </div>
+            <aside id="viewer-coachmark" class="viewer-coachmark" role="dialog" aria-modal="false" aria-labelledby="viewer-coachmark-title" hidden>
+                <button id="dismiss-viewer-hint" class="viewer-coachmark-close" type="button" aria-label="Dismiss message">×</button>
+                <span class="viewer-coachmark-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><path d="M8 6 3 12l5 6M16 6l5 6-5 6M3 12h18"/></svg>
+                </span>
+                <div class="viewer-coachmark-copy">
+                    <strong id="viewer-coachmark-title">Need more room?</strong>
+                    <p id="viewer-coachmark-message">Drag the panel edge to expand it, or choose <b>Open</b> for a full-size tab.</p>
+                    <label id="viewer-coachmark-optout" class="viewer-coachmark-optout">
+                        <input id="viewer-coachmark-disable" type="checkbox">
+                        <span>Don't remind me again</span>
+                    </label>
+                </div>
+                <span class="viewer-coachmark-progress" aria-hidden="true"></span>
+            </aside>
             <footer id="viewer-fallback" class="viewer-footer" role="status" hidden>
                 This guide could not be displayed here. Use <strong>Open</strong> above to view it in SharePoint.
             </footer>
@@ -102,6 +170,7 @@
     </main>
     <script src="help-guides-data.js"></script>
     <script src="features/feedback-modal.js"></script>
+    <script src="features/help-guide-pdf-viewer.js"></script>
     <script src="help-guides.js"></script>
 </body>
 </html>

@@ -4,6 +4,7 @@ const { JSDOM } = require('jsdom');
 
 const html = fs.readFileSync(path.resolve(__dirname, '../help-guides.html'), 'utf8');
 const dataCode = fs.readFileSync(path.resolve(__dirname, '../help-guides-data.js'), 'utf8');
+const pdfViewerCode = fs.readFileSync(path.resolve(__dirname, '../features/help-guide-pdf-viewer.js'), 'utf8');
 const appCode = fs.readFileSync(path.resolve(__dirname, '../help-guides.js'), 'utf8');
 
 async function createApp({
@@ -12,7 +13,9 @@ async function createApp({
     sortMode = 'alpha',
     reducedMotion = true,
     nativePanelEvents = false,
-    sharePointBytes = null
+    sharePointBytes = null,
+    viewerHintCount = 0,
+    viewerHintDismissed = false
 } = {}) {
     const dom = new JSDOM(html, {
         runScripts: 'outside-only',
@@ -30,7 +33,9 @@ async function createApp({
                 get: jest.fn((defaults, callback) => callback({
                     ...defaults,
                     helpGuideRecentIds: recent,
-                    helpGuidesSortMode: sortMode
+                    helpGuidesSortMode: sortMode,
+                    helpGuideViewerHintCount: viewerHintCount,
+                    helpGuideViewerHintDismissed: viewerHintDismissed
                 })),
                 set: localSet
             }
@@ -54,15 +59,41 @@ async function createApp({
     }
     dom.window.URL.createObjectURL = jest.fn(() => 'blob:chrome-extension://test/sharepoint-pdf');
     dom.window.URL.revokeObjectURL = jest.fn();
+    const renderTask = { promise: Promise.resolve(), cancel: jest.fn() };
+    const pdfPage = {
+        getViewport: jest.fn(({ scale }) => ({ width: 600 * scale, height: 800 * scale })),
+        render: jest.fn(() => renderTask),
+        getTextContent: jest.fn().mockResolvedValue({
+            items: [{ str: 'Budget approval and supplier mapping guidance' }]
+        })
+    };
+    const pdfDocument = {
+        numPages: 9,
+        getPage: jest.fn().mockResolvedValue(pdfPage),
+        destroy: jest.fn().mockResolvedValue(undefined)
+    };
+    const getDocumentTask = {
+        promise: Promise.resolve(pdfDocument),
+        destroy: jest.fn()
+    };
+    dom.window.pdfjsLib = {
+        GlobalWorkerOptions: {},
+        getDocument: jest.fn(() => getDocumentTask)
+    };
+    dom.window.HTMLCanvasElement.prototype.getContext = jest.fn(() => ({}));
+    const canvasScroll = dom.window.document.getElementById('pdf-canvas-scroll');
+    Object.defineProperty(canvasScroll, 'clientWidth', { configurable: true, value: 440 });
+    canvasScroll.scrollTo = jest.fn();
     Object.defineProperty(dom.window.navigator, 'clipboard', {
         configurable: true,
         value: { writeText: jest.fn().mockResolvedValue(undefined) }
     });
     Object.defineProperty(dom.window.navigator, 'share', { configurable: true, value: undefined });
     dom.window.eval(dataCode);
+    dom.window.eval(pdfViewerCode);
     dom.window.eval(appCode);
     await dom.window.helpGuidesApp.hydratePreferences();
-    return { dom, syncSet, localSet, fetchMock };
+    return { dom, syncSet, localSet, fetchMock, pdfDocument, pdfPage };
 }
 
 function closeApp(dom) {
@@ -276,9 +307,9 @@ describe('Help Guides side panel', () => {
         closeApp(dom);
     });
 
-    test('bypasses the SharePoint preview shell for embedded proof-of-concept PDFs', async () => {
+    test('renders SharePoint PDFs with custom page, zoom and download controls', async () => {
         const pdfBytes = Uint8Array.from([37, 80, 68, 70, 45, 49, 46, 55, 10, 37, 226, 227, 207, 211]).buffer;
-        const { dom, fetchMock } = await createApp({ sharePointBytes: pdfBytes });
+        const { dom, fetchMock, pdfDocument } = await createApp({ sharePointBytes: pdfBytes });
         const { document } = dom.window;
         const guide = dom.window.HELP_GUIDES.find(item => item.id === 'debug-sharepoint-pdf-1');
 
@@ -289,11 +320,94 @@ describe('Help Guides side panel', () => {
             credentials: 'include',
             redirect: 'follow'
         });
-        expect(document.getElementById('pdf-frame').src).toBe('blob:chrome-extension://test/sharepoint-pdf');
+        expect(document.getElementById('custom-pdf-viewer').hidden).toBe(false);
+        expect(document.getElementById('pdf-frame').hidden).toBe(true);
+        expect(document.querySelectorAll('.pdf-page')).toHaveLength(9);
+        expect(document.querySelectorAll('.pdf-page canvas')).toHaveLength(9);
+        expect(document.querySelector('.pdf-page').getAttribute('aria-label')).toBe('Page 1 of 9');
+        expect(document.getElementById('pdf-page-number').value).toBe('1');
+        expect(document.getElementById('pdf-page-total').textContent).toBe('9');
+        expect(document.getElementById('pdf-download').href).toBe('blob:chrome-extension://test/sharepoint-pdf');
+        expect(document.getElementById('pdf-download').download).toBe('test.pdf');
         expect(document.getElementById('open-external').href).toBe(guide.url);
+
+        document.getElementById('pdf-next-page').click();
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        expect(document.getElementById('pdf-page-number').value).toBe('2');
+        expect(document.getElementById('pdf-canvas-scroll').scrollTo).toHaveBeenCalledWith(expect.objectContaining({
+            behavior: 'smooth'
+        }));
+
+        const initialZoom = document.getElementById('pdf-zoom-label').textContent;
+        document.getElementById('pdf-zoom-in').click();
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        expect(document.getElementById('pdf-zoom-label').textContent).not.toBe(initialZoom);
+
+        document.getElementById('pdf-search-toggle').click();
+        const searchInput = document.getElementById('pdf-search-input');
+        searchInput.value = 'supplier';
+        searchInput.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+        await new Promise(resolve => dom.window.setTimeout(resolve, 220));
+        expect(document.getElementById('pdf-search-count').textContent).toBe('1 of 9');
+        expect(document.querySelector('.pdf-page.is-search-result')).not.toBeNull();
+        expect(document.getElementById('pdf-download').textContent.trim()).toBe('');
 
         dom.window.helpGuidesApp.closeGuide();
         expect(dom.window.URL.revokeObjectURL).toHaveBeenCalledWith('blob:chrome-extension://test/sharepoint-pdf');
+        closeApp(dom);
+    });
+
+    test('shows the resize and Open reminder only for the first three PDF loads', async () => {
+        const pdfBytes = Uint8Array.from([37, 80, 68, 70, 45, 49, 46, 55]).buffer;
+        const { dom, localSet } = await createApp({
+            sharePointBytes: pdfBytes,
+            viewerHintCount: 2
+        });
+        const firstGuide = dom.window.HELP_GUIDES.find(item => item.id === 'debug-sharepoint-pdf-1');
+        const secondGuide = dom.window.HELP_GUIDES.find(item => item.id === 'debug-sharepoint-pdf-2');
+
+        await dom.window.helpGuidesApp.openGuide(firstGuide);
+        expect(dom.window.document.getElementById('viewer-coachmark').hidden).toBe(false);
+        expect(dom.window.document.getElementById('viewer-coachmark-title').textContent).toBe('Need more room?');
+        expect(localSet).toHaveBeenCalledWith({ helpGuideViewerHintCount: 3 }, expect.any(Function));
+
+        dom.window.helpGuidesApp.closeGuide();
+        await Promise.resolve();
+        await dom.window.helpGuidesApp.openGuide(secondGuide);
+        expect(dom.window.document.getElementById('viewer-coachmark').hidden).toBe(true);
+        expect(dom.window.helpGuidesApp.getState().viewerHintCount).toBe(3);
+        closeApp(dom);
+    });
+
+    test('allows the resize reminder to be permanently dismissed', async () => {
+        const pdfBytes = Uint8Array.from([37, 80, 68, 70, 45, 49, 46, 55]).buffer;
+        const { dom, localSet } = await createApp({ sharePointBytes: pdfBytes });
+        const guide = dom.window.HELP_GUIDES.find(item => item.id === 'debug-sharepoint-pdf-1');
+
+        await dom.window.helpGuidesApp.openGuide(guide);
+        const optout = dom.window.document.getElementById('viewer-coachmark-disable');
+        optout.checked = true;
+        optout.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+
+        expect(localSet).toHaveBeenCalledWith({ helpGuideViewerHintDismissed: true }, expect.any(Function));
+        expect(dom.window.helpGuidesApp.getState().viewerHintDismissed).toBe(true);
+        closeApp(dom);
+    });
+
+    test('shows a five-second side-panel message after Open is selected', async () => {
+        const pdfBytes = Uint8Array.from([37, 80, 68, 70, 45, 49, 46, 55]).buffer;
+        const { dom } = await createApp({ sharePointBytes: pdfBytes, viewerHintDismissed: true });
+        const guide = dom.window.HELP_GUIDES.find(item => item.id === 'debug-sharepoint-pdf-1');
+        await dom.window.helpGuidesApp.openGuide(guide);
+        const open = dom.window.document.getElementById('open-external');
+        open.addEventListener('click', event => event.preventDefault());
+
+        open.click();
+
+        expect(dom.window.document.getElementById('viewer-coachmark-title').textContent)
+            .toBe('Opened in a new tab');
+        expect(dom.window.document.getElementById('viewer-coachmark-optout').hidden).toBe(true);
+        expect(dom.window.document.querySelector('.viewer-coachmark-progress')).not.toBeNull();
         closeApp(dom);
     });
 

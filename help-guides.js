@@ -21,6 +21,7 @@
     };
     const categoryOrder = new Map(categories.slice(1).map((category, index) => [category, index]));
     const RECENT_LIMIT = 3;
+    const VIEWER_HINT_LIMIT = 3;
 
     let activeCategory = 'All';
     let searchQuery = '';
@@ -34,6 +35,10 @@
     let viewTransitionTimer = null;
     let activePdfObjectUrl = null;
     let guideLoadRevision = 0;
+    let viewerHintCount = 0;
+    let viewerHintDismissed = false;
+    let viewerHintTimer = null;
+    let viewerHintCloseTimer = null;
     const favouriteAnimationTimers = new Set();
     let disableConfirmationActive = false;
     const viewTransitionDuration = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 0 : 280;
@@ -54,6 +59,32 @@
         viewerTitle: document.getElementById('viewer-title'),
         viewerCategory: document.getElementById('viewer-category'),
         frame: document.getElementById('pdf-frame'),
+        customViewer: document.getElementById('custom-pdf-viewer'),
+        pages: document.getElementById('pdf-pages'),
+        canvasScroll: document.getElementById('pdf-canvas-scroll'),
+        pdfPrevious: document.getElementById('pdf-previous-page'),
+        pdfNext: document.getElementById('pdf-next-page'),
+        pdfPageInput: document.getElementById('pdf-page-number'),
+        pdfPageTotal: document.getElementById('pdf-page-total'),
+        pdfZoomOut: document.getElementById('pdf-zoom-out'),
+        pdfZoomIn: document.getElementById('pdf-zoom-in'),
+        pdfZoomLabel: document.getElementById('pdf-zoom-label'),
+        pdfFit: document.getElementById('pdf-fit-width'),
+        pdfDownload: document.getElementById('pdf-download'),
+        pdfSearchToggle: document.getElementById('pdf-search-toggle'),
+        pdfSearchBar: document.getElementById('pdf-search-bar'),
+        pdfSearchInput: document.getElementById('pdf-search-input'),
+        pdfSearchCount: document.getElementById('pdf-search-count'),
+        pdfSearchPrevious: document.getElementById('pdf-search-previous'),
+        pdfSearchNext: document.getElementById('pdf-search-next'),
+        pdfSearchClose: document.getElementById('pdf-search-close'),
+        viewerHint: document.getElementById('viewer-coachmark'),
+        dismissViewerHint: document.getElementById('dismiss-viewer-hint'),
+        viewerHintTitle: document.getElementById('viewer-coachmark-title'),
+        viewerHintMessage: document.getElementById('viewer-coachmark-message'),
+        viewerHintOptout: document.getElementById('viewer-coachmark-optout'),
+        viewerHintDisable: document.getElementById('viewer-coachmark-disable'),
+        viewerHintProgress: document.querySelector('.viewer-coachmark-progress'),
         loading: document.getElementById('viewer-loading'),
         fallback: document.getElementById('viewer-fallback'),
         share: document.getElementById('share-guide'),
@@ -62,6 +93,27 @@
         toastLayer: document.getElementById('panel-toast-layer'),
         toastMessage: document.getElementById('panel-toast-message')
     };
+
+    const pdfViewer = globalThis.helpGuidePdfViewerFeature?.create({
+        pages: elements.pages,
+        scroller: elements.canvasScroll,
+        previous: elements.pdfPrevious,
+        next: elements.pdfNext,
+        pageInput: elements.pdfPageInput,
+        pageTotal: elements.pdfPageTotal,
+        zoomOut: elements.pdfZoomOut,
+        zoomIn: elements.pdfZoomIn,
+        zoomLabel: elements.pdfZoomLabel,
+        fit: elements.pdfFit,
+        download: elements.pdfDownload,
+        searchToggle: elements.pdfSearchToggle,
+        searchBar: elements.pdfSearchBar,
+        searchInput: elements.pdfSearchInput,
+        searchCount: elements.pdfSearchCount,
+        searchPrevious: elements.pdfSearchPrevious,
+        searchNext: elements.pdfSearchNext,
+        searchClose: elements.pdfSearchClose
+    });
 
     function storageGet(area, defaults) {
         return new Promise(resolve => {
@@ -371,13 +423,88 @@
         activePdfObjectUrl = null;
     }
 
+    function hideViewerHint({ animate = false } = {}) {
+        window.clearTimeout(viewerHintTimer);
+        window.clearTimeout(viewerHintCloseTimer);
+        if (!animate || elements.viewerHint.hidden) {
+            elements.viewerHint.hidden = true;
+            elements.viewerHint.classList.remove('is-closing');
+            return;
+        }
+        elements.viewerHint.classList.add('is-closing');
+        viewerHintCloseTimer = window.setTimeout(() => {
+            elements.viewerHint.hidden = true;
+            elements.viewerHint.classList.remove('is-closing');
+        }, 180);
+    }
+
+    function showViewerCoachmark({ title, message, showOptout = false, kind = 'tip' }) {
+        window.clearTimeout(viewerHintTimer);
+        window.clearTimeout(viewerHintCloseTimer);
+        elements.viewerHint.classList.remove('is-closing');
+        elements.viewerHint.dataset.kind = kind;
+        elements.viewerHintTitle.textContent = title;
+        elements.viewerHintMessage.textContent = message;
+        elements.viewerHintOptout.hidden = !showOptout;
+        elements.viewerHintDisable.checked = false;
+        elements.viewerHint.hidden = false;
+        elements.viewerHintProgress.style.animation = 'none';
+        void elements.viewerHintProgress.offsetWidth;
+        elements.viewerHintProgress.style.animation = '';
+        viewerHintTimer = window.setTimeout(() => hideViewerHint({ animate: true }), 5000);
+    }
+
+    function maybeShowViewerHint() {
+        if (!currentGuide || viewerHintDismissed || viewerHintCount >= VIEWER_HINT_LIMIT) return;
+        viewerHintCount += 1;
+        storageSet(globalThis.chrome?.storage?.local, { helpGuideViewerHintCount: viewerHintCount });
+        showViewerCoachmark({
+            title: 'Need more room?',
+            message: 'Drag the panel edge to expand it, or choose Open for a full-size tab.',
+            showOptout: true,
+            kind: 'tip'
+        });
+    }
+
+    function showOpenGuideCoachmark() {
+        showViewerCoachmark({
+            title: 'Opened in a new tab',
+            message: 'You can close the Help Guides side panel if you wish.',
+            kind: 'opened'
+        });
+    }
+
+    function disableViewerHint() {
+        if (!elements.viewerHintDisable.checked) return;
+        viewerHintDismissed = true;
+        storageSet(globalThis.chrome?.storage?.local, { helpGuideViewerHintDismissed: true });
+        hideViewerHint({ animate: true });
+    }
+
+    function getPdfFilename(guide, responseUrl) {
+        try {
+            const filename = decodeURIComponent(new URL(responseUrl).pathname.split('/').pop() || '');
+            if (/\.pdf$/i.test(filename)) return filename;
+        } catch {
+            // Fall back to the guide title for opaque SharePoint share links.
+        }
+        const safeTitle = guide.title.replace(/[\\/:*?"<>|]+/g, '-').trim() || 'Help guide';
+        return `${safeTitle}.pdf`;
+    }
+
     async function loadGuideIntoFrame(guide, revision) {
         const frameUrl = getEmbeddableGuideUrl(guide.url);
         if (!isSharePointPdfShare(guide.url)) {
+            pdfViewer?.clear().catch(() => {});
+            elements.customViewer.hidden = true;
+            elements.frame.hidden = false;
             elements.frame.src = frameUrl;
             return;
         }
 
+        if (!pdfViewer) throw new Error('The custom PDF viewer is unavailable.');
+        elements.customViewer.hidden = false;
+        elements.frame.hidden = true;
         elements.frame.src = 'about:blank';
         try {
             const response = await fetch(frameUrl, {
@@ -398,10 +525,19 @@
             }
 
             activePdfObjectUrl = objectUrl;
-            elements.frame.src = objectUrl;
+            await pdfViewer.load(new Uint8Array(buffer), {
+                downloadUrl: objectUrl,
+                filename: getPdfFilename(guide, response.url || frameUrl)
+            });
+            if (revision !== guideLoadRevision || currentGuide?.id !== guide.id) return;
+            window.clearTimeout(viewerFallbackTimer);
+            elements.loading.hidden = true;
+            elements.fallback.hidden = true;
+            maybeShowViewerHint();
         } catch {
             if (revision !== guideLoadRevision || currentGuide?.id !== guide.id) return;
             window.clearTimeout(viewerFallbackTimer);
+            pdfViewer?.clear().catch(() => {});
             elements.loading.hidden = true;
             elements.fallback.hidden = false;
         }
@@ -410,6 +546,7 @@
     async function openGuide(guide) {
         window.clearTimeout(viewerFallbackTimer);
         window.clearTimeout(viewTransitionTimer);
+        hideViewerHint();
         releasePdfObjectUrl();
         const loadRevision = ++guideLoadRevision;
         currentGuide = guide;
@@ -441,6 +578,8 @@
         window.clearTimeout(viewerFallbackTimer);
         window.clearTimeout(viewTransitionTimer);
         guideLoadRevision += 1;
+        hideViewerHint();
+        pdfViewer?.clear().catch(() => {});
         releasePdfObjectUrl();
         elements.library.hidden = false;
         elements.library.classList.add('is-returning');
@@ -449,6 +588,8 @@
         renderGuides();
         finishViewTransition(() => {
             elements.frame.src = 'about:blank';
+            elements.frame.hidden = false;
+            elements.customViewer.hidden = true;
             elements.fallback.hidden = true;
             elements.viewer.hidden = true;
             elements.viewer.classList.remove('is-leaving');
@@ -558,10 +699,13 @@
 
     function dispose() {
         guideLoadRevision += 1;
+        hideViewerHint();
+        pdfViewer?.dispose().catch(() => {});
         releasePdfObjectUrl();
         window.clearTimeout(viewerFallbackTimer);
         window.clearTimeout(toastTimer);
         window.clearTimeout(toastCloseTimer);
+        window.clearTimeout(viewerHintCloseTimer);
         favouriteAnimationTimers.forEach(timer => window.clearTimeout(timer));
         favouriteAnimationTimers.clear();
     }
@@ -578,13 +722,23 @@
     async function hydratePreferences() {
         const [syncData, localData] = await Promise.all([
             storageGet(globalThis.chrome?.storage?.sync, { helpGuideFavouriteIds: [] }),
-            storageGet(globalThis.chrome?.storage?.local, { helpGuideRecentIds: [], helpGuidesSortMode: 'alpha' })
+            storageGet(globalThis.chrome?.storage?.local, {
+                helpGuideRecentIds: [],
+                helpGuidesSortMode: 'alpha',
+                helpGuideViewerHintCount: 0,
+                helpGuideViewerHintDismissed: false
+            })
         ]);
         favourites = new Set((syncData.helpGuideFavouriteIds || []).filter(id => guides.some(guide => guide.id === id)));
         recentGuideIds = (localData.helpGuideRecentIds || [])
             .filter(id => guides.some(guide => guide.id === id))
             .slice(0, RECENT_LIMIT);
         sortMode = localData.helpGuidesSortMode === 'category' ? 'category' : 'alpha';
+        viewerHintCount = Math.min(
+            VIEWER_HINT_LIMIT,
+            Math.max(0, Number.parseInt(localData.helpGuideViewerHintCount, 10) || 0)
+        );
+        viewerHintDismissed = localData.helpGuideViewerHintDismissed === true;
         updateSortControls();
         renderGuides();
     }
@@ -627,11 +781,17 @@
     elements.share.addEventListener('click', shareCurrentGuide);
     elements.favourite.addEventListener('click', toggleFavourite);
     elements.back.addEventListener('click', closeGuide);
+    elements.dismissViewerHint.addEventListener('click', () => hideViewerHint({ animate: true }));
+    elements.viewerHintDisable.addEventListener('change', disableViewerHint);
+    elements.external.addEventListener('click', showOpenGuideCoachmark);
     elements.frame.addEventListener('load', () => {
+        if (elements.frame.hidden || elements.frame.src === 'about:blank') return;
         window.clearTimeout(viewerFallbackTimer);
         elements.loading.hidden = true;
+        maybeShowViewerHint();
     });
     elements.frame.addEventListener('error', () => {
+        if (elements.frame.hidden) return;
         window.clearTimeout(viewerFallbackTimer);
         elements.loading.hidden = true;
         elements.fallback.hidden = false;
@@ -679,6 +839,8 @@
             sortMode,
             favourites: [...favourites],
             recentGuideIds: [...recentGuideIds],
+            viewerHintCount,
+            viewerHintDismissed,
             currentGuideId: currentGuide?.id || null
         })
     };
