@@ -341,6 +341,18 @@
         elements.favourite.title = isFavourite ? 'Remove favourite' : 'Favourite guide';
     }
 
+    function getEmbeddableGuideUrl(rawUrl) {
+        try {
+            const url = new URL(rawUrl);
+            const isSharePointPdfShare = url.hostname.toLowerCase().endsWith('.sharepoint.com') &&
+                url.pathname.includes('/:b:/');
+            if (isSharePointPdfShare) url.searchParams.set('download', '1');
+            return url.href;
+        } catch {
+            return rawUrl;
+        }
+    }
+
     function openGuide(guide) {
         window.clearTimeout(viewerFallbackTimer);
         window.clearTimeout(viewTransitionTimer);
@@ -351,7 +363,7 @@
         elements.external.href = guide.url;
         elements.loading.hidden = false;
         elements.fallback.hidden = true;
-        elements.frame.src = guide.url;
+        elements.frame.src = getEmbeddableGuideUrl(guide.url);
         elements.viewer.hidden = false;
         elements.viewer.classList.add('is-entering');
         elements.library.classList.add('is-leaving');
@@ -587,6 +599,7 @@
         normalize,
         fuzzyTokenScore,
         scoreGuide,
+        getEmbeddableGuideUrl,
         getFilteredGuides,
         setActiveCategory,
         openGuide,

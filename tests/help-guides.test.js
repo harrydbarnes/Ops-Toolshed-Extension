@@ -246,6 +246,18 @@ describe('Help Guides side panel', () => {
         closeApp(dom);
     });
 
+    test('bypasses the SharePoint preview shell for embedded proof-of-concept PDFs', async () => {
+        const { dom } = await createApp();
+        const { document } = dom.window;
+        const originalUrl = dom.window.HELP_GUIDES.find(guide => guide.id === 'debug-sharepoint-pdf-1').url;
+
+        document.querySelector('[data-guide-id="debug-sharepoint-pdf-1"]').click();
+
+        expect(document.getElementById('pdf-frame').src).toBe(`${originalUrl}?download=1`);
+        expect(document.getElementById('open-external').href).toBe(originalUrl);
+        closeApp(dom);
+    });
+
     test('slides between the guide library and PDF viewer in both directions', async () => {
         const { dom } = await createApp({ reducedMotion: false });
         const { document } = dom.window;
