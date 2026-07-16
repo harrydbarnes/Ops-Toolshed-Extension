@@ -65,6 +65,7 @@ The **Release Notes, Roadmap + Stats** page records local Prisma activity, inclu
 
 - Campaigns visited
 - Time spent waiting and average load time
+- Waiting time by Prisma area, including Home, Plan, Buy, Actualise, Traffic, Analyse and Orders
 - Placements added
 - Reconciliations
 - Broken AppLearn popups blocked

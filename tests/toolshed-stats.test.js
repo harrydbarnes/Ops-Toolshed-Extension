@@ -25,7 +25,12 @@ describe('Toolshed Stats UI', () => {
             placementsAdded: 100
         };
         const dailyStats = {
-            '2023-10-01': { placements: 10, loadingTime: 180, visitedCampaigns: ['c2'] }
+            '2023-10-01': {
+                placements: 10,
+                loadingTime: 180,
+                loadingByArea: { home: 20, buy: 45, actualise: 115 },
+                visitedCampaigns: ['c2']
+            }
         };
 
         await chrome.storage.local.set({ legacyStats, dailyStats, appLearnPopupsBlocked: 7 });
@@ -55,6 +60,13 @@ describe('Toolshed Stats UI', () => {
         // Check Kettle Index: 360 / 45 = 8
         expect(document.getElementById('kettle-index').textContent).toBe('8');
 
+        const areaItems = document.querySelectorAll('#loading-area-breakdown .loading-area-item');
+        expect(areaItems).toHaveLength(8);
+        expect(document.querySelector('[data-loading-area="home"] .loading-area-time').textContent).toBe('20s');
+        expect(document.querySelector('[data-loading-area="buy"] .loading-area-time').textContent).toBe('45s');
+        expect(document.querySelector('[data-loading-area="actualise"] .loading-area-time').textContent).toBe('1m 55s');
+        expect(document.getElementById('loading-area-context').textContent).toContain('3 mins tracked');
+
         // Check Heatmap presence (at least one day should be generated)
         expect(document.getElementById('heatmap').children.length).toBeGreaterThan(300);
     });
@@ -67,6 +79,16 @@ describe('Toolshed Stats UI', () => {
         expect(appLearnRow.classList.contains('applearn-stat-row')).toBe(true);
         expect(appLearnRow.nextElementSibling).toBe(resetButton);
         expect(document.querySelector('.stats-overview #applearn-popups-blocked-stat')).toBeNull();
+    });
+
+    test('places the compact loading-area strip between overview stats and heatmap', () => {
+        const overview = document.querySelector('.stats-overview');
+        const areaSection = document.querySelector('.loading-area-section');
+        const heatmapSection = document.getElementById('heatmap').closest('.stats-section');
+
+        expect(overview.nextElementSibling).toBe(areaSection);
+        expect(areaSection.nextElementSibling).toBe(heatmapSection);
+        expect(css).toMatch(/\.loading-area-grid\s*{[^}]*grid-template-columns:\s*repeat\(8,/s);
     });
 
     test('deep-links tabs and keeps the selected tab across navigation', async () => {

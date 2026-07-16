@@ -52,6 +52,31 @@
         scheduleLoadingCheck();
     }
 
+    function getPrismaArea(url = window.location.href) {
+        let params;
+        try {
+            const parsedUrl = new URL(url, window.location.origin);
+            params = new URLSearchParams(parsedUrl.hash.replace(/^#/, ''));
+        } catch {
+            return 'other';
+        }
+
+        const app = (params.get('osPspId') || '').toLowerCase();
+        const module = (params.get('ptb-mod') || '').toLowerCase();
+        const context = (params.get('ptb-ctx') || '').toLowerCase();
+        const route = (params.get('route') || '').toLowerCase();
+        const showOrders = params.get('showOrders') === 'true';
+
+        if (app === 'cm-dashboard' || route === 'campaigns') return 'home';
+        if (context === 'actualize' || route === 'actualize') return 'actualise';
+        if (showOrders || context === 'ordersummary') return 'orders';
+        if (module === 'plan') return 'plan';
+        if (module === 'traffic') return 'traffic';
+        if (module === 'analyze') return 'analyse';
+        if (module === 'buy') return 'buy';
+        return 'other';
+    }
+
     // --- 2. Track Loading Spinner Time ---
     let loadingSpinnerStartTime = null;
     let loadingCheckScheduled = false;
@@ -80,7 +105,10 @@
             const duration = (Date.now() - loadingSpinnerStartTime) / 1000; // in seconds
             loadingSpinnerStartTime = null;
             console.log(`[Stats Collector] Loading finished. Duration: ${duration.toFixed(2)}s`);
-            if (duration > 0) trackStat('LOADING_TIME', duration);
+            if (duration > 0) trackStat('LOADING_TIME', {
+                seconds: duration,
+                area: getPrismaArea()
+            });
         }
     }
 
@@ -88,7 +116,10 @@
         if (!isEnabled || loadingSpinnerStartTime === null) return;
         const duration = (Date.now() - loadingSpinnerStartTime) / 1000;
         loadingSpinnerStartTime = null;
-        if (duration > 0) trackStat('LOADING_TIME', duration);
+        if (duration > 0) trackStat('LOADING_TIME', {
+            seconds: duration,
+            area: getPrismaArea()
+        });
     }
 
     // --- 3. Track Click Events (Save Placements & Reconciliations) ---
@@ -141,7 +172,8 @@
     window.statsCollector = {
         initialize: initializeStatsCollector,
         trackCampaignId: trackCampaignId,
-        checkLoadingState
+        checkLoadingState,
+        getPrismaArea
     };
 
 })();

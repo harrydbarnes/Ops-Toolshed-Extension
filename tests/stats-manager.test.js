@@ -81,6 +81,7 @@ describe('Stats Manager', () => {
         expect(daily).toBeDefined();
         expect(daily.visitedCampaigns).toContain('c2');
         expect(daily.loadingTime).toBe(2.5);
+        expect(daily.loadingByArea).toEqual({});
         expect(daily.placements).toBe(3);
         expect(daily.reconciliations).toBe(2);
     });
@@ -100,6 +101,23 @@ describe('Stats Manager', () => {
         const daily = store.dailyStats[today];
 
         expect(daily.visitedCampaigns.length).toBe(1);
+    });
+
+    test('records loading time against its Prisma area while retaining the total', async () => {
+        handleTrackStat({
+            type: 'LOADING_TIME',
+            value: { seconds: 3.25, area: 'actualise' }
+        }, {}, () => {});
+        handleTrackStat({
+            type: 'LOADING_TIME',
+            value: { seconds: 1.5, area: 'actualise' }
+        }, {}, () => {});
+        await waitForAsync();
+
+        const store = chrome.storage.local.__getStore();
+        const daily = store.dailyStats['2023-10-27'];
+        expect(daily.loadingTime).toBe(4.75);
+        expect(daily.loadingByArea).toEqual({ actualise: 4.75 });
     });
 
     test('handleTrackStat should recover the start date from existing daily stats', async () => {

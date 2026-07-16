@@ -46,6 +46,7 @@ export function handleTrackStat(request, sender, sendResponse) {
             dailyStats[today] = {
                 placements: 0,
                 loadingTime: 0,
+                loadingByArea: {},
                 visitedCampaigns: [],
                 reconciliations: 0
             };
@@ -56,15 +57,28 @@ export function handleTrackStat(request, sender, sendResponse) {
         if (typeof stats.reconciliations === 'undefined') {
             stats.reconciliations = 0;
         }
+        if (!stats.loadingByArea || typeof stats.loadingByArea !== 'object') {
+            stats.loadingByArea = {};
+        }
 
         if (request.type === 'CAMPAIGN_VISIT') {
             if (!stats.visitedCampaigns.includes(request.value)) {
                 stats.visitedCampaigns.push(request.value);
             }
         } else if (request.type === 'LOADING_TIME') {
-            const val = parseFloat(request.value);
+            const detailedValue = request.value && typeof request.value === 'object'
+                ? request.value
+                : null;
+            const val = parseFloat(detailedValue ? detailedValue.seconds : request.value);
             if (!isNaN(val)) {
                 stats.loadingTime += val;
+                const area = String(detailedValue?.area || '').toLowerCase();
+                const supportedAreas = new Set([
+                    'home', 'plan', 'buy', 'actualise', 'traffic', 'analyse', 'orders', 'other'
+                ]);
+                if (supportedAreas.has(area)) {
+                    stats.loadingByArea[area] = (Number(stats.loadingByArea[area]) || 0) + val;
+                }
             }
         } else if (request.type === 'PLACEMENT_ADDED') {
             const val = parseInt(request.value, 10);

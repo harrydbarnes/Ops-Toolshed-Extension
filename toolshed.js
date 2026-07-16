@@ -99,6 +99,84 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    const LOADING_AREA_CONFIG = [
+        { key: 'home', label: 'Home', color: '#06088d' },
+        { key: 'plan', label: 'Plan', color: '#3656b3' },
+        { key: 'buy', label: 'Buy', color: '#ff4087' },
+        { key: 'actualise', label: 'Actualise', color: '#d92768' },
+        { key: 'traffic', label: 'Traffic', color: '#008f8c' },
+        { key: 'analyse', label: 'Analyse', color: '#7957b8' },
+        { key: 'orders', label: 'Orders', color: '#c77b00' },
+        { key: 'other', label: 'Other', color: '#64748b' }
+    ];
+
+    function formatCompactLoadingTime(totalSeconds) {
+        const seconds = Math.max(0, Number(totalSeconds) || 0);
+        if (seconds < 60) return `${Math.floor(seconds * 10) / 10}s`;
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const remainingSeconds = Math.floor(seconds % 60);
+        if (hours > 0) return `${hours}h ${minutes}m`;
+        return `${minutes}m ${remainingSeconds}s`;
+    }
+
+    function formatAreaTrackingContext(totalSeconds) {
+        if (totalSeconds <= 0) return 'Area tracking starts with this update';
+        if (totalSeconds < 60) return `${formatCompactLoadingTime(totalSeconds)} tracked by area`;
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = Math.floor(totalSeconds % 60);
+        const minuteLabel = minutes === 1 ? 'min' : 'mins';
+        return `${minutes} ${minuteLabel}${seconds ? ` ${seconds}s` : ''} tracked by area`;
+    }
+
+    function renderLoadingAreaBreakdown(dailyStats) {
+        const container = document.getElementById('loading-area-breakdown');
+        const context = document.getElementById('loading-area-context');
+        if (!container || !context) return;
+
+        const totals = Object.fromEntries(LOADING_AREA_CONFIG.map(area => [area.key, 0]));
+        Object.values(dailyStats || {}).forEach(day => {
+            Object.entries(day.loadingByArea || {}).forEach(([area, seconds]) => {
+                if (Object.prototype.hasOwnProperty.call(totals, area)) {
+                    totals[area] += Number(seconds) || 0;
+                }
+            });
+        });
+
+        const trackedTotal = Object.values(totals).reduce((sum, seconds) => sum + seconds, 0);
+        const largestTotal = Math.max(1, ...Object.values(totals));
+        context.textContent = formatAreaTrackingContext(trackedTotal);
+        container.replaceChildren();
+
+        LOADING_AREA_CONFIG.forEach(area => {
+            const item = document.createElement('div');
+            item.className = 'loading-area-item';
+            item.dataset.loadingArea = area.key;
+            item.style.setProperty('--area-color', area.color);
+            item.title = `${area.label}: ${formatCompactLoadingTime(totals[area.key])}`;
+
+            const label = document.createElement('span');
+            label.className = 'loading-area-label';
+            label.textContent = area.label;
+
+            const time = document.createElement('strong');
+            time.className = 'loading-area-time';
+            time.textContent = formatCompactLoadingTime(totals[area.key]);
+
+            const meter = document.createElement('span');
+            meter.className = 'loading-area-meter';
+            meter.setAttribute('aria-hidden', 'true');
+            const fill = document.createElement('span');
+            fill.style.width = totals[area.key] > 0
+                ? `${Math.max(4, (totals[area.key] / largestTotal) * 100)}%`
+                : '0%';
+            meter.appendChild(fill);
+
+            item.append(label, time, meter);
+            container.appendChild(item);
+        });
+    }
+
     function renderHeatmap(dailyStats) {
         const heatmapContainer = document.getElementById('heatmap');
         if (!heatmapContainer) return;
@@ -491,6 +569,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (appLearnPopupsBlockedEl) appLearnPopupsBlockedEl.textContent = Number(data.appLearnPopupsBlocked) || 0;
 
             // Render Visualizations
+            renderLoadingAreaBreakdown(dailyStats);
             renderHeatmap(dailyStats);
             renderCharts(dailyStats);
             renderFunStats(dailyStats, totalLoadingTime, totalPlacements);

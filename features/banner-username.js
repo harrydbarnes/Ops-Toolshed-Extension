@@ -10,9 +10,12 @@
     let settingsLoaded = false;
     let resolvedUsername = null;
     let discoveryPromise = null;
+    let discoveryCheckForUsername = null;
     let storageListenerBound = false;
+    let overlayLifecycleBound = false;
     const attemptedMenus = new WeakSet();
     const lifecycleObservers = new Map();
+    const overlayObservers = new Map();
     let lifecycleApplyScheduled = false;
 
     function queryAllDeep(root = document) {
@@ -62,7 +65,7 @@
             userMenu,
             accountLabel: findDeep('.user-company-name', menuRoot),
             menuTrigger: findDeep('mo-menu', menuRoot),
-            menuActivator: findDeep('.user-menu-label', menuRoot)
+            menuActivator: findDeep('.user-company-name', menuRoot)
         };
     }
 
@@ -137,9 +140,54 @@
         Promise.resolve().then(() => {
             lifecycleApplyScheduled = false;
             if (typeof document === 'undefined' || !document.documentElement) return;
+            discoveryCheckForUsername?.();
             observeLifecycleRoots();
             apply();
         });
+    }
+
+    function observeControlledAccountOverlay() {
+        if (typeof document === 'undefined') return;
+        const { menuTrigger } = getBannerParts();
+        const overlayId = menuTrigger?.getAttribute('aria-controls');
+        const overlay = overlayId ? document.getElementById(overlayId) : null;
+
+        overlayObservers.forEach((record, observedOverlay) => {
+            if (observedOverlay.isConnected && observedOverlay === overlay) return;
+            record.observer.disconnect();
+            overlayObservers.delete(observedOverlay);
+        });
+
+        if (!overlay) return;
+        const root = overlay.shadowRoot || overlay;
+        const existing = overlayObservers.get(overlay);
+        if (existing?.root === root) {
+            scheduleLifecycleApply();
+            return;
+        }
+        existing?.observer.disconnect();
+
+        const observer = new MutationObserver(scheduleLifecycleApply);
+        observer.observe(root, {
+            childList: true,
+            subtree: true,
+            characterData: true,
+            attributes: true,
+            attributeFilter: ['data-full-text']
+        });
+        overlayObservers.set(overlay, { root, observer });
+        scheduleLifecycleApply();
+    }
+
+    function bindOverlayLifecycle() {
+        if (overlayLifecycleBound || typeof document === 'undefined' || !document.body) return;
+        overlayLifecycleBound = true;
+        const observer = new MutationObserver(() => {
+            observeControlledAccountOverlay();
+            Promise.resolve().then(observeControlledAccountOverlay);
+        });
+        observer.observe(document.body, { childList: true });
+        observeControlledAccountOverlay();
     }
 
     function observeLifecycleRoots() {
@@ -171,6 +219,7 @@
             const finish = username => {
                 if (finished) return;
                 finished = true;
+                discoveryCheckForUsername = null;
                 observers.forEach(observer => observer.disconnect());
                 if (timeoutId) clearTimeout(timeoutId);
                 if (username) resolvedUsername = username;
@@ -184,6 +233,7 @@
                 const username = readUsernameFromMenu();
                 if (username) finish(username);
             };
+            discoveryCheckForUsername = checkForUsername;
 
             getObservableRoots().forEach(root => {
                 const observer = new MutationObserver(checkForUsername);
@@ -223,6 +273,7 @@
 
     function initialize() {
         observeLifecycleRoots();
+        bindOverlayLifecycle();
         chrome.storage.sync.get({ [SETTING_KEY]: true }, data => {
             isEnabled = data[SETTING_KEY] !== false;
             settingsLoaded = true;

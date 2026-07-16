@@ -6,10 +6,10 @@ const utilsCode = fs.readFileSync(path.resolve(__dirname, '../../utils.js'), 'ut
 const statsCode = fs.readFileSync(path.resolve(__dirname, '../../features/stats-collector.js'), 'utf8');
 
 describe('loading-time collection', () => {
-    function createCollector() {
+    function createCollector(url = 'https://groupmuk-prisma.mediaocean.com/campaign-management/') {
         const dom = new JSDOM('<!doctype html><html><body></body></html>', {
             runScripts: 'dangerously',
-            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/'
+            url
         });
         const { window } = dom;
         let now = 0;
@@ -54,7 +54,7 @@ describe('loading-time collection', () => {
         expect(window.chrome.runtime.sendMessage).toHaveBeenCalledWith({
             action: 'TRACK_STAT',
             type: 'LOADING_TIME',
-            value: 0.05
+            value: { seconds: 0.05, area: 'other' }
         });
         dom.window.close();
     });
@@ -79,7 +79,7 @@ describe('loading-time collection', () => {
         expect(window.chrome.runtime.sendMessage).toHaveBeenCalledWith({
             action: 'TRACK_STAT',
             type: 'LOADING_TIME',
-            value: 1.5
+            value: { seconds: 1.5, area: 'other' }
         });
         dom.window.close();
     });
@@ -115,8 +115,22 @@ describe('loading-time collection', () => {
         expect(window.chrome.runtime.sendMessage).toHaveBeenCalledWith({
             action: 'TRACK_STAT',
             type: 'LOADING_TIME',
-            value: 3.25
+            value: { seconds: 3.25, area: 'other' }
         });
+        dom.window.close();
+    });
+
+    test.each([
+        ['https://groupmuk-prisma.mediaocean.com/campaign-management/#osPspId=cm-dashboard&route=campaigns', 'home'],
+        ['https://groupmuk-prisma.mediaocean.com/campaign-management/#ptb-mod=plan&ptb-ctx=rfpSummary', 'plan'],
+        ['https://groupmuk-prisma.mediaocean.com/campaign-management/#ptb-mod=buy&ptb-ctx=digital&route=online', 'buy'],
+        ['https://groupmuk-prisma.mediaocean.com/campaign-management/#ptb-mod=buy&ptb-ctx=actualize&route=actualize', 'actualise'],
+        ['https://groupmuk-prisma.mediaocean.com/campaign-management/#ptb-mod=traffic', 'traffic'],
+        ['https://groupmuk-prisma.mediaocean.com/campaign-management/#ptb-mod=analyze', 'analyse'],
+        ['https://groupmuk-prisma.mediaocean.com/campaign-management/#ptb-mod=buy&ptb-ctx=orderSummary&showOrders=true', 'orders']
+    ])('classifies %s as %s', (url, expectedArea) => {
+        const { dom, window } = createCollector(url);
+        expect(window.statsCollector.getPrismaArea()).toBe(expectedArea);
         dom.window.close();
     });
 });

@@ -36,6 +36,7 @@
                     <li>Optionally keep the native Plan, Buy, Traffic, Analyse, and Orders navigation available while working in Actualise.</li>
                     <li>Add an Actualise shortcut beside Orders in the campaign navigation, opening the current Actualise month directly.</li>
                     <li>Unified loading-wheel detection so Loading Facts and waiting-time stats cover visible campaign, Actualise, Mediaocean, and Shadow DOM spinners consistently, including wide loaders without their own Shadow Root.</li>
+                    <li>Added a compact Stats breakdown showing waiting time across Home, Plan, Buy, Actualise, Traffic, Analyse, Orders, and other Prisma areas.</li>
                     <li>Fixed clipped dropdown text in the Submit Feedback modal when it is opened over Prisma.</li>
                     <li>Improved D/O number search and extension message handling so failures return clearer errors instead of silently timing out.</li>
                     <li>Added a Settings choice between the Social Booking Report and the legacy Meta Billing Check, with the popup launcher adapting to the selected workflow.</li>
@@ -167,6 +168,14 @@
                 </div>
 
             </div>
+
+            <section class="loading-area-section" aria-labelledby="loading-area-title">
+                <div class="loading-area-header">
+                    <h3 id="loading-area-title">Waiting time by area</h3>
+                    <span id="loading-area-context">Area tracking starts with this update</span>
+                </div>
+                <div id="loading-area-breakdown" class="loading-area-grid" aria-live="polite"></div>
+            </section>
 
             <!-- Heatmap -->
             <div class="stats-section">

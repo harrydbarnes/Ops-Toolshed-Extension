@@ -8,7 +8,7 @@ const featureCode = fs.readFileSync(
 );
 
 describe('Prisma banner username feature', () => {
-    function createPage({ enabled = true, deferBannerParts = false } = {}) {
+    function createPage({ enabled = true, deferBannerParts = false, deferOverlayUsername = false } = {}) {
         const dom = new JSDOM('<!doctype html><html><body></body></html>', {
             runScripts: 'dangerously',
             url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/'
@@ -28,11 +28,13 @@ describe('Prisma banner username feature', () => {
         menuLabel.appendChild(accountLabel);
         const menuTrigger = window.document.createElement('mo-menu');
         menuTrigger.setAttribute('aria-expanded', 'false');
+        menuTrigger.setAttribute('aria-controls', 'test-account-overlay');
         const attachBannerParts = () => menuShadow.append(menuTrigger, menuLabel);
         if (!deferBannerParts) attachBannerParts();
         window.document.body.appendChild(userMenu);
 
-        menuLabel.addEventListener('click', () => {
+        menuLabel.addEventListener('click', event => {
+            if (event.target !== accountLabel) return;
             triggerClicks += 1;
             const isOpening = menuTrigger.getAttribute('aria-expanded') !== 'true';
             menuTrigger.setAttribute('aria-expanded', String(isOpening));
@@ -46,8 +48,12 @@ describe('Prisma banner username feature', () => {
             username.id = 'mo-user-name';
             username.setAttribute('data-full-text', 'HBARN@NGMCLON');
             username.textContent = 'HBARN@NGMCLON';
-            overlayShadow.appendChild(username);
             window.document.body.appendChild(overlay);
+            if (deferOverlayUsername) {
+                window.setTimeout(() => overlayShadow.appendChild(username), 0);
+            } else {
+                overlayShadow.appendChild(username);
+            }
         });
 
         window.chrome = {
@@ -80,7 +86,7 @@ describe('Prisma banner username feature', () => {
     }
 
     test('replaces the organisation with the username and closes its discovery menu', async () => {
-        const page = createPage();
+        const page = createPage({ deferOverlayUsername: true });
 
         page.window.bannerUsernameFeature.initialize();
         await settleDiscovery(page.window);
