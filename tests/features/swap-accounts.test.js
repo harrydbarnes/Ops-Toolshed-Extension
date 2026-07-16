@@ -10,8 +10,13 @@ describe('Switch Accounts feature', () => {
     let document;
     let waitForElementToDisappear;
 
-    beforeEach(async () => {
+    async function createPage({
+        url = 'https://groupmuk-prisma.mediaocean.com/',
+        swapAccountsEnabled = true,
+        rememberAccountSwitchUrlEnabled = true
+    } = {}) {
         dom = new JSDOM(`<!DOCTYPE html><html><body>
+            <div class="center" id="mo-banner-module-container"><div>Ready</div></div>
             <div id="banner-controls">
                 <mo-banner-user-menu></mo-banner-user-menu>
             </div>
@@ -23,7 +28,7 @@ describe('Switch Accounts feature', () => {
             <button id="saveButton">Save</button>
             <div id="userRegistrationDialog"></div>
         </body></html>`, {
-            url: 'https://groupmuk-prisma.mediaocean.com/',
+            url,
             runScripts: 'dangerously'
         });
 
@@ -43,7 +48,15 @@ describe('Switch Accounts feature', () => {
         };
         window.chrome = {
             runtime: { getURL: jest.fn(() => 'switch-accounts.css') },
-            storage: { sync: { get: jest.fn((key, callback) => callback({ swapAccountsEnabled: true })) } }
+            storage: {
+                sync: {
+                    get: jest.fn((defaults, callback) => callback({
+                        ...defaults,
+                        swapAccountsEnabled,
+                        rememberAccountSwitchUrlEnabled
+                    }))
+                }
+            }
         };
         window.fetch = jest.fn().mockResolvedValue({
             ok: true,
@@ -58,6 +71,10 @@ describe('Switch Accounts feature', () => {
         await Promise.resolve();
         await Promise.resolve();
         await Promise.resolve();
+    }
+
+    beforeEach(async () => {
+        await createPage();
     });
 
     afterEach(() => {
@@ -73,5 +90,52 @@ describe('Switch Accounts feature', () => {
         await Promise.resolve();
 
         expect(waitForElementToDisappear).toHaveBeenCalledWith('#userRegistrationDialog', 15000);
+    });
+
+    test('captures the current Prisma URL when the native account dialog is saved', () => {
+        window.history.replaceState({}, '', '/campaign-management/#osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&route=online');
+
+        document.getElementById('saveButton').click();
+
+        const pending = JSON.parse(window.sessionStorage.getItem('opsToolshedAccountSwitchReturn'));
+        expect(pending.url).toBe(window.location.href);
+        expect(pending.createdAt).toEqual(expect.any(Number));
+    });
+
+    test('restores the remembered campaign after the switched account reaches Home', async () => {
+        dom.window.close();
+        const target = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=buy&route=online';
+        await createPage({
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osPspId=cm-dashboard&route=campaigns'
+        });
+        window.sessionStorage.setItem('opsToolshedAccountSwitchReturn', JSON.stringify({
+            url: target,
+            createdAt: Date.now()
+        }));
+
+        window.swapAccountsFeature.restorePendingUrl();
+        await new Promise(resolve => window.setTimeout(resolve, 250));
+
+        expect(window.location.href).toBe(target);
+        expect(window.sessionStorage.getItem('opsToolshedAccountSwitchReturn')).toBeNull();
+    });
+
+    test('does not capture or restore URLs when remembering is disabled', async () => {
+        dom.window.close();
+        await createPage({ rememberAccountSwitchUrlEnabled: false });
+
+        document.getElementById('saveButton').click();
+
+        expect(window.sessionStorage.getItem('opsToolshedAccountSwitchReturn')).toBeNull();
+    });
+
+    test('still captures native account switches when the custom button is disabled', async () => {
+        dom.window.close();
+        await createPage({ swapAccountsEnabled: false });
+
+        document.getElementById('saveButton').click();
+
+        expect(document.querySelector('.switch-account-button')).toBeNull();
+        expect(window.sessionStorage.getItem('opsToolshedAccountSwitchReturn')).not.toBeNull();
     });
 });

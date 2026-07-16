@@ -35,6 +35,7 @@ const SETTINGS_DEFAULTS = Object.freeze({
     countPlacementsSelectedEnabled: true,
     approverWidgetOptimiseEnabled: true,
     swapAccountsEnabled: true,
+    rememberAccountSwitchUrlEnabled: true,
     bannerUsernameEnabled: true,
     alwaysShowCommentsEnabled: true,
     orderIdCopyEnabled: true,
@@ -808,6 +809,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupToggle('countPlacementsSelectedToggle', 'countPlacementsSelectedEnabled', 'Count Placements Selected setting saved:', settings);
     setupToggle('approverWidgetOptimiseToggle', 'approverWidgetOptimiseEnabled', 'Approver Widget Optimise setting saved:', settings);
     setupToggle('swapAccountsToggle', 'swapAccountsEnabled', 'Switch Accounts setting saved:', settings);
+    setupToggle('rememberAccountSwitchUrlToggle', 'rememberAccountSwitchUrlEnabled', 'Remember page after account switch setting saved:', settings);
     setupToggle('bannerUsernameToggle', 'bannerUsernameEnabled', 'Prisma banner username setting saved:', settings);
     setupToggle('seeCommentsOnLockedBuysToggle', 'alwaysShowCommentsEnabled', 'See Comments on Locked Buys setting saved:', settings);
     setupToggle('orderIdCopyToggle', 'orderIdCopyEnabled', 'Order ID Copy setting saved:', settings);

@@ -40,6 +40,13 @@ describe('campaign navigation settings', () => {
         expect(settingsScript).toContain("setupToggle('campaignTabTitleToggle', 'campaignTabTitleEnabled'");
     });
 
+    test('exposes the account-switch return toggle independently of the custom switch button', () => {
+        expect(settingsHtml).toContain('id="rememberAccountSwitchUrlToggle"');
+        expect(settingsScript).toContain(
+            "setupToggle('rememberAccountSwitchUrlToggle', 'rememberAccountSwitchUrlEnabled'"
+        );
+    });
+
     test('keeps an open Settings page synced with popup storage changes', () => {
         expect(settingsScript).toContain("chrome.storage.onChanged.addListener((changes, area) =>");
         expect(settingsScript).toContain('input.checked = changes[storageKey].newValue !== false');

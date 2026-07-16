@@ -2,6 +2,13 @@
     'use strict';
 
     const TOAST_ID = 'ops-toolshed-toast';
+    const RETURN_URL_KEY = 'opsToolshedAccountSwitchReturn';
+    const RETURN_URL_TTL_MS = 2 * 60 * 1000;
+    const RESTORE_WINDOW_MS = 30 * 1000;
+    let rememberReturnUrlEnabled = true;
+    let accountSaveCaptureBound = false;
+    let storageListenerBound = false;
+    let restoreTimer = null;
 
     function getText(element) {
         return (element?.innerText || element?.textContent || '').replace(/\s+/g, ' ').trim();
@@ -86,6 +93,127 @@
         element.dispatchEvent(new view.MouseEvent('click', { ...baseOptions, buttons: 0 }));
     }
 
+    function getHashParams(url) {
+        return new URLSearchParams(url.hash.replace(/^#/, ''));
+    }
+
+    function isPrismaHome(url) {
+        const params = getHashParams(url);
+        return (params.get('osPspId') || '').toLowerCase() === 'cm-dashboard' ||
+            (params.get('route') || '').toLowerCase() === 'campaigns';
+    }
+
+    function isPrismaShellReady() {
+        const banner = document.getElementById('mo-banner-module-container');
+        return Boolean(banner && (banner.childElementCount > 0 || banner.textContent.trim()));
+    }
+
+    function readPendingReturnUrl() {
+        try {
+            const pending = JSON.parse(window.sessionStorage.getItem(RETURN_URL_KEY));
+            if (!pending?.url || !Number.isFinite(pending.createdAt)) return null;
+            if (Date.now() - pending.createdAt > RETURN_URL_TTL_MS) {
+                window.sessionStorage.removeItem(RETURN_URL_KEY);
+                return null;
+            }
+
+            const target = new URL(pending.url);
+            if (target.origin !== window.location.origin || target.protocol !== 'https:') {
+                window.sessionStorage.removeItem(RETURN_URL_KEY);
+                return null;
+            }
+            return { ...pending, target };
+        } catch {
+            window.sessionStorage.removeItem(RETURN_URL_KEY);
+            return null;
+        }
+    }
+
+    function rememberCurrentUrl() {
+        if (!rememberReturnUrlEnabled) return;
+        try {
+            const current = new URL(window.location.href);
+            const isMediaoceanHost = current.hostname === 'mediaocean.com' ||
+                current.hostname.endsWith('.mediaocean.com');
+            if (current.protocol !== 'https:' || !isMediaoceanHost) return;
+            window.sessionStorage.setItem(RETURN_URL_KEY, JSON.stringify({
+                url: current.href,
+                createdAt: Date.now()
+            }));
+        } catch (error) {
+            console.debug('Switch Accounts: Could not remember the current URL.', error);
+        }
+    }
+
+    function navigateToRememberedUrl(target) {
+        window.sessionStorage.removeItem(RETURN_URL_KEY);
+        const current = new URL(window.location.href);
+        if (current.origin === target.origin &&
+            current.pathname === target.pathname &&
+            current.search === target.search) {
+            window.location.hash = target.hash;
+            return;
+        }
+        window.location.replace(target.href);
+    }
+
+    function restorePendingUrl() {
+        clearTimeout(restoreTimer);
+        if (!rememberReturnUrlEnabled) return;
+
+        const restoreStartedAt = Date.now();
+        const check = () => {
+            const pending = readPendingReturnUrl();
+            if (!pending) return;
+
+            const current = new URL(window.location.href);
+            if (current.href !== pending.target.href && isPrismaHome(current) && isPrismaShellReady()) {
+                navigateToRememberedUrl(pending.target);
+                return;
+            }
+
+            if (current.href === pending.target.href && isPrismaHome(current) && isPrismaShellReady()) {
+                window.sessionStorage.removeItem(RETURN_URL_KEY);
+                return;
+            }
+
+            if (Date.now() - restoreStartedAt < RESTORE_WINDOW_MS) {
+                restoreTimer = window.setTimeout(check, 150);
+            }
+        };
+
+        check();
+    }
+
+    function isAccountDialogSave(event) {
+        const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+        const clickedSave = path.find(element => element?.id === 'saveButton') ||
+            event.target?.closest?.('#saveButton');
+        if (!clickedSave) return false;
+        return Boolean(document.getElementById('userRegistrationDialog') || document.querySelector('.pid-options'));
+    }
+
+    function bindAccountSaveCapture() {
+        if (accountSaveCaptureBound) return;
+        accountSaveCaptureBound = true;
+        document.addEventListener('click', event => {
+            if (isAccountDialogSave(event)) rememberCurrentUrl();
+        }, true);
+    }
+
+    function bindSettingChanges() {
+        if (storageListenerBound || !chrome.storage?.onChanged) return;
+        storageListenerBound = true;
+        chrome.storage.onChanged.addListener((changes, areaName) => {
+            if (areaName !== 'sync' || !changes.rememberAccountSwitchUrlEnabled) return;
+            rememberReturnUrlEnabled = changes.rememberAccountSwitchUrlEnabled.newValue !== false;
+            if (!rememberReturnUrlEnabled) {
+                clearTimeout(restoreTimer);
+                window.sessionStorage.removeItem(RETURN_URL_KEY);
+            }
+        });
+    }
+
     function removeExistingToast() {
         document.getElementById(TOAST_ID)?.remove();
     }
@@ -143,6 +271,7 @@
 
             const saveButton = await utils.waitForElement('#saveButton');
             if (!saveButton) throw new Error('Save button not found.');
+            rememberCurrentUrl();
             clickElement(saveButton);
 
             utils.showToast('Accounts swapped! Page will reload.', 'success');
@@ -211,7 +340,18 @@ const swapIconSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
     }
 
     function initialize() {
-        chrome.storage.sync.get('swapAccountsEnabled', (data) => {
+        chrome.storage.sync.get({
+            swapAccountsEnabled: true,
+            rememberAccountSwitchUrlEnabled: true
+        }, (data) => {
+            rememberReturnUrlEnabled = data.rememberAccountSwitchUrlEnabled !== false;
+            bindAccountSaveCapture();
+            bindSettingChanges();
+            if (rememberReturnUrlEnabled) {
+                restorePendingUrl();
+            } else {
+                window.sessionStorage.removeItem(RETURN_URL_KEY);
+            }
             if (data.swapAccountsEnabled !== false) {
                 addSwapAccountsButton();
             }
@@ -219,6 +359,7 @@ const swapIconSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
     }
 
     window.swapAccountsFeature = {
-        initialize
+        initialize,
+        restorePendingUrl
     };
 })();

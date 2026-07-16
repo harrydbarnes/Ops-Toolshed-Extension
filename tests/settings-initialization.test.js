@@ -22,6 +22,7 @@ const EXPECTED_DEFAULTS = {
     countPlacementsSelectedEnabled: true,
     approverWidgetOptimiseEnabled: true,
     swapAccountsEnabled: true,
+    rememberAccountSwitchUrlEnabled: true,
     bannerUsernameEnabled: true,
     alwaysShowCommentsEnabled: true,
     orderIdCopyEnabled: true,
