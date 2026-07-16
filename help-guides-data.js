@@ -4,6 +4,23 @@
     const TEST_PDF_URL = 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
 
     window.HELP_GUIDES = [
+        {
+            id: 'debug-sharepoint-pdf-1',
+            title: 'SharePoint PDF test 1',
+            category: 'Proof of concept',
+            tags: ['debug', 'sharepoint', 'pdf', 'proof of concept'],
+            url: 'https://insidemedia.sharepoint.com/:b:/s/TPO-SharePoint/IQD2h7DtgPh2TKi7Cd07B6mwAbrR--kfQp2O_c7BcTQvaeg',
+            isDebug: true
+        },
+        {
+            id: 'debug-sharepoint-pdf-2',
+            title: 'SharePoint PDF test 2',
+            category: 'Proof of concept',
+            tags: ['debug', 'sharepoint', 'pdf', 'proof of concept'],
+            url: 'https://insidemedia.sharepoint.com/:b:/s/TPO-SharePoint/IQB4s1rHzJ7vS7sUrPpXSCL0Ad4XLsHTFghMoSgXh8FAeoI',
+            isDebug: true
+        },
+
         { id: 'access-getting-started', title: 'Getting Started User Information and Client Access', category: 'Access', tags: ['getting started', 'user information', 'onboarding', 'client access'], url: TEST_PDF_URL },
         { id: 'access-client', title: 'Client Access', category: 'Access', tags: ['client', 'permissions', 'login', 'access'], url: TEST_PDF_URL },
         { id: 'access-support', title: 'Support', category: 'Access', tags: ['support', 'help', 'contact', 'access'], url: TEST_PDF_URL },

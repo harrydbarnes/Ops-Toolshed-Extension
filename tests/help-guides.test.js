@@ -51,14 +51,18 @@ function closeApp(dom) {
 }
 
 describe('Help Guides side panel', () => {
-    test('renders all 21 unique guides and the seven requested category controls', async () => {
+    test('renders the 21 library guides plus two SharePoint proof-of-concept PDFs', async () => {
         const { dom } = await createApp();
         const labels = [...dom.window.document.querySelectorAll('.category-filter')].map(node => node.textContent);
 
-        expect(dom.window.document.querySelectorAll('.guide-card')).toHaveLength(21);
-        expect(dom.window.document.querySelectorAll('.guide-card-favourite')).toHaveLength(21);
+        expect(dom.window.document.querySelectorAll('.guide-card')).toHaveLength(23);
+        expect(dom.window.document.querySelectorAll('.guide-card-favourite')).toHaveLength(23);
         expect(labels).toEqual(['All', 'Access', 'Approval', 'Booking', 'Reconcile', 'Supplier Integrations', 'Traffic']);
-        expect(dom.window.document.getElementById('results-summary').textContent).toBe('21 guides');
+        expect(dom.window.document.getElementById('results-summary').textContent).toBe('23 guides');
+        const debugSection = dom.window.document.querySelector('.guide-section.is-debug');
+        expect(debugSection.querySelector('.guide-section-title').textContent).toContain('Example PDFs · Debugging');
+        expect([...debugSection.querySelectorAll('.guide-card')].map(card => card.dataset.guideId))
+            .toEqual(['debug-sharepoint-pdf-1', 'debug-sharepoint-pdf-2']);
         expect([...dom.window.document.querySelectorAll('.guide-card strong')]
             .filter(node => node.textContent === 'Suppliers')).toHaveLength(1);
         closeApp(dom);
@@ -95,7 +99,7 @@ describe('Help Guides side panel', () => {
         document.querySelector('[data-sort="category"]').click();
         expect(document.querySelector('[data-sort="category"]').getAttribute('aria-pressed')).toBe('true');
         expect([...document.querySelectorAll('.guide-section-title')].map(node => node.textContent))
-            .toEqual(['Access', 'Approval', 'Booking', 'Reconcile', 'Supplier Integrations', 'Traffic']);
+            .toEqual(['◇Example PDFs · Debugging', 'Access', 'Approval', 'Booking', 'Reconcile', 'Supplier Integrations', 'Traffic']);
         expect(localSet).toHaveBeenCalledWith({ helpGuidesSortMode: 'category' }, expect.any(Function));
 
         document.querySelector('[data-sort="alpha"]').click();
@@ -106,7 +110,7 @@ describe('Help Guides side panel', () => {
     test('uses coloured category abbreviations and visually distinct tag chips', async () => {
         const { dom } = await createApp();
         const { document } = dom.window;
-        const expected = ['Acc', 'Appr', 'Book', 'Rec', 'Int', 'Tfc'];
+        const expected = ['POC', 'Acc', 'Appr', 'Book', 'Rec', 'Int', 'Tfc'];
 
         expect(new Set([...document.querySelectorAll('.guide-file-icon')].map(node => node.textContent)))
             .toEqual(new Set(expected));
@@ -130,7 +134,7 @@ describe('Help Guides side panel', () => {
 
         document.getElementById('clear-search').click();
         expect(document.querySelector('[data-category="All"]').getAttribute('aria-pressed')).toBe('true');
-        expect(document.querySelectorAll('.guide-card')).toHaveLength(21);
+        expect(document.querySelectorAll('.guide-card')).toHaveLength(23);
         closeApp(dom);
     });
 
@@ -140,8 +144,10 @@ describe('Help Guides side panel', () => {
         });
         const { document } = dom.window;
 
-        expect(document.querySelector('.guide-section-title').textContent).toContain('Recently accessed');
-        expect([...document.querySelectorAll('.guide-section')[0].querySelectorAll('.guide-card strong')]
+        const recentSection = [...document.querySelectorAll('.guide-section')]
+            .find(section => section.querySelector('.guide-section-title')?.textContent.includes('Recently accessed'));
+        expect(recentSection).toBeDefined();
+        expect([...recentSection.querySelectorAll('.guide-card strong')]
             .map(node => node.textContent)).toEqual(['Support', 'Budget Approval', 'Booking Categories']);
 
         document.querySelector('[data-guide-id="traffic-supplier-mappings"]').click();
@@ -162,8 +168,10 @@ describe('Help Guides side panel', () => {
 
         document.getElementById('back-to-guides').click();
         const sectionTitles = [...document.querySelectorAll('.guide-section-title')].map(node => node.textContent);
-        expect(sectionTitles[0]).toContain('Favourites');
-        expect(document.querySelector('.guide-section .guide-card strong').textContent).toBe('Budget Approval');
+        expect(sectionTitles[1]).toContain('Favourites');
+        const favouriteSection = [...document.querySelectorAll('.guide-section')]
+            .find(section => section.querySelector('.guide-section-title')?.textContent.includes('Favourites'));
+        expect(favouriteSection.querySelector('.guide-card strong').textContent).toBe('Budget Approval');
         expect(document.querySelector('.guide-card-favourite[aria-pressed="true"]').getAttribute('aria-label'))
             .toBe('Remove Budget Approval from favourites');
         closeApp(dom);

@@ -7,7 +7,8 @@
         Booking: '#d28b25',
         Reconcile: '#3b7c95',
         'Supplier Integrations': '#5d8c68',
-        Traffic: '#c15d76'
+        Traffic: '#c15d76',
+        'Proof of concept': '#596273'
     };
     const categoryAbbreviations = {
         Access: 'Acc',
@@ -15,7 +16,8 @@
         Booking: 'Book',
         Reconcile: 'Rec',
         'Supplier Integrations': 'Int',
-        Traffic: 'Tfc'
+        Traffic: 'Tfc',
+        'Proof of concept': 'POC'
     };
     const categoryOrder = new Map(categories.slice(1).map((category, index) => [category, index]));
     const RECENT_LIMIT = 3;
@@ -252,9 +254,10 @@
         return shell;
     }
 
-    function createGuideSection(label, sectionGuides, icon = '') {
+    function createGuideSection(label, sectionGuides, icon = '', variant = '') {
         const section = document.createElement('section');
         section.className = 'guide-section';
+        if (variant) section.classList.add(`is-${variant}`);
         if (label) {
             const heading = document.createElement('h2');
             heading.className = 'guide-section-title';
@@ -275,8 +278,10 @@
     function getGuideSections(filteredGuides) {
         if (activeCategory !== 'All') return [{ label: '', guides: filteredGuides }];
 
-        const filteredIds = new Set(filteredGuides.map(guide => guide.id));
-        const favouriteGuides = filteredGuides.filter(guide => favourites.has(guide.id));
+        const debugGuides = filteredGuides.filter(guide => guide.isDebug === true);
+        const standardGuides = filteredGuides.filter(guide => guide.isDebug !== true);
+        const filteredIds = new Set(standardGuides.map(guide => guide.id));
+        const favouriteGuides = standardGuides.filter(guide => favourites.has(guide.id));
         const favouriteIds = new Set(favouriteGuides.map(guide => guide.id));
         const recentGuides = recentGuideIds
             .filter(id => filteredIds.has(id) && !favouriteIds.has(id))
@@ -284,9 +289,12 @@
             .filter(Boolean)
             .slice(0, RECENT_LIMIT);
         const pinnedIds = new Set([...favouriteIds, ...recentGuides.map(guide => guide.id)]);
-        const remainingGuides = filteredGuides.filter(guide => !pinnedIds.has(guide.id));
+        const remainingGuides = standardGuides.filter(guide => !pinnedIds.has(guide.id));
         const sections = [];
 
+        if (debugGuides.length) {
+            sections.push({ label: 'Example PDFs · Debugging', icon: '◇', guides: debugGuides, variant: 'debug' });
+        }
         if (favouriteGuides.length) sections.push({ label: 'Favourites', icon: '★', guides: favouriteGuides });
         if (recentGuides.length) sections.push({ label: 'Recently accessed', icon: '↻', guides: recentGuides });
 
@@ -305,7 +313,7 @@
         const filteredGuides = getFilteredGuides();
         const sections = getGuideSections(filteredGuides);
         elements.list.replaceChildren(...sections.map(section =>
-            createGuideSection(section.label, section.guides, section.icon)
+            createGuideSection(section.label, section.guides, section.icon, section.variant)
         ));
         elements.empty.hidden = filteredGuides.length > 0;
         elements.list.hidden = filteredGuides.length === 0;
