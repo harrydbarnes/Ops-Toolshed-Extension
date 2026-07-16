@@ -2,6 +2,8 @@ import { approversData } from '../approvers-data.js';
 
 const openHelpGuideTabs = new Set();
 const OPEN_HELP_GUIDE_TABS_KEY = 'openHelpGuideTabIds';
+const ACCOUNT_SWITCH_RETURN_URLS_KEY = 'accountSwitchReturnUrlsByTab';
+const ACCOUNT_SWITCH_RETURN_TTL_MS = 2 * 60 * 1000;
 import { scrapeAndDownloadCsv } from './meta-billing-scraper.js';
 import { handleTrackStat } from './stats-manager.js';
 
@@ -14,6 +16,74 @@ function isTransientReceiverError(error) {
     return message.includes('could not establish connection') ||
         message.includes('receiving end does not exist') ||
         message.includes('message port closed before a response was received');
+}
+
+function getVerifiedPrismaRequest(request, sender) {
+    const tabId = sender?.tab?.id;
+    let senderUrl;
+    let requestedUrl;
+    try {
+        senderUrl = new URL(sender?.url || '');
+        requestedUrl = request?.url ? new URL(request.url) : null;
+    } catch {
+        return null;
+    }
+
+    const isMediaoceanHost = senderUrl.hostname === 'mediaocean.com' ||
+        senderUrl.hostname.endsWith('.mediaocean.com');
+    if (!tabId || senderUrl.protocol !== 'https:' || !isMediaoceanHost) return null;
+    if (requestedUrl && requestedUrl.origin !== senderUrl.origin) return null;
+    return { tabId, requestedUrl };
+}
+
+async function getAccountSwitchReturnUrls() {
+    const stored = await chrome.storage.session.get({ [ACCOUNT_SWITCH_RETURN_URLS_KEY]: {} });
+    const urlsByTab = { ...(stored[ACCOUNT_SWITCH_RETURN_URLS_KEY] || {}) };
+    const now = Date.now();
+    let changed = false;
+    Object.entries(urlsByTab).forEach(([tabId, pending]) => {
+        if (!pending?.url || !Number.isFinite(pending.createdAt) ||
+            now - pending.createdAt > ACCOUNT_SWITCH_RETURN_TTL_MS) {
+            delete urlsByTab[tabId];
+            changed = true;
+        }
+    });
+    if (changed) await chrome.storage.session.set({ [ACCOUNT_SWITCH_RETURN_URLS_KEY]: urlsByTab });
+    return urlsByTab;
+}
+
+async function rememberAccountSwitchUrl(request, sender, sendResponse) {
+    const verified = getVerifiedPrismaRequest(request, sender);
+    if (!verified?.requestedUrl) {
+        sendResponse({ status: 'error', message: 'Invalid account-switch return URL.' });
+        return;
+    }
+    const urlsByTab = await getAccountSwitchReturnUrls();
+    urlsByTab[verified.tabId] = { url: verified.requestedUrl.href, createdAt: Date.now() };
+    await chrome.storage.session.set({ [ACCOUNT_SWITCH_RETURN_URLS_KEY]: urlsByTab });
+    sendResponse({ status: 'success' });
+}
+
+async function getAccountSwitchUrl(request, sender, sendResponse) {
+    const verified = getVerifiedPrismaRequest(request, sender);
+    if (!verified) {
+        sendResponse({ status: 'error', message: 'Could not identify the Prisma tab.' });
+        return;
+    }
+    const urlsByTab = await getAccountSwitchReturnUrls();
+    sendResponse({ status: 'success', url: urlsByTab[verified.tabId]?.url || null });
+}
+
+async function clearAccountSwitchUrl(request, sender, sendResponse) {
+    const verified = getVerifiedPrismaRequest(request, sender);
+    if (!verified) {
+        sendResponse({ status: 'error', message: 'Could not identify the Prisma tab.' });
+        return;
+    }
+    const urlsByTab = await getAccountSwitchReturnUrls();
+    delete urlsByTab[verified.tabId];
+    await chrome.storage.session.set({ [ACCOUNT_SWITCH_RETURN_URLS_KEY]: urlsByTab });
+    sendResponse({ status: 'success' });
 }
 
 async function disableTimeBomb(request, sender, sendResponse) {
@@ -310,5 +380,8 @@ export const messageHandlers = {
     helpGuidesPanelOpened: updateHelpGuidesPanelState,
     helpGuidesPanelClosed: updateHelpGuidesPanelState,
     requestCampaignDetailsBasicFocus,
+    rememberAccountSwitchUrl,
+    getAccountSwitchUrl,
+    clearAccountSwitchUrl,
     TRACK_STAT: handleTrackStat
 };

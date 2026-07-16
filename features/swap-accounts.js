@@ -2,9 +2,10 @@
     'use strict';
 
     const TOAST_ID = 'ops-toolshed-toast';
-    const RETURN_URL_KEY = 'opsToolshedAccountSwitchReturn';
-    const RETURN_URL_TTL_MS = 2 * 60 * 1000;
-    const RESTORE_WINDOW_MS = 30 * 1000;
+    const RESTORE_WINDOW_MS = 60 * 1000;
+    const HOME_STABLE_MS = 1000;
+    const TARGET_STABLE_MS = 5000;
+    const RESTORE_POLL_MS = 150;
     let rememberReturnUrlEnabled = true;
     let accountSaveCaptureBound = false;
     let storageListenerBound = false;
@@ -108,45 +109,37 @@
         return Boolean(banner && (banner.childElementCount > 0 || banner.textContent.trim()));
     }
 
-    function readPendingReturnUrl() {
+    async function getPendingReturnUrl() {
         try {
-            const pending = JSON.parse(window.sessionStorage.getItem(RETURN_URL_KEY));
-            if (!pending?.url || !Number.isFinite(pending.createdAt)) return null;
-            if (Date.now() - pending.createdAt > RETURN_URL_TTL_MS) {
-                window.sessionStorage.removeItem(RETURN_URL_KEY);
-                return null;
-            }
-
-            const target = new URL(pending.url);
-            if (target.origin !== window.location.origin || target.protocol !== 'https:') {
-                window.sessionStorage.removeItem(RETURN_URL_KEY);
-                return null;
-            }
-            return { ...pending, target };
+            const response = await chrome.runtime.sendMessage({ action: 'getAccountSwitchUrl' });
+            if (response?.status !== 'success' || !response.url) return null;
+            const target = new URL(response.url);
+            if (target.origin !== window.location.origin || target.protocol !== 'https:') return null;
+            return target;
         } catch {
-            window.sessionStorage.removeItem(RETURN_URL_KEY);
             return null;
         }
     }
 
-    function rememberCurrentUrl() {
-        if (!rememberReturnUrlEnabled) return;
+    async function rememberCurrentUrl() {
+        if (!rememberReturnUrlEnabled) return false;
         try {
             const current = new URL(window.location.href);
             const isMediaoceanHost = current.hostname === 'mediaocean.com' ||
                 current.hostname.endsWith('.mediaocean.com');
-            if (current.protocol !== 'https:' || !isMediaoceanHost) return;
-            window.sessionStorage.setItem(RETURN_URL_KEY, JSON.stringify({
-                url: current.href,
-                createdAt: Date.now()
-            }));
+            if (current.protocol !== 'https:' || !isMediaoceanHost) return false;
+            const response = await chrome.runtime.sendMessage({
+                action: 'rememberAccountSwitchUrl',
+                url: current.href
+            });
+            return response?.status === 'success';
         } catch (error) {
             console.debug('Switch Accounts: Could not remember the current URL.', error);
+            return false;
         }
     }
 
     function navigateToRememberedUrl(target) {
-        window.sessionStorage.removeItem(RETURN_URL_KEY);
         const current = new URL(window.location.href);
         if (current.origin === target.origin &&
             current.pathname === target.pathname &&
@@ -157,47 +150,76 @@
         window.location.replace(target.href);
     }
 
-    function restorePendingUrl() {
+    async function clearPendingReturnUrl() {
+        try {
+            await chrome.runtime.sendMessage({ action: 'clearAccountSwitchUrl' });
+        } catch {
+            // Pending worker state expires automatically if this message cannot be delivered.
+        }
+    }
+
+    async function restorePendingUrl() {
         clearTimeout(restoreTimer);
         if (!rememberReturnUrlEnabled) return;
 
+        const target = await getPendingReturnUrl();
+        if (!target) return;
         const restoreStartedAt = Date.now();
+        let homeStableSince = null;
+        let targetStableSince = null;
+        let hasObservedForcedHome = false;
         const check = () => {
-            const pending = readPendingReturnUrl();
-            if (!pending) return;
-
             const current = new URL(window.location.href);
-            if (current.href !== pending.target.href && isPrismaHome(current) && isPrismaShellReady()) {
-                navigateToRememberedUrl(pending.target);
-                return;
+            const now = Date.now();
+            if (current.href === target.href) {
+                homeStableSince = null;
+                targetStableSince ??= now;
+                if (hasObservedForcedHome && now - targetStableSince >= TARGET_STABLE_MS) {
+                    void clearPendingReturnUrl();
+                    return;
+                }
+            } else {
+                targetStableSince = null;
+                if (isPrismaHome(current) && isPrismaShellReady()) {
+                    hasObservedForcedHome = true;
+                    homeStableSince ??= now;
+                    if (now - homeStableSince >= HOME_STABLE_MS) {
+                        navigateToRememberedUrl(target);
+                        homeStableSince = null;
+                    }
+                } else {
+                    homeStableSince = null;
+                }
             }
 
-            if (current.href === pending.target.href && isPrismaHome(current) && isPrismaShellReady()) {
-                window.sessionStorage.removeItem(RETURN_URL_KEY);
-                return;
-            }
-
-            if (Date.now() - restoreStartedAt < RESTORE_WINDOW_MS) {
-                restoreTimer = window.setTimeout(check, 150);
+            if (now - restoreStartedAt < RESTORE_WINDOW_MS) {
+                restoreTimer = window.setTimeout(check, RESTORE_POLL_MS);
             }
         };
 
         check();
     }
 
-    function isAccountDialogSave(event) {
+    function isAccountSwitchIntent(event) {
         const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
         const clickedSave = path.find(element => element?.id === 'saveButton') ||
             event.target?.closest?.('#saveButton');
-        if (!clickedSave) return false;
-        return Boolean(document.getElementById('userRegistrationDialog') || document.querySelector('.pid-options'));
+        if (clickedSave &&
+            (document.getElementById('userRegistrationDialog') || document.querySelector('.pid-options'))) {
+            return true;
+        }
+
+        return path.some(element => {
+            if (!element?.tagName || !['BUTTON', 'A', 'MO-MENU-ITEM'].includes(element.tagName)) return false;
+            return /^(switch accounts?|user profile)$/i.test(getText(element));
+        });
     }
 
     function bindAccountSaveCapture() {
         if (accountSaveCaptureBound) return;
         accountSaveCaptureBound = true;
         document.addEventListener('click', event => {
-            if (isAccountDialogSave(event)) rememberCurrentUrl();
+            if (isAccountSwitchIntent(event)) void rememberCurrentUrl();
         }, true);
     }
 
@@ -209,7 +231,7 @@
             rememberReturnUrlEnabled = changes.rememberAccountSwitchUrlEnabled.newValue !== false;
             if (!rememberReturnUrlEnabled) {
                 clearTimeout(restoreTimer);
-                window.sessionStorage.removeItem(RETURN_URL_KEY);
+                void clearPendingReturnUrl();
             }
         });
     }
@@ -266,12 +288,13 @@
 
         try {
             removeExistingToast();
+            await rememberCurrentUrl();
             await openUserProfileMenuItem();
             await selectAlternativePid();
 
             const saveButton = await utils.waitForElement('#saveButton');
             if (!saveButton) throw new Error('Save button not found.');
-            rememberCurrentUrl();
+            await rememberCurrentUrl();
             clickElement(saveButton);
 
             utils.showToast('Accounts swapped! Page will reload.', 'success');
@@ -348,9 +371,9 @@ const swapIconSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
             bindAccountSaveCapture();
             bindSettingChanges();
             if (rememberReturnUrlEnabled) {
-                restorePendingUrl();
+                void restorePendingUrl();
             } else {
-                window.sessionStorage.removeItem(RETURN_URL_KEY);
+                void clearPendingReturnUrl();
             }
             if (data.swapAccountsEnabled !== false) {
                 addSwapAccountsButton();

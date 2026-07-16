@@ -646,3 +646,61 @@ describe('Help Guides native side panel lifecycle', () => {
         expect(chrome.storage.session.__getStore().openHelpGuideTabIds).toEqual([]);
     });
 });
+
+describe('account-switch return URL storage', () => {
+    let rememberAccountSwitchUrl;
+    let getAccountSwitchUrl;
+    let clearAccountSwitchUrl;
+
+    beforeEach(() => {
+        resetMocks();
+        jest.resetModules();
+        ({
+            rememberAccountSwitchUrl,
+            getAccountSwitchUrl,
+            clearAccountSwitchUrl
+        } = require('../background/message-handlers').messageHandlers);
+    });
+
+    test('keeps pending URLs isolated by the sender tab', async () => {
+        const firstResponse = jest.fn();
+        await rememberAccountSwitchUrl({
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP123'
+        }, {
+            tab: { id: 41 },
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#route=online'
+        }, firstResponse);
+
+        const matchingResponse = jest.fn();
+        const otherTabResponse = jest.fn();
+        await getAccountSwitchUrl({}, {
+            tab: { id: 41 },
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#route=campaigns'
+        }, matchingResponse);
+        await getAccountSwitchUrl({}, {
+            tab: { id: 42 },
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#route=campaigns'
+        }, otherTabResponse);
+
+        expect(firstResponse).toHaveBeenCalledWith({ status: 'success' });
+        expect(matchingResponse).toHaveBeenCalledWith({
+            status: 'success',
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP123'
+        });
+        expect(otherTabResponse).toHaveBeenCalledWith({ status: 'success', url: null });
+    });
+
+    test('clears only the current tab pending URL', async () => {
+        const sender = {
+            tab: { id: 41 },
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#route=online'
+        };
+        await rememberAccountSwitchUrl({ url: sender.url }, sender, jest.fn());
+        await clearAccountSwitchUrl({}, sender, jest.fn());
+
+        const response = jest.fn();
+        await getAccountSwitchUrl({}, sender, response);
+
+        expect(response).toHaveBeenCalledWith({ status: 'success', url: null });
+    });
+});
