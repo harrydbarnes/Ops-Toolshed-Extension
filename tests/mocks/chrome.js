@@ -69,6 +69,7 @@ const createStorageAreaMock = () => {
 
 const syncStorage = createStorageAreaMock();
 const localStorage = createStorageAreaMock();
+const sessionStorage = createStorageAreaMock();
 
 
 global.chrome = {
@@ -93,6 +94,7 @@ global.chrome = {
   storage: {
     sync: syncStorage,
     local: localStorage,
+    session: sessionStorage,
     onChanged: {
         addListener: jest.fn()
     }
@@ -175,6 +177,12 @@ global.resetMocks = () => {
     global.chrome.storage.local.remove.mockClear();
     global.chrome.storage.local.clear.mockClear();
     global.chrome.storage.local.__resetStore();
+
+    global.chrome.storage.session.get.mockClear();
+    global.chrome.storage.session.set.mockClear();
+    global.chrome.storage.session.remove.mockClear();
+    global.chrome.storage.session.clear.mockClear();
+    global.chrome.storage.session.__resetStore();
 
     global.chrome.storage.onChanged.addListener.mockClear();
 

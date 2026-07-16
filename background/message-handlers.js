@@ -1,6 +1,7 @@
 import { approversData } from '../approvers-data.js';
 
 const openHelpGuideTabs = new Set();
+const OPEN_HELP_GUIDE_TABS_KEY = 'openHelpGuideTabIds';
 import { scrapeAndDownloadCsv } from './meta-billing-scraper.js';
 import { handleTrackStat } from './stats-manager.js';
 
@@ -129,6 +130,25 @@ async function openApproversPage(request, sender, sendResponse) {
     sendResponse({ status: 'success' });
 }
 
+function persistOpenHelpGuideTabs() {
+    return chrome.storage?.session?.set?.({
+        [OPEN_HELP_GUIDE_TABS_KEY]: Array.from(openHelpGuideTabs)
+    });
+}
+
+async function getHelpGuidesPanelState(request, sender, sendResponse) {
+    const tabId = sender?.tab?.id;
+    if (!tabId) {
+        sendResponse({ status: 'error', message: 'Could not identify the current tab.' });
+        return;
+    }
+
+    const stored = await chrome.storage?.session?.get?.({ [OPEN_HELP_GUIDE_TABS_KEY]: [] });
+    const storedTabIds = stored?.[OPEN_HELP_GUIDE_TABS_KEY] || [];
+    storedTabIds.forEach(storedTabId => openHelpGuideTabs.add(storedTabId));
+    sendResponse({ status: 'success', open: openHelpGuideTabs.has(tabId) });
+}
+
 async function openHelpGuides(request, sender, sendResponse) {
     const tabId = sender?.tab?.id;
     if (!tabId) {
@@ -139,6 +159,7 @@ async function openHelpGuides(request, sender, sendResponse) {
     if (openHelpGuideTabs.has(tabId) && typeof chrome.sidePanel?.close === 'function') {
         await chrome.sidePanel.close({ tabId });
         openHelpGuideTabs.delete(tabId);
+        await persistOpenHelpGuideTabs();
         sendResponse({ status: 'success', panelState: 'closed' });
         return;
     }
@@ -152,6 +173,7 @@ async function openHelpGuides(request, sender, sendResponse) {
         enabled: true
     });
     openHelpGuideTabs.add(tabId);
+    await persistOpenHelpGuideTabs();
     sendResponse({ status: 'success', panelState: 'open' });
 }
 
@@ -169,6 +191,7 @@ async function closeHelpGuides(request, sender, sendResponse) {
 
     await chrome.sidePanel.close({ tabId: activeTab.id });
     openHelpGuideTabs.delete(activeTab.id);
+    await persistOpenHelpGuideTabs();
     sendResponse({ status: 'success' });
 }
 
@@ -184,6 +207,7 @@ async function closeHelpGuidesFromLauncher(request, sender, sendResponse) {
     }
     await chrome.sidePanel.close({ tabId });
     openHelpGuideTabs.delete(tabId);
+    await persistOpenHelpGuideTabs();
     sendResponse({ status: 'success', panelState: 'closed' });
 }
 
@@ -197,6 +221,7 @@ async function updateHelpGuidesPanelState(request, sender, sendResponse) {
         const isOpen = request.action === 'helpGuidesPanelOpened';
         if (isOpen) openHelpGuideTabs.add(tabId);
         else openHelpGuideTabs.delete(tabId);
+        await persistOpenHelpGuideTabs();
         try {
             await chrome.tabs.sendMessage(tabId, { action: 'helpGuidesPanelState', open: isOpen });
         } catch {
@@ -253,6 +278,7 @@ export const messageHandlers = {
     getFavouriteApprovers,
     openApproversPage,
     openHelpGuides,
+    getHelpGuidesPanelState,
     closeHelpGuides,
     closeHelpGuidesFromLauncher,
     helpGuidesPanelOpened: updateHelpGuidesPanelState,

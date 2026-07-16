@@ -10,6 +10,7 @@
     const EDGE_RESISTANCE = 0.18;
     let isEnabled = null;
     let isPanelOpen = false;
+    let panelStateRevision = 0;
     let storageListenerBound = false;
     let runtimeListenerBound = false;
     let preferredPosition = null;
@@ -20,13 +21,23 @@
         if (event?.detail > 0) event.currentTarget?.blur?.();
         if (isEnabled !== true) return;
 
+        const previousPanelState = isPanelOpen;
         const action = isPanelOpen ? 'closeHelpGuidesFromLauncher' : 'openHelpGuides';
+        isPanelOpen = action === 'openHelpGuides';
+        const requestRevision = ++panelStateRevision;
         chrome.runtime.sendMessage({ action })
             .then(response => {
-                if (response?.status !== 'success') return;
+                if (requestRevision !== panelStateRevision) return;
+                if (response?.status !== 'success') {
+                    isPanelOpen = previousPanelState;
+                    return;
+                }
                 isPanelOpen = response.panelState === 'open';
             })
-            .catch(error => console.warn('Could not toggle Help Guides:', error.message));
+            .catch(error => {
+                if (requestRevision === panelStateRevision) isPanelOpen = previousPanelState;
+                console.warn('Could not toggle Help Guides:', error.message);
+            });
     }
 
     function injectStyles() {
@@ -57,7 +68,7 @@
                 cursor: grab;
                 touch-action: none;
                 user-select: none;
-                transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease, left 220ms cubic-bezier(0.22, 1, 0.36, 1), top 220ms cubic-bezier(0.22, 1, 0.36, 1);
+                transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease, opacity 180ms ease, left 220ms cubic-bezier(0.22, 1, 0.36, 1), top 220ms cubic-bezier(0.22, 1, 0.36, 1);
             }
             #${BUTTON_ID}:hover {
                 background: rgba(5, 6, 111, 0.88);
@@ -75,6 +86,9 @@
                 transform: scale(0.98);
             }
             #${BUTTON_ID}.is-dragging {
+                transition: none;
+            }
+            #${BUTTON_ID}.is-positioning {
                 transition: none;
             }
             #${BUTTON_ID}.is-resisting {
@@ -173,14 +187,51 @@
         savePosition(snapped);
     }
 
-    function restorePosition(button) {
-        if (!chrome.storage?.local?.get) return;
+    function restorePosition(callback) {
+        if (!chrome.storage?.local?.get) {
+            callback(null);
+            return;
+        }
         chrome.storage.local.get({ [POSITION_KEY]: null }, data => {
             const saved = data?.[POSITION_KEY];
-            if (!saved || !Number.isFinite(saved.left) || !Number.isFinite(saved.top)) return;
+            if (!saved || !Number.isFinite(saved.left) || !Number.isFinite(saved.top)) {
+                callback(null);
+                return;
+            }
             preferredPosition = { left: saved.left, top: saved.top };
-            placeButton(button, saved.left, saved.top);
+            callback(preferredPosition);
         });
+    }
+
+    function animateLauncherIn(button, target) {
+        const position = clampPosition(button, target.left, target.top);
+        const distances = {
+            left: position.left,
+            right: position.maxLeft - position.left,
+            top: position.top,
+            bottom: position.maxTop - position.top
+        };
+        const nearestEdge = Object.entries(distances).sort((a, b) => a[1] - b[1])[0][0];
+        let startLeft = position.left;
+        let startTop = position.top;
+
+        if (nearestEdge === 'left') startLeft = -button.offsetWidth - 12;
+        if (nearestEdge === 'right') startLeft = window.innerWidth + 12;
+        if (nearestEdge === 'top') startTop = -button.offsetHeight - 12;
+        if (nearestEdge === 'bottom') startTop = window.innerHeight + 12;
+
+        button.style.right = 'auto';
+        button.style.bottom = 'auto';
+        button.style.left = `${startLeft}px`;
+        button.style.top = `${startTop}px`;
+        button.style.opacity = '0';
+
+        const nextFrame = window.requestAnimationFrame || (callback => callback());
+        nextFrame(() => nextFrame(() => {
+            button.classList.remove('is-positioning');
+            button.style.opacity = '1';
+            placeButton(button, position.left, position.top);
+        }));
     }
 
     function makeDraggable(button) {
@@ -292,18 +343,19 @@
         button.id = BUTTON_ID;
         button.type = 'button';
         button.setAttribute('aria-label', 'Open Help Guides');
+        button.classList.add('is-positioning');
+        button.style.opacity = '0';
 
         const label = document.createElement('span');
         label.textContent = 'Help Guides';
         button.append(createBookIcon(), label);
         makeDraggable(button);
         document.body.appendChild(button);
-        restorePosition(button);
-        (window.requestAnimationFrame || (callback => callback()))(() => {
-            if (preferredPosition) return;
+        restorePosition(savedPosition => {
             const rect = button.getBoundingClientRect();
-            preferredPosition = { left: rect.left, top: rect.top };
-            placeButton(button, rect.left, rect.top);
+            const target = savedPosition || { left: rect.left, top: rect.top };
+            if (!savedPosition) preferredPosition = { left: target.left, top: target.top };
+            animateLauncherIn(button, target);
         });
     }
 
@@ -320,6 +372,17 @@
             window.appLearnFeature?.applyTransparency();
         });
 
+        const stateRequestRevision = panelStateRevision;
+        chrome.runtime?.sendMessage?.({ action: 'getHelpGuidesPanelState' })
+            .then(response => {
+                if (response?.status === 'success' && stateRequestRevision === panelStateRevision) {
+                    isPanelOpen = response.open === true;
+                }
+            })
+            .catch(() => {
+                // The service worker can still be starting during page load.
+            });
+
         if (!storageListenerBound && chrome.storage.onChanged) {
             storageListenerBound = true;
             chrome.storage.onChanged.addListener((changes, area) => {
@@ -335,6 +398,7 @@
             runtimeListenerBound = true;
             chrome.runtime.onMessage.addListener(message => {
                 if (message?.action !== 'helpGuidesPanelState') return;
+                panelStateRevision += 1;
                 isPanelOpen = message.open === true;
             });
         }

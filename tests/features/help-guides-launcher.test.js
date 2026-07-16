@@ -8,7 +8,7 @@ const featureCode = fs.readFileSync(
 );
 
 describe('Help Guides page launcher', () => {
-    function createFeature({ enabled = true, position = null } = {}) {
+    function createFeature({ enabled = true, position = null, panelInitiallyOpen = false } = {}) {
         const listeners = [];
         const dom = new JSDOM('<!doctype html><html><head></head><body></body></html>', {
             runScripts: 'dangerously',
@@ -16,10 +16,11 @@ describe('Help Guides page launcher', () => {
         });
         dom.window.chrome = {
             runtime: {
-                sendMessage: jest.fn(({ action }) => Promise.resolve({
-                    status: 'success',
-                    panelState: action === 'openHelpGuides' ? 'open' : 'closed'
-                }))
+                sendMessage: jest.fn(({ action }) => Promise.resolve(
+                    action === 'getHelpGuidesPanelState'
+                        ? { status: 'success', open: panelInitiallyOpen }
+                        : { status: 'success', panelState: action === 'openHelpGuides' ? 'open' : 'closed' }
+                ))
             },
             storage: {
                 sync: {
@@ -77,6 +78,44 @@ describe('Help Guides page launcher', () => {
         await Promise.resolve();
         expect(window.chrome.runtime.sendMessage).toHaveBeenLastCalledWith({ action: 'closeHelpGuidesFromLauncher' });
         expect(window.helpGuidesLauncherFeature.isPanelOpen()).toBe(false);
+        dom.window.close();
+    });
+
+    test('restores panel state after a page reload so the next click closes it', async () => {
+        const { dom } = createFeature({ panelInitiallyOpen: true });
+        const { window } = dom;
+        window.helpGuidesLauncherFeature.initialize();
+        await Promise.resolve();
+
+        window.document.getElementById('toolshed-help-guides-launcher').click();
+        await Promise.resolve();
+
+        expect(window.chrome.runtime.sendMessage).toHaveBeenLastCalledWith({ action: 'closeHelpGuidesFromLauncher' });
+        expect(window.helpGuidesLauncherFeature.isPanelOpen()).toBe(false);
+        dom.window.close();
+    });
+
+    test.each([
+        ['left', { left: 18, top: 300 }, 'left', value => value < 0],
+        ['right', { left: 982, top: 300 }, 'left', value => value > 1000],
+        ['top', { left: 400, top: 18 }, 'top', value => value < 0],
+        ['bottom', { left: 400, top: 680 }, 'top', value => value > 700]
+    ])('enters from the saved nearest %s edge', (edge, position, property, isOutside) => {
+        const { dom } = createFeature({ position });
+        const { window } = dom;
+        const frames = [];
+        Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1000 });
+        Object.defineProperty(window, 'innerHeight', { configurable: true, value: 700 });
+        window.requestAnimationFrame = callback => frames.push(callback);
+
+        window.helpGuidesLauncherFeature.initialize();
+        const launcher = window.document.getElementById('toolshed-help-guides-launcher');
+        expect(isOutside(parseFloat(launcher.style[property]))).toBe(true);
+
+        frames.shift()();
+        frames.shift()();
+        expect(launcher.style.left).toBe(position.left > 982 ? '982px' : `${position.left}px`);
+        expect(launcher.style.top).toBe(position.top > 682 ? '682px' : `${position.top}px`);
         dom.window.close();
     });
 
