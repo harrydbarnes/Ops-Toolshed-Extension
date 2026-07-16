@@ -47,6 +47,16 @@ function completeFeedbackForm(document) {
     document.getElementById('otf-name').value = 'Harry';
 }
 
+const helpGuidesOptions = {
+    variant: 'help-guides',
+    categories: ['Access', 'Approval', 'Booking', 'Reconcile', 'Supplier Integrations', 'Traffic', 'Other'],
+    types: ['New training material', 'Training material amend', 'Feedback'],
+    sectionLabel: 'Category',
+    sectionPlaceholder: 'Select a category',
+    detailPlaceholder: 'Share your suggestion or feedback with detail here, with any relevant accessible links',
+    showIdeaBy: false
+};
+
 describe('Feedback Modal behaviour', () => {
     afterEach(() => {
         document.body.innerHTML = '';
@@ -122,5 +132,37 @@ describe('Feedback Modal behaviour', () => {
         closeTimer.callback();
         expect(document.getElementById('ops-toolshed-feedback-root')).toBeNull();
         expect(feedbackModal.root).toBeNull();
+    });
+
+    test('renders the Help Guides-specific categories and removes Info from', () => {
+        const { document, feedbackModal } = setupFeedbackModal('Harry');
+
+        feedbackModal.open(helpGuidesOptions);
+
+        expect([...document.querySelectorAll('#otf-section option')].slice(1).map(option => option.value))
+            .toEqual(helpGuidesOptions.categories);
+        expect([...document.querySelectorAll('#otf-type option')].map(option => option.value))
+            .toEqual(helpGuidesOptions.types);
+        expect(document.querySelector('label[for="otf-section"]').textContent).toBe('Category');
+        expect(document.querySelector('#otf-section option').textContent).toBe('Select a category');
+        expect(document.getElementById('otf-tip').placeholder).toBe(helpGuidesOptions.detailPlaceholder);
+        expect(document.getElementById('otf-ideaBy')).toBeNull();
+    });
+
+    test('builds the dedicated Help Guides email subject and body', () => {
+        const { document, feedbackModal } = setupFeedbackModal('Harry');
+        feedbackModal.open(helpGuidesOptions);
+        document.getElementById('otf-section').value = 'Booking';
+        document.getElementById('otf-type').value = 'Training material amend';
+        document.getElementById('otf-tip').value = 'Please update the booking guide.';
+        document.getElementById('otf-next-btn').click();
+
+        const email = feedbackModal.buildHelpGuidesEmail();
+        expect(email.subject).toBe('Ops Toolshed Feedback - Help Guides');
+        expect(email.body).toContain('Help Guides section');
+        expect(email.body).toContain('Section: Help Guides');
+        expect(email.body).toContain('Category: Booking');
+        expect(email.body).toContain('Type: Training material amend');
+        expect(email.body).toContain('Detail: Please update the booking guide.');
     });
 });

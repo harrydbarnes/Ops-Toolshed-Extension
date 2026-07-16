@@ -6,7 +6,7 @@ const html = fs.readFileSync(path.resolve(__dirname, '../help-guides.html'), 'ut
 const dataCode = fs.readFileSync(path.resolve(__dirname, '../help-guides-data.js'), 'utf8');
 const appCode = fs.readFileSync(path.resolve(__dirname, '../help-guides.js'), 'utf8');
 
-async function createApp({ favourites = [], recent = [], sortMode = 'alpha' } = {}) {
+async function createApp({ favourites = [], recent = [], sortMode = 'alpha', reducedMotion = true } = {}) {
     const dom = new JSDOM(html, {
         runScripts: 'outside-only',
         url: 'chrome-extension://test/help-guides.html'
@@ -32,6 +32,8 @@ async function createApp({ favourites = [], recent = [], sortMode = 'alpha' } = 
             sendMessage: jest.fn().mockResolvedValue({ status: 'success' })
         }
     };
+    dom.window.matchMedia = jest.fn(() => ({ matches: reducedMotion }));
+    dom.window.scrollTo = jest.fn();
     Object.defineProperty(dom.window.navigator, 'clipboard', {
         configurable: true,
         value: { writeText: jest.fn().mockResolvedValue(undefined) }
@@ -54,6 +56,7 @@ describe('Help Guides side panel', () => {
         const labels = [...dom.window.document.querySelectorAll('.category-filter')].map(node => node.textContent);
 
         expect(dom.window.document.querySelectorAll('.guide-card')).toHaveLength(21);
+        expect(dom.window.document.querySelectorAll('.guide-card-favourite')).toHaveLength(21);
         expect(labels).toEqual(['All', 'Access', 'Approval', 'Booking', 'Reconcile', 'Supplier Integrations', 'Traffic']);
         expect(dom.window.document.getElementById('results-summary').textContent).toBe('21 guides');
         expect([...dom.window.document.querySelectorAll('.guide-card strong')]
@@ -161,7 +164,7 @@ describe('Help Guides side panel', () => {
         const sectionTitles = [...document.querySelectorAll('.guide-section-title')].map(node => node.textContent);
         expect(sectionTitles[0]).toContain('Favourites');
         expect(document.querySelector('.guide-section .guide-card strong').textContent).toBe('Budget Approval');
-        expect(document.querySelector('.guide-card-favourite').getAttribute('aria-label'))
+        expect(document.querySelector('.guide-card-favourite[aria-pressed="true"]').getAttribute('aria-label'))
             .toBe('Remove Budget Approval from favourites');
         closeApp(dom);
     });
@@ -169,7 +172,7 @@ describe('Help Guides side panel', () => {
     test('animates a favourite out when its card star is clicked', async () => {
         const { dom, syncSet } = await createApp({ favourites: ['approval-budget'] });
         const { document } = dom.window;
-        const star = document.querySelector('.guide-card-favourite');
+        const star = document.querySelector('.guide-card-favourite[aria-pressed="true"]');
         const shell = star.closest('.guide-card-shell');
 
         star.click();
@@ -188,6 +191,12 @@ describe('Help Guides side panel', () => {
 
         document.querySelector('.help-feedback-prompt .help-feedback-trigger').click();
         expect(openFeedback).toHaveBeenCalledTimes(1);
+        expect(openFeedback).toHaveBeenCalledWith(expect.objectContaining({
+            variant: 'help-guides',
+            categories: ['Access', 'Approval', 'Booking', 'Reconcile', 'Supplier Integrations', 'Traffic', 'Other'],
+            types: ['New training material', 'Training material amend', 'Feedback'],
+            showIdeaBy: false
+        }));
 
         const search = document.getElementById('guide-search');
         search.value = 'zzzzzzmissing';
@@ -226,6 +235,24 @@ describe('Help Guides side panel', () => {
 
         document.getElementById('pdf-frame').dispatchEvent(new dom.window.Event('error'));
         expect(document.getElementById('viewer-fallback').hidden).toBe(false);
+        closeApp(dom);
+    });
+
+    test('slides between the guide library and PDF viewer in both directions', async () => {
+        const { dom } = await createApp({ reducedMotion: false });
+        const { document } = dom.window;
+
+        document.querySelector('[data-guide-id="approval-budget"]').click();
+        expect(document.getElementById('viewer-view').classList).toContain('is-entering');
+        expect(document.getElementById('library-view').classList).toContain('is-leaving');
+        await new Promise(resolve => dom.window.setTimeout(resolve, 300));
+        expect(document.getElementById('library-view').hidden).toBe(true);
+
+        document.getElementById('back-to-guides').click();
+        expect(document.getElementById('viewer-view').classList).toContain('is-leaving');
+        expect(document.getElementById('library-view').classList).toContain('is-returning');
+        await new Promise(resolve => dom.window.setTimeout(resolve, 300));
+        expect(document.getElementById('viewer-view').hidden).toBe(true);
         closeApp(dom);
     });
 

@@ -10,14 +10,32 @@ class FeedbackModal {
             name: ''
         };
         this.root = null;
+        this.options = this.getDefaultOptions();
+    }
+
+    getDefaultOptions() {
+        return {
+            variant: 'default',
+            categories: [
+                'Prisma Approvers', 'Campaign Tools', 'Reminders', 'D-Number Search',
+                'Order ID Copy', 'Live Chat', 'Stats', 'General/Other'
+            ],
+            types: ['Feedback', 'Bug Report', 'Suggestion'],
+            sectionLabel: 'Section',
+            sectionPlaceholder: 'Select a section',
+            detailPlaceholder: 'Share your tip or bug report here...',
+            showIdeaBy: true
+        };
     }
 
     initialize() {
         // Entry point if needed for external triggers
     }
 
-    open() {
+    open(options = {}) {
         if (document.getElementById('ops-toolshed-feedback-root')) return;
+        this.options = { ...this.getDefaultOptions(), ...options };
+        this.data = { section: '', type: '', tip: '', ideaBy: '', name: this.data.name || '' };
 
         // Fetch name immediately before rendering to prevent race conditions
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
@@ -72,10 +90,10 @@ class FeedbackModal {
         const section = this.root.querySelector('#otf-section').value;
         const type = this.root.querySelector('#otf-type').value;
         const tip = this.root.querySelector('#otf-tip').value;
-        const ideaBy = this.root.querySelector('#otf-ideaBy').value;
+        const ideaBy = this.root.querySelector('#otf-ideaBy')?.value || '';
         const name = this.root.querySelector('#otf-name').value;
 
-        if (!section || !type || !tip || !ideaBy || !name) {
+        if (!section || !type || !tip || (this.options.showIdeaBy && !ideaBy) || !name) {
             this.showToast("Please fill in all fields", "error");
             return;
         }
@@ -96,6 +114,10 @@ class FeedbackModal {
     }
 
     handleSubmit() {
+        if (this.options.variant === 'help-guides') {
+            this.handleHelpGuidesSubmit();
+            return;
+        }
         const uniqueId = new Date().toISOString();
         const subject = `Ops Toolshed Feedback - ${this.data.section} (${uniqueId})`;
         const body = `Hello Harry,
@@ -116,6 +138,33 @@ ${this.data.name}`;
             window.location.href = `mailto:${RECIPIENT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
             setTimeout(() => this.close(), 1000);
         }, 500);
+    }
+
+    handleHelpGuidesSubmit() {
+        const { subject, body } = this.buildHelpGuidesEmail();
+
+        this.showToast('Email opening: look for it now.', 'success');
+        setTimeout(() => {
+            window.location.href = `mailto:${RECIPIENT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            setTimeout(() => this.close(), 1000);
+        }, 500);
+    }
+
+    buildHelpGuidesEmail() {
+        return {
+            subject: 'Ops Toolshed Feedback - Help Guides',
+            body: `Hello Harry,
+
+Please find below feedback for the Help Guides section of the Ops Toolshed Extension.
+
+Section: Help Guides
+Category: ${this.data.section}
+Type: ${this.data.type}
+Detail: ${this.data.tip}
+
+Thank you,
+${this.data.name}`
+        };
     }
 
     updateUI() {
@@ -169,10 +218,8 @@ ${this.data.name}`;
         this.root = document.createElement('div');
         this.root.id = 'ops-toolshed-feedback-root';
         
-        const categories = [
-            "Prisma Approvers", "Campaign Tools", "Reminders", "D-Number Search", 
-            "Order ID Copy", "Live Chat", "Stats", "General/Other"
-        ];
+        const categories = this.options.categories;
+        const types = this.options.types;
 
         // Removed all inline styles (style="...") to fix CSP errors
         this.root.innerHTML = `
@@ -189,28 +236,26 @@ ${this.data.name}`;
                         <div id="otf-step-1" class="otf-step active">
                             <div class="otf-grid">
                                 <div class="otf-field">
-                                    <label class="otf-label" for="otf-section">Section</label>
+                                    <label class="otf-label" for="otf-section">${this.options.sectionLabel}</label>
                                     <select id="otf-section" class="otf-select">
-                                        <option value="" disabled selected>Select a section</option>
+                                        <option value="" disabled selected>${this.options.sectionPlaceholder}</option>
                                         ${categories.map(c => `<option value="${c}">${c}</option>`).join('')}
                                     </select>
                                 </div>
                                 <div class="otf-field">
                                     <label class="otf-label" for="otf-type">Type</label>
                                     <select id="otf-type" class="otf-select">
-                                        <option value="Feedback">Feedback</option>
-                                        <option value="Bug Report">Bug Report</option>
-                                        <option value="Suggestion">Suggestion</option>
+                                        ${types.map(type => `<option value="${type}">${type}</option>`).join('')}
                                     </select>
                                 </div>
                                 <div class="otf-field">
                                     <label class="otf-label" for="otf-tip">Detail</label>
-                                    <textarea id="otf-tip" class="otf-textarea" placeholder="Share your tip or bug report here..."></textarea>
+                                    <textarea id="otf-tip" class="otf-textarea" placeholder="${this.options.detailPlaceholder}"></textarea>
                                 </div>
-                                <div class="otf-field">
+                                ${this.options.showIdeaBy ? `<div class="otf-field">
                                     <label class="otf-label" for="otf-ideaBy">Info from</label>
                                     <input id="otf-ideaBy" class="otf-input" placeholder="Who told you this?">
-                                </div>
+                                </div>` : ''}
                                 <div class="otf-field">
                                     <label class="otf-label" for="otf-name">Your Name</label>
                                     <input id="otf-name" class="otf-input" placeholder="Your name">
@@ -244,7 +289,8 @@ ${this.data.name}`;
 
         // Safely set values after DOM insertion to prevent XSS
         this.root.querySelector('#otf-name').value = this.data.name || '';
-        this.root.querySelector('#otf-ideaBy').value = this.data.ideaBy || '';
+        const ideaByInput = this.root.querySelector('#otf-ideaBy');
+        if (ideaByInput) ideaByInput.value = this.data.ideaBy || '';
 
         // Bind events
         this.root.querySelector('.otf-overlay').onclick = () => this.close();

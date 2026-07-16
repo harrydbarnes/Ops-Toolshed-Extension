@@ -16,7 +16,10 @@ describe('Help Guides page launcher', () => {
         });
         dom.window.chrome = {
             runtime: {
-                sendMessage: jest.fn().mockResolvedValue({ status: 'success' })
+                sendMessage: jest.fn(({ action }) => Promise.resolve({
+                    status: 'success',
+                    panelState: action === 'openHelpGuides' ? 'open' : 'closed'
+                }))
             },
             storage: {
                 sync: {
@@ -48,13 +51,32 @@ describe('Help Guides page launcher', () => {
         expect(buttons[0].querySelector('.toolshed-help-guides-icon svg')).not.toBeNull();
         const launcherStyles = window.document.getElementById('toolshed-help-guides-launcher-styles').textContent;
         expect(launcherStyles).toContain('min-height: 44px');
-        expect(launcherStyles).toContain('rgba(6, 8, 141, 0.88)');
+        expect(launcherStyles).toContain('rgba(6, 8, 141, 0.8)');
+        expect(launcherStyles).toContain('backdrop-filter: none');
         expect(launcherStyles).toContain('touch-action: none');
         expect(launcherStyles).toContain('transition: none');
         expect(launcherStyles).toContain('white-space: nowrap');
+        expect(launcherStyles).not.toContain('#ff4087');
         expect(launcherStyles).toContain('"Outfit"');
         buttons[0].click();
         expect(window.chrome.runtime.sendMessage).toHaveBeenCalledWith({ action: 'openHelpGuides' });
+        dom.window.close();
+    });
+
+    test('uses a second launcher click to close the open side panel', async () => {
+        const { dom } = createFeature();
+        const { window } = dom;
+        window.helpGuidesLauncherFeature.initialize();
+        const launcher = window.document.getElementById('toolshed-help-guides-launcher');
+
+        launcher.click();
+        await Promise.resolve();
+        expect(window.helpGuidesLauncherFeature.isPanelOpen()).toBe(true);
+
+        launcher.click();
+        await Promise.resolve();
+        expect(window.chrome.runtime.sendMessage).toHaveBeenLastCalledWith({ action: 'closeHelpGuidesFromLauncher' });
+        expect(window.helpGuidesLauncherFeature.isPanelOpen()).toBe(false);
         dom.window.close();
     });
 
@@ -116,6 +138,34 @@ describe('Help Guides page launcher', () => {
         window.helpGuidesLauncherFeature.snapToEdge(launcher);
         expect(launcher.style.left).toBe('400px');
         expect(launcher.style.top).toBe('300px');
+        dom.window.close();
+    });
+
+    test('elastically resists a small pull from an edge before breaking free', () => {
+        const { dom } = createFeature();
+        const { window } = dom;
+        Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1000 });
+        Object.defineProperty(window, 'innerHeight', { configurable: true, value: 700 });
+        window.helpGuidesLauncherFeature.initialize();
+        const launcher = window.document.getElementById('toolshed-help-guides-launcher');
+        launcher.getBoundingClientRect = () => ({ left: 18, right: 158, top: 300, bottom: 344 });
+
+        const pointerEvent = (type, values) => {
+            const event = new window.Event(type, { bubbles: true, cancelable: true });
+            Object.entries(values).forEach(([key, value]) => Object.defineProperty(event, key, { value }));
+            launcher.dispatchEvent(event);
+        };
+
+        pointerEvent('pointerdown', { button: 0, pointerId: 1, clientX: 80, clientY: 320 });
+        pointerEvent('pointermove', { pointerId: 1, clientX: 100, clientY: 320 });
+        expect(parseFloat(launcher.style.left)).toBeCloseTo(21.6, 1);
+        expect(launcher.classList).toContain('is-resisting');
+        expect(launcher.classList).not.toContain('is-dragging');
+
+        pointerEvent('pointermove', { pointerId: 1, clientX: 140, clientY: 320 });
+        expect(parseFloat(launcher.style.left)).toBeGreaterThan(45);
+        expect(launcher.classList).toContain('is-dragging');
+        pointerEvent('pointercancel', { pointerId: 1 });
         dom.window.close();
     });
 });

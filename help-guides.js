@@ -29,8 +29,10 @@
     let viewerFallbackTimer = null;
     let toastTimer = null;
     let toastCloseTimer = null;
+    let viewTransitionTimer = null;
     const favouriteAnimationTimers = new Set();
     let disableConfirmationActive = false;
+    const viewTransitionDuration = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 0 : 280;
 
     const elements = {
         library: document.getElementById('library-view'),
@@ -228,23 +230,24 @@
         button.addEventListener('click', () => openGuide(guide));
         shell.appendChild(button);
 
-        if (favourites.has(guide.id)) {
-            shell.classList.add('has-favourite');
-            const favouriteButton = document.createElement('button');
-            favouriteButton.type = 'button';
-            favouriteButton.className = 'guide-card-favourite';
-            favouriteButton.setAttribute('aria-label', `Remove ${guide.title} from favourites`);
-            favouriteButton.title = 'Remove favourite';
-            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            svg.setAttribute('viewBox', '0 0 24 24');
-            svg.setAttribute('aria-hidden', 'true');
-            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            path.setAttribute('d', 'm12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3Z');
-            svg.appendChild(path);
-            favouriteButton.appendChild(svg);
-            favouriteButton.addEventListener('click', () => removeFavouriteFromCard(guide, shell));
-            shell.appendChild(favouriteButton);
-        }
+        const isFavourite = favourites.has(guide.id);
+        shell.classList.toggle('has-favourite', isFavourite);
+        const favouriteButton = document.createElement('button');
+        favouriteButton.type = 'button';
+        favouriteButton.className = 'guide-card-favourite';
+        favouriteButton.classList.toggle('is-favourite', isFavourite);
+        favouriteButton.setAttribute('aria-pressed', String(isFavourite));
+        favouriteButton.setAttribute('aria-label', `${isFavourite ? 'Remove' : 'Add'} ${guide.title} ${isFavourite ? 'from' : 'to'} favourites`);
+        favouriteButton.title = isFavourite ? 'Remove favourite' : 'Add favourite';
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.setAttribute('aria-hidden', 'true');
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', 'm12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3Z');
+        svg.appendChild(path);
+        favouriteButton.appendChild(svg);
+        favouriteButton.addEventListener('click', () => toggleFavouriteFromCard(guide, shell));
+        shell.appendChild(favouriteButton);
 
         return shell;
     }
@@ -332,6 +335,7 @@
 
     function openGuide(guide) {
         window.clearTimeout(viewerFallbackTimer);
+        window.clearTimeout(viewTransitionTimer);
         currentGuide = guide;
         recordRecentGuide(guide.id);
         elements.viewerTitle.textContent = guide.title;
@@ -340,11 +344,18 @@
         elements.loading.hidden = false;
         elements.fallback.hidden = true;
         elements.frame.src = guide.url;
-        elements.library.hidden = true;
         elements.viewer.hidden = false;
+        elements.viewer.classList.add('is-entering');
+        elements.library.classList.add('is-leaving');
         document.title = `${guide.title} – Help Guides`;
         updateFavouriteButton();
-        elements.back.focus();
+        if (viewTransitionDuration > 0) window.scrollTo?.(0, 0);
+        finishViewTransition(() => {
+            elements.library.hidden = true;
+            elements.library.classList.remove('is-leaving');
+            elements.viewer.classList.remove('is-entering');
+            elements.back.focus();
+        });
         viewerFallbackTimer = window.setTimeout(() => {
             if (!elements.loading.hidden) elements.fallback.hidden = false;
         }, 8000);
@@ -352,16 +363,31 @@
 
     function closeGuide() {
         window.clearTimeout(viewerFallbackTimer);
-        elements.frame.src = 'about:blank';
-        elements.fallback.hidden = true;
-        elements.viewer.hidden = true;
+        window.clearTimeout(viewTransitionTimer);
         elements.library.hidden = false;
+        elements.library.classList.add('is-returning');
+        elements.viewer.classList.add('is-leaving');
         document.title = 'Help Guides';
         renderGuides();
-        const previousCard = currentGuide
-            ? elements.list.querySelector(`[data-guide-id="${currentGuide.id}"]`)
-            : null;
-        (previousCard || elements.search).focus();
+        finishViewTransition(() => {
+            elements.frame.src = 'about:blank';
+            elements.fallback.hidden = true;
+            elements.viewer.hidden = true;
+            elements.viewer.classList.remove('is-leaving');
+            elements.library.classList.remove('is-returning');
+            const previousCard = currentGuide
+                ? elements.list.querySelector(`[data-guide-id="${currentGuide.id}"]`)
+                : null;
+            (previousCard || elements.search).focus();
+        });
+    }
+
+    function finishViewTransition(callback) {
+        if (viewTransitionDuration === 0) {
+            callback();
+            return;
+        }
+        viewTransitionTimer = window.setTimeout(callback, viewTransitionDuration);
     }
 
     function toggleFavourite() {
@@ -374,19 +400,26 @@
 
     function removeFavouriteFromCard(guide, shell) {
         if (!favourites.has(guide.id)) return;
-        favourites.delete(guide.id);
+        toggleFavouriteFromCard(guide, shell);
+    }
+
+    function toggleFavouriteFromCard(guide, shell) {
+        const removing = favourites.has(guide.id);
+        if (removing) favourites.delete(guide.id);
+        else favourites.add(guide.id);
         storageSet(globalThis.chrome?.storage?.sync, { helpGuideFavouriteIds: [...favourites] });
-        shell.classList.add('is-removing-favourite');
+        shell.classList.add(removing ? 'is-removing-favourite' : 'is-adding-favourite');
         const timer = window.setTimeout(() => {
             favouriteAnimationTimers.delete(timer);
             renderGuides();
-        }, 240);
+        }, 260);
         favouriteAnimationTimers.add(timer);
     }
 
     function hidePanelToast(onComplete) {
         window.clearTimeout(toastTimer);
         window.clearTimeout(toastCloseTimer);
+        window.clearTimeout(viewTransitionTimer);
         elements.toastLayer.classList.add('is-closing');
         toastCloseTimer = window.setTimeout(() => {
             elements.toastLayer.hidden = true;
@@ -499,7 +532,15 @@
     }));
 
     document.querySelectorAll('.help-feedback-trigger').forEach(button => {
-        button.addEventListener('click', () => window.feedbackModalFeature?.open());
+        button.addEventListener('click', () => window.feedbackModalFeature?.open({
+            variant: 'help-guides',
+            categories: [...categories.slice(1), 'Other'],
+            types: ['New training material', 'Training material amend', 'Feedback'],
+            sectionLabel: 'Category',
+            sectionPlaceholder: 'Select a category',
+            detailPlaceholder: 'Share your suggestion or feedback with detail here, with any relevant accessible links',
+            showIdeaBy: false
+        }));
     });
 
     elements.disableFeature.addEventListener('click', handleDisableFeature);

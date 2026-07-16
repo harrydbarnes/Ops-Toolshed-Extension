@@ -5,16 +5,27 @@
     const EDGE_GAP = 18;
     const CORNER_ZONE = 72;
     const SNAP_DISTANCE = 86;
+    const DRAG_THRESHOLD = 8;
+    const EDGE_RELEASE_DISTANCE = 34;
+    const EDGE_RESISTANCE = 0.18;
     let isEnabled = null;
+    let isPanelOpen = false;
     let storageListenerBound = false;
+    let runtimeListenerBound = false;
     let preferredPosition = null;
 
     function openHelpGuides(event) {
         event?.preventDefault();
         event?.stopPropagation();
+        if (event?.detail > 0) event.currentTarget?.blur?.();
         if (isEnabled !== true) return;
 
-        chrome.runtime.sendMessage({ action: 'openHelpGuides' })
+        const action = isPanelOpen ? 'closeHelpGuidesFromLauncher' : 'openHelpGuides';
+        chrome.runtime.sendMessage({ action })
+            .then(response => {
+                if (response?.status !== 'success') return;
+                isPanelOpen = response.panelState === 'open';
+            })
             .catch(error => console.warn('Could not toggle Help Guides:', error.message));
     }
 
@@ -36,19 +47,20 @@
                 padding: 0 16px 0 10px;
                 border: 1px solid rgba(255, 255, 255, 0.26);
                 border-radius: 999px;
-                background: rgba(6, 8, 141, 0.88);
-                backdrop-filter: blur(6px);
+                background: rgba(6, 8, 141, 0.8);
+                backdrop-filter: none;
                 box-shadow: 0 4px 14px rgba(6, 8, 141, 0.22);
                 color: #fff;
                 font: 600 14px/1.2 "Outfit", "Segoe UI", sans-serif;
                 letter-spacing: 0.01em;
+                text-shadow: 0 1px 2px rgba(0, 0, 35, 0.45);
                 cursor: grab;
                 touch-action: none;
                 user-select: none;
                 transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease, left 220ms cubic-bezier(0.22, 1, 0.36, 1), top 220ms cubic-bezier(0.22, 1, 0.36, 1);
             }
             #${BUTTON_ID}:hover {
-                background: rgba(5, 6, 111, 0.98);
+                background: rgba(5, 6, 111, 0.88);
                 box-shadow: 0 6px 18px rgba(6, 8, 141, 0.28);
                 transform: translateY(-1px);
             }
@@ -58,12 +70,20 @@
                 box-shadow: 0 8px 22px rgba(6, 8, 141, 0.3);
                 transform: scale(1.02);
             }
+            #${BUTTON_ID}.is-pressed:not(.is-dragging) {
+                cursor: grabbing;
+                transform: scale(0.98);
+            }
             #${BUTTON_ID}.is-dragging {
                 transition: none;
             }
+            #${BUTTON_ID}.is-resisting {
+                transition: left 80ms ease-out, top 80ms ease-out, transform 120ms ease;
+            }
             #${BUTTON_ID}:focus-visible {
-                outline: 3px solid #ff4087;
-                outline-offset: 2px;
+                outline: 2px solid rgba(255, 255, 255, 0.95);
+                outline-offset: 3px;
+                box-shadow: 0 0 0 5px rgba(6, 8, 141, 0.3), 0 5px 16px rgba(6, 8, 141, 0.22);
             }
             #${BUTTON_ID} .toolshed-help-guides-icon {
                 display: grid;
@@ -170,14 +190,23 @@
         button.addEventListener('pointerdown', event => {
             if (event.button !== undefined && event.button !== 0) return;
             const rect = button.getBoundingClientRect();
+            const edgeDistances = [
+                Math.abs(rect.left - EDGE_GAP),
+                Math.abs(window.innerWidth - EDGE_GAP - rect.right),
+                Math.abs(rect.top - EDGE_GAP),
+                Math.abs(window.innerHeight - EDGE_GAP - rect.bottom)
+            ];
             dragState = {
                 pointerId: event.pointerId,
                 startX: event.clientX,
                 startY: event.clientY,
                 left: rect.left,
                 top: rect.top,
-                moved: false
+                moved: false,
+                nudged: false,
+                edgeHeld: Math.min(...edgeDistances) <= 12
             };
+            button.classList.add('is-pressed');
             button.setPointerCapture?.(event.pointerId);
         });
 
@@ -185,19 +214,41 @@
             if (!dragState || event.pointerId !== dragState.pointerId) return;
             const deltaX = event.clientX - dragState.startX;
             const deltaY = event.clientY - dragState.startY;
-            if (!dragState.moved && Math.hypot(deltaX, deltaY) < 5) return;
+            const distance = Math.hypot(deltaX, deltaY);
+            if (!dragState.moved && dragState.edgeHeld && distance < EDGE_RELEASE_DISTANCE) {
+                dragState.nudged = distance >= 2;
+                button.classList.add('is-resisting');
+                placeButton(
+                    button,
+                    dragState.left + deltaX * EDGE_RESISTANCE,
+                    dragState.top + deltaY * EDGE_RESISTANCE
+                );
+                return;
+            }
+            if (!dragState.moved && distance < DRAG_THRESHOLD) return;
             dragState.moved = true;
+            button.classList.remove('is-resisting');
             button.classList.add('is-dragging');
-            placeButton(button, dragState.left + deltaX, dragState.top + deltaY);
+            if (dragState.edgeHeld) {
+                const releasedDistance = EDGE_RELEASE_DISTANCE * EDGE_RESISTANCE + Math.max(0, distance - EDGE_RELEASE_DISTANCE);
+                const releaseRatio = distance ? releasedDistance / distance : 0;
+                placeButton(button, dragState.left + deltaX * releaseRatio, dragState.top + deltaY * releaseRatio);
+            } else {
+                placeButton(button, dragState.left + deltaX, dragState.top + deltaY);
+            }
         });
 
         const finishDrag = event => {
             if (!dragState || event.pointerId !== dragState.pointerId) return;
             button.releasePointerCapture?.(event.pointerId);
+            button.classList.remove('is-pressed');
+            button.classList.remove('is-resisting');
             if (dragState.moved) {
                 suppressNextClick = true;
                 button.classList.remove('is-dragging');
                 snapToEdge(button);
+            } else if (dragState.nudged) {
+                placeButton(button, dragState.left, dragState.top);
             }
             dragState = null;
         };
@@ -248,6 +299,12 @@
         makeDraggable(button);
         document.body.appendChild(button);
         restorePosition(button);
+        (window.requestAnimationFrame || (callback => callback()))(() => {
+            if (preferredPosition) return;
+            const rect = button.getBoundingClientRect();
+            preferredPosition = { left: rect.left, top: rect.top };
+            placeButton(button, rect.left, rect.top);
+        });
     }
 
     function initialize() {
@@ -274,6 +331,14 @@
             });
         }
 
+        if (!runtimeListenerBound && chrome.runtime?.onMessage) {
+            runtimeListenerBound = true;
+            chrome.runtime.onMessage.addListener(message => {
+                if (message?.action !== 'helpGuidesPanelState') return;
+                isPanelOpen = message.open === true;
+            });
+        }
+
         window.addEventListener('resize', () => {
             const button = document.getElementById(BUTTON_ID);
             if (!button || !preferredPosition) return;
@@ -287,6 +352,7 @@
         removeLauncher,
         openHelpGuides,
         isEnabled: () => isEnabled === true,
+        isPanelOpen: () => isPanelOpen,
         snapToEdge
     };
 })();

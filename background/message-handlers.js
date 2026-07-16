@@ -172,6 +172,21 @@ async function closeHelpGuides(request, sender, sendResponse) {
     sendResponse({ status: 'success' });
 }
 
+async function closeHelpGuidesFromLauncher(request, sender, sendResponse) {
+    const tabId = sender?.tab?.id;
+    if (!tabId) {
+        sendResponse({ status: 'error', message: 'Could not identify the current tab.' });
+        return;
+    }
+    if (typeof chrome.sidePanel?.close !== 'function') {
+        sendResponse({ status: 'unsupported' });
+        return;
+    }
+    await chrome.sidePanel.close({ tabId });
+    openHelpGuideTabs.delete(tabId);
+    sendResponse({ status: 'success', panelState: 'closed' });
+}
+
 async function updateHelpGuidesPanelState(request, sender, sendResponse) {
     let tabId = sender?.tab?.id || request?.tabId;
     if (!tabId) {
@@ -179,8 +194,14 @@ async function updateHelpGuidesPanelState(request, sender, sendResponse) {
         tabId = activeTab?.id;
     }
     if (tabId) {
-        if (request.action === 'helpGuidesPanelOpened') openHelpGuideTabs.add(tabId);
+        const isOpen = request.action === 'helpGuidesPanelOpened';
+        if (isOpen) openHelpGuideTabs.add(tabId);
         else openHelpGuideTabs.delete(tabId);
+        try {
+            await chrome.tabs.sendMessage(tabId, { action: 'helpGuidesPanelState', open: isOpen });
+        } catch {
+            // The page content script may be between route loads while the panel closes.
+        }
     }
     sendResponse({ status: 'success' });
 }
@@ -233,6 +254,7 @@ export const messageHandlers = {
     openApproversPage,
     openHelpGuides,
     closeHelpGuides,
+    closeHelpGuidesFromLauncher,
     helpGuidesPanelOpened: updateHelpGuidesPanelState,
     helpGuidesPanelClosed: updateHelpGuidesPanelState,
     requestCampaignDetailsBasicFocus,

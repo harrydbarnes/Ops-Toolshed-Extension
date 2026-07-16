@@ -524,6 +524,7 @@ describe('Campaign Details frame messaging', () => {
 describe('Help Guides side panel messaging', () => {
     let openHelpGuides;
     let closeHelpGuides;
+    let closeHelpGuidesFromLauncher;
 
     beforeEach(() => {
         resetMocks();
@@ -531,7 +532,7 @@ describe('Help Guides side panel messaging', () => {
         chrome.sidePanel.open.mockResolvedValue(undefined);
         chrome.sidePanel.setOptions.mockResolvedValue(undefined);
         chrome.sidePanel.close.mockResolvedValue(undefined);
-        ({ openHelpGuides, closeHelpGuides } = require('../background/message-handlers').messageHandlers);
+        ({ openHelpGuides, closeHelpGuides, closeHelpGuidesFromLauncher } = require('../background/message-handlers').messageHandlers);
     });
 
     test('opens and configures a tab-specific panel from the page launcher', async () => {
@@ -570,6 +571,15 @@ describe('Help Guides side panel messaging', () => {
         expect(chrome.sidePanel.open).toHaveBeenCalledTimes(1);
         expect(chrome.sidePanel.close).toHaveBeenCalledWith({ tabId: 42 });
         expect(secondResponse).toHaveBeenCalledWith({ status: 'success', panelState: 'closed' });
+    });
+
+    test('closes directly from a launcher content-script request', async () => {
+        const sendResponse = jest.fn();
+
+        await closeHelpGuidesFromLauncher({}, { tab: { id: 42 } }, sendResponse);
+
+        expect(chrome.sidePanel.close).toHaveBeenCalledWith({ tabId: 42 });
+        expect(sendResponse).toHaveBeenCalledWith({ status: 'success', panelState: 'closed' });
     });
 
     test('closes the active tab-specific Help Guides panel', async () => {
