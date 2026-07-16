@@ -69,6 +69,7 @@
         },
 
         queryShadowDom(selector, root = document) {
+            if (!root?.querySelector || !root?.querySelectorAll) return null;
             const found = root.querySelector(selector);
             if (found) return found;
 
@@ -83,6 +84,7 @@
         },
 
         queryAllShadowDom(selector, root = document) {
+            if (!root?.querySelector || !root?.querySelectorAll) return [];
             const matches = new Set(root.querySelectorAll(selector));
             root.querySelectorAll('*').forEach(element => {
                 if (!element.shadowRoot) return;

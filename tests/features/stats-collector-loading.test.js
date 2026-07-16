@@ -99,4 +99,24 @@ describe('loading-time collection', () => {
         expect(window.chrome.runtime.sendMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'LOADING_TIME' }));
         dom.window.close();
     });
+
+    test('counts the wide loader used by Actualise', () => {
+        const { dom, window, setNow } = createCollector();
+        const spinner = makeVisible(window.document.createElement('mo-spinner'));
+        Object.defineProperty(spinner, 'offsetWidth', { value: 500 });
+
+        setNow(1000);
+        window.document.body.appendChild(spinner);
+        window.statsCollector.checkLoadingState();
+        setNow(4250);
+        spinner.remove();
+        window.statsCollector.checkLoadingState();
+
+        expect(window.chrome.runtime.sendMessage).toHaveBeenCalledWith({
+            action: 'TRACK_STAT',
+            type: 'LOADING_TIME',
+            value: 3.25
+        });
+        dom.window.close();
+    });
 });

@@ -196,7 +196,8 @@
             let targetElement = spinner;
             // If the spinner container is wide, look for the actual graphic
             if (spinner.offsetWidth > 100) {
-                const innerSvg = spinner.querySelector('svg') || window.utils.queryShadowDom('svg', spinner.shadowRoot);
+                const innerSvg = spinner.querySelector('svg') ||
+                    (spinner.shadowRoot ? window.utils.queryShadowDom('svg', spinner.shadowRoot) : null);
                 if (innerSvg) targetElement = innerSvg;
             }
 

@@ -123,4 +123,44 @@ describe('Loading Facts behaviour', () => {
             .resolves.toContain('1h 1m 5s');
         dom.window.close();
     });
+
+    test('shows a fact for a wide Actualise loader without a Shadow Root', async () => {
+        const dom = new JSDOM('<!doctype html><html><body><mo-spinner></mo-spinner></body></html>', {
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#ptb-ctx=actualize&route=actualize',
+            runScripts: 'outside-only'
+        });
+        const { window } = dom;
+        const spinner = window.document.querySelector('mo-spinner');
+        Object.defineProperty(spinner, 'offsetWidth', { value: 500 });
+        spinner.getBoundingClientRect = () => ({
+            left: 0, top: 0, width: 500, height: 300, right: 500, bottom: 300
+        });
+        window.utils = {
+            queryShadowDom: jest.fn((_selector, root) => {
+                if (!root) throw new TypeError('Cannot read properties of null');
+                return null;
+            }),
+            isElementVisible: jest.fn(() => true),
+            findVisibleLoadingSpinners: jest.fn(() => [spinner])
+        };
+        window.IntersectionObserver = jest.fn(() => ({ observe: jest.fn(), disconnect: jest.fn() }));
+        window.chrome = {
+            storage: {
+                sync: { get: jest.fn((_keys, callback) => callback({ loadingFactsEnabled: true })) },
+                local: { get: jest.fn((_keys, callback) => callback({ legacyStats: { totalLoadingTime: 1 } })) },
+                onChanged: { addListener: jest.fn() }
+            }
+        };
+
+        window.eval(loadingFactsScript);
+        const feature = window.loadingFactsFeature;
+        feature.isEnabled = true;
+        feature.isIntersecting = true;
+        feature.observedSpinner = spinner;
+
+        await expect(feature.showToast(spinner)).resolves.toBeUndefined();
+        expect(window.document.getElementById('ops-toolshed-loading-toast')).not.toBeNull();
+        expect(window.utils.queryShadowDom).not.toHaveBeenCalled();
+        dom.window.close();
+    });
 });

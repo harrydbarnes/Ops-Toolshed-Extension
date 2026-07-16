@@ -8,7 +8,7 @@ const featureCode = fs.readFileSync(
 );
 
 describe('Prisma banner username feature', () => {
-    function createPage({ enabled = true } = {}) {
+    function createPage({ enabled = true, deferBannerParts = false } = {}) {
         const dom = new JSDOM('<!doctype html><html><body></body></html>', {
             runScripts: 'dangerously',
             url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/'
@@ -19,15 +19,20 @@ describe('Prisma banner username feature', () => {
 
         const userMenu = window.document.createElement('mo-banner-user-menu');
         const menuShadow = userMenu.attachShadow({ mode: 'open' });
+        const menuLabel = window.document.createElement('div');
+        menuLabel.className = 'user-menu-label';
         const accountLabel = window.document.createElement('div');
         accountLabel.className = 'user-company-name';
         accountLabel.textContent = 'GROUPM UK (OWNER)';
+        accountLabel.getBoundingClientRect = () => ({ width: 132, height: 24 });
+        menuLabel.appendChild(accountLabel);
         const menuTrigger = window.document.createElement('mo-menu');
         menuTrigger.setAttribute('aria-expanded', 'false');
-        menuShadow.append(accountLabel, menuTrigger);
+        const attachBannerParts = () => menuShadow.append(menuTrigger, menuLabel);
+        if (!deferBannerParts) attachBannerParts();
         window.document.body.appendChild(userMenu);
 
-        menuTrigger.addEventListener('click', () => {
+        menuLabel.addEventListener('click', () => {
             triggerClicks += 1;
             const isOpening = menuTrigger.getAttribute('aria-expanded') !== 'true';
             menuTrigger.setAttribute('aria-expanded', String(isOpening));
@@ -62,6 +67,7 @@ describe('Prisma banner username feature', () => {
             window,
             listeners,
             accountLabel,
+            attachBannerParts,
             menuTrigger,
             getTriggerClicks: () => triggerClicks
         };
@@ -81,6 +87,7 @@ describe('Prisma banner username feature', () => {
 
         expect(page.accountLabel.textContent).toBe('HBARN');
         expect(page.accountLabel.getAttribute('data-ops-toolshed-original-account-label')).toBe('GROUPM UK (OWNER)');
+        expect(page.accountLabel.style.minWidth).toBe('132px');
         expect(page.menuTrigger.getAttribute('aria-expanded')).toBe('false');
         expect(page.getTriggerClicks()).toBe(2);
         expect(page.window.bannerUsernameFeature.getResolvedUsername()).toBe('HBARN');
@@ -106,8 +113,22 @@ describe('Prisma banner username feature', () => {
         page.listeners[0]({ bannerUsernameEnabled: { oldValue: true, newValue: false } }, 'sync');
         expect(page.accountLabel.textContent).toBe('GROUPM UK (OWNER)');
         expect(page.accountLabel.hasAttribute('data-ops-toolshed-original-account-label')).toBe(false);
+        expect(page.accountLabel.style.minWidth).toBe('');
 
         page.listeners[0]({ bannerUsernameEnabled: { oldValue: false, newValue: true } }, 'sync');
+        expect(page.accountLabel.textContent).toBe('HBARN');
+        expect(page.getTriggerClicks()).toBe(2);
+        page.dom.window.close();
+    });
+
+    test('applies when Prisma renders the banner label inside Shadow DOM after initialization', async () => {
+        const page = createPage({ deferBannerParts: true });
+
+        page.window.bannerUsernameFeature.initialize();
+        page.attachBannerParts();
+        await settleDiscovery(page.window);
+        await settleDiscovery(page.window);
+
         expect(page.accountLabel.textContent).toBe('HBARN');
         expect(page.getTriggerClicks()).toBe(2);
         page.dom.window.close();

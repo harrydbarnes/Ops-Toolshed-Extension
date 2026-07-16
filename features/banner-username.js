@@ -3,6 +3,7 @@
 
     const SETTING_KEY = 'bannerUsernameEnabled';
     const ORIGINAL_LABEL_ATTRIBUTE = 'data-ops-toolshed-original-account-label';
+    const ORIGINAL_MIN_WIDTH_ATTRIBUTE = 'data-ops-toolshed-original-account-min-width';
     const DISCOVERY_TIMEOUT_MS = 2500;
 
     let isEnabled = true;
@@ -11,6 +12,8 @@
     let discoveryPromise = null;
     let storageListenerBound = false;
     const attemptedMenus = new WeakSet();
+    const lifecycleObservers = new Map();
+    let lifecycleApplyScheduled = false;
 
     function queryAllDeep(root = document) {
         const results = [];
@@ -58,17 +61,26 @@
         return {
             userMenu,
             accountLabel: findDeep('.user-company-name', menuRoot),
-            menuTrigger: findDeep('mo-menu', menuRoot)
+            menuTrigger: findDeep('mo-menu', menuRoot),
+            menuActivator: findDeep('.user-menu-label', menuRoot)
         };
     }
 
     function replaceAccountLabel(accountLabel) {
         if (!accountLabel || !resolvedUsername) return;
         if (!accountLabel.hasAttribute(ORIGINAL_LABEL_ATTRIBUTE)) {
+            const originalLabel = (accountLabel.textContent || '').replace(/\s+/g, ' ').trim();
+            if (!originalLabel) return;
             accountLabel.setAttribute(
                 ORIGINAL_LABEL_ATTRIBUTE,
-                (accountLabel.textContent || '').replace(/\s+/g, ' ').trim()
+                originalLabel
             );
+            accountLabel.setAttribute(
+                ORIGINAL_MIN_WIDTH_ATTRIBUTE,
+                accountLabel.style.minWidth || ''
+            );
+            const originalWidth = accountLabel.getBoundingClientRect().width;
+            if (originalWidth > 0) accountLabel.style.minWidth = `${originalWidth}px`;
         }
         if (accountLabel.textContent !== resolvedUsername) {
             accountLabel.textContent = resolvedUsername;
@@ -79,13 +91,18 @@
         queryAllDeep().forEach(element => {
             if (!element.matches?.(`.user-company-name[${ORIGINAL_LABEL_ATTRIBUTE}]`)) return;
             element.textContent = element.getAttribute(ORIGINAL_LABEL_ATTRIBUTE) || '';
+            const originalMinWidth = element.getAttribute(ORIGINAL_MIN_WIDTH_ATTRIBUTE) || '';
+            if (originalMinWidth) element.style.minWidth = originalMinWidth;
+            else element.style.removeProperty('min-width');
             element.removeAttribute(ORIGINAL_LABEL_ATTRIBUTE);
+            element.removeAttribute(ORIGINAL_MIN_WIDTH_ATTRIBUTE);
         });
     }
 
-    function clickMenuTrigger(menuTrigger) {
-        if (!menuTrigger) return;
-        menuTrigger.dispatchEvent(new MouseEvent('click', {
+    function clickMenuTrigger(menuTrigger, menuActivator) {
+        const clickTarget = menuActivator || menuTrigger;
+        if (!clickTarget) return;
+        clickTarget.dispatchEvent(new MouseEvent('click', {
             bubbles: true,
             cancelable: true,
             composed: true,
@@ -94,6 +111,7 @@
     }
 
     function getObservableRoots() {
+        if (typeof document === 'undefined' || !document.documentElement) return [];
         const roots = [document.documentElement];
         queryAllDeep().forEach(element => {
             if (element.shadowRoot) roots.push(element.shadowRoot);
@@ -101,7 +119,46 @@
         return roots.filter(Boolean);
     }
 
-    function discoverUsername(userMenu, menuTrigger) {
+    function getBannerLifecycleRoots() {
+        if (typeof document === 'undefined') return [];
+        const userMenu = findDeep('mo-banner-user-menu');
+        if (!userMenu) return [];
+        const menuRoot = userMenu.shadowRoot || userMenu;
+        const roots = [menuRoot];
+        queryAllDeep(menuRoot).forEach(element => {
+            if (element.shadowRoot) roots.push(element.shadowRoot);
+        });
+        return roots;
+    }
+
+    function scheduleLifecycleApply() {
+        if (lifecycleApplyScheduled) return;
+        lifecycleApplyScheduled = true;
+        Promise.resolve().then(() => {
+            lifecycleApplyScheduled = false;
+            if (typeof document === 'undefined' || !document.documentElement) return;
+            observeLifecycleRoots();
+            apply();
+        });
+    }
+
+    function observeLifecycleRoots() {
+        lifecycleObservers.forEach((observer, root) => {
+            const isConnected = root.host ? root.host.isConnected : root.isConnected;
+            if (isConnected) return;
+            observer.disconnect();
+            lifecycleObservers.delete(root);
+        });
+
+        getBannerLifecycleRoots().forEach(root => {
+            if (!root?.querySelectorAll || lifecycleObservers.has(root)) return;
+            const observer = new MutationObserver(scheduleLifecycleApply);
+            observer.observe(root, { childList: true, subtree: true, characterData: true });
+            lifecycleObservers.set(root, observer);
+        });
+    }
+
+    function discoverUsername(userMenu, menuTrigger, menuActivator) {
         if (!userMenu || !menuTrigger || discoveryPromise || attemptedMenus.has(userMenu)) return;
         attemptedMenus.add(userMenu);
 
@@ -118,7 +175,7 @@
                 if (timeoutId) clearTimeout(timeoutId);
                 if (username) resolvedUsername = username;
                 if (!menuWasOpen && menuTrigger.getAttribute('aria-expanded') === 'true') {
-                    clickMenuTrigger(menuTrigger);
+                    clickMenuTrigger(menuTrigger, menuActivator);
                 }
                 resolve(username);
             };
@@ -135,7 +192,7 @@
             });
 
             timeoutId = setTimeout(() => finish(null), DISCOVERY_TIMEOUT_MS);
-            if (!menuWasOpen) clickMenuTrigger(menuTrigger);
+            if (!menuWasOpen) clickMenuTrigger(menuTrigger, menuActivator);
             checkForUsername();
         }).finally(() => {
             discoveryPromise = null;
@@ -144,13 +201,14 @@
     }
 
     function apply() {
+        observeLifecycleRoots();
         if (!settingsLoaded) return;
         if (!isEnabled) {
             restoreAccountLabels();
             return;
         }
 
-        const { userMenu, accountLabel, menuTrigger } = getBannerParts();
+        const { userMenu, accountLabel, menuTrigger, menuActivator } = getBannerParts();
         if (!userMenu || !accountLabel) return;
 
         const visibleUsername = readUsernameFromMenu();
@@ -160,10 +218,11 @@
             return;
         }
 
-        discoverUsername(userMenu, menuTrigger);
+        discoverUsername(userMenu, menuTrigger, menuActivator);
     }
 
     function initialize() {
+        observeLifecycleRoots();
         chrome.storage.sync.get({ [SETTING_KEY]: true }, data => {
             isEnabled = data[SETTING_KEY] !== false;
             settingsLoaded = true;
