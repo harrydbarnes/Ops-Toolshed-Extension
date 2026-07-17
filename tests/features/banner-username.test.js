@@ -8,7 +8,13 @@ const featureCode = fs.readFileSync(
 );
 
 describe('Prisma banner username feature', () => {
-    function createPage({ enabled = true, deferBannerParts = false, deferOverlayUsername = false } = {}) {
+    function createPage({
+        enabled = true,
+        deferBannerParts = false,
+        deferOverlayUsername = false,
+        cachedUsername = null,
+        includePidOptions = false
+    } = {}) {
         const dom = new JSDOM('<!doctype html><html><body></body></html>', {
             runScripts: 'dangerously',
             url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/'
@@ -58,11 +64,31 @@ describe('Prisma banner username feature', () => {
             }
         });
 
+        let pidOption = null;
+        if (includePidOptions) {
+            const pidOptions = window.document.createElement('div');
+            pidOptions.className = 'pid-options';
+            pidOption = window.document.createElement('button');
+            pidOption.textContent = 'Alternative PID';
+            pidOptions.appendChild(pidOption);
+            window.document.body.appendChild(pidOptions);
+        }
+
+        const localStorage = {
+            get: jest.fn((defaults, callback) => callback({
+                ...defaults,
+                ...(cachedUsername ? { opsToolshed_bannerUsername: cachedUsername } : {})
+            })),
+            set: jest.fn(),
+            remove: jest.fn()
+        };
+
         window.chrome = {
             storage: {
                 sync: {
                     get: jest.fn((defaults, callback) => callback({ ...defaults, bannerUsernameEnabled: enabled }))
                 },
+                local: localStorage,
                 onChanged: {
                     addListener: jest.fn(listener => listeners.push(listener))
                 }
@@ -77,6 +103,8 @@ describe('Prisma banner username feature', () => {
             accountLabel,
             attachBannerParts,
             menuTrigger,
+            pidOption,
+            localStorage,
             getTriggerClicks: () => triggerClicks
         };
     }
@@ -101,6 +129,7 @@ describe('Prisma banner username feature', () => {
         expect(page.menuTrigger.getAttribute('aria-expanded')).toBe('false');
         expect(page.getTriggerClicks()).toBe(2);
         expect(page.window.bannerUsernameFeature.getResolvedUsername()).toBe('HBARN');
+        expect(page.localStorage.set).toHaveBeenCalledWith({ opsToolshed_bannerUsername: 'HBARN' });
         page.dom.window.close();
     });
 
@@ -112,6 +141,29 @@ describe('Prisma banner username feature', () => {
 
         expect(page.accountLabel.textContent).toBe('GROUPM UK (OWNER)');
         expect(page.getTriggerClicks()).toBe(0);
+        page.dom.window.close();
+    });
+
+    test('uses the remembered username without opening the account menu', async () => {
+        const page = createPage({ cachedUsername: 'HBARN2' });
+
+        page.window.bannerUsernameFeature.initialize();
+        await Promise.resolve();
+
+        expect(page.accountLabel.textContent).toBe('HBARN2');
+        expect(page.getTriggerClicks()).toBe(0);
+        page.dom.window.close();
+    });
+
+    test('forgets the username when a PID option is selected', async () => {
+        const page = createPage({ cachedUsername: 'HBARN2', includePidOptions: true });
+
+        page.window.bannerUsernameFeature.initialize();
+        await Promise.resolve();
+        page.pidOption.click();
+
+        expect(page.localStorage.remove).toHaveBeenCalledWith('opsToolshed_bannerUsername');
+        expect(page.window.bannerUsernameFeature.getResolvedUsername()).toBeNull();
         page.dom.window.close();
     });
 

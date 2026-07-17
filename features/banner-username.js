@@ -2,6 +2,7 @@
     'use strict';
 
     const SETTING_KEY = 'bannerUsernameEnabled';
+    const USERNAME_CACHE_KEY = 'opsToolshed_bannerUsername';
     const ORIGINAL_LABEL_ATTRIBUTE = 'data-ops-toolshed-original-account-label';
     const ORIGINAL_MIN_WIDTH_ATTRIBUTE = 'data-ops-toolshed-original-account-min-width';
     const ORIGINAL_TEXT_ALIGN_ATTRIBUTE = 'data-ops-toolshed-original-account-text-align';
@@ -11,10 +12,13 @@
 
     let isEnabled = true;
     let settingsLoaded = false;
+    let cacheLoaded = false;
     let resolvedUsername = null;
+    let cachedUsername = null;
     let discoveryPromise = null;
     let discoveryCheckForUsername = null;
     let storageListenerBound = false;
+    let pidSelectionListenerBound = false;
     let overlayLifecycleBound = false;
     const attemptedMenus = new WeakSet();
     const lifecycleObservers = new Map();
@@ -50,6 +54,55 @@
     function parseUsername(value) {
         const match = String(value || '').trim().match(/^([a-z0-9._-]+)@[^\s@]+$/i);
         return match ? match[1] : null;
+    }
+
+    function parseCachedUsername(value) {
+        const username = String(value || '').trim();
+        return /^[a-z0-9._-]+$/i.test(username) ? username : null;
+    }
+
+    function rememberUsername(username) {
+        const parsedUsername = parseCachedUsername(username);
+        if (!parsedUsername) return;
+        resolvedUsername = parsedUsername;
+        if (cachedUsername === parsedUsername) return;
+        cachedUsername = parsedUsername;
+        chrome.storage?.local?.set?.({ [USERNAME_CACHE_KEY]: parsedUsername });
+    }
+
+    function clearRememberedUsername() {
+        if (!resolvedUsername && !cachedUsername) return;
+        resolvedUsername = null;
+        cachedUsername = null;
+        chrome.storage?.local?.remove?.(USERNAME_CACHE_KEY);
+    }
+
+    function loadRememberedUsername() {
+        const localStorage = chrome.storage?.local;
+        if (!localStorage?.get) {
+            cacheLoaded = true;
+            apply();
+            return;
+        }
+        localStorage.get({ [USERNAME_CACHE_KEY]: null }, data => {
+            cachedUsername = parseCachedUsername(data?.[USERNAME_CACHE_KEY]);
+            if (cachedUsername) resolvedUsername = cachedUsername;
+            cacheLoaded = true;
+            apply();
+        });
+    }
+
+    function bindPidSelectionInvalidation() {
+        if (pidSelectionListenerBound || typeof document === 'undefined') return;
+        pidSelectionListenerBound = true;
+        document.addEventListener('click', event => {
+            const eventPath = typeof event.composedPath === 'function'
+                ? event.composedPath()
+                : [];
+            if (eventPath.some(element => element?.matches?.('div.pid-options'))) {
+                clearRememberedUsername();
+            }
+        }, true);
     }
 
     function readUsernameFromMenu() {
@@ -253,7 +306,7 @@
                 discoveryCheckForUsername = null;
                 observers.forEach(observer => observer.disconnect());
                 if (timeoutId) clearTimeout(timeoutId);
-                if (username) resolvedUsername = username;
+                if (username) rememberUsername(username);
                 if (!menuWasOpen && menuTrigger.getAttribute('aria-expanded') === 'true') {
                     clickMenuTrigger(menuTrigger, menuActivator);
                 }
@@ -283,7 +336,7 @@
 
     function apply() {
         observeLifecycleRoots();
-        if (!settingsLoaded) return;
+        if (!settingsLoaded || !cacheLoaded) return;
         if (!isEnabled) {
             restoreAccountLabels();
             return;
@@ -293,7 +346,7 @@
         if (!userMenu || !accountLabel) return;
 
         const visibleUsername = readUsernameFromMenu();
-        if (visibleUsername) resolvedUsername = visibleUsername;
+        if (visibleUsername) rememberUsername(visibleUsername);
         if (resolvedUsername) {
             replaceAccountLabel(accountLabel, accountGroup);
             return;
@@ -305,6 +358,8 @@
     function initialize() {
         observeLifecycleRoots();
         bindOverlayLifecycle();
+        bindPidSelectionInvalidation();
+        loadRememberedUsername();
         chrome.storage.sync.get({ [SETTING_KEY]: true }, data => {
             isEnabled = data[SETTING_KEY] !== false;
             settingsLoaded = true;
