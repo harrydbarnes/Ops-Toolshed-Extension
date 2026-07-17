@@ -318,6 +318,14 @@ document.addEventListener('DOMContentLoaded', async function() {
             } 
         }); 
     } 
+
+    const launchOnboardingButton = document.getElementById('launchOnboardingButton');
+    if (launchOnboardingButton) {
+        launchOnboardingButton.addEventListener('click', () => {
+            chrome.tabs.create({ url: chrome.runtime.getURL('onboarding.html') })
+                .catch(error => console.error('Could not launch user onboarding:', error));
+        });
+    }
  
     // Tab switching logic 
     const tabContainer = document.querySelector('.tab-container'); 

@@ -21,4 +21,10 @@ describe('AppLearn popup blocking setting', () => {
             "setupToggle('helpGuidesToggle', 'helpGuidesEnabled'"
         );
     });
+
+    test('offers a Features-tab test launch for first-run onboarding', () => {
+        expect(settingsHtml).toContain('id="launchOnboardingButton"');
+        expect(settingsHtml).toContain('Launch user onboarding');
+        expect(settingsScript).toContain("chrome.tabs.create({ url: chrome.runtime.getURL('onboarding.html') })");
+    });
 });
