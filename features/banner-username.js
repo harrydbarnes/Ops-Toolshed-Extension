@@ -52,13 +52,12 @@
     }
 
     function parseUsername(value) {
-        const match = String(value || '').trim().match(/^([a-z0-9._-]+)@[^\s@]+$/i);
-        return match ? match[1] : null;
+        const username = String(value || '').trim();
+        return /^[a-z0-9._-]+@[^\s@]+$/i.test(username) ? username : null;
     }
 
     function parseCachedUsername(value) {
-        const username = String(value || '').trim();
-        return /^[a-z0-9._-]+$/i.test(username) ? username : null;
+        return parseUsername(value);
     }
 
     function rememberUsername(username) {

@@ -121,15 +121,15 @@ describe('Prisma banner username feature', () => {
         page.window.bannerUsernameFeature.initialize();
         await settleDiscovery(page.window);
 
-        expect(page.accountLabel.textContent).toBe('HBARN');
+        expect(page.accountLabel.textContent).toBe('HBARN@NGMCLON');
         expect(page.accountLabel.getAttribute('data-ops-toolshed-original-account-label')).toBe('GROUPM UK (OWNER)');
         expect(page.accountLabel.style.minWidth).toBe('132px');
         expect(page.accountLabel.style.textAlign).toBe('center');
         expect(page.accountLabel.style.left).toBe('-18px');
         expect(page.menuTrigger.getAttribute('aria-expanded')).toBe('false');
         expect(page.getTriggerClicks()).toBe(2);
-        expect(page.window.bannerUsernameFeature.getResolvedUsername()).toBe('HBARN');
-        expect(page.localStorage.set).toHaveBeenCalledWith({ opsToolshed_bannerUsername: 'HBARN' });
+        expect(page.window.bannerUsernameFeature.getResolvedUsername()).toBe('HBARN@NGMCLON');
+        expect(page.localStorage.set).toHaveBeenCalledWith({ opsToolshed_bannerUsername: 'HBARN@NGMCLON' });
         page.dom.window.close();
     });
 
@@ -145,18 +145,18 @@ describe('Prisma banner username feature', () => {
     });
 
     test('uses the remembered username without opening the account menu', async () => {
-        const page = createPage({ cachedUsername: 'HBARN2' });
+        const page = createPage({ cachedUsername: 'HBARN2@NGMCLON' });
 
         page.window.bannerUsernameFeature.initialize();
         await Promise.resolve();
 
-        expect(page.accountLabel.textContent).toBe('HBARN2');
+        expect(page.accountLabel.textContent).toBe('HBARN2@NGMCLON');
         expect(page.getTriggerClicks()).toBe(0);
         page.dom.window.close();
     });
 
     test('forgets the username when a PID option is selected', async () => {
-        const page = createPage({ cachedUsername: 'HBARN2', includePidOptions: true });
+        const page = createPage({ cachedUsername: 'HBARN2@NGMCLON', includePidOptions: true });
 
         page.window.bannerUsernameFeature.initialize();
         await Promise.resolve();
@@ -180,7 +180,7 @@ describe('Prisma banner username feature', () => {
         expect(page.accountLabel.style.left).toBe('');
 
         page.listeners[0]({ bannerUsernameEnabled: { oldValue: false, newValue: true } }, 'sync');
-        expect(page.accountLabel.textContent).toBe('HBARN');
+        expect(page.accountLabel.textContent).toBe('HBARN@NGMCLON');
         expect(page.getTriggerClicks()).toBe(2);
         page.dom.window.close();
     });
@@ -193,7 +193,7 @@ describe('Prisma banner username feature', () => {
         await settleDiscovery(page.window);
         await settleDiscovery(page.window);
 
-        expect(page.accountLabel.textContent).toBe('HBARN');
+        expect(page.accountLabel.textContent).toBe('HBARN@NGMCLON');
         expect(page.getTriggerClicks()).toBe(2);
         page.dom.window.close();
     });
@@ -213,7 +213,7 @@ describe('Prisma banner username feature', () => {
 
         page.window.bannerUsernameFeature.apply();
 
-        expect(replacementLabel.textContent).toBe('HBARN');
+        expect(replacementLabel.textContent).toBe('HBARN@NGMCLON');
         expect(replacementLabel.getAttribute('data-ops-toolshed-original-account-label')).toBe('ANOTHER ACCOUNT (OWNER)');
         page.dom.window.close();
     });
@@ -221,7 +221,7 @@ describe('Prisma banner username feature', () => {
     test('only accepts Mediaocean-style username identifiers', () => {
         const page = createPage({ enabled: false });
 
-        expect(page.window.bannerUsernameFeature.parseUsername('HBARN@NGMCLON')).toBe('HBARN');
+        expect(page.window.bannerUsernameFeature.parseUsername('HBARN@NGMCLON')).toBe('HBARN@NGMCLON');
         expect(page.window.bannerUsernameFeature.parseUsername('not an account')).toBeNull();
         expect(page.window.bannerUsernameFeature.parseUsername('Harry Barnes')).toBeNull();
         page.dom.window.close();
