@@ -190,6 +190,7 @@ async function mainContentScriptInit() {
                 window.campaignFeature.handleCampaignNavigationOptimisation();
                 window.approverPastingFeature.handleApproverPasting();
                 window.approverPastingFeature.handleManageFavouritesButton();
+                window.approverPastingFeature.addRecipientHistoryControls();
                 window.gmiChatFeature.handleGmiChatButton();
                 window.liveChatEnhancements.initialize();
 

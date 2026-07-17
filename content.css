@@ -232,6 +232,73 @@ body.reminder-theme-black #confirmation-popup {
 }
 /* --- End of Paste Approvers Button Styles --- */
 
+/* --- Internal Approval recipient history controls --- */
+.ops-toolshed-recipient-history-pending .select2-drop-active {
+    visibility: hidden;
+}
+
+.select2-drop-active .select2-result-label[data-ops-toolshed-recipient-history-handled="true"] {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.ops-toolshed-recipient-history-email {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ops-toolshed-recipient-history-remove {
+    margin-left: auto;
+    flex: 0 0 20px;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: #737373;
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 18px;
+}
+
+.ops-toolshed-recipient-history-remove:hover,
+.ops-toolshed-recipient-history-remove:focus-visible {
+    background: #fde8f2;
+    color: #b90068;
+    outline: none;
+}
+
+.ops-toolshed-recipient-history-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 7px 8px 3px;
+    border-top: 1px solid #e4e4e7;
+}
+
+.ops-toolshed-recipient-history-clear {
+    padding: 2px 4px;
+    border: 0;
+    background: transparent;
+    color: #b90068;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.ops-toolshed-recipient-history-clear:hover,
+.ops-toolshed-recipient-history-clear:focus-visible {
+    text-decoration: underline;
+    outline: none;
+}
+/* --- End Internal Approval recipient history controls --- */
+
 /* --- GMI Chat Button Styles --- */
 /* Completely separate definition to allow individual margin control */
 .gmi-chat-button {

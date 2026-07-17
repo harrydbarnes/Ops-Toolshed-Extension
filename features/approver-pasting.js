@@ -1,6 +1,140 @@
 (function() {
     'use strict';
 
+    const REMOVED_RECIPIENTS_STORAGE_KEY = 'removedInternalApprovalRecipients';
+    let removedRecipients = new Set();
+    let removedRecipientsReady;
+
+    function getRemovedRecipients() {
+        if (!removedRecipientsReady) {
+            removedRecipientsReady = chrome.storage.local
+                .get({ [REMOVED_RECIPIENTS_STORAGE_KEY]: [] })
+                .then(data => {
+                    removedRecipients = new Set(data[REMOVED_RECIPIENTS_STORAGE_KEY] || []);
+                })
+                .catch(error => {
+                    console.warn('Could not load removed internal-approval recipients:', error);
+                });
+        }
+        return removedRecipientsReady;
+    }
+
+    function saveRemovedRecipients() {
+        return chrome.storage.local
+            .set({ [REMOVED_RECIPIENTS_STORAGE_KEY]: [...removedRecipients] })
+            .catch(error => console.warn('Could not save removed internal-approval recipients:', error));
+    }
+
+    function getInternalApprovalRecipientInput() {
+        const toLabel = Array.from(document.querySelectorAll('label'))
+            .find(label => label.textContent.trim() === 'To');
+        return toLabel?.parentElement?.querySelector('.select2-choices .select2-input');
+    }
+
+    function getVisibleRecipientDropdown(toInput) {
+        if (document.activeElement !== toInput) return null;
+
+        return Array.from(document.querySelectorAll('.select2-drop-active'))
+            .find(dropdown => dropdown.style.display !== 'none' && dropdown.querySelector('.select2-results'));
+    }
+
+    function installRecipientHistoryVisibilityGuard() {
+        const toInput = getInternalApprovalRecipientInput();
+        if (!toInput || toInput.dataset.opsToolshedRecipientHistoryGuarded) return;
+
+        toInput.dataset.opsToolshedRecipientHistoryGuarded = 'true';
+        const hideUntilFiltered = () => document.body.classList.add('ops-toolshed-recipient-history-pending');
+        toInput.addEventListener('mousedown', hideUntilFiltered);
+        toInput.addEventListener('focus', hideUntilFiltered);
+        toInput.addEventListener('blur', () => {
+            document.body.classList.remove('ops-toolshed-recipient-history-pending');
+        });
+    }
+
+    function removeRecipientFromHistory(email, result) {
+        removedRecipients.add(email);
+        result.remove();
+        saveRemovedRecipients();
+    }
+
+    function addRecipientHistoryControls() {
+        const toInput = getInternalApprovalRecipientInput();
+        if (!toInput) return;
+        installRecipientHistoryVisibilityGuard();
+
+        getRemovedRecipients().then(() => {
+            const dropdown = getVisibleRecipientDropdown(toInput);
+            if (!dropdown) return;
+
+            const results = dropdown.querySelector('.select2-results');
+            const recipientResults = Array.from(results.querySelectorAll('.select2-result-selectable'));
+            const visibleEmails = [];
+
+            recipientResults.forEach(result => {
+                const label = result.querySelector('.select2-result-label');
+                if (!label || label.dataset.opsToolshedRecipientHistoryHandled) return;
+
+                const email = label.textContent.trim();
+                if (!email) return;
+
+                label.dataset.opsToolshedRecipientHistoryHandled = 'true';
+                if (removedRecipients.has(email)) {
+                    result.remove();
+                    return;
+                }
+
+                visibleEmails.push(email);
+                const removeButton = document.createElement('button');
+                removeButton.type = 'button';
+                removeButton.className = 'ops-toolshed-recipient-history-remove';
+                removeButton.setAttribute('aria-label', `Remove ${email} from recipient history`);
+                removeButton.title = 'Remove from history';
+                removeButton.textContent = '×';
+                const preventSelect2Selection = event => {
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                };
+                // Select2 selects a result on mouseup, before a click handler has a
+                // chance to help. Stop every pointer phase on the remove control.
+                ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'touchstart', 'touchend']
+                    .forEach(eventName => removeButton.addEventListener(eventName, preventSelect2Selection));
+                removeButton.addEventListener('click', event => {
+                    preventSelect2Selection(event);
+                    removeRecipientFromHistory(email, result);
+                });
+
+                const emailText = document.createElement('span');
+                emailText.className = 'ops-toolshed-recipient-history-email';
+                emailText.textContent = email;
+                label.replaceChildren(emailText, removeButton);
+            });
+
+            if (visibleEmails.length === 0 || results.querySelector('.ops-toolshed-recipient-history-clear')) {
+                document.body.classList.remove('ops-toolshed-recipient-history-pending');
+                return;
+            }
+
+            const clearItem = document.createElement('li');
+            clearItem.className = 'ops-toolshed-recipient-history-actions';
+            const clearButton = document.createElement('button');
+            clearButton.type = 'button';
+            clearButton.className = 'ops-toolshed-recipient-history-clear';
+            clearButton.textContent = 'Clear history';
+            clearButton.addEventListener('mousedown', event => event.stopPropagation());
+            clearButton.addEventListener('click', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                visibleEmails.forEach(email => removedRecipients.add(email));
+                results.querySelectorAll('.select2-result-selectable').forEach(result => result.remove());
+                clearItem.remove();
+                saveRemovedRecipients();
+            });
+            clearItem.appendChild(clearButton);
+            results.appendChild(clearItem);
+            document.body.classList.remove('ops-toolshed-recipient-history-pending');
+        });
+    }
+
     function handleApproverPasting() {
         const selectors = {
             toLabel: 'label',
@@ -10,6 +144,8 @@
 
         const toLabel = Array.from(document.querySelectorAll(selectors.toLabel)).find(label => label.textContent.trim() === 'To');
         if (!toLabel) return;
+
+        installRecipientHistoryVisibilityGuard();
 
         const buttonContainer = toLabel.parentNode;
         if (buttonContainer.querySelector('.prisma-paste-button')) return;
@@ -121,6 +257,7 @@
 
     window.approverPastingFeature = {
         handleApproverPasting,
-        handleManageFavouritesButton
+        handleManageFavouritesButton,
+        addRecipientHistoryControls
     };
 })();
