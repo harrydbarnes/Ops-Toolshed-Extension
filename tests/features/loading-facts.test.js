@@ -107,11 +107,20 @@ describe('Loading Facts behaviour', () => {
         expect(originalToast.classList).not.toContain('slide-down');
         expect(originalToast.style.left).toBe('520px');
 
+        const completedGrid = document.createElement('div');
+        completedGrid.className = 'ht_master';
+        completedGrid.innerHTML = `
+            <table class="htCore mediaocean worksheet">
+                <tbody><tr><td id="placementName-0">Media total</td></tr></tbody>
+            </table>
+        `;
+        document.body.appendChild(completedGrid);
         activeSpinner.remove();
         activeSpinner = null;
         window.loadingFactsFeature.checkForLoading();
         runScheduledTimer(scheduledTimers, 200);
-        runScheduledTimer(scheduledTimers, 2500);
+        expect(originalToast.classList).toContain('slide-down');
+        expect(scheduledTimers.some(timer => timer.delay === 2500)).toBe(false);
         runScheduledTimer(scheduledTimers, 500);
 
         expect(document.getElementById('ops-toolshed-loading-toast')).toBeNull();

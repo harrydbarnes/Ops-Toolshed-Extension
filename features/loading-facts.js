@@ -256,6 +256,8 @@
                 this.isIntersecting = entry.isIntersecting;
                 if (this.isIntersecting && this.isElementVisible(this.observedSpinner)) {
                     this.showToast(this.observedSpinner);
+                } else if (this.isCampaignGridReady()) {
+                    this.hideToast();
                 } else if (this.isCampaignRoute() && document.getElementById(this.toastId)) {
                     this.scheduleCampaignEnd();
                 } else {
@@ -275,6 +277,12 @@
             if (!window.location.pathname.includes('/campaign-management')) return false;
             const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
             return Boolean(params.get('campaign-id'));
+        }
+
+        isCampaignGridReady() {
+            return Array.from(document.querySelectorAll(
+                '.ht_master .htCore.mediaocean.worksheet [id="placementName-0"]'
+            )).some(cell => cell.textContent?.trim() === 'Media total');
         }
 
         isInsideSidePanel(element) {
@@ -373,7 +381,9 @@
                     this.intersectionObserver.disconnect();
                     this.observedSpinner = null;
                     this.isIntersecting = false;
-                    if (this.isCampaignRoute() && document.getElementById(this.toastId)) {
+                    if (this.isCampaignGridReady()) {
+                        this.hideToast();
+                    } else if (this.isCampaignRoute() && document.getElementById(this.toastId)) {
                         this.scheduleCampaignEnd();
                     } else {
                         this.hideToast();
