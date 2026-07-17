@@ -15,6 +15,147 @@ function runScheduledTimer(timers, delay) {
 }
 
 describe('Loading Facts behaviour', () => {
+    test('keeps one fact visible while campaign loading replaces spinner elements', async () => {
+        const dom = new JSDOM('<!doctype html><html><body><div class="mo-spinner"></div></body></html>', {
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP123&route=online',
+            runScripts: 'outside-only'
+        });
+        const { window } = dom;
+        const { document } = window;
+        let activeSpinner = document.querySelector('.mo-spinner');
+        const scheduledTimers = [];
+        let nextTimerId = 1;
+        let intersectionCallback;
+
+        const makeVisible = (spinner, left) => {
+            spinner.getBoundingClientRect = () => ({
+                left, top: 200, width: 40, height: 40, right: left + 40, bottom: 240
+            });
+            return spinner;
+        };
+        makeVisible(activeSpinner, 100);
+        window.setTimeout = (callback, delay) => {
+            const id = nextTimerId++;
+            scheduledTimers.push({ id, callback, delay });
+            return id;
+        };
+        window.clearTimeout = id => {
+            const index = scheduledTimers.findIndex(timer => timer.id === id);
+            if (index !== -1) scheduledTimers.splice(index, 1);
+        };
+        window.requestAnimationFrame = callback => callback();
+        const observe = jest.fn();
+        window.IntersectionObserver = jest.fn(function(callback) {
+            intersectionCallback = callback;
+            return { observe, disconnect: jest.fn() };
+        });
+        window.utils = {
+            queryShadowDom: jest.fn(() => null),
+            isElementVisible: jest.fn(element => element === activeSpinner && element.isConnected),
+            findVisibleLoadingSpinners: jest.fn(() => activeSpinner?.isConnected ? [activeSpinner] : [])
+        };
+        window.chrome = {
+            storage: {
+                sync: { get: jest.fn((_keys, callback) => callback({ loadingFactsEnabled: true })) },
+                local: { get: jest.fn((_keys, callback) => callback({ legacyStats: { totalLoadingTime: 1 } })) },
+                onChanged: { addListener: jest.fn() }
+            }
+        };
+
+        window.eval(loadingFactsScript);
+        await window.loadingFactsFeature.initialize();
+        runScheduledTimer(scheduledTimers, 200);
+        intersectionCallback([{ target: activeSpinner, isIntersecting: true }]);
+        await Promise.resolve();
+        await Promise.resolve();
+
+        const originalToast = document.getElementById('ops-toolshed-loading-toast');
+        expect(originalToast).not.toBeNull();
+
+        activeSpinner.remove();
+        intersectionCallback([{ target: activeSpinner, isIntersecting: false }]);
+        expect(originalToast.classList).not.toContain('slide-down');
+        activeSpinner = null;
+        window.loadingFactsFeature.checkForLoading();
+        runScheduledTimer(scheduledTimers, 200);
+
+        expect(originalToast.classList).not.toContain('slide-down');
+
+        activeSpinner = makeVisible(document.createElement('mo-spinner'), 300);
+        document.body.appendChild(activeSpinner);
+        window.loadingFactsFeature.checkForLoading();
+        runScheduledTimer(scheduledTimers, 200);
+        intersectionCallback([{ target: activeSpinner, isIntersecting: true }]);
+
+        expect(document.getElementById('ops-toolshed-loading-toast')).toBe(originalToast);
+        expect(originalToast.classList).not.toContain('slide-down');
+        expect(originalToast.style.left).toBe('320px');
+
+        activeSpinner.remove();
+        activeSpinner = null;
+        window.loadingFactsFeature.checkForLoading();
+        runScheduledTimer(scheduledTimers, 200);
+
+        activeSpinner = makeVisible(document.createElement('mo-spinner'), 500);
+        document.body.appendChild(activeSpinner);
+        window.loadingFactsFeature.checkForLoading();
+        runScheduledTimer(scheduledTimers, 200);
+        intersectionCallback([{ target: activeSpinner, isIntersecting: true }]);
+
+        expect(document.getElementById('ops-toolshed-loading-toast')).toBe(originalToast);
+        expect(originalToast.classList).not.toContain('slide-down');
+        expect(originalToast.style.left).toBe('520px');
+
+        activeSpinner.remove();
+        activeSpinner = null;
+        window.loadingFactsFeature.checkForLoading();
+        runScheduledTimer(scheduledTimers, 200);
+        runScheduledTimer(scheduledTimers, 1500);
+        runScheduledTimer(scheduledTimers, 500);
+
+        expect(document.getElementById('ops-toolshed-loading-toast')).toBeNull();
+        dom.window.close();
+    });
+
+    test('ignores loading spinners inside a mo-side-panel shadow tree', async () => {
+        const dom = new JSDOM('<!doctype html><html><body><mo-side-panel></mo-side-panel></body></html>', {
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP123&route=online',
+            runScripts: 'outside-only'
+        });
+        const { window } = dom;
+        const panel = window.document.querySelector('mo-side-panel');
+        const spinner = panel.attachShadow({ mode: 'open' }).appendChild(window.document.createElement('mo-spinner'));
+        const scheduledTimers = [];
+        spinner.getBoundingClientRect = () => ({ left: 0, top: 0, width: 40, height: 40, right: 40, bottom: 40 });
+        window.setTimeout = (callback, delay) => {
+            scheduledTimers.push({ callback, delay });
+            return scheduledTimers.length;
+        };
+        window.clearTimeout = jest.fn();
+        const observe = jest.fn();
+        window.IntersectionObserver = jest.fn(() => ({ observe, disconnect: jest.fn() }));
+        window.utils = {
+            queryShadowDom: jest.fn(() => null),
+            isElementVisible: jest.fn(() => true),
+            findVisibleLoadingSpinners: jest.fn(() => [spinner])
+        };
+        window.chrome = {
+            storage: {
+                sync: { get: jest.fn((_keys, callback) => callback({ loadingFactsEnabled: true })) },
+                local: { get: jest.fn((_keys, callback) => callback({ legacyStats: { totalLoadingTime: 1 } })) },
+                onChanged: { addListener: jest.fn() }
+            }
+        };
+
+        window.eval(loadingFactsScript);
+        await window.loadingFactsFeature.initialize();
+        runScheduledTimer(scheduledTimers, 200);
+
+        expect(observe).not.toHaveBeenCalled();
+        expect(window.document.getElementById('ops-toolshed-loading-toast')).toBeNull();
+        dom.window.close();
+    });
+
     test('shows a fact for a visible spinner and removes it after loading finishes', async () => {
         const dom = new JSDOM('<!doctype html><html><body><div class="mo-spinner"></div></body></html>', {
             url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/',

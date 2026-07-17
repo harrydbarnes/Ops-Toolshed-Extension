@@ -209,6 +209,7 @@
 
     const DEBOUNCE_DELAY_MS = 200;
     const ANIMATION_DURATION_MS = 500;
+    const CAMPAIGN_LOADING_END_DELAY_MS = 1500;
 
     const getStorageData = (area, keys) => new Promise(resolve => chrome.storage[area].get(keys, resolve));
 
@@ -222,6 +223,7 @@
             this.observedSpinner = null;
             this.pendingShow = false;
             this.requestId = 0;
+            this.campaignEndTimer = null;
 
             // State for managing async settings load
             this.settingsLoaded = false;
@@ -254,6 +256,8 @@
                 this.isIntersecting = entry.isIntersecting;
                 if (this.isIntersecting && this.isElementVisible(this.observedSpinner)) {
                     this.showToast(this.observedSpinner);
+                } else if (this.isCampaignRoute() && document.getElementById(this.toastId)) {
+                    this.scheduleCampaignEnd();
                 } else {
                     this.hideToast();
                 }
@@ -265,6 +269,52 @@
 
         isElementVisible(element) {
             return window.utils.isElementVisible(element);
+        }
+
+        isCampaignRoute() {
+            if (!window.location.pathname.includes('/campaign-management')) return false;
+            const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+            return Boolean(params.get('campaign-id'));
+        }
+
+        isInsideSidePanel(element) {
+            let current = element;
+            while (current) {
+                if (current.matches?.('mo-side-panel')) return true;
+                const root = current.getRootNode?.();
+                current = current.parentElement || root?.host || null;
+            }
+            return false;
+        }
+
+        cancelCampaignEndTimer() {
+            if (this.campaignEndTimer === null) return;
+            clearTimeout(this.campaignEndTimer);
+            this.campaignEndTimer = null;
+        }
+
+        scheduleCampaignEnd() {
+            if (this.campaignEndTimer !== null) return;
+            this.campaignEndTimer = setTimeout(() => {
+                this.campaignEndTimer = null;
+                this.hideToast();
+            }, CAMPAIGN_LOADING_END_DELAY_MS);
+        }
+
+        getSpinnerTarget(spinner) {
+            if (!spinner) return null;
+            if (spinner.offsetWidth <= 100) return spinner;
+            return spinner.querySelector('svg') ||
+                (spinner.shadowRoot ? window.utils.queryShadowDom('svg', spinner.shadowRoot) : null) ||
+                spinner;
+        }
+
+        updateToastPosition(spinner) {
+            const toast = document.getElementById(this.toastId);
+            const target = this.getSpinnerTarget(spinner);
+            if (!toast || !target) return;
+            const rect = target.getBoundingClientRect();
+            toast.style.left = `${rect.left + (rect.width / 2)}px`;
         }
 
         checkForLoading() {
@@ -283,7 +333,20 @@
                     return;
                 }
 
-                const spinner = window.utils.findVisibleLoadingSpinners()[0] || null;
+                const visibleSpinners = window.utils.findVisibleLoadingSpinners();
+                const spinner = visibleSpinners.find(candidate => !this.isInsideSidePanel(candidate)) || null;
+                const hasSidePanelSpinner = visibleSpinners.some(candidate => this.isInsideSidePanel(candidate));
+
+                // Side-panel work (for example submitting a campaign for approval)
+                // is intentionally excluded from loading facts.
+                if (hasSidePanelSpinner) {
+                    this.cancelCampaignEndTimer();
+                    this.intersectionObserver.disconnect();
+                    this.observedSpinner = null;
+                    this.isIntersecting = false;
+                    this.hideToast();
+                    return;
+                }
 
                 // Strict Visibility Check
                 // We check if it exists AND is visually perceptible
@@ -292,11 +355,16 @@
                 const domVisible = spinner && this.isElementVisible(spinner);
 
                 if (domVisible) {
+                    this.cancelCampaignEndTimer();
                     if (spinner !== this.observedSpinner) {
                         this.intersectionObserver.disconnect();
                         this.observedSpinner = spinner;
                         this.isIntersecting = false;
-                        this.hideToast();
+                        if (this.isCampaignRoute()) {
+                            this.updateToastPosition(spinner);
+                        } else {
+                            this.hideToast();
+                        }
                         this.intersectionObserver.observe(spinner);
                     } else if (this.isIntersecting) {
                         this.showToast(spinner);
@@ -305,7 +373,11 @@
                     this.intersectionObserver.disconnect();
                     this.observedSpinner = null;
                     this.isIntersecting = false;
-                    this.hideToast();
+                    if (this.isCampaignRoute() && document.getElementById(this.toastId)) {
+                        this.scheduleCampaignEnd();
+                    } else {
+                        this.hideToast();
+                    }
                 }
             }, DEBOUNCE_DELAY_MS);
         }
@@ -365,6 +437,7 @@
                 !this.isEnabled ||
                 !this.isIntersecting ||
                 spinner !== this.observedSpinner ||
+                this.isInsideSidePanel(spinner) ||
                 !spinner.isConnected ||
                 !this.isElementVisible(spinner) ||
                 document.getElementById(this.toastId)) {
@@ -375,22 +448,7 @@
             // Use sibling injection with absolute positioning.
 
             // Smart Target Logic: Find the visual center of the spinner
-            let targetElement = spinner;
-            // If the spinner container is wide, look for the actual graphic
-            if (spinner.offsetWidth > 100) {
-                const innerSvg = spinner.querySelector('svg') ||
-                    (spinner.shadowRoot ? window.utils.queryShadowDom('svg', spinner.shadowRoot) : null);
-                if (innerSvg) targetElement = innerSvg;
-            }
-
-            const updatePosition = () => {
-                const rect = targetElement.getBoundingClientRect();
-                const centerX = rect.left + (rect.width / 2);
-                const toastEl = document.getElementById(this.toastId);
-                if (toastEl) {
-                    toastEl.style.left = `${centerX}px`;
-                }
-            };
+            const targetElement = this.getSpinnerTarget(spinner);
 
             const toast = document.createElement('div');
             toast.id = this.toastId;
@@ -404,7 +462,9 @@
             toast.style.left = `${centerX}px`;
 
             // Add resize listener to track window changes
-            this.resizeHandler = () => requestAnimationFrame(updatePosition);
+            this.resizeHandler = () => requestAnimationFrame(() => {
+                if (this.observedSpinner) this.updateToastPosition(this.observedSpinner);
+            });
             window.addEventListener('resize', this.resizeHandler);
 
             // Create inner content structure
@@ -432,6 +492,7 @@
         }
 
         hideToast() {
+            this.cancelCampaignEndTimer();
             this.requestId += 1;
             this.pendingShow = false;
             const toast = document.getElementById(this.toastId);
