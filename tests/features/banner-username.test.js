@@ -94,6 +94,7 @@ describe('Prisma banner username feature', () => {
         expect(page.accountLabel.textContent).toBe('HBARN');
         expect(page.accountLabel.getAttribute('data-ops-toolshed-original-account-label')).toBe('GROUPM UK (OWNER)');
         expect(page.accountLabel.style.minWidth).toBe('132px');
+        expect(page.accountLabel.style.textAlign).toBe('center');
         expect(page.menuTrigger.getAttribute('aria-expanded')).toBe('false');
         expect(page.getTriggerClicks()).toBe(2);
         expect(page.window.bannerUsernameFeature.getResolvedUsername()).toBe('HBARN');
@@ -120,6 +121,7 @@ describe('Prisma banner username feature', () => {
         expect(page.accountLabel.textContent).toBe('GROUPM UK (OWNER)');
         expect(page.accountLabel.hasAttribute('data-ops-toolshed-original-account-label')).toBe(false);
         expect(page.accountLabel.style.minWidth).toBe('');
+        expect(page.accountLabel.style.textAlign).toBe('');
 
         page.listeners[0]({ bannerUsernameEnabled: { oldValue: false, newValue: true } }, 'sync');
         expect(page.accountLabel.textContent).toBe('HBARN');

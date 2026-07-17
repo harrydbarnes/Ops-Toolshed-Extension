@@ -4,6 +4,7 @@
     const SETTING_KEY = 'bannerUsernameEnabled';
     const ORIGINAL_LABEL_ATTRIBUTE = 'data-ops-toolshed-original-account-label';
     const ORIGINAL_MIN_WIDTH_ATTRIBUTE = 'data-ops-toolshed-original-account-min-width';
+    const ORIGINAL_TEXT_ALIGN_ATTRIBUTE = 'data-ops-toolshed-original-account-text-align';
     const DISCOVERY_TIMEOUT_MS = 2500;
 
     let isEnabled = true;
@@ -82,12 +83,17 @@
                 ORIGINAL_MIN_WIDTH_ATTRIBUTE,
                 accountLabel.style.minWidth || ''
             );
+            accountLabel.setAttribute(
+                ORIGINAL_TEXT_ALIGN_ATTRIBUTE,
+                accountLabel.style.textAlign || ''
+            );
             const originalWidth = accountLabel.getBoundingClientRect().width;
             if (originalWidth > 0) accountLabel.style.minWidth = `${originalWidth}px`;
         }
         if (accountLabel.textContent !== resolvedUsername) {
             accountLabel.textContent = resolvedUsername;
         }
+        accountLabel.style.textAlign = 'center';
     }
 
     function restoreAccountLabels() {
@@ -97,8 +103,12 @@
             const originalMinWidth = element.getAttribute(ORIGINAL_MIN_WIDTH_ATTRIBUTE) || '';
             if (originalMinWidth) element.style.minWidth = originalMinWidth;
             else element.style.removeProperty('min-width');
+            const originalTextAlign = element.getAttribute(ORIGINAL_TEXT_ALIGN_ATTRIBUTE) || '';
+            if (originalTextAlign) element.style.textAlign = originalTextAlign;
+            else element.style.removeProperty('text-align');
             element.removeAttribute(ORIGINAL_LABEL_ATTRIBUTE);
             element.removeAttribute(ORIGINAL_MIN_WIDTH_ATTRIBUTE);
+            element.removeAttribute(ORIGINAL_TEXT_ALIGN_ATTRIBUTE);
         });
     }
 
