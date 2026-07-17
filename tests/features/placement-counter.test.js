@@ -39,7 +39,7 @@ describe('Placement Counter Feature', () => {
     });
 
     // Helper to create a mock row
-    function createRow(id, name, isChecked = true, classes = []) {
+    function createRow(id, name, isChecked = true, classes = [], hierarchyLevel = null) {
         const tr = document.createElement('tr');
         if (classes.length) tr.classList.add(...classes);
 
@@ -54,6 +54,12 @@ describe('Placement Counter Feature', () => {
         nameSpan.id = `placementName-${id}`;
         nameSpan.textContent = name;
         tr.appendChild(nameSpan);
+
+        if (hierarchyLevel !== null) {
+            const indicator = document.createElement('span');
+            indicator.className = `hierarchical-level-${hierarchyLevel}`;
+            tr.appendChild(indicator);
+        }
 
         return tr;
     }
@@ -109,5 +115,34 @@ describe('Placement Counter Feature', () => {
         } else {
              expect(toast).toBeNull();
         }
+    });
+
+    test('groups a selected Programmatic package with its selected placements', () => {
+        const container = document.getElementById('grid-container_hot');
+        // Programmatic packages use a different icon, so the hierarchy is the reliable signal.
+        container.appendChild(createRow('1', 'Programmatic package', true, [], 1));
+        container.appendChild(createRow('2', 'Programmatic placement one', true, [], 2));
+        container.appendChild(createRow('3', 'Programmatic placement two', true, [], 2));
+
+        window.placementCounterFeature.checkSelection();
+
+        jest.advanceTimersByTime(200);
+
+        expect(document.querySelector('.placement-toast').textContent)
+            .toBe('1 Package Selected (w/2 Placements)');
+    });
+
+    test('groups a selected box-icon package with its selected placements', () => {
+        const container = document.getElementById('grid-container_hot');
+        container.appendChild(createRow('1', 'DV360 package', true, ['mi-package'], 1));
+        container.appendChild(createRow('2', 'DV360 placement one', true, [], 2));
+        container.appendChild(createRow('3', 'DV360 placement two', true, [], 2));
+
+        window.placementCounterFeature.checkSelection();
+
+        jest.advanceTimersByTime(200);
+
+        expect(document.querySelector('.placement-toast').textContent)
+            .toBe('1 Package Selected (w/2 Placements)');
     });
 });

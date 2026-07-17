@@ -25,6 +25,8 @@ describe('Prisma banner username feature', () => {
         accountLabel.className = 'user-company-name';
         accountLabel.textContent = 'GROUPM UK (OWNER)';
         accountLabel.getBoundingClientRect = () => ({ width: 132, height: 24 });
+        Object.defineProperty(menuLabel, 'offsetLeft', { value: 9 });
+        Object.defineProperty(accountLabel, 'offsetLeft', { value: 45 });
         menuLabel.appendChild(accountLabel);
         const menuTrigger = window.document.createElement('mo-menu');
         menuTrigger.setAttribute('aria-expanded', 'false');
@@ -95,6 +97,7 @@ describe('Prisma banner username feature', () => {
         expect(page.accountLabel.getAttribute('data-ops-toolshed-original-account-label')).toBe('GROUPM UK (OWNER)');
         expect(page.accountLabel.style.minWidth).toBe('132px');
         expect(page.accountLabel.style.textAlign).toBe('center');
+        expect(page.accountLabel.style.left).toBe('-18px');
         expect(page.menuTrigger.getAttribute('aria-expanded')).toBe('false');
         expect(page.getTriggerClicks()).toBe(2);
         expect(page.window.bannerUsernameFeature.getResolvedUsername()).toBe('HBARN');
@@ -122,6 +125,7 @@ describe('Prisma banner username feature', () => {
         expect(page.accountLabel.hasAttribute('data-ops-toolshed-original-account-label')).toBe(false);
         expect(page.accountLabel.style.minWidth).toBe('');
         expect(page.accountLabel.style.textAlign).toBe('');
+        expect(page.accountLabel.style.left).toBe('');
 
         page.listeners[0]({ bannerUsernameEnabled: { oldValue: false, newValue: true } }, 'sync');
         expect(page.accountLabel.textContent).toBe('HBARN');

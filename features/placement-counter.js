@@ -11,6 +11,29 @@
         "media total" // User requested exclusion
     ];
 
+    function getHierarchyLevel(row) {
+        const levelElement = row.querySelector('[class*="hierarchical-level-"]');
+        if (!levelElement) return null;
+
+        const levelClass = Array.from(levelElement.classList)
+            .find(className => /^hierarchical-level-\d+$/.test(className));
+        return levelClass ? Number(levelClass.replace('hierarchical-level-', '')) : null;
+    }
+
+    function formatSelectionMessage(packageCounts, placementCount) {
+        const packageCount = packageCounts.length;
+        const packageText = packageCount
+            ? `${packageCount} Package${packageCount === 1 ? '' : 's'} Selected ` +
+                `(w/${packageCounts.reduce((total, count) => total + count, 0)} ` +
+                `Placement${packageCounts.reduce((total, count) => total + count, 0) === 1 ? '' : 's'})`
+            : '';
+        const placementText = placementCount
+            ? `${placementCount} Placement${placementCount === 1 ? '' : 's'} Selected`
+            : '';
+
+        return [packageText, placementText].filter(Boolean).join(', ');
+    }
+
     // --- Toast Logic (Functions showToast and hideToast remain unchanged) ---
     function showToast(message) {
         clearTimeout(toastTimeout);
@@ -65,31 +88,76 @@
                 }
 
                 const selectedCheckboxes = gridContainer.querySelectorAll('input.mo-row-checkbox[type="checkbox"]:checked');
-                const countableRowIds = new Set();
+                const selectedRows = [];
+                const selectedRowIds = new Set();
 
                 selectedCheckboxes.forEach(checkbox => {
                     const row = checkbox.closest('tr');
                     if (!row) return;
 
                     const rowId = checkbox.dataset.row;
-                    if (!rowId || countableRowIds.has(rowId)) return;
+                    if (!rowId || selectedRowIds.has(rowId)) return;
+                    selectedRowIds.add(rowId);
 
                     const nameCell = row.querySelector(`#placementName-${rowId}`);
                     const nameText = (nameCell ? nameCell.textContent : '').toLowerCase();
 
-                    const isLevel0 = row.querySelector('.hierarchical-level-0');
-                    const isPackage = row.querySelector('.mi-package');
+                    const hierarchyLevel = getHierarchyLevel(row);
+                    const isLevel0 = hierarchyLevel === 0;
+                    const isPackage = row.matches('.mi-package') || row.querySelector('.mi-package');
                     const isTextExcluded = EXCLUSION_TEXTS.some(exclusion => nameText.includes(exclusion));
 
-                    const isCountable = !isLevel0 && !isPackage && !isTextExcluded;
-                    if (isCountable) {
-                        countableRowIds.add(rowId);
+                    selectedRows.push({ rowId, hierarchyLevel, isLevel0, isPackage, isTextExcluded });
+                });
+
+                // A package is either explicitly marked with the box icon or is a selected
+                // hierarchy row with selected, nested rows below it. The latter also covers
+                // Programmatic packages, which use a different icon in Prisma.
+                const packageIndexes = new Set();
+                selectedRows.forEach((selectedRow, index) => {
+                    if (selectedRow.isPackage) {
+                        packageIndexes.add(index);
+                        return;
+                    }
+
+                    if (selectedRow.hierarchyLevel === null || selectedRow.isLevel0) return;
+
+                    for (let nextIndex = index + 1; nextIndex < selectedRows.length; nextIndex += 1) {
+                        const nextLevel = selectedRows[nextIndex].hierarchyLevel;
+                        if (nextLevel === null || nextLevel <= selectedRow.hierarchyLevel) break;
+                        if (nextLevel > selectedRow.hierarchyLevel) {
+                            packageIndexes.add(index);
+                            break;
+                        }
                     }
                 });
 
-                const count = countableRowIds.size;
-                if (count > 0) {
-                    const message = `${count} Placement${count > 1 ? 's' : ''} Selected`;
+                const packageCounts = [];
+                const packageChildRowIds = new Set();
+                packageIndexes.forEach(packageIndex => {
+                    const packageRow = selectedRows[packageIndex];
+                    let placementCount = 0;
+
+                    for (let index = packageIndex + 1; index < selectedRows.length; index += 1) {
+                        const childRow = selectedRows[index];
+                        if (childRow.hierarchyLevel !== null && childRow.hierarchyLevel <= packageRow.hierarchyLevel) break;
+                        if (!childRow.isLevel0 && !childRow.isPackage && !childRow.isTextExcluded) {
+                            placementCount += 1;
+                            packageChildRowIds.add(childRow.rowId);
+                        }
+                    }
+
+                    packageCounts.push(placementCount);
+                });
+
+                const placementCount = selectedRows.filter((selectedRow, index) => (
+                    !packageIndexes.has(index) &&
+                    !packageChildRowIds.has(selectedRow.rowId) &&
+                    !selectedRow.isLevel0 &&
+                    !selectedRow.isTextExcluded
+                )).length;
+                const message = formatSelectionMessage(packageCounts, placementCount);
+                if (message) {
                     showToast(message);
                 } else {
                     hideToast();
