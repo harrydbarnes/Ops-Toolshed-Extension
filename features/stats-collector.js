@@ -20,11 +20,22 @@
         if (!isEnabled) return;
 
         try {
-            chrome.runtime.sendMessage({
+            const messageResult = chrome.runtime.sendMessage({
                 action: 'TRACK_STAT',
                 type: type,
                 value: value
             });
+            Promise.resolve(messageResult)
+                .then(response => {
+                    if (response?.status === 'error') {
+                        console.error('[Stats Collector] Stat was not saved:', response.message || 'Unknown background error.');
+                    }
+                })
+                .catch(error => {
+                    if (!String(error?.message || error).includes('Extension context invalidated')) {
+                        console.error('[Stats Collector] Error sending stat:', error);
+                    }
+                });
         } catch (error) {
             // Silence "Extension context invalidated" errors
             if (!error.message.includes('Extension context invalidated')) {

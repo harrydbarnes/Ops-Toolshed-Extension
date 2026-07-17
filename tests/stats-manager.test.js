@@ -120,6 +120,22 @@ describe('Stats Manager', () => {
         expect(daily.loadingByArea).toEqual({ actualise: 4.75 });
     });
 
+    test('keeps the background message handler alive until the queued stats write completes', async () => {
+        const sendResponse = jest.fn();
+
+        const completion = handleTrackStat({
+            type: 'LOADING_TIME',
+            value: { seconds: 2.75, area: 'orders' }
+        }, {}, sendResponse);
+
+        expect(completion).toBeInstanceOf(Promise);
+        await completion;
+
+        expect(chrome.storage.local.__getStore().dailyStats['2023-10-27'].loadingByArea)
+            .toEqual({ orders: 2.75 });
+        expect(sendResponse).toHaveBeenCalledWith({ status: 'success' });
+    });
+
     test('handleTrackStat should recover the start date from existing daily stats', async () => {
         await chrome.storage.local.set({
             dailyStats: {

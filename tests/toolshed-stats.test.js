@@ -84,6 +84,36 @@ describe('Toolshed Stats UI', () => {
         expect(document.getElementById('heatmap').children.length).toBeGreaterThan(300);
     });
 
+    test('updates the area breakdown in real time when daily stats change', async () => {
+        await chrome.storage.local.set({ dailyStats: {} });
+        require('../toolshed.js');
+        document.dispatchEvent(new Event('DOMContentLoaded'));
+        await new Promise(r => setTimeout(r, 20));
+
+        const changeListener = chrome.storage.onChanged.addListener.mock.calls
+            .map(call => call[0])
+            .find(listener => typeof listener === 'function');
+        expect(changeListener).toBeDefined();
+
+        const dailyStats = {
+            '2026-07-17': {
+                placements: 0,
+                loadingTime: 6.4,
+                loadingByArea: { actualise: 4.2, orders: 2.2 },
+                visitedCampaigns: [],
+                reconciliations: 0
+            }
+        };
+        await chrome.storage.local.set({ dailyStats });
+        changeListener({ dailyStats: { oldValue: {}, newValue: dailyStats } }, 'local');
+        await new Promise(r => setTimeout(r, 20));
+
+        expect(document.querySelector('[data-loading-area="actualise"] .loading-area-time').textContent)
+            .toBe('4.2s');
+        expect(document.querySelector('[data-loading-area="orders"] .loading-area-time').textContent)
+            .toBe('2.2s');
+    });
+
     test('shows the AppLearn count as a separate row immediately above Reset Stats', () => {
         const appLearnRow = document.getElementById('applearn-popups-blocked-stat').closest('.fun-stat');
         const resetButton = document.getElementById('reset-stats-button');

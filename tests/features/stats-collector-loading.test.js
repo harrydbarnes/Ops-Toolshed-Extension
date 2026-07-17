@@ -6,7 +6,10 @@ const utilsCode = fs.readFileSync(path.resolve(__dirname, '../../utils.js'), 'ut
 const statsCode = fs.readFileSync(path.resolve(__dirname, '../../features/stats-collector.js'), 'utf8');
 
 describe('loading-time collection', () => {
-    function createCollector(url = 'https://groupmuk-prisma.mediaocean.com/campaign-management/') {
+    function createCollector(
+        url = 'https://groupmuk-prisma.mediaocean.com/campaign-management/',
+        sendMessage = jest.fn().mockResolvedValue({ status: 'success' })
+    ) {
         const dom = new JSDOM('<!doctype html><html><body></body></html>', {
             runScripts: 'dangerously',
             url
@@ -18,7 +21,7 @@ describe('loading-time collection', () => {
             static now() { return now; }
         };
         window.chrome = {
-            runtime: { sendMessage: jest.fn() },
+            runtime: { sendMessage },
             storage: {
                 sync: { get: jest.fn((_key, callback) => callback({ statsCollectorEnabled: true })) },
                 onChanged: { addListener: jest.fn() }
@@ -133,4 +136,5 @@ describe('loading-time collection', () => {
         expect(window.statsCollector.getPrismaArea()).toBe(expectedArea);
         dom.window.close();
     });
+
 });

@@ -100,5 +100,8 @@ export function handleTrackStat(request, sender, sendResponse) {
         sendResponse({ status: 'error', message: err.toString() });
     });
 
-    return true; // Indicates async response
+    // The background message router awaits handler promises. Returning the
+    // queued write keeps the MV3 service worker alive until storage is updated
+    // and the sender has received its acknowledgement.
+    return updatePromise;
 }
