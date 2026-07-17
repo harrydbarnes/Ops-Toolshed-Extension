@@ -51,4 +51,14 @@ describe('release metadata', () => {
             dom.window.close();
         }
     });
+
+    test('uses a connected timeline without card containers for release items', () => {
+        const css = fs.readFileSync(path.join(root, 'toolshed.css'), 'utf8');
+        const itemRule = css.match(/#release-notes \.release li\s*{([^}]*)}/s)?.[1] || '';
+
+        expect(css).toMatch(/\.release::before\s*{/);
+        expect(css).toMatch(/#release-notes \.release li::before\s*{/);
+        expect(itemRule).not.toMatch(/\bborder\s*:/);
+        expect(itemRule).not.toMatch(/\bbackground\s*:/);
+    });
 });
