@@ -95,3 +95,12 @@ Do not use `--forceExit`; it can hide leaked timers or unclosed JSDOM windows. I
 - Add or update a regression test whenever the behavior can be represented in Jest/jsdom.
 - Keep `README.md` user-facing. Put implementation and agent workflow guidance here in `AGENTS.md`.
 - `toolshed.html` is the source of truth for the in-extension release notes and roadmap.
+
+### Release Notes Logging
+
+- Add every new feature and user-visible improvement to the current release notes.
+- List medium and major fixes individually with concise wording that clearly describes the main fix.
+- Do not add a separate release-note item for every tiny fix. Instead, add or update one entry beginning `Other minor fixes, such as ...` and include only two or three concise representative examples.
+- Reuse the existing `Other minor fixes, such as ...` entry for the current release rather than creating duplicates.
+- Keep release-note entries ordered as New, Improved, then Fixed.
+- The grouped minor-fixes entry is only for genuinely small changes; main fixes must remain individually listed.
