@@ -28,7 +28,14 @@ describe('Toolshed Stats UI', () => {
             '2023-10-01': {
                 placements: 10,
                 loadingTime: 180,
-                loadingByArea: { home: 20, buy: 45, actualise: 115 },
+                loadingByArea: {
+                    home: 20,
+                    plan: 15,
+                    buy: 45,
+                    actualise: 115,
+                    analyse: 25,
+                    other: 10
+                },
                 visitedCampaigns: ['c2']
             }
         };
@@ -61,11 +68,17 @@ describe('Toolshed Stats UI', () => {
         expect(document.getElementById('kettle-index').textContent).toBe('8');
 
         const areaItems = document.querySelectorAll('#loading-area-breakdown .loading-area-item');
-        expect(areaItems).toHaveLength(8);
+        expect(areaItems).toHaveLength(6);
         expect(document.querySelector('[data-loading-area="home"] .loading-area-time').textContent).toBe('20s');
         expect(document.querySelector('[data-loading-area="buy"] .loading-area-time').textContent).toBe('45s');
         expect(document.querySelector('[data-loading-area="actualise"] .loading-area-time').textContent).toBe('1m 55s');
-        expect(document.getElementById('loading-area-context').textContent).toContain('3 mins tracked');
+        expect(document.querySelector('[data-loading-area="plan"]')).toBeNull();
+        expect(document.querySelector('[data-loading-area="analyse"]')).toBeNull();
+        expect(document.querySelector('[data-loading-area="other"] .loading-area-time').textContent).toBe('50s');
+        expect(Array.from(document.querySelectorAll('[data-loading-area="other"] .loading-area-tooltip-row'))
+            .map(row => Array.from(row.children).map(child => child.textContent)))
+            .toEqual([['Plan', '15s'], ['Analyse', '25s'], ['Other areas', '10s']]);
+        expect(document.getElementById('loading-area-context').textContent).toContain('3 mins 50s tracked');
 
         // Check Heatmap presence (at least one day should be generated)
         expect(document.getElementById('heatmap').children.length).toBeGreaterThan(300);
@@ -88,7 +101,7 @@ describe('Toolshed Stats UI', () => {
 
         expect(overview.nextElementSibling).toBe(areaSection);
         expect(areaSection.nextElementSibling).toBe(heatmapSection);
-        expect(css).toMatch(/\.loading-area-grid\s*{[^}]*grid-template-columns:\s*repeat\(8,/s);
+        expect(css).toMatch(/\.loading-area-grid\s*{[^}]*grid-template-columns:\s*repeat\(6,/s);
     });
 
     test('deep-links tabs and keeps the selected tab across navigation', async () => {

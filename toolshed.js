@@ -101,13 +101,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const LOADING_AREA_CONFIG = [
         { key: 'home', label: 'Home', color: '#06088d' },
-        { key: 'plan', label: 'Plan', color: '#3656b3' },
         { key: 'buy', label: 'Buy', color: '#ff4087' },
         { key: 'actualise', label: 'Actualise', color: '#d92768' },
         { key: 'traffic', label: 'Traffic', color: '#008f8c' },
-        { key: 'analyse', label: 'Analyse', color: '#7957b8' },
         { key: 'orders', label: 'Orders', color: '#c77b00' },
         { key: 'other', label: 'Other', color: '#64748b' }
+    ];
+
+    const OTHER_AREA_CONFIG = [
+        { key: 'plan', label: 'Plan' },
+        { key: 'analyse', label: 'Analyse' },
+        { key: 'other', label: 'Other areas' }
     ];
 
     function formatCompactLoadingTime(totalSeconds) {
@@ -135,10 +139,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!container || !context) return;
 
         const totals = Object.fromEntries(LOADING_AREA_CONFIG.map(area => [area.key, 0]));
+        const otherTotals = Object.fromEntries(OTHER_AREA_CONFIG.map(area => [area.key, 0]));
         Object.values(dailyStats || {}).forEach(day => {
             Object.entries(day.loadingByArea || {}).forEach(([area, seconds]) => {
-                if (Object.prototype.hasOwnProperty.call(totals, area)) {
-                    totals[area] += Number(seconds) || 0;
+                const value = Number(seconds) || 0;
+                if (Object.prototype.hasOwnProperty.call(otherTotals, area)) {
+                    otherTotals[area] += value;
+                    totals.other += value;
+                } else if (Object.prototype.hasOwnProperty.call(totals, area)) {
+                    totals[area] += value;
                 }
             });
         });
@@ -153,7 +162,9 @@ document.addEventListener('DOMContentLoaded', () => {
             item.className = 'loading-area-item';
             item.dataset.loadingArea = area.key;
             item.style.setProperty('--area-color', area.color);
-            item.title = `${area.label}: ${formatCompactLoadingTime(totals[area.key])}`;
+            if (area.key !== 'other') {
+                item.title = `${area.label}: ${formatCompactLoadingTime(totals[area.key])}`;
+            }
 
             const label = document.createElement('span');
             label.className = 'loading-area-label';
@@ -173,6 +184,34 @@ document.addEventListener('DOMContentLoaded', () => {
             meter.appendChild(fill);
 
             item.append(label, time, meter);
+            if (area.key === 'other') {
+                const tooltipId = 'loading-area-other-tooltip';
+                const tooltip = document.createElement('span');
+                tooltip.id = tooltipId;
+                tooltip.className = 'loading-area-tooltip';
+                tooltip.setAttribute('role', 'tooltip');
+
+                const heading = document.createElement('strong');
+                heading.className = 'loading-area-tooltip-title';
+                heading.textContent = 'Other breakdown';
+                tooltip.appendChild(heading);
+
+                OTHER_AREA_CONFIG.forEach(detail => {
+                    const row = document.createElement('span');
+                    row.className = 'loading-area-tooltip-row';
+                    const detailLabel = document.createElement('span');
+                    detailLabel.textContent = detail.label;
+                    const detailTime = document.createElement('strong');
+                    detailTime.textContent = formatCompactLoadingTime(otherTotals[detail.key]);
+                    row.append(detailLabel, detailTime);
+                    tooltip.appendChild(row);
+                });
+
+                item.classList.add('has-breakdown-tooltip');
+                item.tabIndex = 0;
+                item.setAttribute('aria-describedby', tooltipId);
+                item.appendChild(tooltip);
+            }
             container.appendChild(item);
         });
     }

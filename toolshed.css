@@ -266,10 +266,11 @@ li {
 
 .loading-area-grid {
     display: grid;
-    grid-template-columns: repeat(8, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .loading-area-item {
+    position: relative;
     min-width: 0;
     padding: 1px 9px 0;
     border-left: 1px solid #ececf3;
@@ -324,17 +325,84 @@ li {
     transition: width 320ms ease;
 }
 
+.loading-area-item.has-breakdown-tooltip {
+    cursor: help;
+}
+
+.loading-area-item.has-breakdown-tooltip:focus-visible {
+    outline: 2px solid rgba(6, 8, 141, 0.45);
+    outline-offset: 4px;
+    border-radius: 3px;
+}
+
+.loading-area-tooltip {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 10px);
+    z-index: 20;
+    display: grid;
+    gap: 6px;
+    width: 176px;
+    padding: 10px 11px;
+    color: #fff;
+    background: #06088d;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 7px;
+    box-shadow: 0 8px 24px rgba(6, 8, 80, 0.22);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(4px);
+    transition: opacity 140ms ease, transform 140ms ease, visibility 140ms ease;
+}
+
+.loading-area-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    right: 18px;
+    border: 6px solid transparent;
+    border-top-color: #06088d;
+}
+
+.loading-area-item.has-breakdown-tooltip:hover .loading-area-tooltip,
+.loading-area-item.has-breakdown-tooltip:focus .loading-area-tooltip,
+.loading-area-item.has-breakdown-tooltip:focus-within .loading-area-tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.loading-area-tooltip-title {
+    font-size: 0.72rem;
+    letter-spacing: 0.01em;
+}
+
+.loading-area-tooltip-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 0.68rem;
+}
+
+.loading-area-tooltip-row strong {
+    color: #fff;
+    font-size: 0.7rem;
+}
+
 @media (max-width: 600px) {
     .stats-overview {
         grid-template-columns: 1fr;
     }
 
     .loading-area-grid {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         row-gap: 12px;
     }
 
-    .loading-area-item:nth-child(5) {
+    .loading-area-item:nth-child(4) {
         border-left: 0;
     }
 }
