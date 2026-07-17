@@ -3,13 +3,13 @@
 
     const TOAST_ID = 'ops-toolshed-toast';
     const RESTORE_WINDOW_MS = 60 * 1000;
-    const HOME_STABLE_MS = 1000;
     const TARGET_STABLE_MS = 5000;
     const RESTORE_POLL_MS = 150;
     let rememberReturnUrlEnabled = true;
     let accountSaveCaptureBound = false;
     let storageListenerBound = false;
     let restoreTimer = null;
+    let restoreRunId = 0;
 
     function getText(element) {
         return (element?.innerText || element?.textContent || '').replace(/\s+/g, ' ').trim();
@@ -100,13 +100,9 @@
 
     function isPrismaHome(url) {
         const params = getHashParams(url);
-        return (params.get('osPspId') || '').toLowerCase() === 'cm-dashboard' ||
+        const app = (params.get('osPspId') || '').toLowerCase();
+        return app === 'prsm-cm-home' || app === 'cm-dashboard' ||
             (params.get('route') || '').toLowerCase() === 'campaigns';
-    }
-
-    function isPrismaShellReady() {
-        const banner = document.getElementById('mo-banner-module-container');
-        return Boolean(banner && (banner.childElementCount > 0 || banner.textContent.trim()));
     }
 
     async function getPendingReturnUrl() {
@@ -139,6 +135,12 @@
         }
     }
 
+    async function rememberAndArmRestore() {
+        const remembered = await rememberCurrentUrl();
+        if (remembered) void restorePendingUrl();
+        return remembered;
+    }
+
     function navigateToRememberedUrl(target) {
         const current = new URL(window.location.href);
         if (current.origin === target.origin &&
@@ -160,19 +162,19 @@
 
     async function restorePendingUrl() {
         clearTimeout(restoreTimer);
+        const runId = ++restoreRunId;
         if (!rememberReturnUrlEnabled) return;
 
         const target = await getPendingReturnUrl();
-        if (!target) return;
+        if (!target || runId !== restoreRunId || !document.documentElement?.isConnected) return;
         const restoreStartedAt = Date.now();
-        let homeStableSince = null;
         let targetStableSince = null;
         let hasObservedForcedHome = false;
         const check = () => {
+            if (runId !== restoreRunId || !document.documentElement?.isConnected) return;
             const current = new URL(window.location.href);
             const now = Date.now();
             if (current.href === target.href) {
-                homeStableSince = null;
                 targetStableSince ??= now;
                 if (hasObservedForcedHome && now - targetStableSince >= TARGET_STABLE_MS) {
                     void clearPendingReturnUrl();
@@ -180,15 +182,9 @@
                 }
             } else {
                 targetStableSince = null;
-                if (isPrismaHome(current) && isPrismaShellReady()) {
+                if (isPrismaHome(current)) {
                     hasObservedForcedHome = true;
-                    homeStableSince ??= now;
-                    if (now - homeStableSince >= HOME_STABLE_MS) {
-                        navigateToRememberedUrl(target);
-                        homeStableSince = null;
-                    }
-                } else {
-                    homeStableSince = null;
+                    navigateToRememberedUrl(target);
                 }
             }
 
@@ -219,7 +215,7 @@
         if (accountSaveCaptureBound) return;
         accountSaveCaptureBound = true;
         document.addEventListener('click', event => {
-            if (isAccountSwitchIntent(event)) void rememberCurrentUrl();
+            if (isAccountSwitchIntent(event)) void rememberAndArmRestore();
         }, true);
     }
 
@@ -231,6 +227,7 @@
             rememberReturnUrlEnabled = changes.rememberAccountSwitchUrlEnabled.newValue !== false;
             if (!rememberReturnUrlEnabled) {
                 clearTimeout(restoreTimer);
+                restoreRunId += 1;
                 void clearPendingReturnUrl();
             }
         });
@@ -288,13 +285,13 @@
 
         try {
             removeExistingToast();
-            await rememberCurrentUrl();
+            await rememberAndArmRestore();
             await openUserProfileMenuItem();
             await selectAlternativePid();
 
             const saveButton = await utils.waitForElement('#saveButton');
             if (!saveButton) throw new Error('Save button not found.');
-            await rememberCurrentUrl();
+            await rememberAndArmRestore();
             clickElement(saveButton);
 
             utils.showToast('Accounts swapped! Page will reload.', 'success');

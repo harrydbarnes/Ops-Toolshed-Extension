@@ -138,8 +138,8 @@ describe('Switch Accounts feature', () => {
         expect(window.location.href).toBe(target);
         expect(pendingReturnUrl).toBe(target);
 
-        window.location.hash = '#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns';
-        await new Promise(resolve => window.setTimeout(resolve, 1400));
+        window.location.hash = '#osAppId=prsm-cm-spa&osPspId=prsm-cm-home';
+        await new Promise(resolve => window.setTimeout(resolve, 300));
 
         expect(window.location.href).toBe(target);
 
