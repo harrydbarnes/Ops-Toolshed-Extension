@@ -37,6 +37,20 @@ describe('Manifest content-script order', () => {
         expect(mediaoceanRegistration.js).toContain('features/banner-username.js');
         expect(mediaoceanRegistration.js).toContain('features/actualise-navbar.js');
         expect(mediaoceanRegistration.js).toContain('features/actualise-shortcut.js');
+        expect(mediaoceanRegistration.js).toContain('features/onboarding-tour.js');
+    });
+
+    test('ships the first-run onboarding and guided side-panel pages', () => {
+        [
+            'onboarding.html',
+            'onboarding.css',
+            'onboarding.js',
+            'onboarding-tour.html',
+            'onboarding-tour.css',
+            'onboarding-tour.js'
+        ].forEach(file => {
+            expect(fs.existsSync(path.resolve(__dirname, `../${file}`))).toBe(true);
+        });
     });
 
     test('loads the custom PDF viewer before the Help Guides application', () => {

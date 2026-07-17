@@ -1,0 +1,42 @@
+:root {
+    color-scheme: light;
+    --accent: #e82f79;
+    --accent-dark: #bd1d5b;
+    --ink: #20222a;
+    --muted: #676a76;
+    --line: #e5e5ea;
+    --soft: #f6f6f8;
+}
+
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body { margin: 0; background: #fff; color: var(--ink); font-family: "Outfit", "Segoe UI", sans-serif; }
+button { font: inherit; }
+
+.tour-shell { min-height: 100dvh; display: grid; grid-template-rows: auto auto 1fr auto; }
+.tour-header { min-height: 64px; padding: 0 18px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+.tour-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+.tour-brand img { width: 30px; height: 30px; border-radius: 8px; }
+#skip-tour { padding: 8px 0; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+.tour-progress { height: 3px; overflow: hidden; background: #ededf1; }
+.tour-progress span { display: block; width: 25%; height: 100%; background: var(--accent); transform-origin: left; transition: width 220ms cubic-bezier(.16, 1, .3, 1); }
+.tour-content { padding: 34px 22px; }
+.tour-section { margin: 0 0 10px; color: var(--accent-dark); font-size: 13px; font-weight: 600; }
+.tour-content h1 { margin: 0; font-size: clamp(28px, 8vw, 38px); line-height: 1.08; letter-spacing: -.03em; }
+.tour-description { margin: 16px 0 0; color: var(--muted); font-size: 16px; line-height: 1.6; }
+.tour-tip { margin-top: 28px; padding: 18px; border-radius: 14px; background: var(--soft); line-height: 1.5; }
+.tour-tip strong { display: block; margin-bottom: 5px; }
+.tour-status { min-height: 22px; margin: 18px 0 0; color: var(--muted); font-size: 13px; }
+.tour-status.is-found { color: #327055; }
+.tour-status.is-missing { color: #8b5b18; }
+.tour-footer { min-height: 74px; padding: 14px 18px; display: flex; justify-content: space-between; gap: 10px; border-top: 1px solid var(--line); background: #fbfbfc; }
+.tour-footer button { min-height: 44px; padding: 0 18px; border-radius: 10px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.tour-secondary { border: 1px solid #d9d9df; background: #fff; color: var(--ink); }
+.tour-primary { margin-left: auto; border: 0; background: var(--accent); color: #fff; }
+.tour-primary:hover { background: var(--accent-dark); }
+.tour-footer button:active { transform: translateY(1px); }
+button:focus-visible { outline: 3px solid rgba(232, 47, 121, .28); outline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

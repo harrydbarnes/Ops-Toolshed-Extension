@@ -1,0 +1,213 @@
+(function() {
+    'use strict';
+
+    const PRISMA_HOME = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns';
+    const defaults = {
+        uiTheme: 'pink',
+        optimisedNewNavEnabled: true,
+        bannerUsernameEnabled: true,
+        helpGuidesEnabled: true,
+        blockAppLearnPopupsEnabled: true,
+        campaignNameQuickCopyEnabled: true,
+        campaignHeaderQuickCopyEnabled: true,
+        swapAccountsEnabled: true,
+        rememberAccountSwitchUrlEnabled: true,
+        loadingFactsEnabled: true,
+        prismaReminderFrequency: 'daily',
+        metaReminderEnabled: true,
+        iasReminderEnabled: true,
+        timesheetReminderEnabled: true
+    };
+    const stepCopy = [
+        ['A better Prisma starts here', 'Make everyday media operations feel lighter.', 'Choose the features that suit your workflow, then see the most useful tools in context.'],
+        ['Your Prisma experience', 'Start with the improvements you will notice most.', 'These recommended choices focus on navigation, identity and access to guidance.'],
+        ['Everyday workflow', 'Remove a few clicks from repeat tasks.', 'Choose the shortcuts that fit how you move through campaigns and accounts.'],
+        ['Helpful, not noisy', 'Set reminders to match your working rhythm.', 'Keep useful checks visible without letting prompts get in the way.'],
+        ['Setup complete', 'You are ready to explore Ops Toolshed.', 'Open Prisma and follow the side panel to see your main tools in context.']
+    ];
+    let activeStep = 0;
+    let currentSettings = { ...defaults };
+
+    const elements = {
+        tabs: Array.from(document.querySelectorAll('.onboarding-tab')),
+        pages: Array.from(document.querySelectorAll('.onboarding-page')),
+        kicker: document.getElementById('stage-kicker'),
+        title: document.getElementById('stage-title'),
+        description: document.getElementById('stage-description'),
+        previous: document.getElementById('previous-step'),
+        next: document.getElementById('next-step'),
+        start: document.getElementById('start-tour'),
+        skip: document.getElementById('skip-onboarding'),
+        status: document.getElementById('save-status'),
+        summary: document.getElementById('setup-summary'),
+        error: document.getElementById('onboarding-error')
+    };
+
+    function storageGet(area, values) {
+        return new Promise(resolve => {
+            if (!area?.get) return resolve({ ...values });
+            let settled = false;
+            const finish = result => {
+                if (settled) return;
+                settled = true;
+                resolve({ ...values, ...(result || {}) });
+            };
+            try {
+                const response = area.get(values, finish);
+                if (response?.then) response.then(finish, () => finish(values));
+            } catch {
+                finish(values);
+            }
+        });
+    }
+
+    function storageSet(area, values) {
+        return new Promise((resolve, reject) => {
+            if (!area?.set) return resolve();
+            let settled = false;
+            const finish = () => {
+                if (settled) return;
+                settled = true;
+                if (chrome.runtime?.lastError) reject(new Error(chrome.runtime.lastError.message));
+                else resolve();
+            };
+            try {
+                const response = area.set(values, finish);
+                if (response?.then) response.then(finish, reject);
+            } catch (error) {
+                reject(error);
+            }
+        });
+    }
+
+    function showSavedStatus() {
+        elements.status.textContent = 'Saved';
+        clearTimeout(showSavedStatus.timer);
+        showSavedStatus.timer = setTimeout(() => {
+            elements.status.textContent = 'Settings are saved as you go';
+        }, 1500);
+    }
+
+    async function saveSetting(key, value) {
+        currentSettings[key] = value;
+        try {
+            await storageSet(chrome.storage?.sync, { [key]: value });
+            showSavedStatus();
+        } catch {
+            elements.status.textContent = 'Could not save this setting';
+        }
+    }
+
+    function syncControls() {
+        document.querySelectorAll('[data-setting]').forEach(control => {
+            const value = currentSettings[control.dataset.setting];
+            if (control.type === 'checkbox') control.checked = value !== false;
+            else control.value = value;
+        });
+        document.querySelectorAll('[data-setting-choice]').forEach(button => {
+            button.setAttribute('aria-pressed', String(currentSettings[button.dataset.settingChoice] === button.dataset.value));
+        });
+    }
+
+    function updateSummary() {
+        const toggleKeys = Object.keys(defaults).filter(key => typeof defaults[key] === 'boolean');
+        const enabled = toggleKeys.filter(key => currentSettings[key] !== false).length;
+        elements.summary.textContent = `${enabled} recommended features enabled. You can change every choice later in Settings.`;
+    }
+
+    function renderStep(index, focusTab = false) {
+        activeStep = Math.max(0, Math.min(stepCopy.length - 1, index));
+        const [kicker, title, description] = stepCopy[activeStep];
+        elements.kicker.textContent = kicker;
+        elements.title.textContent = title;
+        elements.description.textContent = description;
+        elements.tabs.forEach((tab, tabIndex) => {
+            const active = tabIndex === activeStep;
+            tab.classList.toggle('active', active);
+            tab.setAttribute('aria-selected', String(active));
+            tab.tabIndex = active ? 0 : -1;
+            if (active && focusTab) tab.focus();
+        });
+        elements.pages.forEach((page, pageIndex) => {
+            const active = pageIndex === activeStep;
+            page.hidden = !active;
+            page.classList.toggle('active', active);
+        });
+        elements.previous.hidden = activeStep === 0;
+        elements.next.hidden = activeStep === stepCopy.length - 1;
+        elements.next.textContent = activeStep === 0 ? 'Get started' : 'Continue';
+        elements.start.hidden = activeStep !== stepCopy.length - 1;
+        if (activeStep === stepCopy.length - 1) updateSummary();
+    }
+
+    async function markComplete(values = {}) {
+        await storageSet(chrome.storage?.local, {
+            onboardingCompleted: true,
+            onboardingCompletedAt: Date.now(),
+            ...values
+        });
+    }
+
+    function startGuidedTour() {
+        elements.error.hidden = true;
+        void markComplete({ onboardingTourActive: true, onboardingTourStep: 0 });
+        try {
+            const optionsResult = chrome.sidePanel?.setOptions?.({ path: 'onboarding-tour.html', enabled: true });
+            optionsResult?.catch?.(() => {
+                elements.error.textContent = 'The guided panel could not be prepared. Prisma will still open, and you can return to Settings at any time.';
+                elements.error.hidden = false;
+            });
+            const windowId = chrome.windows?.WINDOW_ID_CURRENT ?? -2;
+            const openResult = chrome.sidePanel?.open?.({ windowId });
+            if (openResult?.catch) {
+                openResult.catch(() => {
+                    elements.error.textContent = 'The side panel could not open. Prisma will still open, and you can return to Settings at any time.';
+                    elements.error.hidden = false;
+                });
+            }
+            chrome.tabs?.update?.({ url: PRISMA_HOME });
+        } catch {
+            elements.error.textContent = 'The side panel is not available in this browser. Open Settings to review all features.';
+            elements.error.hidden = false;
+        }
+    }
+
+    document.querySelectorAll('[data-setting]').forEach(control => {
+        control.addEventListener('change', () => {
+            const value = control.type === 'checkbox' ? control.checked : control.value;
+            void saveSetting(control.dataset.setting, value);
+        });
+    });
+
+    document.querySelectorAll('[data-setting-choice]').forEach(button => {
+        button.addEventListener('click', () => {
+            const key = button.dataset.settingChoice;
+            currentSettings[key] = button.dataset.value;
+            syncControls();
+            void saveSetting(key, button.dataset.value);
+        });
+    });
+
+    elements.tabs.forEach((tab, index) => {
+        tab.addEventListener('click', () => renderStep(index));
+        tab.addEventListener('keydown', event => {
+            if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+            event.preventDefault();
+            const direction = event.key === 'ArrowRight' ? 1 : -1;
+            renderStep((index + direction + elements.tabs.length) % elements.tabs.length, true);
+        });
+    });
+    elements.previous.addEventListener('click', () => renderStep(activeStep - 1));
+    elements.next.addEventListener('click', () => renderStep(activeStep + 1));
+    elements.start.addEventListener('click', startGuidedTour);
+    elements.skip.addEventListener('click', () => {
+        void markComplete({ onboardingTourActive: false, onboardingSkipped: true });
+        window.location.href = chrome.runtime.getURL('settings.html');
+    });
+
+    storageGet(chrome.storage?.sync, defaults).then(settings => {
+        currentSettings = settings;
+        syncControls();
+        renderStep(0);
+    });
+})();

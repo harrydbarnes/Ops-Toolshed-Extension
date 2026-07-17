@@ -22,6 +22,29 @@ describe('Time Bomb Feature in background.js', () => {
 
     afterEach(() => {
         jest.useRealTimers(); // Clean up fake timers after each test
+        delete chrome.runtime.id;
+    });
+
+    test('opens onboarding only for a fresh install', () => {
+        chrome.runtime.id = 'test-extension-id';
+        jest.isolateModules(() => {
+            require('../background');
+        });
+
+        chrome.runtime.onInstalled.listener({ reason: 'install' });
+
+        expect(chrome.tabs.create).toHaveBeenCalledWith({ url: 'mock-url/onboarding.html' });
+    });
+
+    test('does not open onboarding when the extension updates', () => {
+        chrome.runtime.id = 'test-extension-id';
+        jest.isolateModules(() => {
+            require('../background');
+        });
+
+        chrome.runtime.onInstalled.listener({ reason: 'update' });
+
+        expect(chrome.tabs.create).not.toHaveBeenCalled();
     });
 
     test('should set initial deadline correctly when installed on a Monday', async () => {

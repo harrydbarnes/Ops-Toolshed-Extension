@@ -76,6 +76,7 @@
         "features/actualise-scroll-restore.js",
         "features/loading-facts.js",
         "features/help-guides-launcher.js",
+        "features/onboarding-tour.js",
         "features/applearn-replace.js",
         "content.js"
       ],

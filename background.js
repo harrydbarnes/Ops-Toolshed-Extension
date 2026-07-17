@@ -53,10 +53,15 @@ async function checkTimeBomb() {
 
 // --- Alarms and Notifications ---
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener((details) => {
   migrateStats();
   checkTimeBomb().catch(error => console.error("Error during initial time bomb check:", error));
   if (!chrome.runtime || !chrome.runtime.id) return;
+
+  if (details?.reason === 'install') {
+    Promise.resolve(chrome.tabs.create({ url: chrome.runtime.getURL('onboarding.html') }))
+      .catch(error => console.error('Could not open first-run onboarding:', error));
+  }
 
   chrome.storage.sync.get([
     'countPlacementsSelectedEnabled',
