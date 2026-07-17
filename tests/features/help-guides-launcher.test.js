@@ -67,6 +67,21 @@ describe('Help Guides page launcher', () => {
         dom.window.close();
     });
 
+    test('recognises the current mo-banner shell as ready', async () => {
+        const { dom } = createFeature({ bannerReady: false });
+        const { window } = dom;
+
+        window.helpGuidesLauncherFeature.initialize();
+        expect(window.document.getElementById('toolshed-help-guides-launcher')).toBeNull();
+
+        window.document.body.appendChild(window.document.createElement('mo-banner'));
+        await new Promise(resolve => window.setTimeout(resolve, 0));
+
+        expect(window.helpGuidesLauncherFeature.isBannerReady()).toBe(true);
+        expect(window.document.getElementById('toolshed-help-guides-launcher')).not.toBeNull();
+        dom.window.close();
+    });
+
     test('adds one accessible translucent launcher and opens the side panel on click', () => {
         const { dom } = createFeature();
         const { window } = dom;

@@ -20,7 +20,7 @@
     }
 
     function isBannerReady() {
-        return Boolean(document.getElementById(BANNER_ID));
+        return Boolean(document.getElementById(BANNER_ID) || document.querySelector('mo-banner'));
     }
     let storageListenerBound = false;
     let runtimeListenerBound = false;
