@@ -95,6 +95,7 @@ describe('Loading Facts behaviour', () => {
         activeSpinner = null;
         window.loadingFactsFeature.checkForLoading();
         runScheduledTimer(scheduledTimers, 200);
+        expect(scheduledTimers.some(timer => timer.delay === 2500)).toBe(true);
 
         activeSpinner = makeVisible(document.createElement('mo-spinner'), 500);
         document.body.appendChild(activeSpinner);
@@ -110,7 +111,7 @@ describe('Loading Facts behaviour', () => {
         activeSpinner = null;
         window.loadingFactsFeature.checkForLoading();
         runScheduledTimer(scheduledTimers, 200);
-        runScheduledTimer(scheduledTimers, 1500);
+        runScheduledTimer(scheduledTimers, 2500);
         runScheduledTimer(scheduledTimers, 500);
 
         expect(document.getElementById('ops-toolshed-loading-toast')).toBeNull();

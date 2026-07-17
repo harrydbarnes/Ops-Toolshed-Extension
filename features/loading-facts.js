@@ -209,7 +209,7 @@
 
     const DEBOUNCE_DELAY_MS = 200;
     const ANIMATION_DURATION_MS = 500;
-    const CAMPAIGN_LOADING_END_DELAY_MS = 1500;
+    const CAMPAIGN_LOADING_END_DELAY_MS = 2500;
 
     const getStorageData = (area, keys) => new Promise(resolve => chrome.storage[area].get(keys, resolve));
 
