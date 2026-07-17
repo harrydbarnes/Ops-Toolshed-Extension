@@ -28,4 +28,27 @@ describe('release metadata', () => {
             dom.window.close();
         }
     });
+
+    test('labels and orders every release item as New, Improved, then Fixed', () => {
+        const toolshed = fs.readFileSync(path.join(root, 'toolshed.html'), 'utf8');
+        const dom = new JSDOM(toolshed);
+        const priority = { new: 0, improved: 1, fixed: 2 };
+
+        try {
+            const releases = Array.from(dom.window.document.querySelectorAll('#release-notes .release'));
+            expect(releases.length).toBeGreaterThan(0);
+
+            releases.forEach(release => {
+                const badges = Array.from(release.querySelectorAll('li .release-badge'));
+                expect(badges).toHaveLength(release.querySelectorAll('li').length);
+
+                const types = badges.map(badge => badge.dataset.releaseType);
+                expect(types.every(type => Object.hasOwn(priority, type))).toBe(true);
+                expect(types.map(type => priority[type]))
+                    .toEqual([...types].map(type => priority[type]).sort((a, b) => a - b));
+            });
+        } finally {
+            dom.window.close();
+        }
+    });
 });
