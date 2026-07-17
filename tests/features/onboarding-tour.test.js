@@ -34,9 +34,12 @@ describe('Onboarding page highlights', () => {
         expect(sendResponse).toHaveBeenCalledWith({ status: 'success', found: true });
         expect(overlay.style.width).toBe('56px');
         expect(overlay.style.height).toBe('56px');
+        expect(overlay.style.left).toBe('13px');
+        expect(dom.window.document.querySelectorAll('#ops-toolshed-onboarding-backdrop > span')).toHaveLength(4);
 
         getListener()({ action: 'hideOnboardingHighlight' }, {}, sendResponse);
         expect(dom.window.document.getElementById('ops-toolshed-onboarding-highlight')).toBeNull();
+        expect(dom.window.document.getElementById('ops-toolshed-onboarding-backdrop')).toBeNull();
         dom.window.close();
     });
 
@@ -66,6 +69,20 @@ describe('Onboarding page highlights', () => {
 
         expect(sendResponse).toHaveBeenCalledWith({ status: 'success', found: false });
         expect(dom.window.document.getElementById('ops-toolshed-onboarding-highlight')).toBeNull();
+        dom.window.close();
+    });
+
+    test('does not dim the page while a target is present but has no visible size', () => {
+        const { dom, getListener } = setup();
+        const target = dom.window.document.getElementById('toolshed-help-guides-launcher');
+        target.getBoundingClientRect = () => ({ left: 20, top: 30, width: 0, height: 0 });
+        const sendResponse = jest.fn();
+
+        getListener()({ action: 'showOnboardingHighlight', target: 'helpGuides' }, {}, sendResponse);
+
+        expect(sendResponse).toHaveBeenCalledWith({ status: 'success', found: false });
+        expect(dom.window.document.getElementById('ops-toolshed-onboarding-highlight')).toBeNull();
+        expect(dom.window.document.getElementById('ops-toolshed-onboarding-backdrop')).toBeNull();
         dom.window.close();
     });
 });

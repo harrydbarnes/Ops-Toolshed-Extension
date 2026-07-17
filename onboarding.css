@@ -79,6 +79,7 @@ button, select { color: inherit; }
     gap: 10px;
     padding: 0 28px;
     overflow-x: auto;
+    overflow-y: hidden;
     border-bottom: 1px solid var(--line);
 }
 

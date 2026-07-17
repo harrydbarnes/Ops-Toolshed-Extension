@@ -124,8 +124,8 @@ describe('Prisma banner username feature', () => {
         expect(page.accountLabel.textContent).toBe('HBARN@NGMCLON');
         expect(page.accountLabel.getAttribute('data-ops-toolshed-original-account-label')).toBe('GROUPM UK (OWNER)');
         expect(page.accountLabel.style.minWidth).toBe('132px');
-        expect(page.accountLabel.style.textAlign).toBe('center');
-        expect(page.accountLabel.style.left).toBe('-18px');
+        expect(page.accountLabel.style.textAlign).toBe('left');
+        expect(page.accountLabel.style.left).toBe('');
         expect(page.menuTrigger.getAttribute('aria-expanded')).toBe('false');
         expect(page.getTriggerClicks()).toBe(2);
         expect(page.window.bannerUsernameFeature.getResolvedUsername()).toBe('HBARN@NGMCLON');

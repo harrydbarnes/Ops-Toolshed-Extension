@@ -7,7 +7,6 @@
     const ORIGINAL_MIN_WIDTH_ATTRIBUTE = 'data-ops-toolshed-original-account-min-width';
     const ORIGINAL_TEXT_ALIGN_ATTRIBUTE = 'data-ops-toolshed-original-account-text-align';
     const ORIGINAL_LEFT_ATTRIBUTE = 'data-ops-toolshed-original-account-left';
-    const CENTER_OFFSET_ATTRIBUTE = 'data-ops-toolshed-account-centre-offset';
     const DISCOVERY_TIMEOUT_MS = 2500;
 
     let isEnabled = true;
@@ -118,14 +117,13 @@
         const menuRoot = userMenu.shadowRoot || userMenu;
         return {
             userMenu,
-            accountGroup: findDeep('.user-menu-label', menuRoot),
             accountLabel: findDeep('.user-company-name', menuRoot),
             menuTrigger: findDeep('mo-menu', menuRoot),
             menuActivator: findDeep('.user-company-name', menuRoot)
         };
     }
 
-    function replaceAccountLabel(accountLabel, accountGroup) {
+    function replaceAccountLabel(accountLabel) {
         if (!accountLabel || !resolvedUsername) return;
         if (!accountLabel.hasAttribute(ORIGINAL_LABEL_ATTRIBUTE)) {
             const originalLabel = (accountLabel.textContent || '').replace(/\s+/g, ' ').trim();
@@ -146,22 +144,16 @@
                 ORIGINAL_LEFT_ATTRIBUTE,
                 accountLabel.style.left || ''
             );
-            const accountLeadWidth = accountGroup
-                ? accountLabel.offsetLeft - accountGroup.offsetLeft
-                : 0;
-            accountLabel.setAttribute(
-                CENTER_OFFSET_ATTRIBUTE,
-                String(Math.max(0, accountLeadWidth / 2))
-            );
             const originalWidth = accountLabel.getBoundingClientRect().width;
             if (originalWidth > 0) accountLabel.style.minWidth = `${originalWidth}px`;
         }
         if (accountLabel.textContent !== resolvedUsername) {
             accountLabel.textContent = resolvedUsername;
         }
-        accountLabel.style.textAlign = 'center';
-        const centerOffset = Number(accountLabel.getAttribute(CENTER_OFFSET_ATTRIBUTE)) || 0;
-        if (centerOffset > 0) accountLabel.style.left = `-${centerOffset}px`;
+        // Keep the username in the native label area. Shifting it left to centre it
+        // across the avatar made longer account IDs overflow the available space.
+        accountLabel.style.textAlign = 'left';
+        accountLabel.style.removeProperty('left');
     }
 
     function restoreAccountLabels() {
@@ -181,7 +173,6 @@
             element.removeAttribute(ORIGINAL_MIN_WIDTH_ATTRIBUTE);
             element.removeAttribute(ORIGINAL_TEXT_ALIGN_ATTRIBUTE);
             element.removeAttribute(ORIGINAL_LEFT_ATTRIBUTE);
-            element.removeAttribute(CENTER_OFFSET_ATTRIBUTE);
         });
     }
 
@@ -341,13 +332,13 @@
             return;
         }
 
-        const { userMenu, accountGroup, accountLabel, menuTrigger, menuActivator } = getBannerParts();
+        const { userMenu, accountLabel, menuTrigger, menuActivator } = getBannerParts();
         if (!userMenu || !accountLabel) return;
 
         const visibleUsername = readUsernameFromMenu();
         if (visibleUsername) rememberUsername(visibleUsername);
         if (resolvedUsername) {
-            replaceAccountLabel(accountLabel, accountGroup);
+            replaceAccountLabel(accountLabel);
             return;
         }
 
