@@ -5,7 +5,7 @@
 
     function byId(id) { return document.getElementById(id); }
     function currency(value) {
-        return value === null || value === undefined || value === '' ? '—' : new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value);
+        return value === null || value === undefined || value === '' ? 'Not available' : new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value);
     }
     function escapeHtml(value) {
         return String(value ?? '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
@@ -16,7 +16,7 @@
         const file = input.files?.[0];
         if (!file) return;
         state[key] = await file.text();
-        byId(labelId).textContent = `${file.name} · ${(file.size / 1024).toFixed(1)} KB`;
+        byId(labelId).textContent = `${file.name}, ${(file.size / 1024).toFixed(1)} KB`;
         if (key === 'metaText') renderAccountScope();
     }
 
@@ -77,7 +77,7 @@
     function runComparison() {
         const errors = [];
         if (!state.metaText) errors.push('Choose the Meta campaign CSV.');
-        if (!state.prismaText) errors.push('Choose the Prisma PlacementDetailTable CSV.');
+        if (!state.prismaText) errors.push('Choose the Prisma booking CSV.');
         if (state.metaText && elements.accountOptions.querySelectorAll('input').length > 1 && !selectedAccounts().length) errors.push('Select at least one Meta account covered by the Prisma export.');
         if (errors.length) { renderMessages(errors); return; }
 
@@ -103,7 +103,7 @@
         const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
         const link = document.createElement('a');
         link.href = url;
-        link.download = `social_booking_exceptions_${elements.asOfDate.value || 'report'}.csv`;
+        link.download = `social_booking_comparison_${elements.asOfDate.value || 'report'}.csv`;
         link.click();
         URL.revokeObjectURL(url);
     }

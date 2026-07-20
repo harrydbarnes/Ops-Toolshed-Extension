@@ -99,7 +99,7 @@ function getMetaFinanceToolConfig(mode) {
 
     return {
         mode: 'social',
-        label: 'Social Booking Report',
+        label: 'Social Booking Checker',
         extensionPage: 'social-finance.html'
     };
 }

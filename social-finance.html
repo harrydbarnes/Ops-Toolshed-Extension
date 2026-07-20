@@ -3,33 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Social Booking Comparison</title>
+    <title>Social Booking Checker</title>
     <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="social-finance.css">
 </head>
 <body>
     <main class="report-shell">
-        <header class="report-hero">
-            <div>
-                <p class="eyebrow">Ops Toolshed · Finance control</p>
-                <h1>Social booking comparison</h1>
-                <p class="hero-copy">Compare the complete Meta population with Prisma booking evidence. The report separates missing or unlinked activity from date, month and budget updates.</p>
-            </div>
-            <div class="hero-mark" aria-hidden="true"><span>£</span><span>↔</span><span>ID</span></div>
+        <header class="report-header">
+            <a class="brand" href="settings.html" aria-label="Open Ops Toolshed settings">
+                <img src="icon.png" alt="">
+                <span>Ops Toolshed</span>
+            </a>
         </header>
+
+        <section class="report-intro" aria-labelledby="page-title">
+            <h1 id="page-title">Social Booking Checker</h1>
+            <p>Compare what is in Meta currently to what is booked in Prisma. The report helps break down for you any differences, guiding you on a course to 1:1 matching of bookings.</p>
+        </section>
 
         <section class="control-panel" aria-labelledby="source-heading">
             <div class="section-heading">
-                <div><span class="step">01</span><h2 id="source-heading">Load source evidence</h2></div>
+                <h2 id="source-heading">Upload your reports</h2>
                 <p>CSV files stay in this browser tab and are not uploaded.</p>
             </div>
             <aside class="upload-readiness" aria-label="Before you upload">
                 <strong>Before you upload</strong>
-                <span>Use the raw CSV export with its header row intact. Both reports must cover the same client/account population and the same reporting months.</span>
+                <span>Use the raw CSV export with its header row intact. Both reports must cover the same client account(s) and reporting months.</span>
             </aside>
             <div class="source-grid">
                 <label class="file-card" for="metaFile">
-                    <span class="file-kicker">Report 1 · Complete population</span>
+                    <span class="file-kicker">Meta export</span>
                     <strong>Meta campaign report</strong>
                     <span class="export-source">Export from Meta Ads Manager at campaign level.</span>
                     <span class="requirement-label">Your CSV must include</span>
@@ -38,23 +42,23 @@
                         <li><b>Amount spent</b></li>
                         <li><b>Month</b> or <b>Reporting starts</b></li>
                     </ul>
-                    <span class="helpful-fields"><b>For fuller checks:</b> Account name, Campaign name, Campaign budget, Delivery, and start/end dates.</span>
+                    <span class="helpful-fields"><b>Optional columns:</b> <b>Account name</b> for account filtering; <b>Campaign name</b> and <b>Campaign budget</b> to find likely matches and budget differences; <b>Delivery</b> for status context; and <b>Ad set start</b> and <b>Ad set end</b> for date checks.</span>
                     <input id="metaFile" type="file" accept=".csv,text/csv" aria-label="Choose Meta campaign CSV" aria-describedby="metaUploadScope">
                     <span id="metaUploadScope" class="scope-note"><b>Scope:</b> include every relevant Meta account and campaign for the months being checked.</span>
                     <em id="metaFileName">Choose Meta CSV</em>
                 </label>
                 <label class="file-card" for="prismaFile">
-                    <span class="file-kicker">Report 2 · Booking evidence</span>
-                    <strong>Prisma PlacementDetailTable</strong>
-                    <span class="export-source">Export the raw PlacementDetailTable from Prisma.</span>
+                    <span class="file-kicker">Prisma export</span>
+                    <strong>Prisma booking report</strong>
+                    <span class="export-source">Use the Prisma CSV that lists placements and their booked values.</span>
                     <span class="requirement-label">Your CSV must include</span>
                     <ul class="report-requirements">
                         <li><b>Partner line id</b></li>
                         <li><b>Period</b></li>
                         <li><b>PLANNED_AMOUNT</b> or <b>Gross Amount</b></li>
                     </ul>
-                    <span class="helpful-fields"><b>For fuller checks:</b> Campaign/Plan/Order name, Client name, Placement start/end dates, and owner.</span>
-                    <input id="prismaFile" type="file" accept=".csv,text/csv" aria-label="Choose Prisma PlacementDetailTable CSV" aria-describedby="prismaUploadScope">
+                    <span class="helpful-fields"><b>Optional columns:</b> <b>Campaign name</b>, <b>Plan name</b> or <b>Order name</b> to find likely matches; <b>Client name</b> for account context; <b>Placement start date</b> and <b>Placement end date</b> for date checks; and <b>Placement creator</b> or <b>Owner</b> for follow-up.</span>
+                    <input id="prismaFile" type="file" accept=".csv,text/csv" aria-label="Choose Prisma booking CSV" aria-describedby="prismaUploadScope">
                     <span id="prismaUploadScope" class="scope-note"><b>Scope:</b> use the same client/accounts and reporting months as the Meta report.</span>
                     <em id="prismaFileName">Choose Prisma CSV</em>
                 </label>
@@ -66,22 +70,38 @@
                 </div>
                 <div id="accountOptions" class="account-options"></div>
             </div>
+            <div class="comparison-settings-heading">
+                <strong>Comparison settings</strong>
+                <span>The defaults work for most checks.</span>
+            </div>
             <div class="settings-row">
-                <label>As-of date<input id="asOfDate" type="date"></label>
-                <label>Variance tolerance (£)<input id="tolerance" type="number" min="0" step="0.01" value="1"></label>
-                <label>Closed after working day<input id="closedWorkingDay" type="number" min="1" max="15" value="5"></label>
-                <button id="runComparison" type="button">Build exception report</button>
+                <label class="comparison-setting">
+                    <span>Check date</span>
+                    <small>Use today unless you want to see how the comparison looked on an earlier date.</small>
+                    <input id="asOfDate" type="date">
+                </label>
+                <label class="comparison-setting">
+                    <span>Ignore differences up to (£)</span>
+                    <small>At £1, differences of £1 or less are left out of the results.</small>
+                    <input id="tolerance" type="number" min="0" step="0.01" value="1">
+                </label>
+                <label class="comparison-setting">
+                    <span>Month closes after (working days)</span>
+                    <small>After this many working days from month-end, the month is treated as finished and remaining differences are flagged.</small>
+                    <input id="closedWorkingDay" type="number" min="1" max="15" value="5">
+                </label>
+                <button id="runComparison" type="button">Compare bookings</button>
             </div>
             <label class="population-check">
                 <input id="populationConfirmed" type="checkbox">
-                <span>I confirm the Meta and Prisma exports cover the same client/account population and reporting months. This is required before “missing from Prisma” can be treated as definitive.</span>
+                <span>I confirm the files cover the same client account(s) and reporting months</span>
             </label>
             <div id="validationMessages" class="messages" aria-live="polite"></div>
         </section>
 
         <section id="results" class="results hidden" aria-labelledby="results-heading">
             <div class="section-heading result-heading">
-                <div><span class="step">02</span><h2 id="results-heading">Evidence-led findings</h2></div>
+                <h2 id="results-heading">Comparison results</h2>
                 <button id="downloadReport" class="secondary-action" type="button">Download report CSV</button>
             </div>
             <div id="summaryCards" class="summary-grid"></div>
@@ -89,7 +109,7 @@
             <div class="report-toolbar">
                 <label>Show
                     <select id="evidenceFilter">
-                        <option value="actionable">All exceptions</option>
+                        <option value="actionable">All differences</option>
                         <option value="Missing/unlinked">Missing / unlinked</option>
                         <option value="Needs update">Needs update</option>
                         <option value="Investigate">Investigate</option>

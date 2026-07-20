@@ -10,9 +10,9 @@ const legacyScraper = fs.readFileSync(path.resolve(__dirname, '../background/met
 const { getMetaFinanceToolConfig, launchMetaFinanceTool } = require('../popup');
 
 describe('Meta finance tool selection', () => {
-    test('offers a Settings segmented control with the Social Booking Report as default', () => {
+    test('offers a Settings segmented control with the Social Booking Checker as default', () => {
         expect(settingsHtml).toContain('id="metaFinanceToolSegmented"');
-        expect(settingsHtml).toContain('data-value="social" aria-pressed="true">Social Report</button>');
+        expect(settingsHtml).toContain('data-value="social" aria-pressed="true">Booking Checker</button>');
         expect(settingsHtml).toContain('data-value="legacy" aria-pressed="false">Billing Check</button>');
         expect(settingsScript).toContain("initializeSegmentedControl('metaFinanceToolSegmented', 'metaFinanceToolMode', 'social', settings)");
     });
@@ -20,7 +20,7 @@ describe('Meta finance tool selection', () => {
     test('keeps the popup on the new report when the setting is absent or invalid', () => {
         expect(getMetaFinanceToolConfig()).toEqual({
             mode: 'social',
-            label: 'Social Booking Report',
+            label: 'Social Booking Checker',
             extensionPage: 'social-finance.html'
         });
         expect(getMetaFinanceToolConfig('unexpected').mode).toBe('social');
@@ -53,7 +53,7 @@ describe('Meta finance tool selection', () => {
         expect(alertUser).not.toHaveBeenCalled();
     });
 
-    test('opens the Social Booking Report for the default selection', () => {
+    test('opens the Social Booking Checker for the default selection', () => {
         const runtime = {
             getURL: jest.fn(pathname => `mock-url/${pathname}`),
             sendMessage: jest.fn(),

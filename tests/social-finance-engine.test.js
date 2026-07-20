@@ -22,12 +22,12 @@ describe('social finance comparison engine', () => {
     test('classifies exact matches, missing links, month, budget, date and likely-unlinked cases', () => {
         const report = compare(parseCsv(metaCsv), parseCsv(prismaCsv), { asOfDate: '2026-07-13', tolerance: 1, closedWorkingDay: 5, populationConfirmed: true });
         const byId = id => report.rows.find(row => row.campaignId === id);
-        expect(byId('120000000000000001').classification).toBe('Matched – booking evidence valid');
-        expect(byId('120000000000000002').classification).toBe('Missing from Prisma – spending');
-        expect(byId('120000000000000003').classification).toBe('Date/month update needed – ID booked in another month');
-        expect(byId('120000000000000004').classification).toBe('Budget update needed – platform budget exceeds Prisma');
-        expect(byId('120000000000000005').classification).toBe('Date update needed – Meta extends outside Prisma');
-        expect(byId('120000000000000006').classification).toBe('Likely booked but unlinked – add Partner line ID');
+        expect(byId('120000000000000001').classification).toBe('Matched: booking evidence valid');
+        expect(byId('120000000000000002').classification).toBe('Missing from Prisma: spending');
+        expect(byId('120000000000000003').classification).toBe('Date/month update needed: ID booked in another month');
+        expect(byId('120000000000000004').classification).toBe('Budget update needed: platform budget exceeds Prisma');
+        expect(byId('120000000000000005').classification).toBe('Date update needed: Meta extends outside Prisma');
+        expect(byId('120000000000000006').classification).toBe('Likely booked but unlinked: add Partner line ID');
         expect(report.summary.missingOrUnlinked).toBe(1);
         expect(report.validationErrors).toEqual([]);
     });
@@ -50,7 +50,7 @@ describe('social finance comparison engine', () => {
             parseCsv('Partner line id,Period,PLANNED_AMOUNT\n2,Jun 2026,10'),
             { asOfDate: '2026-07-13' }
         );
-        expect(report.rows.find(row => row.campaignId === '1').classification).toBe('No linked Prisma booking found – spending');
+        expect(report.rows.find(row => row.campaignId === '1').classification).toBe('No linked Prisma booking found: spending');
     });
 
     test('restricts the comparison to selected Meta accounts', () => {

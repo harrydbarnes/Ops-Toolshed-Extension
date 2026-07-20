@@ -282,27 +282,27 @@
             const booking = prismaByKey.get(platform.key);
             const otherMonths = prismaIds.get(platform.campaignId) || [];
             const issues = [];
-            let classification = 'Matched – booking evidence valid';
+            let classification = 'Matched: booking evidence valid';
             let evidence = 'Matched';
             let candidate = null;
 
             const monthClosed = asOfDate > addWorkingDays(endOfMonth(platform.month), closedWorkingDay);
             if (!booking) {
                 if (otherMonths.length) {
-                    classification = 'Date/month update needed – ID booked in another month';
+                    classification = 'Date/month update needed: ID booked in another month';
                     evidence = 'Needs update';
                     issues.push(`Prisma months: ${otherMonths.map(item => toIsoDate(item.month).slice(0, 7)).join(', ')}`);
                 } else {
                     candidate = findCandidate(platform, prisma.allRows);
                     if (candidate) {
-                        classification = 'Likely booked but unlinked – add Partner line ID';
+                        classification = 'Likely booked but unlinked: add Partner line ID';
                         evidence = 'Investigate';
                         issues.push(`Possible Prisma row ${candidate.row.sourceRow}; candidate confidence ${Math.round(candidate.score * 100)}%`);
                     } else {
                         const missingLabel = options.populationConfirmed ? 'Missing from Prisma' : 'No linked Prisma booking found';
                         classification = platform.spend > tolerance
-                            ? `${missingLabel} – spending`
-                            : `${missingLabel} – pre-flight`;
+                            ? `${missingLabel}: spending`
+                            : `${missingLabel}: pre-flight`;
                         evidence = 'Missing/unlinked';
                     }
                 }
@@ -318,23 +318,23 @@
                 else if (endVariance !== null && endVariance !== 0) issues.push(`End date differs by ${endVariance} day(s)`);
 
                 if (issues.some(issue => issue.includes('starts before') || issue.includes('ends after'))) {
-                    classification = 'Date update needed – Meta extends outside Prisma';
+                    classification = 'Date update needed: Meta extends outside Prisma';
                     evidence = 'Needs update';
                 } else if (issues.some(issue => issue.includes('date differs'))) {
-                    classification = 'Date mismatch – review booking coverage';
+                    classification = 'Date mismatch: review booking coverage';
                     evidence = 'Needs update';
                 }
 
                 if (spendVariance > tolerance) {
-                    classification = 'Budget update needed – spend exceeds Prisma';
+                    classification = 'Budget update needed: spend exceeds Prisma';
                     evidence = 'Needs update';
                     issues.push(`Spend exceeds Prisma by ${spendVariance.toFixed(2)}`);
                 } else if (budgetVariance !== null && budgetVariance > tolerance) {
-                    classification = 'Budget update needed – platform budget exceeds Prisma';
+                    classification = 'Budget update needed: platform budget exceeds Prisma';
                     evidence = 'Needs update';
                     issues.push(`Platform budget exceeds Prisma by ${budgetVariance.toFixed(2)}`);
                 } else if (monthClosed && Math.abs(spendVariance) > tolerance) {
-                    classification = 'Closed-month value mismatch – update reconciliation';
+                    classification = 'Closed-month value mismatch: update reconciliation';
                     evidence = 'Needs update';
                     issues.push(`Closed-month variance ${spendVariance.toFixed(2)}`);
                 } else if (!monthClosed && Math.abs(spendVariance) > tolerance) {
