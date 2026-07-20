@@ -124,7 +124,7 @@ body.reminder-theme-black #confirmation-popup {
     bottom: var(--toast-bottom-position);
     transform: translateX(-50%);
     z-index: var(--toast-z-index);
-    pointer-events: none;
+    pointer-events: auto;
 
     /* Layout & Sizing */
     display: flex;
@@ -138,7 +138,7 @@ body.reminder-theme-black #confirmation-popup {
 
     /* VISUAL CENTERING MAGIC: Balanced Padding */
     /* Left padding holds the icon. Right padding balances it. */
-    padding: 10px 70px;
+    padding: 10px 92px 10px 70px;
 
     /* Styling */
     background-color: var(--toast-bg-color);
@@ -235,6 +235,47 @@ body.reminder-theme-black #confirmation-popup {
 /* --- Internal Approval recipient history controls --- */
 .ops-toolshed-recipient-history-pending .select2-drop-active {
     visibility: hidden;
+}
+
+.loading-fact-actions {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    display: flex;
+    gap: 5px;
+    transform: translateY(-50%);
+}
+
+.loading-fact-action {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    cursor: pointer;
+    font: 700 14px/1 'Segoe UI', sans-serif;
+}
+
+.loading-fact-action:hover:not(:disabled),
+.loading-fact-action:focus-visible {
+    background: rgba(255, 255, 255, 0.28);
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+}
+
+.loading-fact-action:disabled {
+    cursor: default;
+    opacity: 0.55;
+}
+
+.loading-fact-toast--remove .loading-fact-content strong::after {
+    content: ' Removed';
+}
+
+.loading-fact-toast--notSure .loading-fact-content strong::after {
+    content: ' Saved for review';
 }
 
 .select2-drop-active .select2-result-label[data-ops-toolshed-recipient-history-handled="true"] {

@@ -21,6 +21,7 @@
 
         <div class="tab-container" role="tablist">
             <button class="tab-button active" data-tab="features" role="tab" id="tab-features" aria-controls="features" aria-selected="true">Features</button>
+            <button class="tab-button" data-tab="loading-facts" role="tab" id="tab-loading-facts" aria-controls="loading-facts" aria-selected="false" tabindex="-1">Loading Facts</button>
             <button class="tab-button" data-tab="reminders" role="tab" id="tab-reminders" aria-controls="reminders" aria-selected="false" tabindex="-1">Reminders</button>
             <button class="tab-button" data-tab="custom-reminders" role="tab" id="tab-custom-reminders" aria-controls="custom-reminders" aria-selected="false" tabindex="-1">Custom Reminders</button>
         </div>
@@ -81,10 +82,13 @@
                     </div>
                     <div class="toggle-container">
                         <span>Show Loading Facts:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="loadingFactsToggle">
-                            <span class="slider"></span>
-                        </label>
+                        <div class="button-and-toggle-group">
+                            <button id="loadingFactsStatsButton" class="settings-button loading-facts-stats-button" type="button">Fact stats</button>
+                            <label class="toggle">
+                                <input type="checkbox" id="loadingFactsToggle">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
                     </div>
                     <div class="toggle-container">
                         <span>Translucent 'AppLearn' Logo:</span>
@@ -343,6 +347,20 @@
                 </section>
         </div>
 
+        <div id="loading-facts" class="tab-content" role="tabpanel" aria-labelledby="tab-loading-facts" hidden>
+            <section class="loading-facts-review">
+                <div class="section-header-with-button">
+                    <div>
+                        <h2>Loading Fact Review</h2>
+                        <p>Rate the remaining facts here, review feedback from Prisma, and export it for the next catalogue update.</p>
+                    </div>
+                    <button id="exportLoadingFactRatings" class="settings-button" type="button">Export ratings</button>
+                </div>
+                <div id="loadingFactSummary" class="loading-fact-summary" aria-live="polite"></div>
+                <div id="loadingFactReviewList" class="loading-fact-review-list" aria-live="polite"></div>
+            </section>
+        </div>
+
         <div id="reminders" class="tab-content" role="tabpanel" aria-labelledby="tab-reminders">
             <section id="prisma-reminders">
                 <div class="section-header-with-button">
@@ -505,6 +523,7 @@
     <script src="build-info.js"></script>
     <script src="utils.js"></script>
     <script src="features/feedback-modal.js"></script>
+    <script src="features/loading-facts.js"></script>
     <script src="settings.js"></script>
 
     <div id="build-info" class="build-info"></div>

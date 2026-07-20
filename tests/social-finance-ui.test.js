@@ -25,6 +25,16 @@ describe('Social Booking Checker upload guidance', () => {
         expect(popupHtml).toContain('id="socialFinanceReportButton" class="nav-button">Social Booking Checker</button>');
     });
 
+    test('shows Meta as the available platform and future platforms as unavailable', () => {
+        const platforms = [...document.querySelectorAll('.platform-option input')];
+
+        expect(platforms.map(input => input.value)).toEqual(['meta', 'tiktok', 'snap', 'pinterest']);
+        expect(platforms[0].checked).toBe(true);
+        expect(platforms[0].disabled).toBe(false);
+        expect(platforms.slice(1).every(input => input.disabled)).toBe(true);
+        expect(document.querySelector('.platform-options').textContent).toContain('Coming soon');
+    });
+
     test('uses the shared Ops Toolshed visual language and concise population confirmation', () => {
         expect(css).toContain('--accent: #e82f79');
         expect(css).toContain('--canvas: #f5f5f7');
@@ -38,7 +48,8 @@ describe('Social Booking Checker upload guidance', () => {
         const card = document.querySelector('label[for="metaFile"]');
         const text = card.textContent;
 
-        expect(text).toContain('Meta Ads Manager');
+        expect(text).toContain('Meta Ads Report');
+        expect(text).toContain('Meta Spend Across Agency');
         expect(text).toContain('Campaign ID');
         expect(text).toContain('Amount spent');
         expect(text).toContain('Month');
@@ -63,7 +74,7 @@ describe('Social Booking Checker upload guidance', () => {
         expect(text).toContain('PLANNED_AMOUNT');
         expect(text).toContain('Gross Amount');
         expect(text).toContain('same client/accounts and reporting months');
-        expect(text).toContain('Plan name');
+        expect(text).toContain('Campaign, Plan or Order name');
         expect(text).toContain('Client name');
         expect(text).toContain('Placement start date');
         expect(text).toContain('Placement creator');
@@ -79,7 +90,8 @@ describe('Social Booking Checker upload guidance', () => {
         expect(pageText).not.toContain('For fuller checks');
         expect(pageText).not.toContain('PlacementDetailTable');
         expect(pageText).not.toContain('Build exception report');
-        expect(pageText).toContain('Optional columns:');
+        expect(document.querySelectorAll('.optional-requirements')).toHaveLength(2);
+        expect(pageText).toContain('Optional columns');
         expect(settingsText).toContain('Check date');
         expect(settingsText).toContain('Use today unless');
         expect(settingsText).toContain('Ignore differences up to (£)');

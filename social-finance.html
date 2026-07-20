@@ -23,6 +23,27 @@
         </section>
 
         <section class="control-panel" aria-labelledby="source-heading">
+            <fieldset class="platform-selector">
+                <legend>Platform</legend>
+                <div class="platform-options">
+                    <label class="platform-option">
+                        <input type="radio" name="platform" value="meta" checked>
+                        <span><b>Meta</b></span>
+                    </label>
+                    <label class="platform-option">
+                        <input type="radio" name="platform" value="tiktok" disabled>
+                        <span><b>TikTok</b><small>Coming soon</small></span>
+                    </label>
+                    <label class="platform-option">
+                        <input type="radio" name="platform" value="snap" disabled>
+                        <span><b>Snap</b><small>Coming soon</small></span>
+                    </label>
+                    <label class="platform-option">
+                        <input type="radio" name="platform" value="pinterest" disabled>
+                        <span><b>Pinterest</b><small>Coming soon</small></span>
+                    </label>
+                </div>
+            </fieldset>
             <div class="section-heading">
                 <h2 id="source-heading">Upload your reports</h2>
                 <p>CSV files stay in this browser tab and are not uploaded.</p>
@@ -34,15 +55,24 @@
             <div class="source-grid">
                 <label class="file-card" for="metaFile">
                     <span class="file-kicker">Meta export</span>
-                    <strong>Meta campaign report</strong>
-                    <span class="export-source">Export from Meta Ads Manager at campaign level.</span>
+                    <strong>Meta Ads Report</strong>
+                    <span class="export-source">In Meta Ads Reporting, use the <b>Meta Spend Across Agency</b> template and export at campaign level.</span>
                     <span class="requirement-label">Your CSV must include</span>
                     <ul class="report-requirements">
                         <li><b>Campaign ID</b></li>
                         <li><b>Amount spent</b></li>
                         <li><b>Month</b> or <b>Reporting starts</b></li>
                     </ul>
-                    <span class="helpful-fields"><b>Optional columns:</b> <b>Account name</b> for account filtering; <b>Campaign name</b> and <b>Campaign budget</b> to find likely matches and budget differences; <b>Delivery</b> for status context; and <b>Ad set start</b> and <b>Ad set end</b> for date checks.</span>
+                    <span class="requirement-label optional-label">Optional columns</span>
+                    <ul class="report-requirements optional-requirements">
+                        <li><b>Account name</b></li>
+                        <li><b>Campaign name</b></li>
+                        <li><b>Campaign budget</b></li>
+                        <li><b>Delivery</b></li>
+                        <li><b>Ad set start</b></li>
+                        <li><b>Ad set end</b></li>
+                    </ul>
+                    <span class="helpful-fields">These add account filtering, likely booking matches, budget and delivery context, and date checks.</span>
                     <input id="metaFile" type="file" accept=".csv,text/csv" aria-label="Choose Meta campaign CSV" aria-describedby="metaUploadScope">
                     <span id="metaUploadScope" class="scope-note"><b>Scope:</b> include every relevant Meta account and campaign for the months being checked.</span>
                     <em id="metaFileName">Choose Meta CSV</em>
@@ -57,7 +87,15 @@
                         <li><b>Period</b></li>
                         <li><b>PLANNED_AMOUNT</b> or <b>Gross Amount</b></li>
                     </ul>
-                    <span class="helpful-fields"><b>Optional columns:</b> <b>Campaign name</b>, <b>Plan name</b> or <b>Order name</b> to find likely matches; <b>Client name</b> for account context; <b>Placement start date</b> and <b>Placement end date</b> for date checks; and <b>Placement creator</b> or <b>Owner</b> for follow-up.</span>
+                    <span class="requirement-label optional-label">Optional columns</span>
+                    <ul class="report-requirements optional-requirements">
+                        <li><b>Campaign, Plan or Order name</b></li>
+                        <li><b>Client name</b></li>
+                        <li><b>Placement start date</b></li>
+                        <li><b>Placement end date</b></li>
+                        <li><b>Placement creator or Owner</b></li>
+                    </ul>
+                    <span class="helpful-fields">These add likely booking matches, client context, date checks, and an owner to contact.</span>
                     <input id="prismaFile" type="file" accept=".csv,text/csv" aria-label="Choose Prisma booking CSV" aria-describedby="prismaUploadScope">
                     <span id="prismaUploadScope" class="scope-note"><b>Scope:</b> use the same client/accounts and reporting months as the Meta report.</span>
                     <em id="prismaFileName">Choose Prisma CSV</em>

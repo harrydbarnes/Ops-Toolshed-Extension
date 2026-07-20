@@ -229,6 +229,8 @@ describe('Loading Facts behaviour', () => {
         expect(toast).not.toBeNull();
         expect(toast.textContent).toContain('Did you know?');
         expect(toast.style.left).toBe('120px');
+        expect(toast.querySelector('.loading-fact-action--not-sure')).not.toBeNull();
+        expect(toast.querySelector('.loading-fact-action--remove')).not.toBeNull();
 
         spinner.remove();
         window.loadingFactsFeature.checkForLoading();
@@ -312,6 +314,40 @@ describe('Loading Facts behaviour', () => {
         await expect(feature.showToast(spinner)).resolves.toBeUndefined();
         expect(window.document.getElementById('ops-toolshed-loading-toast')).not.toBeNull();
         expect(window.utils.queryShadowDom).not.toHaveBeenCalled();
+        dom.window.close();
+    });
+
+    test('records not-sure and remove ratings, then excludes removed facts from the rotation', async () => {
+        const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/',
+            runScripts: 'outside-only'
+        });
+        const { window } = dom;
+        const stored = { loadingFactRatings: {} };
+        window.utils = { queryShadowDom: jest.fn(), isElementVisible: jest.fn(), findVisibleLoadingSpinners: jest.fn(() => []) };
+        window.IntersectionObserver = jest.fn(() => ({ observe: jest.fn(), disconnect: jest.fn() }));
+        window.chrome = {
+            storage: {
+                sync: { get: jest.fn((_keys, callback) => callback({ loadingFactsEnabled: true })) },
+                local: {
+                    get: jest.fn((_keys, callback) => callback(stored)),
+                    set: jest.fn(update => Object.assign(stored, update))
+                },
+                onChanged: { addListener: jest.fn() }
+            }
+        };
+
+        window.eval(loadingFactsScript);
+        const feature = window.loadingFactsFeature;
+        const fact = window.LOADING_FACTS[0];
+
+        await feature.rateFact(fact, 'notSure');
+        expect(stored.loadingFactRatings[fact]).toBe('notSure');
+
+        await feature.rateFact(fact, 'remove');
+        expect(stored.loadingFactRatings[fact]).toBe('remove');
+
+        await expect(feature.getProcessedFact()).resolves.not.toBe(fact);
         dom.window.close();
     });
 });

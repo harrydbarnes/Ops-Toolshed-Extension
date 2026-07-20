@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    const FACTS = [
+    const FACTS = window.LOADING_FACTS = Object.freeze([
         "The average person spends 6 months of their life waiting in queues",
         "The longest traffic jam in history lasted 12 days in Beijing (2010)",
         "The word 'queue' comes from the Latin 'cauda', meaning 'tail'",
@@ -202,7 +202,7 @@
         "You have now completed another compulsory microbreak",
         "Thank you for waiting. Your patience has been noted but cannot currently be exchanged for points",
         "In total, you have seen this spinning wheel for {{TIME}}. Share this with Harry to help speed up Prisma!"
-    ];
+    ]);
 
     // Pre-calculate non-time facts for fallback optimization
     const NON_TIME_FACTS = FACTS.filter(f => !f.includes('{{TIME}}'));
@@ -407,7 +407,9 @@
         }
 
         async getProcessedFact() {
-            const data = await getStorageData('local', ['legacyStats', 'dailyStats', 'prismaUserStats']);
+            const data = await getStorageData('local', [
+                'legacyStats', 'dailyStats', 'prismaUserStats', 'loadingFactRatings'
+            ]);
             const historicTime = data.legacyStats?.totalLoadingTime ??
                 data.prismaUserStats?.totalLoadingTime ??
                 0;
@@ -419,7 +421,9 @@
 
             // If time is available (>0), we can pick from ALL facts (including {{TIME}} ones).
             // If time is 0, we must restrict selection to NON_TIME_FACTS only.
-            const factPool = (time > 0) ? FACTS : NON_TIME_FACTS;
+            const availableFacts = (time > 0) ? FACTS : NON_TIME_FACTS;
+            const ratings = data.loadingFactRatings || {};
+            const factPool = availableFacts.filter(fact => ratings[fact] !== 'remove');
 
             if (factPool.length > 0) {
                 const fact = factPool[Math.floor(Math.random() * factPool.length)];
@@ -433,6 +437,14 @@
             }
 
             return "Loading..."; // Ultimate fallback
+        }
+
+        async rateFact(fact, rating) {
+            if (!fact || !['remove', 'notSure'].includes(rating)) return;
+
+            const data = await getStorageData('local', 'loadingFactRatings');
+            const ratings = { ...(data.loadingFactRatings || {}), [fact]: rating };
+            chrome.storage.local.set({ loadingFactRatings: ratings });
         }
 
         async showToast(spinner) {
@@ -495,6 +507,38 @@
             contentDiv.appendChild(span);
 
             toast.appendChild(contentDiv);
+
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'loading-fact-actions';
+
+            const notSureButton = document.createElement('button');
+            notSureButton.type = 'button';
+            notSureButton.className = 'loading-fact-action loading-fact-action--not-sure';
+            notSureButton.textContent = '?';
+            notSureButton.setAttribute('aria-label', 'Mark this loading fact as not sure');
+            notSureButton.title = 'Not sure about this fact';
+
+            const removeButton = document.createElement('button');
+            removeButton.type = 'button';
+            removeButton.className = 'loading-fact-action loading-fact-action--remove';
+            removeButton.textContent = '×';
+            removeButton.setAttribute('aria-label', 'Remove this loading fact');
+            removeButton.title = 'Remove this fact';
+
+            const handleRating = async (rating) => {
+                notSureButton.disabled = true;
+                removeButton.disabled = true;
+                await this.rateFact(fact, rating);
+                toast.classList.add(`loading-fact-toast--${rating}`);
+                toast.setAttribute('aria-label', rating === 'remove'
+                    ? 'Loading fact removed'
+                    : 'Loading fact marked as not sure');
+            };
+
+            notSureButton.addEventListener('click', () => handleRating('notSure'));
+            removeButton.addEventListener('click', () => handleRating('remove'));
+            actionsDiv.append(notSureButton, removeButton);
+            toast.appendChild(actionsDiv);
 
             // Append to document.body to ensure it floats above all other content
             document.body.appendChild(toast);

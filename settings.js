@@ -837,6 +837,110 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupToggle('autoCopyUrlToggle', 'autoCopyUrlEnabled', 'Auto Copy URL setting saved:', settings);
     setupToggle('loadingFactsToggle', 'loadingFactsEnabled', 'Show Loading Facts setting saved:', settings);
 
+    const loadingFactsStatsButton = document.getElementById('loadingFactsStatsButton');
+    const loadingFactSummary = document.getElementById('loadingFactSummary');
+    const loadingFactReviewList = document.getElementById('loadingFactReviewList');
+    const exportLoadingFactRatings = document.getElementById('exportLoadingFactRatings');
+    const loadingFacts = Array.isArray(window.LOADING_FACTS) ? window.LOADING_FACTS : [];
+
+    const getLoadingFactRatings = () => new Promise(resolve => {
+        chrome.storage.local.get('loadingFactRatings', data => resolve(data.loadingFactRatings || {}));
+    });
+
+    const saveLoadingFactRating = async (fact, rating) => {
+        const ratings = await getLoadingFactRatings();
+        const nextRatings = { ...ratings };
+        if (rating) nextRatings[fact] = rating;
+        else delete nextRatings[fact];
+        chrome.storage.local.set({ loadingFactRatings: nextRatings });
+        return nextRatings;
+    };
+
+    const renderLoadingFactReview = async () => {
+        if (!loadingFactSummary || !loadingFactReviewList) return;
+        const ratings = await getLoadingFactRatings();
+        const groups = [
+            { key: 'remove', title: 'Remove', facts: loadingFacts.filter(fact => ratings[fact] === 'remove') },
+            { key: 'notSure', title: 'Not sure', facts: loadingFacts.filter(fact => ratings[fact] === 'notSure') },
+            { key: 'unrated', title: 'Unrated', facts: loadingFacts.filter(fact => !ratings[fact]) }
+        ];
+
+        loadingFactSummary.replaceChildren(...groups.map(group => {
+            const summary = document.createElement('span');
+            summary.textContent = `${group.title}: ${group.facts.length}`;
+            return summary;
+        }));
+        loadingFactReviewList.replaceChildren();
+
+        groups.forEach(group => {
+            const heading = document.createElement('h3');
+            heading.className = 'loading-fact-review-heading';
+            heading.textContent = `${group.title} (${group.facts.length})`;
+            loadingFactReviewList.appendChild(heading);
+
+            group.facts.forEach(fact => {
+                const row = document.createElement('article');
+                row.className = `loading-fact-review-row loading-fact-review-row--${group.key}`;
+
+                const text = document.createElement('p');
+                text.textContent = fact;
+                row.appendChild(text);
+
+                const controls = document.createElement('div');
+                controls.className = 'loading-fact-rating-controls';
+                [
+                    { value: '', label: 'Unrated' },
+                    { value: 'notSure', label: 'Not sure' },
+                    { value: 'remove', label: 'Remove' }
+                ].forEach(option => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.textContent = option.label;
+                    button.classList.toggle('is-selected', (ratings[fact] || '') === option.value);
+                    button.setAttribute('aria-pressed', String((ratings[fact] || '') === option.value));
+                    button.addEventListener('click', async () => {
+                        await saveLoadingFactRating(fact, option.value);
+                        await renderLoadingFactReview();
+                    });
+                    controls.appendChild(button);
+                });
+                row.appendChild(controls);
+                loadingFactReviewList.appendChild(row);
+            });
+        });
+    };
+
+    loadingFactsStatsButton?.addEventListener('click', () => {
+        document.getElementById('tab-loading-facts')?.click();
+    });
+    document.getElementById('tab-loading-facts')?.addEventListener('click', renderLoadingFactReview);
+
+    exportLoadingFactRatings?.addEventListener('click', async () => {
+        const ratings = await getLoadingFactRatings();
+        const exportData = {
+            format: 'ops-toolshed-loading-fact-ratings',
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            ratings: loadingFacts
+                .filter(fact => ratings[fact])
+                .map(fact => ({ fact, rating: ratings[fact] })),
+            summary: {
+                remove: loadingFacts.filter(fact => ratings[fact] === 'remove').length,
+                notSure: loadingFacts.filter(fact => ratings[fact] === 'notSure').length,
+                unrated: loadingFacts.filter(fact => !ratings[fact]).length
+            }
+        };
+        const url = URL.createObjectURL(new Blob([JSON.stringify(exportData, null, 2)], {
+            type: 'application/json'
+        }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'ops-toolshed-loading-fact-ratings.json';
+        link.click();
+        URL.revokeObjectURL(url);
+    });
+    renderLoadingFactReview();
+
     const autoCopyUrlToggle = document.getElementById('autoCopyUrlToggle');
     const autoCopyUrlModeSegmented = document.getElementById('autoCopyUrlModeSegmented');
     const autoCopyUrlSubOptions = document.getElementById('autoCopyUrlSubOptions');
