@@ -41,15 +41,16 @@ describe('Social Booking Checker upload guidance', () => {
         expect(css).toContain('--radius: 14px');
         expect(css).toContain('font-family: "Outfit", "Segoe UI", sans-serif');
         expect(document.querySelector('.population-check span').textContent).toBe('I confirm the files cover the same client account(s) and reporting months');
-        expect(toolshedHtml).toContain('The Social Booking Checker now matches the rest of Ops Toolshed');
+        expect(toolshedHtml).toContain('The Social Booking Checker now supports removable drag-and-drop uploads');
     });
 
     test('lists the required Meta report columns and scope', () => {
-        const card = document.querySelector('label[for="metaFile"]');
+        const card = document.querySelector('#metaFile').closest('.file-card');
         const text = card.textContent;
 
         expect(text).toContain('Meta Ads Report');
         expect(text).toContain('Meta Spend Across Agency');
+        expect(text).toContain('Account ID');
         expect(text).toContain('Campaign ID');
         expect(text).toContain('Amount spent');
         expect(text).toContain('Month');
@@ -57,6 +58,7 @@ describe('Social Booking Checker upload guidance', () => {
         expect(text).toContain('every relevant Meta account and campaign');
         expect(text).toContain('Account name');
         expect(text).toContain('Campaign budget');
+        expect(text).toContain('Campaign budget type');
         expect(text).toContain('Ad set start');
         expect(text).toContain('Ad set end');
         const input = card.querySelector('#metaFile');
@@ -65,10 +67,11 @@ describe('Social Booking Checker upload guidance', () => {
     });
 
     test('lists the required Prisma report columns and matching scope', () => {
-        const card = document.querySelector('label[for="prismaFile"]');
+        const card = document.querySelector('#prismaFile').closest('.file-card');
         const text = card.textContent;
 
         expect(text).toContain('Prisma booking report');
+        expect(text).toContain('Partner account id');
         expect(text).toContain('Partner line id');
         expect(text).toContain('Period');
         expect(text).toContain('PLANNED_AMOUNT');
@@ -76,7 +79,8 @@ describe('Social Booking Checker upload guidance', () => {
         expect(text).toContain('same client/accounts and reporting months');
         expect(text).toContain('Campaign, Plan or Order name');
         expect(text).toContain('Client name');
-        expect(text).toContain('Placement start date');
+        expect(text).toContain('Days in Flight start date');
+        expect(text).toContain('Days in Flight end date');
         expect(text).toContain('Placement creator');
         const input = card.querySelector('#prismaFile');
         expect(input.getAttribute('aria-label')).toBe('Choose Prisma booking CSV');
@@ -99,5 +103,29 @@ describe('Social Booking Checker upload guidance', () => {
         expect(settingsText).toContain('Month closes after (working days)');
         expect(settingsText).toContain('working days from month-end');
         expect(document.querySelector('#runComparison').textContent).toBe('Compare bookings');
+    });
+
+    test('offers drag and drop or file browsing for both reports', () => {
+        const metaDropZone = document.querySelector('#metaDropZone');
+        const prismaDropZone = document.querySelector('#prismaDropZone');
+
+        expect(metaDropZone.textContent).toContain('Drag and drop Meta CSV here');
+        expect(prismaDropZone.textContent).toContain('Drag and drop Prisma CSV here');
+        expect(metaDropZone.getAttribute('role')).toBe('button');
+        expect(prismaDropZone.getAttribute('tabindex')).toBe('0');
+        expect(metaDropZone.querySelector('#metaFileName').textContent).toBe('No file selected');
+        expect(prismaDropZone.querySelector('#prismaFileName').textContent).toBe('No file selected');
+        expect(metaDropZone.querySelector('#removeMetaFile').textContent).toBe('Remove file');
+        expect(prismaDropZone.querySelector('#removePrismaFile').textContent).toBe('Remove file');
+    });
+
+    test('offers month range filters and separate account and campaign columns', () => {
+        const headings = [...document.querySelectorAll('.table-frame th')].map(cell => cell.textContent);
+
+        expect(document.querySelector('#monthFromFilter')).not.toBeNull();
+        expect(document.querySelector('#monthToFilter')).not.toBeNull();
+        expect(headings).toContain('Account');
+        expect(headings).toContain('Campaign name');
+        expect(headings).not.toContain('Account and campaign');
     });
 });

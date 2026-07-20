@@ -53,12 +53,13 @@
                 <span>Use the raw CSV export with its header row intact. Both reports must cover the same client account(s) and reporting months.</span>
             </aside>
             <div class="source-grid">
-                <label class="file-card" for="metaFile">
+                <article class="file-card">
                     <span class="file-kicker">Meta export</span>
                     <strong>Meta Ads Report</strong>
                     <span class="export-source">In Meta Ads Reporting, use the <b>Meta Spend Across Agency</b> template and export at campaign level.</span>
                     <span class="requirement-label">Your CSV must include</span>
                     <ul class="report-requirements">
+                        <li><b>Account ID</b></li>
                         <li><b>Campaign ID</b></li>
                         <li><b>Amount spent</b></li>
                         <li><b>Month</b> or <b>Reporting starts</b></li>
@@ -68,21 +69,28 @@
                         <li><b>Account name</b></li>
                         <li><b>Campaign name</b></li>
                         <li><b>Campaign budget</b></li>
+                        <li><b>Campaign budget type</b></li>
                         <li><b>Delivery</b></li>
                         <li><b>Ad set start</b></li>
                         <li><b>Ad set end</b></li>
                     </ul>
-                    <span class="helpful-fields">These add account filtering, likely booking matches, budget and delivery context, and date checks.</span>
+                    <span class="helpful-fields">These add readable names, campaign budget context, delivery context, and date checks. Campaign budget is not compared with a single month's Prisma booking.</span>
                     <input id="metaFile" type="file" accept=".csv,text/csv" aria-label="Choose Meta campaign CSV" aria-describedby="metaUploadScope">
                     <span id="metaUploadScope" class="scope-note"><b>Scope:</b> include every relevant Meta account and campaign for the months being checked.</span>
-                    <em id="metaFileName">Choose Meta CSV</em>
-                </label>
-                <label class="file-card" for="prismaFile">
+                    <span id="metaDropZone" class="file-drop-zone" role="button" tabindex="0" aria-label="Drag and drop or choose a Meta CSV">
+                        <strong>Drag and drop Meta CSV here</strong>
+                        <span>or <span class="drop-zone-action">choose a file</span></span>
+                        <em id="metaFileName" aria-live="polite">No file selected</em>
+                        <button id="removeMetaFile" class="remove-file hidden" type="button">Remove file</button>
+                    </span>
+                </article>
+                <article class="file-card">
                     <span class="file-kicker">Prisma export</span>
                     <strong>Prisma booking report</strong>
                     <span class="export-source">Use the Prisma CSV that lists placements and their booked values.</span>
                     <span class="requirement-label">Your CSV must include</span>
                     <ul class="report-requirements">
+                        <li><b>Partner account id</b></li>
                         <li><b>Partner line id</b></li>
                         <li><b>Period</b></li>
                         <li><b>PLANNED_AMOUNT</b> or <b>Gross Amount</b></li>
@@ -91,15 +99,20 @@
                     <ul class="report-requirements optional-requirements">
                         <li><b>Campaign, Plan or Order name</b></li>
                         <li><b>Client name</b></li>
-                        <li><b>Placement start date</b></li>
-                        <li><b>Placement end date</b></li>
+                        <li><b>Days in Flight start date</b></li>
+                        <li><b>Days in Flight end date</b></li>
                         <li><b>Placement creator or Owner</b></li>
                     </ul>
                     <span class="helpful-fields">These add likely booking matches, client context, date checks, and an owner to contact.</span>
                     <input id="prismaFile" type="file" accept=".csv,text/csv" aria-label="Choose Prisma booking CSV" aria-describedby="prismaUploadScope">
                     <span id="prismaUploadScope" class="scope-note"><b>Scope:</b> use the same client/accounts and reporting months as the Meta report.</span>
-                    <em id="prismaFileName">Choose Prisma CSV</em>
-                </label>
+                    <span id="prismaDropZone" class="file-drop-zone" role="button" tabindex="0" aria-label="Drag and drop or choose a Prisma CSV">
+                        <strong>Drag and drop Prisma CSV here</strong>
+                        <span>or <span class="drop-zone-action">choose a file</span></span>
+                        <em id="prismaFileName" aria-live="polite">No file selected</em>
+                        <button id="removePrismaFile" class="remove-file hidden" type="button">Remove file</button>
+                    </span>
+                </article>
             </div>
             <div id="accountScopePanel" class="account-scope hidden">
                 <div class="account-scope-heading">
@@ -145,12 +158,19 @@
             <div id="summaryCards" class="summary-grid"></div>
             <div id="coverageWarnings" class="coverage-warnings"></div>
             <div class="report-toolbar">
+                <div class="month-range" role="group" aria-label="Reporting month range">
+                    <label>From month<select id="monthFromFilter"></select></label>
+                    <span aria-hidden="true">to</span>
+                    <label>To month<select id="monthToFilter"></select></label>
+                </div>
                 <label>Show
                     <select id="evidenceFilter">
                         <option value="actionable">All differences</option>
                         <option value="Missing/unlinked">Missing / unlinked</option>
                         <option value="Needs update">Needs update</option>
+                        <option value="Monitor">Monitor</option>
                         <option value="Investigate">Investigate</option>
+                        <option value="Outside scope">Outside report scope</option>
                         <option value="Matched">Matched</option>
                         <option value="all">Everything</option>
                     </select>
@@ -160,7 +180,7 @@
             </div>
             <div class="table-frame">
                 <table>
-                    <thead><tr><th>Evidence</th><th>Campaign / month</th><th>Account and campaign</th><th class="number">Meta spend</th><th class="number">Prisma</th><th class="number">Variance</th><th>Finding</th><th>Supporting evidence</th></tr></thead>
+                    <thead><tr><th>Evidence</th><th>Campaign / month</th><th>Account</th><th>Campaign name</th><th class="number">Meta spend</th><th class="number">Prisma</th><th class="number">Variance</th><th>Finding</th><th>Supporting evidence</th></tr></thead>
                     <tbody id="reportBody"></tbody>
                 </table>
             </div>

@@ -1,8 +1,8 @@
 const { parseCsv, aggregateMeta, compare, reportToCsv, nameSimilarity } = require('../social-finance-engine');
 
-const metaCsv = `Account name,Campaign name,Campaign ID,Month,Amount spent (GBP),Campaign budget,Delivery,Ad set start,Ad set end\nBoots,Matched campaign,120000000000000001,2026-06-01,100,100,Active,2026-06-01,2026-06-30\nBoots,Missing campaign,120000000000000002,2026-06-01,50,75,Active,2026-06-01,2026-06-30\nBoots,Wrong month,120000000000000003,2026-06-01,20,20,Active,2026-06-01,2026-06-30\nBoots,Budget exposure,120000000000000004,2026-06-01,80,120,Active,2026-06-01,2026-06-30\nBoots,Date exposure,120000000000000005,2026-06-01,60,60,Active,2026-05-29,2026-07-02\nBoots,Named unlinked campaign,120000000000000006,2026-06-01,40,40,Active,2026-06-01,2026-06-30`;
+const metaCsv = `Account name,Account ID,Campaign name,Campaign ID,Month,Amount spent (GBP),Campaign budget,Campaign budget type,Delivery,Ad set start,Ad set end\nBoots,999,Matched campaign,120000000000000001,2026-06-01,100,100,Lifetime,Active,2026-06-01,2026-06-30\nBoots,999,Missing campaign,120000000000000002,2026-06-01,50,75,Lifetime,Active,2026-06-01,2026-06-30\nBoots,999,Wrong month,120000000000000003,2026-06-01,20,20,Lifetime,Active,2026-06-01,2026-06-30\nBoots,999,Spend exposure,120000000000000004,2026-06-01,100,120,Lifetime,Active,2026-06-01,2026-06-30\nBoots,999,Date exposure,120000000000000005,2026-06-01,60,60,Lifetime,Active,2026-05-29,2026-07-02\nBoots,999,Named unlinked campaign,120000000000000006,2026-06-01,40,40,Lifetime,Active,2026-06-01,2026-06-30`;
 
-const prismaCsv = `Client name,Partner line id,Period,PLANNED_AMOUNT,Campaign name,Partner,Integrated status,Placement creator,Placement start date,Placement end date\nBoots,120000000000000001,Jun 2026,100,Matched campaign,Facebook,Integrated,Alice,2026-06-01,2026-06-30\nBoots,120000000000000003,May 2026,20,Wrong month,Facebook,Integrated,Bob,2026-05-01,2026-05-31\nBoots,120000000000000004,Jun 2026,90,Budget exposure,Facebook,Integrated,Chris,2026-06-01,2026-06-30\nBoots,120000000000000005,Jun 2026,60,Date exposure,Facebook,Integrated,Dana,2026-06-01,2026-06-30\nBoots,,Jun 2026,40,Named unlinked campaign,Facebook,Not integrated,Erin,2026-06-01,2026-06-30`;
+const prismaCsv = `Client name,Partner account id,Partner line id,Period,PLANNED_AMOUNT,Campaign name,Partner,Integrated status,Placement creator,Days in Flight start date,Days in Flight end date\nBoots,999,120000000000000001,Jun 2026,100,Matched campaign,Facebook,Integrated,Alice,6/1/26,6/30/26\nBoots,999,120000000000000003,May 2026,20,Wrong month,Facebook,Integrated,Bob,5/1/26,5/31/26\nBoots,999,120000000000000004,Jun 2026,90,Spend exposure,Facebook,Integrated,Chris,6/1/26,6/30/26\nBoots,999,120000000000000005,Jun 2026,60,Date exposure,Facebook,Integrated,Dana,6/1/26,6/30/26\nBoots,999,,Jun 2026,40,Named unlinked campaign,Facebook,Not integrated,Erin,6/1/26,6/30/26`;
 
 describe('social finance comparison engine', () => {
     test('preserves quoted fields and 18-digit identifiers as text', () => {
@@ -12,7 +12,7 @@ describe('social finance comparison engine', () => {
     });
 
     test('aggregates duplicate Meta rows without converting IDs to numbers', () => {
-        const parsed = parseCsv('Campaign ID,Month,Amount spent (GBP)\n120000000000000001,2026-06-01,10\n120000000000000001,2026-06-01,15');
+        const parsed = parseCsv('Account ID,Campaign ID,Month,Amount spent (GBP)\n999,120000000000000001,2026-06-01,10\n999,120000000000000001,2026-06-01,15');
         const output = aggregateMeta(parsed);
         expect(output.records).toHaveLength(1);
         expect(output.records[0].campaignId).toBe('120000000000000001');
@@ -24,18 +24,69 @@ describe('social finance comparison engine', () => {
         const byId = id => report.rows.find(row => row.campaignId === id);
         expect(byId('120000000000000001').classification).toBe('Matched: booking evidence valid');
         expect(byId('120000000000000002').classification).toBe('Missing from Prisma: spending');
-        expect(byId('120000000000000003').classification).toBe('Date/month update needed: ID booked in another month');
-        expect(byId('120000000000000004').classification).toBe('Budget update needed: platform budget exceeds Prisma');
+        expect(byId('120000000000000003').classification).toBe('Month update needed: Campaign ID is booked in another month');
+        expect(byId('120000000000000004').classification).toBe('Spend update needed: Meta spend exceeds Prisma booking');
         expect(byId('120000000000000005').classification).toBe('Date update needed: Meta extends outside Prisma');
         expect(byId('120000000000000006').classification).toBe('Likely booked but unlinked: add Partner line ID');
         expect(report.summary.missingOrUnlinked).toBe(1);
         expect(report.validationErrors).toEqual([]);
     });
 
+    test('does not compare a lifetime Meta budget with one Prisma month', () => {
+        const report = compare(
+            parseCsv('Account name,Account ID,Campaign ID,Month,Amount spent (GBP),Campaign budget,Campaign budget type\nExample,999,1,2026-06-01,2966.93,24716.95,Lifetime'),
+            parseCsv('Client name,Partner account id,Partner line id,Period,PLANNED_AMOUNT\nExample,999,1,Jun 26,2966.93'),
+            { asOfDate: '2026-07-20', populationConfirmed: true }
+        );
+        expect(report.rows[0].classification).toBe('Matched: booking evidence valid');
+        expect(report.rows[0].issues.join(' ')).not.toContain('21750.02');
+    });
+
+    test('maps account IDs and parses Prisma Days in Flight dates as month/day/year', () => {
+        const report = compare(
+            parseCsv('Account name,Account ID,Campaign ID,Month,Amount spent (GBP),Ad set start,Ad set end\nExample,999,1,2026-05-01,10,2026-05-01,2026-08-31'),
+            parseCsv('Client name,Partner account id,Partner line id,Period,PLANNED_AMOUNT,Days in Flight start date,Days in Flight end date\nExample,999,1,May 26,10,5/1/26,8/31/26'),
+            { asOfDate: '2026-05-15', populationConfirmed: true }
+        );
+        expect(report.rows[0].accountId).toBe('999');
+        expect(report.rows[0].prismaStart).toBe('2026-05-01');
+        expect(report.rows[0].prismaEnd).toBe('2026-08-31');
+        expect(report.rows[0].classification).toBe('Matched: booking evidence valid');
+    });
+
+    test('does not match identical campaign IDs across different accounts', () => {
+        const report = compare(
+            parseCsv('Account name,Account ID,Campaign ID,Month,Amount spent (GBP)\nExample,111,1,2026-06-01,10'),
+            parseCsv('Client name,Partner account id,Partner line id,Period,PLANNED_AMOUNT\nOther,222,1,Jun 26,10'),
+            { asOfDate: '2026-07-20', populationConfirmed: true }
+        );
+        expect(report.rows.find(row => row.accountId === '111').classification).toContain('Account ID mismatch');
+    });
+
+    test('still detects an account mismatch when a Meta account scope is selected', () => {
+        const report = compare(
+            parseCsv('Account name,Account ID,Campaign ID,Month,Amount spent (GBP)\nExample,111,1,2026-06-01,10'),
+            parseCsv('Client name,Partner account id,Partner line id,Period,PLANNED_AMOUNT\nOther,222,1,Jun 26,10'),
+            { asOfDate: '2026-07-20', accountIdScope: ['111'], populationConfirmed: true }
+        );
+        expect(report.rows).toHaveLength(1);
+        expect(report.rows[0].classification).toContain('Account ID mismatch');
+    });
+
+    test('separates rows outside the other export reporting months from true investigations', () => {
+        const report = compare(
+            parseCsv('Account name,Account ID,Campaign ID,Month,Amount spent (GBP)\nExample,999,1,2026-06-01,10'),
+            parseCsv('Client name,Partner account id,Partner line id,Period,PLANNED_AMOUNT\nExample,999,2,May 26,10'),
+            { asOfDate: '2026-07-20', populationConfirmed: true }
+        );
+        expect(report.rows.find(row => row.month === '2026-05').evidence).toBe('Outside scope');
+        expect(report.summary.outsideScope).toBe(2);
+    });
+
     test('labels unavailable date and delivery evidence without inventing it', () => {
         const report = compare(
-            parseCsv('Campaign ID,Month,Amount spent (GBP)\n1,2026-06-01,0'),
-            parseCsv('Partner line id,Period,PLANNED_AMOUNT\n1,Jun 2026,0'),
+            parseCsv('Account ID,Campaign ID,Month,Amount spent (GBP)\n999,1,2026-06-01,0'),
+            parseCsv('Partner account id,Partner line id,Period,PLANNED_AMOUNT\n999,1,Jun 2026,0'),
             { asOfDate: '2026-06-15' }
         );
         expect(report.warnings).toContain('Meta schedule dates are unavailable; month coverage is checked instead.');
@@ -46,8 +97,8 @@ describe('social finance comparison engine', () => {
 
     test('does not overstate missing bookings until source population is confirmed', () => {
         const report = compare(
-            parseCsv('Campaign ID,Month,Amount spent (GBP)\n1,2026-06-01,10'),
-            parseCsv('Partner line id,Period,PLANNED_AMOUNT\n2,Jun 2026,10'),
+            parseCsv('Account ID,Campaign ID,Month,Amount spent (GBP)\n999,1,2026-06-01,10'),
+            parseCsv('Partner account id,Partner line id,Period,PLANNED_AMOUNT\n999,2,Jun 2026,10'),
             { asOfDate: '2026-07-13' }
         );
         expect(report.rows.find(row => row.campaignId === '1').classification).toBe('No linked Prisma booking found: spending');
@@ -55,19 +106,21 @@ describe('social finance comparison engine', () => {
 
     test('restricts the comparison to selected Meta accounts', () => {
         const report = compare(
-            parseCsv('Account name,Campaign ID,Month,Amount spent (GBP)\nBoots,1,2026-06-01,10\nOther,2,2026-06-01,500'),
-            parseCsv('Client name,Partner line id,Period,PLANNED_AMOUNT\nBoots,1,Jun 2026,10'),
-            { asOfDate: '2026-07-13', accountScope: ['Boots'], populationConfirmed: true }
+            parseCsv('Account name,Account ID,Campaign ID,Month,Amount spent (GBP)\nBoots,111,1,2026-06-01,10\nOther,222,2,2026-06-01,500'),
+            parseCsv('Client name,Partner account id,Partner line id,Period,PLANNED_AMOUNT\nBoots,111,1,Jun 2026,10\nOther,222,2,Jun 2026,500'),
+            { asOfDate: '2026-07-13', accountIdScope: ['111'], populationConfirmed: true }
         );
         expect(report.rows.some(row => row.campaignId === '2')).toBe(false);
         expect(report.summary.metaSpend).toBe(10);
-        expect(report.sourceAccounts).toEqual(['Boots', 'Other']);
+        expect(report.sourceAccounts).toEqual([{ id: '111', name: 'Boots' }, { id: '222', name: 'Other' }]);
     });
 
     test('rejects exports without authoritative join fields', () => {
         const report = compare(parseCsv('Campaign name,Spend\nA,1'), parseCsv('Period,PLANNED_AMOUNT\nJun 2026,1'));
         expect(report.validationErrors).toEqual(expect.arrayContaining([
             'Meta export is missing Campaign ID.',
+            'Meta export is missing Account ID.',
+            'Prisma export is missing Partner account id.',
             'Prisma export is missing Partner line id.'
         ]));
     });
