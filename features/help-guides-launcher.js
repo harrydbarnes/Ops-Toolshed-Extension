@@ -12,6 +12,7 @@
     const CONTROL_GAP = 14;
     const COLLISION_SELECTOR = [
         '#launcher-button-container',
+        'iframe#launcher',
         '#webWidget',
         'iframe[title*="chat" i]',
         'iframe[title*="messag" i]',

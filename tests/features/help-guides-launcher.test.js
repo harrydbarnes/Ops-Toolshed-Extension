@@ -242,12 +242,16 @@ describe('Help Guides page launcher', () => {
         Object.defineProperty(launcher, 'offsetWidth', { configurable: true, value: 140 });
         Object.defineProperty(launcher, 'offsetHeight', { configurable: true, value: 44 });
 
-        const chatLauncher = window.document.createElement('div');
-        chatLauncher.id = 'launcher-button-container';
+        const chatLauncher = window.document.createElement('iframe');
+        chatLauncher.id = 'launcher';
         chatLauncher.getBoundingClientRect = () => ({
             left: 850, top: 620, right: 918, bottom: 688, width: 68, height: 68
         });
         window.document.body.appendChild(chatLauncher);
+
+        window.helpGuidesLauncherFeature.reconcileLauncherPosition(launcher);
+        expect(launcher.style.left).toBe('696px');
+        expect(launcher.classList).toContain('is-avoiding-control');
 
         window.helpGuidesLauncherFeature.reconcileLauncherPosition(launcher);
         expect(launcher.style.left).toBe('696px');

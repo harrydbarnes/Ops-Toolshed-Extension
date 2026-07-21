@@ -3,6 +3,7 @@
 
     const DIRECT_MOE_STYLE_ID = 'toolshed-direct-moe-style';
     const DIRECT_MOE_BODY_CLASS = 'toolshed-opening-moe';
+    const DIRECT_MOE_HOVER_CLASS = 'toolshed-hovering-ai-chat';
     const MOE_INTRO_TEXT = 'AI-powered support assistant';
     const CONNECT_WITH_MOE_TEXT = 'Connect with Moe';
     let directMoeChatEnabled = true;
@@ -12,6 +13,7 @@
     let directMoeObservedRoots = new WeakSet();
     let boundAiChatButton = null;
     let connectRetryTimer = null;
+    let hoverCleanupTimer = null;
 
     function findDeepMatching(predicate, root = document) {
         if (!root?.querySelectorAll) return null;
@@ -47,7 +49,9 @@
         style.id = DIRECT_MOE_STYLE_ID;
         style.textContent = `
             body.${DIRECT_MOE_BODY_CLASS} #pendo-base,
-            body.${DIRECT_MOE_BODY_CLASS} [id^="pendo-g-"] {
+            body.${DIRECT_MOE_BODY_CLASS} [id^="pendo-g-"],
+            body.${DIRECT_MOE_HOVER_CLASS} #pendo-base,
+            body.${DIRECT_MOE_HOVER_CLASS} [id^="pendo-g-"] {
                 opacity: 0 !important;
                 visibility: hidden !important;
                 pointer-events: none !important;
@@ -69,6 +73,24 @@
         clearTimeout(connectRetryTimer);
         connectRetryTimer = null;
         window.setTimeout(() => document.body.classList.remove(DIRECT_MOE_BODY_CLASS), 500);
+    }
+
+    function handleDirectMoeHover(event) {
+        if (!directMoeChatEnabled) return;
+        event.stopImmediatePropagation();
+        event.stopPropagation();
+        clearTimeout(hoverCleanupTimer);
+        injectDirectMoeStyles();
+        document.body.classList.add(DIRECT_MOE_HOVER_CLASS);
+        dismissMoeIntroduction();
+    }
+
+    function handleDirectMoeHoverEnd() {
+        clearTimeout(hoverCleanupTimer);
+        hoverCleanupTimer = window.setTimeout(() => {
+            document.body.classList.remove(DIRECT_MOE_HOVER_CLASS);
+            dismissMoeIntroduction();
+        }, 750);
     }
 
     function chooseConnectWithMoe(attempt = 0) {
@@ -105,8 +127,18 @@
         const nextButton = directMoeChatEnabled ? findAiChatButton() : null;
         if (nextButton === boundAiChatButton) return;
         boundAiChatButton?.removeEventListener('click', handleDirectMoeClick, true);
+        boundAiChatButton?.removeEventListener('pointerenter', handleDirectMoeHover, true);
+        boundAiChatButton?.removeEventListener('mouseenter', handleDirectMoeHover, true);
+        boundAiChatButton?.removeEventListener('mouseover', handleDirectMoeHover, true);
+        boundAiChatButton?.removeEventListener('pointerleave', handleDirectMoeHoverEnd, true);
+        boundAiChatButton?.removeEventListener('mouseleave', handleDirectMoeHoverEnd, true);
         boundAiChatButton = nextButton;
         boundAiChatButton?.addEventListener('click', handleDirectMoeClick, true);
+        boundAiChatButton?.addEventListener('pointerenter', handleDirectMoeHover, true);
+        boundAiChatButton?.addEventListener('mouseenter', handleDirectMoeHover, true);
+        boundAiChatButton?.addEventListener('mouseover', handleDirectMoeHover, true);
+        boundAiChatButton?.addEventListener('pointerleave', handleDirectMoeHoverEnd, true);
+        boundAiChatButton?.addEventListener('mouseleave', handleDirectMoeHoverEnd, true);
     }
 
     function observeDirectMoeRoots(root) {
@@ -124,11 +156,17 @@
         directMoeChatEnabled = enabled !== false;
         if (!directMoeChatEnabled) {
             boundAiChatButton?.removeEventListener('click', handleDirectMoeClick, true);
+            boundAiChatButton?.removeEventListener('pointerenter', handleDirectMoeHover, true);
+            boundAiChatButton?.removeEventListener('mouseenter', handleDirectMoeHover, true);
+            boundAiChatButton?.removeEventListener('mouseover', handleDirectMoeHover, true);
+            boundAiChatButton?.removeEventListener('pointerleave', handleDirectMoeHoverEnd, true);
+            boundAiChatButton?.removeEventListener('mouseleave', handleDirectMoeHoverEnd, true);
             boundAiChatButton = null;
             directMoeObserver?.disconnect();
             directMoeObserver = null;
             directMoeObservedRoots = new WeakSet();
             document.body.classList.remove(DIRECT_MOE_BODY_CLASS);
+            document.body.classList.remove(DIRECT_MOE_HOVER_CLASS);
             return;
         }
 
@@ -140,7 +178,7 @@
                     if (node.nodeType === 1) observeDirectMoeRoots(node);
                 }));
                 bindDirectMoeButton();
-                if (document.body.classList.contains(DIRECT_MOE_BODY_CLASS)) dismissMoeIntroduction();
+                dismissMoeIntroduction();
             });
             observeDirectMoeRoots(document.documentElement);
         }

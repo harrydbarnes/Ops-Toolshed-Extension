@@ -109,4 +109,27 @@ describe('Live chat enhancements', () => {
         expect(connect).toHaveBeenCalledTimes(1);
         dom.window.close();
     });
+
+    test('suppresses the Moe introduction when AI Chat is hovered', async () => {
+        const { dom, aiChat } = setup();
+        const nativeHoverAction = jest.fn();
+        aiChat.addEventListener('mouseover', nativeHoverAction);
+        dom.window.liveChatEnhancements.initialize();
+
+        aiChat.dispatchEvent(new dom.window.MouseEvent('mouseover', { bubbles: true }));
+        expect(nativeHoverAction).not.toHaveBeenCalled();
+        expect(dom.window.document.body.classList).toContain('toolshed-hovering-ai-chat');
+
+        const delayedIntro = dom.window.document.createElement('div');
+        delayedIntro.id = 'pendo-base';
+        delayedIntro.textContent = 'Moe, your AI-powered support assistant. Select Connect with Moe to start chatting.';
+        dom.window.document.body.appendChild(delayedIntro);
+        await Promise.resolve();
+
+        expect(dom.window.document.getElementById('pendo-base')).toBeNull();
+        aiChat.dispatchEvent(new dom.window.MouseEvent('mouseleave'));
+        jest.advanceTimersByTime(750);
+        expect(dom.window.document.body.classList).not.toContain('toolshed-hovering-ai-chat');
+        dom.window.close();
+    });
 });
