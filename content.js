@@ -125,6 +125,10 @@ async function mainContentScriptInit() {
         window.loadingFactsFeature.initialize();
     }
 
+    if (isPrismaLike && window.liveChatEnhancements) {
+        window.liveChatEnhancements.initialize();
+    }
+
     // Prisma: full enhancement set
     if (isPrismaLike && window.logoFeature.shouldReplaceLogoOnThisPage()) {
         await window.remindersFeature.fetchCustomReminders(); // Fetch initial set of custom reminders

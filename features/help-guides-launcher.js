@@ -9,12 +9,26 @@
     const DRAG_THRESHOLD = 8;
     const EDGE_RELEASE_DISTANCE = 34;
     const EDGE_RESISTANCE = 0.18;
+    const CONTROL_GAP = 14;
+    const COLLISION_SELECTOR = [
+        '#launcher-button-container',
+        '#webWidget',
+        'iframe[title*="chat" i]',
+        'iframe[title*="messag" i]',
+        'button[aria-label*="chat" i]',
+        '[role="button"][aria-label*="chat" i]',
+        'button[title*="expand" i]',
+        '[role="button"][aria-label*="expand" i]',
+        'mo-icon[name*="expand" i]'
+    ].join(',');
     let isEnabled = null;
     let isPanelOpen = false;
     let onboardingTourActive = false;
     let panelStateRevision = 0;
     let routeListenersBound = false;
     let bannerObserver = null;
+    let collisionObserver = null;
+    let collisionFrame = null;
 
     function isLauncherExcluded() {
         return window.location.href.toLowerCase().includes('ideskos-viewport');
@@ -161,6 +175,101 @@
         return position;
     }
 
+    function isVisibleCornerControl(element, button) {
+        if (!element || element === button || button.contains(element)) return false;
+        const rect = element.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0 || rect.width > 220 || rect.height > 220) return false;
+        const styles = window.getComputedStyle?.(element);
+        const opacity = Number.parseFloat(styles?.opacity);
+        if (styles?.display === 'none' || styles?.visibility === 'hidden' ||
+            (Number.isFinite(opacity) && opacity === 0)) return false;
+        return rect.right > window.innerWidth - 220 && rect.bottom > window.innerHeight - 180;
+    }
+
+    function overlapsWithGap(buttonPosition, button, obstacleRect) {
+        const left = buttonPosition.left - CONTROL_GAP;
+        const top = buttonPosition.top - CONTROL_GAP;
+        const right = buttonPosition.left + button.offsetWidth + CONTROL_GAP;
+        const bottom = buttonPosition.top + button.offsetHeight + CONTROL_GAP;
+        return left < obstacleRect.right && right > obstacleRect.left &&
+            top < obstacleRect.bottom && bottom > obstacleRect.top;
+    }
+
+    function findUnderlyingCornerControls(buttonPosition, button) {
+        if (typeof document.elementsFromPoint !== 'function') return [];
+        const left = buttonPosition.left;
+        const top = buttonPosition.top;
+        const right = left + button.offsetWidth;
+        const bottom = top + button.offsetHeight;
+        const points = [
+            [left + 4, top + 4],
+            [right - 4, top + 4],
+            [left + 4, bottom - 4],
+            [right - 4, bottom - 4],
+            [(left + right) / 2, (top + bottom) / 2]
+        ];
+        const candidates = new Set();
+        points.forEach(([x, y]) => document.elementsFromPoint(x, y).forEach(element => {
+            if (element === button || button.contains(element)) return;
+            const styles = window.getComputedStyle?.(element);
+            if (element.matches?.('button, a, iframe, [role="button"], mo-icon') || styles?.cursor === 'pointer') {
+                candidates.add(element);
+            }
+        }));
+        return Array.from(candidates).filter(element => isVisibleCornerControl(element, button));
+    }
+
+    function reconcileLauncherPosition(button = document.getElementById(BUTTON_ID)) {
+        if (!button || !preferredPosition || button.classList.contains('is-dragging')) return;
+        const basePosition = clampPosition(button, preferredPosition.left, preferredPosition.top);
+        const obstacleElements = new Set([
+            ...document.querySelectorAll(COLLISION_SELECTOR),
+            ...findUnderlyingCornerControls(basePosition, button)
+        ]);
+        const obstacles = Array.from(obstacleElements)
+            .filter(element => isVisibleCornerControl(element, button))
+            .map(element => element.getBoundingClientRect())
+            .filter(rect => overlapsWithGap(basePosition, button, rect));
+
+        if (obstacles.length === 0) {
+            button.classList.remove('is-avoiding-control');
+            placeButton(button, basePosition.left, basePosition.top);
+            return;
+        }
+
+        const obstacleLeft = Math.min(...obstacles.map(rect => rect.left));
+        const safeLeft = obstacleLeft - button.offsetWidth - CONTROL_GAP;
+        button.classList.add('is-avoiding-control');
+        placeButton(button, safeLeft, basePosition.top);
+    }
+
+    function scheduleCollisionCheck() {
+        if (collisionFrame !== null) return;
+        const nextFrame = window.requestAnimationFrame || (callback => window.setTimeout(callback, 0));
+        collisionFrame = nextFrame(() => {
+            collisionFrame = null;
+            reconcileLauncherPosition();
+        });
+    }
+
+    function startCollisionObserver() {
+        if (collisionObserver || !document.documentElement) return;
+        collisionObserver = new MutationObserver(records => {
+            const shouldCheck = records.some(record => {
+                if (record.type === 'childList') return true;
+                const target = record.target;
+                return target?.id !== BUTTON_ID && target?.matches?.(COLLISION_SELECTOR);
+            });
+            if (shouldCheck) scheduleCollisionCheck();
+        });
+        collisionObserver.observe(document.documentElement, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['style', 'class', 'aria-hidden']
+        });
+    }
+
     function savePosition(position) {
         preferredPosition = { left: position.left, top: position.top };
         chrome.storage?.local?.set?.({
@@ -243,6 +352,7 @@
             button.classList.remove('is-positioning');
             button.style.opacity = '1';
             placeButton(button, position.left, position.top);
+            scheduleCollisionCheck();
         }));
     }
 
@@ -310,6 +420,7 @@
                 suppressNextClick = true;
                 button.classList.remove('is-dragging');
                 snapToEdge(button);
+                scheduleCollisionCheck();
             } else if (dragState.nudged) {
                 placeButton(button, dragState.left, dragState.top);
             }
@@ -392,6 +503,7 @@
         button.append(createBookIcon(), label);
         makeDraggable(button);
         document.body.appendChild(button);
+        startCollisionObserver();
         restorePosition(savedPosition => {
             const rect = button.getBoundingClientRect();
             const target = savedPosition || { left: rect.left, top: rect.top };
@@ -463,7 +575,7 @@
         window.addEventListener('resize', () => {
             const button = document.getElementById(BUTTON_ID);
             if (!button || !preferredPosition) return;
-            placeButton(button, preferredPosition.left, preferredPosition.top);
+            reconcileLauncherPosition(button);
         }, { passive: true });
     }
 
@@ -476,6 +588,7 @@
         isPanelOpen: () => isPanelOpen,
         isLauncherExcluded,
         isBannerReady,
-        snapToEdge
+        snapToEdge,
+        reconcileLauncherPosition
     };
 })();

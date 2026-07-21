@@ -29,6 +29,7 @@ const SETTINGS_DEFAULTS = Object.freeze({
     fontSizeToggleEnabled: true,
     resizableChatToggleEnabled: true,
     scheduledChatToggleEnabled: true,
+    directMoeChatEnabled: true,
     addCampaignShortcutEnabled: true,
     hidingSectionsEnabled: true,
     automateFormFieldsEnabled: true,
@@ -809,6 +810,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupToggle('fontSizeToggle', 'fontSizeToggleEnabled', 'Font Size Toggle setting saved:', settings);
     setupToggle('resizableChatToggle', 'resizableChatToggleEnabled', 'Resizable Chat setting saved:', settings);
     setupToggle('scheduledChatToggle', 'scheduledChatToggleEnabled', 'Scheduled Chat setting saved:', settings);
+    setupToggle('directMoeChatToggle', 'directMoeChatEnabled', 'Direct Moe chat setting saved:', settings);
  
     // Campaign Management Settings 
     setupToggle('addCampaignShortcutToggle', 'addCampaignShortcutEnabled', 'Add Campaign shortcut setting saved:', settings);

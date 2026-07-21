@@ -232,6 +232,34 @@ describe('Help Guides page launcher', () => {
         dom.window.close();
     });
 
+    test('temporarily shifts left of a live-chat launcher and returns when it disappears', () => {
+        const { dom } = createFeature({ position: { left: 840, top: 638 } });
+        const { window } = dom;
+        Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1000 });
+        Object.defineProperty(window, 'innerHeight', { configurable: true, value: 700 });
+        window.helpGuidesLauncherFeature.initialize();
+        const launcher = window.document.getElementById('toolshed-help-guides-launcher');
+        Object.defineProperty(launcher, 'offsetWidth', { configurable: true, value: 140 });
+        Object.defineProperty(launcher, 'offsetHeight', { configurable: true, value: 44 });
+
+        const chatLauncher = window.document.createElement('div');
+        chatLauncher.id = 'launcher-button-container';
+        chatLauncher.getBoundingClientRect = () => ({
+            left: 850, top: 620, right: 918, bottom: 688, width: 68, height: 68
+        });
+        window.document.body.appendChild(chatLauncher);
+
+        window.helpGuidesLauncherFeature.reconcileLauncherPosition(launcher);
+        expect(launcher.style.left).toBe('696px');
+        expect(launcher.classList).toContain('is-avoiding-control');
+
+        chatLauncher.remove();
+        window.helpGuidesLauncherFeature.reconcileLauncherPosition(launcher);
+        expect(launcher.style.left).toBe('840px');
+        expect(launcher.classList).not.toContain('is-avoiding-control');
+        dom.window.close();
+    });
+
     test('only snaps when released near an edge, allowing a middle-page resting position', () => {
         const { dom } = createFeature();
         const { window } = dom;

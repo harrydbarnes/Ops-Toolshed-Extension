@@ -1,6 +1,171 @@
 (function() {
     'use strict';
 
+    const DIRECT_MOE_STYLE_ID = 'toolshed-direct-moe-style';
+    const DIRECT_MOE_BODY_CLASS = 'toolshed-opening-moe';
+    const MOE_INTRO_TEXT = 'AI-powered support assistant';
+    const CONNECT_WITH_MOE_TEXT = 'Connect with Moe';
+    let directMoeChatEnabled = true;
+    let directMoeSettingsRequested = false;
+    let directMoeStorageListenerBound = false;
+    let directMoeObserver = null;
+    let directMoeObservedRoots = new WeakSet();
+    let boundAiChatButton = null;
+    let connectRetryTimer = null;
+
+    function findDeepMatching(predicate, root = document) {
+        if (!root?.querySelectorAll) return null;
+        for (const element of root.querySelectorAll('*')) {
+            if (predicate(element)) return element;
+            if (!element.shadowRoot) continue;
+            const match = findDeepMatching(predicate, element.shadowRoot);
+            if (match) return match;
+        }
+        return null;
+    }
+
+    function findAiChatButton() {
+        return findDeepMatching(element => element.matches?.('button, [role="button"]') &&
+            (element.textContent || '').replace(/\s+/g, ' ').trim() === 'AI Chat');
+    }
+
+    function findHelpMenuTrigger() {
+        const helpMenu = findDeepMatching(element => element.tagName === 'MO-BANNER-HELP-MENU');
+        return helpMenu?.shadowRoot?.querySelector('mo-menu') ||
+            findDeepMatching(element => element.tagName === 'MO-MENU' &&
+                (element.textContent || '').includes('AI Chat'));
+    }
+
+    function findConnectWithMoeItem() {
+        return findDeepMatching(element => element.tagName === 'MO-MENU-ITEM' &&
+            (element.textContent || '').replace(/\s+/g, ' ').trim() === CONNECT_WITH_MOE_TEXT);
+    }
+
+    function injectDirectMoeStyles() {
+        if (document.getElementById(DIRECT_MOE_STYLE_ID)) return;
+        const style = document.createElement('style');
+        style.id = DIRECT_MOE_STYLE_ID;
+        style.textContent = `
+            body.${DIRECT_MOE_BODY_CLASS} #pendo-base,
+            body.${DIRECT_MOE_BODY_CLASS} [id^="pendo-g-"] {
+                opacity: 0 !important;
+                visibility: hidden !important;
+                pointer-events: none !important;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    function dismissMoeIntroduction() {
+        document.querySelectorAll('#pendo-base, [id^="pendo-g-"]').forEach(element => {
+            const text = (element.textContent || '').replace(/\s+/g, ' ').trim();
+            if (text.includes(MOE_INTRO_TEXT) && text.includes(CONNECT_WITH_MOE_TEXT)) {
+                element.remove();
+            }
+        });
+    }
+
+    function finishDirectMoeHandoff() {
+        clearTimeout(connectRetryTimer);
+        connectRetryTimer = null;
+        window.setTimeout(() => document.body.classList.remove(DIRECT_MOE_BODY_CLASS), 500);
+    }
+
+    function chooseConnectWithMoe(attempt = 0) {
+        dismissMoeIntroduction();
+        const connectItem = findConnectWithMoeItem();
+        if (connectItem) {
+            connectItem.click();
+            finishDirectMoeHandoff();
+            return;
+        }
+        if (attempt >= 20) {
+            finishDirectMoeHandoff();
+            return;
+        }
+        connectRetryTimer = window.setTimeout(() => chooseConnectWithMoe(attempt + 1), 100);
+    }
+
+    function handleDirectMoeClick(event) {
+        if (!directMoeChatEnabled) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        event.stopPropagation();
+        clearTimeout(connectRetryTimer);
+        injectDirectMoeStyles();
+        document.body.classList.add(DIRECT_MOE_BODY_CLASS);
+        dismissMoeIntroduction();
+
+        const helpMenu = findHelpMenuTrigger();
+        if (helpMenu?.getAttribute('aria-expanded') !== 'true') helpMenu?.click();
+        chooseConnectWithMoe();
+    }
+
+    function bindDirectMoeButton() {
+        const nextButton = directMoeChatEnabled ? findAiChatButton() : null;
+        if (nextButton === boundAiChatButton) return;
+        boundAiChatButton?.removeEventListener('click', handleDirectMoeClick, true);
+        boundAiChatButton = nextButton;
+        boundAiChatButton?.addEventListener('click', handleDirectMoeClick, true);
+    }
+
+    function observeDirectMoeRoots(root) {
+        if (!directMoeObserver || !root?.querySelectorAll) return;
+        if (!directMoeObservedRoots.has(root)) {
+            directMoeObservedRoots.add(root);
+            directMoeObserver.observe(root, { childList: true, subtree: true });
+        }
+        root.querySelectorAll('*').forEach(element => {
+            if (element.shadowRoot) observeDirectMoeRoots(element.shadowRoot);
+        });
+    }
+
+    function configureDirectMoeFeature(enabled) {
+        directMoeChatEnabled = enabled !== false;
+        if (!directMoeChatEnabled) {
+            boundAiChatButton?.removeEventListener('click', handleDirectMoeClick, true);
+            boundAiChatButton = null;
+            directMoeObserver?.disconnect();
+            directMoeObserver = null;
+            directMoeObservedRoots = new WeakSet();
+            document.body.classList.remove(DIRECT_MOE_BODY_CLASS);
+            return;
+        }
+
+        injectDirectMoeStyles();
+        bindDirectMoeButton();
+        if (!directMoeObserver && document.documentElement) {
+            directMoeObserver = new MutationObserver(records => {
+                records.forEach(record => record.addedNodes.forEach(node => {
+                    if (node.nodeType === 1) observeDirectMoeRoots(node);
+                }));
+                bindDirectMoeButton();
+                if (document.body.classList.contains(DIRECT_MOE_BODY_CLASS)) dismissMoeIntroduction();
+            });
+            observeDirectMoeRoots(document.documentElement);
+        }
+    }
+
+    function initializeDirectMoeFeature() {
+        if (!directMoeSettingsRequested) {
+            directMoeSettingsRequested = true;
+            chrome.storage.sync.get({ directMoeChatEnabled: true }, settings => {
+                configureDirectMoeFeature(settings.directMoeChatEnabled);
+            });
+        } else {
+            bindDirectMoeButton();
+        }
+
+        if (!directMoeStorageListenerBound && chrome.storage?.onChanged) {
+            directMoeStorageListenerBound = true;
+            chrome.storage.onChanged.addListener((changes, area) => {
+                if (area === 'sync' && changes.directMoeChatEnabled) {
+                    configureDirectMoeFeature(changes.directMoeChatEnabled.newValue);
+                }
+            });
+        }
+    }
+
     // Applies a smaller font size to the chat window
     function applyFontSizeChange(enabled) {
         const styleId = 'live-chat-font-style';
@@ -176,6 +341,7 @@
 
     // Initializes all chat enhancement features
     function initializeChatEnhancements() {
+        initializeDirectMoeFeature();
         const webWidget = document.getElementById('webWidget');
         if (!webWidget || webWidget.dataset.chatEnhancementsInitialized) return;
 
@@ -193,6 +359,8 @@
     }
 
     window.liveChatEnhancements = {
-        initialize: initializeChatEnhancements
+        initialize: initializeChatEnhancements,
+        configureDirectMoeFeature,
+        dismissMoeIntroduction
     };
 })();
