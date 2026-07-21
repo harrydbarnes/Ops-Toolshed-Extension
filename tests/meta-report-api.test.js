@@ -1,4 +1,4 @@
-const { createClient, splitMonthRanges, reportToMetaCsv } = require('../meta-report-api');
+const { createClient, splitMonthRanges, resolveDateRange, mergeReferenceData, reportToMetaCsv } = require('../meta-report-api');
 
 function response(status, payload, headers = {}) {
     return {
@@ -10,33 +10,27 @@ function response(status, payload, headers = {}) {
 }
 
 describe('Meta report API client', () => {
-    test('merges and paginates owned and client ad accounts without putting the token in a URL', async () => {
+    test('paginates account-scoped GET requests without Business discovery or tokens in URLs', async () => {
         const fetchImpl = jest.fn(async urlValue => {
             const url = new URL(urlValue);
-            if (url.pathname.endsWith('/owned_ad_accounts') && !url.searchParams.has('after')) return response(200, {
-                data: [{ id: 'act_111', account_id: '111', name: 'Boots' }],
-                paging: { next: 'https://graph.facebook.com/v24.0/123/owned_ad_accounts?after=next&access_token=leaked-token' }
+            if (url.pathname.endsWith('/campaigns') && !url.searchParams.has('after')) return response(200, {
+                data: [{ id: '1', name: 'First' }],
+                paging: { next: 'https://graph.facebook.com/v24.0/act_111/campaigns?after=next&access_token=leaked-token' }
             });
-            if (url.pathname.endsWith('/owned_ad_accounts')) return response(200, { data: [{ id: 'act_222', account_id: '222', name: 'No7' }] });
-            if (url.pathname.endsWith('/client_ad_accounts')) return response(200, { data: [
-                { id: 'act_222', account_id: '222', name: 'No7 duplicate' },
-                { id: 'act_333', account_id: '333', name: 'Shared client' }
-            ] });
+            if (url.pathname.endsWith('/campaigns')) return response(200, { data: [{ id: '2', name: 'Second' }] });
             throw new Error(`Unexpected URL ${url}`);
         });
-        const client = createClient({ fetchImpl, accessToken: 'private-token', businessId: '123' });
+        const client = createClient({ fetchImpl, accessToken: 'private-token' });
 
-        const accounts = await client.getAdAccounts();
-        expect(accounts).toHaveLength(3);
-        expect(accounts).toEqual(expect.arrayContaining([
-            expect.objectContaining({ id: '111', name: 'Boots' }),
-            expect.objectContaining({ id: '222', name: 'No7' }),
-            expect.objectContaining({ id: '333', name: 'Shared client' })
-        ]));
-        expect(fetchImpl).toHaveBeenCalledTimes(3);
+        await expect(client.getCampaigns('111')).resolves.toHaveLength(2);
+        expect(client.getAdAccounts).toBeUndefined();
+        expect(fetchImpl).toHaveBeenCalledTimes(2);
         fetchImpl.mock.calls.forEach(([url, options]) => {
             expect(url).not.toContain('private-token');
             expect(url).not.toContain('leaked-token');
+            expect(url).not.toContain('owned_ad_accounts');
+            expect(url).not.toContain('client_ad_accounts');
+            expect(options.method).toBe('GET');
             expect(options.headers.Authorization).toBe('Bearer private-token');
         });
     });
@@ -46,7 +40,7 @@ describe('Meta report API client', () => {
         const fetchImpl = jest.fn()
             .mockResolvedValueOnce(response(429, { error: { message: 'Slow down', code: 4 } }, { 'Retry-After': '1' }))
             .mockResolvedValueOnce(response(200, { data: [{ campaign_id: '9', campaign_name: 'Campaign', spend: '12.34' }] }));
-        const client = createClient({ fetchImpl, sleep, random: () => 0, accessToken: 'token', businessId: '123' });
+        const client = createClient({ fetchImpl, sleep, random: () => 0, accessToken: 'token' });
 
         await expect(client.getInsights('111', '2026-06-01', '2026-06-30')).resolves.toHaveLength(1);
         expect(sleep).toHaveBeenCalledWith(1000);
@@ -58,7 +52,7 @@ describe('Meta report API client', () => {
             const url = new URL(urlValue);
             if (url.pathname.endsWith('/campaigns')) return response(200, { data: [{
                 id: '9', name: 'Summer', start_time: '2026-06-03T00:00:00+0000', stop_time: '2026-08-31T23:59:59+0000',
-                status: 'ACTIVE', configured_status: 'ACTIVE', effective_status: 'ACTIVE', daily_budget: '10000'
+                status: 'ACTIVE', configured_status: 'ACTIVE', effective_status: 'ACTIVE', daily_budget: '10000', lifetime_budget: '25000'
             }] });
             if (url.pathname.endsWith('/adsets')) return response(200, { data: [
                 { id: 'a', campaign_id: '9', name: 'Prospecting' },
@@ -70,16 +64,19 @@ describe('Meta report API client', () => {
             }
             throw new Error(`Unexpected URL ${url}`);
         });
-        const client = createClient({ fetchImpl, accessToken: 'token', businessId: '123' });
+        const client = createClient({ fetchImpl, accessToken: 'token' });
 
-        const rows = await client.getMonthlyReport({ id: '111', name: 'Boots' }, '2026-06-15', '2026-07-20');
+        const sync = await client.syncAccount({ id: '111', name: 'Boots' }, '2026-06-15', '2026-07-20');
+        const rows = sync.records;
 
         expect(rows).toHaveLength(2);
+        expect(sync.campaigns).toHaveLength(1);
+        expect(sync.adSets).toHaveLength(2);
         expect(rows[0]).toEqual(expect.objectContaining({
             accountId: '111', accountName: 'Boots', campaignId: '9', campaignName: 'Summer',
             adSetName: 'Prospecting, Retargeting', month: '2026-06', reportingStart: '2026-06-15',
             reportingEnd: '2026-06-30', startDate: '2026-06-03', endDate: '2026-08-31',
-            budget: 100, budgetType: 'Daily', effectiveStatus: 'ACTIVE', spend: 40
+            budget: 250, budgetType: 'Lifetime', effectiveStatus: 'ACTIVE', spend: 40
         }));
         expect(rows[1]).toEqual(expect.objectContaining({ month: '2026-07', spend: 60 }));
     });
@@ -94,5 +91,21 @@ describe('Meta report API client', () => {
         expect(csv).toContain('Account ID,Campaign ID');
         expect(csv).toContain('Amount spent (GBP)');
         expect(csv).toContain('111,9,Summer');
+    });
+
+    test('resolves date presets and adds newly discovered campaign and ad set references', () => {
+        const today = new Date('2026-07-21T12:00:00Z');
+        expect(resolveDateRange('last7', today)).toEqual({ since: '2026-07-15', until: '2026-07-21' });
+        expect(resolveDateRange('lastMonth', today)).toEqual({ since: '2026-06-01', until: '2026-06-30' });
+
+        const merged = mergeReferenceData(
+            { importedAt: '2026-07-01', accounts: [{ id: '111', name: 'Boots', lastSynced: '' }], campaigns: [], adSets: [] },
+            { id: '111', name: 'Boots' },
+            { campaigns: [{ id: '9', name: 'New campaign' }], adSets: [{ id: 'a', campaign_id: '9', name: 'New ad set' }] },
+            '2026-07-21T12:00:00.000Z'
+        );
+        expect(merged.accounts[0].lastSynced).toBe('2026-07-21T12:00:00.000Z');
+        expect(merged.campaigns).toEqual([{ id: '9', name: 'New campaign', accountId: '111' }]);
+        expect(merged.adSets).toEqual([{ id: 'a', name: 'New ad set', campaignId: '9' }]);
     });
 });

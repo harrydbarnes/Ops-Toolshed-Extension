@@ -1,10 +1,11 @@
 (function () {
     const engine = window.socialFinanceEngine;
     const metaApi = window.metaReportApi;
-    const state = { metaText: '', metaTextSource: '', prismaText: '', report: null, metaSource: 'api', metaAccounts: [] };
+    const state = { metaText: '', uploadedMetaText: '', metaTextSource: '', prismaText: '', report: null, metaAccounts: [], metaReference: null };
     const elements = {};
     const ACCOUNT_SCOPE_STORAGE_KEY = 'socialBookingMetaAccountScope';
     const META_API_STORAGE_KEY = 'socialBookingMetaApiCredentials';
+    const META_REFERENCE_STORAGE_KEY = 'socialBookingMetaReference';
 
     function byId(id) { return document.getElementById(id); }
     function currency(value) {
@@ -37,9 +38,24 @@
         }));
     }
 
+    function removeLocalStorage(key) {
+        const storage = localExtensionStorage();
+        if (!storage) return Promise.reject(new Error('Local extension storage is unavailable.'));
+        return new Promise((resolve, reject) => storage.remove(key, () => {
+            const error = window.chrome.runtime && window.chrome.runtime.lastError;
+            if (error) reject(new Error(error.message)); else resolve();
+        }));
+    }
+
     async function savedMetaCredentials() {
         const stored = await readLocalStorage(META_API_STORAGE_KEY);
-        return stored[META_API_STORAGE_KEY] || {};
+        const credentials = stored[META_API_STORAGE_KEY] || {};
+        if (Object.prototype.hasOwnProperty.call(credentials, 'businessId')) {
+            const migrated = credentials.accessToken ? { accessToken: credentials.accessToken } : {};
+            await writeLocalStorage({ [META_API_STORAGE_KEY]: migrated });
+            return migrated;
+        }
+        return credentials;
     }
 
     function setStatus(element, message, kind = '') {
@@ -52,11 +68,8 @@
         try {
             const credentials = await savedMetaCredentials();
             const hasToken = Boolean(credentials.accessToken);
-            const hasBusinessId = Boolean(credentials.businessId);
             elements.removeMetaToken.classList.toggle('hidden', !hasToken);
-            elements.removeMetaBusinessId.classList.toggle('hidden', !hasBusinessId);
-            const saved = [hasToken ? 'access token' : '', hasBusinessId ? 'Business ID' : ''].filter(Boolean);
-            setStatus(elements.metaCredentialStatus, saved.length ? `${saved.join(' and ')} saved locally. Saved values are hidden.` : 'No Meta API details saved.', saved.length === 2 ? 'ready' : '');
+            setStatus(elements.metaCredentialStatus, hasToken ? 'Access token saved locally. The saved value is hidden.' : 'No Meta access token saved.', hasToken ? 'ready' : '');
         } catch (error) {
             setStatus(elements.metaCredentialStatus, error.message, 'error');
         }
@@ -64,42 +77,26 @@
 
     async function saveMetaCredentials() {
         const accessToken = elements.metaAccessToken.value.trim();
-        const businessId = elements.metaBusinessId.value.trim().replace(/^act_/, '');
-        if (!accessToken && !businessId) {
-            setStatus(elements.metaCredentialStatus, 'Enter an access token or Business ID to save.', 'error');
-            return;
-        }
-        if (businessId && !/^\d+$/.test(businessId)) {
-            setStatus(elements.metaCredentialStatus, 'Business ID must contain numbers only.', 'error');
+        if (!accessToken) {
+            setStatus(elements.metaCredentialStatus, 'Enter an access token to save.', 'error');
             return;
         }
         try {
-            const existing = await savedMetaCredentials();
-            await writeLocalStorage({ [META_API_STORAGE_KEY]: {
-                accessToken: accessToken || existing.accessToken || '',
-                businessId: businessId || existing.businessId || ''
-            } });
+            await writeLocalStorage({ [META_API_STORAGE_KEY]: { accessToken } });
             elements.metaAccessToken.value = '';
-            elements.metaBusinessId.value = '';
             await renderCredentialStatus();
         } catch (error) {
             setStatus(elements.metaCredentialStatus, error.message, 'error');
         }
     }
 
-    async function removeMetaCredential(key) {
+    async function removeMetaCredential() {
         try {
-            const credentials = await savedMetaCredentials();
-            delete credentials[key];
-            await writeLocalStorage({ [META_API_STORAGE_KEY]: credentials });
-            state.metaAccounts = [];
+            await removeLocalStorage(META_API_STORAGE_KEY);
             if (state.metaTextSource === 'api') {
-                state.metaText = '';
-                state.metaTextSource = '';
+                state.metaText = state.uploadedMetaText;
+                state.metaTextSource = state.uploadedMetaText ? 'csv' : '';
             }
-            elements.accountOptions.innerHTML = '';
-            elements.accountScopePanel.classList.add('hidden');
-            elements.apiAccountActions.classList.add('hidden');
             await renderCredentialStatus();
             resetReport();
         } catch (error) {
@@ -134,23 +131,22 @@
         }
         state[key] = await file.text();
         if (key === 'metaText') {
+            state.uploadedMetaText = state[key];
             state.metaTextSource = 'csv';
-            byId('metaSourceCsv').checked = true;
-            setMetaSource('csv');
         }
         byId(labelId).textContent = `${file.name}, ${(file.size / 1024).toFixed(1)} KB`;
         dropZone.classList.add('has-file');
         removeButton.classList.remove('hidden');
         resetReport();
         renderMessages([]);
-        if (key === 'metaText') renderAccountScope();
+        if (key === 'metaText') await importMetaReference();
     }
 
     function setupFileUpload(inputId, dropZoneId, removeButtonId, key, labelId) {
         const input = byId(inputId);
         const dropZone = byId(dropZoneId);
         const removeButton = byId(removeButtonId);
-        const load = file => loadFile(file, key, labelId, dropZone, removeButton);
+        const load = file => loadFile(file, key, labelId, dropZone, removeButton).catch(error => renderMessages([error.message]));
 
         input.addEventListener('change', event => load(event.target.files?.[0]));
         dropZone.addEventListener('click', event => {
@@ -181,27 +177,27 @@
         removeButton.addEventListener('click', event => {
             event.preventDefault();
             event.stopPropagation();
-            state[key] = '';
-            if (key === 'metaText') state.metaTextSource = '';
+            if (key === 'metaText') {
+                state.uploadedMetaText = '';
+                if (state.metaTextSource === 'csv') {
+                    state.metaText = '';
+                    state.metaTextSource = '';
+                }
+            } else state[key] = '';
             input.value = '';
             byId(labelId).textContent = 'No file selected';
             dropZone.classList.remove('has-file', 'is-dragging');
             removeButton.classList.add('hidden');
             if (key === 'metaText') {
-                elements.accountOptions.innerHTML = '';
-                elements.accountScopePanel.classList.add('hidden');
+                if (state.metaReference && state.metaReference.accounts.length) renderAccountOptions(state.metaReference.accounts);
+                else {
+                    elements.accountOptions.innerHTML = '';
+                    elements.accountScopePanel.classList.add('hidden');
+                }
             }
             resetReport();
             renderMessages([]);
         });
-    }
-
-    function renderAccountScope() {
-        const parsed = engine.parseCsv(state.metaText);
-        const aggregated = engine.aggregateMeta(parsed);
-        const accounts = [...new Map(aggregated.records.map(record => [record.accountId, { id: record.accountId, name: record.account || record.accountId }])).values()]
-            .sort((left, right) => left.name.localeCompare(right.name));
-        renderAccountOptions(accounts);
     }
 
     function renderAccountOptions(accounts) {
@@ -214,54 +210,76 @@
         if (accounts.length === 1 && !remembered.has(accounts[0].id)) saveAccountScope();
     }
 
-    function setMetaSource(source) {
-        state.metaSource = source;
-        elements.metaApiPanel.classList.toggle('hidden', source !== 'api');
-        elements.metaCsvPanel.classList.toggle('hidden', source !== 'csv');
-        elements.apiAccountActions.classList.toggle('hidden', source !== 'api' || !state.metaAccounts.length);
-        if (source === 'api' && state.metaAccounts.length) {
-            renderAccountOptions(state.metaAccounts);
-        } else if (source === 'csv' && state.metaTextSource === 'csv') {
-            renderAccountScope();
-        } else {
-            elements.accountOptions.innerHTML = '';
-            elements.accountScopePanel.classList.add('hidden');
+    function renderReferenceStatus() {
+        const reference = state.metaReference;
+        const hasReference = Boolean(reference && reference.accounts && reference.accounts.length);
+        elements.removeMetaReference.classList.toggle('hidden', !hasReference);
+        elements.apiAccountActions.classList.toggle('hidden', !hasReference);
+        if (!hasReference) {
+            setStatus(elements.metaReferenceStatus, 'Upload a Meta Ads Report to establish the account list.');
+            return;
         }
-        resetReport();
-        renderMessages([]);
+        const synced = reference.accounts.filter(account => account.lastSynced).length;
+        setStatus(elements.metaReferenceStatus, `${reference.accounts.length} account${reference.accounts.length === 1 ? '' : 's'}, ${reference.campaigns.length} campaign${reference.campaigns.length === 1 ? '' : 's'}, and ${reference.adSets.length} ad set${reference.adSets.length === 1 ? '' : 's'} remembered locally${synced ? `; ${synced} account${synced === 1 ? '' : 's'} synced` : ''}.`, 'ready');
     }
 
-    function defaultApiDates() {
-        const today = new Date();
-        const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1));
-        const end = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 0));
-        elements.metaApiStartDate.value = start.toISOString().slice(0, 10);
-        elements.metaApiEndDate.value = end.toISOString().slice(0, 10);
+    async function importMetaReference() {
+        const extracted = engine.extractMetaReferenceData(engine.parseCsv(state.uploadedMetaText));
+        if (extracted.errors.length) {
+            renderMessages(extracted.errors);
+            return;
+        }
+        state.metaReference = { ...extracted, importedAt: new Date().toISOString() };
+        state.metaAccounts = extracted.accounts.sort((left, right) => left.name.localeCompare(right.name));
+        await writeLocalStorage({ [META_REFERENCE_STORAGE_KEY]: state.metaReference });
+        renderAccountOptions(state.metaAccounts);
+        renderReferenceStatus();
+    }
+
+    async function restoreMetaReference() {
+        try {
+            const stored = await readLocalStorage(META_REFERENCE_STORAGE_KEY);
+            const reference = stored[META_REFERENCE_STORAGE_KEY];
+            if (reference && Array.isArray(reference.accounts)) {
+                state.metaReference = reference;
+                state.metaAccounts = reference.accounts.sort((left, right) => left.name.localeCompare(right.name));
+                renderAccountOptions(state.metaAccounts);
+            }
+            renderReferenceStatus();
+        } catch (error) {
+            setStatus(elements.metaReferenceStatus, error.message, 'error');
+        }
+    }
+
+    async function removeMetaReference() {
+        await removeLocalStorage(META_REFERENCE_STORAGE_KEY);
+        state.metaReference = null;
+        state.metaAccounts = [];
+        if (state.metaTextSource === 'api') {
+            state.metaText = state.uploadedMetaText;
+            state.metaTextSource = state.uploadedMetaText ? 'csv' : '';
+        }
+        elements.accountOptions.innerHTML = '';
+        elements.accountScopePanel.classList.add('hidden');
+        renderReferenceStatus();
+        resetReport();
+    }
+
+    function applyDatePreset() {
+        const custom = elements.metaApiDatePreset.value === 'custom';
+        elements.metaApiStartDate.disabled = !custom;
+        elements.metaApiEndDate.disabled = !custom;
+        if (!custom) {
+            const range = metaApi.resolveDateRange(elements.metaApiDatePreset.value);
+            elements.metaApiStartDate.value = range.since;
+            elements.metaApiEndDate.value = range.until;
+        }
     }
 
     async function createMetaClient() {
         if (!metaApi) throw new Error('The Meta API helper could not be loaded.');
         const credentials = await savedMetaCredentials();
-        return metaApi.createClient({ accessToken: credentials.accessToken, businessId: credentials.businessId });
-    }
-
-    async function loadMetaAccounts() {
-        const button = elements.loadMetaAccounts;
-        button.disabled = true;
-        setStatus(elements.metaApiStatus, 'Loading business ad accounts…');
-        try {
-            const client = await createMetaClient();
-            const accounts = await client.getAdAccounts();
-            if (!accounts.length) throw new Error('No owned or client ad accounts were returned for this Business ID and token.');
-            state.metaAccounts = accounts.sort((left, right) => left.name.localeCompare(right.name));
-            renderAccountOptions(state.metaAccounts);
-            elements.apiAccountActions.classList.remove('hidden');
-            setStatus(elements.metaApiStatus, `${accounts.length} ad account${accounts.length === 1 ? '' : 's'} loaded. Select the accounts covered by the Prisma report.`, 'ready');
-        } catch (error) {
-            setStatus(elements.metaApiStatus, error.message, 'error');
-        } finally {
-            button.disabled = false;
-        }
+        return metaApi.createClient({ accessToken: credentials.accessToken });
     }
 
     async function pullMetaData() {
@@ -285,14 +303,19 @@
             for (let index = 0; index < accountIds.length; index++) {
                 const account = state.metaAccounts.find(item => item.id === accountIds[index]) || { id: accountIds[index], name: accountIds[index] };
                 setStatus(elements.metaApiStatus, `Pulling ${account.name} (${index + 1} of ${accountIds.length})…`);
-                records.push(...await client.getMonthlyReport(account, startDate, endDate));
+                const sync = await client.syncAccount(account, startDate, endDate);
+                records.push(...sync.records);
+                state.metaReference = metaApi.mergeReferenceData(state.metaReference, account, sync);
             }
+            await writeLocalStorage({ [META_REFERENCE_STORAGE_KEY]: state.metaReference });
+            state.metaAccounts = state.metaReference.accounts.sort((left, right) => left.name.localeCompare(right.name));
             state.metaText = metaApi.reportToMetaCsv(records);
             state.metaTextSource = 'api';
             saveAccountScope();
             resetReport();
             elements.clearMetaApiData.classList.remove('hidden');
             setStatus(elements.metaApiStatus, `${records.length} campaign-month row${records.length === 1 ? '' : 's'} ready to compare.`, 'ready');
+            renderReferenceStatus();
             renderMessages([]);
         } catch (error) {
             setStatus(elements.metaApiStatus, error.message, 'error');
@@ -303,8 +326,8 @@
 
     function clearMetaApiData() {
         if (state.metaTextSource === 'api') {
-            state.metaText = '';
-            state.metaTextSource = '';
+            state.metaText = state.uploadedMetaText;
+            state.metaTextSource = state.uploadedMetaText ? 'csv' : '';
         }
         elements.clearMetaApiData.classList.add('hidden');
         setStatus(elements.metaApiStatus, 'Pulled Meta data cleared. Saved API details remain available.', 'ready');
@@ -382,9 +405,7 @@
 
     function runComparison() {
         const errors = [];
-        if (!state.metaText || state.metaTextSource !== state.metaSource) {
-            errors.push(state.metaSource === 'api' ? 'Pull Meta data for the selected accounts and reporting dates.' : 'Choose the Meta campaign CSV.');
-        }
+        if (!state.metaText) errors.push('Upload a Meta Ads Report or sync the imported accounts through Meta.');
         if (!state.prismaText) errors.push('Choose the Prisma booking CSV.');
         if (state.metaText && elements.accountOptions.querySelectorAll('input').length > 1 && !selectedAccountIds().length) errors.push('Select at least one Meta account covered by the Prisma export.');
         if (errors.length) { renderMessages(errors); return; }
@@ -417,17 +438,15 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        ['validationMessages', 'results', 'summaryCards', 'coverageWarnings', 'evidenceFilter', 'reportSearch', 'monthFromFilter', 'monthToFilter', 'visibleCount', 'reportBody', 'asOfDate', 'tolerance', 'closedWorkingDay', 'populationConfirmed', 'accountScopePanel', 'accountOptions', 'metaApiPanel', 'metaCsvPanel', 'metaAccessToken', 'metaBusinessId', 'metaCredentialStatus', 'removeMetaToken', 'removeMetaBusinessId', 'metaApiStartDate', 'metaApiEndDate', 'loadMetaAccounts', 'metaApiStatus', 'apiAccountActions', 'pullMetaData', 'clearMetaApiData'].forEach(id => { elements[id] = byId(id); });
+        ['validationMessages', 'results', 'summaryCards', 'coverageWarnings', 'evidenceFilter', 'reportSearch', 'monthFromFilter', 'monthToFilter', 'visibleCount', 'reportBody', 'asOfDate', 'tolerance', 'closedWorkingDay', 'populationConfirmed', 'accountScopePanel', 'accountOptions', 'metaApiPanel', 'metaAccessToken', 'metaCredentialStatus', 'removeMetaToken', 'metaApiDatePreset', 'metaApiStartDate', 'metaApiEndDate', 'metaApiStatus', 'apiAccountActions', 'pullMetaData', 'clearMetaApiData', 'metaReferenceStatus', 'removeMetaReference'].forEach(id => { elements[id] = byId(id); });
         elements.asOfDate.value = new Date().toISOString().slice(0, 10);
-        defaultApiDates();
+        applyDatePreset();
         setupFileUpload('metaFile', 'metaDropZone', 'removeMetaFile', 'metaText', 'metaFileName');
         setupFileUpload('prismaFile', 'prismaDropZone', 'removePrismaFile', 'prismaText', 'prismaFileName');
-        byId('metaSourceApi').addEventListener('change', () => setMetaSource('api'));
-        byId('metaSourceCsv').addEventListener('change', () => setMetaSource('csv'));
         byId('saveMetaCredentials').addEventListener('click', saveMetaCredentials);
-        elements.removeMetaToken.addEventListener('click', () => removeMetaCredential('accessToken'));
-        elements.removeMetaBusinessId.addEventListener('click', () => removeMetaCredential('businessId'));
-        elements.loadMetaAccounts.addEventListener('click', loadMetaAccounts);
+        elements.removeMetaToken.addEventListener('click', removeMetaCredential);
+        elements.removeMetaReference.addEventListener('click', () => removeMetaReference().catch(error => setStatus(elements.metaReferenceStatus, error.message, 'error')));
+        elements.metaApiDatePreset.addEventListener('change', applyDatePreset);
         elements.pullMetaData.addEventListener('click', pullMetaData);
         elements.clearMetaApiData.addEventListener('click', clearMetaApiData);
         byId('runComparison').addEventListener('click', runComparison);
@@ -446,5 +465,6 @@
         elements.evidenceFilter.addEventListener('change', renderRows);
         elements.reportSearch.addEventListener('input', renderRows);
         renderCredentialStatus();
+        restoreMetaReference();
     });
 })();

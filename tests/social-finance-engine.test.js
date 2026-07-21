@@ -1,4 +1,4 @@
-const { parseCsv, aggregateMeta, compare, reportToCsv, nameSimilarity } = require('../social-finance-engine');
+const { parseCsv, aggregateMeta, extractMetaReferenceData, compare, reportToCsv, nameSimilarity } = require('../social-finance-engine');
 
 const metaCsv = `Account name,Account ID,Campaign name,Campaign ID,Month,Amount spent (GBP),Campaign budget,Campaign budget type,Delivery,Ad set start,Ad set end\nBoots,999,Matched campaign,120000000000000001,2026-06-01,100,100,Lifetime,Active,2026-06-01,2026-06-30\nBoots,999,Missing campaign,120000000000000002,2026-06-01,50,75,Lifetime,Active,2026-06-01,2026-06-30\nBoots,999,Wrong month,120000000000000003,2026-06-01,20,20,Lifetime,Active,2026-06-01,2026-06-30\nBoots,999,Spend exposure,120000000000000004,2026-06-01,100,120,Lifetime,Active,2026-06-01,2026-06-30\nBoots,999,Date exposure,120000000000000005,2026-06-01,60,60,Lifetime,Active,2026-05-29,2026-07-02\nBoots,999,Named unlinked campaign,120000000000000006,2026-06-01,40,40,Lifetime,Active,2026-06-01,2026-06-30`;
 
@@ -17,6 +17,16 @@ describe('social finance comparison engine', () => {
         expect(output.records).toHaveLength(1);
         expect(output.records[0].campaignId).toBe('120000000000000001');
         expect(output.records[0].spend).toBe(25);
+    });
+
+    test('extracts and deduplicates the account, campaign, and ad set reference hierarchy', () => {
+        const reference = extractMetaReferenceData(parseCsv(
+            'Account ID,Account name,Campaign ID,Campaign name,Ad Set ID,Ad Set name\n111,Boots,9,Summer,a,Prospecting\n111,Boots,9,Summer,a,Prospecting'
+        ));
+        expect(reference.errors).toEqual([]);
+        expect(reference.accounts).toEqual([{ id: '111', name: 'Boots', lastSynced: '' }]);
+        expect(reference.campaigns).toEqual([{ id: '9', name: 'Summer', accountId: '111' }]);
+        expect(reference.adSets).toEqual([{ id: 'a', name: 'Prospecting', campaignId: '9' }]);
     });
 
     test('classifies exact matches, missing links, month, budget, date and likely-unlinked cases', () => {

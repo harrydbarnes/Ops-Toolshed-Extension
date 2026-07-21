@@ -1,78 +1,96 @@
-# Social Booking Checker Meta API source
+# Social Booking Checker Meta API refresh
 
-The Social Booking Checker can use the Meta Graph API instead of a Meta Ads
-Reporting CSV. The Prisma booking report remains a CSV upload, and the existing
-Meta CSV flow remains available as a fallback.
+The Social Booking Checker uses an uploaded Meta Ads Report to establish which
+ad accounts it may query. It does not discover accounts through a Meta Business
+ID and does not call Business Management account-list endpoints.
 
-## Local credentials
+## Import-first workflow
 
-Users enter their own Meta access token and Business ID on the Social Booking
-Checker page. Both values are stored under `socialBookingMetaApiCredentials` in
-`chrome.storage.local`.
+1. Upload the campaign-level `Meta Spend Across Agency` CSV.
+2. The checker extracts and deduplicates Account IDs, Account names, Campaign
+   IDs, Campaign names, Ad Set IDs, and Ad Set names when those columns exist.
+3. That hierarchy is stored in `chrome.storage.local` as
+   `socialBookingMetaReference`.
+4. Select the imported accounts that match the Prisma report.
+5. Optionally save an `ads_read` token and sync those accounts for a selected
+   reporting range.
 
-- Credentials are not present in repository source, build files, or defaults.
-- They are not stored in `chrome.storage.sync`.
-- Saved values are never put back into an input or displayed on screen.
-- Users can remove the token and Business ID independently.
-- Removing either value also clears loaded accounts and any pulled Meta data.
-- The token is sent to `graph.facebook.com` in the `Authorization: Bearer`
-  header, not in a query string.
+The imported CSV remains immediately usable for comparison. A user only needs
+to import another report when a new Meta ad account is introduced or they want
+to rebuild the locally remembered hierarchy. **Forget imported accounts**
+removes that reference explicitly.
+
+CSV is retained as the supported import format because it is already the
+required format for both sides of this browser-based comparison. The attached
+architecture's XLSX option would require shipping a spreadsheet parser in the
+extension and is not part of this implementation.
+
+## Local token handling
+
+Users enter their own Meta access token. It is stored under
+`socialBookingMetaApiCredentials` in `chrome.storage.local`.
+
+- No token or Business ID is present in repository source or defaults.
+- Business ID is no longer requested. Previously stored Business IDs are
+  removed automatically when the credential record is next read.
+- The credential is not stored in `chrome.storage.sync`.
+- The saved token is never put back into an input or displayed.
+- The user can remove the token at any time.
+- The token is sent to `graph.facebook.com` in an `Authorization: Bearer`
+  header, never in a query string.
 
 `chrome.storage.local` is local extension storage, not an encrypted secrets
-vault. Anyone with access to the user's Chrome profile or extension data may be
-able to retrieve it. Users should provide a least-privilege, revocable token and
-remove it when it is no longer needed.
+vault. Users should use a least-privilege, revocable token and remove it when it
+is no longer required.
 
-## API calls
+## Read-only API calls
 
-The current implementation uses Graph API `v24.0` and automatically follows
-every `paging.next` link:
+The current implementation uses Graph API `v24.0`. For Account IDs taken from
+the import, it sends only GET requests to:
 
-- `/{business-id}/owned_ad_accounts` and `/{business-id}/client_ad_accounts` for
-  the account picker. Results are merged and deduplicated so business-owned and
-  shared client accounts are both represented.
-- `/{account-id}/campaigns` for campaign names, dates, statuses, and campaign
-  budget fields.
-- `/{account-id}/adsets` for ad set names linked to campaigns.
-- `/{account-id}/insights?level=campaign` for campaign spend over an explicit
+- `/act_{account-id}/campaigns` for campaign names, dates, statuses, and
+  campaign-level budgets.
+- `/act_{account-id}/adsets` for ad set IDs and names linked to campaigns.
+- `/act_{account-id}/insights?level=campaign` for spend over an explicit
   `time_range`.
 
-HTTP 429, HTTP 5xx, and Meta throttling error codes 4, 17, 32, and 613 are
-retried with bounded exponential backoff. Other API errors are shown to the user
-without including their token.
+There are no POST, PUT, PATCH, or DELETE requests. The integration does not use
+`owned_ad_accounts`, `client_ad_accounts`, `ads_management`, or
+`business_management`. The supplied token and its assigned ad-account assets
+must permit `ads_read` access.
 
-The token normally needs permission to read ads for the selected accounts and
-to read the Business account list. Exact token type, asset assignment, and
-permission approval depend on the organisation's Meta Business setup.
+Every paginated response is followed. HTTP 429, HTTP 5xx, and Meta throttling
+codes 4, 17, 32, and 613 are retried with bounded exponential backoff. Errors
+are shown without including the token.
 
-## Normalisation into the comparison
+## Date ranges and comparison normalisation
 
-The requested reporting range is split into calendar-month ranges because the
-Prisma comparison is keyed by Account ID, Campaign ID, and month. Each account's
-campaign and ad set metadata is loaded once, while insights are requested once
-per month.
+The UI provides Today, Yesterday, Last 7 days, Last 14 days, Last 30 days, This
+month, Last month, and a custom range. Custom dates map directly to Meta's
+`time_range`; longer ranges are split into calendar months because the Prisma
+comparison is keyed by Account ID, Campaign ID, and month.
 
-The API records are converted in memory to the same Meta column shape accepted
-by `social-finance-engine.js`. This keeps all current scope, date, spend,
-tolerance, month-filter, and missing-booking logic in one comparison path.
+API results are converted in memory to the same Meta column shape already used
+by `social-finance-engine.js`. Existing account scope, dates, spend tolerance,
+month filtering, and missing-booking checks therefore share one comparison
+path.
 
-Campaign budgets returned by Meta are minor currency units and are divided by
-100. Daily budget takes precedence over lifetime budget when determining the
-displayed budget and budget type. Budget remains context only: the comparison
-continues to compare monthly Meta spend with Prisma planned amount.
+If Meta returns an unknown campaign or ad set for an imported Account ID, it is
+added to the local reference. Each refreshed account receives a `lastSynced`
+timestamp.
 
-The in-memory normalised Meta data is discarded when the page closes or the
-user clicks **Clear pulled data**. Only the credentials and remembered account
-scope persist locally.
+Lifetime budget takes precedence when present; otherwise daily budget is used.
+Meta's minor budget units are divided by 100. Budget remains context only—the
+comparison continues to compare monthly Meta spend with Prisma planned amount.
 
-## Scope limitation
+The API result is discarded when the page closes or **Clear pulled data** is
+clicked. The imported hierarchy and token persist locally until explicitly
+removed.
 
-The account list covers the supplied business's owned and client ad-account
-edges. It is still limited by the assets and permissions granted to the supplied
-token. The CSV fallback should be used when the required account population is
-not returned.
+## Extension boundary
 
-This is a browser-extension feature, so it exposes an internal `getReport()`
-method rather than an HTTP `GET /api/meta/report` server endpoint. The method
-returns the requested campaign-level report without introducing a local or
-remote credential-handling server.
+The source prompt describes a server-side service. Ops Toolshed is a standalone
+Chrome extension and has no credential-handling server, so its reusable client
+runs inside the extension page. This preserves the previously requested local
+token model but cannot make the token inaccessible to someone who can inspect
+that Chrome profile or the running extension.

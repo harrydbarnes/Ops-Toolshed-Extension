@@ -66,14 +66,12 @@
         const sleep = options.sleep || (milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds)));
         const random = options.random || Math.random;
         const token = String(options.accessToken || '').trim();
-        const businessId = cleanId(options.businessId);
         const apiVersion = String(options.apiVersion || DEFAULT_API_VERSION).replace(/^\/?/, '').replace(/\/$/, '');
         const baseUrl = String(options.baseUrl || DEFAULT_BASE_URL).replace(/\/$/, '');
         const maxRetries = Number.isInteger(options.maxRetries) ? options.maxRetries : 4;
 
         if (!fetchImpl) throw new Error('Meta API requests are not available in this browser.');
         if (!token) throw new Error('Save a Meta access token first.');
-        if (businessId && !/^\d+$/.test(businessId)) throw new Error('Meta Business ID must contain numbers only.');
 
         function buildUrl(pathOrUrl, params = {}) {
             const url = /^https:\/\//i.test(pathOrUrl)
@@ -128,30 +126,6 @@
             return rows;
         }
 
-        async function getAdAccounts() {
-            if (!businessId) throw new Error('Save a Meta Business ID first.');
-            const fields = 'id,account_id,name,currency,account_status';
-            const [ownedAccounts, clientAccounts] = await Promise.all([
-                requestAll(`${businessId}/owned_ad_accounts`, {
-                    fields,
-                    limit: 500
-                }),
-                requestAll(`${businessId}/client_ad_accounts`, {
-                    fields,
-                    limit: 500
-                })
-            ]);
-            const accounts = [...new Map([...clientAccounts, ...ownedAccounts].map(account => [
-                cleanId(account.account_id || account.id), account
-            ])).values()];
-            return accounts.map(account => ({
-                id: cleanId(account.account_id || account.id),
-                name: account.name || cleanId(account.account_id || account.id),
-                currency: account.currency || '',
-                status: account.account_status
-            })).filter(account => account.id);
-        }
-
         function getCampaigns(accountId) {
             return requestAll(`${accountPath(accountId)}/campaigns`, {
                 fields: 'id,name,start_time,stop_time,status,configured_status,effective_status,daily_budget,lifetime_budget',
@@ -179,10 +153,10 @@
         }
 
         function campaignBudget(campaign) {
-            const daily = Number(campaign.daily_budget);
-            if (Number.isFinite(daily) && daily > 0) return { budget: daily / 100, budgetType: 'Daily' };
             const lifetime = Number(campaign.lifetime_budget);
             if (Number.isFinite(lifetime) && lifetime > 0) return { budget: lifetime / 100, budgetType: 'Lifetime' };
+            const daily = Number(campaign.daily_budget);
+            if (Number.isFinite(daily) && daily > 0) return { budget: daily / 100, budgetType: 'Daily' };
             return { budget: null, budgetType: '' };
         }
 
@@ -244,17 +218,62 @@
         }
 
         async function getMonthlyReport(account, startDate, endDate) {
-            const accountId = account.id || account.accountId;
-            const [campaigns, adSets] = await Promise.all([getCampaigns(accountId), getAdSets(accountId)]);
-            const output = [];
-            for (const range of splitMonthRanges(startDate, endDate)) {
-                const insights = await getInsights(accountId, range.since, range.until);
-                output.push(...mergeCampaignData(account, campaigns, adSets, insights, range));
-            }
-            return output;
+            const sync = await syncAccount(account, startDate, endDate);
+            return sync.records;
         }
 
-        return { getAdAccounts, getCampaigns, getAdSets, getInsights, getReport, getMonthlyReport };
+        async function syncAccount(account, startDate, endDate) {
+            const accountId = account.id || account.accountId;
+            const [campaigns, adSets] = await Promise.all([getCampaigns(accountId), getAdSets(accountId)]);
+            const records = [];
+            for (const range of splitMonthRanges(startDate, endDate)) {
+                const insights = await getInsights(accountId, range.since, range.until);
+                records.push(...mergeCampaignData(account, campaigns, adSets, insights, range));
+            }
+            return { accountId: cleanId(accountId), campaigns, adSets, records };
+        }
+
+        return { getCampaigns, getAdSets, getInsights, getReport, getMonthlyReport, syncAccount };
+    }
+
+    function resolveDateRange(preset, todayValue = new Date()) {
+        const today = new Date(Date.UTC(todayValue.getUTCFullYear(), todayValue.getUTCMonth(), todayValue.getUTCDate()));
+        const iso = date => date.toISOString().slice(0, 10);
+        const shift = days => new Date(today.getTime() + (days * 86400000));
+        if (preset === 'today') return { since: iso(today), until: iso(today) };
+        if (preset === 'yesterday') return { since: iso(shift(-1)), until: iso(shift(-1)) };
+        if (preset === 'last7') return { since: iso(shift(-6)), until: iso(today) };
+        if (preset === 'last14') return { since: iso(shift(-13)), until: iso(today) };
+        if (preset === 'last30') return { since: iso(shift(-29)), until: iso(today) };
+        if (preset === 'thisMonth') return { since: iso(new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1))), until: iso(today) };
+        if (preset === 'lastMonth') return {
+            since: iso(new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1))),
+            until: iso(new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 0)))
+        };
+        return null;
+    }
+
+    function mergeReferenceData(reference, account, syncResult, syncedAt = new Date().toISOString()) {
+        const next = {
+            accounts: [...((reference && reference.accounts) || [])],
+            campaigns: [...((reference && reference.campaigns) || [])],
+            adSets: [...((reference && reference.adSets) || [])],
+            importedAt: reference && reference.importedAt ? reference.importedAt : ''
+        };
+        const accounts = new Map(next.accounts.map(item => [cleanId(item.id), item]));
+        const campaigns = new Map(next.campaigns.map(item => [cleanId(item.id), item]));
+        const adSets = new Map(next.adSets.map(item => [cleanId(item.id), item]));
+        const accountId = cleanId(account.id || account.accountId);
+        accounts.set(accountId, { ...(accounts.get(accountId) || {}), id: accountId, name: account.name || accounts.get(accountId)?.name || accountId, lastSynced: syncedAt });
+        (syncResult.campaigns || []).forEach(campaign => {
+            const id = cleanId(campaign.id);
+            campaigns.set(id, { ...(campaigns.get(id) || {}), id, name: campaign.name || campaigns.get(id)?.name || '', accountId });
+        });
+        (syncResult.adSets || []).forEach(adSet => {
+            const id = cleanId(adSet.id);
+            adSets.set(id, { ...(adSets.get(id) || {}), id, name: adSet.name || adSets.get(id)?.name || '', campaignId: cleanId(adSet.campaign_id) });
+        });
+        return { ...next, accounts: [...accounts.values()], campaigns: [...campaigns.values()], adSets: [...adSets.values()] };
     }
 
     function escapeCsv(value) {
@@ -277,5 +296,5 @@
         ))].join('\n');
     }
 
-    return { createClient, splitMonthRanges, reportToMetaCsv, cleanId, DEFAULT_API_VERSION };
+    return { createClient, splitMonthRanges, resolveDateRange, mergeReferenceData, reportToMetaCsv, cleanId, DEFAULT_API_VERSION };
 });

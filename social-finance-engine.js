@@ -16,7 +16,8 @@
         status: ['delivery', 'delivery status', 'effective status', 'status'],
         start: ['ad set start', 'ad set start date', 'scheduled start', 'starts'],
         end: ['ad set end', 'ad set end date', 'scheduled end', 'ends'],
-        adSetId: ['ad set id', 'adset id']
+        adSetId: ['ad set id', 'adset id'],
+        adSetName: ['ad set name', 'adset name']
     };
 
     const PRISMA_ALIASES = {
@@ -215,6 +216,39 @@
             groups.set(key, existing);
         });
         return { columns, records: [...groups.values()], errors };
+    }
+
+    function extractMetaReferenceData(parsed) {
+        const columns = resolveColumns(parsed.headers, META_ALIASES);
+        const errors = [];
+        if (!columns.accountId) errors.push('Meta export is missing Account ID.');
+        if (!columns.campaignId) errors.push('Meta export is missing Campaign ID.');
+        if (errors.length) return { accounts: [], campaigns: [], adSets: [], errors };
+
+        const accounts = new Map();
+        const campaigns = new Map();
+        const adSets = new Map();
+        parsed.rows.forEach(row => {
+            const accountId = cleanId(row[columns.accountId]);
+            const campaignId = cleanId(row[columns.campaignId]);
+            const adSetId = columns.adSetId ? cleanId(row[columns.adSetId]) : '';
+            if (accountId && !accounts.has(accountId)) accounts.set(accountId, {
+                id: accountId,
+                name: columns.account ? String(row[columns.account] || '').trim() || accountId : accountId,
+                lastSynced: ''
+            });
+            if (accountId && campaignId && !campaigns.has(campaignId)) campaigns.set(campaignId, {
+                id: campaignId,
+                name: columns.campaignName ? String(row[columns.campaignName] || '').trim() : '',
+                accountId
+            });
+            if (campaignId && adSetId && !adSets.has(adSetId)) adSets.set(adSetId, {
+                id: adSetId,
+                name: columns.adSetName ? String(row[columns.adSetName] || '').trim() : '',
+                campaignId
+            });
+        });
+        return { accounts: [...accounts.values()], campaigns: [...campaigns.values()], adSets: [...adSets.values()], errors };
     }
 
     function aggregatePrisma(parsed) {
@@ -489,5 +523,5 @@
         return [headers.join(','), ...rows.map(row => fields.map(field => escapeCsv(field === 'issues' ? row.issues.join('; ') : row[field])).join(','))].join('\r\n');
     }
 
-    return { parseCsv, resolveColumns, aggregateMeta, aggregatePrisma, compare, summarizeRows, reportToCsv, nameSimilarity, parseDate, parseMoney };
+    return { parseCsv, resolveColumns, aggregateMeta, extractMetaReferenceData, aggregatePrisma, compare, summarizeRows, reportToCsv, nameSimilarity, parseDate, parseMoney };
 });

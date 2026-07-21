@@ -23,19 +23,29 @@ describe('Social Booking Checker report uploads', () => {
             runtime: {},
             storage: { local: {
                 get: (key, callback) => callback({ [key]: stored[key] }),
-                set: (value, callback) => { Object.assign(stored, value); callback(); }
+                set: (value, callback) => { Object.assign(stored, value); callback(); },
+                remove: (key, callback) => { delete stored[key]; callback(); }
             } }
         };
         dom.window.metaReportApi = {
             createClient: jest.fn(() => ({
-                getAdAccounts: jest.fn().mockResolvedValue([{ id: '111', name: 'Boots' }, { id: '222', name: 'No7' }]),
-                getMonthlyReport: jest.fn().mockResolvedValue([{ accountId: '111', accountName: 'Boots', campaignId: '9', campaignName: 'Summer', month: '2026-06', spend: 10 }])
+                syncAccount: jest.fn().mockResolvedValue({
+                    campaigns: [{ id: '9', name: 'Summer' }], adSets: [],
+                    records: [{ accountId: '111', accountName: 'Boots', campaignId: '9', campaignName: 'Summer', month: '2026-06', spend: 10 }]
+                })
             })),
+            resolveDateRange: jest.fn(() => ({ since: '2026-06-01', until: '2026-06-30' })),
+            mergeReferenceData: jest.fn(reference => ({ ...reference, accounts: reference.accounts.map(account => ({ ...account, lastSynced: '2026-07-21' })) })),
             reportToMetaCsv: jest.fn(() => 'Account ID,Campaign ID,Month,Amount spent\n111,9,2026-06,10')
         };
         dom.window.socialFinanceEngine = {
             parseCsv: jest.fn(() => ({ headers: [], rows: [] })),
-            aggregateMeta: jest.fn(() => ({ records: [] }))
+            aggregateMeta: jest.fn(() => ({ records: [] })),
+            extractMetaReferenceData: jest.fn(() => ({
+                accounts: [{ id: '111', name: 'Boots', lastSynced: '' }],
+                campaigns: [{ id: '9', name: 'Summer', accountId: '111' }],
+                adSets: [], errors: []
+            }))
         };
         dom.window.eval(script);
         if (document.readyState === 'loading') {
@@ -55,7 +65,7 @@ describe('Social Booking Checker report uploads', () => {
         expect(document.querySelector('#metaFileName').textContent).toBe('meta-report.csv, 2.0 KB');
         expect(document.querySelector('#metaDropZone').classList.contains('has-file')).toBe(true);
         expect(document.querySelector('#removeMetaFile').classList.contains('hidden')).toBe(false);
-        expect(dom.window.socialFinanceEngine.aggregateMeta).toHaveBeenCalled();
+        expect(dom.window.socialFinanceEngine.extractMetaReferenceData).toHaveBeenCalled();
 
         document.querySelector('#removeMetaFile').click();
 
@@ -76,10 +86,10 @@ describe('Social Booking Checker report uploads', () => {
 
     test('restores and updates the previously selected Meta account IDs', async () => {
         dom.window.localStorage.setItem('socialBookingMetaAccountScope', JSON.stringify(['222']));
-        dom.window.socialFinanceEngine.aggregateMeta.mockReturnValue({ records: [
-            { accountId: '111', account: 'Boots' },
-            { accountId: '222', account: 'Other' }
-        ] });
+        dom.window.socialFinanceEngine.extractMetaReferenceData.mockReturnValue({
+            accounts: [{ id: '111', name: 'Boots', lastSynced: '' }, { id: '222', name: 'Other', lastSynced: '' }],
+            campaigns: [], adSets: [], errors: []
+        });
         const file = { name: 'meta-report.csv', size: 1024, type: 'text/csv', text: jest.fn().mockResolvedValue('Account ID,Campaign ID,Month,Amount spent\n111,1,2026-06,10') };
 
         dropFile(dom.window, document.querySelector('#metaDropZone'), file);
@@ -129,12 +139,10 @@ describe('Social Booking Checker report uploads', () => {
 
     test('stores API details locally, hides saved values, and removes them', async () => {
         document.querySelector('#metaAccessToken').value = 'private-token';
-        document.querySelector('#metaBusinessId').value = '268300820035937';
         document.querySelector('#saveMetaCredentials').click();
         await new Promise(resolve => dom.window.setTimeout(resolve, 0));
 
         expect(document.querySelector('#metaAccessToken').value).toBe('');
-        expect(document.querySelector('#metaBusinessId').value).toBe('');
         expect(document.querySelector('#metaCredentialStatus').textContent).toContain('saved locally');
         expect(document.body.textContent).not.toContain('private-token');
         expect(document.querySelector('#removeMetaToken').classList.contains('hidden')).toBe(false);
@@ -142,18 +150,17 @@ describe('Social Booking Checker report uploads', () => {
         document.querySelector('#removeMetaToken').click();
         await new Promise(resolve => dom.window.setTimeout(resolve, 0));
         expect(document.querySelector('#removeMetaToken').classList.contains('hidden')).toBe(true);
-        expect(document.querySelector('#removeMetaBusinessId').classList.contains('hidden')).toBe(false);
     });
 
-    test('loads accounts and pulls API data for the selected scope and dates', async () => {
+    test('imports account IDs before syncing API data for the selected scope and dates', async () => {
+        const meta = { name: 'meta.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('Account ID,Campaign ID,Month,Amount spent\n111,9,2026-06,10') };
+        dropFile(dom.window, document.querySelector('#metaDropZone'), meta);
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
         document.querySelector('#metaAccessToken').value = 'token';
-        document.querySelector('#metaBusinessId').value = '123';
         document.querySelector('#saveMetaCredentials').click();
         await new Promise(resolve => dom.window.setTimeout(resolve, 0));
-        document.querySelector('#loadMetaAccounts').click();
-        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
 
-        expect(document.querySelectorAll('.account-option')).toHaveLength(2);
+        expect(document.querySelectorAll('.account-option')).toHaveLength(1);
         document.querySelector('.account-option input[value="111"]').checked = true;
         document.querySelector('#metaApiStartDate').value = '2026-06-01';
         document.querySelector('#metaApiEndDate').value = '2026-06-30';

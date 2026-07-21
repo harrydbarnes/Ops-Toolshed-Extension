@@ -5,6 +5,7 @@ const { JSDOM } = require('jsdom');
 const html = fs.readFileSync(path.resolve(__dirname, '../social-finance.html'), 'utf8');
 const css = fs.readFileSync(path.resolve(__dirname, '../social-finance.css'), 'utf8');
 const script = fs.readFileSync(path.resolve(__dirname, '../social-finance.js'), 'utf8');
+const apiScript = fs.readFileSync(path.resolve(__dirname, '../meta-report-api.js'), 'utf8');
 const manifest = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../manifest.json'), 'utf8'));
 const popupHtml = fs.readFileSync(path.resolve(__dirname, '../popup.html'), 'utf8');
 const toolshedHtml = fs.readFileSync(path.resolve(__dirname, '../toolshed.html'), 'utf8');
@@ -61,6 +62,8 @@ describe('Social Booking Checker upload guidance', () => {
         expect(text).toContain('Account name');
         expect(text).toContain('Campaign budget');
         expect(text).toContain('Campaign budget type');
+        expect(text).toContain('Ad set ID');
+        expect(text).toContain('Ad set name');
         expect(text).toContain('Ad set start');
         expect(text).toContain('Ad set end');
         const input = card.querySelector('#metaFile');
@@ -97,7 +100,7 @@ describe('Social Booking Checker upload guidance', () => {
         expect(pageText).not.toContain('PlacementDetailTable');
         expect(pageText).not.toContain('Build exception report');
         expect(document.querySelectorAll('.optional-requirements')).toHaveLength(2);
-        expect(pageText).toContain('Optional columns');
+        expect(pageText).toContain('Optional reference columns');
         expect(settingsText).toContain('Check date');
         expect(settingsText).toContain('Use today unless');
         expect(settingsText).toContain('Ignore differences up to (£)');
@@ -121,17 +124,21 @@ describe('Social Booking Checker upload guidance', () => {
         expect(prismaDropZone.querySelector('#removePrismaFile').textContent).toBe('Remove file');
     });
 
-    test('offers the Meta API with CSV fallback and non-revealing local credential controls', () => {
-        expect(document.querySelector('#metaSourceApi').checked).toBe(true);
-        expect(document.querySelector('#metaSourceCsv').checked).toBe(false);
+    test('requires report-led discovery and offers a read-only API refresh without Business credentials', () => {
         expect(document.querySelector('#metaAccessToken').type).toBe('password');
-        expect(document.querySelector('#metaBusinessId').type).toBe('password');
+        expect(document.querySelector('#metaBusinessId')).toBeNull();
         expect(document.querySelector('#removeMetaToken').textContent).toBe('Remove token');
-        expect(document.querySelector('#removeMetaBusinessId').textContent).toBe('Remove Business ID');
-        expect(document.querySelector('#metaApiPanel').textContent).toContain('Graph API v24.0');
-        expect(document.querySelector('#metaCsvPanel').textContent).toContain('Meta Spend Across Agency');
+        expect(document.querySelector('#removeMetaBusinessId')).toBeNull();
+        expect(document.querySelector('#metaApiPanel').textContent).toContain('ads_read');
+        expect(document.querySelector('#metaApiDatePreset').options).toHaveLength(8);
+        expect(document.querySelector('#pullMetaData').textContent).toBe('Sync selected accounts');
+        expect(document.body.textContent).toContain('The report supplies the Account IDs');
         expect(script).toContain("window.chrome.storage.local");
         expect(script).not.toContain('META_ACCESS_TOKEN');
+        expect(apiScript).not.toContain('owned_ad_accounts');
+        expect(apiScript).not.toContain('client_ad_accounts');
+        expect(apiScript).not.toContain('business_management');
+        expect(apiScript).not.toContain('ads_management');
         expect(manifest.host_permissions).toContain('https://graph.facebook.com/*');
     });
 

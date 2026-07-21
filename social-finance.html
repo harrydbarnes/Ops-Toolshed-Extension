@@ -46,7 +46,7 @@
             </fieldset>
             <div class="section-heading">
                 <h2 id="source-heading">Add your report data</h2>
-                <p>Pull Meta data from the API or use a CSV export. Your Prisma report remains a CSV upload.</p>
+                <p>Start with a Meta Ads Report so the checker knows which accounts it may read. You can then refresh those accounts through Meta's API.</p>
             </div>
             <aside class="upload-readiness" aria-label="Before you upload">
                 <strong>Before you compare</strong>
@@ -54,73 +54,71 @@
             </aside>
             <div class="source-grid">
                 <article class="file-card">
-                    <span class="file-kicker">Meta source</span>
-                    <strong>Meta Ads data</strong>
-                    <fieldset class="meta-source-selector">
-                        <legend>Choose how to add Meta data</legend>
-                        <label><input id="metaSourceApi" type="radio" name="metaSource" value="api" checked><span>Meta API <small>Recommended</small></span></label>
-                        <label><input id="metaSourceCsv" type="radio" name="metaSource" value="csv"><span>CSV export <small>Fallback</small></span></label>
-                    </fieldset>
+                    <span class="file-kicker">Meta import</span>
+                    <strong>Meta Ads Report</strong>
+                    <span class="export-source">In Meta Ads Reporting, use the <b>Meta Spend Across Agency</b> template and export at campaign level. The report supplies the Account IDs the API is allowed to refresh.</span>
+                    <span class="requirement-label">Your CSV must include</span>
+                    <ul class="report-requirements">
+                        <li><b>Account ID</b></li>
+                        <li><b>Campaign ID</b></li>
+                        <li><b>Amount spent</b></li>
+                        <li><b>Month</b> or <b>Reporting starts</b></li>
+                    </ul>
+                    <span class="requirement-label optional-label">Optional reference columns</span>
+                    <ul class="report-requirements optional-requirements">
+                        <li><b>Account name</b></li>
+                        <li><b>Campaign name</b></li>
+                        <li><b>Ad set ID</b></li>
+                        <li><b>Ad set name</b></li>
+                        <li><b>Campaign budget</b></li>
+                        <li><b>Campaign budget type</b></li>
+                        <li><b>Delivery</b></li>
+                        <li><b>Ad set start</b></li>
+                        <li><b>Ad set end</b></li>
+                    </ul>
+                    <span class="helpful-fields">Account, campaign, and ad set references are remembered locally. Upload another report when you add a new Meta ad account or want to rebuild that reference.</span>
+                    <input id="metaFile" type="file" accept=".csv,text/csv" aria-label="Choose Meta campaign CSV" aria-describedby="metaUploadScope">
+                    <span id="metaUploadScope" class="scope-note"><b>Scope:</b> include every relevant Meta account and campaign for the months being checked.</span>
+                    <span id="metaDropZone" class="file-drop-zone" role="button" tabindex="0" aria-label="Drag and drop or choose a Meta CSV">
+                        <strong>Drag and drop Meta CSV here</strong>
+                        <span>or <span class="drop-zone-action">choose a file</span></span>
+                        <em id="metaFileName" aria-live="polite">No file selected</em>
+                        <button id="removeMetaFile" class="remove-file hidden" type="button">Remove file</button>
+                    </span>
+                    <div id="metaReferenceStatus" class="reference-status" aria-live="polite"></div>
+                    <button id="removeMetaReference" class="text-action hidden" type="button">Forget imported accounts</button>
 
-                    <section id="metaApiPanel" class="meta-source-panel" aria-labelledby="meta-api-heading">
+                    <section id="metaApiPanel" class="meta-source-panel api-enrichment" aria-labelledby="meta-api-heading">
                         <div class="source-panel-heading">
-                            <b id="meta-api-heading">Connect to Meta</b>
-                            <span>Uses Graph API v24.0. Your token is sent only to Meta and is never displayed again after saving.</span>
+                            <b id="meta-api-heading">Optional live refresh</b>
+                            <span>After importing account IDs, use a read-only token to refresh Meta status, dates, budgets, ad sets, and spend.</span>
                         </div>
-                        <div class="credential-grid">
-                            <label>Access token
-                                <input id="metaAccessToken" type="password" autocomplete="new-password" spellcheck="false" placeholder="Paste token">
-                            </label>
-                            <label>Business ID
-                                <input id="metaBusinessId" type="password" autocomplete="off" inputmode="numeric" spellcheck="false" placeholder="Enter Business ID">
-                            </label>
-                        </div>
-                        <button id="saveMetaCredentials" class="compact-action" type="button">Save locally</button>
+                        <label class="token-field">Access token
+                            <input id="metaAccessToken" type="password" autocomplete="new-password" spellcheck="false" placeholder="Paste token">
+                        </label>
+                        <button id="saveMetaCredentials" class="compact-action" type="button">Save token locally</button>
                         <div id="metaCredentialStatus" class="credential-status" aria-live="polite"></div>
                         <div class="credential-actions">
                             <button id="removeMetaToken" class="text-action hidden" type="button">Remove token</button>
-                            <button id="removeMetaBusinessId" class="text-action hidden" type="button">Remove Business ID</button>
                         </div>
-                        <p class="privacy-note">Stored in <code>chrome.storage.local</code> on this Chrome profile—not in the repository or synced extension settings. A token with read access to ads and the business is required.</p>
+                        <p class="privacy-note">Stored in <code>chrome.storage.local</code> on this Chrome profile—not in the repository or synced extension settings. Use a token with <code>ads_read</code>; Business Management access is not required.</p>
                         <div class="api-range">
-                            <label>Reporting start<input id="metaApiStartDate" type="date"></label>
-                            <label>Reporting end<input id="metaApiEndDate" type="date"></label>
-                            <button id="loadMetaAccounts" type="button">Load ad accounts</button>
+                            <label>Date range
+                                <select id="metaApiDatePreset">
+                                    <option value="today">Today</option>
+                                    <option value="yesterday">Yesterday</option>
+                                    <option value="last7">Last 7 days</option>
+                                    <option value="last14">Last 14 days</option>
+                                    <option value="last30">Last 30 days</option>
+                                    <option value="thisMonth">This month</option>
+                                    <option value="lastMonth" selected>Last month</option>
+                                    <option value="custom">Custom range</option>
+                                </select>
+                            </label>
+                            <label>Reporting start<input id="metaApiStartDate" type="date" disabled></label>
+                            <label>Reporting end<input id="metaApiEndDate" type="date" disabled></label>
                         </div>
                         <div id="metaApiStatus" class="api-status" aria-live="polite"></div>
-                    </section>
-
-                    <section id="metaCsvPanel" class="meta-source-panel hidden" aria-labelledby="meta-csv-heading">
-                        <div class="source-panel-heading">
-                            <b id="meta-csv-heading">Meta Ads Report</b>
-                            <span>In Meta Ads Reporting, use the <b>Meta Spend Across Agency</b> template and export at campaign level.</span>
-                        </div>
-                        <span class="requirement-label">Your CSV must include</span>
-                        <ul class="report-requirements">
-                            <li><b>Account ID</b></li>
-                            <li><b>Campaign ID</b></li>
-                            <li><b>Amount spent</b></li>
-                            <li><b>Month</b> or <b>Reporting starts</b></li>
-                        </ul>
-                        <span class="requirement-label optional-label">Optional columns</span>
-                        <ul class="report-requirements optional-requirements">
-                            <li><b>Account name</b></li>
-                            <li><b>Campaign name</b></li>
-                            <li><b>Campaign budget</b></li>
-                            <li><b>Campaign budget type</b></li>
-                            <li><b>Delivery</b></li>
-                            <li><b>Ad set start</b></li>
-                            <li><b>Ad set end</b></li>
-                        </ul>
-                        <span class="helpful-fields">These add readable names, campaign budget context, delivery context, and date checks. Campaign budget is not compared with a single month's Prisma booking.</span>
-                        <input id="metaFile" type="file" accept=".csv,text/csv" aria-label="Choose Meta campaign CSV" aria-describedby="metaUploadScope">
-                        <span id="metaUploadScope" class="scope-note"><b>Scope:</b> include every relevant Meta account and campaign for the months being checked.</span>
-                        <span id="metaDropZone" class="file-drop-zone" role="button" tabindex="0" aria-label="Drag and drop or choose a Meta CSV">
-                            <strong>Drag and drop Meta CSV here</strong>
-                            <span>or <span class="drop-zone-action">choose a file</span></span>
-                            <em id="metaFileName" aria-live="polite">No file selected</em>
-                            <button id="removeMetaFile" class="remove-file hidden" type="button">Remove file</button>
-                        </span>
                     </section>
                 </article>
                 <article class="file-card">
@@ -160,7 +158,7 @@
                 </div>
                 <div id="accountOptions" class="account-options"></div>
                 <div id="apiAccountActions" class="api-account-actions hidden">
-                    <button id="pullMetaData" type="button">Pull selected Meta data</button>
+                    <button id="pullMetaData" type="button">Sync selected accounts</button>
                     <button id="clearMetaApiData" class="text-action hidden" type="button">Clear pulled data</button>
                 </div>
             </div>
