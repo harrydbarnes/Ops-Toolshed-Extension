@@ -11,7 +11,13 @@ ID and does not call Business Management account-list endpoints.
    IDs, Campaign names, Ad Set IDs, and Ad Set names when those columns exist.
 3. That hierarchy is stored in `chrome.storage.local` as
    `socialBookingMetaReference`.
-4. Select the imported accounts that match the Prisma report.
+4. Upload the Prisma booking CSV. Its `Partner account id` values are shown as
+   a Prisma client scope and checked against the selected Meta Account IDs.
+   Accounts present only on either side are highlighted before comparison.
+   When `Client name` and `Product name` are included, users can map each Meta
+   account to a Prisma client/product pair. These mappings are stored only in
+   `chrome.storage.local` and drive the client-level breakdown above the
+   campaign-month detail table.
 5. Optionally save an `ads_read` token and sync those accounts for a selected
    reporting range.
 
@@ -34,8 +40,11 @@ Users enter their own Meta access token. It is stored under
 - Business ID is no longer requested. Previously stored Business IDs are
   removed automatically when the credential record is next read.
 - The credential is not stored in `chrome.storage.sync`.
-- The saved token is never put back into an input or displayed.
-- The user can remove the token at any time.
+- A saved token is represented by bullets in the password field, never by the
+  token itself. Selecting the field clears the mask so a replacement can be
+  entered.
+- The user can remove the token at any time using the clear button inside that
+  field.
 - The token is sent to `graph.facebook.com` in an `Authorization: Bearer`
   header, never in a query string.
 
@@ -59,6 +68,13 @@ There are no POST, PUT, PATCH, or DELETE requests. The integration does not use
 `business_management`. The supplied token and its assigned ad-account assets
 must permit `ads_read` access.
 
+If Meta returns error `(#200)` saying that the ad account owner has not granted
+`ads_management` or `ads_read`, the token is valid enough to reach Meta but its
+person or system-user owner lacks access to that specific ad account. The
+checker does not need or request `ads_management`: the account owner must grant
+the token owner a read-capable role on the account and a fresh `ads_read` token
+must then be created.
+
 Every paginated response is followed. HTTP 429, HTTP 5xx, and Meta throttling
 codes 4, 17, 32, and 613 are retried with bounded exponential backoff. Errors
 are shown without including the token.
@@ -75,6 +91,11 @@ by `social-finance-engine.js`. Existing account scope, dates, spend tolerance,
 month filtering, and missing-booking checks therefore share one comparison
 path.
 
+The results page states whether it is comparing the uploaded report or a live
+API sync. API campaign `start_time` and `stop_time` are mapped to Campaign start
+and Campaign end, while Delivery falls back through effective, configured, and
+standard campaign status so the comparison does not discard available evidence.
+
 If Meta returns an unknown campaign or ad set for an imported Account ID, it is
 added to the local reference. Each refreshed account receives a `lastSynced`
 timestamp.
@@ -86,6 +107,20 @@ comparison continues to compare monthly Meta spend with Prisma planned amount.
 The API result is discarded when the page closes or **Clear pulled data** is
 clicked. The imported hierarchy and token persist locally until explicitly
 removed.
+
+## Local manual campaign matches
+
+Selecting **Unmatched Meta spend** opens a local matching workspace. It lists
+Meta campaigns with unmatched spend and offers only Prisma campaign-month rows
+that are not already matched, including their booked value. Applied pairings
+are stored in `chrome.storage.local` as `socialBookingManualCampaignMatches`.
+They affect only the checker and never edit Meta or Prisma data. Users can
+clear all saved local matches from the workspace and begin again.
+
+Rows labelled **Outside report scope** belong to a reporting month present in
+only one of the two sources. They are separated from missing-booking findings so
+an incomplete export date range is not treated as proof that a campaign or
+booking is absent.
 
 ## Extension boundary
 

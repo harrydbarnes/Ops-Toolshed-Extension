@@ -14,8 +14,8 @@
         budget: ['campaign budget', 'ad set budget', 'budget'],
         budgetType: ['campaign budget type', 'budget type'],
         status: ['delivery', 'delivery status', 'effective status', 'status'],
-        start: ['ad set start', 'ad set start date', 'scheduled start', 'starts'],
-        end: ['ad set end', 'ad set end date', 'scheduled end', 'ends'],
+        start: ['campaign start', 'campaign start date', 'ad set start', 'ad set start date', 'scheduled start', 'starts'],
+        end: ['campaign end', 'campaign end date', 'ad set end', 'ad set end date', 'scheduled end', 'ends'],
         adSetId: ['ad set id', 'adset id'],
         adSetName: ['ad set name', 'adset name']
     };
@@ -27,6 +27,7 @@
         planned: ['planned_amount', 'planned amount', 'gross amount', 'gross planned amount'],
         campaignName: ['campaign name', 'plan name', 'order name'],
         client: ['client name', 'client'],
+        product: ['product name', 'product'],
         partner: ['partner'],
         integratedStatus: ['integrated status'],
         owner: ['placement creator', 'owner'],
@@ -251,6 +252,50 @@
         return { accounts: [...accounts.values()], campaigns: [...campaigns.values()], adSets: [...adSets.values()], errors };
     }
 
+    function extractPrismaReferenceData(parsed) {
+        const columns = resolveColumns(parsed.headers, PRISMA_ALIASES);
+        const errors = [];
+        if (!columns.accountId) {
+            errors.push('Prisma export is missing Partner account id, so its client scope cannot be checked.');
+            return { accounts: [], errors };
+        }
+
+        const accounts = new Map();
+        const clientProducts = new Map();
+        parsed.rows.forEach(row => {
+            const accountId = cleanId(row[columns.accountId]);
+            if (!accountId) return;
+            const existing = accounts.get(accountId) || { id: accountId, clients: new Set(), rows: 0, months: new Set() };
+            const client = columns.client ? String(row[columns.client] || '').trim() : '';
+            const product = columns.product ? String(row[columns.product] || '').trim() : '';
+            const month = columns.month ? toIsoDate(monthStart(row[columns.month])) : '';
+            if (client) existing.clients.add(client);
+            if (month) existing.months.add(month);
+            existing.rows++;
+            accounts.set(accountId, existing);
+            if (client || product) {
+                const key = `${client}\u0000${product}`;
+                const scope = clientProducts.get(key) || { client, product, accountIds: new Set() };
+                scope.accountIds.add(accountId);
+                clientProducts.set(key, scope);
+            }
+        });
+        return {
+            accounts: [...accounts.values()].map(account => ({
+                id: account.id,
+                clients: [...account.clients].sort(),
+                rows: account.rows,
+                months: [...account.months].sort()
+            })),
+            clientProducts: [...clientProducts.values()].map(scope => ({
+                client: scope.client,
+                product: scope.product,
+                accountIds: [...scope.accountIds].sort()
+            })).sort((left, right) => `${left.client}|${left.product}`.localeCompare(`${right.client}|${right.product}`)),
+            errors
+        };
+    }
+
     function aggregatePrisma(parsed) {
         const columns = resolveColumns(parsed.headers, PRISMA_ALIASES);
         const errors = [];
@@ -271,6 +316,7 @@
                 planned: parseMoney(row[columns.planned]) || 0,
                 campaignName: columns.campaignName ? String(row[columns.campaignName] || '').trim() : '',
                 client: columns.client ? String(row[columns.client] || '').trim() : '',
+                product: columns.product ? String(row[columns.product] || '').trim() : '',
                 integratedStatus: columns.integratedStatus ? String(row[columns.integratedStatus] || '').trim() : '',
                 owner: columns.owner ? String(row[columns.owner] || '').trim() : '',
                 start: columns.start ? parseDate(row[columns.start], true) : null,
@@ -281,12 +327,13 @@
             if (!accountId || !campaignId || !month) return;
             const key = recordKey(accountId, campaignId, month);
             const existing = groups.get(key) || {
-                key, accountId, campaignId, month, planned: 0, campaignName: '', client: '', integratedStatus: '',
+                key, accountId, campaignId, month, planned: 0, campaignName: '', client: '', product: '', integratedStatus: '',
                 owner: '', partner: '', start: null, end: null, rows: 0, sourceRows: []
             };
             existing.planned += normalized.planned;
             existing.campaignName ||= normalized.campaignName;
             existing.client ||= normalized.client;
+            existing.product ||= normalized.product;
             existing.integratedStatus ||= normalized.integratedStatus;
             existing.owner ||= normalized.owner;
             existing.partner ||= normalized.partner;
@@ -316,6 +363,15 @@
 
     function summarizeRows(rows) {
         const reportRows = rows || [];
+        const campaignBudgets = new Map();
+        reportRows.forEach(row => {
+            if (row.metaBudget === null || row.metaBudget === undefined || row.metaBudget === '') return;
+            const key = `${row.accountId || ''}|${row.campaignId || ''}`;
+            const budget = Number(row.metaBudget);
+            if (Number.isFinite(budget)) campaignBudgets.set(key, Math.max(campaignBudgets.get(key) || 0, budget));
+        });
+        const metaSpend = reportRows.reduce((sum, row) => sum + (row.metaSpend || 0), 0);
+        const prismaPlanned = reportRows.reduce((sum, row) => sum + (row.prismaPlanned || 0), 0);
         return {
             total: reportRows.length,
             matched: reportRows.filter(row => row.evidence === 'Matched').length,
@@ -325,8 +381,10 @@
             investigate: reportRows.filter(row => row.evidence === 'Investigate').length,
             outsideScope: reportRows.filter(row => row.evidence === 'Outside scope').length,
             unmatchedSpend: reportRows.filter(row => row.evidence === 'Missing/unlinked').reduce((sum, row) => sum + (row.metaSpend || 0), 0),
-            metaSpend: reportRows.reduce((sum, row) => sum + (row.metaSpend || 0), 0),
-            prismaPlanned: reportRows.reduce((sum, row) => sum + (row.prismaPlanned || 0), 0)
+            metaBudget: [...campaignBudgets.values()].reduce((sum, budget) => sum + budget, 0),
+            metaSpend,
+            prismaPlanned,
+            variance: metaSpend - prismaPlanned
         };
     }
 
@@ -337,6 +395,7 @@
         if (validationErrors.length) return { rows: [], summary: {}, validationErrors, warnings: [] };
 
         const tolerance = Number.isFinite(Number(options.tolerance)) ? Number(options.tolerance) : 1;
+        const manualMatches = options.manualMatches && typeof options.manualMatches === 'object' ? options.manualMatches : {};
         const accountIdScope = new Set((options.accountIdScope || []).map(cleanId).filter(Boolean));
         const metaRecords = accountIdScope.size ? meta.records.filter(record => accountIdScope.has(record.accountId)) : meta.records;
         const prismaRecords = accountIdScope.size ? prisma.records.filter(record => accountIdScope.has(record.accountId)) : prisma.records;
@@ -363,7 +422,8 @@
         const reportRows = [];
 
         metaRecords.forEach(platform => {
-            const booking = prismaByKey.get(platform.key);
+            const manualBooking = manualMatches[platform.key] ? prismaByKey.get(manualMatches[platform.key]) : null;
+            const booking = manualBooking || prismaByKey.get(platform.key);
             const otherMonths = prismaCampaigns.get(campaignKey(platform.accountId, platform.campaignId)) || [];
             const accountMismatches = (prismaCampaignMonths.get(`${platform.campaignId}|${toIsoDate(platform.month)}`) || [])
                 .filter(record => record.accountId !== platform.accountId);
@@ -371,6 +431,10 @@
             let classification = 'Matched: booking evidence valid';
             let evidence = 'Matched';
             let candidate = null;
+            if (manualBooking) {
+                handledPrismaKeys.add(manualBooking.key);
+                issues.push(`Manual match to Prisma Partner line ID ${manualBooking.campaignId}`);
+            }
 
             const monthClosed = asOfDate > addWorkingDays(endOfMonth(platform.month), closedWorkingDay);
             if (!booking) {
@@ -457,11 +521,13 @@
                     classification = 'In-flight spend difference: monitor';
                     evidence = 'Monitor';
                 }
+                if (manualBooking && evidence === 'Matched') classification = 'Matched manually: booking evidence valid';
             }
 
             reportRows.push({
                 accountId: platform.accountId,
                 campaignId: platform.campaignId,
+                metaKey: platform.key,
                 month: toIsoDate(platform.month).slice(0, 7),
                 account: platform.account,
                 campaignName: platform.campaignName,
@@ -470,6 +536,9 @@
                 metaBudget: platform.budget,
                 metaBudgetType: platform.budgetType,
                 prismaPlanned: booking?.planned ?? null,
+                prismaClient: booking?.client || candidate?.row.client || '',
+                prismaProduct: booking?.product || candidate?.row.product || '',
+                prismaKey: booking?.key || '',
                 variance: booking ? platform.spend - booking.planned : platform.spend,
                 metaStart: toIsoDate(platform.start),
                 metaEnd: toIsoDate(platform.end),
@@ -488,8 +557,10 @@
             const outsideMetaMonths = !metaMonths.has(month);
             reportRows.push({
                 accountId: booking.accountId, campaignId: booking.campaignId, month, account: booking.client,
+                metaKey: '', prismaKey: booking.key,
                 campaignName: booking.campaignName, status: '', metaSpend: null, metaBudget: null, metaBudgetType: '',
                 prismaPlanned: booking.planned, variance: -booking.planned,
+                prismaClient: booking.client, prismaProduct: booking.product,
                 metaStart: '', metaEnd: '', prismaStart: toIsoDate(booking.start), prismaEnd: toIsoDate(booking.end),
                 classification: outsideMetaMonths ? 'Outside Meta reporting months' : 'Prisma booking absent from Meta population',
                 evidence: outsideMetaMonths ? 'Outside scope' : 'Investigate',
@@ -499,7 +570,7 @@
 
         const summary = summarizeRows(reportRows);
         const warnings = [];
-        if (!meta.columns.start || !meta.columns.end) warnings.push('Meta schedule dates are unavailable; month coverage is checked instead.');
+        if (!meta.columns.start || !meta.columns.end) warnings.push('Meta campaign dates are unavailable; month coverage is checked instead. Sync through the Meta API or include campaign start and end columns in the report.');
         if (!prisma.columns.start || !prisma.columns.end) warnings.push('Prisma booked start/end dates are unavailable; exact-day comparison cannot be completed.');
         if (!meta.columns.status) warnings.push('Meta delivery status is unavailable; £0 rows cannot be distinguished reliably as scheduled or inactive.');
         if (meta.columns.budget) warnings.push('Meta campaign budget is context only; monthly findings compare Amount spent with Prisma PLANNED_AMOUNT.');
@@ -523,5 +594,5 @@
         return [headers.join(','), ...rows.map(row => fields.map(field => escapeCsv(field === 'issues' ? row.issues.join('; ') : row[field])).join(','))].join('\r\n');
     }
 
-    return { parseCsv, resolveColumns, aggregateMeta, extractMetaReferenceData, aggregatePrisma, compare, summarizeRows, reportToCsv, nameSimilarity, parseDate, parseMoney };
+    return { parseCsv, resolveColumns, aggregateMeta, extractMetaReferenceData, extractPrismaReferenceData, aggregatePrisma, compare, summarizeRows, reportToCsv, nameSimilarity, parseDate, parseMoney };
 });

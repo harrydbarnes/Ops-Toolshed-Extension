@@ -1,11 +1,14 @@
 (function () {
     const engine = window.socialFinanceEngine;
     const metaApi = window.metaReportApi;
-    const state = { metaText: '', uploadedMetaText: '', metaTextSource: '', prismaText: '', report: null, metaAccounts: [], metaReference: null };
+    const state = { metaText: '', uploadedMetaText: '', metaTextSource: '', prismaText: '', report: null, metaAccounts: [], metaReference: null, prismaReference: null, accountMappings: {}, manualMatches: {}, manualMatchTrigger: null, apiSync: null, sort: { key: '', direction: 'descending' } };
     const elements = {};
     const ACCOUNT_SCOPE_STORAGE_KEY = 'socialBookingMetaAccountScope';
     const META_API_STORAGE_KEY = 'socialBookingMetaApiCredentials';
     const META_REFERENCE_STORAGE_KEY = 'socialBookingMetaReference';
+    const ACCOUNT_MAPPING_STORAGE_KEY = 'socialBookingMetaPrismaMappings';
+    const MANUAL_MATCH_STORAGE_KEY = 'socialBookingManualCampaignMatches';
+    const SAVED_TOKEN_MASK = '••••••••••••';
 
     function byId(id) { return document.getElementById(id); }
     function currency(value) {
@@ -15,6 +18,27 @@
         return String(value ?? '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
     }
     function evidenceClass(value) { return `evidence-${String(value).toLowerCase().replace(/[^a-z]+/g, '-')}`; }
+    const EVIDENCE_EXPLANATIONS = {
+        'Missing/unlinked': 'Meta activity has no confirmed Prisma booking linked by account, campaign and month. When the population is confirmed, this may mean a booking is missing.',
+        'Needs update': 'A linked Prisma booking exists, but a material spend or date difference needs updating.',
+        'Monitor': 'The difference is currently expected while the month is in flight. Keep an eye on it rather than changing the booking now.',
+        'Investigate': 'The evidence needs checking, such as a possible account, ID, date, or likely booking match. It is not yet a definitive update.',
+        'Outside scope': 'This reporting month appears in only one source, so it is kept separate and is not treated as a missing booking.'
+    };
+
+    function evidenceExplanation(value) {
+        if (value === 'Need an update') return EVIDENCE_EXPLANATIONS['Needs update'];
+        if (value === 'Outside report scope') return EVIDENCE_EXPLANATIONS['Outside scope'];
+        return EVIDENCE_EXPLANATIONS[value] || '';
+    }
+
+    function evidenceTooltip(label, className = '') {
+        const explanation = evidenceExplanation(label);
+        const content = `<span class="${className}">${escapeHtml(label)}</span>`;
+        return explanation
+            ? `<span class="evidence-tooltip" tabindex="0" data-tooltip="${escapeHtml(explanation)}" aria-label="${escapeHtml(`${label}. ${explanation}`)}">${content}</span>`
+            : content;
+    }
 
     function localExtensionStorage() {
         return window.chrome && window.chrome.storage && window.chrome.storage.local;
@@ -62,6 +86,8 @@
         element.textContent = message;
         element.classList.toggle('is-ready', kind === 'ready');
         element.classList.toggle('is-error', kind === 'error');
+        element.classList.toggle('is-loading', kind === 'loading');
+        element.setAttribute('aria-busy', kind === 'loading' ? 'true' : 'false');
     }
 
     async function renderCredentialStatus() {
@@ -69,13 +95,32 @@
             const credentials = await savedMetaCredentials();
             const hasToken = Boolean(credentials.accessToken);
             elements.removeMetaToken.classList.toggle('hidden', !hasToken);
-            setStatus(elements.metaCredentialStatus, hasToken ? 'Access token saved locally. The saved value is hidden.' : 'No Meta access token saved.', hasToken ? 'ready' : '');
+            elements.metaAccessToken.closest('.token-input-shell').classList.toggle('has-saved-token', hasToken);
+            if (hasToken && document.activeElement !== elements.metaAccessToken) {
+                elements.metaAccessToken.value = SAVED_TOKEN_MASK;
+                elements.metaAccessToken.dataset.savedMask = 'true';
+            } else if (!hasToken) {
+                elements.metaAccessToken.value = '';
+                delete elements.metaAccessToken.dataset.savedMask;
+            }
+            setStatus(elements.metaCredentialStatus, hasToken ? 'Access token saved locally. Select the field to replace it.' : 'No Meta access token saved.', hasToken ? 'ready' : '');
         } catch (error) {
             setStatus(elements.metaCredentialStatus, error.message, 'error');
         }
     }
 
+    function clearSavedTokenMask() {
+        if (elements.metaAccessToken.dataset.savedMask !== 'true') return;
+        elements.metaAccessToken.value = '';
+        delete elements.metaAccessToken.dataset.savedMask;
+        elements.metaAccessToken.closest('.token-input-shell').classList.remove('has-saved-token');
+    }
+
     async function saveMetaCredentials() {
+        if (elements.metaAccessToken.dataset.savedMask === 'true') {
+            setStatus(elements.metaCredentialStatus, 'Access token saved locally. Enter a new token to replace it.', 'ready');
+            return;
+        }
         const accessToken = elements.metaAccessToken.value.trim();
         if (!accessToken) {
             setStatus(elements.metaCredentialStatus, 'Enter an access token to save.', 'error');
@@ -83,7 +128,6 @@
         }
         try {
             await writeLocalStorage({ [META_API_STORAGE_KEY]: { accessToken } });
-            elements.metaAccessToken.value = '';
             await renderCredentialStatus();
         } catch (error) {
             setStatus(elements.metaCredentialStatus, error.message, 'error');
@@ -97,6 +141,7 @@
                 state.metaText = state.uploadedMetaText;
                 state.metaTextSource = state.uploadedMetaText ? 'csv' : '';
             }
+            state.apiSync = null;
             await renderCredentialStatus();
             resetReport();
         } catch (error) {
@@ -133,6 +178,7 @@
         if (key === 'metaText') {
             state.uploadedMetaText = state[key];
             state.metaTextSource = 'csv';
+            state.apiSync = null;
         }
         byId(labelId).textContent = `${file.name}, ${(file.size / 1024).toFixed(1)} KB`;
         dropZone.classList.add('has-file');
@@ -140,6 +186,7 @@
         resetReport();
         renderMessages([]);
         if (key === 'metaText') await importMetaReference();
+        if (key === 'prismaText') importPrismaReference();
     }
 
     function setupFileUpload(inputId, dropZoneId, removeButtonId, key, labelId) {
@@ -183,7 +230,11 @@
                     state.metaText = '';
                     state.metaTextSource = '';
                 }
-            } else state[key] = '';
+            } else {
+                state[key] = '';
+                state.prismaReference = null;
+                renderPrismaScope();
+            }
             input.value = '';
             byId(labelId).textContent = 'No file selected';
             dropZone.classList.remove('has-file', 'is-dragging');
@@ -208,6 +259,97 @@
             return `<label class="account-option"><input type="checkbox" value="${escapeHtml(account.id)}" ${checked ? 'checked' : ''}><span>${escapeHtml(account.name)}<small>Account ID ${escapeHtml(account.id)}</small></span></label>`;
         }).join('');
         if (accounts.length === 1 && !remembered.has(accounts[0].id)) saveAccountScope();
+        renderPrismaScope();
+    }
+
+    function renderPrismaScope() {
+        const reference = state.prismaReference;
+        const hasReference = Boolean(reference && reference.accounts && reference.accounts.length);
+        elements.prismaScopePanel.classList.toggle('hidden', !hasReference);
+        if (!hasReference) {
+            elements.prismaScopeComparison.innerHTML = '';
+            elements.accountMappingOptions.innerHTML = '';
+            return;
+        }
+        const prismaAccounts = reference.accounts;
+        const selectedMetaIds = new Set(selectedAccountIds());
+        const prismaIds = new Set(prismaAccounts.map(account => account.id));
+        const matched = prismaAccounts.filter(account => selectedMetaIds.has(account.id));
+        const metaOnly = state.metaAccounts.filter(account => selectedMetaIds.has(account.id) && !prismaIds.has(account.id));
+        const prismaOnly = prismaAccounts.filter(account => !selectedMetaIds.has(account.id));
+        const accountLabel = account => {
+            const client = account.clients && account.clients.length ? account.clients.join(', ') : 'No client name supplied';
+            return `${account.id} (${client})`;
+        };
+        setStatus(elements.prismaScopeStatus, `${prismaAccounts.length} Prisma account${prismaAccounts.length === 1 ? '' : 's'} found. ${matched.length} match the selected Meta scope.`, matched.length === prismaAccounts.length && !metaOnly.length ? 'ready' : '');
+        elements.prismaScopeComparison.innerHTML = [
+            ['Matched accounts', matched.length, matched.map(accountLabel), ''],
+            ['Selected Meta only', metaOnly.length, metaOnly.map(account => `${account.id} (${account.name})`), metaOnly.length ? 'scope-mismatch' : ''],
+            ['Prisma only', prismaOnly.length, prismaOnly.map(accountLabel), prismaOnly.length ? 'scope-mismatch' : '']
+        ].map(([label, count, accounts, className]) => `<div class="${className}"><strong>${escapeHtml(label)}: ${count}</strong><span>${escapeHtml(accounts.length ? accounts.join('; ') : 'None')}</span></div>`).join('');
+        renderAccountMappings();
+    }
+
+    function mappingValue(mapping) {
+        return `${encodeURIComponent(mapping.client || '')}|${encodeURIComponent(mapping.product || '')}`;
+    }
+
+    function mappingFromValue(value) {
+        const [client = '', product = ''] = String(value || '').split('|');
+        return { client: decodeURIComponent(client), product: decodeURIComponent(product) };
+    }
+
+    function mappingLabel(mapping) {
+        return `${mapping.client || 'Client name not supplied'} / ${mapping.product || 'Product name not supplied'}`;
+    }
+
+    function renderAccountMappings() {
+        const scopes = state.prismaReference?.clientProducts || [];
+        if (!state.metaAccounts.length) {
+            elements.accountMappingOptions.innerHTML = '<span class="minor">Upload a Meta Ads Report to map accounts.</span>';
+            return;
+        }
+        if (!scopes.length) {
+            elements.accountMappingOptions.innerHTML = '<span class="minor">Add Client name and Product name to the Prisma report to create mapping choices.</span>';
+            return;
+        }
+        elements.accountMappingOptions.innerHTML = state.metaAccounts.map(account => {
+            const saved = state.accountMappings[account.id];
+            const optionValues = new Set(scopes.map(mappingValue));
+            const savedValue = saved ? mappingValue(saved) : '';
+            const savedOption = saved && !optionValues.has(savedValue)
+                ? `<option value="${escapeHtml(savedValue)}">Saved: ${escapeHtml(mappingLabel(saved))} (not in this report)</option>`
+                : '';
+            return `<label class="account-mapping-row"><span>${escapeHtml(account.name)}<small>Meta Account ID ${escapeHtml(account.id)}</small></span><select data-mapping-account-id="${escapeHtml(account.id)}"><option value="">Not mapped</option>${savedOption}${scopes.map(scope => `<option value="${escapeHtml(mappingValue(scope))}" ${savedValue === mappingValue(scope) ? 'selected' : ''}>${escapeHtml(mappingLabel(scope))}</option>`).join('')}</select></label>`;
+        }).join('');
+    }
+
+    async function saveAccountMapping(accountId, mapping) {
+        if (mapping.client || mapping.product) state.accountMappings[accountId] = mapping;
+        else delete state.accountMappings[accountId];
+        await writeLocalStorage({ [ACCOUNT_MAPPING_STORAGE_KEY]: state.accountMappings });
+        if (state.report) renderClientBreakdown();
+    }
+
+    async function restoreAccountMappings() {
+        try {
+            const stored = await readLocalStorage(ACCOUNT_MAPPING_STORAGE_KEY);
+            const mappings = stored[ACCOUNT_MAPPING_STORAGE_KEY];
+            state.accountMappings = mappings && typeof mappings === 'object' ? mappings : {};
+            renderPrismaScope();
+        } catch (error) {
+            setStatus(elements.prismaScopeStatus, error.message, 'error');
+        }
+    }
+
+    async function restoreManualMatches() {
+        try {
+            const stored = await readLocalStorage(MANUAL_MATCH_STORAGE_KEY);
+            const matches = stored[MANUAL_MATCH_STORAGE_KEY];
+            state.manualMatches = matches && typeof matches === 'object' ? matches : {};
+        } catch (_) {
+            state.manualMatches = {};
+        }
     }
 
     function renderReferenceStatus() {
@@ -236,6 +378,16 @@
         renderReferenceStatus();
     }
 
+    function importPrismaReference() {
+        const extracted = engine.extractPrismaReferenceData(engine.parseCsv(state.prismaText));
+        state.prismaReference = extracted;
+        if (extracted.errors.length) {
+            renderMessages(extracted.errors);
+            return;
+        }
+        renderPrismaScope();
+    }
+
     async function restoreMetaReference() {
         try {
             const stored = await readLocalStorage(META_REFERENCE_STORAGE_KEY);
@@ -259,6 +411,7 @@
             state.metaText = state.uploadedMetaText;
             state.metaTextSource = state.uploadedMetaText ? 'csv' : '';
         }
+        state.apiSync = null;
         elements.accountOptions.innerHTML = '';
         elements.accountScopePanel.classList.add('hidden');
         renderReferenceStatus();
@@ -296,13 +449,17 @@
         }
 
         elements.pullMetaData.disabled = true;
-        setStatus(elements.metaApiStatus, 'Pulling campaign metadata, ad sets, and monthly spend…');
+        elements.pullMetaData.textContent = 'Refreshing Meta accounts…';
+        setStatus(elements.metaApiStatus, 'Preparing Meta refresh…', 'loading');
+        let activeAccount = null;
+        let syncComplete = false;
         try {
             const client = await createMetaClient();
             const records = [];
             for (let index = 0; index < accountIds.length; index++) {
                 const account = state.metaAccounts.find(item => item.id === accountIds[index]) || { id: accountIds[index], name: accountIds[index] };
-                setStatus(elements.metaApiStatus, `Pulling ${account.name} (${index + 1} of ${accountIds.length})…`);
+                activeAccount = account;
+                setStatus(elements.metaApiStatus, `Getting dates, delivery status, budget and spend from ${account.name} (${index + 1} of ${accountIds.length})…`, 'loading');
                 const sync = await client.syncAccount(account, startDate, endDate);
                 records.push(...sync.records);
                 state.metaReference = metaApi.mergeReferenceData(state.metaReference, account, sync);
@@ -311,16 +468,25 @@
             state.metaAccounts = state.metaReference.accounts.sort((left, right) => left.name.localeCompare(right.name));
             state.metaText = metaApi.reportToMetaCsv(records);
             state.metaTextSource = 'api';
+            state.apiSync = { accountCount: accountIds.length, startDate, endDate, syncedAt: new Date().toISOString() };
             saveAccountScope();
             resetReport();
             elements.clearMetaApiData.classList.remove('hidden');
             setStatus(elements.metaApiStatus, `${records.length} campaign-month row${records.length === 1 ? '' : 's'} ready to compare.`, 'ready');
+            syncComplete = true;
             renderReferenceStatus();
             renderMessages([]);
         } catch (error) {
-            setStatus(elements.metaApiStatus, error.message, 'error');
+            const message = String(error && error.message ? error.message : error);
+            const accountName = activeAccount ? activeAccount.name : 'the selected ad account';
+            const isReadAccessError = /ads_management\s+or\s+ads_read/i.test(message);
+            const guidance = isReadAccessError
+                ? `Meta denied read access for ${accountName}. This checker only makes read-only requests using ads_read. Ask the account owner to grant the token owner access to this ad account, then create a fresh token with ads_read.`
+                : message;
+            setStatus(elements.metaApiStatus, guidance, 'error');
         } finally {
             elements.pullMetaData.disabled = false;
+            elements.pullMetaData.textContent = syncComplete ? 'Refresh selected Meta accounts' : 'Retry sync';
         }
     }
 
@@ -329,6 +495,7 @@
             state.metaText = state.uploadedMetaText;
             state.metaTextSource = state.uploadedMetaText ? 'csv' : '';
         }
+        state.apiSync = null;
         elements.clearMetaApiData.classList.add('hidden');
         setStatus(elements.metaApiStatus, 'Pulled Meta data cleared. Saved API details remain available.', 'ready');
         resetReport();
@@ -343,6 +510,13 @@
     }
 
     function renderSummary(summary) {
+        const varianceClass = summary.variance > 0 ? 'is-positive' : summary.variance < 0 ? 'is-negative' : '';
+        elements.financialHeadline.innerHTML = [
+            ['Meta budget', currency(summary.metaBudget)],
+            ['Meta spend', currency(summary.metaSpend)],
+            ['Prisma booked', currency(summary.prismaPlanned)],
+            ['Variance', currency(summary.variance), `variance ${varianceClass}`]
+        ].map(([label, value, className = '']) => `<article class="financial-total ${className}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`).join('');
         const cards = [
             ['Campaign-month rows', summary.total],
             ['Missing / unlinked', summary.missingOrUnlinked, 'alert'],
@@ -350,9 +524,9 @@
             ['Monitor', summary.monitor],
             ['Investigate', summary.investigate],
             ['Outside report scope', summary.outsideScope],
-            ['Unmatched Meta spend', currency(summary.unmatchedSpend), 'alert']
+            ['Unmatched Meta spend', currency(summary.unmatchedSpend), 'alert', summary.unmatchedSpend > 0 || Object.keys(state.manualMatches).length]
         ];
-        elements.summaryCards.innerHTML = cards.map(([label, value, className = '']) => `<article class="summary-card ${className}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`).join('');
+        elements.summaryCards.innerHTML = cards.map(([label, value, className = '', isAction = false]) => `<article class="summary-card ${className}${isAction ? ' is-action' : ''}"${isAction ? ' role="button" tabindex="0" data-open-manual-match="true" aria-haspopup="dialog"' : ''}>${evidenceTooltip(label)}<strong>${escapeHtml(value)}</strong></article>`).join('');
     }
 
     function monthFilteredRows() {
@@ -362,14 +536,48 @@
         return state.report.rows.filter(row => (!from || row.month >= from) && (!to || row.month <= to));
     }
 
+    function selectedFilterValues(container) {
+        return new Set(Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(input => input.value));
+    }
+
+    function accountFilteredRows() {
+        const selectedAccounts = selectedFilterValues(elements.accountFilterOptions);
+        return monthFilteredRows().filter(row => selectedAccounts.has(String(row.accountId)));
+    }
+
     function filteredRows() {
-        const filter = elements.evidenceFilter.value;
+        const evidence = selectedFilterValues(elements.evidenceFilterOptions);
         const query = elements.reportSearch.value.trim().toLowerCase();
-        return monthFilteredRows().filter(row => {
-            const evidenceMatch = filter === 'all' || (filter === 'actionable' ? !['Matched', 'Outside scope'].includes(row.evidence) : row.evidence === filter);
+        const rows = accountFilteredRows().filter(row => {
+            const evidenceMatch = evidence.has(row.evidence);
             const queryMatch = !query || [row.accountId, row.campaignId, row.campaignName, row.account, row.classification].some(value => String(value || '').toLowerCase().includes(query));
             return evidenceMatch && queryMatch;
         });
+        if (!state.sort.key) return rows;
+        return [...rows].sort((left, right) => {
+            const leftValue = left[state.sort.key];
+            const rightValue = right[state.sort.key];
+            const leftMissing = leftValue === null || leftValue === undefined || leftValue === '';
+            const rightMissing = rightValue === null || rightValue === undefined || rightValue === '';
+            if (leftMissing !== rightMissing) return leftMissing ? 1 : -1;
+            const difference = Number(leftValue || 0) - Number(rightValue || 0);
+            return state.sort.direction === 'ascending' ? difference : -difference;
+        });
+    }
+
+    function updateFilterCounts() {
+        const evidenceSelected = elements.evidenceFilterOptions.querySelectorAll('input:checked').length;
+        elements.evidenceFilterCount.textContent = `${evidenceSelected} selected`;
+        const accountInputs = elements.accountFilterOptions.querySelectorAll('input');
+        const accountSelected = elements.accountFilterOptions.querySelectorAll('input:checked').length;
+        elements.accountFilterCount.textContent = accountInputs.length && accountSelected === accountInputs.length ? 'All' : `${accountSelected} selected`;
+    }
+
+    function populateAccountFilter(rows) {
+        const accounts = [...new Map(rows.map(row => [String(row.accountId), { id: String(row.accountId), name: row.account || row.accountId }])).values()]
+            .sort((left, right) => left.name.localeCompare(right.name));
+        elements.accountFilterOptions.innerHTML = `<div class="filter-actions"><button type="button" data-filter-action="all">Select all</button><button type="button" data-filter-action="none">Clear</button></div>${accounts.map(account => `<label><input type="checkbox" value="${escapeHtml(account.id)}" checked><span>${escapeHtml(account.name)}<small>Account ID ${escapeHtml(account.id)}</small></span></label>`).join('')}`;
+        updateFilterCounts();
     }
 
     function populateMonthFilters(rows) {
@@ -382,25 +590,140 @@
     }
 
     function renderReport() {
-        renderSummary(engine.summarizeRows(monthFilteredRows()));
+        renderSummary(engine.summarizeRows(accountFilteredRows()));
+        renderClientBreakdown();
         renderRows();
+    }
+
+    function renderClientBreakdown() {
+        const groups = new Map();
+        const ensureGroup = (client, product) => {
+            const normalizedClient = client || 'Unmapped Meta accounts';
+            const normalizedProduct = product || 'Map this account to a Prisma client/product';
+            const key = `${normalizedClient}\u0000${normalizedProduct}`;
+            if (!groups.has(key)) groups.set(key, { client: normalizedClient, product: normalizedProduct, accounts: new Set(), metaSpend: 0, prismaPlanned: 0 });
+            return groups.get(key);
+        };
+        accountFilteredRows().forEach(row => {
+            const mapping = state.accountMappings[row.accountId] || {};
+            if (row.metaSpend !== null && row.metaSpend !== undefined) {
+                const group = ensureGroup(mapping.client, mapping.product);
+                group.accounts.add(row.account || row.accountId);
+                group.metaSpend += Number(row.metaSpend) || 0;
+            }
+            if (row.prismaPlanned !== null && row.prismaPlanned !== undefined) {
+                const group = ensureGroup(row.prismaClient || mapping.client, row.prismaProduct || mapping.product);
+                group.prismaPlanned += Number(row.prismaPlanned) || 0;
+            }
+        });
+        const groupsSorted = [...groups.values()].sort((left, right) => `${left.client}|${left.product}`.localeCompare(`${right.client}|${right.product}`));
+        elements.clientBreakdownBody.innerHTML = groupsSorted.map(group => `<tr><td>${escapeHtml(group.client)}</td><td>${escapeHtml(group.product)}</td><td>${escapeHtml([...group.accounts].join(', ') || '—')}</td><td class="number">${escapeHtml(currency(group.metaSpend))}</td><td class="number">${escapeHtml(currency(group.prismaPlanned))}</td><td class="number">${escapeHtml(currency(group.metaSpend - group.prismaPlanned))}</td></tr>`).join('');
+    }
+
+    function unmatchedMetaRowsForManualMatch() {
+        return accountFilteredRows().filter(row => row.evidence === 'Missing/unlinked' && Number(row.metaSpend) > 0 && row.metaKey);
+    }
+
+    function unmatchedPrismaRowsForManualMatch() {
+        return monthFilteredRows().filter(row => row.metaSpend === null && row.prismaPlanned !== null && row.prismaKey && row.evidence !== 'Outside scope');
+    }
+
+    function prismaMatchOption(row) {
+        const account = row.account || row.accountId || 'Account not supplied';
+        const campaign = row.campaignName || 'Campaign name not supplied';
+        return `${account} · ${campaign} · ID ${row.campaignId} · ${currency(row.prismaPlanned)} booked · ${row.month}`;
+    }
+
+    function openManualMatch() {
+        if (!state.report) return;
+        state.manualMatchTrigger = document.activeElement;
+        const metaRows = unmatchedMetaRowsForManualMatch();
+        const prismaRows = unmatchedPrismaRowsForManualMatch();
+        elements.manualMatchBody.innerHTML = metaRows.map(row => `<tr><td>${escapeHtml(row.account)}<span class="minor">ID ${escapeHtml(row.accountId)}</span></td><td>${escapeHtml(row.campaignName || 'Name not supplied')}</td><td><span class="campaign-id">${escapeHtml(row.campaignId)}</span>${row.month ? `<span class="minor">${escapeHtml(row.month)}</span>` : ''}</td><td class="number">${escapeHtml(currency(row.metaSpend))}</td><td><select data-manual-meta-key="${escapeHtml(row.metaKey)}"><option value="">Do not match</option>${prismaRows.map(candidate => `<option value="${escapeHtml(candidate.prismaKey)}">${escapeHtml(prismaMatchOption(candidate))}</option>`).join('')}</select></td></tr>`).join('');
+        const hasManualMatches = Object.keys(state.manualMatches).length > 0;
+        elements.clearManualMatches.classList.toggle('hidden', !hasManualMatches);
+        elements.applyManualMatches.disabled = !metaRows.length || !prismaRows.length;
+        setStatus(elements.manualMatchStatus, metaRows.length && prismaRows.length
+            ? `${metaRows.length} Meta campaign${metaRows.length === 1 ? '' : 's'} can be paired with ${prismaRows.length} currently unmatched Prisma campaign${prismaRows.length === 1 ? '' : 's'}.`
+            : hasManualMatches ? 'All current unmatched Meta spend has a local match. Clear local matches to start again.' : 'There are no compatible unmatched Meta and Prisma campaign rows in the current month and account scope.');
+        elements.manualMatchModal.classList.remove('hidden');
+        elements.closeManualMatch.focus();
+    }
+
+    function closeManualMatch() {
+        elements.manualMatchModal.classList.add('hidden');
+        state.manualMatchTrigger?.focus?.();
+    }
+
+    async function applyManualMatches() {
+        const selections = Array.from(elements.manualMatchBody.querySelectorAll('select[data-manual-meta-key]'));
+        const selectedPrismaKeys = selections.map(select => select.value).filter(Boolean);
+        if (new Set(selectedPrismaKeys).size !== selectedPrismaKeys.length) {
+            setStatus(elements.manualMatchStatus, 'Choose each Prisma campaign only once.', 'error');
+            return;
+        }
+        const next = { ...state.manualMatches };
+        selections.forEach(select => {
+            if (select.value) next[select.dataset.manualMetaKey] = select.value;
+            else delete next[select.dataset.manualMetaKey];
+        });
+        try {
+            await writeLocalStorage({ [MANUAL_MATCH_STORAGE_KEY]: next });
+            state.manualMatches = next;
+            closeManualMatch();
+            runComparison();
+        } catch (error) {
+            setStatus(elements.manualMatchStatus, error.message, 'error');
+        }
+    }
+
+    async function clearManualMatches() {
+        try {
+            await removeLocalStorage(MANUAL_MATCH_STORAGE_KEY);
+            state.manualMatches = {};
+            closeManualMatch();
+            runComparison();
+        } catch (error) {
+            setStatus(elements.manualMatchStatus, error.message, 'error');
+        }
     }
 
     function renderRows() {
         const rows = filteredRows();
+        const showMonth = new Set(accountFilteredRows().map(row => row.month).filter(Boolean)).size > 1;
         elements.visibleCount.textContent = `${rows.length} row${rows.length === 1 ? '' : 's'} shown`;
+        elements.reportHeader.innerHTML = `<tr><th>Evidence</th><th>Account</th><th>Campaign name</th><th>Campaign ID</th>${showMonth ? '<th>Month</th>' : ''}<th class="number" data-sort-key="metaSpend"><button class="sort-button" type="button" data-sort="metaSpend">Meta spend <span aria-hidden="true"></span></button></th><th class="number" data-sort-key="prismaPlanned"><button class="sort-button" type="button" data-sort="prismaPlanned">Prisma <span aria-hidden="true"></span></button></th><th class="number" data-sort-key="variance"><button class="sort-button" type="button" data-sort="variance">Variance <span aria-hidden="true"></span></button></th><th>Finding</th><th>Supporting evidence</th></tr>`;
+        elements.reportHeader.querySelectorAll('.sort-button[data-sort]').forEach(button => button.addEventListener('click', () => toggleSort(button.dataset.sort)));
         elements.reportBody.innerHTML = rows.map(row => `
             <tr>
-                <td><span class="evidence-pill ${evidenceClass(row.evidence)}">${escapeHtml(row.evidence)}</span></td>
-                <td><span class="campaign-id">${escapeHtml(row.campaignId)}</span><span class="minor">${escapeHtml(row.month)}</span></td>
+                <td>${evidenceTooltip(row.evidence, `evidence-pill ${evidenceClass(row.evidence)}`)}</td>
                 <td>${escapeHtml(row.account)}<span class="minor">ID ${escapeHtml(row.accountId)}</span></td>
                 <td>${escapeHtml(row.campaignName || 'Name not supplied')}</td>
+                <td><span class="campaign-id">${escapeHtml(row.campaignId)}</span></td>
+                ${showMonth ? `<td>${escapeHtml(row.month)}</td>` : ''}
                 <td class="number">${escapeHtml(currency(row.metaSpend))}</td>
                 <td class="number">${escapeHtml(currency(row.prismaPlanned))}</td>
                 <td class="number">${escapeHtml(currency(row.variance))}</td>
                 <td><strong>${escapeHtml(row.classification)}</strong><span class="minor">${escapeHtml(row.owner || 'Owner not supplied')}</span></td>
                 <td>${row.issues.map(issue => escapeHtml(issue)).join('<br>') || 'No secondary issues'}</td>
             </tr>`).join('');
+        document.querySelectorAll('th[data-sort-key]').forEach(header => {
+            const active = header.dataset.sortKey === state.sort.key;
+            header.setAttribute('aria-sort', active ? state.sort.direction : 'none');
+            const indicator = header.querySelector('.sort-button span');
+            if (indicator) indicator.textContent = active ? (state.sort.direction === 'ascending' ? '▲' : '▼') : '';
+        });
+    }
+
+    function applyFilterAction(container, action) {
+        container.querySelectorAll('input[type="checkbox"]').forEach(input => { input.checked = action === 'all'; });
+        updateFilterCounts();
+    }
+
+    function toggleSort(key) {
+        if (state.sort.key === key) state.sort.direction = state.sort.direction === 'ascending' ? 'descending' : 'ascending';
+        else state.sort = { key, direction: 'descending' };
+        renderRows();
     }
 
     function runComparison() {
@@ -415,12 +738,19 @@
             tolerance: Number(elements.tolerance.value),
             closedWorkingDay: Number(elements.closedWorkingDay.value),
             populationConfirmed: elements.populationConfirmed.checked,
-            accountIdScope: selectedAccountIds()
+            accountIdScope: selectedAccountIds(),
+            manualMatches: state.manualMatches
         });
         if (report.validationErrors.length) { renderMessages(report.validationErrors); elements.results.classList.add('hidden'); return; }
         state.report = report;
         renderMessages([]);
+        const usingApi = state.metaTextSource === 'api' && state.apiSync;
+        elements.metaDataSource.classList.toggle('is-live', Boolean(usingApi));
+        elements.metaDataSource.textContent = usingApi
+            ? `Using live Meta API data for ${state.apiSync.accountCount} selected account${state.apiSync.accountCount === 1 ? '' : 's'}, ${state.apiSync.startDate} to ${state.apiSync.endDate}.`
+            : 'Using the uploaded Meta Ads Report. Refresh selected Meta accounts to update campaign dates, delivery status, budgets, ad sets, and spend through the Meta API.';
         populateMonthFilters(report.rows);
+        populateAccountFilter(report.rows);
         elements.coverageWarnings.innerHTML = report.warnings.map(warning => `<span class="coverage-warning">${escapeHtml(warning)}</span>`).join('');
         elements.results.classList.remove('hidden');
         renderReport();
@@ -438,13 +768,14 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        ['validationMessages', 'results', 'summaryCards', 'coverageWarnings', 'evidenceFilter', 'reportSearch', 'monthFromFilter', 'monthToFilter', 'visibleCount', 'reportBody', 'asOfDate', 'tolerance', 'closedWorkingDay', 'populationConfirmed', 'accountScopePanel', 'accountOptions', 'metaApiPanel', 'metaAccessToken', 'metaCredentialStatus', 'removeMetaToken', 'metaApiDatePreset', 'metaApiStartDate', 'metaApiEndDate', 'metaApiStatus', 'apiAccountActions', 'pullMetaData', 'clearMetaApiData', 'metaReferenceStatus', 'removeMetaReference'].forEach(id => { elements[id] = byId(id); });
+        ['validationMessages', 'results', 'metaDataSource', 'financialHeadline', 'summaryCards', 'coverageWarnings', 'clientBreakdown', 'clientBreakdownBody', 'reportSearch', 'monthFromFilter', 'monthToFilter', 'visibleCount', 'reportHeader', 'reportBody', 'asOfDate', 'tolerance', 'closedWorkingDay', 'populationConfirmed', 'accountScopePanel', 'accountOptions', 'prismaScopePanel', 'prismaScopeStatus', 'prismaScopeComparison', 'accountMappingOptions', 'metaApiPanel', 'metaAccessToken', 'metaCredentialStatus', 'removeMetaToken', 'metaApiDatePreset', 'metaApiStartDate', 'metaApiEndDate', 'metaApiStatus', 'apiAccountActions', 'pullMetaData', 'clearMetaApiData', 'metaReferenceStatus', 'removeMetaReference', 'evidenceFilterOptions', 'evidenceFilterCount', 'accountFilterOptions', 'accountFilterCount', 'manualMatchModal', 'manualMatchStatus', 'manualMatchBody', 'closeManualMatch', 'cancelManualMatch', 'applyManualMatches', 'clearManualMatches'].forEach(id => { elements[id] = byId(id); });
         elements.asOfDate.value = new Date().toISOString().slice(0, 10);
         applyDatePreset();
         setupFileUpload('metaFile', 'metaDropZone', 'removeMetaFile', 'metaText', 'metaFileName');
         setupFileUpload('prismaFile', 'prismaDropZone', 'removePrismaFile', 'prismaText', 'prismaFileName');
         byId('saveMetaCredentials').addEventListener('click', saveMetaCredentials);
         elements.removeMetaToken.addEventListener('click', removeMetaCredential);
+        elements.metaAccessToken.addEventListener('focus', clearSavedTokenMask);
         elements.removeMetaReference.addEventListener('click', () => removeMetaReference().catch(error => setStatus(elements.metaReferenceStatus, error.message, 'error')));
         elements.metaApiDatePreset.addEventListener('change', applyDatePreset);
         elements.pullMetaData.addEventListener('click', pullMetaData);
@@ -452,8 +783,21 @@
         byId('runComparison').addEventListener('click', runComparison);
         byId('downloadReport').addEventListener('click', downloadReport);
         byId('selectAllAccounts').addEventListener('click', () => { elements.accountOptions.querySelectorAll('input').forEach(input => { input.checked = true; }); saveAccountScope(); });
-        byId('clearAccounts').addEventListener('click', () => { elements.accountOptions.querySelectorAll('input').forEach(input => { input.checked = false; }); saveAccountScope(); });
-        elements.accountOptions.addEventListener('change', saveAccountScope);
+        byId('clearAccounts').addEventListener('click', () => { elements.accountOptions.querySelectorAll('input').forEach(input => { input.checked = false; }); saveAccountScope(); renderPrismaScope(); });
+        elements.accountOptions.addEventListener('change', () => { saveAccountScope(); renderPrismaScope(); });
+        elements.accountMappingOptions.addEventListener('change', event => {
+            const select = event.target.closest('select[data-mapping-account-id]');
+            if (!select) return;
+            saveAccountMapping(select.dataset.mappingAccountId, mappingFromValue(select.value)).catch(error => setStatus(elements.prismaScopeStatus, error.message, 'error'));
+        });
+        elements.summaryCards.addEventListener('click', event => { if (event.target.closest('[data-open-manual-match]')) openManualMatch(); });
+        elements.summaryCards.addEventListener('keydown', event => { if ((event.key === 'Enter' || event.key === ' ') && event.target.closest('[data-open-manual-match]')) { event.preventDefault(); openManualMatch(); } });
+        elements.closeManualMatch.addEventListener('click', closeManualMatch);
+        elements.cancelManualMatch.addEventListener('click', closeManualMatch);
+        elements.applyManualMatches.addEventListener('click', applyManualMatches);
+        elements.clearManualMatches.addEventListener('click', clearManualMatches);
+        elements.manualMatchModal.addEventListener('click', event => { if (event.target.closest('[data-close-manual-match]')) closeManualMatch(); });
+        document.addEventListener('keydown', event => { if (event.key === 'Escape' && !elements.manualMatchModal.classList.contains('hidden')) closeManualMatch(); });
         elements.monthFromFilter.addEventListener('change', () => {
             if (elements.monthFromFilter.value > elements.monthToFilter.value) elements.monthToFilter.value = elements.monthFromFilter.value;
             renderReport();
@@ -462,9 +806,19 @@
             if (elements.monthToFilter.value < elements.monthFromFilter.value) elements.monthFromFilter.value = elements.monthToFilter.value;
             renderReport();
         });
-        elements.evidenceFilter.addEventListener('change', renderRows);
+        elements.evidenceFilterOptions.addEventListener('change', () => { updateFilterCounts(); renderRows(); });
+        elements.accountFilterOptions.addEventListener('change', () => { updateFilterCounts(); renderReport(); });
+        document.querySelectorAll('.filter-popover').forEach(container => container.addEventListener('click', event => {
+            const action = event.target.closest('[data-filter-action]')?.dataset.filterAction;
+            if (!action) return;
+            applyFilterAction(container, action);
+            if (container === elements.accountFilterOptions) renderReport(); else renderRows();
+        }));
         elements.reportSearch.addEventListener('input', renderRows);
+        updateFilterCounts();
         renderCredentialStatus();
         restoreMetaReference();
+        restoreAccountMappings();
+        restoreManualMatches();
     });
 })();

@@ -198,6 +198,7 @@
                     endDate: String(campaign.stop_time || '').slice(0, 10),
                     budget: budget.budget,
                     budgetType: budget.budgetType,
+                    delivery: campaign.effective_status || campaign.configured_status || campaign.status || '',
                     status: campaign.status || '',
                     configuredStatus: campaign.configured_status || '',
                     effectiveStatus: campaign.effective_status || '',
@@ -288,7 +289,7 @@
             ['Campaign name', 'campaignName'], ['Ad set name', 'adSetName'], ['Month', 'month'],
             ['Reporting starts', 'reportingStart'], ['Reporting ends', 'reportingEnd'],
             ['Amount spent (GBP)', 'spend'], ['Campaign budget', 'budget'], ['Campaign budget type', 'budgetType'],
-            ['Delivery', 'effectiveStatus'], ['Configured status', 'configuredStatus'], ['Campaign status', 'status'],
+            ['Delivery', 'delivery'], ['Configured status', 'configuredStatus'], ['Campaign status', 'status'],
             ['Campaign start', 'startDate'], ['Campaign end', 'endDate']
         ];
         return [columns.map(([label]) => escapeCsv(label)).join(','), ...(records || []).map(record => (

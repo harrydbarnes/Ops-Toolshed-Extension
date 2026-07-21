@@ -76,7 +76,7 @@ describe('Meta report API client', () => {
             accountId: '111', accountName: 'Boots', campaignId: '9', campaignName: 'Summer',
             adSetName: 'Prospecting, Retargeting', month: '2026-06', reportingStart: '2026-06-15',
             reportingEnd: '2026-06-30', startDate: '2026-06-03', endDate: '2026-08-31',
-            budget: 250, budgetType: 'Lifetime', effectiveStatus: 'ACTIVE', spend: 40
+            budget: 250, budgetType: 'Lifetime', delivery: 'ACTIVE', effectiveStatus: 'ACTIVE', spend: 40
         }));
         expect(rows[1]).toEqual(expect.objectContaining({ month: '2026-07', spend: 60 }));
     });
@@ -87,10 +87,12 @@ describe('Meta report API client', () => {
             { since: '2026-07-01', until: '2026-07-31', month: '2026-07' },
             { since: '2026-08-01', until: '2026-08-02', month: '2026-08' }
         ]);
-        const csv = reportToMetaCsv([{ accountId: '111', campaignId: '9', campaignName: 'Summer', month: '2026-06', spend: 12.5 }]);
+        const csv = reportToMetaCsv([{ accountId: '111', campaignId: '9', campaignName: 'Summer', month: '2026-06', spend: 12.5, delivery: 'ACTIVE', startDate: '2026-06-01', endDate: '2026-06-30' }]);
         expect(csv).toContain('Account ID,Campaign ID');
         expect(csv).toContain('Amount spent (GBP)');
         expect(csv).toContain('111,9,Summer');
+        expect(csv).toContain('ACTIVE');
+        expect(csv).toContain('2026-06-01,2026-06-30');
     });
 
     test('resolves date presets and adds newly discovered campaign and ad set references', () => {

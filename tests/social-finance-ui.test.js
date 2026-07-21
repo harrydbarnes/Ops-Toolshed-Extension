@@ -84,6 +84,7 @@ describe('Social Booking Checker upload guidance', () => {
         expect(text).toContain('same client/accounts and reporting months');
         expect(text).toContain('Campaign, Plan or Order name');
         expect(text).toContain('Client name');
+        expect(text).toContain('Product name');
         expect(text).toContain('Days in Flight start date');
         expect(text).toContain('Days in Flight end date');
         expect(text).toContain('Placement creator');
@@ -127,11 +128,16 @@ describe('Social Booking Checker upload guidance', () => {
     test('requires report-led discovery and offers a read-only API refresh without Business credentials', () => {
         expect(document.querySelector('#metaAccessToken').type).toBe('password');
         expect(document.querySelector('#metaBusinessId')).toBeNull();
-        expect(document.querySelector('#removeMetaToken').textContent).toBe('Remove token');
+        expect(document.querySelector('#removeMetaToken').textContent).toBe('×');
+        expect(document.querySelector('#removeMetaToken').getAttribute('aria-label')).toBe('Remove saved access token');
         expect(document.querySelector('#removeMetaBusinessId')).toBeNull();
         expect(document.querySelector('#metaApiPanel').textContent).toContain('ads_read');
         expect(document.querySelector('#metaApiDatePreset').options).toHaveLength(8);
-        expect(document.querySelector('#pullMetaData').textContent).toBe('Sync selected accounts');
+        expect(document.querySelector('#pullMetaData').textContent).toBe('Refresh selected Meta accounts');
+        expect(document.querySelector('#prismaScopePanel').textContent).toContain('Prisma client scope');
+        expect(document.querySelector('#prismaScopePanel').textContent).toContain('Partner account ID in Prisma maps to Account ID in Meta');
+        expect(css).toContain('.api-status:not(.is-loading)::before');
+        expect(css).toContain('social-booking-spin');
         expect(document.body.textContent).toContain('The report supplies the Account IDs');
         expect(script).toContain("window.chrome.storage.local");
         expect(script).not.toContain('META_ACCESS_TOKEN');
@@ -149,6 +155,44 @@ describe('Social Booking Checker upload guidance', () => {
         expect(document.querySelector('#monthToFilter')).not.toBeNull();
         expect(headings).toContain('Account');
         expect(headings).toContain('Campaign name');
+        expect(headings).toContain('Campaign ID');
+        expect(headings).not.toContain('Campaign / month');
         expect(headings).not.toContain('Account and campaign');
+        expect(document.querySelector('#clientBreakdown')).not.toBeNull();
+        expect(document.querySelector('#clientBreakdown').textContent).toContain('Client breakdown');
+    });
+
+    test('provides multi-select evidence and account filters plus numeric sorting', () => {
+        const evidence = document.querySelector('#evidenceFilterMenu');
+        const account = document.querySelector('#accountFilterMenu');
+        expect(evidence.querySelector('summary').textContent).toContain('Evidence');
+        expect(evidence.querySelectorAll('input[type="checkbox"]')).toHaveLength(6);
+        expect(account.querySelector('summary').textContent).toContain('Account');
+        expect(document.querySelector('#evidenceFilter')).toBeNull();
+        expect([...document.querySelectorAll('.sort-button')].map(button => button.dataset.sort)).toEqual(['metaSpend', 'prismaPlanned', 'variance']);
+    });
+
+    test('explains reconciliation evidence on hover and keyboard focus', () => {
+        expect(script).toContain('EVIDENCE_EXPLANATIONS');
+        expect(script).toContain('Missing/unlinked');
+        expect(script).toContain('Outside scope');
+        expect(css).toContain('.evidence-tooltip:hover::after');
+        expect(css).toContain('.evidence-tooltip:focus-visible::after');
+    });
+
+    test('provides a large local-only workspace for matching unmatched Meta spend', () => {
+        expect(document.querySelector('#manualMatchModal').getAttribute('role')).toBe('dialog');
+        expect(document.querySelector('#manualMatchModal').textContent).toContain('Match unmatched Meta spend');
+        expect(document.querySelector('#manualMatchModal').textContent).toContain('Prisma campaign to match');
+        expect(document.querySelector('#applyManualMatches').textContent).toBe('Apply local matches');
+        expect(css).toContain('.manual-match-dialog');
+        expect(script).toContain('socialBookingManualCampaignMatches');
+    });
+
+    test('shows headline financial totals, API source evidence, and explains outside-scope rows', () => {
+        expect(document.querySelector('#financialHeadline')).not.toBeNull();
+        expect(document.querySelector('#metaDataSource')).not.toBeNull();
+        expect(document.querySelector('.scope-explanation').textContent).toContain('reporting month found in one source but not the other');
+        expect(css).toContain('.financial-headline');
     });
 });

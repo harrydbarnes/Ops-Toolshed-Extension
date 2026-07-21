@@ -45,6 +45,11 @@ describe('Social Booking Checker report uploads', () => {
                 accounts: [{ id: '111', name: 'Boots', lastSynced: '' }],
                 campaigns: [{ id: '9', name: 'Summer', accountId: '111' }],
                 adSets: [], errors: []
+            })),
+            extractPrismaReferenceData: jest.fn(() => ({
+                accounts: [{ id: '111', clients: ['Boots'], rows: 1, months: ['2026-06-01'] }],
+                clientProducts: [{ client: 'Boots', product: 'Opticians', accountIds: ['111'] }],
+                errors: []
             }))
         };
         dom.window.eval(script);
@@ -129,23 +134,30 @@ describe('Social Booking Checker report uploads', () => {
         expect(document.querySelector('#monthFromFilter').value).toBe('2026-05');
         expect(document.querySelector('#monthToFilter').value).toBe('2026-06');
         expect(document.querySelector('.summary-card strong').textContent).toBe('2');
+        expect([...document.querySelectorAll('#reportHeader th')].map(cell => cell.textContent)).toEqual(expect.arrayContaining(['Account', 'Campaign name', 'Campaign ID', 'Month']));
 
         document.querySelector('#monthFromFilter').value = '2026-06';
         document.querySelector('#monthFromFilter').dispatchEvent(new dom.window.Event('change', { bubbles: true }));
         expect(document.querySelector('.summary-card strong').textContent).toBe('1');
         expect(document.querySelector('#reportBody').textContent).toContain('June campaign');
         expect(document.querySelector('#reportBody').textContent).not.toContain('May campaign');
+        expect([...document.querySelectorAll('#reportHeader th')].map(cell => cell.textContent)).not.toContain('Month');
     });
 
-    test('stores API details locally, hides saved values, and removes them', async () => {
+    test('masks a saved API token in place and removes it from the field control', async () => {
         document.querySelector('#metaAccessToken').value = 'private-token';
         document.querySelector('#saveMetaCredentials').click();
         await new Promise(resolve => dom.window.setTimeout(resolve, 0));
 
-        expect(document.querySelector('#metaAccessToken').value).toBe('');
+        expect(document.querySelector('#metaAccessToken').value).toBe('••••••••••••');
+        expect(document.querySelector('#metaAccessToken').value).not.toBe('private-token');
         expect(document.querySelector('#metaCredentialStatus').textContent).toContain('saved locally');
         expect(document.body.textContent).not.toContain('private-token');
         expect(document.querySelector('#removeMetaToken').classList.contains('hidden')).toBe(false);
+        expect(document.querySelector('#removeMetaToken').getAttribute('aria-label')).toBe('Remove saved access token');
+
+        document.querySelector('#metaAccessToken').focus();
+        expect(document.querySelector('#metaAccessToken').value).toBe('');
 
         document.querySelector('#removeMetaToken').click();
         await new Promise(resolve => dom.window.setTimeout(resolve, 0));
@@ -170,5 +182,121 @@ describe('Social Booking Checker report uploads', () => {
         expect(dom.window.metaReportApi.reportToMetaCsv).toHaveBeenCalled();
         expect(document.querySelector('#metaApiStatus').textContent).toContain('campaign-month row');
         expect(document.querySelector('#clearMetaApiData').classList.contains('hidden')).toBe(false);
+
+        dom.window.socialFinanceEngine.compare = jest.fn(() => ({ rows: [], summary: {}, warnings: [], validationErrors: [] }));
+        dom.window.socialFinanceEngine.summarizeRows = jest.fn(() => ({ total: 0, missingOrUnlinked: 0, needsUpdate: 0, monitor: 0, investigate: 0, outsideScope: 0, unmatchedSpend: 0, metaBudget: 0, metaSpend: 0, prismaPlanned: 0, variance: 0 }));
+        const prisma = { name: 'prisma.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('prisma') };
+        dropFile(dom.window, document.querySelector('#prismaDropZone'), prisma);
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        document.querySelector('#runComparison').click();
+        expect(document.querySelector('#metaDataSource').textContent).toContain('Using live Meta API data');
+        expect(document.querySelector('#metaDataSource').textContent).toContain('2026-06-01 to 2026-06-30');
+    });
+
+    test('checks Prisma client account scope against the selected Meta scope', async () => {
+        const meta = { name: 'meta.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('Account ID,Campaign ID,Month,Amount spent\n111,9,2026-06,10') };
+        const prisma = { name: 'prisma.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('Partner account id,Period,PLANNED_AMOUNT\n111,2026-06,10') };
+        dropFile(dom.window, document.querySelector('#metaDropZone'), meta);
+        dropFile(dom.window, document.querySelector('#prismaDropZone'), prisma);
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+
+        expect(dom.window.socialFinanceEngine.extractPrismaReferenceData).toHaveBeenCalled();
+        expect(document.querySelector('#prismaScopePanel').classList.contains('hidden')).toBe(false);
+        expect(document.querySelector('#prismaScopeStatus').textContent).toContain('1 Prisma account found');
+        expect(document.querySelector('#prismaScopeComparison').textContent).toContain('Matched accounts: 1');
+        expect(document.querySelector('#accountMappingOptions').textContent).toContain('Boots / Opticians');
+    });
+
+    test('explains which permission is missing when Meta rejects a read-only sync', async () => {
+        const meta = { name: 'meta.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('Account ID,Campaign ID,Month,Amount spent\n111,9,2026-06,10') };
+        dropFile(dom.window, document.querySelector('#metaDropZone'), meta);
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        document.querySelector('#metaAccessToken').value = 'token';
+        document.querySelector('#saveMetaCredentials').click();
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        document.querySelector('.account-option input[value="111"]').checked = true;
+        dom.window.metaReportApi.createClient.mockReturnValueOnce({
+            syncAccount: jest.fn().mockRejectedValue(new Error('(#200) Ad account owner has NOT grant ads_management or ads_read permission'))
+        });
+
+        document.querySelector('#pullMetaData').click();
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+
+        expect(document.querySelector('#metaApiStatus').textContent).toContain('Meta denied read access for Boots');
+        expect(document.querySelector('#metaApiStatus').textContent).toContain('only makes read-only requests using ads_read');
+        expect(document.querySelector('#pullMetaData').textContent).toBe('Retry sync');
+    });
+
+    test('opens a local matching workspace from unmatched Meta spend and applies a selected Prisma campaign', async () => {
+        const rows = [
+            { accountId: '111', account: 'Boots', campaignId: 'meta-1', campaignName: 'Meta campaign', month: '2026-06', metaKey: '111|meta-1|2026-06-01', prismaKey: '', metaSpend: 50, prismaPlanned: null, variance: 50, evidence: 'Missing/unlinked', classification: 'Missing', metaBudget: null, issues: [], owner: '' },
+            { accountId: '111', account: 'Boots', campaignId: 'prisma-1', campaignName: 'Prisma campaign', month: '2026-06', metaKey: '', prismaKey: '111|prisma-1|2026-06-01', metaSpend: null, prismaPlanned: 48, variance: -48, evidence: 'Investigate', classification: 'Prisma booking absent from Meta population', metaBudget: null, issues: [], owner: '' }
+        ];
+        dom.window.socialFinanceEngine.compare = jest.fn(() => ({ rows, summary: {}, warnings: [], validationErrors: [] }));
+        dom.window.socialFinanceEngine.summarizeRows = jest.fn(() => ({ total: 2, missingOrUnlinked: 1, needsUpdate: 0, monitor: 0, investigate: 1, outsideScope: 0, unmatchedSpend: 50, metaBudget: 0, metaSpend: 50, prismaPlanned: 48, variance: 2 }));
+        const meta = { name: 'meta.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('meta') };
+        const prisma = { name: 'prisma.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('prisma') };
+        dropFile(dom.window, document.querySelector('#metaDropZone'), meta);
+        dropFile(dom.window, document.querySelector('#prismaDropZone'), prisma);
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        document.querySelector('#runComparison').click();
+
+        document.querySelector('[data-open-manual-match="true"]').click();
+        expect(document.querySelector('#manualMatchModal').classList.contains('hidden')).toBe(false);
+        expect(document.querySelector('#manualMatchBody').textContent).toContain('Meta campaign');
+        const select = document.querySelector('#manualMatchBody select');
+        expect(select.textContent).toContain('Prisma campaign');
+        expect(select.textContent).toContain('£48.00 booked');
+        select.value = '111|prisma-1|2026-06-01';
+        document.querySelector('#applyManualMatches').click();
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+
+        expect(dom.window.socialFinanceEngine.compare.mock.calls.at(-1)[2].manualMatches).toEqual({ '111|meta-1|2026-06-01': '111|prisma-1|2026-06-01' });
+    });
+
+    test('filters by evidence and account, sorts financial columns, and updates headline totals', async () => {
+        const rows = [
+            { accountId: '111', campaignId: '1', month: '2026-06', account: 'Boots', campaignName: 'Lower', evidence: 'Needs update', classification: 'Update', metaBudget: 100, metaSpend: 10, prismaPlanned: 8, variance: 2, issues: [], owner: '' },
+            { accountId: '222', campaignId: '2', month: '2026-06', account: 'No7', campaignName: 'Higher', evidence: 'Investigate', classification: 'Investigate', metaBudget: 200, metaSpend: 30, prismaPlanned: 20, variance: 10, issues: [], owner: '' }
+        ];
+        dom.window.socialFinanceEngine.compare = jest.fn(() => ({ rows, summary: {}, warnings: [], validationErrors: [] }));
+        dom.window.socialFinanceEngine.summarizeRows = jest.fn(filtered => ({
+            total: filtered.length, missingOrUnlinked: 0, needsUpdate: 0, monitor: 0, investigate: 0, outsideScope: 0, unmatchedSpend: 0,
+            metaBudget: filtered.reduce((sum, row) => sum + row.metaBudget, 0),
+            metaSpend: filtered.reduce((sum, row) => sum + row.metaSpend, 0),
+            prismaPlanned: filtered.reduce((sum, row) => sum + row.prismaPlanned, 0),
+            variance: filtered.reduce((sum, row) => sum + row.variance, 0)
+        }));
+        const meta = { name: 'meta.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('meta') };
+        const prisma = { name: 'prisma.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('prisma') };
+        dropFile(dom.window, document.querySelector('#metaDropZone'), meta);
+        dropFile(dom.window, document.querySelector('#prismaDropZone'), prisma);
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        const mapping = document.querySelector('[data-mapping-account-id="111"]');
+        mapping.value = mapping.options[1].value;
+        mapping.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        document.querySelector('#runComparison').click();
+
+        expect(document.querySelector('#accountFilterOptions').textContent).toContain('Boots');
+        expect(document.querySelector('#accountFilterOptions').textContent).toContain('No7');
+        expect(document.querySelector('#financialHeadline').textContent).toContain('£40.00');
+        expect(document.querySelector('#clientBreakdownBody').textContent).toContain('Boots');
+        expect(document.querySelector('#clientBreakdownBody').textContent).toContain('Opticians');
+        expect(document.querySelector('.summary-card .evidence-tooltip[data-tooltip*="linked Prisma booking"]')).not.toBeNull();
+        expect(document.querySelector('#reportBody .evidence-tooltip[data-tooltip*="linked Prisma booking"]')).not.toBeNull();
+
+        document.querySelector('#accountFilterOptions input[value="222"]').checked = false;
+        document.querySelector('#accountFilterOptions input[value="222"]').dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+        expect(document.querySelector('#reportBody').textContent).not.toContain('Higher');
+        expect(document.querySelector('#financialHeadline').textContent).toContain('£10.00');
+
+        document.querySelector('#accountFilterOptions input[value="222"]').checked = true;
+        document.querySelector('#accountFilterOptions input[value="222"]').dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+        document.querySelector('.sort-button[data-sort="metaSpend"]').click();
+        expect([...document.querySelectorAll('#reportBody .campaign-id')].map(cell => cell.textContent)).toEqual(['2', '1']);
+        document.querySelector('#evidenceFilterOptions input[value="Investigate"]').checked = false;
+        document.querySelector('#evidenceFilterOptions input[value="Investigate"]').dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+        expect(document.querySelector('#reportBody').textContent).not.toContain('Higher');
     });
 });
