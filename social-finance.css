@@ -159,7 +159,9 @@ h1 {
 
 .file-card:hover { border-color: #e5a2bd; transform: translateY(-2px); }
 .file-card:focus-within { outline: 3px solid rgba(232, 47, 121, .2); outline-offset: 2px; }
-.file-kicker { color: var(--accent-dark); font-size: 13px; font-weight: 600; }
+.step-kicker, .step-panel-heading, .scope-title { display: flex; align-items: flex-start; gap: 9px; }
+.step-number { width: 22px; height: 22px; display: inline-grid; flex: 0 0 auto; place-items: center; border-radius: 50%; background: #e9edff; color: #3d3aae; font-size: 12px; font-weight: 800; line-height: 1; }
+.file-kicker { color: var(--accent-dark); font-size: 13px; font-weight: 600; line-height: 22px; }
 .file-card > strong { margin-top: 8px; font-size: 21px; }
 .file-card .export-source { margin-top: 7px; color: var(--muted); font-size: 13px; }
 .file-card .requirement-label { margin-top: 20px; color: var(--ink); font-size: 12px; font-weight: 700; }
@@ -190,8 +192,8 @@ h1 {
 
 .meta-source-panel { width: 100%; margin-top: 18px; }
 .live-refresh-panel { margin-top: 18px; padding: 20px; border: 1px solid #dbe3ee; border-radius: var(--radius); background: #f8fafc; }
-.live-refresh-controls { display: grid; grid-template-columns: minmax(280px, .9fr) minmax(420px, 1.3fr); gap: 22px; align-items: end; }
-.live-refresh-controls .token-field { margin-top: 16px; }
+.live-refresh-controls { display: grid; grid-template-columns: minmax(280px, .9fr) minmax(420px, 1.3fr); gap: 22px; align-items: start; margin-top: 16px; }
+.live-refresh-controls .token-field { margin-top: 0; }
 .live-refresh-controls .api-range { margin-top: 0; }
 .source-panel-heading { display: grid; gap: 5px; }
 .source-panel-heading b { color: var(--ink); font-size: 14px; }
@@ -267,6 +269,7 @@ button:disabled { cursor: wait; opacity: .58; }
 .account-scope-heading { display: flex; justify-content: space-between; align-items: center; gap: 18px; }
 .account-scope-heading strong, .account-scope-heading span { display: block; }
 .account-scope-heading span { margin-top: 4px; color: var(--muted); font-size: 12px; }
+.scope-title .step-number { margin-top: 1px; }
 .account-scope-heading > div:last-child { display: flex; gap: 6px; }
 
 .text-action {

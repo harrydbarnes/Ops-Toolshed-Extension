@@ -54,7 +54,7 @@
             </aside>
             <div class="source-grid">
                 <article class="file-card">
-                    <span class="file-kicker">Meta import</span>
+                    <div class="step-kicker"><span class="step-number" aria-hidden="true">1</span><span class="file-kicker">Meta import</span></div>
                     <strong>Meta Ads Report</strong>
                     <span class="export-source">In Meta Ads Reporting, use the <b>Meta Spend Across Agency</b> template and export at campaign level. The report supplies the Account IDs the API is allowed to refresh.</span>
                     <span class="requirement-label">Your CSV must include</span>
@@ -90,7 +90,7 @@
 
                 </article>
                 <article class="file-card">
-                    <span class="file-kicker">Prisma export</span>
+                    <div class="step-kicker"><span class="step-number" aria-hidden="true">2</span><span class="file-kicker">Prisma export</span></div>
                     <strong>Prisma booking report</strong>
                     <span class="export-source">Use the Prisma CSV that lists placements and their booked values.</span>
                     <span class="requirement-label">Your CSV must include</span>
@@ -121,9 +121,12 @@
                 </article>
             </div>
             <section id="metaApiPanel" class="meta-source-panel live-refresh-panel" aria-labelledby="meta-api-heading">
-                <div class="source-panel-heading">
-                    <b id="meta-api-heading">Optional live refresh</b>
-                    <span>After importing account IDs, use a read-only token to refresh Meta status, dates, budgets, ad sets, and spend.</span>
+                <div class="step-panel-heading">
+                    <span class="step-number" aria-hidden="true">3</span>
+                    <div class="source-panel-heading">
+                        <b id="meta-api-heading">Optional Meta live refresh</b>
+                        <span>Use a read-only Meta token to refresh status, dates, budgets, ad sets, and spend. It is stored only in this Chrome profile; <code>ads_read</code> is sufficient.</span>
+                    </div>
                 </div>
                 <div class="live-refresh-controls">
                     <div>
@@ -156,11 +159,10 @@
                         <div id="metaApiStatus" class="api-status" aria-live="polite"></div>
                     </div>
                 </div>
-                <p class="privacy-note">Stored in <code>chrome.storage.local</code> on this Chrome profile—not in the repository or synced extension settings. Use a token with <code>ads_read</code>; Business Management access is not required.</p>
             </section>
             <div id="accountScopePanel" class="account-scope hidden">
                 <div class="account-scope-heading">
-                    <div><strong>Meta account scope</strong><span>Accounts recognised from the Meta Ads Report. Select those that should be in the Prisma booking report.</span></div>
+                    <div class="scope-title"><span class="step-number" aria-hidden="true">4</span><div><strong>Meta account scope</strong><span>Accounts recognised from the Meta Ads Report. Select those that should be in the Prisma booking report.</span></div></div>
                     <div><button id="selectAllAccounts" class="text-action" type="button">Select all</button><button id="clearAccounts" class="text-action" type="button">Clear</button></div>
                 </div>
                 <div id="accountOptions" class="account-options"></div>
@@ -171,7 +173,7 @@
             </div>
             <div id="prismaScopePanel" class="prisma-scope hidden">
                 <div class="account-scope-heading">
-                    <div><strong>Prisma client scope</strong><span>Partner account ID in Prisma maps to Account ID in Meta. Review this before comparing.</span></div>
+                    <div class="scope-title"><span class="step-number" aria-hidden="true">5</span><div><strong>Prisma client scope</strong><span>Partner account ID in Prisma maps to Account ID in Meta. Review this before comparing.</span></div></div>
                 </div>
                 <div id="prismaScopeStatus" class="reference-status" aria-live="polite"></div>
                 <div id="prismaScopeComparison" class="scope-comparison"></div>

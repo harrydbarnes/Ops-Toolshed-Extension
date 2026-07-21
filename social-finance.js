@@ -95,6 +95,7 @@
             const credentials = await savedMetaCredentials();
             const hasToken = Boolean(credentials.accessToken);
             elements.removeMetaToken.classList.toggle('hidden', !hasToken);
+            elements.saveMetaCredentials.classList.toggle('hidden', hasToken);
             elements.metaAccessToken.closest('.token-input-shell').classList.toggle('has-saved-token', hasToken);
             if (hasToken && document.activeElement !== elements.metaAccessToken) {
                 elements.metaAccessToken.value = SAVED_TOKEN_MASK;
@@ -114,6 +115,7 @@
         elements.metaAccessToken.value = '';
         delete elements.metaAccessToken.dataset.savedMask;
         elements.metaAccessToken.closest('.token-input-shell').classList.remove('has-saved-token');
+        elements.saveMetaCredentials.classList.remove('hidden');
     }
 
     async function saveMetaCredentials() {
@@ -822,12 +824,12 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        ['validationMessages', 'results', 'metaDataSource', 'financialHeadline', 'summaryCards', 'coverageWarnings', 'clientBreakdown', 'clientBreakdownBody', 'campaignBreakdown', 'reportSearch', 'monthFromFilter', 'monthToFilter', 'visibleCount', 'reportHeader', 'reportBody', 'asOfDate', 'tolerance', 'closedWorkingDay', 'populationConfirmed', 'accountScopePanel', 'accountOptions', 'prismaScopePanel', 'prismaScopeStatus', 'prismaScopeComparison', 'matchedScopeAccounts', 'accountMappingOptions', 'metaApiPanel', 'metaAccessToken', 'metaCredentialStatus', 'removeMetaToken', 'metaApiDatePreset', 'metaApiStartDate', 'metaApiEndDate', 'metaApiStatus', 'apiAccountActions', 'pullMetaData', 'clearMetaApiData', 'metaReferenceStatus', 'removeMetaReference', 'evidenceFilterOptions', 'evidenceFilterCount', 'accountFilterOptions', 'accountFilterCount', 'manualMatchModal', 'manualMatchStatus', 'manualMatchBody', 'closeManualMatch', 'cancelManualMatch', 'applyManualMatches', 'clearManualMatches'].forEach(id => { elements[id] = byId(id); });
+        ['validationMessages', 'results', 'metaDataSource', 'financialHeadline', 'summaryCards', 'coverageWarnings', 'clientBreakdown', 'clientBreakdownBody', 'campaignBreakdown', 'reportSearch', 'monthFromFilter', 'monthToFilter', 'visibleCount', 'reportHeader', 'reportBody', 'asOfDate', 'tolerance', 'closedWorkingDay', 'populationConfirmed', 'accountScopePanel', 'accountOptions', 'prismaScopePanel', 'prismaScopeStatus', 'prismaScopeComparison', 'matchedScopeAccounts', 'accountMappingOptions', 'metaApiPanel', 'metaAccessToken', 'saveMetaCredentials', 'metaCredentialStatus', 'removeMetaToken', 'metaApiDatePreset', 'metaApiStartDate', 'metaApiEndDate', 'metaApiStatus', 'apiAccountActions', 'pullMetaData', 'clearMetaApiData', 'metaReferenceStatus', 'removeMetaReference', 'evidenceFilterOptions', 'evidenceFilterCount', 'accountFilterOptions', 'accountFilterCount', 'manualMatchModal', 'manualMatchStatus', 'manualMatchBody', 'closeManualMatch', 'cancelManualMatch', 'applyManualMatches', 'clearManualMatches'].forEach(id => { elements[id] = byId(id); });
         elements.asOfDate.value = new Date().toISOString().slice(0, 10);
         applyDatePreset();
         setupFileUpload('metaFile', 'metaDropZone', 'removeMetaFile', 'metaText', 'metaFileName');
         setupFileUpload('prismaFile', 'prismaDropZone', 'removePrismaFile', 'prismaText', 'prismaFileName');
-        byId('saveMetaCredentials').addEventListener('click', saveMetaCredentials);
+        elements.saveMetaCredentials.addEventListener('click', saveMetaCredentials);
         elements.removeMetaToken.addEventListener('click', removeMetaCredential);
         elements.metaAccessToken.addEventListener('focus', clearSavedTokenMask);
         elements.removeMetaReference.addEventListener('click', () => removeMetaReference().catch(error => setStatus(elements.metaReferenceStatus, error.message, 'error')));

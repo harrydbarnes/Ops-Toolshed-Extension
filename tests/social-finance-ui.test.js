@@ -126,12 +126,16 @@ describe('Social Booking Checker upload guidance', () => {
     });
 
     test('requires report-led discovery and offers a read-only API refresh without Business credentials', () => {
+        expect([...document.querySelectorAll('.step-number')].map(step => step.textContent)).toEqual(['1', '2', '3', '4', '5']);
         expect(document.querySelector('#metaAccessToken').type).toBe('password');
         expect(document.querySelector('#metaBusinessId')).toBeNull();
         expect(document.querySelector('#removeMetaToken').textContent).toBe('×');
         expect(document.querySelector('#removeMetaToken').getAttribute('aria-label')).toBe('Remove saved access token');
         expect(document.querySelector('#removeMetaBusinessId')).toBeNull();
+        expect(document.querySelector('#metaApiPanel').textContent).toContain('Optional Meta live refresh');
         expect(document.querySelector('#metaApiPanel').textContent).toContain('ads_read');
+        expect(document.querySelector('#metaApiPanel').textContent).toContain('stored only in this Chrome profile');
+        expect(document.querySelector('#metaApiPanel .privacy-note')).toBeNull();
         expect(document.querySelector('#metaApiPanel').classList).toContain('live-refresh-panel');
         expect(document.querySelector('#metaApiPanel').compareDocumentPosition(document.querySelector('#accountScopePanel')) & 4).toBeTruthy();
         expect(document.querySelector('#metaApiDatePreset').options).toHaveLength(8);

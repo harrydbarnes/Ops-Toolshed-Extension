@@ -155,9 +155,11 @@ describe('Social Booking Checker report uploads', () => {
         expect(document.body.textContent).not.toContain('private-token');
         expect(document.querySelector('#removeMetaToken').classList.contains('hidden')).toBe(false);
         expect(document.querySelector('#removeMetaToken').getAttribute('aria-label')).toBe('Remove saved access token');
+        expect(document.querySelector('#saveMetaCredentials').classList.contains('hidden')).toBe(true);
 
         document.querySelector('#metaAccessToken').focus();
         expect(document.querySelector('#metaAccessToken').value).toBe('');
+        expect(document.querySelector('#saveMetaCredentials').classList.contains('hidden')).toBe(false);
 
         document.querySelector('#removeMetaToken').click();
         await new Promise(resolve => dom.window.setTimeout(resolve, 0));
