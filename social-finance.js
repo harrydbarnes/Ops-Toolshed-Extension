@@ -1,7 +1,7 @@
 (function () {
     const engine = window.socialFinanceEngine;
     const metaApi = window.metaReportApi;
-    const state = { metaText: '', uploadedMetaText: '', metaTextSource: '', prismaText: '', report: null, metaAccounts: [], metaReference: null, prismaReference: null, accountMappings: {}, manualMatches: {}, manualMatchTrigger: null, apiSync: null, sort: { key: '', direction: 'descending' } };
+    const state = { metaText: '', uploadedMetaText: '', metaTextSource: '', prismaText: '', report: null, metaAccounts: [], metaReference: null, prismaReference: null, accountMappings: {}, manualMatches: {}, manualMatchTrigger: null, showMatchedScopeAccounts: false, apiSync: null, sort: { key: '', direction: 'descending' } };
     const elements = {};
     const ACCOUNT_SCOPE_STORAGE_KEY = 'socialBookingMetaAccountScope';
     const META_API_STORAGE_KEY = 'socialBookingMetaApiCredentials';
@@ -32,11 +32,11 @@
         return EVIDENCE_EXPLANATIONS[value] || '';
     }
 
-    function evidenceTooltip(label, className = '') {
+    function evidenceTooltip(label, className = '', showIcon = false) {
         const explanation = evidenceExplanation(label);
         const content = `<span class="${className}">${escapeHtml(label)}</span>`;
         return explanation
-            ? `<span class="evidence-tooltip" tabindex="0" data-tooltip="${escapeHtml(explanation)}" aria-label="${escapeHtml(`${label}. ${explanation}`)}">${content}</span>`
+            ? `<span class="evidence-tooltip" tabindex="0" data-tooltip="${escapeHtml(explanation)}" aria-label="${escapeHtml(`${label}. ${explanation}`)}">${content}${showIcon ? '<span class="tooltip-icon" aria-hidden="true">i</span>' : ''}</span>`
             : content;
     }
 
@@ -268,6 +268,8 @@
         elements.prismaScopePanel.classList.toggle('hidden', !hasReference);
         if (!hasReference) {
             elements.prismaScopeComparison.innerHTML = '';
+            elements.matchedScopeAccounts.innerHTML = '';
+            elements.matchedScopeAccounts.classList.add('hidden');
             elements.accountMappingOptions.innerHTML = '';
             return;
         }
@@ -282,11 +284,13 @@
             return `${account.id} (${client})`;
         };
         setStatus(elements.prismaScopeStatus, `${prismaAccounts.length} Prisma account${prismaAccounts.length === 1 ? '' : 's'} found. ${matched.length} match the selected Meta scope.`, matched.length === prismaAccounts.length && !metaOnly.length ? 'ready' : '');
-        elements.prismaScopeComparison.innerHTML = [
-            ['Matched accounts', matched.length, matched.map(accountLabel), ''],
-            ['Selected Meta only', metaOnly.length, metaOnly.map(account => `${account.id} (${account.name})`), metaOnly.length ? 'scope-mismatch' : ''],
-            ['Prisma only', prismaOnly.length, prismaOnly.map(accountLabel), prismaOnly.length ? 'scope-mismatch' : '']
-        ].map(([label, count, accounts, className]) => `<div class="${className}"><strong>${escapeHtml(label)}: ${count}</strong><span>${escapeHtml(accounts.length ? accounts.join('; ') : 'None')}</span></div>`).join('');
+        elements.prismaScopeComparison.innerHTML = `<div><div class="scope-card-heading"><strong>Matched accounts: ${matched.length}</strong><button type="button" class="scope-show-button" data-show-matched-scope="true">${state.showMatchedScopeAccounts ? 'Hide below' : 'Show below'}</button></div><span>${escapeHtml(matched.length ? `${matched.length} selected Meta account${matched.length === 1 ? '' : 's'} also appear in the Prisma report.` : 'None')}</span></div><div class="${metaOnly.length ? 'scope-mismatch' : ''}"><strong>Selected Meta accounts not in Prisma report: ${metaOnly.length}</strong><span>${escapeHtml(metaOnly.length ? metaOnly.map(account => `${account.id} (${account.name})`).join('; ') : 'None')}</span></div><div class="${prismaOnly.length ? 'scope-mismatch' : ''}"><strong>Prisma accounts not selected in Meta: ${prismaOnly.length}</strong><span>${escapeHtml(prismaOnly.length ? prismaOnly.map(accountLabel).join('; ') : 'None')}</span></div>`;
+        elements.matchedScopeAccounts.classList.toggle('hidden', !state.showMatchedScopeAccounts || !matched.length);
+        elements.matchedScopeAccounts.innerHTML = state.showMatchedScopeAccounts ? matched.map(prismaAccount => {
+            const metaAccount = state.metaAccounts.find(account => account.id === prismaAccount.id);
+            const client = prismaAccount.clients && prismaAccount.clients.length ? prismaAccount.clients.join(', ') : 'No client name supplied';
+            return `<div class="matched-scope-account"><strong>${escapeHtml(metaAccount?.name || prismaAccount.id)}</strong><small>Meta Account ID ${escapeHtml(prismaAccount.id)} · Prisma client: ${escapeHtml(client)}</small></div>`;
+        }).join('') : '';
         renderAccountMappings();
     }
 
@@ -526,7 +530,7 @@
             ['Outside report scope', summary.outsideScope],
             ['Unmatched Meta spend', currency(summary.unmatchedSpend), 'alert', summary.unmatchedSpend > 0 || Object.keys(state.manualMatches).length]
         ];
-        elements.summaryCards.innerHTML = cards.map(([label, value, className = '', isAction = false]) => `<article class="summary-card ${className}${isAction ? ' is-action' : ''}"${isAction ? ' role="button" tabindex="0" data-open-manual-match="true" aria-haspopup="dialog"' : ''}>${evidenceTooltip(label)}<strong>${escapeHtml(value)}</strong></article>`).join('');
+        elements.summaryCards.innerHTML = cards.map(([label, value, className = '', isAction = false]) => `<article class="summary-card ${className}${isAction ? ' is-action' : ''}"${isAction ? ' role="button" tabindex="0" data-open-manual-match="true" aria-haspopup="dialog"' : ''}>${evidenceTooltip(label, '', true)}<strong>${escapeHtml(value)}</strong></article>`).join('');
     }
 
     function monthFilteredRows() {
@@ -617,7 +621,8 @@
             }
         });
         const groupsSorted = [...groups.values()].sort((left, right) => `${left.client}|${left.product}`.localeCompare(`${right.client}|${right.product}`));
-        elements.clientBreakdownBody.innerHTML = groupsSorted.map(group => `<tr><td>${escapeHtml(group.client)}</td><td>${escapeHtml(group.product)}</td><td>${escapeHtml([...group.accounts].join(', ') || '—')}</td><td class="number">${escapeHtml(currency(group.metaSpend))}</td><td class="number">${escapeHtml(currency(group.prismaPlanned))}</td><td class="number">${escapeHtml(currency(group.metaSpend - group.prismaPlanned))}</td></tr>`).join('');
+        state.clientBreakdownRows = groupsSorted.map(group => ({ ...group, accounts: [...group.accounts].join(', ') || '—', variance: group.metaSpend - group.prismaPlanned }));
+        elements.clientBreakdownBody.innerHTML = state.clientBreakdownRows.map(group => `<tr><td>${escapeHtml(group.client)}</td><td>${escapeHtml(group.product)}</td><td>${escapeHtml(group.accounts)}</td><td class="number">${escapeHtml(currency(group.metaSpend))}</td><td class="number">${escapeHtml(currency(group.prismaPlanned))}</td><td class="number">${escapeHtml(currency(group.variance))}</td></tr>`).join('');
     }
 
     function unmatchedMetaRowsForManualMatch() {
@@ -759,16 +764,65 @@
     function downloadReport() {
         if (!state.report) return;
         const csv = engine.reportToCsv(filteredRows());
+        downloadCsv(`social_booking_checker_campaign_breakdown_${elements.asOfDate.value || 'report'}.csv`, csv);
+    }
+
+    function csvEscape(value) {
+        const text = String(value ?? '');
+        return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    }
+
+    function downloadCsv(filename, csv) {
         const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
         const link = document.createElement('a');
         link.href = url;
-        link.download = `social_booking_checker_${elements.asOfDate.value || 'report'}.csv`;
+        link.download = filename;
         link.click();
         URL.revokeObjectURL(url);
     }
 
+    function downloadClientBreakdown() {
+        const headers = ['Client', 'Product', 'Mapped Meta accounts', 'Meta spend', 'Prisma booked', 'Variance'];
+        const csv = [headers.join(','), ...(state.clientBreakdownRows || []).map(row => [row.client, row.product, row.accounts, row.metaSpend, row.prismaPlanned, row.variance].map(csvEscape).join(','))].join('\r\n');
+        downloadCsv(`social_booking_checker_client_breakdown_${elements.asOfDate.value || 'report'}.csv`, csv);
+    }
+
+    function toggleBreakdownExpansion(type) {
+        const target = type === 'client' ? elements.clientBreakdown : elements.campaignBreakdown;
+        const isExpanding = !target.classList.contains('is-expanded');
+        document.querySelectorAll('.breakdown-section.is-expanded').forEach(section => section.classList.remove('is-expanded'));
+        target.classList.toggle('is-expanded', isExpanding);
+        document.body.classList.toggle('breakdown-expanded', isExpanding);
+        document.querySelectorAll('[data-expand-breakdown]').forEach(button => {
+            button.textContent = button.dataset.expandBreakdown === type && isExpanding ? 'Exit expanded view' : 'Expand';
+        });
+    }
+
+    function standaloneTableHtml(title, headings, rows) {
+        return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>body{margin:0;padding:28px;background:#f5f5f7;color:#20222a;font-family:"Segoe UI",sans-serif}h1{margin:0 0 8px;font-size:25px}p{margin:0 0 22px;color:#646875;font-size:13px}table{width:100%;border-collapse:collapse;background:#fff;font-size:12px}th,td{padding:12px;border-bottom:1px solid #e5e5ea;text-align:left;vertical-align:top}th{position:sticky;top:0;background:#f0f0f3}.number{text-align:right;font-variant-numeric:tabular-nums}</style></head><body><h1>${escapeHtml(title)}</h1><p>Current Social Booking Checker view.</p><table><thead><tr>${headings.map(heading => `<th class="${heading.number ? 'number' : ''}">${escapeHtml(heading.label)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${row.map((value, index) => `<td class="${headings[index].number ? 'number' : ''}">${escapeHtml(value)}</td>`).join('')}</tr>`).join('')}</tbody></table></body></html>`;
+    }
+
+    function openBreakdownInNewTab(type) {
+        const isClient = type === 'client';
+        const clientRows = state.clientBreakdownRows || [];
+        const campaignRows = filteredRows();
+        const showMonth = new Set(accountFilteredRows().map(row => row.month).filter(Boolean)).size > 1;
+        const headings = isClient
+            ? [{ label: 'Client' }, { label: 'Product' }, { label: 'Mapped Meta accounts' }, { label: 'Meta spend', number: true }, { label: 'Prisma booked', number: true }, { label: 'Variance', number: true }]
+            : [{ label: 'Evidence' }, { label: 'Account' }, { label: 'Campaign name' }, { label: 'Campaign ID' }, ...(showMonth ? [{ label: 'Month' }] : []), { label: 'Meta spend', number: true }, { label: 'Prisma booked', number: true }, { label: 'Variance', number: true }, { label: 'Finding' }];
+        const rows = isClient
+            ? clientRows.map(row => [row.client, row.product, row.accounts, currency(row.metaSpend), currency(row.prismaPlanned), currency(row.variance)])
+            : campaignRows.map(row => [row.evidence, row.account, row.campaignName || 'Name not supplied', row.campaignId, ...(showMonth ? [row.month] : []), currency(row.metaSpend), currency(row.prismaPlanned), currency(row.variance), row.classification]);
+        const popup = window.open('', '_blank');
+        if (!popup) return;
+        popup.document.open();
+        popup.document.write(standaloneTableHtml(isClient ? 'Client breakdown' : 'Campaign breakdown', headings, rows));
+        popup.document.close();
+        popup.opener = null;
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
-        ['validationMessages', 'results', 'metaDataSource', 'financialHeadline', 'summaryCards', 'coverageWarnings', 'clientBreakdown', 'clientBreakdownBody', 'reportSearch', 'monthFromFilter', 'monthToFilter', 'visibleCount', 'reportHeader', 'reportBody', 'asOfDate', 'tolerance', 'closedWorkingDay', 'populationConfirmed', 'accountScopePanel', 'accountOptions', 'prismaScopePanel', 'prismaScopeStatus', 'prismaScopeComparison', 'accountMappingOptions', 'metaApiPanel', 'metaAccessToken', 'metaCredentialStatus', 'removeMetaToken', 'metaApiDatePreset', 'metaApiStartDate', 'metaApiEndDate', 'metaApiStatus', 'apiAccountActions', 'pullMetaData', 'clearMetaApiData', 'metaReferenceStatus', 'removeMetaReference', 'evidenceFilterOptions', 'evidenceFilterCount', 'accountFilterOptions', 'accountFilterCount', 'manualMatchModal', 'manualMatchStatus', 'manualMatchBody', 'closeManualMatch', 'cancelManualMatch', 'applyManualMatches', 'clearManualMatches'].forEach(id => { elements[id] = byId(id); });
+        ['validationMessages', 'results', 'metaDataSource', 'financialHeadline', 'summaryCards', 'coverageWarnings', 'clientBreakdown', 'clientBreakdownBody', 'campaignBreakdown', 'reportSearch', 'monthFromFilter', 'monthToFilter', 'visibleCount', 'reportHeader', 'reportBody', 'asOfDate', 'tolerance', 'closedWorkingDay', 'populationConfirmed', 'accountScopePanel', 'accountOptions', 'prismaScopePanel', 'prismaScopeStatus', 'prismaScopeComparison', 'matchedScopeAccounts', 'accountMappingOptions', 'metaApiPanel', 'metaAccessToken', 'metaCredentialStatus', 'removeMetaToken', 'metaApiDatePreset', 'metaApiStartDate', 'metaApiEndDate', 'metaApiStatus', 'apiAccountActions', 'pullMetaData', 'clearMetaApiData', 'metaReferenceStatus', 'removeMetaReference', 'evidenceFilterOptions', 'evidenceFilterCount', 'accountFilterOptions', 'accountFilterCount', 'manualMatchModal', 'manualMatchStatus', 'manualMatchBody', 'closeManualMatch', 'cancelManualMatch', 'applyManualMatches', 'clearManualMatches'].forEach(id => { elements[id] = byId(id); });
         elements.asOfDate.value = new Date().toISOString().slice(0, 10);
         applyDatePreset();
         setupFileUpload('metaFile', 'metaDropZone', 'removeMetaFile', 'metaText', 'metaFileName');
@@ -782,13 +836,27 @@
         elements.clearMetaApiData.addEventListener('click', clearMetaApiData);
         byId('runComparison').addEventListener('click', runComparison);
         byId('downloadReport').addEventListener('click', downloadReport);
-        byId('selectAllAccounts').addEventListener('click', () => { elements.accountOptions.querySelectorAll('input').forEach(input => { input.checked = true; }); saveAccountScope(); });
+        elements.results.addEventListener('click', event => {
+            const download = event.target.closest('[data-download-breakdown]');
+            const expand = event.target.closest('[data-expand-breakdown]');
+            const open = event.target.closest('[data-open-breakdown]');
+            if (download) {
+                if (download.dataset.downloadBreakdown === 'client') downloadClientBreakdown(); else downloadReport();
+            } else if (expand) toggleBreakdownExpansion(expand.dataset.expandBreakdown);
+            else if (open) openBreakdownInNewTab(open.dataset.openBreakdown);
+        });
+        byId('selectAllAccounts').addEventListener('click', () => { elements.accountOptions.querySelectorAll('input').forEach(input => { input.checked = true; }); saveAccountScope(); renderPrismaScope(); });
         byId('clearAccounts').addEventListener('click', () => { elements.accountOptions.querySelectorAll('input').forEach(input => { input.checked = false; }); saveAccountScope(); renderPrismaScope(); });
         elements.accountOptions.addEventListener('change', () => { saveAccountScope(); renderPrismaScope(); });
         elements.accountMappingOptions.addEventListener('change', event => {
             const select = event.target.closest('select[data-mapping-account-id]');
             if (!select) return;
             saveAccountMapping(select.dataset.mappingAccountId, mappingFromValue(select.value)).catch(error => setStatus(elements.prismaScopeStatus, error.message, 'error'));
+        });
+        elements.prismaScopeComparison.addEventListener('click', event => {
+            if (!event.target.closest('[data-show-matched-scope]')) return;
+            state.showMatchedScopeAccounts = !state.showMatchedScopeAccounts;
+            renderPrismaScope();
         });
         elements.summaryCards.addEventListener('click', event => { if (event.target.closest('[data-open-manual-match]')) openManualMatch(); });
         elements.summaryCards.addEventListener('keydown', event => { if ((event.key === 'Enter' || event.key === ' ') && event.target.closest('[data-open-manual-match]')) { event.preventDefault(); openManualMatch(); } });

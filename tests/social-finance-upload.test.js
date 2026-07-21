@@ -205,6 +205,9 @@ describe('Social Booking Checker report uploads', () => {
         expect(document.querySelector('#prismaScopeStatus').textContent).toContain('1 Prisma account found');
         expect(document.querySelector('#prismaScopeComparison').textContent).toContain('Matched accounts: 1');
         expect(document.querySelector('#accountMappingOptions').textContent).toContain('Boots / Opticians');
+        document.querySelector('[data-show-matched-scope="true"]').click();
+        expect(document.querySelector('#matchedScopeAccounts').classList.contains('hidden')).toBe(false);
+        expect(document.querySelector('#matchedScopeAccounts').textContent).toContain('Meta Account ID 111');
     });
 
     test('explains which permission is missing when Meta rejects a read-only sync', async () => {
@@ -284,7 +287,13 @@ describe('Social Booking Checker report uploads', () => {
         expect(document.querySelector('#clientBreakdownBody').textContent).toContain('Boots');
         expect(document.querySelector('#clientBreakdownBody').textContent).toContain('Opticians');
         expect(document.querySelector('.summary-card .evidence-tooltip[data-tooltip*="linked Prisma booking"]')).not.toBeNull();
+        expect(document.querySelector('.summary-card .tooltip-icon').textContent).toBe('i');
         expect(document.querySelector('#reportBody .evidence-tooltip[data-tooltip*="linked Prisma booking"]')).not.toBeNull();
+        document.querySelector('[data-expand-breakdown="campaign"]').click();
+        expect(document.querySelector('#campaignBreakdown').classList.contains('is-expanded')).toBe(true);
+        expect(document.querySelector('[data-expand-breakdown="campaign"]').textContent).toBe('Exit expanded view');
+        document.querySelector('[data-expand-breakdown="campaign"]').click();
+        expect(document.querySelector('#campaignBreakdown').classList.contains('is-expanded')).toBe(false);
 
         document.querySelector('#accountFilterOptions input[value="222"]').checked = false;
         document.querySelector('#accountFilterOptions input[value="222"]').dispatchEvent(new dom.window.Event('change', { bubbles: true }));

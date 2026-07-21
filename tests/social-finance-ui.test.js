@@ -132,10 +132,14 @@ describe('Social Booking Checker upload guidance', () => {
         expect(document.querySelector('#removeMetaToken').getAttribute('aria-label')).toBe('Remove saved access token');
         expect(document.querySelector('#removeMetaBusinessId')).toBeNull();
         expect(document.querySelector('#metaApiPanel').textContent).toContain('ads_read');
+        expect(document.querySelector('#metaApiPanel').classList).toContain('live-refresh-panel');
+        expect(document.querySelector('#metaApiPanel').compareDocumentPosition(document.querySelector('#accountScopePanel')) & 4).toBeTruthy();
         expect(document.querySelector('#metaApiDatePreset').options).toHaveLength(8);
         expect(document.querySelector('#pullMetaData').textContent).toBe('Refresh selected Meta accounts');
         expect(document.querySelector('#prismaScopePanel').textContent).toContain('Prisma client scope');
         expect(document.querySelector('#prismaScopePanel').textContent).toContain('Partner account ID in Prisma maps to Account ID in Meta');
+        expect(script).toContain('Selected Meta accounts not in Prisma report');
+        expect(script).toContain('Prisma accounts not selected in Meta');
         expect(css).toContain('.api-status:not(.is-loading)::before');
         expect(css).toContain('social-booking-spin');
         expect(document.body.textContent).toContain('The report supplies the Account IDs');
@@ -160,6 +164,11 @@ describe('Social Booking Checker upload guidance', () => {
         expect(headings).not.toContain('Account and campaign');
         expect(document.querySelector('#clientBreakdown')).not.toBeNull();
         expect(document.querySelector('#clientBreakdown').textContent).toContain('Client breakdown');
+        expect(document.querySelector('#campaignBreakdown').textContent).toContain('Campaign breakdown');
+        expect(document.querySelectorAll('[data-download-breakdown]')).toHaveLength(2);
+        expect(document.querySelectorAll('[data-expand-breakdown]')).toHaveLength(2);
+        expect(document.querySelectorAll('[data-open-breakdown]')).toHaveLength(2);
+        expect(css).toContain('.breakdown-section.is-expanded');
     });
 
     test('provides multi-select evidence and account filters plus numeric sorting', () => {
@@ -178,6 +187,7 @@ describe('Social Booking Checker upload guidance', () => {
         expect(script).toContain('Outside scope');
         expect(css).toContain('.evidence-tooltip:hover::after');
         expect(css).toContain('.evidence-tooltip:focus-visible::after');
+        expect(css).toContain('.tooltip-icon');
     });
 
     test('provides a large local-only workspace for matching unmatched Meta spend', () => {
@@ -189,10 +199,10 @@ describe('Social Booking Checker upload guidance', () => {
         expect(script).toContain('socialBookingManualCampaignMatches');
     });
 
-    test('shows headline financial totals, API source evidence, and explains outside-scope rows', () => {
+    test('shows headline financial totals and API source evidence without repeating the outside-scope tooltip', () => {
         expect(document.querySelector('#financialHeadline')).not.toBeNull();
         expect(document.querySelector('#metaDataSource')).not.toBeNull();
-        expect(document.querySelector('.scope-explanation').textContent).toContain('reporting month found in one source but not the other');
+        expect(document.querySelector('.scope-explanation')).toBeNull();
         expect(css).toContain('.financial-headline');
     });
 });

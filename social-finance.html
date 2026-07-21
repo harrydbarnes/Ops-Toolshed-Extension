@@ -88,38 +88,6 @@
                     <div id="metaReferenceStatus" class="reference-status" aria-live="polite"></div>
                     <button id="removeMetaReference" class="text-action hidden" type="button">Forget imported accounts</button>
 
-                    <section id="metaApiPanel" class="meta-source-panel api-enrichment" aria-labelledby="meta-api-heading">
-                        <div class="source-panel-heading">
-                            <b id="meta-api-heading">Optional live refresh</b>
-                            <span>After importing account IDs, use a read-only token to refresh Meta status, dates, budgets, ad sets, and spend.</span>
-                        </div>
-                        <label class="token-field">Access token
-                            <span class="token-input-shell">
-                                <input id="metaAccessToken" type="password" autocomplete="new-password" spellcheck="false" placeholder="Paste token">
-                                <button id="removeMetaToken" class="token-clear hidden" type="button" aria-label="Remove saved access token" title="Remove saved access token">×</button>
-                            </span>
-                        </label>
-                        <button id="saveMetaCredentials" class="compact-action" type="button">Save token locally</button>
-                        <div id="metaCredentialStatus" class="credential-status" aria-live="polite"></div>
-                        <p class="privacy-note">Stored in <code>chrome.storage.local</code> on this Chrome profile—not in the repository or synced extension settings. Use a token with <code>ads_read</code>; Business Management access is not required.</p>
-                        <div class="api-range">
-                            <label>Date range
-                                <select id="metaApiDatePreset">
-                                    <option value="today">Today</option>
-                                    <option value="yesterday">Yesterday</option>
-                                    <option value="last7">Last 7 days</option>
-                                    <option value="last14">Last 14 days</option>
-                                    <option value="last30">Last 30 days</option>
-                                    <option value="thisMonth">This month</option>
-                                    <option value="lastMonth" selected>Last month</option>
-                                    <option value="custom">Custom range</option>
-                                </select>
-                            </label>
-                            <label>Reporting start<input id="metaApiStartDate" type="date" disabled></label>
-                            <label>Reporting end<input id="metaApiEndDate" type="date" disabled></label>
-                        </div>
-                        <div id="metaApiStatus" class="api-status" aria-live="polite"></div>
-                    </section>
                 </article>
                 <article class="file-card">
                     <span class="file-kicker">Prisma export</span>
@@ -152,6 +120,44 @@
                     </span>
                 </article>
             </div>
+            <section id="metaApiPanel" class="meta-source-panel live-refresh-panel" aria-labelledby="meta-api-heading">
+                <div class="source-panel-heading">
+                    <b id="meta-api-heading">Optional live refresh</b>
+                    <span>After importing account IDs, use a read-only token to refresh Meta status, dates, budgets, ad sets, and spend.</span>
+                </div>
+                <div class="live-refresh-controls">
+                    <div>
+                        <label class="token-field">Access token
+                            <span class="token-input-shell">
+                                <input id="metaAccessToken" type="password" autocomplete="new-password" spellcheck="false" placeholder="Paste token">
+                                <button id="removeMetaToken" class="token-clear hidden" type="button" aria-label="Remove saved access token" title="Remove saved access token">×</button>
+                            </span>
+                        </label>
+                        <button id="saveMetaCredentials" class="compact-action" type="button">Save token locally</button>
+                        <div id="metaCredentialStatus" class="credential-status" aria-live="polite"></div>
+                    </div>
+                    <div>
+                        <div class="api-range">
+                            <label>Date range
+                                <select id="metaApiDatePreset">
+                                    <option value="today">Today</option>
+                                    <option value="yesterday">Yesterday</option>
+                                    <option value="last7">Last 7 days</option>
+                                    <option value="last14">Last 14 days</option>
+                                    <option value="last30">Last 30 days</option>
+                                    <option value="thisMonth">This month</option>
+                                    <option value="lastMonth" selected>Last month</option>
+                                    <option value="custom">Custom range</option>
+                                </select>
+                            </label>
+                            <label>Reporting start<input id="metaApiStartDate" type="date" disabled></label>
+                            <label>Reporting end<input id="metaApiEndDate" type="date" disabled></label>
+                        </div>
+                        <div id="metaApiStatus" class="api-status" aria-live="polite"></div>
+                    </div>
+                </div>
+                <p class="privacy-note">Stored in <code>chrome.storage.local</code> on this Chrome profile—not in the repository or synced extension settings. Use a token with <code>ads_read</code>; Business Management access is not required.</p>
+            </section>
             <div id="accountScopePanel" class="account-scope hidden">
                 <div class="account-scope-heading">
                     <div><strong>Meta account scope</strong><span>Accounts recognised from the Meta Ads Report. Select those that should be in the Prisma booking report.</span></div>
@@ -169,6 +175,7 @@
                 </div>
                 <div id="prismaScopeStatus" class="reference-status" aria-live="polite"></div>
                 <div id="prismaScopeComparison" class="scope-comparison"></div>
+                <div id="matchedScopeAccounts" class="matched-scope-accounts hidden"></div>
                 <section class="account-mapping" aria-labelledby="account-mapping-heading">
                     <div class="source-panel-heading">
                         <b id="account-mapping-heading">Meta to Prisma mapping</b>
@@ -215,13 +222,10 @@
             <div id="financialHeadline" class="financial-headline" aria-label="Financial totals"></div>
             <div id="summaryCards" class="summary-grid"></div>
             <div id="coverageWarnings" class="coverage-warnings"></div>
-            <aside class="scope-explanation">
-                <strong>Outside report scope</strong>
-                <span>The row belongs to a reporting month found in one source but not the other. It is kept separate so an incomplete date range is not incorrectly reported as a missing booking.</span>
-            </aside>
-            <section id="clientBreakdown" class="client-breakdown" aria-labelledby="client-breakdown-heading">
+            <section id="clientBreakdown" class="client-breakdown breakdown-section" aria-labelledby="client-breakdown-heading">
                 <div class="breakdown-heading">
                     <div><strong id="client-breakdown-heading">Client breakdown</strong><span>Meta spend and Prisma booked value grouped using your saved account mapping.</span></div>
+                    <div class="breakdown-actions"><button type="button" data-download-breakdown="client">Download CSV</button><button type="button" data-expand-breakdown="client">Expand</button><button type="button" data-open-breakdown="client">Open in new tab</button></div>
                 </div>
                 <div class="table-frame client-breakdown-table">
                     <table>
@@ -230,6 +234,11 @@
                     </table>
                 </div>
             </section>
+            <section id="campaignBreakdown" class="campaign-breakdown breakdown-section" aria-labelledby="campaign-breakdown-heading">
+            <div class="breakdown-heading">
+                <div><strong id="campaign-breakdown-heading">Campaign breakdown</strong><span>Campaign-level reconciliation detail for the selected months, accounts, evidence, and search.</span></div>
+                <div class="breakdown-actions"><button type="button" data-download-breakdown="campaign">Download CSV</button><button type="button" data-expand-breakdown="campaign">Expand</button><button type="button" data-open-breakdown="campaign">Open in new tab</button></div>
+            </div>
             <div class="report-toolbar">
                 <div class="month-range" role="group" aria-label="Reporting month range">
                     <label>From month<select id="monthFromFilter"></select></label>
@@ -261,6 +270,7 @@
                     <tbody id="reportBody"></tbody>
                 </table>
             </div>
+            </section>
         </section>
     </main>
     <div id="manualMatchModal" class="manual-match-modal hidden" role="dialog" aria-modal="true" aria-labelledby="manualMatchTitle">
