@@ -19,7 +19,8 @@
   "host_permissions": [
     "https://groupmuk-prisma.mediaocean.com/*",
     "https://go.demo.mediaocean.com/*",
-    "https://insidemedia.sharepoint.com/*"
+    "https://insidemedia.sharepoint.com/*",
+    "https://graph.facebook.com/*"
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; style-src 'self' https://cdnjs.cloudflare.com https://fonts.googleapis.com; object-src 'self'"

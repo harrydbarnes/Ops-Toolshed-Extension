@@ -4,17 +4,19 @@ const { JSDOM } = require('jsdom');
 
 const html = fs.readFileSync(path.resolve(__dirname, '../social-finance.html'), 'utf8');
 const css = fs.readFileSync(path.resolve(__dirname, '../social-finance.css'), 'utf8');
+const script = fs.readFileSync(path.resolve(__dirname, '../social-finance.js'), 'utf8');
+const manifest = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../manifest.json'), 'utf8'));
 const popupHtml = fs.readFileSync(path.resolve(__dirname, '../popup.html'), 'utf8');
 const toolshedHtml = fs.readFileSync(path.resolve(__dirname, '../toolshed.html'), 'utf8');
 
 describe('Social Booking Checker upload guidance', () => {
     const document = new JSDOM(html).window.document;
 
-    test('explains the shared scope and raw CSV requirements before upload', () => {
+    test('explains the shared scope and local handling before comparison', () => {
         const guidance = document.querySelector('.upload-readiness').textContent;
 
-        expect(guidance).toContain('raw CSV export');
         expect(guidance).toContain('same client account(s) and reporting months');
+        expect(guidance).toContain('only in this Chrome profile');
     });
 
     test('uses the updated name and user-facing explanation throughout the launcher', () => {
@@ -117,6 +119,20 @@ describe('Social Booking Checker upload guidance', () => {
         expect(prismaDropZone.querySelector('#prismaFileName').textContent).toBe('No file selected');
         expect(metaDropZone.querySelector('#removeMetaFile').textContent).toBe('Remove file');
         expect(prismaDropZone.querySelector('#removePrismaFile').textContent).toBe('Remove file');
+    });
+
+    test('offers the Meta API with CSV fallback and non-revealing local credential controls', () => {
+        expect(document.querySelector('#metaSourceApi').checked).toBe(true);
+        expect(document.querySelector('#metaSourceCsv').checked).toBe(false);
+        expect(document.querySelector('#metaAccessToken').type).toBe('password');
+        expect(document.querySelector('#metaBusinessId').type).toBe('password');
+        expect(document.querySelector('#removeMetaToken').textContent).toBe('Remove token');
+        expect(document.querySelector('#removeMetaBusinessId').textContent).toBe('Remove Business ID');
+        expect(document.querySelector('#metaApiPanel').textContent).toContain('Graph API v24.0');
+        expect(document.querySelector('#metaCsvPanel').textContent).toContain('Meta Spend Across Agency');
+        expect(script).toContain("window.chrome.storage.local");
+        expect(script).not.toContain('META_ACCESS_TOKEN');
+        expect(manifest.host_permissions).toContain('https://graph.facebook.com/*');
     });
 
     test('offers month range filters and separate account and campaign columns', () => {

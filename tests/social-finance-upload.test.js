@@ -18,6 +18,21 @@ describe('Social Booking Checker report uploads', () => {
     beforeEach(async () => {
         dom = new JSDOM(html, { runScripts: 'outside-only', url: 'https://extension.test/social-finance.html' });
         document = dom.window.document;
+        const stored = {};
+        dom.window.chrome = {
+            runtime: {},
+            storage: { local: {
+                get: (key, callback) => callback({ [key]: stored[key] }),
+                set: (value, callback) => { Object.assign(stored, value); callback(); }
+            } }
+        };
+        dom.window.metaReportApi = {
+            createClient: jest.fn(() => ({
+                getAdAccounts: jest.fn().mockResolvedValue([{ id: '111', name: 'Boots' }, { id: '222', name: 'No7' }]),
+                getMonthlyReport: jest.fn().mockResolvedValue([{ accountId: '111', accountName: 'Boots', campaignId: '9', campaignName: 'Summer', month: '2026-06', spend: 10 }])
+            })),
+            reportToMetaCsv: jest.fn(() => 'Account ID,Campaign ID,Month,Amount spent\n111,9,2026-06,10')
+        };
         dom.window.socialFinanceEngine = {
             parseCsv: jest.fn(() => ({ headers: [], rows: [] })),
             aggregateMeta: jest.fn(() => ({ records: [] }))
@@ -110,5 +125,43 @@ describe('Social Booking Checker report uploads', () => {
         expect(document.querySelector('.summary-card strong').textContent).toBe('1');
         expect(document.querySelector('#reportBody').textContent).toContain('June campaign');
         expect(document.querySelector('#reportBody').textContent).not.toContain('May campaign');
+    });
+
+    test('stores API details locally, hides saved values, and removes them', async () => {
+        document.querySelector('#metaAccessToken').value = 'private-token';
+        document.querySelector('#metaBusinessId').value = '268300820035937';
+        document.querySelector('#saveMetaCredentials').click();
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+
+        expect(document.querySelector('#metaAccessToken').value).toBe('');
+        expect(document.querySelector('#metaBusinessId').value).toBe('');
+        expect(document.querySelector('#metaCredentialStatus').textContent).toContain('saved locally');
+        expect(document.body.textContent).not.toContain('private-token');
+        expect(document.querySelector('#removeMetaToken').classList.contains('hidden')).toBe(false);
+
+        document.querySelector('#removeMetaToken').click();
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        expect(document.querySelector('#removeMetaToken').classList.contains('hidden')).toBe(true);
+        expect(document.querySelector('#removeMetaBusinessId').classList.contains('hidden')).toBe(false);
+    });
+
+    test('loads accounts and pulls API data for the selected scope and dates', async () => {
+        document.querySelector('#metaAccessToken').value = 'token';
+        document.querySelector('#metaBusinessId').value = '123';
+        document.querySelector('#saveMetaCredentials').click();
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        document.querySelector('#loadMetaAccounts').click();
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+
+        expect(document.querySelectorAll('.account-option')).toHaveLength(2);
+        document.querySelector('.account-option input[value="111"]').checked = true;
+        document.querySelector('#metaApiStartDate').value = '2026-06-01';
+        document.querySelector('#metaApiEndDate').value = '2026-06-30';
+        document.querySelector('#pullMetaData').click();
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+
+        expect(dom.window.metaReportApi.reportToMetaCsv).toHaveBeenCalled();
+        expect(document.querySelector('#metaApiStatus').textContent).toContain('campaign-month row');
+        expect(document.querySelector('#clearMetaApiData').classList.contains('hidden')).toBe(false);
     });
 });
