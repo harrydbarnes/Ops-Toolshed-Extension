@@ -94,14 +94,13 @@
                                 <span><strong>Campaign IDs quick copy</strong><small>Copy Campaign ID and CL/PR/CA header values.</small></span>
                                 <input type="checkbox" data-setting="campaignHeaderQuickCopyEnabled" checked><i aria-hidden="true"></i>
                             </label>
-                            <label class="setting-choice">
-                                <span><strong>Switch Accounts</strong><small>Move between PIDs and return to your previous page.</small></span>
-                                <input type="checkbox" data-setting="swapAccountsEnabled" checked><i aria-hidden="true"></i>
-                            </label>
-                            <label class="setting-choice">
-                                <span><strong>Restore page after switching</strong><small>Continue where you left off after the account reload.</small></span>
-                                <input type="checkbox" data-setting="rememberAccountSwitchUrlEnabled" checked><i aria-hidden="true"></i>
-                            </label>
+                            <div class="setting-choice featured-choice pid-choice">
+                                <div><strong>Do you have two Prisma user PIDs?</strong><span>For example, UREL and UREL2. This decides whether Switch Accounts is shown.</span></div>
+                                <div class="segmented-choice" role="group" aria-label="Do you have two Prisma user PIDs?">
+                                    <button type="button" data-pid-choice="true" aria-pressed="true">Yes</button>
+                                    <button type="button" data-pid-choice="false" aria-pressed="false">No</button>
+                                </div>
+                            </div>
                             <label class="setting-choice">
                                 <span><strong>Loading facts</strong><small>Replace some waiting time with short facts.</small></span>
                                 <input type="checkbox" data-setting="loadingFactsEnabled" checked><i aria-hidden="true"></i>

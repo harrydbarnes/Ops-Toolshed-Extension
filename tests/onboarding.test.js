@@ -64,6 +64,21 @@ describe('First-run onboarding', () => {
         dom.window.close();
     });
 
+    test('uses the two-PID answer to control Switch Accounts and URL restoration together', async () => {
+        const { dom, sync } = setup();
+        await Promise.resolve();
+
+        dom.window.document.querySelector('[data-pid-choice="false"]').click();
+        await Promise.resolve();
+
+        expect(sync.store).toEqual(expect.objectContaining({
+            swapAccountsEnabled: false,
+            rememberAccountSwitchUrlEnabled: false
+        }));
+        expect(dom.window.document.querySelector('[data-pid-choice="false"]').getAttribute('aria-pressed')).toBe('true');
+        dom.window.close();
+    });
+
     test('opens Prisma and the guided side panel from the final step', async () => {
         const { dom, local, chrome } = setup();
         await Promise.resolve();

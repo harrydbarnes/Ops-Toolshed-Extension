@@ -4,9 +4,15 @@
 
     const OVERLAY_ID = 'ops-toolshed-onboarding-highlight';
     const BACKDROP_ID = 'ops-toolshed-onboarding-backdrop';
+    const MASK_ID = 'ops-toolshed-onboarding-mask';
     const STYLE_ID = 'ops-toolshed-onboarding-highlight-styles';
+    const BLOCKED_EVENTS = ['pointerdown', 'mousedown', 'touchstart', 'click'];
     let activeTarget = null;
     let resizeObserver = null;
+    let blockedTarget = null;
+    let guardedLauncher = null;
+    let guardObserver = null;
+    let tourInteractionGuardEnabled = false;
 
     function findDeep(selector, root = document) {
         if (!root?.querySelector) return null;
@@ -20,11 +26,67 @@
         return null;
     }
 
+    function findDeepMatching(predicate, root = document) {
+        if (!root?.querySelectorAll) return null;
+        for (const element of root.querySelectorAll('*')) {
+            if (predicate(element)) return element;
+            if (!element.shadowRoot) continue;
+            const match = findDeepMatching(predicate, element.shadowRoot);
+            if (match) return match;
+        }
+        return null;
+    }
+
+    function findInteractiveByText(pattern) {
+        return findDeepMatching(element => {
+            if (!element.matches?.('a, button, mo-button, [role="button"], [role="link"]')) return false;
+            return pattern.test((element.textContent || element.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim());
+        });
+    }
+
+    function findCampaignListTarget() {
+        const link = findDeep('a[href*="campaign-id="]');
+        return document.getElementById('dashboard-campaigns-grid') ||
+            findDeep('[data-testid*="campaign-list"], [class*="campaign-list"], [class*="campaign-grid"]') ||
+            link?.closest?.('[role="row"], tr, article, .mo-card, [class*="campaign-card"]') || link;
+    }
+
+    function findActionTarget(label) {
+        const icon = findDeep(`[aria-label="${label}"]`);
+        return icon?.closest?.('#mo-extracted-actions-toolbar > div') || icon;
+    }
+
+    function findExpandedApproverWidget() {
+        const control = document.querySelector('.workflow-widget-wrapper .select2-choices .select2-input') ||
+            document.querySelector('.workflow-widget-wrapper .prisma-paste-button');
+        return control?.closest?.('.workflow-widget-wrapper') || null;
+    }
+
     const targetFinders = {
         helpGuides: () => document.getElementById('toolshed-help-guides-launcher'),
+        campaignList: findCampaignListTarget,
         account: () => findDeep('.user-menu-label') || findDeep('mo-banner-user-menu'),
+        switchAccounts: () => findInteractiveByText(/^switch accounts$/i),
+        campaignHeader: () => document.querySelector('.buy-details-wrapper, .mo-campaign-name-wrapper, [class*="campaign-header"]'),
         campaignActions: () => document.getElementById('mo-extracted-actions-toolbar'),
-        campaignNavigation: () => document.getElementById('toolshed-actualise-navbar-wrapper') || document.getElementById('p2b-navbar')
+        campaignDetailsAction: () => findActionTarget('Campaign details'),
+        campaignCopyAction: () => findActionTarget('Copy campaign'),
+        campaignHistoryAction: () => findActionTarget('Campaign history'),
+        campaignName: () => document.querySelector('.mo-campaign-name-wrapper'),
+        campaignIdentifiers: () => document.querySelector('.buy-details-wrapper'),
+        campaignDates: () => document.querySelector('.mo-date-field-wrapper'),
+        campaignBudget: () => document.getElementById('campaign-budget-overview-container'),
+        campaignNavigation: () => document.getElementById('toolshed-actualise-navbar-wrapper') || document.getElementById('p2b-navbar'),
+        ordersNav: () => document.getElementById('p2b-navbar-section-orders'),
+        actualiseNav: () => document.getElementById('p2b-navbar-section-actualise'),
+        placementGrid: () => document.getElementById('grid-container_hot'),
+        campaignWorkspace: () => document.getElementById('grid-container_hot') || document.getElementById('cm-buy-sidebar-order-revisions-header') || document.querySelector('[class*="placement-grid"], [class*="buy-workspace"]'),
+        approverWidget: () => document.querySelector('.workflow-widget-wrapper') || document.querySelector('[class*="workflow-widget"]'),
+        approverWidgetExpanded: findExpandedApproverWidget,
+        addCampaign: () => findInteractiveByText(/^add campaign$/i),
+        campaignSetup: () => document.getElementById('campaign-details-flight')?.closest('.well, form, section') ||
+            findInteractiveByText(/^(enter full details|campaign details)$/i)?.closest?.('form, section, main, [role="dialog"]') ||
+            document.querySelector('[class*="campaign-details"], [class*="campaign-setup"]')
     };
 
     function injectStyles() {
@@ -44,12 +106,10 @@
             #${BACKDROP_ID} {
                 position: fixed;
                 inset: 0;
+                width: 100vw;
+                height: 100vh;
                 z-index: 2147483645;
                 pointer-events: none;
-            }
-            #${BACKDROP_ID} > span {
-                position: fixed;
-                background: rgba(23, 24, 31, 0.54);
             }
             #${OVERLAY_ID}::after {
                 position: absolute;
@@ -75,16 +135,95 @@
         resizeObserver = null;
         window.removeEventListener('resize', positionOverlay);
         window.removeEventListener('scroll', positionOverlay, true);
+        if (blockedTarget) {
+            BLOCKED_EVENTS.forEach(eventName => blockedTarget.removeEventListener(eventName, preventHighlightedAction, true));
+            blockedTarget = null;
+        }
         activeTarget = null;
         document.getElementById(OVERLAY_ID)?.remove();
         document.getElementById(BACKDROP_ID)?.remove();
     }
 
-    function setMaskBounds(mask, left, top, width, height) {
-        mask.style.left = `${Math.max(0, left)}px`;
-        mask.style.top = `${Math.max(0, top)}px`;
-        mask.style.width = `${Math.max(0, width)}px`;
-        mask.style.height = `${Math.max(0, height)}px`;
+    function preventHighlightedAction(event) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        event.stopPropagation();
+    }
+
+    function preventTourLauncherAction(event) {
+        preventHighlightedAction(event);
+    }
+
+    function applyTourInteractionGuard() {
+        if (!tourInteractionGuardEnabled) return;
+        const launcher = document.getElementById('toolshed-help-guides-launcher');
+        if (!launcher || launcher === guardedLauncher) return;
+        if (guardedLauncher) {
+            BLOCKED_EVENTS.forEach(eventName => guardedLauncher.removeEventListener(eventName, preventTourLauncherAction, true));
+        }
+        guardedLauncher = launcher;
+        BLOCKED_EVENTS.forEach(eventName => launcher.addEventListener(eventName, preventTourLauncherAction, true));
+    }
+
+    function setTourInteractionGuard(enabled) {
+        tourInteractionGuardEnabled = enabled === true;
+        if (!tourInteractionGuardEnabled) {
+            guardObserver?.disconnect();
+            guardObserver = null;
+            if (guardedLauncher) {
+                BLOCKED_EVENTS.forEach(eventName => guardedLauncher.removeEventListener(eventName, preventTourLauncherAction, true));
+                guardedLauncher = null;
+            }
+            return;
+        }
+
+        applyTourInteractionGuard();
+        if (!guardObserver && typeof MutationObserver === 'function') {
+            guardObserver = new MutationObserver(applyTourInteractionGuard);
+            guardObserver.observe(document.documentElement, { childList: true, subtree: true });
+        }
+    }
+
+    function blockTargetInteraction(target) {
+        blockedTarget = target;
+        BLOCKED_EVENTS.forEach(eventName => target.addEventListener(eventName, preventHighlightedAction, true));
+    }
+
+    function createBackdrop() {
+        const namespace = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(namespace, 'svg');
+        svg.id = BACKDROP_ID;
+        svg.setAttribute('aria-hidden', 'true');
+
+        const defs = document.createElementNS(namespace, 'defs');
+        const mask = document.createElementNS(namespace, 'mask');
+        mask.id = MASK_ID;
+        mask.setAttribute('maskUnits', 'userSpaceOnUse');
+
+        const canvas = document.createElementNS(namespace, 'rect');
+        canvas.dataset.tourMask = 'canvas';
+        canvas.setAttribute('x', '0');
+        canvas.setAttribute('y', '0');
+        canvas.setAttribute('fill', '#fff');
+
+        const hole = document.createElementNS(namespace, 'rect');
+        hole.dataset.tourMask = 'hole';
+        hole.setAttribute('fill', '#000');
+        hole.setAttribute('rx', '12');
+        hole.setAttribute('ry', '12');
+
+        mask.append(canvas, hole);
+        defs.appendChild(mask);
+
+        const shade = document.createElementNS(namespace, 'rect');
+        shade.dataset.tourMask = 'shade';
+        shade.setAttribute('x', '0');
+        shade.setAttribute('y', '0');
+        shade.setAttribute('fill', 'rgba(23, 24, 31, 0.54)');
+        shade.setAttribute('mask', `url(#${MASK_ID})`);
+
+        svg.append(defs, shade);
+        return svg;
     }
 
     function positionOverlay() {
@@ -110,23 +249,28 @@
         overlay.style.width = `${width}px`;
         overlay.style.height = `${height}px`;
 
-        const [topMask, rightMask, bottomMask, leftMask] = backdrop.children;
-        setMaskBounds(topMask, 0, 0, viewportWidth, top);
-        setMaskBounds(rightMask, right, top, viewportWidth - right, height);
-        setMaskBounds(bottomMask, 0, bottom, viewportWidth, viewportHeight - bottom);
-        setMaskBounds(leftMask, 0, top, left, height);
+        backdrop.setAttribute('viewBox', `0 0 ${viewportWidth} ${viewportHeight}`);
+        const canvas = backdrop.querySelector('[data-tour-mask="canvas"]');
+        const hole = backdrop.querySelector('[data-tour-mask="hole"]');
+        const shade = backdrop.querySelector('[data-tour-mask="shade"]');
+        [canvas, shade].forEach(element => {
+            element?.setAttribute('width', String(viewportWidth));
+            element?.setAttribute('height', String(viewportHeight));
+        });
+        hole?.setAttribute('x', String(left));
+        hole?.setAttribute('y', String(top));
+        hole?.setAttribute('width', String(width));
+        hole?.setAttribute('height', String(height));
         return true;
     }
 
-    function showHighlight(targetKey) {
+    function showHighlight(targetKey, options = {}) {
         removeHighlight();
         const target = targetFinders[targetKey]?.();
         if (!target) return false;
         activeTarget = target;
         injectStyles();
-        const backdrop = document.createElement('div');
-        backdrop.id = BACKDROP_ID;
-        for (let index = 0; index < 4; index += 1) backdrop.appendChild(document.createElement('span'));
+        const backdrop = createBackdrop();
         document.body.appendChild(backdrop);
         const overlay = document.createElement('div');
         overlay.id = OVERLAY_ID;
@@ -138,6 +282,7 @@
             removeHighlight();
             return false;
         }
+        if (options.blockInteraction === true) blockTargetInteraction(target);
         requestAnimationFrame(() => positionOverlay());
         window.addEventListener('resize', positionOverlay);
         window.addEventListener('scroll', positionOverlay, true);
@@ -150,7 +295,7 @@
 
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         if (request?.action === 'showOnboardingHighlight') {
-            const found = showHighlight(request.target);
+            const found = showHighlight(request.target, { blockInteraction: request.blockInteraction === true });
             sendResponse({ status: 'success', found });
             return false;
         }
@@ -159,8 +304,13 @@
             sendResponse({ status: 'success' });
             return false;
         }
+        if (request?.action === 'setOnboardingInteractionGuard') {
+            setTourInteractionGuard(request.enabled === true);
+            sendResponse({ status: 'success' });
+            return false;
+        }
         return false;
     });
 
-    window.onboardingTourFeature = { showHighlight, removeHighlight };
+    window.onboardingTourFeature = { showHighlight, removeHighlight, setTourInteractionGuard };
 })();

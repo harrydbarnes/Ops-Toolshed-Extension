@@ -12,6 +12,7 @@ describe('Help Guides page launcher', () => {
         enabled = true,
         position = null,
         panelInitiallyOpen = false,
+        onboardingTourActive = false,
         bannerReady = true,
         url = 'https://groupmuk-prisma.mediaocean.com/campaign-management/'
     } = {}) {
@@ -36,7 +37,7 @@ describe('Help Guides page launcher', () => {
                     get: jest.fn((defaults, callback) => callback({ ...defaults, helpGuidesEnabled: enabled }))
                 },
                 local: {
-                    get: jest.fn((defaults, callback) => callback({ ...defaults, helpGuidesLauncherPosition: position })),
+                    get: jest.fn((defaults, callback) => callback({ ...defaults, helpGuidesLauncherPosition: position, onboardingTourActive })),
                     set: jest.fn((values, callback) => callback?.())
                 },
                 onChanged: {
@@ -134,6 +135,18 @@ describe('Help Guides page launcher', () => {
         await Promise.resolve();
         expect(window.chrome.runtime.sendMessage).toHaveBeenLastCalledWith({ action: 'closeHelpGuidesFromLauncher' });
         expect(window.helpGuidesLauncherFeature.isPanelOpen()).toBe(false);
+        dom.window.close();
+    });
+
+    test('does not replace the onboarding panel when the tour is active', () => {
+        const { dom } = createFeature({ onboardingTourActive: true });
+        const { window } = dom;
+        window.helpGuidesLauncherFeature.initialize();
+        window.chrome.runtime.sendMessage.mockClear();
+
+        window.document.getElementById('toolshed-help-guides-launcher').click();
+
+        expect(window.chrome.runtime.sendMessage).not.toHaveBeenCalled();
         dom.window.close();
     });
 

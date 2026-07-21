@@ -184,6 +184,8 @@ button, select { color: inherit; }
 .setting-choice:focus-within { outline: 3px solid rgba(232, 47, 121, .18); outline-offset: 2px; }
 
 .featured-choice { background: #fff; }
+.pid-choice > div:first-child { max-width: 520px; }
+.pid-choice .segmented-choice { flex: 0 0 auto; }
 .segmented-choice { display: inline-flex; padding: 3px; border: 1px solid #d8d9df; border-radius: 999px; background: #f1f1f4; }
 .segmented-choice button { min-width: 64px; padding: 7px 11px; border-radius: 999px; background: transparent; color: var(--muted); }
 .segmented-choice button[aria-pressed="true"] { background: #fff; color: var(--accent-dark); box-shadow: 0 1px 5px rgba(30, 31, 42, .14); }
@@ -232,6 +234,7 @@ button:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid
     .welcome-layout, .choice-layout, .ready-layout { grid-template-columns: 1fr; }
     .welcome-points div { grid-template-columns: 1fr; gap: 5px; }
     .context-note { display: none; }
+    .pid-choice { align-items: flex-start; flex-direction: column; }
     .onboarding-footer { align-items: flex-start; flex-direction: column; }
     .footer-actions { width: 100%; }
     .footer-actions button { flex: 1; }

@@ -107,6 +107,9 @@
         document.querySelectorAll('[data-setting-choice]').forEach(button => {
             button.setAttribute('aria-pressed', String(currentSettings[button.dataset.settingChoice] === button.dataset.value));
         });
+        document.querySelectorAll('[data-pid-choice]').forEach(button => {
+            button.setAttribute('aria-pressed', String((currentSettings.swapAccountsEnabled !== false) === (button.dataset.pidChoice === 'true')));
+        });
     }
 
     function updateSummary() {
@@ -185,6 +188,24 @@
             currentSettings[key] = button.dataset.value;
             syncControls();
             void saveSetting(key, button.dataset.value);
+        });
+    });
+
+    document.querySelectorAll('[data-pid-choice]').forEach(button => {
+        button.addEventListener('click', async () => {
+            const hasMultiplePids = button.dataset.pidChoice === 'true';
+            currentSettings.swapAccountsEnabled = hasMultiplePids;
+            currentSettings.rememberAccountSwitchUrlEnabled = hasMultiplePids;
+            syncControls();
+            try {
+                await storageSet(chrome.storage?.sync, {
+                    swapAccountsEnabled: hasMultiplePids,
+                    rememberAccountSwitchUrlEnabled: hasMultiplePids
+                });
+                showSavedStatus();
+            } catch {
+                elements.status.textContent = 'Could not save this setting';
+            }
         });
     });
 

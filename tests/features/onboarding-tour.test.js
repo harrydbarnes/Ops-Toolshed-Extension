@@ -35,7 +35,10 @@ describe('Onboarding page highlights', () => {
         expect(overlay.style.width).toBe('56px');
         expect(overlay.style.height).toBe('56px');
         expect(overlay.style.left).toBe('13px');
-        expect(dom.window.document.querySelectorAll('#ops-toolshed-onboarding-backdrop > span')).toHaveLength(4);
+        const maskHole = dom.window.document.querySelector('#ops-toolshed-onboarding-backdrop [data-tour-mask="hole"]');
+        expect(maskHole).not.toBeNull();
+        expect(maskHole.getAttribute('rx')).toBe('12');
+        expect(maskHole.getAttribute('width')).toBe('56');
 
         getListener()({ action: 'hideOnboardingHighlight' }, {}, sendResponse);
         expect(dom.window.document.getElementById('ops-toolshed-onboarding-highlight')).toBeNull();
@@ -72,6 +75,46 @@ describe('Onboarding page highlights', () => {
         dom.window.close();
     });
 
+    test('targets the precise Switch Accounts, campaign, navigation and expanded approver controls', () => {
+        const { dom, getListener } = setup();
+        const document = dom.window.document;
+        const targets = [
+            ['button', null, 'Switch Accounts'],
+            ['div', 'mo-extracted-actions-toolbar', ''],
+            ['a', 'p2b-navbar-section-orders', 'Orders'],
+            ['a', 'p2b-navbar-section-actualise', 'Actualise'],
+            ['div', 'grid-container_hot', 'Grid']
+        ].map(([tag, id, text]) => {
+            const element = document.createElement(tag);
+            if (id) element.id = id;
+            element.textContent = text;
+            element.getBoundingClientRect = () => ({ left: 20, top: 20, width: 100, height: 30 });
+            document.body.appendChild(element);
+            return element;
+        });
+        ['Campaign details', 'Copy campaign', 'Campaign history'].forEach(label => {
+            const wrapper = document.createElement('div');
+            wrapper.getBoundingClientRect = () => ({ left: 20, top: 20, width: 30, height: 30 });
+            const icon = document.createElement('span');
+            icon.setAttribute('aria-label', label);
+            wrapper.appendChild(icon);
+            targets[1].appendChild(wrapper);
+        });
+        const widget = document.createElement('div');
+        widget.className = 'workflow-widget-wrapper';
+        widget.getBoundingClientRect = () => ({ left: 20, top: 20, width: 260, height: 180 });
+        widget.innerHTML = '<div class="select2-choices"><input class="select2-input"></div><button class="prisma-paste-button">Paste Approvers</button>';
+        document.body.appendChild(widget);
+
+        const sendResponse = jest.fn();
+        ['switchAccounts', 'campaignDetailsAction', 'campaignCopyAction', 'campaignHistoryAction', 'ordersNav', 'actualiseNav', 'placementGrid', 'approverWidgetExpanded']
+            .forEach(target => getListener()({ action: 'showOnboardingHighlight', target }, {}, sendResponse));
+
+        expect(sendResponse).toHaveBeenCalledTimes(8);
+        expect(sendResponse.mock.calls.every(([value]) => value.found === true)).toBe(true);
+        dom.window.close();
+    });
+
     test('does not dim the page while a target is present but has no visible size', () => {
         const { dom, getListener } = setup();
         const target = dom.window.document.getElementById('toolshed-help-guides-launcher');
@@ -83,6 +126,23 @@ describe('Onboarding page highlights', () => {
         expect(sendResponse).toHaveBeenCalledWith({ status: 'success', found: false });
         expect(dom.window.document.getElementById('ops-toolshed-onboarding-highlight')).toBeNull();
         expect(dom.window.document.getElementById('ops-toolshed-onboarding-backdrop')).toBeNull();
+        dom.window.close();
+    });
+
+    test('guards the Help Guides launcher for the full tour and restores it afterwards', () => {
+        const { dom, getListener } = setup();
+        const target = dom.window.document.getElementById('toolshed-help-guides-launcher');
+        const openHelpGuides = jest.fn();
+        target.addEventListener('click', openHelpGuides);
+        const sendResponse = jest.fn();
+
+        getListener()({ action: 'setOnboardingInteractionGuard', enabled: true }, {}, sendResponse);
+        target.click();
+        expect(openHelpGuides).not.toHaveBeenCalled();
+
+        getListener()({ action: 'setOnboardingInteractionGuard', enabled: false }, {}, sendResponse);
+        target.click();
+        expect(openHelpGuides).toHaveBeenCalledTimes(1);
         dom.window.close();
     });
 });
