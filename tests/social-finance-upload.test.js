@@ -237,6 +237,8 @@ describe('Social Booking Checker report uploads', () => {
         document.querySelector('[data-show-matched-scope="true"]').click();
         expect(document.querySelector('#matchedScopeAccounts').classList.contains('hidden')).toBe(false);
         expect(document.querySelector('#matchedScopeAccounts').textContent).toContain('Meta Account ID 111');
+        const matchedMapping = document.querySelector('#matchedScopeAccounts select[data-mapping-account-id="111"]');
+        expect(matchedMapping.options[matchedMapping.selectedIndex].textContent).toBe('Boots / Opticians');
     });
 
     test('explains which permission is missing when Meta rejects a read-only sync', async () => {

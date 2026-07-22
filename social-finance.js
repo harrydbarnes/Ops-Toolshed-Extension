@@ -301,7 +301,13 @@
             const client = prismaAccount.clients && prismaAccount.clients.length ? prismaAccount.clients.join(', ') : 'No client name supplied';
             return `<div class="matched-scope-account"><strong>${escapeHtml(metaAccount?.name || prismaAccount.id)}</strong><small>Meta Account ID ${escapeHtml(prismaAccount.id)} · Prisma client: ${escapeHtml(client)}</small></div>`;
         }).join('') : '';
-        renderAccountMappings();
+        renderAccountMappings(state.showMatchedScopeAccounts ? new Set(matched.map(account => account.id)) : new Set());
+        if (state.showMatchedScopeAccounts) {
+            elements.matchedScopeAccounts.innerHTML = matched.map(prismaAccount => accountMappingMarkup(
+                state.metaAccounts.find(account => account.id === prismaAccount.id) || { id: prismaAccount.id, name: prismaAccount.id },
+                true
+            )).join('');
+        }
     }
 
     function mappingValue(mapping) {
@@ -317,7 +323,29 @@
         return `${mapping.client || 'Client name not supplied'} / ${mapping.product || 'Product name not supplied'}`;
     }
 
-    function renderAccountMappings() {
+    function accountMappingMarkup(account, matched = false) {
+        const scopes = state.prismaReference?.clientProducts || [];
+        const accountScopes = scopes.filter(scope => scope.accountIds?.includes(account.id));
+        const saved = state.accountMappings[account.id];
+        const suggested = !saved && accountScopes.length === 1 ? accountScopes[0] : null;
+        const selectedMapping = saved || suggested;
+        const selectedValue = selectedMapping ? mappingValue(selectedMapping) : '';
+        const optionValues = new Set(accountScopes.map(mappingValue));
+        const savedOption = selectedMapping && !optionValues.has(selectedValue)
+            ? `<option value="${escapeHtml(selectedValue)}">Saved: ${escapeHtml(mappingLabel(selectedMapping))} (not in this report)</option>`
+            : '';
+        const scopeOptions = accountScopes.length
+            ? accountScopes.map(scope => `<option value="${escapeHtml(mappingValue(scope))}" ${selectedValue === mappingValue(scope) ? 'selected' : ''}>${escapeHtml(mappingLabel(scope))}</option>`).join('')
+            : '<option value="" disabled>No Prisma client/product for this Partner account</option>';
+        const showCampaigns = state.shownMappingCampaignsAccountId === account.id;
+        const campaigns = (state.metaReference?.campaigns || []).filter(campaign => campaign.accountId === account.id).sort((left, right) => String(left.name || '').localeCompare(String(right.name || '')));
+        const campaignList = showCampaigns
+            ? `<div class="mapping-campaigns"><strong>Imported Meta campaigns (${campaigns.length})</strong>${campaigns.length ? `<ul>${campaigns.map(campaign => `<li>${escapeHtml(campaign.name || 'Campaign name not supplied')}<small>Campaign ID ${escapeHtml(campaign.id)}</small></li>`).join('')}</ul>` : '<span>No campaigns were found for this Meta account in the imported report.</span>'}</div>`
+            : '';
+        return `<div class="account-mapping-wrap${matched ? ' is-matched' : ''}"><label class="account-mapping-row"><span>${escapeHtml(account.name)}<small>Meta Account ID ${escapeHtml(account.id)}</small></span><button type="button" class="mapping-campaign-toggle" data-show-mapping-campaigns="${escapeHtml(account.id)}" aria-expanded="${showCampaigns}">${showCampaigns ? 'Hide campaigns' : 'Show campaigns'}</button><select data-mapping-account-id="${escapeHtml(account.id)}"><option value="">Not mapped</option>${savedOption}${scopeOptions}</select></label>${campaignList}</div>`;
+    }
+
+    function renderAccountMappings(excludedAccountIds = new Set()) {
         const scopes = state.prismaReference?.clientProducts || [];
         if (!state.metaAccounts.length) {
             elements.accountMappingOptions.innerHTML = '<span class="minor">Upload a Meta Ads Report to map accounts.</span>';
@@ -327,24 +355,10 @@
             elements.accountMappingOptions.innerHTML = '<span class="minor">Add Client name and Product name to the Prisma report to create mapping choices.</span>';
             return;
         }
-        elements.accountMappingOptions.innerHTML = state.metaAccounts.map(account => {
-            const saved = state.accountMappings[account.id];
-            const accountScopes = scopes.filter(scope => scope.accountIds?.includes(account.id));
-            const optionValues = new Set(accountScopes.map(mappingValue));
-            const savedValue = saved ? mappingValue(saved) : '';
-            const savedOption = saved && !optionValues.has(savedValue)
-                ? `<option value="${escapeHtml(savedValue)}">Saved: ${escapeHtml(mappingLabel(saved))} (not in this report)</option>`
-                : '';
-            const scopeOptions = accountScopes.length
-                ? accountScopes.map(scope => `<option value="${escapeHtml(mappingValue(scope))}" ${savedValue === mappingValue(scope) ? 'selected' : ''}>${escapeHtml(mappingLabel(scope))}</option>`).join('')
-                : '<option value="" disabled>No Prisma client/product for this Partner account</option>';
-            const showCampaigns = state.shownMappingCampaignsAccountId === account.id;
-            const campaigns = (state.metaReference?.campaigns || []).filter(campaign => campaign.accountId === account.id).sort((left, right) => String(left.name || '').localeCompare(String(right.name || '')));
-            const campaignList = showCampaigns
-                ? `<div class="mapping-campaigns"><strong>Imported Meta campaigns (${campaigns.length})</strong>${campaigns.length ? `<ul>${campaigns.map(campaign => `<li>${escapeHtml(campaign.name || 'Campaign name not supplied')}<small>Campaign ID ${escapeHtml(campaign.id)}</small></li>`).join('')}</ul>` : '<span>No campaigns were found for this Meta account in the imported report.</span>'}</div>`
-                : '';
-            return `<div class="account-mapping-wrap"><label class="account-mapping-row"><span>${escapeHtml(account.name)}<small>Meta Account ID ${escapeHtml(account.id)}</small></span><select data-mapping-account-id="${escapeHtml(account.id)}"><option value="">Not mapped</option>${savedOption}${scopeOptions}</select><button type="button" class="mapping-campaign-toggle" data-show-mapping-campaigns="${escapeHtml(account.id)}" aria-expanded="${showCampaigns}">${showCampaigns ? 'Hide campaigns' : 'Show campaigns'}</button></label>${campaignList}</div>`;
-        }).join('');
+        const accounts = state.metaAccounts.filter(account => !excludedAccountIds.has(account.id));
+        elements.accountMappingOptions.innerHTML = accounts.length
+            ? accounts.map(account => accountMappingMarkup(account)).join('')
+            : '<span class="minor">Every selected Meta account is shown above as a matched Prisma account.</span>';
     }
 
     async function saveAccountMapping(accountId, mapping) {
@@ -572,7 +586,7 @@
             ['Outside report scope', summary.outsideScope],
             ['Unmatched Meta spend', currency(summary.unmatchedSpend), 'alert', summary.unmatchedSpend > 0 || Object.keys(state.manualMatches).length]
         ];
-        elements.summaryCards.innerHTML = cards.map(([label, value, className = '', isAction = false]) => `<article class="summary-card ${className}${isAction ? ' is-action' : ''}">${evidenceTooltip(label, '', true)}<strong>${escapeHtml(value)}</strong>${isAction ? '<button class="summary-card-action" type="button" data-open-manual-match="true" aria-haspopup="dialog">Click To Match</button>' : ''}</article>`).join('');
+        elements.summaryCards.innerHTML = cards.map(([label, value, className = '', isAction = false]) => `<article class="summary-card ${className}${isAction ? ' is-action is-monetary' : ''}">${evidenceTooltip(label, '', true)}<strong>${escapeHtml(value)}</strong>${isAction ? '<button class="summary-card-action" type="button" data-open-manual-match="true" aria-haspopup="dialog">Click To Match</button>' : ''}</article>`).join('');
     }
 
     function monthFilteredRows() {
@@ -1184,20 +1198,24 @@
         byId('selectAllAccounts').addEventListener('click', () => { elements.accountOptions.querySelectorAll('input').forEach(input => { input.checked = true; }); saveAccountScope(); renderPrismaScope(); });
         byId('clearAccounts').addEventListener('click', () => { elements.accountOptions.querySelectorAll('input').forEach(input => { input.checked = false; }); saveAccountScope(); renderPrismaScope(); });
         elements.accountOptions.addEventListener('change', () => { saveAccountScope(); renderPrismaScope(); });
-        elements.accountMappingOptions.addEventListener('change', event => {
+        const handleMappingChange = event => {
             const select = event.target.closest('select[data-mapping-account-id]');
             if (select) {
                 const accountId = select.dataset.mappingAccountId;
                 saveAccountMapping(accountId, mappingFromValue(select.value)).catch(error => setStatus(elements.prismaScopeStatus, error.message, 'error'));
             }
-        });
-        elements.accountMappingOptions.addEventListener('click', event => {
+        };
+        const handleMappingCampaigns = event => {
             const button = event.target.closest('[data-show-mapping-campaigns]');
             if (!button) return;
             const accountId = button.dataset.showMappingCampaigns;
             state.shownMappingCampaignsAccountId = state.shownMappingCampaignsAccountId === accountId ? '' : accountId;
-            renderAccountMappings();
-        });
+            renderPrismaScope();
+        };
+        elements.accountMappingOptions.addEventListener('change', handleMappingChange);
+        elements.matchedScopeAccounts.addEventListener('change', handleMappingChange);
+        elements.accountMappingOptions.addEventListener('click', handleMappingCampaigns);
+        elements.matchedScopeAccounts.addEventListener('click', handleMappingCampaigns);
         elements.prismaScopeComparison.addEventListener('click', event => {
             if (!event.target.closest('[data-show-matched-scope]')) return;
             state.showMatchedScopeAccounts = !state.showMatchedScopeAccounts;
