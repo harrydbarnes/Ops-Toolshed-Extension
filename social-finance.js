@@ -1,7 +1,7 @@
 (function () {
     const engine = window.socialFinanceEngine;
     const metaApi = window.metaReportApi;
-    const state = { metaText: '', uploadedMetaText: '', metaTextSource: '', prismaText: '', report: null, metaAccounts: [], metaReference: null, prismaReference: null, accountMappings: {}, manualMatches: {}, candidateRejections: {}, wrikeReferences: {}, campaignColumnWidths: {}, manualMatchTrigger: null, showMatchedScopeAccounts: false, apiSync: null, sort: { key: '', direction: 'descending' } };
+    const state = { metaText: '', uploadedMetaText: '', metaTextSource: '', prismaText: '', report: null, metaAccounts: [], metaReference: null, prismaReference: null, accountMappings: {}, manualMatches: {}, candidateRejections: {}, wrikeReferences: {}, campaignColumnWidths: {}, manualMatchTrigger: null, showMatchedScopeAccounts: false, apiSync: null, sort: { key: '', direction: 'descending' }, socialActionSort: { key: '', direction: 'ascending' }, clientSort: { key: '', direction: 'ascending' } };
     const elements = {};
     const ACCOUNT_SCOPE_STORAGE_KEY = 'socialBookingMetaAccountScope';
     const META_API_STORAGE_KEY = 'socialBookingMetaApiCredentials';
@@ -606,6 +606,23 @@
         });
     }
 
+    function sortTableRows(rows, sort) {
+        if (!sort.key) return rows;
+        return [...rows].sort((left, right) => {
+            const leftValue = left[sort.key];
+            const rightValue = right[sort.key];
+            const leftMissing = leftValue === null || leftValue === undefined || leftValue === '';
+            const rightMissing = rightValue === null || rightValue === undefined || rightValue === '';
+            if (leftMissing !== rightMissing) return leftMissing ? 1 : -1;
+            const numeric = Number(leftValue);
+            const otherNumeric = Number(rightValue);
+            const comparison = Number.isFinite(numeric) && Number.isFinite(otherNumeric)
+                ? numeric - otherNumeric
+                : String(leftValue || '').localeCompare(String(rightValue || ''), 'en', { numeric: true, sensitivity: 'base' });
+            return sort.direction === 'ascending' ? comparison : -comparison;
+        });
+    }
+
     function updateFilterCounts() {
         const evidenceSelected = elements.evidenceFilterOptions.querySelectorAll('input:checked').length;
         elements.evidenceFilterCount.textContent = `${evidenceSelected} selected`;
@@ -675,7 +692,11 @@
             }
         });
         const groupsSorted = [...groups.values()].sort((left, right) => `${left.client}|${left.product}`.localeCompare(`${right.client}|${right.product}`));
-        state.clientBreakdownRows = groupsSorted.map(group => ({ ...group, accounts: [...group.accounts].join(', ') || 'None', variance: group.metaSpend - group.prismaPlanned }));
+        state.clientBreakdownRows = sortTableRows(groupsSorted.map(group => ({ ...group, accounts: [...group.accounts].join(', ') || 'None', variance: group.metaSpend - group.prismaPlanned })), state.clientSort);
+        renderSortableHeader(elements.clientBreakdownHeader, [
+            { label: 'Client', key: 'client' }, { label: 'Product', key: 'product' }, { label: 'Mapped Meta accounts', key: 'accounts' },
+            { label: 'Meta spend', key: 'metaSpend', number: true }, { label: 'Prisma booked', key: 'prismaPlanned', number: true }, { label: 'Variance', key: 'variance', number: true }
+        ], state.clientSort, 'client');
         elements.clientBreakdownBody.innerHTML = state.clientBreakdownRows.map(group => `<tr><td>${escapeHtml(group.client)}</td><td>${escapeHtml(group.product)}</td><td>${escapeHtml(group.accounts)}</td><td class="number">${escapeHtml(currency(group.metaSpend))}</td><td class="number">${escapeHtml(currency(group.prismaPlanned))}</td><td class="number">${escapeHtml(currency(group.variance))}</td></tr>`).join('');
     }
 
@@ -736,13 +757,23 @@
 
     function filteredSocialActionRows() {
         const selected = elements.socialActionFilter.value;
-        return socialActionRows().filter(row => selected === 'all' || row.actionKey === selected);
+        const query = elements.socialActionSearch.value.trim().toLowerCase();
+        const rows = socialActionRows().filter(row => {
+            const actionMatch = selected === 'all' || row.actionKey === selected;
+            const queryMatch = !query || [row.client, row.product, row.account, row.accountId, row.campaignName, row.campaignId, row.month, row.action, row.socialOwner].some(value => String(value || '').toLowerCase().includes(query));
+            return actionMatch && queryMatch;
+        });
+        return sortTableRows(rows, state.socialActionSort);
     }
 
     function renderSocialActionList() {
         if (!elements.socialActionBody) return;
         const rows = filteredSocialActionRows();
         elements.socialActionCount.textContent = `${rows.length} action${rows.length === 1 ? '' : 's'}`;
+        renderSortableHeader(elements.socialActionHeader, [
+            { label: 'Client / product', key: 'client' }, { label: 'Account', key: 'account' }, { label: 'Campaign', key: 'campaignName' }, { label: 'Month', key: 'month' }, { label: 'Meta spend', key: 'metaSpend', number: true },
+            { label: 'Wrike reference' }, { label: 'Recommended action', key: 'action' }, { label: 'Possible Prisma match' }, { label: 'Social owner', key: 'socialOwner' }
+        ], state.socialActionSort, 'social');
         elements.socialActionBody.innerHTML = rows.length ? rows.map(row => {
             const needsWrike = row.actionKey === 'wrike' || row.actionKey === 'book';
             const wrikeCell = needsWrike
@@ -829,7 +860,8 @@
                 return `<div class="candidate-choice" data-candidate-choice data-candidate-default-hidden="${candidateIndex > 2}" data-candidate-search-text="${escapeHtml(searchText)}"${candidateIndex > 2 ? ' hidden' : ''}><input type="radio" name="match-${rowIndex}" value="${escapeHtml(candidate.prismaKey)}" data-manual-meta-key="${escapeHtml(row.metaKey)}" ${candidate.prismaKey ? '' : 'disabled'} aria-label="Confirm ${escapeHtml(candidate.campaignName || 'Prisma candidate')}"><div><strong>${escapeHtml(candidate.campaignName || 'Campaign name not supplied')}</strong><small>${escapeHtml(details)}</small><label class="candidate-reject"><input type="checkbox" data-reject-meta-key="${escapeHtml(row.metaKey)}" data-reject-candidate-key="${escapeHtml(candidate.key)}" ${rejected ? 'checked' : ''}>Not the same campaign</label></div><span class="candidate-score">${candidate.score === null ? escapeHtml(candidate.level) : `${escapeHtml(candidate.score)}%`}</span></div>`;
             }).join('');
             const candidateLabel = `${candidates.length} eligible unlinked Prisma campaign${candidates.length === 1 ? '' : 's'} in this Meta account and month`;
-            return `<tr><td>${escapeHtml(row.account)}<span class="minor">ID ${escapeHtml(row.accountId)}</span></td><td>${escapeHtml(row.campaignName || 'Name not supplied')}</td><td><span class="campaign-id">${escapeHtml(row.campaignId)}</span>${row.month ? `<span class="minor">${escapeHtml(row.month)}</span>` : ''}</td><td class="number">${escapeHtml(currency(row.metaSpend))}</td><td><div class="candidate-stack"><label class="candidate-none"><input type="radio" name="match-${rowIndex}" value="" data-manual-meta-key="${escapeHtml(row.metaKey)}" checked>Leave unmatched</label>${choices ? `<label class="candidate-search">Search eligible Prisma campaigns<input type="search" data-candidate-search placeholder="Campaign name, Partner line ID, client or product" aria-label="Search eligible Prisma campaigns for ${escapeHtml(row.campaignName || row.campaignId)}"><small data-candidate-search-results>${escapeHtml(candidateLabel)}</small></label>${choices}` : '<span class="candidate-none">No unlinked Prisma campaigns are available in this Meta account and month.</span>'}</div></td></tr>`;
+            const noCandidates = '<span class="candidate-none candidate-empty">No eligible unlinked Prisma campaign is available for this Meta account and month. Existing Prisma campaigns are already linked, or this report has no other booking in scope. Client/product mapping only improves ranking; it does not hide candidates.</span>';
+            return `<tr><td>${escapeHtml(row.account)}<span class="minor">ID ${escapeHtml(row.accountId)}</span></td><td>${escapeHtml(row.campaignName || 'Name not supplied')}</td><td><span class="campaign-id">${escapeHtml(row.campaignId)}</span>${row.month ? `<span class="minor">${escapeHtml(row.month)}</span>` : ''}</td><td class="number">${escapeHtml(currency(row.metaSpend))}</td><td><div class="candidate-stack"><label class="candidate-none"><input type="radio" name="match-${rowIndex}" value="" data-manual-meta-key="${escapeHtml(row.metaKey)}" checked>Leave unmatched</label>${choices ? `<label class="candidate-search">Search eligible Prisma campaigns<input type="search" data-candidate-search placeholder="Campaign name, Partner line ID, client or product" aria-label="Search eligible Prisma campaigns for ${escapeHtml(row.campaignName || row.campaignId)}"><small data-candidate-search-results>${escapeHtml(candidateLabel)}</small></label>${choices}` : noCandidates}</div></td></tr>`;
         }).join('');
         const hasDecisions = Object.keys(state.manualMatches).length > 0 || Object.values(state.candidateRejections).some(values => values?.length);
         elements.clearManualMatches.classList.toggle('hidden', !hasDecisions);
@@ -990,6 +1022,29 @@
         updateFilterCounts();
     }
 
+    function renderSortableHeader(container, columns, sort, table) {
+        if (!container) return;
+        container.innerHTML = `<tr>${columns.map(column => {
+            const active = column.key && sort.key === column.key;
+            const indicator = active ? (sort.direction === 'ascending' ? 'â–²' : 'â–¼') : '';
+            const label = column.key
+                ? `<button class="sort-button" type="button" data-table-sort="${table}" data-sort-key="${column.key}" aria-label="Sort by ${escapeHtml(column.label)}">${escapeHtml(column.label)} <span aria-hidden="true">${indicator}</span></button>`
+                : escapeHtml(column.label);
+            return `<th class="${column.number ? 'number' : ''}"${active ? ` aria-sort="${sort.direction}"` : ''}>${label}</th>`;
+        }).join('')}</tr>`;
+    }
+
+    function toggleTableSort(table, key) {
+        const sort = table === 'social' ? state.socialActionSort : state.clientSort;
+        if (sort.key === key) sort.direction = sort.direction === 'ascending' ? 'descending' : 'ascending';
+        else {
+            sort.key = key;
+            sort.direction = ['metaSpend', 'prismaPlanned', 'variance'].includes(key) ? 'descending' : 'ascending';
+        }
+        if (table === 'social') renderSocialActionList();
+        else renderClientBreakdown();
+    }
+
     function toggleSort(key) {
         if (state.sort.key === key) state.sort.direction = state.sort.direction === 'ascending' ? 'descending' : 'ascending';
         else state.sort = { key, direction: 'descending' };
@@ -1092,7 +1147,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        ['validationMessages', 'results', 'metaDataSource', 'financialHeadline', 'summaryCards', 'coverageWarnings', 'populationCoverage', 'socialActionList', 'socialActionBody', 'socialActionFilter', 'socialActionCount', 'socialActionStatus', 'copySocialActions', 'downloadSocialActions', 'clientBreakdown', 'clientBreakdownBody', 'campaignBreakdown', 'campaignColumnGroup', 'reportSearch', 'monthFromFilter', 'monthToFilter', 'visibleCount', 'reportHeader', 'reportBody', 'asOfDate', 'tolerance', 'closedWorkingDay', 'accountScopePanel', 'accountOptions', 'prismaScopePanel', 'prismaScopeStatus', 'prismaScopeComparison', 'matchedScopeAccounts', 'accountMappingOptions', 'metaApiPanel', 'metaAccessToken', 'saveMetaCredentials', 'metaCredentialStatus', 'removeMetaToken', 'metaApiDatePreset', 'metaApiStartDate', 'metaApiEndDate', 'metaApiStatus', 'apiAccountActions', 'pullMetaData', 'clearMetaApiData', 'metaReferenceStatus', 'removeMetaReference', 'evidenceFilterOptions', 'evidenceFilterCount', 'accountFilterOptions', 'accountFilterCount', 'manualMatchModal', 'manualMatchStatus', 'manualMatchBody', 'closeManualMatch', 'cancelManualMatch', 'applyManualMatches', 'clearManualMatches'].forEach(id => { elements[id] = byId(id); });
+        ['validationMessages', 'results', 'metaDataSource', 'financialHeadline', 'summaryCards', 'coverageWarnings', 'populationCoverage', 'socialActionList', 'socialActionHeader', 'socialActionBody', 'socialActionFilter', 'socialActionSearch', 'socialActionCount', 'socialActionStatus', 'copySocialActions', 'downloadSocialActions', 'clientBreakdown', 'clientBreakdownHeader', 'clientBreakdownBody', 'campaignBreakdown', 'campaignColumnGroup', 'reportSearch', 'monthFromFilter', 'monthToFilter', 'visibleCount', 'reportHeader', 'reportBody', 'asOfDate', 'tolerance', 'closedWorkingDay', 'accountScopePanel', 'accountOptions', 'prismaScopePanel', 'prismaScopeStatus', 'prismaScopeComparison', 'matchedScopeAccounts', 'accountMappingOptions', 'metaApiPanel', 'metaAccessToken', 'saveMetaCredentials', 'metaCredentialStatus', 'removeMetaToken', 'metaApiDatePreset', 'metaApiStartDate', 'metaApiEndDate', 'metaApiStatus', 'apiAccountActions', 'pullMetaData', 'clearMetaApiData', 'metaReferenceStatus', 'removeMetaReference', 'evidenceFilterOptions', 'evidenceFilterCount', 'accountFilterOptions', 'accountFilterCount', 'manualMatchModal', 'manualMatchStatus', 'manualMatchBody', 'closeManualMatch', 'cancelManualMatch', 'applyManualMatches', 'clearManualMatches'].forEach(id => { elements[id] = byId(id); });
         elements.asOfDate.value = new Date().toISOString().slice(0, 10);
         applyDatePreset();
         setupFileUpload('metaFile', 'metaDropZone', 'removeMetaFile', 'metaText', 'metaFileName');
@@ -1156,6 +1211,15 @@
         elements.applyManualMatches.addEventListener('click', applyManualMatches);
         elements.clearManualMatches.addEventListener('click', clearManualMatches);
         elements.socialActionFilter.addEventListener('change', renderSocialActionList);
+        elements.socialActionSearch.addEventListener('input', renderSocialActionList);
+        elements.socialActionHeader.addEventListener('click', event => {
+            const button = event.target.closest('[data-table-sort="social"]');
+            if (button) toggleTableSort('social', button.dataset.sortKey);
+        });
+        elements.clientBreakdownHeader.addEventListener('click', event => {
+            const button = event.target.closest('[data-table-sort="client"]');
+            if (button) toggleTableSort('client', button.dataset.sortKey);
+        });
         elements.socialActionBody.addEventListener('change', event => {
             const input = event.target.closest('input[data-wrike-meta-key]');
             if (!input) return;

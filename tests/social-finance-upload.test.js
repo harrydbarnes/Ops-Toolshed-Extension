@@ -371,4 +371,29 @@ describe('Social Booking Checker report uploads', () => {
         document.querySelector('#evidenceFilterOptions input[value="Investigate"]').dispatchEvent(new dom.window.Event('change', { bubbles: true }));
         expect(document.querySelector('#reportBody').textContent).not.toContain('Higher');
     });
+
+    test('searches and sorts Social actions, and sorts the client breakdown', async () => {
+        const rows = [
+            { accountId: '111', campaignId: '1', month: '2026-06', account: 'Boots', campaignName: 'Lower', metaKey: '111|1|2026-06-01', evidence: 'Needs update', classification: 'Update', metaSpend: 10, prismaPlanned: 8, variance: 2, issues: [], owner: '' },
+            { accountId: '222', campaignId: '2', month: '2026-06', account: 'No7', campaignName: 'Higher', metaKey: '222|2|2026-06-01', evidence: 'Investigate', classification: 'Investigate', metaSpend: 30, prismaPlanned: 20, variance: 10, issues: [], owner: '' }
+        ];
+        dom.window.socialFinanceEngine.compare = jest.fn(() => ({ rows, summary: {}, warnings: [], validationErrors: [], coverage: { isComplete: true, metaMonths: ['2026-06'], prismaMonths: ['2026-06'], sharedMonths: ['2026-06'], gaps: [] } }));
+        dom.window.socialFinanceEngine.summarizeRows = jest.fn(() => ({ total: 2, missingOrUnlinked: 0, needsUpdate: 1, monitor: 0, investigate: 1, outsideScope: 0, unmatchedSpend: 0, metaBudget: 0, metaSpend: 40, prismaPlanned: 28, variance: 12 }));
+        const meta = { name: 'meta.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('meta') };
+        const prisma = { name: 'prisma.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('prisma') };
+        dropFile(dom.window, document.querySelector('#metaDropZone'), meta);
+        dropFile(dom.window, document.querySelector('#prismaDropZone'), prisma);
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        document.querySelector('#runComparison').click();
+
+        document.querySelector('#socialActionHeader [data-sort-key="metaSpend"]').click();
+        expect(document.querySelector('#socialActionBody').textContent.indexOf('Higher')).toBeLessThan(document.querySelector('#socialActionBody').textContent.indexOf('Lower'));
+        document.querySelector('#socialActionSearch').value = 'Boots';
+        document.querySelector('#socialActionSearch').dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+        expect(document.querySelector('#socialActionBody').textContent).toContain('Lower');
+        expect(document.querySelector('#socialActionBody').textContent).not.toContain('Higher');
+
+        document.querySelector('#clientBreakdownHeader [data-sort-key="variance"]').click();
+        expect(document.querySelector('#clientBreakdownHeader th[aria-sort="descending"]').textContent).toContain('Variance');
+    });
 });

@@ -153,7 +153,6 @@
                             <label>Reporting start<input id="metaApiStartDate" type="date" disabled></label>
                             <label>Reporting end<input id="metaApiEndDate" type="date" disabled></label>
                         </div>
-                        <div id="metaApiStatus" class="api-status" aria-live="polite"></div>
                     </div>
                 </div>
             </section>
@@ -167,6 +166,7 @@
                 <div id="apiAccountActions" class="api-account-actions hidden">
                     <button id="pullMetaData" type="button">Refresh selected Meta accounts</button>
                     <button id="clearMetaApiData" class="text-action hidden" type="button">Clear pulled data</button>
+                    <div id="metaApiStatus" class="api-status" aria-live="polite"></div>
                 </div>
                 <div class="account-scope-footer">
                     <div id="metaReferenceStatus" class="reference-status" aria-live="polite"></div>
@@ -234,12 +234,13 @@
                 </div>
                 <div class="social-action-toolbar">
                     <label>Action<select id="socialActionFilter"><option value="all">All actions</option><option value="coverage">Resolve report coverage</option><option value="wrike">Get Wrike reference</option><option value="book">Book in Prisma</option><option value="confirm">Confirm possible booking</option><option value="workflow">Resolve Prisma workflow</option><option value="update">Update Prisma booking</option><option value="investigate">Investigate</option></select></label>
+                    <label>Search<input id="socialActionSearch" type="search" placeholder="Campaign, account or action"></label>
                     <span id="socialActionCount" class="visible-count"></span>
                     <span id="socialActionStatus" class="action-copy-status" aria-live="polite"></span>
                 </div>
                 <div class="table-frame social-action-table">
                     <table>
-                        <thead><tr><th>Client / product</th><th>Account</th><th>Campaign</th><th>Month</th><th class="number">Meta spend</th><th>Wrike reference</th><th>Recommended action</th><th>Possible Prisma match</th><th>Social owner</th></tr></thead>
+                        <thead id="socialActionHeader"><tr><th>Client / product</th><th>Account</th><th>Campaign</th><th>Month</th><th class="number">Meta spend</th><th>Wrike reference</th><th>Recommended action</th><th>Possible Prisma match</th><th>Social owner</th></tr></thead>
                         <tbody id="socialActionBody"></tbody>
                     </table>
                 </div>
@@ -251,7 +252,7 @@
                 </div>
                 <div class="table-frame client-breakdown-table">
                     <table>
-                        <thead><tr><th>Client</th><th>Product</th><th>Mapped Meta accounts</th><th class="number">Meta spend</th><th class="number">Prisma booked</th><th class="number">Variance</th></tr></thead>
+                        <thead id="clientBreakdownHeader"><tr><th>Client</th><th>Product</th><th>Mapped Meta accounts</th><th class="number">Meta spend</th><th class="number">Prisma booked</th><th class="number">Variance</th></tr></thead>
                         <tbody id="clientBreakdownBody"></tbody>
                     </table>
                 </div>
