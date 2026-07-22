@@ -45,6 +45,20 @@ describe('social finance comparison engine', () => {
         ]);
     });
 
+    test('uses Partner line ID as the placement-level join while retaining placement names and ignoring export filter footers', () => {
+        const prisma = parseCsv(
+            'Partner account id,Partner line id,Period,PLANNED_AMOUNT,Campaign name,Placement name\n111,1,Jun 2026,10,Prisma parent campaign,Meta placement A\n111,2,Jun 2026,20,Prisma parent campaign,Meta placement B\n,,,,Filters: Partner - Facebook,'
+        );
+        const report = compare(
+            parseCsv('Account ID,Campaign ID,Month,Amount spent\n111,1,2026-06-01,10\n111,2,2026-06-01,20'),
+            prisma,
+            { populationConfirmed: true }
+        );
+        expect(report.rows.filter(row => row.evidence === 'Matched')).toHaveLength(2);
+        expect(report.rows.find(row => row.campaignId === '1').prismaPlacementNames).toEqual(['Meta placement A']);
+        expect(report.prismaUnintegratedRows).toHaveLength(0);
+    });
+
     test('classifies exact matches, missing links, month, budget, date and likely-unlinked cases', () => {
         const report = compare(parseCsv(metaCsv), parseCsv(prismaCsv), { asOfDate: '2026-07-13', tolerance: 1, closedWorkingDay: 5, populationConfirmed: true });
         const byId = id => report.rows.find(row => row.campaignId === id);
@@ -187,12 +201,14 @@ describe('social finance comparison engine', () => {
     });
 
     test('exports current reconciliation fields to CSV and escapes investigation text', () => {
-        const csv = reportToCsv([{ accountId: '999', campaignId: '1', month: '2026-06', account: 'Boots', campaignName: '=HYPERLINK("https://example.test")', status: 'Active', metaSpend: 1, metaBudget: 2, metaBudgetType: 'Lifetime', prismaClient: 'Boots', prismaProduct: 'Opticians', prismaPlanned: 1, variance: 0, metaStart: '', metaEnd: '', prismaStart: '', prismaEnd: '', prismaOrderStatus: 'NeedsRevision', prismaIntegratedStatus: 'Not Integrated', prismaDeliveryStatus: 'Not Received', prismaFlightStatus: 'Future', prismaPeriodStatus: 'NotYetStarted', classification: 'Prisma workflow review needed', evidence: 'Investigate', issues: ['one', 'two'], prismaWorkflowIssues: ['Prisma order status: NeedsRevision'], owner: 'Ops', candidateScore: 88 }]);
+        const csv = reportToCsv([{ accountId: '999', campaignId: '1', month: '2026-06', account: 'Boots', campaignName: '=HYPERLINK("https://example.test")', status: 'Active', metaSpend: 1, metaBudget: 2, metaBudgetType: 'Lifetime', prismaClient: 'Boots', prismaProduct: 'Opticians', prismaPlacementNames: ['Meta placement A'], prismaPlanned: 1, variance: 0, metaStart: '', metaEnd: '', prismaStart: '', prismaEnd: '', prismaOrderStatus: 'NeedsRevision', prismaIntegratedStatus: 'Not Integrated', prismaDeliveryStatus: 'Not Received', prismaFlightStatus: 'Future', prismaPeriodStatus: 'NotYetStarted', classification: 'Prisma workflow review needed', evidence: 'Investigate', issues: ['one', 'two'], prismaWorkflowIssues: ['Prisma order status: NeedsRevision'], owner: 'Ops', candidateScore: 88 }]);
         expect(csv.split('\r\n')[0]).toContain('Prisma integration status');
         expect(csv.split('\r\n')[0]).toContain('Candidate match score');
+        expect(csv.split('\r\n')[0]).toContain('Prisma placement name(s)');
         expect(csv).toContain('"\'=HYPERLINK(""https://example.test"")"');
         expect(csv).toContain('one; two');
         expect(csv).toContain('Prisma order status: NeedsRevision');
+        expect(csv).toContain('Meta placement A');
     });
 
     test('uses token overlap for investigation candidates', () => {

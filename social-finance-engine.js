@@ -26,6 +26,7 @@
         month: ['period', 'month'],
         planned: ['planned_amount', 'planned amount', 'gross amount', 'gross planned amount'],
         campaignName: ['campaign name', 'plan name', 'order name'],
+        placementName: ['placement name', 'prisma placement name'],
         client: ['client name', 'client'],
         product: ['product name', 'product'],
         partner: ['partner'],
@@ -336,6 +337,7 @@
                 accountId, campaignId, month, partner,
                 planned: parseMoney(row[columns.planned]) || 0,
                 campaignName: columns.campaignName ? String(row[columns.campaignName] || '').trim() : '',
+                placementName: columns.placementName ? String(row[columns.placementName] || '').trim() : '',
                 client: columns.client ? String(row[columns.client] || '').trim() : '',
                 product: columns.product ? String(row[columns.product] || '').trim() : '',
                 orderStatus: columns.orderStatus ? String(row[columns.orderStatus] || '').trim() : '',
@@ -350,6 +352,8 @@
             };
             const usableAccount = usableId(accountId);
             const usableCampaign = usableId(campaignId);
+            const bookingLike = Boolean(month || normalized.planned || usableAccount || usableCampaign);
+            if (!bookingLike && !usableAccount && !usableCampaign) return;
             if (usableAccount) allRows.push(normalized);
             if (!usableAccount || !usableCampaign) {
                 unintegratedRows.push(normalized);
@@ -358,11 +362,12 @@
             if (!month) return;
             const key = recordKey(accountId, campaignId, month);
             const existing = groups.get(key) || {
-                key, accountId, campaignId, month, planned: 0, campaignName: '', client: '', product: '', orderStatus: '', integratedStatus: '', deliveryStatus: '', flightStatus: '', periodStatus: '',
+                key, accountId, campaignId, month, planned: 0, campaignName: '', placementNames: [], client: '', product: '', orderStatus: '', integratedStatus: '', deliveryStatus: '', flightStatus: '', periodStatus: '',
                 owner: '', partner: '', start: null, end: null, rows: 0, sourceRows: []
             };
             existing.planned += normalized.planned;
             existing.campaignName ||= normalized.campaignName;
+            if (normalized.placementName && !existing.placementNames.includes(normalized.placementName)) existing.placementNames.push(normalized.placementName);
             existing.client ||= normalized.client;
             existing.product ||= normalized.product;
             existing.orderStatus ||= normalized.orderStatus;
@@ -433,7 +438,9 @@
         const ranked = sameMonth.map(row => {
             const key = candidateKey(row);
             if (rejected.has(key)) return null;
-            const name = campaignNameScore(meta.campaignName, row.campaignName);
+            const placementNames = Array.isArray(row.placementNames) ? row.placementNames : row.placementName ? [row.placementName] : [];
+            const candidateName = [row.campaignName, ...placementNames].filter(Boolean).join(' ');
+            const name = campaignNameScore(meta.campaignName, candidateName);
             const values = {
                 name: meta.campaignName && row.campaignName ? name.score : null,
                 dates: dateSimilarity(meta, row),
@@ -455,6 +462,7 @@
                 prismaKey: row.key || '',
                 campaignId: row.campaignId || '',
                 campaignName: row.campaignName || '',
+                placementNames,
                 client: row.client || '',
                 product: row.product || '',
                 planned: row.planned,
@@ -707,6 +715,7 @@
                 prismaDeliveryStatus: booking?.deliveryStatus || '',
                 prismaFlightStatus: booking?.flightStatus || '',
                 prismaPeriodStatus: booking?.periodStatus || '',
+                prismaPlacementNames: booking?.placementNames || [],
                 prismaWorkflowIssues: booking ? prismaWorkflowIssues(booking) : [],
                 classification,
                 evidence,
@@ -729,7 +738,7 @@
                 prismaPlanned: booking.planned, variance: -booking.planned,
                 prismaClient: booking.client, prismaProduct: booking.product,
                 metaStart: '', metaEnd: '', prismaStart: toIsoDate(booking.start), prismaEnd: toIsoDate(booking.end),
-                prismaOrderStatus: booking.orderStatus || '', prismaIntegratedStatus: booking.integratedStatus || '', prismaDeliveryStatus: booking.deliveryStatus || '', prismaFlightStatus: booking.flightStatus || '', prismaPeriodStatus: booking.periodStatus || '', prismaWorkflowIssues: prismaWorkflowIssues(booking),
+                prismaOrderStatus: booking.orderStatus || '', prismaIntegratedStatus: booking.integratedStatus || '', prismaDeliveryStatus: booking.deliveryStatus || '', prismaFlightStatus: booking.flightStatus || '', prismaPeriodStatus: booking.periodStatus || '', prismaPlacementNames: booking.placementNames || [], prismaWorkflowIssues: prismaWorkflowIssues(booking),
                 classification: outsideMetaMonths ? 'Outside Meta reporting months' : 'Prisma booking absent from Meta population',
                 evidence: outsideMetaMonths ? 'Outside scope' : 'Investigate',
                 issues: [outsideMetaMonths ? `Meta report does not include ${month}` : 'Confirm Meta export account and reporting window are complete'], owner: booking.owner, candidateScore: null, candidates: [], candidatePool: [], monthClosed: false
@@ -760,14 +769,14 @@
     function reportToCsv(rows) {
         const headers = [
             'Account ID', 'Meta account name', 'Campaign ID', 'Campaign name', 'Month', 'Meta delivery status',
-            'Meta spend', 'Meta campaign budget', 'Meta budget type', 'Prisma client', 'Prisma product', 'Prisma booked', 'Variance',
+            'Meta spend', 'Meta campaign budget', 'Meta budget type', 'Prisma client', 'Prisma product', 'Prisma placement name(s)', 'Prisma booked', 'Variance',
             'Meta campaign start', 'Meta campaign end', 'Prisma flight start', 'Prisma flight end',
             'Prisma order status', 'Prisma integration status', 'Prisma delivery status', 'Prisma flight status', 'Prisma period status',
             'Finding', 'Evidence', 'Supporting evidence', 'Prisma workflow issues', 'Prisma placement creator', 'Candidate match score'
         ];
         const fields = [
             'accountId', 'account', 'campaignId', 'campaignName', 'month', 'status',
-            'metaSpend', 'metaBudget', 'metaBudgetType', 'prismaClient', 'prismaProduct', 'prismaPlanned', 'variance',
+            'metaSpend', 'metaBudget', 'metaBudgetType', 'prismaClient', 'prismaProduct', 'prismaPlacementNames', 'prismaPlanned', 'variance',
             'metaStart', 'metaEnd', 'prismaStart', 'prismaEnd',
             'prismaOrderStatus', 'prismaIntegratedStatus', 'prismaDeliveryStatus', 'prismaFlightStatus', 'prismaPeriodStatus',
             'classification', 'evidence', 'issues', 'prismaWorkflowIssues', 'owner', 'candidateScore'

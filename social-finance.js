@@ -713,6 +713,11 @@
         return `${candidate.level}, ${candidate.score}%: ${campaign}; ${lineId}; ${currency(candidate.planned)} booked`;
     }
 
+    function supportingEvidence(row) {
+        const placementEvidence = (row.prismaPlacementNames || []).map(name => `Prisma placement: ${name}`);
+        return [...(row.issues || []), ...placementEvidence];
+    }
+
     function socialActionRows() {
         return accountFilteredRows().filter(row => row.metaKey && row.metaSpend !== null && !['Matched', 'Monitor', 'Outside scope'].includes(row.evidence)).map(row => {
             const mapping = state.accountMappings[row.accountId] || {};
@@ -850,6 +855,7 @@
                 prismaKey: candidate.prismaKey,
                 campaignId: candidate.campaignId,
                 campaignName: candidate.campaignName,
+                placementNames: candidate.prismaPlacementNames || [],
                 planned: candidate.prismaPlanned,
                 score: null,
                 level: 'Available campaign',
@@ -859,8 +865,9 @@
                 .filter(candidate => candidate.prismaKey && !rejectedKeys.has(candidate.key));
             const choices = candidates.map((candidate, candidateIndex) => {
                 const rejected = (state.candidateRejections[row.metaKey] || []).includes(candidate.key);
-                const details = [candidate.campaignId ? `Partner line ID ${candidate.campaignId}` : 'Partner line ID missing', `${currency(candidate.planned)} booked`, ...(candidate.reasons || [])].join('; ');
-                const searchText = `${candidate.campaignName || ''} ${candidate.campaignId || ''} ${candidate.client || ''} ${candidate.product || ''} ${candidate.planned || ''}`.toLowerCase();
+                const placementNames = candidate.placementNames || [];
+                const details = [candidate.campaignId ? `Partner line ID ${candidate.campaignId}` : 'Partner line ID missing', placementNames.length ? `Placement: ${placementNames.join(' | ')}` : '', `${currency(candidate.planned)} booked`, ...(candidate.reasons || [])].filter(Boolean).join('; ');
+                const searchText = `${candidate.campaignName || ''} ${placementNames.join(' ')} ${candidate.campaignId || ''} ${candidate.client || ''} ${candidate.product || ''} ${candidate.planned || ''}`.toLowerCase();
                 return `<div class="candidate-choice" data-candidate-choice data-candidate-default-hidden="${candidateIndex > 2}" data-candidate-search-text="${escapeHtml(searchText)}"${candidateIndex > 2 ? ' hidden' : ''}><input type="radio" name="match-${rowIndex}" value="${escapeHtml(candidate.prismaKey)}" data-manual-meta-key="${escapeHtml(row.metaKey)}" ${candidate.prismaKey ? '' : 'disabled'} aria-label="Confirm ${escapeHtml(candidate.campaignName || 'Prisma candidate')}"><div><strong>${escapeHtml(candidate.campaignName || 'Campaign name not supplied')}</strong><small>${escapeHtml(details)}</small><label class="candidate-reject"><input type="checkbox" data-reject-meta-key="${escapeHtml(row.metaKey)}" data-reject-candidate-key="${escapeHtml(candidate.key)}" ${rejected ? 'checked' : ''}>Not the same campaign</label></div><span class="candidate-score">${candidate.score === null ? escapeHtml(candidate.level) : `${escapeHtml(candidate.score)}%`}</span></div>`;
             }).join('');
             const candidateLabel = `${candidates.length} eligible unlinked Prisma campaign${candidates.length === 1 ? '' : 's'} in this Meta account and month`;
@@ -1011,7 +1018,7 @@
                 <td class="number">${escapeHtml(currency(row.prismaPlanned))}</td>
                 <td class="number">${escapeHtml(currency(row.variance))}</td>
                 <td><strong>${escapeHtml(row.classification)}</strong><span class="minor">${escapeHtml(row.owner || 'Owner not supplied')}</span></td>
-                <td>${row.issues.map(issue => escapeHtml(issue)).join('<br>') || 'No secondary issues'}</td>
+                    <td>${supportingEvidence(row).map(issue => escapeHtml(issue)).join('<br>') || 'No secondary issues'}</td>
             </tr>`).join('');
         document.querySelectorAll('th[data-sort-key]').forEach(header => {
             const active = header.dataset.sortKey === state.sort.key;
