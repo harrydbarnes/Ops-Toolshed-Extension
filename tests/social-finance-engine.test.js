@@ -1,4 +1,4 @@
-const { parseCsv, aggregateMeta, extractMetaReferenceData, extractPrismaReferenceData, compare, reportToCsv, nameSimilarity } = require('../social-finance-engine');
+const { parseCsv, aggregateMeta, extractMetaReferenceData, extractPrismaReferenceData, compare, reportToCsv, nameSimilarity, findCandidates } = require('../social-finance-engine');
 
 const metaCsv = `Account name,Account ID,Campaign name,Campaign ID,Month,Amount spent (GBP),Campaign budget,Campaign budget type,Delivery,Ad set start,Ad set end\nBoots,999,Matched campaign,120000000000000001,2026-06-01,100,100,Lifetime,Active,2026-06-01,2026-06-30\nBoots,999,Missing campaign,120000000000000002,2026-06-01,50,75,Lifetime,Active,2026-06-01,2026-06-30\nBoots,999,Wrong month,120000000000000003,2026-06-01,20,20,Lifetime,Active,2026-06-01,2026-06-30\nBoots,999,Spend exposure,120000000000000004,2026-06-01,100,120,Lifetime,Active,2026-06-01,2026-06-30\nBoots,999,Date exposure,120000000000000005,2026-06-01,60,60,Lifetime,Active,2026-05-29,2026-07-02\nBoots,999,Named unlinked campaign,120000000000000006,2026-06-01,40,40,Lifetime,Active,2026-06-01,2026-06-30`;
 
@@ -173,6 +173,35 @@ describe('social finance comparison engine', () => {
     test('uses token overlap for investigation candidates', () => {
         expect(nameSimilarity('Boots Summer Advantage+ Conversions', 'Boots Summer Conversions')).toBeGreaterThan(0.7);
         expect(nameSimilarity('Boots Summer', 'Unrelated Winter')).toBeLessThan(0.3);
+    });
+
+    test('ranks explainable candidates and reduces amount influence for an open month', () => {
+        const month = new Date(Date.UTC(2026, 6, 1));
+        const meta = { accountId: '111', campaignName: 'Boots FY26 P07 Summer PO4204001234', month, spend: 20, start: null, end: null };
+        const rows = [
+            { key: '111|2|2026-07-01', accountId: '111', campaignId: '2', campaignName: 'Boots FY26 P07 Summer PO4204001234', month, planned: 100, client: 'Boots', product: 'Retail' },
+            { key: '111|3|2026-07-01', accountId: '111', campaignId: '3', campaignName: 'Unrelated campaign', month, planned: 20, client: 'Boots', product: 'Retail' }
+        ];
+        const current = findCandidates(meta, rows, { monthClosed: false, mapping: { client: 'Boots', product: 'Retail' } });
+        const closed = findCandidates(meta, rows, { monthClosed: true, mapping: { client: 'Boots', product: 'Retail' } });
+
+        expect(current[0]).toEqual(expect.objectContaining({ prismaKey: '111|2|2026-07-01', level: 'Strong candidate' }));
+        expect(current[0].weights.amount).toBe(0.05);
+        expect(closed[0].weights.amount).toBe(0.30);
+        expect(current[0].reasons.join(' ')).toContain('shared reference');
+        expect(findCandidates(meta, rows, { monthClosed: false, mapping: { client: 'Boots', product: 'Retail' }, rejectedKeys: ['111|2|2026-07-01'] })[0].prismaKey).toBe('111|3|2026-07-01');
+    });
+
+    test('keeps already linked Prisma bookings out of the manual matching pool', () => {
+        const report = compare(
+            parseCsv('Account ID,Campaign ID,Month,Amount spent,Campaign name\n111,1,2026-06,10,Matched Meta\n111,2,2026-06,20,Missing Meta'),
+            parseCsv('Partner account id,Partner line id,Period,PLANNED_AMOUNT,Campaign name\n111,1,Jun 2026,10,Already linked Prisma\n111,3,Jun 2026,20,Available Prisma'),
+            { populationConfirmed: true }
+        );
+        const missing = report.rows.find(row => row.campaignId === '2');
+
+        expect(missing.candidatePool.map(candidate => candidate.prismaKey)).toContain('111|3|2026-06-01');
+        expect(missing.candidatePool.map(candidate => candidate.prismaKey)).not.toContain('111|1|2026-06-01');
     });
 
     test('recognises API campaign dates and calculates non-duplicated headline totals', () => {

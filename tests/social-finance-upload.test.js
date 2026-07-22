@@ -234,7 +234,7 @@ describe('Social Booking Checker report uploads', () => {
 
     test('opens a local matching workspace from unmatched Meta spend and applies a selected Prisma campaign', async () => {
         const rows = [
-            { accountId: '111', account: 'Boots', campaignId: 'meta-1', campaignName: 'Meta campaign', month: '2026-06', metaKey: '111|meta-1|2026-06-01', prismaKey: '', metaSpend: 50, prismaPlanned: null, variance: 50, evidence: 'Missing/unlinked', classification: 'Missing', metaBudget: null, issues: [], owner: '' },
+            { accountId: '111', account: 'Boots', campaignId: 'meta-1', campaignName: 'Meta campaign', month: '2026-06', metaKey: '111|meta-1|2026-06-01', prismaKey: '', metaSpend: 50, prismaPlanned: null, variance: 50, evidence: 'Missing/unlinked', classification: 'Missing', metaBudget: null, issues: [], owner: '', candidatePool: [{ key: '111|prisma-1|2026-06-01', prismaKey: '111|prisma-1|2026-06-01', campaignId: 'prisma-1', campaignName: 'Prisma campaign', planned: 48, score: 82, level: 'Possible candidate', reasons: [] }, { key: '111|prisma-2|2026-06-01', prismaKey: '111|prisma-2|2026-06-01', campaignId: 'prisma-2', campaignName: 'Alternative Prisma campaign', planned: 52, score: 68, level: 'Possible candidate', reasons: [] }] },
             { accountId: '111', account: 'Boots', campaignId: 'prisma-1', campaignName: 'Prisma campaign', month: '2026-06', metaKey: '', prismaKey: '111|prisma-1|2026-06-01', metaSpend: null, prismaPlanned: 48, variance: -48, evidence: 'Investigate', classification: 'Prisma booking absent from Meta population', metaBudget: null, issues: [], owner: '' }
         ];
         dom.window.socialFinanceEngine.compare = jest.fn(() => ({ rows, summary: {}, warnings: [], validationErrors: [] }));
@@ -247,16 +247,52 @@ describe('Social Booking Checker report uploads', () => {
         document.querySelector('#runComparison').click();
 
         document.querySelector('[data-open-manual-match="true"]').click();
+        expect(document.querySelector('[data-open-manual-match="true"]').textContent).toBe('Click To Match');
         expect(document.querySelector('#manualMatchModal').classList.contains('hidden')).toBe(false);
         expect(document.querySelector('#manualMatchBody').textContent).toContain('Meta campaign');
-        const select = document.querySelector('#manualMatchBody select');
-        expect(select.textContent).toContain('Prisma campaign');
-        expect(select.textContent).toContain('£48.00 booked');
-        select.value = '111|prisma-1|2026-06-01';
+        const search = document.querySelector('input[data-candidate-search]');
+        expect(search).not.toBeNull();
+        search.value = 'Alternative';
+        search.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+        expect(document.querySelector('#manualMatchBody').textContent).toContain('1 matching eligible Prisma campaign');
+        const choices = document.querySelectorAll('#manualMatchBody .candidate-choice');
+        expect(choices[0].hidden).toBe(true);
+        expect(choices[1].hidden).toBe(false);
+        const candidate = document.querySelector('#manualMatchBody .candidate-choice');
+        expect(candidate.textContent).toContain('Prisma campaign');
+        expect(candidate.textContent).toContain('£48.00 booked');
+        const radio = choices[1].querySelector('input[type="radio"]');
+        expect(radio.value).toBe('111|prisma-2|2026-06-01');
+        radio.checked = true;
         document.querySelector('#applyManualMatches').click();
         await new Promise(resolve => dom.window.setTimeout(resolve, 0));
 
-        expect(dom.window.socialFinanceEngine.compare.mock.calls.at(-1)[2].manualMatches).toEqual({ '111|meta-1|2026-06-01': '111|prisma-1|2026-06-01' });
+        expect(dom.window.socialFinanceEngine.compare.mock.calls.at(-1)[2].manualMatches).toEqual({ '111|meta-1|2026-06-01': '111|prisma-2|2026-06-01' });
+    });
+
+    test('requires and remembers a Wrike reference before recommending Prisma booking', async () => {
+        const rows = [{ accountId: '111', account: 'Boots', campaignId: 'meta-1', campaignName: 'Missing campaign', month: '2026-06', monthClosed: true, metaKey: '111|meta-1|2026-06-01', prismaKey: '', metaSpend: 50, prismaPlanned: null, variance: 50, evidence: 'Missing/unlinked', classification: 'Missing from Prisma: spending', candidates: [], issues: [], owner: '' }];
+        dom.window.socialFinanceEngine.compare = jest.fn(() => ({ rows, summary: {}, warnings: [], validationErrors: [] }));
+        dom.window.socialFinanceEngine.summarizeRows = jest.fn(() => ({ total: 1, missingOrUnlinked: 1, needsUpdate: 0, monitor: 0, investigate: 0, outsideScope: 0, unmatchedSpend: 50, metaBudget: 0, metaSpend: 50, prismaPlanned: 0, variance: 50 }));
+        Object.defineProperty(dom.window.navigator, 'clipboard', { value: { writeText: jest.fn().mockResolvedValue() }, configurable: true });
+        const meta = { name: 'meta.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('meta') };
+        const prisma = { name: 'prisma.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('prisma') };
+        dropFile(dom.window, document.querySelector('#metaDropZone'), meta);
+        dropFile(dom.window, document.querySelector('#prismaDropZone'), prisma);
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        document.querySelector('#populationConfirmed').checked = true;
+        document.querySelector('#runComparison').click();
+
+        expect(document.querySelector('#socialActionBody').textContent).toContain('Get Wrike before booking in Prisma');
+        const wrikeInput = document.querySelector('[data-wrike-meta-key]');
+        wrikeInput.value = 'https://wrike.example/task/123';
+        wrikeInput.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+
+        expect(document.querySelector('#socialActionBody').textContent).toContain('Book in Prisma using Wrike');
+        document.querySelector('#copySocialActions').click();
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        expect(dom.window.navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('https://wrike.example/task/123'));
     });
 
     test('filters by evidence and account, sorts financial columns, and updates headline totals', async () => {
@@ -288,7 +324,11 @@ describe('Social Booking Checker report uploads', () => {
         expect(document.querySelector('#financialHeadline').textContent).toContain('£40.00');
         expect(document.querySelector('#clientBreakdownBody').textContent).toContain('Boots');
         expect(document.querySelector('#clientBreakdownBody').textContent).toContain('Opticians');
-        expect(document.querySelector('.summary-card .evidence-tooltip[data-tooltip*="linked Prisma booking"]')).not.toBeNull();
+        expect(document.querySelector('[data-campaign-column="campaignName"]').style.width).toBe('190px');
+        const campaignNameResizer = document.querySelector('[data-column-resize="campaignName"]');
+        campaignNameResizer.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+        expect(document.querySelector('[data-campaign-column="campaignName"]').style.width).toBe('170px');
+        expect(document.querySelector('.summary-card .evidence-tooltip')).not.toBeNull();
         expect(document.querySelector('.summary-card .tooltip-icon').textContent).toBe('i');
         expect(document.querySelector('#reportBody .evidence-tooltip[data-tooltip*="linked Prisma booking"]')).not.toBeNull();
         document.querySelector('[data-expand-breakdown="campaign"]').click();

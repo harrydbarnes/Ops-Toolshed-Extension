@@ -346,19 +346,98 @@
         return { columns, records: [...groups.values()], allRows, errors };
     }
 
-    function findCandidate(meta, prismaRows) {
+    function referenceTokens(value) {
+        return new Set(String(value || '').toLowerCase().match(/\b[a-z]{2,}[-_]?\d{4,}\b|\b\d{4,}\b/g) || []);
+    }
+
+    function campaignNameScore(left, right) {
+        const tokenScore = nameSimilarity(left, right);
+        const leftReferences = referenceTokens(left);
+        const rightReferences = referenceTokens(right);
+        const sharedReferences = [...leftReferences].filter(token => rightReferences.has(token));
+        return { score: sharedReferences.length ? Math.max(tokenScore, 0.94) : tokenScore, sharedReferences };
+    }
+
+    function valueSimilarity(left, right) {
+        const a = Number(left);
+        const b = Number(right);
+        if (!(a > 0) || !(b > 0)) return null;
+        return Math.max(0, 1 - Math.abs(a - b) / Math.max(a, b));
+    }
+
+    function dateSimilarity(meta, prisma) {
+        if (!meta.start || !meta.end || !prisma.start || !prisma.end) return null;
+        const start = Math.max(meta.start.getTime(), prisma.start.getTime());
+        const end = Math.min(meta.end.getTime(), prisma.end.getTime());
+        const unionStart = Math.min(meta.start.getTime(), prisma.start.getTime());
+        const unionEnd = Math.max(meta.end.getTime(), prisma.end.getTime());
+        if (unionEnd <= unionStart) return meta.start.getTime() === prisma.start.getTime() ? 1 : 0;
+        return Math.max(0, end - start) / (unionEnd - unionStart);
+    }
+
+    function scopeSimilarity(mapping, prisma) {
+        const expected = mapping || {};
+        const checks = [];
+        if (expected.client && prisma.client) checks.push(String(expected.client).trim().toLowerCase() === String(prisma.client).trim().toLowerCase() ? 1 : 0);
+        if (expected.product && prisma.product) checks.push(String(expected.product).trim().toLowerCase() === String(prisma.product).trim().toLowerCase() ? 1 : 0);
+        return checks.length ? checks.reduce((sum, value) => sum + value, 0) / checks.length : null;
+    }
+
+    function candidateKey(row) {
+        if (row.key) return row.key;
+        return `${row.accountId || ''}|prisma-row-${row.sourceRow || 0}|${toIsoDate(row.month)}`;
+    }
+
+    function findCandidates(meta, prismaRows, options = {}) {
         const sameMonth = prismaRows.filter(row => row.accountId === meta.accountId && row.month && toIsoDate(row.month) === toIsoDate(meta.month));
-        let best = null;
-        sameMonth.forEach(row => {
-            const nameScore = nameSimilarity(meta.campaignName, row.campaignName);
-            const budgetReference = meta.spend;
-            const budgetScore = budgetReference > 0 && row.planned > 0
-                ? Math.max(0, 1 - Math.abs(budgetReference - row.planned) / Math.max(budgetReference, row.planned))
-                : 0;
-            const score = (nameScore * 0.7) + (budgetScore * 0.3);
-            if (!best || score > best.score) best = { row, score, nameScore, budgetScore };
+        const rejected = new Set(options.rejectedKeys || []);
+        const weights = options.monthClosed
+            ? { name: 0.45, dates: 0.15, scope: 0.10, amount: 0.30 }
+            : { name: 0.55, dates: 0.25, scope: 0.15, amount: 0.05 };
+        const limit = options.limit === Infinity ? Infinity : Number.isFinite(options.limit) ? options.limit : 3;
+        const ranked = sameMonth.map(row => {
+            const key = candidateKey(row);
+            if (rejected.has(key)) return null;
+            const name = campaignNameScore(meta.campaignName, row.campaignName);
+            const values = {
+                name: meta.campaignName && row.campaignName ? name.score : null,
+                dates: dateSimilarity(meta, row),
+                scope: scopeSimilarity(options.mapping, row),
+                amount: valueSimilarity(meta.spend, row.planned)
+            };
+            const available = Object.entries(values).filter(([, value]) => value !== null);
+            const totalWeight = available.reduce((sum, [feature]) => sum + weights[feature], 0);
+            const score = totalWeight ? available.reduce((sum, [feature, value]) => sum + (weights[feature] * value), 0) / totalWeight : 0;
+            const hasCorroboratingEvidence = (values.name || 0) > 0 || (values.dates || 0) > 0 || (values.scope || 0) > 0;
+            const reasons = [];
+            if (name.sharedReferences.length) reasons.push(`shared reference ${name.sharedReferences.slice(0, 2).join(', ')}`);
+            else if (values.name !== null) reasons.push(`name ${Math.round(values.name * 100)}%`);
+            if (values.dates !== null) reasons.push(values.dates >= 0.9 ? 'flight dates align' : `date overlap ${Math.round(values.dates * 100)}%`);
+            if (values.scope !== null) reasons.push(values.scope === 1 ? 'client/product align' : 'client/product differ');
+            if (values.amount !== null) reasons.push(`${options.monthClosed ? 'closed-month' : 'current-month'} amount ${Math.round(values.amount * 100)}%`);
+            return {
+                key,
+                prismaKey: row.key || '',
+                campaignId: row.campaignId || '',
+                campaignName: row.campaignName || '',
+                client: row.client || '',
+                product: row.product || '',
+                planned: row.planned,
+                owner: row.owner || '',
+                sourceRow: row.sourceRow || row.sourceRows?.[0] || null,
+                score: Math.round(score * 100),
+                reasons,
+                weights: { ...weights },
+                hasCorroboratingEvidence
+            };
+        }).filter(Boolean).sort((left, right) => right.score - left.score).slice(0, limit);
+        return ranked.map((candidate, index) => {
+            const lead = index === 0 ? candidate.score - (ranked[1]?.score || 0) : 0;
+            const level = candidate.hasCorroboratingEvidence && candidate.score >= 85 && (ranked.length === 1 || lead >= 10)
+                ? 'Strong candidate'
+                : candidate.hasCorroboratingEvidence && candidate.score >= 65 ? 'Possible candidate' : 'Low evidence';
+            return { ...candidate, level };
         });
-        return best && best.score >= 0.72 ? best : null;
     }
 
     function summarizeRows(rows) {
@@ -380,7 +459,7 @@
             monitor: reportRows.filter(row => row.evidence === 'Monitor').length,
             investigate: reportRows.filter(row => row.evidence === 'Investigate').length,
             outsideScope: reportRows.filter(row => row.evidence === 'Outside scope').length,
-            unmatchedSpend: reportRows.filter(row => row.evidence === 'Missing/unlinked').reduce((sum, row) => sum + (row.metaSpend || 0), 0),
+            unmatchedSpend: reportRows.filter(row => row.evidence === 'Missing/unlinked' || (row.evidence === 'Investigate' && row.candidates?.length)).reduce((sum, row) => sum + (row.metaSpend || 0), 0),
             metaBudget: [...campaignBudgets.values()].reduce((sum, budget) => sum + budget, 0),
             metaSpend,
             prismaPlanned,
@@ -396,6 +475,8 @@
 
         const tolerance = Number.isFinite(Number(options.tolerance)) ? Number(options.tolerance) : 1;
         const manualMatches = options.manualMatches && typeof options.manualMatches === 'object' ? options.manualMatches : {};
+        const rejectedCandidates = options.rejectedCandidates && typeof options.rejectedCandidates === 'object' ? options.rejectedCandidates : {};
+        const accountMappings = options.accountMappings && typeof options.accountMappings === 'object' ? options.accountMappings : {};
         const accountIdScope = new Set((options.accountIdScope || []).map(cleanId).filter(Boolean));
         const metaRecords = accountIdScope.size ? meta.records.filter(record => accountIdScope.has(record.accountId)) : meta.records;
         const prismaRecords = accountIdScope.size ? prisma.records.filter(record => accountIdScope.has(record.accountId)) : prisma.records;
@@ -418,6 +499,10 @@
         const metaKeys = new Set(metaRecords.map(record => record.key));
         const metaMonths = new Set(metaRecords.map(record => toIsoDate(record.month).slice(0, 7)));
         const prismaMonths = new Set(prismaRecords.map(record => toIsoDate(record.month).slice(0, 7)));
+        const linkedPrismaKeys = new Set(metaRecords.map(platform => {
+            const manualBooking = manualMatches[platform.key] ? prismaByKey.get(manualMatches[platform.key]) : null;
+            return (manualBooking || prismaByKey.get(platform.key))?.key;
+        }).filter(Boolean));
         const handledPrismaKeys = new Set();
         const reportRows = [];
 
@@ -431,6 +516,8 @@
             let classification = 'Matched: booking evidence valid';
             let evidence = 'Matched';
             let candidate = null;
+            let candidates = [];
+            let candidatePool = [];
             if (manualBooking) {
                 handledPrismaKeys.add(manualBooking.key);
                 issues.push(`Manual match to Prisma Partner line ID ${manualBooking.campaignId}`);
@@ -452,11 +539,22 @@
                     evidence = 'Outside scope';
                     issues.push(`Prisma report does not include ${toIsoDate(platform.month).slice(0, 7)}`);
                 } else {
-                    candidate = findCandidate(platform, prismaAllRows);
+                    const candidateRows = [...prismaRecords, ...prismaAllRows.filter(row => !row.campaignId)]
+                        .filter(row => !row.key || !linkedPrismaKeys.has(row.key));
+                    candidatePool = findCandidates(platform, candidateRows, {
+                        monthClosed,
+                        mapping: accountMappings[platform.accountId] || {},
+                        rejectedKeys: rejectedCandidates[platform.key] || [],
+                        limit: Infinity
+                    });
+                    candidates = candidatePool.slice(0, 3);
+                    candidate = candidates[0] && candidates[0].level !== 'Low evidence' ? candidates[0] : null;
                     if (candidate) {
-                        classification = 'Likely booked but unlinked: add Partner line ID';
+                        classification = candidate.campaignId
+                            ? 'Possible Prisma campaign match: confirm link'
+                            : 'Likely booked but unlinked: add Partner line ID';
                         evidence = 'Investigate';
-                        issues.push(`Possible Prisma row ${candidate.row.sourceRow}; candidate confidence ${Math.round(candidate.score * 100)}%`);
+                        issues.push(`${candidate.level}: ${candidate.score}% match score${candidate.reasons.length ? ` (${candidate.reasons.join('; ')})` : ''}`);
                     } else {
                         const missingLabel = options.populationConfirmed ? 'Missing from Prisma' : 'No linked Prisma booking found';
                         classification = platform.spend > tolerance
@@ -536,8 +634,8 @@
                 metaBudget: platform.budget,
                 metaBudgetType: platform.budgetType,
                 prismaPlanned: booking?.planned ?? null,
-                prismaClient: booking?.client || candidate?.row.client || '',
-                prismaProduct: booking?.product || candidate?.row.product || '',
+                prismaClient: booking?.client || candidate?.client || '',
+                prismaProduct: booking?.product || candidate?.product || '',
                 prismaKey: booking?.key || '',
                 variance: booking ? platform.spend - booking.planned : platform.spend,
                 metaStart: toIsoDate(platform.start),
@@ -547,8 +645,11 @@
                 classification,
                 evidence,
                 issues,
-                owner: booking?.owner || candidate?.row.owner || '',
-                candidateScore: candidate ? Math.round(candidate.score * 100) : null
+                owner: booking?.owner || candidate?.owner || '',
+                candidateScore: candidate?.score ?? null,
+                candidates,
+                candidatePool,
+                monthClosed
             });
         });
 
@@ -564,7 +665,7 @@
                 metaStart: '', metaEnd: '', prismaStart: toIsoDate(booking.start), prismaEnd: toIsoDate(booking.end),
                 classification: outsideMetaMonths ? 'Outside Meta reporting months' : 'Prisma booking absent from Meta population',
                 evidence: outsideMetaMonths ? 'Outside scope' : 'Investigate',
-                issues: [outsideMetaMonths ? `Meta report does not include ${month}` : 'Confirm Meta export account and reporting window are complete'], owner: booking.owner, candidateScore: null
+                issues: [outsideMetaMonths ? `Meta report does not include ${month}` : 'Confirm Meta export account and reporting window are complete'], owner: booking.owner, candidateScore: null, candidates: [], candidatePool: [], monthClosed: false
             });
         });
 
@@ -594,5 +695,5 @@
         return [headers.join(','), ...rows.map(row => fields.map(field => escapeCsv(field === 'issues' ? row.issues.join('; ') : row[field])).join(','))].join('\r\n');
     }
 
-    return { parseCsv, resolveColumns, aggregateMeta, extractMetaReferenceData, extractPrismaReferenceData, aggregatePrisma, compare, summarizeRows, reportToCsv, nameSimilarity, parseDate, parseMoney };
+    return { parseCsv, resolveColumns, aggregateMeta, extractMetaReferenceData, extractPrismaReferenceData, aggregatePrisma, compare, summarizeRows, reportToCsv, nameSimilarity, findCandidates, parseDate, parseMoney };
 });

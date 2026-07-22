@@ -54,7 +54,8 @@
             </aside>
             <div class="source-grid">
                 <article class="file-card">
-                    <div class="step-kicker"><span class="step-number" aria-hidden="true">1</span><span class="file-kicker">Meta import</span></div>
+                    <span class="workflow-step" aria-hidden="true">1</span>
+                    <span class="file-kicker">Meta import</span>
                     <strong>Meta Ads Report</strong>
                     <span class="export-source">In Meta Ads Reporting, use the <b>Meta Spend Across Agency</b> template and export at campaign level. The report supplies the Account IDs the API is allowed to refresh.</span>
                     <span class="requirement-label">Your CSV must include</span>
@@ -85,12 +86,10 @@
                         <em id="metaFileName" aria-live="polite">No file selected</em>
                         <button id="removeMetaFile" class="remove-file hidden" type="button">Remove file</button>
                     </span>
-                    <div id="metaReferenceStatus" class="reference-status" aria-live="polite"></div>
-                    <button id="removeMetaReference" class="text-action hidden" type="button">Forget imported accounts</button>
-
                 </article>
                 <article class="file-card">
-                    <div class="step-kicker"><span class="step-number" aria-hidden="true">2</span><span class="file-kicker">Prisma export</span></div>
+                    <span class="workflow-step" aria-hidden="true">2</span>
+                    <span class="file-kicker">Prisma export</span>
                     <strong>Prisma booking report</strong>
                     <span class="export-source">Use the Prisma CSV that lists placements and their booked values.</span>
                     <span class="requirement-label">Your CSV must include</span>
@@ -121,12 +120,10 @@
                 </article>
             </div>
             <section id="metaApiPanel" class="meta-source-panel live-refresh-panel" aria-labelledby="meta-api-heading">
-                <div class="step-panel-heading">
-                    <span class="step-number" aria-hidden="true">3</span>
-                    <div class="source-panel-heading">
-                        <b id="meta-api-heading">Optional Meta live refresh</b>
-                        <span>Use a read-only Meta token to refresh status, dates, budgets, ad sets, and spend. It is stored only in this Chrome profile; <code>ads_read</code> is sufficient.</span>
-                    </div>
+                <span class="workflow-step" aria-hidden="true">3</span>
+                <div class="source-panel-heading">
+                    <b id="meta-api-heading">Optional Meta live refresh</b>
+                    <span>Use a read-only Meta token to refresh status, dates, budgets, ad sets, and spend. It is stored only in this Chrome profile; <code>ads_read</code> is sufficient.</span>
                 </div>
                 <div class="live-refresh-controls">
                     <div>
@@ -161,8 +158,9 @@
                 </div>
             </section>
             <div id="accountScopePanel" class="account-scope hidden">
+                <span class="workflow-step" aria-hidden="true">4</span>
                 <div class="account-scope-heading">
-                    <div class="scope-title"><span class="step-number" aria-hidden="true">4</span><div><strong>Meta account scope</strong><span>Accounts recognised from the Meta Ads Report. Select those that should be in the Prisma booking report.</span></div></div>
+                    <div><strong>Meta account scope</strong><span>Accounts recognised from the Meta Ads Report. Select those that should be in the Prisma booking report.</span></div>
                     <div><button id="selectAllAccounts" class="text-action" type="button">Select all</button><button id="clearAccounts" class="text-action" type="button">Clear</button></div>
                 </div>
                 <div id="accountOptions" class="account-options"></div>
@@ -170,10 +168,15 @@
                     <button id="pullMetaData" type="button">Refresh selected Meta accounts</button>
                     <button id="clearMetaApiData" class="text-action hidden" type="button">Clear pulled data</button>
                 </div>
+                <div class="account-scope-footer">
+                    <div id="metaReferenceStatus" class="reference-status" aria-live="polite"></div>
+                    <button id="removeMetaReference" class="text-action hidden" type="button">Forget imported accounts</button>
+                </div>
             </div>
             <div id="prismaScopePanel" class="prisma-scope hidden">
+                <span class="workflow-step" aria-hidden="true">5</span>
                 <div class="account-scope-heading">
-                    <div class="scope-title"><span class="step-number" aria-hidden="true">5</span><div><strong>Prisma client scope</strong><span>Partner account ID in Prisma maps to Account ID in Meta. Review this before comparing.</span></div></div>
+                    <div><strong>Prisma client scope</strong><span>Partner account ID in Prisma maps to Account ID in Meta. Review this before comparing.</span></div>
                 </div>
                 <div id="prismaScopeStatus" class="reference-status" aria-live="polite"></div>
                 <div id="prismaScopeComparison" class="scope-comparison"></div>
@@ -181,7 +184,7 @@
                 <section class="account-mapping" aria-labelledby="account-mapping-heading">
                     <div class="source-panel-heading">
                         <b id="account-mapping-heading">Meta to Prisma mapping</b>
-                        <span>Map each Meta account to the client and product in this Prisma report. Saved locally in this Chrome profile.</span>
+                        <span>Map each Meta account to the Prisma client and product, then add the Social team or owner. Saved locally in this Chrome profile.</span>
                     </div>
                     <div id="accountMappingOptions" class="account-mapping-options"></div>
                 </section>
@@ -224,6 +227,23 @@
             <div id="financialHeadline" class="financial-headline" aria-label="Financial totals"></div>
             <div id="summaryCards" class="summary-grid"></div>
             <div id="coverageWarnings" class="coverage-warnings"></div>
+            <section id="socialActionList" class="social-action-list breakdown-section" aria-labelledby="social-action-heading">
+                <div class="breakdown-heading">
+                    <div><strong id="social-action-heading">Social action list</strong><span>Campaigns Social teams need to review. A Wrike reference is required before a missing campaign can be booked in Prisma. References entered here are saved locally in this Chrome profile.</span></div>
+                    <div class="breakdown-actions"><button id="copySocialActions" type="button">Copy list</button><button id="downloadSocialActions" type="button">Download CSV</button></div>
+                </div>
+                <div class="social-action-toolbar">
+                    <label>Action<select id="socialActionFilter"><option value="all">All actions</option><option value="wrike">Wrike needed</option><option value="book">Book in Prisma</option><option value="confirm">Confirm possible booking</option><option value="update">Update Prisma booking</option><option value="investigate">Investigate</option></select></label>
+                    <span id="socialActionCount" class="visible-count"></span>
+                    <span id="socialActionStatus" class="action-copy-status" aria-live="polite"></span>
+                </div>
+                <div class="table-frame social-action-table">
+                    <table>
+                        <thead><tr><th>Client / product</th><th>Account</th><th>Campaign</th><th>Month</th><th class="number">Meta spend</th><th>Wrike reference</th><th>Recommended action</th><th>Possible Prisma match</th><th>Social owner</th></tr></thead>
+                        <tbody id="socialActionBody"></tbody>
+                    </table>
+                </div>
+            </section>
             <section id="clientBreakdown" class="client-breakdown breakdown-section" aria-labelledby="client-breakdown-heading">
                 <div class="breakdown-heading">
                     <div><strong id="client-breakdown-heading">Client breakdown</strong><span>Meta spend and Prisma booked value grouped using your saved account mapping.</span></div>
@@ -238,7 +258,7 @@
             </section>
             <section id="campaignBreakdown" class="campaign-breakdown breakdown-section" aria-labelledby="campaign-breakdown-heading">
             <div class="breakdown-heading">
-                <div><strong id="campaign-breakdown-heading">Campaign breakdown</strong><span>Campaign-level reconciliation detail for the selected months, accounts, evidence, and search.</span></div>
+                <div><strong id="campaign-breakdown-heading">Campaign breakdown</strong><span>Campaign-level reconciliation detail for the selected months, accounts, evidence, and search. Drag a column divider to resize it; widths are saved locally.</span></div>
                 <div class="breakdown-actions"><button type="button" data-download-breakdown="campaign">Download CSV</button><button type="button" data-expand-breakdown="campaign">Expand</button><button type="button" data-open-breakdown="campaign">Open in new tab</button></div>
             </div>
             <div class="report-toolbar">
@@ -267,7 +287,8 @@
                 <span id="visibleCount" class="visible-count"></span>
             </div>
             <div class="table-frame">
-                <table>
+                <table id="campaignTable">
+                    <colgroup id="campaignColumnGroup"></colgroup>
                     <thead id="reportHeader"><tr><th>Evidence</th><th>Account</th><th>Campaign name</th><th>Campaign ID</th><th class="number" data-sort-key="metaSpend"><button class="sort-button" type="button" data-sort="metaSpend">Meta spend <span aria-hidden="true"></span></button></th><th class="number" data-sort-key="prismaPlanned"><button class="sort-button" type="button" data-sort="prismaPlanned">Prisma <span aria-hidden="true"></span></button></th><th class="number" data-sort-key="variance"><button class="sort-button" type="button" data-sort="variance">Variance <span aria-hidden="true"></span></button></th><th>Finding</th><th>Supporting evidence</th></tr></thead>
                     <tbody id="reportBody"></tbody>
                 </table>
@@ -281,18 +302,18 @@
             <button id="closeManualMatch" class="manual-match-close" type="button" aria-label="Close campaign matching">×</button>
             <header>
                 <h2 id="manualMatchTitle">Match unmatched Meta spend</h2>
-                <p>Choose a currently unmatched Prisma campaign for each Meta campaign where you have enough evidence. Prisma booked value is included to help validate the pairing.</p>
+                <p>Review the ranked Prisma candidates and their evidence. Confirm a match only when you are satisfied it is the same campaign.</p>
             </header>
             <div id="manualMatchStatus" class="manual-match-status" aria-live="polite"></div>
             <div class="table-frame manual-match-table">
                 <table>
-                    <thead><tr><th>Account</th><th>Campaign name</th><th>Campaign ID</th><th class="number">Meta spend</th><th>Prisma campaign to match</th></tr></thead>
+                    <thead><tr><th>Account</th><th>Campaign name</th><th>Campaign ID</th><th class="number">Meta spend</th><th>Ranked Prisma candidates</th></tr></thead>
                     <tbody id="manualMatchBody"></tbody>
                 </table>
             </div>
             <footer>
-                <span>Matches are saved locally for this Chrome profile. They only change this checker; neither Meta nor Prisma is edited.</span>
-                <div><button id="clearManualMatches" class="text-action hidden" type="button">Clear local matches</button><button id="cancelManualMatch" class="text-action" type="button">Cancel</button><button id="applyManualMatches" type="button">Apply local matches</button></div>
+                <span>Confirmed matches and rejected suggestions are saved locally. They only change this checker; neither Meta nor Prisma is edited.</span>
+                <div><button id="clearManualMatches" class="text-action hidden" type="button">Clear local decisions</button><button id="cancelManualMatch" class="text-action" type="button">Cancel</button><button id="applyManualMatches" type="button">Save review decisions</button></div>
             </footer>
         </section>
     </div>

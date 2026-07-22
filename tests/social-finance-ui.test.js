@@ -93,6 +93,15 @@ describe('Social Booking Checker upload guidance', () => {
         expect(input.getAttribute('aria-describedby')).toBe('prismaUploadScope');
     });
 
+    test('aligns upload cards and places imported-account removal at the scope footer', () => {
+        expect(document.querySelector('#metaDropZone').parentElement.querySelector('#metaReferenceStatus')).toBeNull();
+        expect(document.querySelector('#accountScopePanel .account-scope-footer #metaReferenceStatus')).not.toBeNull();
+        expect(document.querySelector('#accountScopePanel .account-scope-footer #removeMetaReference')).not.toBeNull();
+        expect(css).toContain('align-items: stretch;');
+        expect(css).toContain('min-height: 128px;');
+        expect(css).toContain('.account-scope-footer');
+    });
+
     test('explains optional checks and comparison settings in plain language', () => {
         const pageText = document.body.textContent;
         const settingsText = document.querySelector('.settings-row').textContent;
@@ -126,7 +135,12 @@ describe('Social Booking Checker upload guidance', () => {
     });
 
     test('requires report-led discovery and offers a read-only API refresh without Business credentials', () => {
-        expect([...document.querySelectorAll('.step-number')].map(step => step.textContent)).toEqual(['1', '2', '3', '4', '5']);
+        expect([...document.querySelectorAll('.workflow-step')].map(step => step.textContent)).toEqual(['1', '2', '3', '4', '5']);
+        expect(css).toContain('.workflow-step');
+        expect(css).toContain('top: -11px');
+        expect(css).toContain('background: #3d3aae');
+        expect(css).toContain('color: #fff');
+        expect(css).toContain('.prisma-scope { position: relative;');
         expect(document.querySelector('#metaAccessToken').type).toBe('password');
         expect(document.querySelector('#metaBusinessId')).toBeNull();
         expect(document.querySelector('#removeMetaToken').textContent).toBe('×');
@@ -169,10 +183,15 @@ describe('Social Booking Checker upload guidance', () => {
         expect(document.querySelector('#clientBreakdown')).not.toBeNull();
         expect(document.querySelector('#clientBreakdown').textContent).toContain('Client breakdown');
         expect(document.querySelector('#campaignBreakdown').textContent).toContain('Campaign breakdown');
+        expect(document.querySelector('#campaignTable')).not.toBeNull();
+        expect(document.querySelector('#campaignColumnGroup')).not.toBeNull();
+        expect(document.querySelector('#campaignBreakdown').textContent).toContain('Drag a column divider to resize it');
         expect(document.querySelectorAll('[data-download-breakdown]')).toHaveLength(2);
         expect(document.querySelectorAll('[data-expand-breakdown]')).toHaveLength(2);
         expect(document.querySelectorAll('[data-open-breakdown]')).toHaveLength(2);
         expect(css).toContain('.breakdown-section.is-expanded');
+        expect(css).toContain('.column-resizer');
+        expect(script).toContain('socialBookingCampaignColumnWidths');
     });
 
     test('provides multi-select evidence and account filters plus numeric sorting', () => {
@@ -197,10 +216,31 @@ describe('Social Booking Checker upload guidance', () => {
     test('provides a large local-only workspace for matching unmatched Meta spend', () => {
         expect(document.querySelector('#manualMatchModal').getAttribute('role')).toBe('dialog');
         expect(document.querySelector('#manualMatchModal').textContent).toContain('Match unmatched Meta spend');
-        expect(document.querySelector('#manualMatchModal').textContent).toContain('Prisma campaign to match');
-        expect(document.querySelector('#applyManualMatches').textContent).toBe('Apply local matches');
+        expect(document.querySelector('#manualMatchModal').textContent).toContain('Ranked Prisma candidates');
+        expect(document.querySelector('#applyManualMatches').textContent).toBe('Save review decisions');
+        expect(script).toContain('Click To Match');
+        expect(script).toContain('Search eligible Prisma campaigns');
         expect(css).toContain('.manual-match-dialog');
+        expect(css).toContain('.candidate-search');
         expect(script).toContain('socialBookingManualCampaignMatches');
+        expect(script).toContain('socialBookingRejectedCampaignMatches');
+    });
+
+    test('provides a Wrike-aware Social action list for sharing', () => {
+        expect(document.querySelector('#socialActionList').textContent).toContain('Social action list');
+        expect(document.querySelector('#socialActionList').textContent).toContain('Wrike reference');
+        expect(document.querySelector('#socialActionList').textContent).toContain('saved locally in this Chrome profile');
+        expect(document.querySelector('#copySocialActions').textContent).toBe('Copy list');
+        expect(document.querySelector('#downloadSocialActions').textContent).toBe('Download CSV');
+        expect(script).toContain('socialBookingWrikeReferences');
+        expect(script).toContain('Get Wrike before booking in Prisma');
+        expect(script).toContain('Book in Prisma using Wrike');
+    });
+
+    test('uses the compact feedback-style arrow on Meta to Prisma mapping dropdowns', () => {
+        expect(css).toContain('.account-mapping-row select {');
+        expect(css).toContain('appearance: none;');
+        expect(css).toContain('background-position: right 10px center;');
     });
 
     test('shows headline financial totals and API source evidence without repeating the outside-scope tooltip', () => {

@@ -1,13 +1,16 @@
 (function () {
     const engine = window.socialFinanceEngine;
     const metaApi = window.metaReportApi;
-    const state = { metaText: '', uploadedMetaText: '', metaTextSource: '', prismaText: '', report: null, metaAccounts: [], metaReference: null, prismaReference: null, accountMappings: {}, manualMatches: {}, manualMatchTrigger: null, showMatchedScopeAccounts: false, apiSync: null, sort: { key: '', direction: 'descending' } };
+    const state = { metaText: '', uploadedMetaText: '', metaTextSource: '', prismaText: '', report: null, metaAccounts: [], metaReference: null, prismaReference: null, accountMappings: {}, manualMatches: {}, candidateRejections: {}, wrikeReferences: {}, campaignColumnWidths: {}, manualMatchTrigger: null, showMatchedScopeAccounts: false, apiSync: null, sort: { key: '', direction: 'descending' } };
     const elements = {};
     const ACCOUNT_SCOPE_STORAGE_KEY = 'socialBookingMetaAccountScope';
     const META_API_STORAGE_KEY = 'socialBookingMetaApiCredentials';
     const META_REFERENCE_STORAGE_KEY = 'socialBookingMetaReference';
     const ACCOUNT_MAPPING_STORAGE_KEY = 'socialBookingMetaPrismaMappings';
     const MANUAL_MATCH_STORAGE_KEY = 'socialBookingManualCampaignMatches';
+    const CANDIDATE_REJECTION_STORAGE_KEY = 'socialBookingRejectedCampaignMatches';
+    const WRIKE_REFERENCE_STORAGE_KEY = 'socialBookingWrikeReferences';
+    const CAMPAIGN_COLUMN_WIDTH_STORAGE_KEY = 'socialBookingCampaignColumnWidths';
     const SAVED_TOKEN_MASK = '••••••••••••';
 
     function byId(id) { return document.getElementById(id); }
@@ -326,15 +329,15 @@
             const savedOption = saved && !optionValues.has(savedValue)
                 ? `<option value="${escapeHtml(savedValue)}">Saved: ${escapeHtml(mappingLabel(saved))} (not in this report)</option>`
                 : '';
-            return `<label class="account-mapping-row"><span>${escapeHtml(account.name)}<small>Meta Account ID ${escapeHtml(account.id)}</small></span><select data-mapping-account-id="${escapeHtml(account.id)}"><option value="">Not mapped</option>${savedOption}${scopes.map(scope => `<option value="${escapeHtml(mappingValue(scope))}" ${savedValue === mappingValue(scope) ? 'selected' : ''}>${escapeHtml(mappingLabel(scope))}</option>`).join('')}</select></label>`;
+            return `<label class="account-mapping-row"><span>${escapeHtml(account.name)}<small>Meta Account ID ${escapeHtml(account.id)}</small></span><select data-mapping-account-id="${escapeHtml(account.id)}"><option value="">Not mapped</option>${savedOption}${scopes.map(scope => `<option value="${escapeHtml(mappingValue(scope))}" ${savedValue === mappingValue(scope) ? 'selected' : ''}>${escapeHtml(mappingLabel(scope))}</option>`).join('')}</select><input type="text" data-social-owner-account-id="${escapeHtml(account.id)}" value="${escapeHtml(saved?.socialOwner || '')}" placeholder="Social team or owner" aria-label="Social team or owner for ${escapeHtml(account.name)}"></label>`;
         }).join('');
     }
 
     async function saveAccountMapping(accountId, mapping) {
-        if (mapping.client || mapping.product) state.accountMappings[accountId] = mapping;
+        if (mapping.client || mapping.product || mapping.socialOwner) state.accountMappings[accountId] = mapping;
         else delete state.accountMappings[accountId];
         await writeLocalStorage({ [ACCOUNT_MAPPING_STORAGE_KEY]: state.accountMappings });
-        if (state.report) renderClientBreakdown();
+        if (state.report) renderReport();
     }
 
     async function restoreAccountMappings() {
@@ -355,6 +358,29 @@
             state.manualMatches = matches && typeof matches === 'object' ? matches : {};
         } catch (_) {
             state.manualMatches = {};
+        }
+    }
+
+    async function restoreReviewData() {
+        try {
+            const [rejections, wrikeReferences] = await Promise.all([readLocalStorage(CANDIDATE_REJECTION_STORAGE_KEY), readLocalStorage(WRIKE_REFERENCE_STORAGE_KEY)]);
+            state.candidateRejections = rejections[CANDIDATE_REJECTION_STORAGE_KEY] && typeof rejections[CANDIDATE_REJECTION_STORAGE_KEY] === 'object' ? rejections[CANDIDATE_REJECTION_STORAGE_KEY] : {};
+            state.wrikeReferences = wrikeReferences[WRIKE_REFERENCE_STORAGE_KEY] && typeof wrikeReferences[WRIKE_REFERENCE_STORAGE_KEY] === 'object' ? wrikeReferences[WRIKE_REFERENCE_STORAGE_KEY] : {};
+            if (state.report) renderReport();
+        } catch (_) {
+            state.candidateRejections = {};
+            state.wrikeReferences = {};
+        }
+    }
+
+    async function restoreCampaignColumnWidths() {
+        try {
+            const stored = await readLocalStorage(CAMPAIGN_COLUMN_WIDTH_STORAGE_KEY);
+            const widths = stored[CAMPAIGN_COLUMN_WIDTH_STORAGE_KEY];
+            state.campaignColumnWidths = widths && typeof widths === 'object' ? widths : {};
+            if (state.report) renderRows();
+        } catch (_) {
+            state.campaignColumnWidths = {};
         }
     }
 
@@ -532,7 +558,7 @@
             ['Outside report scope', summary.outsideScope],
             ['Unmatched Meta spend', currency(summary.unmatchedSpend), 'alert', summary.unmatchedSpend > 0 || Object.keys(state.manualMatches).length]
         ];
-        elements.summaryCards.innerHTML = cards.map(([label, value, className = '', isAction = false]) => `<article class="summary-card ${className}${isAction ? ' is-action' : ''}"${isAction ? ' role="button" tabindex="0" data-open-manual-match="true" aria-haspopup="dialog"' : ''}>${evidenceTooltip(label, '', true)}<strong>${escapeHtml(value)}</strong></article>`).join('');
+        elements.summaryCards.innerHTML = cards.map(([label, value, className = '', isAction = false]) => `<article class="summary-card ${className}${isAction ? ' is-action' : ''}">${evidenceTooltip(label, '', true)}<strong>${escapeHtml(value)}</strong>${isAction ? '<button class="summary-card-action" type="button" data-open-manual-match="true" aria-haspopup="dialog">Click To Match</button>' : ''}</article>`).join('');
     }
 
     function monthFilteredRows() {
@@ -597,6 +623,7 @@
 
     function renderReport() {
         renderSummary(engine.summarizeRows(accountFilteredRows()));
+        renderSocialActionList();
         renderClientBreakdown();
         renderRows();
     }
@@ -623,22 +650,127 @@
             }
         });
         const groupsSorted = [...groups.values()].sort((left, right) => `${left.client}|${left.product}`.localeCompare(`${right.client}|${right.product}`));
-        state.clientBreakdownRows = groupsSorted.map(group => ({ ...group, accounts: [...group.accounts].join(', ') || '—', variance: group.metaSpend - group.prismaPlanned }));
+        state.clientBreakdownRows = groupsSorted.map(group => ({ ...group, accounts: [...group.accounts].join(', ') || 'None', variance: group.metaSpend - group.prismaPlanned }));
         elements.clientBreakdownBody.innerHTML = state.clientBreakdownRows.map(group => `<tr><td>${escapeHtml(group.client)}</td><td>${escapeHtml(group.product)}</td><td>${escapeHtml(group.accounts)}</td><td class="number">${escapeHtml(currency(group.metaSpend))}</td><td class="number">${escapeHtml(currency(group.prismaPlanned))}</td><td class="number">${escapeHtml(currency(group.variance))}</td></tr>`).join('');
     }
 
+    function candidateSummary(row) {
+        const candidate = row.candidates?.[0];
+        if (!candidate) return 'No credible Prisma candidate';
+        const campaign = candidate.campaignName || 'Campaign name not supplied';
+        const lineId = candidate.campaignId ? `Partner line ID ${candidate.campaignId}` : 'Partner line ID missing';
+        return `${candidate.level}, ${candidate.score}%: ${campaign}; ${lineId}; ${currency(candidate.planned)} booked`;
+    }
+
+    function socialActionRows() {
+        return accountFilteredRows().filter(row => row.metaKey && row.metaSpend !== null && !['Matched', 'Monitor', 'Outside scope'].includes(row.evidence)).map(row => {
+            const mapping = state.accountMappings[row.accountId] || {};
+            const wrike = state.wrikeReferences[row.metaKey] || '';
+            let actionKey = 'investigate';
+            let action = 'Investigate booking evidence';
+            let reason = row.classification;
+            if (row.evidence === 'Missing/unlinked') {
+                if (!elements.populationConfirmed.checked) {
+                    action = 'Confirm report scope before sharing';
+                    reason = 'The files have not been confirmed as the same population.';
+                } else if (wrike) {
+                    actionKey = 'book';
+                    action = 'Book in Prisma using Wrike';
+                    reason = row.monthClosed ? 'No credible Prisma booking was found for this closed month.' : 'No credible Prisma booking is linked in the current open month.';
+                } else {
+                    actionKey = 'wrike';
+                    action = 'Get Wrike before booking in Prisma';
+                    reason = row.monthClosed ? 'A Wrike reference is required for this closed-month missing booking.' : 'A Wrike reference is required before this current-month campaign can be booked.';
+                }
+            } else if (row.candidates?.length) {
+                actionKey = 'confirm';
+                action = 'Confirm possible Prisma booking';
+                reason = 'Review the ranked candidate before treating this campaign as missing.';
+            } else if (row.evidence === 'Needs update') {
+                actionKey = 'update';
+                action = 'Update Prisma booking';
+            }
+            return {
+                ...row,
+                client: mapping.client || row.prismaClient || 'Client not mapped',
+                product: mapping.product || row.prismaProduct || 'Product not mapped',
+                socialOwner: mapping.socialOwner || 'Social owner not assigned',
+                wrike,
+                actionKey,
+                action,
+                actionReason: reason,
+                candidateSummary: candidateSummary(row)
+            };
+        });
+    }
+
+    function filteredSocialActionRows() {
+        const selected = elements.socialActionFilter.value;
+        return socialActionRows().filter(row => selected === 'all' || row.actionKey === selected);
+    }
+
+    function renderSocialActionList() {
+        if (!elements.socialActionBody) return;
+        const rows = filteredSocialActionRows();
+        elements.socialActionCount.textContent = `${rows.length} action${rows.length === 1 ? '' : 's'}`;
+        elements.socialActionBody.innerHTML = rows.length ? rows.map(row => {
+            const needsWrike = row.actionKey === 'wrike' || row.actionKey === 'book';
+            const wrikeCell = needsWrike
+                ? `<input class="wrike-input" type="text" value="${escapeHtml(row.wrike)}" data-wrike-meta-key="${escapeHtml(row.metaKey)}" placeholder="Wrike link or reference" aria-label="Wrike reference for ${escapeHtml(row.campaignName || row.campaignId)}">${row.wrike ? '' : '<span class="minor wrike-needed">Required before booking</span>'}`
+                : escapeHtml(row.wrike || 'Not required for this action');
+            return `<tr><td>${escapeHtml(row.client)}<span class="minor">${escapeHtml(row.product)}</span></td><td>${escapeHtml(row.account)}<span class="minor">ID ${escapeHtml(row.accountId)}</span></td><td>${escapeHtml(row.campaignName || 'Name not supplied')}<span class="minor campaign-id">${escapeHtml(row.campaignId)}</span></td><td>${escapeHtml(row.month)}</td><td class="number">${escapeHtml(currency(row.metaSpend))}</td><td>${wrikeCell}</td><td><span class="action-label">${escapeHtml(row.action)}</span><span class="action-reason">${escapeHtml(row.actionReason)}</span></td><td>${escapeHtml(row.candidateSummary)}</td><td>${escapeHtml(row.socialOwner)}</td></tr>`;
+        }).join('') : '<tr><td class="action-empty" colspan="9">No Social actions match the current month, account, and action filters.</td></tr>';
+    }
+
+    async function saveWrikeReference(metaKey, value) {
+        const normalized = String(value || '').trim();
+        if (normalized) state.wrikeReferences[metaKey] = normalized;
+        else delete state.wrikeReferences[metaKey];
+        await writeLocalStorage({ [WRIKE_REFERENCE_STORAGE_KEY]: state.wrikeReferences });
+        renderSocialActionList();
+    }
+
+    function socialActionCsv(rows) {
+        const headers = ['Client', 'Product', 'Meta account', 'Account ID', 'Campaign name', 'Campaign ID', 'Month', 'Meta spend', 'Wrike reference', 'Recommended action', 'Reason', 'Possible Prisma match', 'Social owner'];
+        return [headers.join(','), ...rows.map(row => [row.client, row.product, row.account, row.accountId, row.campaignName, row.campaignId, row.month, row.metaSpend, row.wrike, row.action, row.actionReason, row.candidateSummary, row.socialOwner].map(csvEscape).join(','))].join('\r\n');
+    }
+
+    function downloadSocialActions() {
+        downloadCsv(`social_booking_checker_social_actions_${elements.asOfDate.value || 'report'}.csv`, socialActionCsv(filteredSocialActionRows()));
+    }
+
+    function socialActionShareText(rows) {
+        const spend = rows.reduce((sum, row) => sum + (Number(row.metaSpend) || 0), 0);
+        const heading = `Social booking actions: ${rows.length} campaign${rows.length === 1 ? '' : 's'}, ${currency(spend)} Meta spend`;
+        const details = rows.map(row => `- ${row.client} / ${row.product}: ${row.campaignName || row.campaignId} (${row.month}) | ${row.action} | Wrike: ${row.wrike || 'needed'} | ${row.socialOwner}`);
+        return [heading, ...details].join('\n');
+    }
+
+    async function copySocialActions() {
+        const rows = filteredSocialActionRows();
+        if (!rows.length) {
+            setStatus(elements.socialActionStatus, 'There are no visible actions to copy.');
+            return;
+        }
+        const text = socialActionShareText(rows);
+        if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
+        else {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            textarea.remove();
+        }
+        setStatus(elements.socialActionStatus, 'Social action list copied.', 'ready');
+    }
+
     function unmatchedMetaRowsForManualMatch() {
-        return accountFilteredRows().filter(row => row.evidence === 'Missing/unlinked' && Number(row.metaSpend) > 0 && row.metaKey);
+        return accountFilteredRows().filter(row => (row.evidence === 'Missing/unlinked' || row.candidates?.length) && Number(row.metaSpend) > 0 && row.metaKey);
     }
 
     function unmatchedPrismaRowsForManualMatch() {
         return monthFilteredRows().filter(row => row.metaSpend === null && row.prismaPlanned !== null && row.prismaKey && row.evidence !== 'Outside scope');
-    }
-
-    function prismaMatchOption(row) {
-        const account = row.account || row.accountId || 'Account not supplied';
-        const campaign = row.campaignName || 'Campaign name not supplied';
-        return `${account} · ${campaign} · ID ${row.campaignId} · ${currency(row.prismaPlanned)} booked · ${row.month}`;
     }
 
     function openManualMatch() {
@@ -646,13 +778,35 @@
         state.manualMatchTrigger = document.activeElement;
         const metaRows = unmatchedMetaRowsForManualMatch();
         const prismaRows = unmatchedPrismaRowsForManualMatch();
-        elements.manualMatchBody.innerHTML = metaRows.map(row => `<tr><td>${escapeHtml(row.account)}<span class="minor">ID ${escapeHtml(row.accountId)}</span></td><td>${escapeHtml(row.campaignName || 'Name not supplied')}</td><td><span class="campaign-id">${escapeHtml(row.campaignId)}</span>${row.month ? `<span class="minor">${escapeHtml(row.month)}</span>` : ''}</td><td class="number">${escapeHtml(currency(row.metaSpend))}</td><td><select data-manual-meta-key="${escapeHtml(row.metaKey)}"><option value="">Do not match</option>${prismaRows.map(candidate => `<option value="${escapeHtml(candidate.prismaKey)}">${escapeHtml(prismaMatchOption(candidate))}</option>`).join('')}</select></td></tr>`).join('');
-        const hasManualMatches = Object.keys(state.manualMatches).length > 0;
-        elements.clearManualMatches.classList.toggle('hidden', !hasManualMatches);
-        elements.applyManualMatches.disabled = !metaRows.length || !prismaRows.length;
-        setStatus(elements.manualMatchStatus, metaRows.length && prismaRows.length
-            ? `${metaRows.length} Meta campaign${metaRows.length === 1 ? '' : 's'} can be paired with ${prismaRows.length} currently unmatched Prisma campaign${prismaRows.length === 1 ? '' : 's'}.`
-            : hasManualMatches ? 'All current unmatched Meta spend has a local match. Clear local matches to start again.' : 'There are no compatible unmatched Meta and Prisma campaign rows in the current month and account scope.');
+        elements.manualMatchBody.innerHTML = metaRows.map((row, rowIndex) => {
+            const rejectedKeys = new Set(state.candidateRejections[row.metaKey] || []);
+            const fallbackCandidates = prismaRows.filter(candidate => candidate.accountId === row.accountId && candidate.month === row.month && !rejectedKeys.has(candidate.prismaKey)).map(candidate => ({
+                key: candidate.prismaKey,
+                prismaKey: candidate.prismaKey,
+                campaignId: candidate.campaignId,
+                campaignName: candidate.campaignName,
+                planned: candidate.prismaPlanned,
+                score: null,
+                level: 'Available campaign',
+                reasons: []
+            }));
+            const candidates = (row.candidatePool?.length ? row.candidatePool : row.candidates?.length ? row.candidates : fallbackCandidates)
+                .filter(candidate => candidate.prismaKey && !rejectedKeys.has(candidate.key));
+            const choices = candidates.map((candidate, candidateIndex) => {
+                const rejected = (state.candidateRejections[row.metaKey] || []).includes(candidate.key);
+                const details = [candidate.campaignId ? `Partner line ID ${candidate.campaignId}` : 'Partner line ID missing', `${currency(candidate.planned)} booked`, ...(candidate.reasons || [])].join('; ');
+                const searchText = `${candidate.campaignName || ''} ${candidate.campaignId || ''} ${candidate.client || ''} ${candidate.product || ''} ${candidate.planned || ''}`.toLowerCase();
+                return `<div class="candidate-choice" data-candidate-choice data-candidate-default-hidden="${candidateIndex > 2}" data-candidate-search-text="${escapeHtml(searchText)}"${candidateIndex > 2 ? ' hidden' : ''}><input type="radio" name="match-${rowIndex}" value="${escapeHtml(candidate.prismaKey)}" data-manual-meta-key="${escapeHtml(row.metaKey)}" ${candidate.prismaKey ? '' : 'disabled'} aria-label="Confirm ${escapeHtml(candidate.campaignName || 'Prisma candidate')}"><div><strong>${escapeHtml(candidate.campaignName || 'Campaign name not supplied')}</strong><small>${escapeHtml(details)}</small><label class="candidate-reject"><input type="checkbox" data-reject-meta-key="${escapeHtml(row.metaKey)}" data-reject-candidate-key="${escapeHtml(candidate.key)}" ${rejected ? 'checked' : ''}>Not the same campaign</label></div><span class="candidate-score">${candidate.score === null ? escapeHtml(candidate.level) : `${escapeHtml(candidate.score)}%`}</span></div>`;
+            }).join('');
+            const candidateLabel = `${candidates.length} eligible unlinked Prisma campaign${candidates.length === 1 ? '' : 's'} in this Meta account and month`;
+            return `<tr><td>${escapeHtml(row.account)}<span class="minor">ID ${escapeHtml(row.accountId)}</span></td><td>${escapeHtml(row.campaignName || 'Name not supplied')}</td><td><span class="campaign-id">${escapeHtml(row.campaignId)}</span>${row.month ? `<span class="minor">${escapeHtml(row.month)}</span>` : ''}</td><td class="number">${escapeHtml(currency(row.metaSpend))}</td><td><div class="candidate-stack"><label class="candidate-none"><input type="radio" name="match-${rowIndex}" value="" data-manual-meta-key="${escapeHtml(row.metaKey)}" checked>Leave unmatched</label>${choices ? `<label class="candidate-search">Search eligible Prisma campaigns<input type="search" data-candidate-search placeholder="Campaign name, Partner line ID, client or product" aria-label="Search eligible Prisma campaigns for ${escapeHtml(row.campaignName || row.campaignId)}"><small data-candidate-search-results>${escapeHtml(candidateLabel)}</small></label>${choices}` : '<span class="candidate-none">No unlinked Prisma campaigns are available in this Meta account and month.</span>'}</div></td></tr>`;
+        }).join('');
+        const hasDecisions = Object.keys(state.manualMatches).length > 0 || Object.values(state.candidateRejections).some(values => values?.length);
+        elements.clearManualMatches.classList.toggle('hidden', !hasDecisions);
+        elements.applyManualMatches.disabled = !metaRows.length;
+        setStatus(elements.manualMatchStatus, metaRows.length
+            ? `${metaRows.length} Meta campaign${metaRows.length === 1 ? '' : 's'} ready for review. Scores rank evidence; they do not create a match until you confirm one.`
+            : hasDecisions ? 'All current unmatched campaigns have local decisions. Clear them to review again.' : 'There are no unmatched Meta campaigns in the current month and account scope.');
         elements.manualMatchModal.classList.remove('hidden');
         elements.closeManualMatch.focus();
     }
@@ -663,7 +817,7 @@
     }
 
     async function applyManualMatches() {
-        const selections = Array.from(elements.manualMatchBody.querySelectorAll('select[data-manual-meta-key]'));
+        const selections = Array.from(elements.manualMatchBody.querySelectorAll('input[type="radio"][data-manual-meta-key]:checked'));
         const selectedPrismaKeys = selections.map(select => select.value).filter(Boolean);
         if (new Set(selectedPrismaKeys).size !== selectedPrismaKeys.length) {
             setStatus(elements.manualMatchStatus, 'Choose each Prisma campaign only once.', 'error');
@@ -674,9 +828,19 @@
             if (select.value) next[select.dataset.manualMetaKey] = select.value;
             else delete next[select.dataset.manualMetaKey];
         });
+        const nextRejections = { ...state.candidateRejections };
+        new Set(selections.map(input => input.dataset.manualMetaKey)).forEach(metaKey => { delete nextRejections[metaKey]; });
+        elements.manualMatchBody.querySelectorAll('input[data-reject-meta-key]:checked').forEach(input => {
+            if (!nextRejections[input.dataset.rejectMetaKey]) nextRejections[input.dataset.rejectMetaKey] = [];
+            nextRejections[input.dataset.rejectMetaKey].push(input.dataset.rejectCandidateKey);
+        });
+        selections.filter(input => input.value).forEach(input => {
+            nextRejections[input.dataset.manualMetaKey] = (nextRejections[input.dataset.manualMetaKey] || []).filter(key => key !== input.value);
+        });
         try {
-            await writeLocalStorage({ [MANUAL_MATCH_STORAGE_KEY]: next });
+            await writeLocalStorage({ [MANUAL_MATCH_STORAGE_KEY]: next, [CANDIDATE_REJECTION_STORAGE_KEY]: nextRejections });
             state.manualMatches = next;
+            state.candidateRejections = nextRejections;
             closeManualMatch();
             runComparison();
         } catch (error) {
@@ -686,8 +850,9 @@
 
     async function clearManualMatches() {
         try {
-            await removeLocalStorage(MANUAL_MATCH_STORAGE_KEY);
+            await Promise.all([removeLocalStorage(MANUAL_MATCH_STORAGE_KEY), removeLocalStorage(CANDIDATE_REJECTION_STORAGE_KEY)]);
             state.manualMatches = {};
+            state.candidateRejections = {};
             closeManualMatch();
             runComparison();
         } catch (error) {
@@ -695,12 +860,80 @@
         }
     }
 
+    function campaignColumns(showMonth) {
+        return [
+            { key: 'evidence', label: 'Evidence', width: 132 },
+            { key: 'account', label: 'Account', width: 172 },
+            { key: 'campaignName', label: 'Campaign name', width: 190 },
+            { key: 'campaignId', label: 'Campaign ID', width: 164 },
+            ...(showMonth ? [{ key: 'month', label: 'Month', width: 100 }] : []),
+            { key: 'metaSpend', label: 'Meta spend', width: 112, number: true, sortable: true },
+            { key: 'prismaPlanned', label: 'Prisma', width: 112, number: true, sortable: true },
+            { key: 'variance', label: 'Variance', width: 112, number: true, sortable: true },
+            { key: 'finding', label: 'Finding', width: 286 },
+            { key: 'supportingEvidence', label: 'Supporting evidence', width: 330 }
+        ];
+    }
+
+    function campaignColumnWidth(column) {
+        const saved = Number(state.campaignColumnWidths[column.key]);
+        return Number.isFinite(saved) ? Math.min(720, Math.max(96, saved)) : column.width;
+    }
+
+    function renderCampaignColumns(columns) {
+        elements.campaignColumnGroup.innerHTML = columns.map(column => `<col data-campaign-column="${escapeHtml(column.key)}" style="width:${campaignColumnWidth(column)}px">`).join('');
+    }
+
+    function saveCampaignColumnWidths() {
+        writeLocalStorage({ [CAMPAIGN_COLUMN_WIDTH_STORAGE_KEY]: state.campaignColumnWidths }).catch(() => {});
+    }
+
+    function setCampaignColumnWidth(key, width) {
+        state.campaignColumnWidths[key] = Math.min(720, Math.max(96, Math.round(width)));
+        const column = elements.campaignColumnGroup.querySelector(`[data-campaign-column="${key}"]`);
+        if (column) column.style.width = `${state.campaignColumnWidths[key]}px`;
+    }
+
+    function bindCampaignColumnResizers() {
+        elements.reportHeader.querySelectorAll('[data-column-resize]').forEach(handle => {
+            const key = handle.dataset.columnResize;
+            const column = elements.campaignColumnGroup.querySelector(`[data-campaign-column="${key}"]`);
+            if (!column) return;
+            handle.addEventListener('pointerdown', event => {
+                event.preventDefault();
+                const startX = event.clientX;
+                const startWidth = Number.parseInt(column.style.width, 10) || column.getBoundingClientRect().width || campaignColumnWidth({ key, width: 160 });
+                const move = moveEvent => setCampaignColumnWidth(key, startWidth + moveEvent.clientX - startX);
+                const stop = () => {
+                    document.removeEventListener('pointermove', move);
+                    document.removeEventListener('pointerup', stop);
+                    document.body.classList.remove('campaign-column-resizing');
+                    saveCampaignColumnWidths();
+                };
+                document.body.classList.add('campaign-column-resizing');
+                document.addEventListener('pointermove', move);
+                document.addEventListener('pointerup', stop, { once: true });
+            });
+            handle.addEventListener('keydown', event => {
+                if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+                event.preventDefault();
+                const direction = event.key === 'ArrowRight' ? 1 : -1;
+                const currentWidth = Number.parseInt(column.style.width, 10) || campaignColumnWidth({ key, width: 160 });
+                setCampaignColumnWidth(key, currentWidth + (direction * 20));
+                saveCampaignColumnWidths();
+            });
+        });
+    }
+
     function renderRows() {
         const rows = filteredRows();
         const showMonth = new Set(accountFilteredRows().map(row => row.month).filter(Boolean)).size > 1;
+        const columns = campaignColumns(showMonth);
         elements.visibleCount.textContent = `${rows.length} row${rows.length === 1 ? '' : 's'} shown`;
-        elements.reportHeader.innerHTML = `<tr><th>Evidence</th><th>Account</th><th>Campaign name</th><th>Campaign ID</th>${showMonth ? '<th>Month</th>' : ''}<th class="number" data-sort-key="metaSpend"><button class="sort-button" type="button" data-sort="metaSpend">Meta spend <span aria-hidden="true"></span></button></th><th class="number" data-sort-key="prismaPlanned"><button class="sort-button" type="button" data-sort="prismaPlanned">Prisma <span aria-hidden="true"></span></button></th><th class="number" data-sort-key="variance"><button class="sort-button" type="button" data-sort="variance">Variance <span aria-hidden="true"></span></button></th><th>Finding</th><th>Supporting evidence</th></tr>`;
+        renderCampaignColumns(columns);
+        elements.reportHeader.innerHTML = `<tr>${columns.map(column => `<th class="${column.number ? 'number' : ''}"${column.sortable ? ` data-sort-key="${column.key}"` : ''}>${column.sortable ? `<button class="sort-button" type="button" data-sort="${column.key}">${escapeHtml(column.label)} <span aria-hidden="true"></span></button>` : escapeHtml(column.label)}<span class="column-resizer" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Resize ${escapeHtml(column.label)} column" data-column-resize="${escapeHtml(column.key)}"></span></th>`).join('')}</tr>`;
         elements.reportHeader.querySelectorAll('.sort-button[data-sort]').forEach(button => button.addEventListener('click', () => toggleSort(button.dataset.sort)));
+        bindCampaignColumnResizers();
         elements.reportBody.innerHTML = rows.map(row => `
             <tr>
                 <td>${evidenceTooltip(row.evidence, `evidence-pill ${evidenceClass(row.evidence)}`)}</td>
@@ -746,7 +979,9 @@
             closedWorkingDay: Number(elements.closedWorkingDay.value),
             populationConfirmed: elements.populationConfirmed.checked,
             accountIdScope: selectedAccountIds(),
-            manualMatches: state.manualMatches
+            manualMatches: state.manualMatches,
+            rejectedCandidates: state.candidateRejections,
+            accountMappings: state.accountMappings
         });
         if (report.validationErrors.length) { renderMessages(report.validationErrors); elements.results.classList.add('hidden'); return; }
         state.report = report;
@@ -770,7 +1005,8 @@
     }
 
     function csvEscape(value) {
-        const text = String(value ?? '');
+        let text = String(value ?? '');
+        if (/^\s*[=+\-@]/.test(text)) text = `'${text}`;
         return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
     }
 
@@ -824,7 +1060,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        ['validationMessages', 'results', 'metaDataSource', 'financialHeadline', 'summaryCards', 'coverageWarnings', 'clientBreakdown', 'clientBreakdownBody', 'campaignBreakdown', 'reportSearch', 'monthFromFilter', 'monthToFilter', 'visibleCount', 'reportHeader', 'reportBody', 'asOfDate', 'tolerance', 'closedWorkingDay', 'populationConfirmed', 'accountScopePanel', 'accountOptions', 'prismaScopePanel', 'prismaScopeStatus', 'prismaScopeComparison', 'matchedScopeAccounts', 'accountMappingOptions', 'metaApiPanel', 'metaAccessToken', 'saveMetaCredentials', 'metaCredentialStatus', 'removeMetaToken', 'metaApiDatePreset', 'metaApiStartDate', 'metaApiEndDate', 'metaApiStatus', 'apiAccountActions', 'pullMetaData', 'clearMetaApiData', 'metaReferenceStatus', 'removeMetaReference', 'evidenceFilterOptions', 'evidenceFilterCount', 'accountFilterOptions', 'accountFilterCount', 'manualMatchModal', 'manualMatchStatus', 'manualMatchBody', 'closeManualMatch', 'cancelManualMatch', 'applyManualMatches', 'clearManualMatches'].forEach(id => { elements[id] = byId(id); });
+        ['validationMessages', 'results', 'metaDataSource', 'financialHeadline', 'summaryCards', 'coverageWarnings', 'socialActionList', 'socialActionBody', 'socialActionFilter', 'socialActionCount', 'socialActionStatus', 'copySocialActions', 'downloadSocialActions', 'clientBreakdown', 'clientBreakdownBody', 'campaignBreakdown', 'campaignColumnGroup', 'reportSearch', 'monthFromFilter', 'monthToFilter', 'visibleCount', 'reportHeader', 'reportBody', 'asOfDate', 'tolerance', 'closedWorkingDay', 'populationConfirmed', 'accountScopePanel', 'accountOptions', 'prismaScopePanel', 'prismaScopeStatus', 'prismaScopeComparison', 'matchedScopeAccounts', 'accountMappingOptions', 'metaApiPanel', 'metaAccessToken', 'saveMetaCredentials', 'metaCredentialStatus', 'removeMetaToken', 'metaApiDatePreset', 'metaApiStartDate', 'metaApiEndDate', 'metaApiStatus', 'apiAccountActions', 'pullMetaData', 'clearMetaApiData', 'metaReferenceStatus', 'removeMetaReference', 'evidenceFilterOptions', 'evidenceFilterCount', 'accountFilterOptions', 'accountFilterCount', 'manualMatchModal', 'manualMatchStatus', 'manualMatchBody', 'closeManualMatch', 'cancelManualMatch', 'applyManualMatches', 'clearManualMatches'].forEach(id => { elements[id] = byId(id); });
         elements.asOfDate.value = new Date().toISOString().slice(0, 10);
         applyDatePreset();
         setupFileUpload('metaFile', 'metaDropZone', 'removeMetaFile', 'metaText', 'metaFileName');
@@ -852,8 +1088,14 @@
         elements.accountOptions.addEventListener('change', () => { saveAccountScope(); renderPrismaScope(); });
         elements.accountMappingOptions.addEventListener('change', event => {
             const select = event.target.closest('select[data-mapping-account-id]');
-            if (!select) return;
-            saveAccountMapping(select.dataset.mappingAccountId, mappingFromValue(select.value)).catch(error => setStatus(elements.prismaScopeStatus, error.message, 'error'));
+            const owner = event.target.closest('input[data-social-owner-account-id]');
+            if (select) {
+                const accountId = select.dataset.mappingAccountId;
+                saveAccountMapping(accountId, { ...mappingFromValue(select.value), socialOwner: state.accountMappings[accountId]?.socialOwner || '' }).catch(error => setStatus(elements.prismaScopeStatus, error.message, 'error'));
+            } else if (owner) {
+                const accountId = owner.dataset.socialOwnerAccountId;
+                saveAccountMapping(accountId, { ...(state.accountMappings[accountId] || {}), socialOwner: owner.value.trim() }).catch(error => setStatus(elements.prismaScopeStatus, error.message, 'error'));
+            }
         });
         elements.prismaScopeComparison.addEventListener('click', event => {
             if (!event.target.closest('[data-show-matched-scope]')) return;
@@ -861,11 +1103,35 @@
             renderPrismaScope();
         });
         elements.summaryCards.addEventListener('click', event => { if (event.target.closest('[data-open-manual-match]')) openManualMatch(); });
-        elements.summaryCards.addEventListener('keydown', event => { if ((event.key === 'Enter' || event.key === ' ') && event.target.closest('[data-open-manual-match]')) { event.preventDefault(); openManualMatch(); } });
+        elements.manualMatchBody.addEventListener('input', event => {
+            const input = event.target.closest('input[data-candidate-search]');
+            if (!input) return;
+            const search = input.value.trim().toLowerCase();
+            const stack = input.closest('.candidate-stack');
+            const choices = [...stack.querySelectorAll('[data-candidate-choice]')];
+            let visible = 0;
+            choices.forEach(choice => {
+                const matches = !search || choice.dataset.candidateSearchText.includes(search);
+                choice.hidden = !matches || (!search && choice.dataset.candidateDefaultHidden === 'true');
+                if (!choice.hidden) visible++;
+            });
+            stack.querySelector('[data-candidate-search-results]').textContent = search
+                ? `${visible} matching eligible Prisma campaign${visible === 1 ? '' : 's'}`
+                : `${choices.length} eligible unlinked Prisma campaigns in this Meta account and month`;
+        });
         elements.closeManualMatch.addEventListener('click', closeManualMatch);
         elements.cancelManualMatch.addEventListener('click', closeManualMatch);
         elements.applyManualMatches.addEventListener('click', applyManualMatches);
         elements.clearManualMatches.addEventListener('click', clearManualMatches);
+        elements.socialActionFilter.addEventListener('change', renderSocialActionList);
+        elements.populationConfirmed.addEventListener('change', () => { if (state.report) renderSocialActionList(); });
+        elements.socialActionBody.addEventListener('change', event => {
+            const input = event.target.closest('input[data-wrike-meta-key]');
+            if (!input) return;
+            saveWrikeReference(input.dataset.wrikeMetaKey, input.value).catch(error => setStatus(elements.socialActionStatus, error.message, 'error'));
+        });
+        elements.copySocialActions.addEventListener('click', () => copySocialActions().catch(error => setStatus(elements.socialActionStatus, error.message, 'error')));
+        elements.downloadSocialActions.addEventListener('click', downloadSocialActions);
         elements.manualMatchModal.addEventListener('click', event => { if (event.target.closest('[data-close-manual-match]')) closeManualMatch(); });
         document.addEventListener('keydown', event => { if (event.key === 'Escape' && !elements.manualMatchModal.classList.contains('hidden')) closeManualMatch(); });
         elements.monthFromFilter.addEventListener('change', () => {
@@ -890,5 +1156,7 @@
         restoreMetaReference();
         restoreAccountMappings();
         restoreManualMatches();
+        restoreReviewData();
+        restoreCampaignColumnWidths();
     });
 })();
