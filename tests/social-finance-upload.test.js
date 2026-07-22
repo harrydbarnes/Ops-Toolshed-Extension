@@ -109,12 +109,34 @@ describe('Social Booking Checker report uploads', () => {
         expect(JSON.parse(dom.window.localStorage.getItem('socialBookingMetaAccountScope'))).toEqual(['111', '222']);
     });
 
+    test('only offers Prisma client and product mappings belonging to each Meta Partner account', async () => {
+        dom.window.socialFinanceEngine.extractMetaReferenceData.mockReturnValue({
+            accounts: [{ id: '111', name: 'Boots', lastSynced: '' }, { id: '222', name: 'No7', lastSynced: '' }], campaigns: [], adSets: [], errors: []
+        });
+        dom.window.socialFinanceEngine.extractPrismaReferenceData.mockReturnValue({
+            accounts: [{ id: '111', clients: ['Boots'], rows: 1, months: ['2026-06-01'] }, { id: '222', clients: ['No7'], rows: 1, months: ['2026-06-01'] }],
+            clientProducts: [{ client: 'Boots', product: 'Opticians', accountIds: ['111'] }, { client: 'No7', product: 'Skincare', accountIds: ['222'] }], errors: []
+        });
+        const meta = { name: 'meta.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('meta') };
+        const prisma = { name: 'prisma.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('prisma') };
+        dropFile(dom.window, document.querySelector('#metaDropZone'), meta);
+        dropFile(dom.window, document.querySelector('#prismaDropZone'), prisma);
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+
+        const bootsOptions = [...document.querySelector('select[data-mapping-account-id="111"]').options].map(option => option.textContent);
+        const no7Options = [...document.querySelector('select[data-mapping-account-id="222"]').options].map(option => option.textContent);
+        expect(bootsOptions.join(' ')).toContain('Boots / Opticians');
+        expect(bootsOptions.join(' ')).not.toContain('No7 / Skincare');
+        expect(no7Options.join(' ')).toContain('No7 / Skincare');
+        expect(no7Options.join(' ')).not.toContain('Boots / Opticians');
+    });
+
     test('filters the analysis and summary to a selected month range', async () => {
         const rows = [
             { accountId: '111', campaignId: '1', month: '2026-05', account: 'Boots', campaignName: 'May campaign', evidence: 'Needs update', classification: 'Spend update needed', metaSpend: 10, prismaPlanned: 5, variance: 5, issues: [], owner: '' },
             { accountId: '111', campaignId: '2', month: '2026-06', account: 'Boots', campaignName: 'June campaign', evidence: 'Missing/unlinked', classification: 'Missing from Prisma: spending', metaSpend: 20, prismaPlanned: null, variance: 20, issues: [], owner: '' }
         ];
-        dom.window.socialFinanceEngine.compare = jest.fn(() => ({ rows, summary: {}, warnings: [], validationErrors: [] }));
+        dom.window.socialFinanceEngine.compare = jest.fn(() => ({ rows, summary: {}, warnings: [], validationErrors: [], coverage: { isComplete: true, metaMonths: ['2026-06'], prismaMonths: ['2026-06'], sharedMonths: ['2026-06'], gaps: [] } }));
         dom.window.socialFinanceEngine.summarizeRows = jest.fn(filtered => ({
             total: filtered.length,
             missingOrUnlinked: filtered.filter(row => row.evidence === 'Missing/unlinked').length,
@@ -131,17 +153,17 @@ describe('Social Booking Checker report uploads', () => {
         await new Promise(resolve => dom.window.setTimeout(resolve, 0));
 
         document.querySelector('#runComparison').click();
-        expect(document.querySelector('#monthFromFilter').value).toBe('2026-05');
+        expect(document.querySelector('#monthFromFilter').value).toBe('2026-06');
         expect(document.querySelector('#monthToFilter').value).toBe('2026-06');
-        expect(document.querySelector('.summary-card strong').textContent).toBe('2');
-        expect([...document.querySelectorAll('#reportHeader th')].map(cell => cell.textContent)).toEqual(expect.arrayContaining(['Account', 'Campaign name', 'Campaign ID', 'Month']));
-
-        document.querySelector('#monthFromFilter').value = '2026-06';
-        document.querySelector('#monthFromFilter').dispatchEvent(new dom.window.Event('change', { bubbles: true }));
         expect(document.querySelector('.summary-card strong').textContent).toBe('1');
-        expect(document.querySelector('#reportBody').textContent).toContain('June campaign');
-        expect(document.querySelector('#reportBody').textContent).not.toContain('May campaign');
         expect([...document.querySelectorAll('#reportHeader th')].map(cell => cell.textContent)).not.toContain('Month');
+
+        document.querySelector('#monthFromFilter').value = '2026-05';
+        document.querySelector('#monthFromFilter').dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+        expect(document.querySelector('.summary-card strong').textContent).toBe('2');
+        expect(document.querySelector('#reportBody').textContent).toContain('June campaign');
+        expect(document.querySelector('#reportBody').textContent).toContain('May campaign');
+        expect([...document.querySelectorAll('#reportHeader th')].map(cell => cell.textContent)).toContain('Month');
     });
 
     test('masks a saved API token in place and removes it from the field control', async () => {
@@ -237,7 +259,7 @@ describe('Social Booking Checker report uploads', () => {
             { accountId: '111', account: 'Boots', campaignId: 'meta-1', campaignName: 'Meta campaign', month: '2026-06', metaKey: '111|meta-1|2026-06-01', prismaKey: '', metaSpend: 50, prismaPlanned: null, variance: 50, evidence: 'Missing/unlinked', classification: 'Missing', metaBudget: null, issues: [], owner: '', candidatePool: [{ key: '111|prisma-1|2026-06-01', prismaKey: '111|prisma-1|2026-06-01', campaignId: 'prisma-1', campaignName: 'Prisma campaign', planned: 48, score: 82, level: 'Possible candidate', reasons: [] }, { key: '111|prisma-2|2026-06-01', prismaKey: '111|prisma-2|2026-06-01', campaignId: 'prisma-2', campaignName: 'Alternative Prisma campaign', planned: 52, score: 68, level: 'Possible candidate', reasons: [] }] },
             { accountId: '111', account: 'Boots', campaignId: 'prisma-1', campaignName: 'Prisma campaign', month: '2026-06', metaKey: '', prismaKey: '111|prisma-1|2026-06-01', metaSpend: null, prismaPlanned: 48, variance: -48, evidence: 'Investigate', classification: 'Prisma booking absent from Meta population', metaBudget: null, issues: [], owner: '' }
         ];
-        dom.window.socialFinanceEngine.compare = jest.fn(() => ({ rows, summary: {}, warnings: [], validationErrors: [] }));
+        dom.window.socialFinanceEngine.compare = jest.fn(() => ({ rows, summary: {}, warnings: [], validationErrors: [], coverage: { isComplete: true, metaMonths: ['2026-06'], prismaMonths: ['2026-06'], sharedMonths: ['2026-06'], gaps: [] } }));
         dom.window.socialFinanceEngine.summarizeRows = jest.fn(() => ({ total: 2, missingOrUnlinked: 1, needsUpdate: 0, monitor: 0, investigate: 1, outsideScope: 0, unmatchedSpend: 50, metaBudget: 0, metaSpend: 50, prismaPlanned: 48, variance: 2 }));
         const meta = { name: 'meta.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('meta') };
         const prisma = { name: 'prisma.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('prisma') };
@@ -272,7 +294,7 @@ describe('Social Booking Checker report uploads', () => {
 
     test('requires and remembers a Wrike reference before recommending Prisma booking', async () => {
         const rows = [{ accountId: '111', account: 'Boots', campaignId: 'meta-1', campaignName: 'Missing campaign', month: '2026-06', monthClosed: true, metaKey: '111|meta-1|2026-06-01', prismaKey: '', metaSpend: 50, prismaPlanned: null, variance: 50, evidence: 'Missing/unlinked', classification: 'Missing from Prisma: spending', candidates: [], issues: [], owner: '' }];
-        dom.window.socialFinanceEngine.compare = jest.fn(() => ({ rows, summary: {}, warnings: [], validationErrors: [] }));
+        dom.window.socialFinanceEngine.compare = jest.fn(() => ({ rows, summary: {}, warnings: [], validationErrors: [], coverage: { isComplete: true, metaMonths: ['2026-06'], prismaMonths: ['2026-06'], sharedMonths: ['2026-06'], gaps: [] } }));
         dom.window.socialFinanceEngine.summarizeRows = jest.fn(() => ({ total: 1, missingOrUnlinked: 1, needsUpdate: 0, monitor: 0, investigate: 0, outsideScope: 0, unmatchedSpend: 50, metaBudget: 0, metaSpend: 50, prismaPlanned: 0, variance: 50 }));
         Object.defineProperty(dom.window.navigator, 'clipboard', { value: { writeText: jest.fn().mockResolvedValue() }, configurable: true });
         const meta = { name: 'meta.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('meta') };
@@ -280,10 +302,9 @@ describe('Social Booking Checker report uploads', () => {
         dropFile(dom.window, document.querySelector('#metaDropZone'), meta);
         dropFile(dom.window, document.querySelector('#prismaDropZone'), prisma);
         await new Promise(resolve => dom.window.setTimeout(resolve, 0));
-        document.querySelector('#populationConfirmed').checked = true;
         document.querySelector('#runComparison').click();
 
-        expect(document.querySelector('#socialActionBody').textContent).toContain('Get Wrike before booking in Prisma');
+        expect(document.querySelector('#socialActionBody').textContent).toContain('Get Wrike reference');
         const wrikeInput = document.querySelector('[data-wrike-meta-key]');
         wrikeInput.value = 'https://wrike.example/task/123';
         wrikeInput.dispatchEvent(new dom.window.Event('change', { bubbles: true }));

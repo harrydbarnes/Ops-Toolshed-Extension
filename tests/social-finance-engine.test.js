@@ -131,7 +131,7 @@ describe('social finance comparison engine', () => {
         expect(report.warnings).toContain('Meta campaign dates are unavailable; month coverage is checked instead. Sync through the Meta API or include campaign start and end columns in the report.');
         expect(report.warnings).toContain('Prisma booked start/end dates are unavailable; exact-day comparison cannot be completed.');
         expect(report.warnings).toContain('Meta delivery status is unavailable; £0 rows cannot be distinguished reliably as scheduled or inactive.');
-        expect(report.warnings).toContain('Population completeness is not confirmed; missing rows prove no linked booking was found, not that no Prisma booking exists anywhere.');
+        expect(report.coverage).toEqual(expect.objectContaining({ isComplete: true, sharedMonths: ['2026-06'] }));
     });
 
     test('does not overstate missing bookings until source population is confirmed', () => {
@@ -141,6 +141,28 @@ describe('social finance comparison engine', () => {
             { asOfDate: '2026-07-13' }
         );
         expect(report.rows.find(row => row.campaignId === '1').classification).toBe('No linked Prisma booking found: spending');
+        expect(report.coverage.isComplete).toBe(true);
+    });
+
+    test('keeps missing findings provisional where Prisma does not cover every selected Meta account-month', () => {
+        const report = compare(
+            parseCsv('Account ID,Campaign ID,Month,Amount spent\n111,1,2026-06,10\n222,2,2026-06,10'),
+            parseCsv('Partner account id,Partner line id,Period,PLANNED_AMOUNT\n111,3,Jun 2026,10'),
+            { populationConfirmed: true }
+        );
+        expect(report.coverage).toEqual(expect.objectContaining({ isComplete: false, gaps: [{ accountId: '222', month: '2026-06' }] }));
+        expect(report.rows.find(row => row.campaignId === '2').classification).toBe('No linked Prisma booking found: spending');
+        expect(report.warnings.join(' ')).toContain('Prisma report coverage is incomplete');
+    });
+
+    test('raises Prisma workflow review for a matched booking needing revision or integration', () => {
+        const report = compare(
+            parseCsv('Account ID,Campaign ID,Month,Amount spent\n111,1,2026-06,10'),
+            parseCsv('Partner account id,Partner line id,Period,PLANNED_AMOUNT,Order current status,Integrated status,Delivery status\n111,1,Jun 2026,10,NeedsRevision,Not Integrated,Not Received'),
+            { populationConfirmed: true }
+        );
+        expect(report.rows[0]).toEqual(expect.objectContaining({ evidence: 'Investigate', classification: 'Prisma workflow review needed' }));
+        expect(report.rows[0].prismaWorkflowIssues).toEqual(expect.arrayContaining(['Prisma order status: NeedsRevision', 'Prisma integration status: Not Integrated']));
     });
 
     test('restricts the comparison to selected Meta accounts', () => {

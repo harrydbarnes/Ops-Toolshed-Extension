@@ -29,7 +29,11 @@
         client: ['client name', 'client'],
         product: ['product name', 'product'],
         partner: ['partner'],
+        orderStatus: ['order current status', 'order status'],
         integratedStatus: ['integrated status'],
+        deliveryStatus: ['delivery status'],
+        flightStatus: ['flight status'],
+        periodStatus: ['period status'],
         owner: ['placement creator', 'owner'],
         start: ['days in flight start date', 'placement start date', 'booked start date', 'start date'],
         end: ['days in flight end date', 'flight end date', 'placement end date', 'booked end date', 'end date']
@@ -88,6 +92,22 @@
 
     function cleanId(value) {
         return String(value ?? '').trim().replace(/^="(.*)"$/, '$1').replace(/\.0$/, '');
+    }
+
+    function usableId(value) {
+        const id = cleanId(value);
+        return Boolean(id) && !['none', 'n/a', 'na', 'null', 'unknown'].includes(id.toLowerCase());
+    }
+
+    function prismaWorkflowIssues(row) {
+        const issues = [];
+        const order = String(row.orderStatus || '').trim().toLowerCase();
+        const integrated = String(row.integratedStatus || '').trim().toLowerCase();
+        const delivery = String(row.deliveryStatus || '').trim().toLowerCase();
+        if (order.includes('needsrevision') || order.includes('needs revision')) issues.push(`Prisma order status: ${row.orderStatus}`);
+        if (integrated.includes('not integrated')) issues.push(`Prisma integration status: ${row.integratedStatus}`);
+        if (delivery.includes('not received')) issues.push(`Prisma delivery status: ${row.deliveryStatus}`);
+        return issues;
     }
 
     function parseMoney(value) {
@@ -264,7 +284,7 @@
         const clientProducts = new Map();
         parsed.rows.forEach(row => {
             const accountId = cleanId(row[columns.accountId]);
-            if (!accountId) return;
+            if (!usableId(accountId)) return;
             const existing = accounts.get(accountId) || { id: accountId, clients: new Set(), rows: 0, months: new Set() };
             const client = columns.client ? String(row[columns.client] || '').trim() : '';
             const product = columns.product ? String(row[columns.product] || '').trim() : '';
@@ -302,10 +322,11 @@
         ['accountId', 'campaignId', 'month', 'planned'].forEach(key => {
             if (!columns[key]) errors.push(`Prisma export is missing ${key === 'accountId' ? 'Partner account id' : key === 'campaignId' ? 'Partner line id' : key === 'month' ? 'Period' : 'PLANNED_AMOUNT/Gross Amount'}.`);
         });
-        if (errors.length) return { columns, records: [], allRows: [], errors };
+        if (errors.length) return { columns, records: [], allRows: [], unintegratedRows: [], errors };
 
         const groups = new Map();
         const allRows = [];
+        const unintegratedRows = [];
         parsed.rows.forEach((row, rowIndex) => {
             const accountId = cleanId(row[columns.accountId]);
             const campaignId = cleanId(row[columns.campaignId]);
@@ -317,24 +338,38 @@
                 campaignName: columns.campaignName ? String(row[columns.campaignName] || '').trim() : '',
                 client: columns.client ? String(row[columns.client] || '').trim() : '',
                 product: columns.product ? String(row[columns.product] || '').trim() : '',
+                orderStatus: columns.orderStatus ? String(row[columns.orderStatus] || '').trim() : '',
                 integratedStatus: columns.integratedStatus ? String(row[columns.integratedStatus] || '').trim() : '',
+                deliveryStatus: columns.deliveryStatus ? String(row[columns.deliveryStatus] || '').trim() : '',
+                flightStatus: columns.flightStatus ? String(row[columns.flightStatus] || '').trim() : '',
+                periodStatus: columns.periodStatus ? String(row[columns.periodStatus] || '').trim() : '',
                 owner: columns.owner ? String(row[columns.owner] || '').trim() : '',
                 start: columns.start ? parseDate(row[columns.start], true) : null,
                 end: columns.end ? parseDate(row[columns.end], true) : null,
                 sourceRow: rowIndex + 2
             };
-            allRows.push(normalized);
-            if (!accountId || !campaignId || !month) return;
+            const usableAccount = usableId(accountId);
+            const usableCampaign = usableId(campaignId);
+            if (usableAccount) allRows.push(normalized);
+            if (!usableAccount || !usableCampaign) {
+                unintegratedRows.push(normalized);
+                return;
+            }
+            if (!month) return;
             const key = recordKey(accountId, campaignId, month);
             const existing = groups.get(key) || {
-                key, accountId, campaignId, month, planned: 0, campaignName: '', client: '', product: '', integratedStatus: '',
+                key, accountId, campaignId, month, planned: 0, campaignName: '', client: '', product: '', orderStatus: '', integratedStatus: '', deliveryStatus: '', flightStatus: '', periodStatus: '',
                 owner: '', partner: '', start: null, end: null, rows: 0, sourceRows: []
             };
             existing.planned += normalized.planned;
             existing.campaignName ||= normalized.campaignName;
             existing.client ||= normalized.client;
             existing.product ||= normalized.product;
+            existing.orderStatus ||= normalized.orderStatus;
             existing.integratedStatus ||= normalized.integratedStatus;
+            existing.deliveryStatus ||= normalized.deliveryStatus;
+            existing.flightStatus ||= normalized.flightStatus;
+            existing.periodStatus ||= normalized.periodStatus;
             existing.owner ||= normalized.owner;
             existing.partner ||= normalized.partner;
             if (normalized.start && (!existing.start || normalized.start < existing.start)) existing.start = normalized.start;
@@ -343,7 +378,7 @@
             existing.sourceRows.push(normalized.sourceRow);
             groups.set(key, existing);
         });
-        return { columns, records: [...groups.values()], allRows, errors };
+        return { columns, records: [...groups.values()], allRows, unintegratedRows, errors };
     }
 
     function referenceTokens(value) {
@@ -499,6 +534,21 @@
         const metaKeys = new Set(metaRecords.map(record => record.key));
         const metaMonths = new Set(metaRecords.map(record => toIsoDate(record.month).slice(0, 7)));
         const prismaMonths = new Set(prismaRecords.map(record => toIsoDate(record.month).slice(0, 7)));
+        const metaAccountMonths = new Set(metaRecords.map(record => `${record.accountId}|${toIsoDate(record.month).slice(0, 7)}`));
+        const prismaAccountMonths = new Set(prismaRecords.map(record => `${record.accountId}|${toIsoDate(record.month).slice(0, 7)}`));
+        const coverageGaps = [...metaAccountMonths].filter(key => !prismaAccountMonths.has(key)).map(key => {
+            const [accountId, month] = key.split('|');
+            return { accountId, month };
+        });
+        const sharedMonths = [...metaMonths].filter(month => prismaMonths.has(month)).sort();
+        const coverage = {
+            metaMonths: [...metaMonths].sort(),
+            prismaMonths: [...prismaMonths].sort(),
+            sharedMonths,
+            gaps: coverageGaps,
+            isComplete: Boolean(metaAccountMonths.size) && coverageGaps.length === 0
+        };
+        const populationConfirmed = options.populationConfirmed === true && coverage.isComplete;
         const linkedPrismaKeys = new Set(metaRecords.map(platform => {
             const manualBooking = manualMatches[platform.key] ? prismaByKey.get(manualMatches[platform.key]) : null;
             return (manualBooking || prismaByKey.get(platform.key))?.key;
@@ -556,7 +606,7 @@
                         evidence = 'Investigate';
                         issues.push(`${candidate.level}: ${candidate.score}% match score${candidate.reasons.length ? ` (${candidate.reasons.join('; ')})` : ''}`);
                     } else {
-                        const missingLabel = options.populationConfirmed ? 'Missing from Prisma' : 'No linked Prisma booking found';
+                        const missingLabel = populationConfirmed ? 'Missing from Prisma' : 'No linked Prisma booking found';
                         classification = platform.spend > tolerance
                             ? `${missingLabel}: spending`
                             : `${missingLabel}: pre-flight`;
@@ -619,6 +669,16 @@
                     classification = 'In-flight spend difference: monitor';
                     evidence = 'Monitor';
                 }
+                const workflowIssues = prismaWorkflowIssues(booking);
+                if (workflowIssues.length) {
+                    issues.push(...workflowIssues);
+                    if (evidence === 'Matched') {
+                        classification = 'Prisma workflow review needed';
+                        evidence = 'Investigate';
+                    } else if (evidence === 'Needs update') {
+                        classification = 'Prisma workflow and booking update needed';
+                    }
+                }
                 if (manualBooking && evidence === 'Matched') classification = 'Matched manually: booking evidence valid';
             }
 
@@ -642,6 +702,12 @@
                 metaEnd: toIsoDate(platform.end),
                 prismaStart: toIsoDate(booking?.start),
                 prismaEnd: toIsoDate(booking?.end),
+                prismaOrderStatus: booking?.orderStatus || '',
+                prismaIntegratedStatus: booking?.integratedStatus || '',
+                prismaDeliveryStatus: booking?.deliveryStatus || '',
+                prismaFlightStatus: booking?.flightStatus || '',
+                prismaPeriodStatus: booking?.periodStatus || '',
+                prismaWorkflowIssues: booking ? prismaWorkflowIssues(booking) : [],
                 classification,
                 evidence,
                 issues,
@@ -663,6 +729,7 @@
                 prismaPlanned: booking.planned, variance: -booking.planned,
                 prismaClient: booking.client, prismaProduct: booking.product,
                 metaStart: '', metaEnd: '', prismaStart: toIsoDate(booking.start), prismaEnd: toIsoDate(booking.end),
+                prismaOrderStatus: booking.orderStatus || '', prismaIntegratedStatus: booking.integratedStatus || '', prismaDeliveryStatus: booking.deliveryStatus || '', prismaFlightStatus: booking.flightStatus || '', prismaPeriodStatus: booking.periodStatus || '', prismaWorkflowIssues: prismaWorkflowIssues(booking),
                 classification: outsideMetaMonths ? 'Outside Meta reporting months' : 'Prisma booking absent from Meta population',
                 evidence: outsideMetaMonths ? 'Outside scope' : 'Investigate',
                 issues: [outsideMetaMonths ? `Meta report does not include ${month}` : 'Confirm Meta export account and reporting window are complete'], owner: booking.owner, candidateScore: null, candidates: [], candidatePool: [], monthClosed: false
@@ -675,10 +742,11 @@
         if (!prisma.columns.start || !prisma.columns.end) warnings.push('Prisma booked start/end dates are unavailable; exact-day comparison cannot be completed.');
         if (!meta.columns.status) warnings.push('Meta delivery status is unavailable; £0 rows cannot be distinguished reliably as scheduled or inactive.');
         if (meta.columns.budget) warnings.push('Meta campaign budget is context only; monthly findings compare Amount spent with Prisma PLANNED_AMOUNT.');
-        if (!options.populationConfirmed) warnings.push('Population completeness is not confirmed; missing rows prove no linked booking was found, not that no Prisma booking exists anywhere.');
+        if (!coverage.isComplete) warnings.push(`Prisma report coverage is incomplete for ${coverageGaps.length} selected Meta account-month${coverageGaps.length === 1 ? '' : 's'}; missing campaigns are not yet definitive.`);
+        if (prisma.unintegratedRows.length) warnings.push(`${prisma.unintegratedRows.length} Prisma row${prisma.unintegratedRows.length === 1 ? '' : 's'} have no usable Partner account ID or Partner line ID. They are retained as unintegrated booking evidence but cannot be linked automatically.`);
         const sourceAccounts = [...new Map(meta.records.map(record => [record.accountId, { id: record.accountId, name: record.account || record.accountId }])).values()]
             .sort((left, right) => left.name.localeCompare(right.name));
-        return { rows: reportRows, summary, validationErrors, warnings, columns: { meta: meta.columns, prisma: prisma.columns }, sourceAccounts };
+        return { rows: reportRows, summary, validationErrors, warnings, coverage, prismaUnintegratedRows: prisma.unintegratedRows, columns: { meta: meta.columns, prisma: prisma.columns }, sourceAccounts };
     }
 
     function escapeCsv(value) {

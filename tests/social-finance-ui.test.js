@@ -43,7 +43,7 @@ describe('Social Booking Checker upload guidance', () => {
         expect(css).toContain('--canvas: #f5f5f7');
         expect(css).toContain('--radius: 14px');
         expect(css).toContain('font-family: "Outfit", "Segoe UI", sans-serif');
-        expect(document.querySelector('.population-check span').textContent).toBe('I confirm the files cover the same client account(s) and reporting months');
+        expect(document.querySelector('.population-check span').textContent).toBe('Missing bookings are only confirmed when Prisma includes every selected Meta account and reporting month.');
         expect(toolshedHtml).toContain('The Social Booking Checker now supports removable drag-and-drop uploads');
     });
 
@@ -233,7 +233,7 @@ describe('Social Booking Checker upload guidance', () => {
         expect(document.querySelector('#copySocialActions').textContent).toBe('Copy list');
         expect(document.querySelector('#downloadSocialActions').textContent).toBe('Download CSV');
         expect(script).toContain('socialBookingWrikeReferences');
-        expect(script).toContain('Get Wrike before booking in Prisma');
+        expect(script).toContain('Get Wrike reference');
         expect(script).toContain('Book in Prisma using Wrike');
     });
 

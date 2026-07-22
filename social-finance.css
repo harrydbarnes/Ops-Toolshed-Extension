@@ -341,9 +341,8 @@ button:active { transform: translateY(1px); }
 .secondary-action:hover { background: #05006a; }
 
 .population-check {
-    grid-template-columns: auto 1fr;
-    align-items: start;
-    gap: 10px;
+    display: grid;
+    gap: 3px;
     margin-top: 18px;
     padding: 14px 16px;
     border-radius: var(--control-radius);

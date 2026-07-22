@@ -170,6 +170,7 @@
     function resetReport() {
         state.report = null;
         elements.results.classList.add('hidden');
+        renderPopulationCoverage();
     }
 
     async function loadFile(file, key, labelId, dropZone, removeButton) {
@@ -278,7 +279,10 @@
             elements.accountMappingOptions.innerHTML = '';
             return;
         }
-        const prismaAccounts = reference.accounts;
+        const reportMonths = new Set(state.report?.coverage?.metaMonths || []);
+        const prismaAccounts = reportMonths.size
+            ? reference.accounts.filter(account => account.months?.some(month => reportMonths.has(month)))
+            : reference.accounts;
         const selectedMetaIds = new Set(selectedAccountIds());
         const prismaIds = new Set(prismaAccounts.map(account => account.id));
         const matched = prismaAccounts.filter(account => selectedMetaIds.has(account.id));
@@ -288,7 +292,8 @@
             const client = account.clients && account.clients.length ? account.clients.join(', ') : 'No client name supplied';
             return `${account.id} (${client})`;
         };
-        setStatus(elements.prismaScopeStatus, `${prismaAccounts.length} Prisma account${prismaAccounts.length === 1 ? '' : 's'} found. ${matched.length} match the selected Meta scope.`, matched.length === prismaAccounts.length && !metaOnly.length ? 'ready' : '');
+        const periodLabel = reportMonths.size ? ' in the Meta reporting months' : '';
+        setStatus(elements.prismaScopeStatus, `${prismaAccounts.length} Prisma account${prismaAccounts.length === 1 ? '' : 's'} found${periodLabel}. ${matched.length} match the selected Meta scope.`, matched.length === prismaAccounts.length && !metaOnly.length ? 'ready' : '');
         elements.prismaScopeComparison.innerHTML = `<div><div class="scope-card-heading"><strong>Matched accounts: ${matched.length}</strong><button type="button" class="scope-show-button" data-show-matched-scope="true">${state.showMatchedScopeAccounts ? 'Hide below' : 'Show below'}</button></div><span>${escapeHtml(matched.length ? `${matched.length} selected Meta account${matched.length === 1 ? '' : 's'} also appear in the Prisma report.` : 'None')}</span></div><div class="${metaOnly.length ? 'scope-mismatch' : ''}"><strong>Selected Meta accounts not in Prisma report: ${metaOnly.length}</strong><span>${escapeHtml(metaOnly.length ? metaOnly.map(account => `${account.id} (${account.name})`).join('; ') : 'None')}</span></div><div class="${prismaOnly.length ? 'scope-mismatch' : ''}"><strong>Prisma accounts not selected in Meta: ${prismaOnly.length}</strong><span>${escapeHtml(prismaOnly.length ? prismaOnly.map(accountLabel).join('; ') : 'None')}</span></div>`;
         elements.matchedScopeAccounts.classList.toggle('hidden', !state.showMatchedScopeAccounts || !matched.length);
         elements.matchedScopeAccounts.innerHTML = state.showMatchedScopeAccounts ? matched.map(prismaAccount => {
@@ -324,12 +329,16 @@
         }
         elements.accountMappingOptions.innerHTML = state.metaAccounts.map(account => {
             const saved = state.accountMappings[account.id];
-            const optionValues = new Set(scopes.map(mappingValue));
+            const accountScopes = scopes.filter(scope => scope.accountIds?.includes(account.id));
+            const optionValues = new Set(accountScopes.map(mappingValue));
             const savedValue = saved ? mappingValue(saved) : '';
             const savedOption = saved && !optionValues.has(savedValue)
                 ? `<option value="${escapeHtml(savedValue)}">Saved: ${escapeHtml(mappingLabel(saved))} (not in this report)</option>`
                 : '';
-            return `<label class="account-mapping-row"><span>${escapeHtml(account.name)}<small>Meta Account ID ${escapeHtml(account.id)}</small></span><select data-mapping-account-id="${escapeHtml(account.id)}"><option value="">Not mapped</option>${savedOption}${scopes.map(scope => `<option value="${escapeHtml(mappingValue(scope))}" ${savedValue === mappingValue(scope) ? 'selected' : ''}>${escapeHtml(mappingLabel(scope))}</option>`).join('')}</select><input type="text" data-social-owner-account-id="${escapeHtml(account.id)}" value="${escapeHtml(saved?.socialOwner || '')}" placeholder="Social team or owner" aria-label="Social team or owner for ${escapeHtml(account.name)}"></label>`;
+            const scopeOptions = accountScopes.length
+                ? accountScopes.map(scope => `<option value="${escapeHtml(mappingValue(scope))}" ${savedValue === mappingValue(scope) ? 'selected' : ''}>${escapeHtml(mappingLabel(scope))}</option>`).join('')
+                : '<option value="" disabled>No Prisma client/product for this Partner account</option>';
+            return `<label class="account-mapping-row"><span>${escapeHtml(account.name)}<small>Meta Account ID ${escapeHtml(account.id)}</small></span><select data-mapping-account-id="${escapeHtml(account.id)}"><option value="">Not mapped</option>${savedOption}${scopeOptions}</select><input type="text" data-social-owner-account-id="${escapeHtml(account.id)}" value="${escapeHtml(saved?.socialOwner || '')}" placeholder="Social team or owner" aria-label="Social team or owner for ${escapeHtml(account.name)}"></label>`;
         }).join('');
     }
 
@@ -617,8 +626,24 @@
         const options = months.map(month => `<option value="${escapeHtml(month)}">${escapeHtml(month)}</option>`).join('');
         elements.monthFromFilter.innerHTML = options;
         elements.monthToFilter.innerHTML = options;
-        elements.monthFromFilter.value = months[0] || '';
-        elements.monthToFilter.value = months[months.length - 1] || '';
+        const sharedMonths = (state.report?.coverage?.sharedMonths || []).filter(month => months.includes(month));
+        elements.monthFromFilter.value = sharedMonths[0] || months[0] || '';
+        elements.monthToFilter.value = sharedMonths[sharedMonths.length - 1] || months[months.length - 1] || '';
+    }
+
+    function renderPopulationCoverage() {
+        if (!elements.populationCoverage) return;
+        const coverage = state.report?.coverage;
+        if (!coverage) {
+            elements.populationCoverage.innerHTML = '<strong>Report coverage will be checked automatically.</strong><span>Missing bookings are only confirmed when Prisma includes every selected Meta account and reporting month.</span>';
+            return;
+        }
+        if (coverage.isComplete) {
+            elements.populationCoverage.innerHTML = `<strong>Coverage confirmed.</strong><span>Prisma includes every selected Meta account and reporting month (${escapeHtml(coverage.metaMonths.join(', '))}). Missing campaigns can be treated as missing from Prisma.</span>`;
+            return;
+        }
+        const gapLabel = coverage.gaps.slice(0, 4).map(gap => `${gap.accountId} / ${gap.month}`).join(', ');
+        elements.populationCoverage.innerHTML = `<strong>Coverage incomplete.</strong><span>${coverage.gaps.length} selected Meta account-month${coverage.gaps.length === 1 ? '' : 's'} are not represented in Prisma${gapLabel ? `: ${escapeHtml(gapLabel)}${coverage.gaps.length > 4 ? '…' : ''}` : ''}. These rows need report coverage resolved before they are shared as missing bookings.</span>`;
     }
 
     function renderReport() {
@@ -669,18 +694,23 @@
             let actionKey = 'investigate';
             let action = 'Investigate booking evidence';
             let reason = row.classification;
-            if (row.evidence === 'Missing/unlinked') {
-                if (!elements.populationConfirmed.checked) {
-                    action = 'Confirm report scope before sharing';
-                    reason = 'The files have not been confirmed as the same population.';
+            if (row.prismaWorkflowIssues?.length) {
+                actionKey = 'workflow';
+                action = 'Resolve Prisma workflow';
+                reason = row.prismaWorkflowIssues.join('; ');
+            } else if (row.evidence === 'Missing/unlinked') {
+                if (!state.report?.coverage?.isComplete) {
+                    actionKey = 'coverage';
+                    action = 'Resolve report coverage';
+                    reason = 'Prisma does not yet represent every selected Meta account and reporting month, so this is not definitive missing-booking evidence.';
                 } else if (wrike) {
                     actionKey = 'book';
                     action = 'Book in Prisma using Wrike';
                     reason = row.monthClosed ? 'No credible Prisma booking was found for this closed month.' : 'No credible Prisma booking is linked in the current open month.';
                 } else {
                     actionKey = 'wrike';
-                    action = 'Get Wrike before booking in Prisma';
-                    reason = row.monthClosed ? 'A Wrike reference is required for this closed-month missing booking.' : 'A Wrike reference is required before this current-month campaign can be booked.';
+                    action = 'Get Wrike reference';
+                    reason = row.monthClosed ? 'Get the approved Wrike reference before creating this closed-month booking in Prisma.' : 'Get the approved Wrike reference before creating this current-month booking in Prisma.';
                 }
             } else if (row.candidates?.length) {
                 actionKey = 'confirm';
@@ -977,7 +1007,7 @@
             asOfDate: elements.asOfDate.value,
             tolerance: Number(elements.tolerance.value),
             closedWorkingDay: Number(elements.closedWorkingDay.value),
-            populationConfirmed: elements.populationConfirmed.checked,
+            populationConfirmed: true,
             accountIdScope: selectedAccountIds(),
             manualMatches: state.manualMatches,
             rejectedCandidates: state.candidateRejections,
@@ -985,6 +1015,8 @@
         });
         if (report.validationErrors.length) { renderMessages(report.validationErrors); elements.results.classList.add('hidden'); return; }
         state.report = report;
+        renderPopulationCoverage();
+        renderPrismaScope();
         renderMessages([]);
         const usingApi = state.metaTextSource === 'api' && state.apiSync;
         elements.metaDataSource.classList.toggle('is-live', Boolean(usingApi));
@@ -1060,7 +1092,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        ['validationMessages', 'results', 'metaDataSource', 'financialHeadline', 'summaryCards', 'coverageWarnings', 'socialActionList', 'socialActionBody', 'socialActionFilter', 'socialActionCount', 'socialActionStatus', 'copySocialActions', 'downloadSocialActions', 'clientBreakdown', 'clientBreakdownBody', 'campaignBreakdown', 'campaignColumnGroup', 'reportSearch', 'monthFromFilter', 'monthToFilter', 'visibleCount', 'reportHeader', 'reportBody', 'asOfDate', 'tolerance', 'closedWorkingDay', 'populationConfirmed', 'accountScopePanel', 'accountOptions', 'prismaScopePanel', 'prismaScopeStatus', 'prismaScopeComparison', 'matchedScopeAccounts', 'accountMappingOptions', 'metaApiPanel', 'metaAccessToken', 'saveMetaCredentials', 'metaCredentialStatus', 'removeMetaToken', 'metaApiDatePreset', 'metaApiStartDate', 'metaApiEndDate', 'metaApiStatus', 'apiAccountActions', 'pullMetaData', 'clearMetaApiData', 'metaReferenceStatus', 'removeMetaReference', 'evidenceFilterOptions', 'evidenceFilterCount', 'accountFilterOptions', 'accountFilterCount', 'manualMatchModal', 'manualMatchStatus', 'manualMatchBody', 'closeManualMatch', 'cancelManualMatch', 'applyManualMatches', 'clearManualMatches'].forEach(id => { elements[id] = byId(id); });
+        ['validationMessages', 'results', 'metaDataSource', 'financialHeadline', 'summaryCards', 'coverageWarnings', 'populationCoverage', 'socialActionList', 'socialActionBody', 'socialActionFilter', 'socialActionCount', 'socialActionStatus', 'copySocialActions', 'downloadSocialActions', 'clientBreakdown', 'clientBreakdownBody', 'campaignBreakdown', 'campaignColumnGroup', 'reportSearch', 'monthFromFilter', 'monthToFilter', 'visibleCount', 'reportHeader', 'reportBody', 'asOfDate', 'tolerance', 'closedWorkingDay', 'accountScopePanel', 'accountOptions', 'prismaScopePanel', 'prismaScopeStatus', 'prismaScopeComparison', 'matchedScopeAccounts', 'accountMappingOptions', 'metaApiPanel', 'metaAccessToken', 'saveMetaCredentials', 'metaCredentialStatus', 'removeMetaToken', 'metaApiDatePreset', 'metaApiStartDate', 'metaApiEndDate', 'metaApiStatus', 'apiAccountActions', 'pullMetaData', 'clearMetaApiData', 'metaReferenceStatus', 'removeMetaReference', 'evidenceFilterOptions', 'evidenceFilterCount', 'accountFilterOptions', 'accountFilterCount', 'manualMatchModal', 'manualMatchStatus', 'manualMatchBody', 'closeManualMatch', 'cancelManualMatch', 'applyManualMatches', 'clearManualMatches'].forEach(id => { elements[id] = byId(id); });
         elements.asOfDate.value = new Date().toISOString().slice(0, 10);
         applyDatePreset();
         setupFileUpload('metaFile', 'metaDropZone', 'removeMetaFile', 'metaText', 'metaFileName');
@@ -1124,7 +1156,6 @@
         elements.applyManualMatches.addEventListener('click', applyManualMatches);
         elements.clearManualMatches.addEventListener('click', clearManualMatches);
         elements.socialActionFilter.addEventListener('change', renderSocialActionList);
-        elements.populationConfirmed.addEventListener('change', () => { if (state.report) renderSocialActionList(); });
         elements.socialActionBody.addEventListener('change', event => {
             const input = event.target.closest('input[data-wrike-meta-key]');
             if (!input) return;
