@@ -229,6 +229,11 @@ describe('Social Booking Checker report uploads', () => {
         expect(document.querySelector('#prismaScopeStatus').textContent).toContain('1 Prisma account found');
         expect(document.querySelector('#prismaScopeComparison').textContent).toContain('Matched accounts: 1');
         expect(document.querySelector('#accountMappingOptions').textContent).toContain('Boots / Opticians');
+        expect(document.querySelector('#accountMappingOptions').textContent).not.toContain('Social team or owner');
+        document.querySelector('[data-show-mapping-campaigns="111"]').click();
+        expect(document.querySelector('#accountMappingOptions').textContent).toContain('Imported Meta campaigns (1)');
+        expect(document.querySelector('#accountMappingOptions').textContent).toContain('Summer');
+        expect(document.querySelector('#accountMappingOptions').textContent).toContain('Campaign ID 9');
         document.querySelector('[data-show-matched-scope="true"]').click();
         expect(document.querySelector('#matchedScopeAccounts').classList.contains('hidden')).toBe(false);
         expect(document.querySelector('#matchedScopeAccounts').textContent).toContain('Meta Account ID 111');

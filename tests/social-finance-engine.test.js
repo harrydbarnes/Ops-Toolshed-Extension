@@ -186,10 +186,13 @@ describe('social finance comparison engine', () => {
         ]));
     });
 
-    test('exports findings to CSV and escapes investigation text', () => {
-        const csv = reportToCsv([{ campaignId: '1', month: '2026-06', account: 'Boots', campaignName: '=HYPERLINK("https://example.test")', status: '', metaSpend: 1, metaBudget: 2, prismaPlanned: 1, variance: 0, metaStart: '', metaEnd: '', prismaStart: '', prismaEnd: '', classification: 'Matched', evidence: 'Matched', issues: ['one', 'two'], owner: 'Ops' }]);
+    test('exports current reconciliation fields to CSV and escapes investigation text', () => {
+        const csv = reportToCsv([{ accountId: '999', campaignId: '1', month: '2026-06', account: 'Boots', campaignName: '=HYPERLINK("https://example.test")', status: 'Active', metaSpend: 1, metaBudget: 2, metaBudgetType: 'Lifetime', prismaClient: 'Boots', prismaProduct: 'Opticians', prismaPlanned: 1, variance: 0, metaStart: '', metaEnd: '', prismaStart: '', prismaEnd: '', prismaOrderStatus: 'NeedsRevision', prismaIntegratedStatus: 'Not Integrated', prismaDeliveryStatus: 'Not Received', prismaFlightStatus: 'Future', prismaPeriodStatus: 'NotYetStarted', classification: 'Prisma workflow review needed', evidence: 'Investigate', issues: ['one', 'two'], prismaWorkflowIssues: ['Prisma order status: NeedsRevision'], owner: 'Ops', candidateScore: 88 }]);
+        expect(csv.split('\r\n')[0]).toContain('Prisma integration status');
+        expect(csv.split('\r\n')[0]).toContain('Candidate match score');
         expect(csv).toContain('"\'=HYPERLINK(""https://example.test"")"');
         expect(csv).toContain('one; two');
+        expect(csv).toContain('Prisma order status: NeedsRevision');
     });
 
     test('uses token overlap for investigation candidates', () => {

@@ -1,7 +1,7 @@
 (function () {
     const engine = window.socialFinanceEngine;
     const metaApi = window.metaReportApi;
-    const state = { metaText: '', uploadedMetaText: '', metaTextSource: '', prismaText: '', report: null, metaAccounts: [], metaReference: null, prismaReference: null, accountMappings: {}, manualMatches: {}, candidateRejections: {}, wrikeReferences: {}, campaignColumnWidths: {}, manualMatchTrigger: null, showMatchedScopeAccounts: false, apiSync: null, sort: { key: '', direction: 'descending' }, socialActionSort: { key: '', direction: 'ascending' }, clientSort: { key: '', direction: 'ascending' } };
+    const state = { metaText: '', uploadedMetaText: '', metaTextSource: '', prismaText: '', report: null, metaAccounts: [], metaReference: null, prismaReference: null, accountMappings: {}, manualMatches: {}, candidateRejections: {}, wrikeReferences: {}, campaignColumnWidths: {}, manualMatchTrigger: null, showMatchedScopeAccounts: false, shownMappingCampaignsAccountId: '', apiSync: null, sort: { key: '', direction: 'descending' }, socialActionSort: { key: '', direction: 'ascending' }, clientSort: { key: '', direction: 'ascending' } };
     const elements = {};
     const ACCOUNT_SCOPE_STORAGE_KEY = 'socialBookingMetaAccountScope';
     const META_API_STORAGE_KEY = 'socialBookingMetaApiCredentials';
@@ -338,12 +338,17 @@
             const scopeOptions = accountScopes.length
                 ? accountScopes.map(scope => `<option value="${escapeHtml(mappingValue(scope))}" ${savedValue === mappingValue(scope) ? 'selected' : ''}>${escapeHtml(mappingLabel(scope))}</option>`).join('')
                 : '<option value="" disabled>No Prisma client/product for this Partner account</option>';
-            return `<label class="account-mapping-row"><span>${escapeHtml(account.name)}<small>Meta Account ID ${escapeHtml(account.id)}</small></span><select data-mapping-account-id="${escapeHtml(account.id)}"><option value="">Not mapped</option>${savedOption}${scopeOptions}</select><input type="text" data-social-owner-account-id="${escapeHtml(account.id)}" value="${escapeHtml(saved?.socialOwner || '')}" placeholder="Social team or owner" aria-label="Social team or owner for ${escapeHtml(account.name)}"></label>`;
+            const showCampaigns = state.shownMappingCampaignsAccountId === account.id;
+            const campaigns = (state.metaReference?.campaigns || []).filter(campaign => campaign.accountId === account.id).sort((left, right) => String(left.name || '').localeCompare(String(right.name || '')));
+            const campaignList = showCampaigns
+                ? `<div class="mapping-campaigns"><strong>Imported Meta campaigns (${campaigns.length})</strong>${campaigns.length ? `<ul>${campaigns.map(campaign => `<li>${escapeHtml(campaign.name || 'Campaign name not supplied')}<small>Campaign ID ${escapeHtml(campaign.id)}</small></li>`).join('')}</ul>` : '<span>No campaigns were found for this Meta account in the imported report.</span>'}</div>`
+                : '';
+            return `<div class="account-mapping-wrap"><label class="account-mapping-row"><span>${escapeHtml(account.name)}<small>Meta Account ID ${escapeHtml(account.id)}</small></span><select data-mapping-account-id="${escapeHtml(account.id)}"><option value="">Not mapped</option>${savedOption}${scopeOptions}</select><button type="button" class="mapping-campaign-toggle" data-show-mapping-campaigns="${escapeHtml(account.id)}" aria-expanded="${showCampaigns}">${showCampaigns ? 'Hide campaigns' : 'Show campaigns'}</button></label>${campaignList}</div>`;
         }).join('');
     }
 
     async function saveAccountMapping(accountId, mapping) {
-        if (mapping.client || mapping.product || mapping.socialOwner) state.accountMappings[accountId] = mapping;
+        if (mapping.client || mapping.product) state.accountMappings[accountId] = mapping;
         else delete state.accountMappings[accountId];
         await writeLocalStorage({ [ACCOUNT_MAPPING_STORAGE_KEY]: state.accountMappings });
         if (state.report) renderReport();
@@ -745,7 +750,6 @@
                 ...row,
                 client: mapping.client || row.prismaClient || 'Client not mapped',
                 product: mapping.product || row.prismaProduct || 'Product not mapped',
-                socialOwner: mapping.socialOwner || 'Social owner not assigned',
                 wrike,
                 actionKey,
                 action,
@@ -760,7 +764,7 @@
         const query = elements.socialActionSearch.value.trim().toLowerCase();
         const rows = socialActionRows().filter(row => {
             const actionMatch = selected === 'all' || row.actionKey === selected;
-            const queryMatch = !query || [row.client, row.product, row.account, row.accountId, row.campaignName, row.campaignId, row.month, row.action, row.socialOwner].some(value => String(value || '').toLowerCase().includes(query));
+            const queryMatch = !query || [row.client, row.product, row.account, row.accountId, row.campaignName, row.campaignId, row.month, row.action].some(value => String(value || '').toLowerCase().includes(query));
             return actionMatch && queryMatch;
         });
         return sortTableRows(rows, state.socialActionSort);
@@ -772,15 +776,15 @@
         elements.socialActionCount.textContent = `${rows.length} action${rows.length === 1 ? '' : 's'}`;
         renderSortableHeader(elements.socialActionHeader, [
             { label: 'Client / product', key: 'client' }, { label: 'Account', key: 'account' }, { label: 'Campaign', key: 'campaignName' }, { label: 'Month', key: 'month' }, { label: 'Meta spend', key: 'metaSpend', number: true },
-            { label: 'Wrike reference' }, { label: 'Recommended action', key: 'action' }, { label: 'Possible Prisma match' }, { label: 'Social owner', key: 'socialOwner' }
+            { label: 'Wrike reference' }, { label: 'Recommended action', key: 'action' }, { label: 'Possible Prisma match' }
         ], state.socialActionSort, 'social');
         elements.socialActionBody.innerHTML = rows.length ? rows.map(row => {
             const needsWrike = row.actionKey === 'wrike' || row.actionKey === 'book';
             const wrikeCell = needsWrike
                 ? `<input class="wrike-input" type="text" value="${escapeHtml(row.wrike)}" data-wrike-meta-key="${escapeHtml(row.metaKey)}" placeholder="Wrike link or reference" aria-label="Wrike reference for ${escapeHtml(row.campaignName || row.campaignId)}">${row.wrike ? '' : '<span class="minor wrike-needed">Required before booking</span>'}`
                 : escapeHtml(row.wrike || 'Not required for this action');
-            return `<tr><td>${escapeHtml(row.client)}<span class="minor">${escapeHtml(row.product)}</span></td><td>${escapeHtml(row.account)}<span class="minor">ID ${escapeHtml(row.accountId)}</span></td><td>${escapeHtml(row.campaignName || 'Name not supplied')}<span class="minor campaign-id">${escapeHtml(row.campaignId)}</span></td><td>${escapeHtml(row.month)}</td><td class="number">${escapeHtml(currency(row.metaSpend))}</td><td>${wrikeCell}</td><td><span class="action-label">${escapeHtml(row.action)}</span><span class="action-reason">${escapeHtml(row.actionReason)}</span></td><td>${escapeHtml(row.candidateSummary)}</td><td>${escapeHtml(row.socialOwner)}</td></tr>`;
-        }).join('') : '<tr><td class="action-empty" colspan="9">No Social actions match the current month, account, and action filters.</td></tr>';
+            return `<tr><td>${escapeHtml(row.client)}<span class="minor">${escapeHtml(row.product)}</span></td><td>${escapeHtml(row.account)}<span class="minor">ID ${escapeHtml(row.accountId)}</span></td><td>${escapeHtml(row.campaignName || 'Name not supplied')}<span class="minor campaign-id">${escapeHtml(row.campaignId)}</span></td><td>${escapeHtml(row.month)}</td><td class="number">${escapeHtml(currency(row.metaSpend))}</td><td>${wrikeCell}</td><td><span class="action-label">${escapeHtml(row.action)}</span><span class="action-reason">${escapeHtml(row.actionReason)}</span></td><td>${escapeHtml(row.candidateSummary)}</td></tr>`;
+        }).join('') : '<tr><td class="action-empty" colspan="8">No Social actions match the current month, account, and action filters.</td></tr>';
     }
 
     async function saveWrikeReference(metaKey, value) {
@@ -792,8 +796,8 @@
     }
 
     function socialActionCsv(rows) {
-        const headers = ['Client', 'Product', 'Meta account', 'Account ID', 'Campaign name', 'Campaign ID', 'Month', 'Meta spend', 'Wrike reference', 'Recommended action', 'Reason', 'Possible Prisma match', 'Social owner'];
-        return [headers.join(','), ...rows.map(row => [row.client, row.product, row.account, row.accountId, row.campaignName, row.campaignId, row.month, row.metaSpend, row.wrike, row.action, row.actionReason, row.candidateSummary, row.socialOwner].map(csvEscape).join(','))].join('\r\n');
+        const headers = ['Client', 'Product', 'Meta account', 'Account ID', 'Campaign name', 'Campaign ID', 'Month', 'Meta spend', 'Wrike reference', 'Recommended action', 'Reason', 'Possible Prisma match'];
+        return [headers.join(','), ...rows.map(row => [row.client, row.product, row.account, row.accountId, row.campaignName, row.campaignId, row.month, row.metaSpend, row.wrike, row.action, row.actionReason, row.candidateSummary].map(csvEscape).join(','))].join('\r\n');
     }
 
     function downloadSocialActions() {
@@ -803,7 +807,7 @@
     function socialActionShareText(rows) {
         const spend = rows.reduce((sum, row) => sum + (Number(row.metaSpend) || 0), 0);
         const heading = `Social booking actions: ${rows.length} campaign${rows.length === 1 ? '' : 's'}, ${currency(spend)} Meta spend`;
-        const details = rows.map(row => `- ${row.client} / ${row.product}: ${row.campaignName || row.campaignId} (${row.month}) | ${row.action} | Wrike: ${row.wrike || 'needed'} | ${row.socialOwner}`);
+        const details = rows.map(row => `- ${row.client} / ${row.product}: ${row.campaignName || row.campaignId} (${row.month}) | ${row.action} | Wrike: ${row.wrike || 'needed'}`);
         return [heading, ...details].join('\n');
     }
 
@@ -1175,14 +1179,17 @@
         elements.accountOptions.addEventListener('change', () => { saveAccountScope(); renderPrismaScope(); });
         elements.accountMappingOptions.addEventListener('change', event => {
             const select = event.target.closest('select[data-mapping-account-id]');
-            const owner = event.target.closest('input[data-social-owner-account-id]');
             if (select) {
                 const accountId = select.dataset.mappingAccountId;
-                saveAccountMapping(accountId, { ...mappingFromValue(select.value), socialOwner: state.accountMappings[accountId]?.socialOwner || '' }).catch(error => setStatus(elements.prismaScopeStatus, error.message, 'error'));
-            } else if (owner) {
-                const accountId = owner.dataset.socialOwnerAccountId;
-                saveAccountMapping(accountId, { ...(state.accountMappings[accountId] || {}), socialOwner: owner.value.trim() }).catch(error => setStatus(elements.prismaScopeStatus, error.message, 'error'));
+                saveAccountMapping(accountId, mappingFromValue(select.value)).catch(error => setStatus(elements.prismaScopeStatus, error.message, 'error'));
             }
+        });
+        elements.accountMappingOptions.addEventListener('click', event => {
+            const button = event.target.closest('[data-show-mapping-campaigns]');
+            if (!button) return;
+            const accountId = button.dataset.showMappingCampaigns;
+            state.shownMappingCampaignsAccountId = state.shownMappingCampaignsAccountId === accountId ? '' : accountId;
+            renderAccountMappings();
         });
         elements.prismaScopeComparison.addEventListener('click', event => {
             if (!event.target.closest('[data-show-matched-scope]')) return;

@@ -758,9 +758,22 @@
     }
 
     function reportToCsv(rows) {
-        const headers = ['Account ID', 'Campaign ID', 'Month', 'Account / Client', 'Campaign Name', 'Status', 'Meta Spend', 'Meta Budget', 'Meta Budget Type', 'Prisma Planned', 'Variance', 'Meta Start', 'Meta End', 'Prisma Start', 'Prisma End', 'Classification', 'Evidence', 'Issues', 'Owner'];
-        const fields = ['accountId', 'campaignId', 'month', 'account', 'campaignName', 'status', 'metaSpend', 'metaBudget', 'metaBudgetType', 'prismaPlanned', 'variance', 'metaStart', 'metaEnd', 'prismaStart', 'prismaEnd', 'classification', 'evidence', 'issues', 'owner'];
-        return [headers.join(','), ...rows.map(row => fields.map(field => escapeCsv(field === 'issues' ? row.issues.join('; ') : row[field])).join(','))].join('\r\n');
+        const headers = [
+            'Account ID', 'Meta account name', 'Campaign ID', 'Campaign name', 'Month', 'Meta delivery status',
+            'Meta spend', 'Meta campaign budget', 'Meta budget type', 'Prisma client', 'Prisma product', 'Prisma booked', 'Variance',
+            'Meta campaign start', 'Meta campaign end', 'Prisma flight start', 'Prisma flight end',
+            'Prisma order status', 'Prisma integration status', 'Prisma delivery status', 'Prisma flight status', 'Prisma period status',
+            'Finding', 'Evidence', 'Supporting evidence', 'Prisma workflow issues', 'Prisma placement creator', 'Candidate match score'
+        ];
+        const fields = [
+            'accountId', 'account', 'campaignId', 'campaignName', 'month', 'status',
+            'metaSpend', 'metaBudget', 'metaBudgetType', 'prismaClient', 'prismaProduct', 'prismaPlanned', 'variance',
+            'metaStart', 'metaEnd', 'prismaStart', 'prismaEnd',
+            'prismaOrderStatus', 'prismaIntegratedStatus', 'prismaDeliveryStatus', 'prismaFlightStatus', 'prismaPeriodStatus',
+            'classification', 'evidence', 'issues', 'prismaWorkflowIssues', 'owner', 'candidateScore'
+        ];
+        const valueFor = (row, field) => Array.isArray(row[field]) ? row[field].join('; ') : row[field];
+        return [headers.join(','), ...rows.map(row => fields.map(field => escapeCsv(valueFor(row, field))).join(','))].join('\r\n');
     }
 
     return { parseCsv, resolveColumns, aggregateMeta, extractMetaReferenceData, extractPrismaReferenceData, aggregatePrisma, compare, summarizeRows, reportToCsv, nameSimilarity, findCandidates, parseDate, parseMoney };
