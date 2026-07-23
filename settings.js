@@ -634,77 +634,77 @@ document.addEventListener('DOMContentLoaded', async function() {
     initializeSegmentedControl('autoCopyUrlModeSegmented', 'autoCopyUrlMode', 'short', settings);
     initializeSegmentedControl('metaFinanceToolSegmented', 'metaFinanceToolMode', 'social', settings);
 
-    const logoToggle = document.getElementById('logoToggle'); 
-    if (logoToggle) { 
+    const logoToggle = document.getElementById('logoToggle');
+    if (logoToggle) {
         logoToggle.checked = settings.logoReplaceEnabled;
-        logoToggle.addEventListener('change', function() { 
-            const isEnabled = this.checked; 
-            chrome.storage.sync.set({logoReplaceEnabled: isEnabled}, () => { 
-                console.log('Logo replacement setting saved:', isEnabled); 
-                chrome.tabs.query({url: ["https://*.mediaocean.com/*"]}, (tabs) => { 
-                    tabs.forEach(tab => { 
-                        if (tab.id) chrome.tabs.sendMessage(tab.id, { action: "checkLogoReplaceEnabled", enabled: isEnabled }) 
+        logoToggle.addEventListener('change', function() {
+            const isEnabled = this.checked;
+            chrome.storage.sync.set({logoReplaceEnabled: isEnabled}, () => {
+                console.log('Logo replacement setting saved:', isEnabled);
+                chrome.tabs.query({url: ["https://*.mediaocean.com/*"]}, (tabs) => {
+                    tabs.forEach(tab => {
+                        if (tab.id) chrome.tabs.sendMessage(tab.id, { action: "checkLogoReplaceEnabled", enabled: isEnabled })
                             .catch(error => {
                                 if (!isMissingContentScriptReceiverError(error)) {
                                     console.error("Unexpected error sending logo toggle message to tab ID " + tab.id + ":", error);
                                 }
                             });
-                    }); 
-                }); 
-            }); 
-        }); 
-    } 
+                    });
+                });
+            });
+        });
+    }
     setupToggle('appLearnReplaceToggle', 'appLearnReplaceEnabled', 'AppLearn transparency setting saved:', settings);
     setupToggle('blockAppLearnPopupsToggle', 'blockAppLearnPopupsEnabled', 'AppLearn popup blocking setting saved:', settings);
     setupToggle('helpGuidesToggle', 'helpGuidesEnabled', 'Help Guides setting saved:', settings);
  
     // Prisma Reminders 
-    const prismaReminderFrequency = document.getElementById('prismaReminderFrequency'); 
-    const prismaCountdownDuration = document.getElementById('prismaCountdownDuration'); 
+    const prismaReminderFrequency = document.getElementById('prismaReminderFrequency');
+    const prismaCountdownDuration = document.getElementById('prismaCountdownDuration');
 
     // Load and save settings for Prisma Reminders 
     if (prismaReminderFrequency && prismaCountdownDuration) { 
         prismaReminderFrequency.value = settings.prismaReminderFrequency;
         prismaCountdownDuration.value = settings.prismaCountdownDuration;
 
-        prismaReminderFrequency.addEventListener('change', () => { 
-            chrome.storage.sync.set({ prismaReminderFrequency: prismaReminderFrequency.value }, () => { 
-                console.log('Prisma reminder frequency saved:', prismaReminderFrequency.value); 
-            }); 
-        }); 
+        prismaReminderFrequency.addEventListener('change', () => {
+            chrome.storage.sync.set({ prismaReminderFrequency: prismaReminderFrequency.value }, () => {
+                console.log('Prisma reminder frequency saved:', prismaReminderFrequency.value);
+            });
+        });
 
-        prismaCountdownDuration.addEventListener('change', () => { 
-            chrome.storage.sync.set({ prismaCountdownDuration: prismaCountdownDuration.value }, () => { 
-                console.log('Prisma countdown duration saved:', prismaCountdownDuration.value); 
-            }); 
-        }); 
-    } 
+        prismaCountdownDuration.addEventListener('change', () => {
+            chrome.storage.sync.set({ prismaCountdownDuration: prismaCountdownDuration.value }, () => {
+                console.log('Prisma countdown duration saved:', prismaCountdownDuration.value);
+            });
+        });
+    }
 
-    const resetRemindersButton = document.getElementById('resetRemindersButton'); 
-    if (resetRemindersButton) { 
-        resetRemindersButton.addEventListener('click', () => { 
-            chrome.storage.local.remove(['metaReminderLastShown', 'iasReminderLastShown'], () => { 
-                if (chrome.runtime.lastError) { 
-                    console.error('Error clearing reminder timestamps:', chrome.runtime.lastError); 
-                } else { 
-                    console.log('Reminder timestamps cleared from local storage.'); 
-                } 
-            }); 
-            const defaultSettings = { 
-                prismaReminderFrequency: 'daily', 
-                prismaCountdownDuration: '5' 
-            }; 
-            chrome.storage.sync.set(defaultSettings, () => { 
-                if (chrome.runtime.lastError) { 
-                    showToast('An error occurred while resetting reminder settings.'); 
-                } else { 
-                    if (prismaReminderFrequency) prismaReminderFrequency.value = 'daily'; 
-                    if (prismaCountdownDuration) prismaCountdownDuration.value = '5'; 
-                    showToast('Prisma reminders have been reset.'); 
-                } 
-            }); 
-        }); 
-    } 
+    const resetRemindersButton = document.getElementById('resetRemindersButton');
+    if (resetRemindersButton) {
+        resetRemindersButton.addEventListener('click', () => {
+            chrome.storage.local.remove(['metaReminderLastShown', 'iasReminderLastShown'], () => {
+                if (chrome.runtime.lastError) {
+                    console.error('Error clearing reminder timestamps:', chrome.runtime.lastError);
+                } else {
+                    console.log('Reminder timestamps cleared from local storage.');
+                }
+            });
+            const defaultSettings = {
+                prismaReminderFrequency: 'daily',
+                prismaCountdownDuration: '5'
+            };
+            chrome.storage.sync.set(defaultSettings, () => {
+                if (chrome.runtime.lastError) {
+                    showToast('An error occurred while resetting reminder settings.');
+                } else {
+                    if (prismaReminderFrequency) prismaReminderFrequency.value = 'daily';
+                    if (prismaCountdownDuration) prismaCountdownDuration.value = '5';
+                    showToast('Prisma reminders have been reset.');
+                }
+            });
+        });
+    }
 
     setupToggle('metaReminderToggle', 'metaReminderEnabled', 'Meta reminder setting saved:', settings);
     setupToggle('iasReminderToggle', 'iasReminderEnabled', 'IAS reminder setting saved:', settings);

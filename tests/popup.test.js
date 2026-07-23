@@ -1,3 +1,6 @@
+const fs = require('fs');
+const path = require('path');
+
 const {
     FEATURE_SETTING_KEYS,
     buildDisabledFeatureState,
@@ -5,6 +8,13 @@ const {
     isValidDNumber,
     isValidCampaignId
 } = require('../popup');
+
+describe('popup DOM initialization', () => {
+    test('declares the campaign URL button before registering its listener', () => {
+        const popupSource = fs.readFileSync(path.resolve(__dirname, '../popup.js'), 'utf8');
+        expect(popupSource).toContain("const generateUrlButton = document.getElementById('generateUrl');");
+    });
+});
 
 describe('buildDisabledFeatureState', () => {
     test('backs up existing choices and disables every feature', () => {

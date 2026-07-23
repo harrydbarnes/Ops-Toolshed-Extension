@@ -174,6 +174,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- Settings UI related initializations and event listeners are removed ---
 
+    const generateUrlButton = document.getElementById('generateUrl');
     if(generateUrlButton) generateUrlButton.addEventListener('click', handleGenerateUrl);
 
     const openCampaignDNumberButton = document.getElementById('openCampaignDNumber');
