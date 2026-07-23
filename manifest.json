@@ -53,7 +53,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://*.mediaocean.com/*"],
+      "matches": ["https://*.mediaocean.com/*"],
       "js": [
         "utils.js",
         "features/feedback-modal.js",
@@ -90,6 +90,6 @@
       "icon.png",
       "features/swap-accounts.css"
     ],
-    "matches": ["*://*.mediaocean.com/*"]
+    "matches": ["https://*.mediaocean.com/*"]
   }]
 }

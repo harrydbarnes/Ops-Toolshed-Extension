@@ -5,14 +5,7 @@
   // it in every frame duplicates polling, observers, stats, and UI work.
   if (window.top !== window.self) return;
 
-  chrome.storage.local.get('timeBombActive', (data) => {
-    if (data.timeBombActive) {
-      console.log('Ops Toolshed features disabled due to time bomb.');
-      return; // Do not initialize anything if the time bomb is active.
-    }
-    // If not active, run the main script logic.
-    initializeContentScript();
-  });
+  initializeContentScript();
 
   function initializeContentScript() {
     chrome.storage.sync.get('approverWidgetOptimiseEnabled', (data) => {
@@ -22,9 +15,6 @@
     });
     console.log("[ContentScript Prisma] Script Injected on URL:", window.location.href, "at", new Date().toLocaleTimeString());
 
-// Utility functions are now in utils.js
-
-// Logo-related functions are now in features/logo.js
 
 // Reminder-related functions are now in features/reminders.js
 

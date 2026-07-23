@@ -9,13 +9,13 @@ describe('web-accessible resource scope', () => {
     test('exposes runtime assets only to Mediaocean pages', () => {
         expect(manifest.web_accessible_resources).toEqual([{
             resources: ['icon.png', 'features/swap-accounts.css'],
-            matches: ['*://*.mediaocean.com/*']
+            matches: ['https://*.mediaocean.com/*']
         }]);
     });
 
     test('keeps every exposed asset tied to its current Mediaocean consumer', () => {
         expect(logoFeature).toContain("chrome.runtime.getURL('icon.png')");
         expect(swapAccountsFeature).toContain("chrome.runtime.getURL('features/swap-accounts.css')");
-        expect(manifest.content_scripts[0].matches).toEqual(['*://*.mediaocean.com/*']);
+        expect(manifest.content_scripts[0].matches).toEqual(['https://*.mediaocean.com/*']);
     });
 });

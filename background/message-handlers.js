@@ -86,16 +86,6 @@ async function clearAccountSwitchUrl(request, sender, sendResponse) {
     sendResponse({ status: 'success' });
 }
 
-async function disableTimeBomb(request, sender, sendResponse) {
-    try {
-        await chrome.storage.local.remove(['timeBombActive', 'initialDeadline']);
-        sendResponse({ status: 'success' });
-    } catch (e) {
-        console.error('Failed to disable time bomb:', e);
-        sendResponse({ status: 'error', message: e.message });
-    }
-}
-
 async function showTimesheetNotification(request, sender, sendResponse, context) {
     await context.triggerTimesheetNotification();
     sendResponse({ status: "Notification shown" });
@@ -363,7 +353,6 @@ async function requestCampaignDetailsBasicFocus(request, sender, sendResponse) {
 }
 
 export const messageHandlers = {
-    disableTimeBomb,
     showTimesheetNotification,
     createTimesheetAlarm,
     removeTimesheetAlarm,

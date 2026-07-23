@@ -7,9 +7,10 @@ const manifest = JSON.parse(
 const helpGuidesHtml = fs.readFileSync(path.resolve(__dirname, '../help-guides.html'), 'utf8');
 
 describe('Manifest content-script order', () => {
+
     test('loads utils before feature scripts and content.js last', () => {
         const mediaoceanRegistration = manifest.content_scripts.find(entry =>
-            entry.matches.includes('*://*.mediaocean.com/*')
+            entry.matches.includes('https://*.mediaocean.com/*')
         );
 
         expect(mediaoceanRegistration).toBeDefined();
@@ -31,7 +32,7 @@ describe('Manifest content-script order', () => {
         expect(manifest.host_permissions).toContain('https://insidemedia.sharepoint.com/*');
 
         const mediaoceanRegistration = manifest.content_scripts.find(entry =>
-            entry.matches.includes('*://*.mediaocean.com/*')
+            entry.matches.includes('https://*.mediaocean.com/*')
         );
         expect(mediaoceanRegistration.js).toContain('features/help-guides-launcher.js');
         expect(mediaoceanRegistration.js).toContain('features/banner-username.js');

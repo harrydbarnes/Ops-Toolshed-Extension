@@ -6,56 +6,10 @@ chrome.sidePanel?.onOpened?.addListener(info => handleHelpGuidesPanelEvent(info,
 chrome.sidePanel?.onClosed?.addListener(info => handleHelpGuidesPanelEvent(info, false)
   .catch(error => console.error('Failed to sync closed Help Guides panel:', error)));
 
-// --- Time-Bomb Feature ---
-const timeBombConfig = {
-  enabled: 'Y', // Change to 'N' to disable
-  disableDay: 2, // Tuesday (0=Sun, 1=Mon, 2=Tue, etc.)
-  disableHour: 23,
-  disableMinute: 59
-};
-
-function getNextDeadline() {
-  const now = new Date();
-  const deadline = new Date(now);
-  const dayOfWeek = now.getDay();
-  let daysUntil = (timeBombConfig.disableDay - dayOfWeek + 7) % 7;
-  if (daysUntil === 0 && (now.getHours() > timeBombConfig.disableHour || (now.getHours() === timeBombConfig.disableHour && now.getMinutes() >= timeBombConfig.disableMinute))) {
-    daysUntil = 7;
-  }
-  deadline.setDate(now.getDate() + daysUntil);
-  deadline.setHours(timeBombConfig.disableHour, timeBombConfig.disableMinute, 0, 0);
-  return deadline.getTime();
-}
-
-async function checkTimeBomb() {
-    if (timeBombConfig.enabled !== 'Y') {
-        await chrome.storage.local.remove(['timeBombActive', 'initialDeadline']);
-        chrome.alarms.clear('timeBombCheck');
-        return;
-    }
-
-    const data = await chrome.storage.local.get(['initialDeadline']);
-    let initialDeadline = data.initialDeadline;
-    if (!initialDeadline) {
-        initialDeadline = getNextDeadline();
-    }
-
-    const now = new Date().getTime();
-    const timeBombActive = now > initialDeadline;
-
-    await chrome.storage.local.set({ initialDeadline, timeBombActive });
-
-    if (!timeBombActive) {
-        // Schedule the alarm for the deadline instead of checking every minute
-        chrome.alarms.create('timeBombCheck', { when: initialDeadline });
-    }
-}
-
 // --- Alarms and Notifications ---
 
 chrome.runtime.onInstalled.addListener((details) => {
   migrateStats();
-  checkTimeBomb().catch(error => console.error("Error during initial time bomb check:", error));
   if (!chrome.runtime || !chrome.runtime.id) return;
 
   if (details?.reason === 'install') {
@@ -146,9 +100,7 @@ async function triggerTimesheetNotification() {
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   try {
-    if (alarm.name === 'timeBombCheck') {
-      await checkTimeBomb();
-    } else if (alarm.name === 'timesheetReminder') {
+    if (alarm.name === 'timesheetReminder') {
       await triggerTimesheetNotification();
     }
   } catch (error) {
@@ -251,20 +203,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             };
 
             // chrome.sidePanel.open() must be the first asynchronous operation
-            // after the page click or Chrome discards the user gesture. The
-            // content script is already prevented from initializing while the
-            // time bomb is active, so an additional storage gate is redundant.
+            // after the page click or Chrome discards the user gesture.
             if (action === 'openHelpGuides') {
                 await handler(request, sender, respondOnce, context);
                 return;
-            }
-
-            if (action !== 'disableTimeBomb') {
-                const data = await chrome.storage.local.get('timeBombActive');
-                if (data.timeBombActive) {
-                    respondOnce({ status: 'error', message: 'All features have been disabled.' });
-                    return;
-                }
             }
 
             await handler(request, sender, respondOnce, context);
@@ -384,8 +326,6 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         getNextAlarmDate,
         createTimesheetAlarm,
-        getNextDeadline,
-        checkTimeBomb,
         triggerTimesheetNotification,
         isBlockedAppLearnUrl,
         isMediaoceanUrl,

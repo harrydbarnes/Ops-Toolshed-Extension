@@ -1,24 +1,3 @@
-function formatTimeRemaining(deadline) {
-    if (!deadline) return '';
-    const now = new Date().getTime();
-    const remaining = deadline - now;
-
-    if (remaining <= 0) {
-        return " - Expired";
-    }
-
-    const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((remaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-
-    if (days > 0) {
-        return ` - ${days} day${days !== 1 ? 's' : ''} left`;
-    }
-    if (hours > 0) {
-        return ` - ${hours} hour${hours !== 1 ? 's' : ''} left`;
-    }
-    return " - Less than an hour left";
-}
-
 const FEATURE_SETTING_KEYS = [
     'logoReplaceEnabled',
     'statsCollectorEnabled',
@@ -166,42 +145,15 @@ function initialiseFeaturesKillSwitch() {
 document.addEventListener('DOMContentLoaded', function() {
     initialiseFeaturesKillSwitch();
 
-    chrome.storage.local.get(['timeBombActive', 'initialDeadline'], function(data) {
-        const versionLink = document.getElementById('version-link');
-        const manifest = chrome.runtime.getManifest();
-        let versionText = `r${manifest.version}`;
+    const versionLink = document.getElementById('version-link');
+    const manifest = chrome.runtime.getManifest();
+    if (versionLink) {
+        versionLink.textContent = `r${manifest.version}`;
+        versionLink.addEventListener('click', () => {
+            chrome.tabs.create({ url: chrome.runtime.getURL('toolshed.html') });
+        });
+    }
 
-        if (data.timeBombActive) {
-            versionText += ' - Features Disabled';
-            if (versionLink) {
-                versionLink.classList.add('disabled-version');
-            }
-            // Disable all interactive elements except settings
-            document.querySelectorAll('button, input, textarea, a').forEach(el => {
-                const allowedIds = ['openSettingsPage', 'feedback-link'];
-                if (!allowedIds.includes(el.id)) {
-                     el.disabled = true;
-                     el.style.pointerEvents = 'none';
-                     el.style.opacity = '0.5';
-                }
-            });
-            const feedbackLink = document.getElementById('feedback-link');
-            if (feedbackLink) {
-                feedbackLink.textContent = 'Submit feedback / ask for reinstall';
-            }
-        } else {
-             versionText += formatTimeRemaining(data.initialDeadline);
-        }
-
-        if (versionLink) {
-            versionLink.textContent = versionText;
-            versionLink.addEventListener('click', () => {
-                chrome.tabs.create({ url: chrome.runtime.getURL('toolshed.html') });
-            });
-        }
-    });
-
-    const generateUrlButton = document.getElementById('generateUrl');
     // const logoToggle = document.getElementById('logoToggle'); // Removed
     // const metaReminderToggle = document.getElementById('metaReminderToggle'); // Removed
     // const timesheetReminderToggle = document.getElementById('timesheetReminderToggle'); // Removed

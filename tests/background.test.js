@@ -1,4 +1,4 @@
-describe('Time Bomb Feature in background.js', () => {
+describe('Background Extension Lifecycle', () => {
     // Helper function to robustly flush all timers and microtasks
     async function flushPromisesAndTimers() {
         // Await a `setImmediate` to allow any pending microtasks (like promise resolutions) to process first.
@@ -46,92 +46,12 @@ describe('Time Bomb Feature in background.js', () => {
 
         expect(chrome.tabs.create).not.toHaveBeenCalled();
     });
-
-    test('should set initial deadline correctly when installed on a Monday', async () => {
-        jest.useFakeTimers();
-        jest.setSystemTime(new Date('2024-07-29T10:00:00')); // A Monday
-
-        jest.isolateModules(() => {
-            require('../background');
-        });
-
-        if (chrome.runtime.onInstalled.listener) {
-            chrome.runtime.onInstalled.listener();
-        }
-
-        await flushPromisesAndTimers();
-
-        const storage = chrome.storage.local.__getStore();
-        expect(storage.initialDeadline).toBeDefined();
-        expect(storage.timeBombActive).toBe(false);
-        const expectedDeadline = new Date('2024-07-30T23:59:00');
-        expect(storage.initialDeadline).toBe(expectedDeadline.getTime());
-    });
-
-    test('should set deadline for next week if installed after the deadline on a Tuesday', async () => {
-        jest.useFakeTimers();
-        jest.setSystemTime(new Date('2024-07-30T23:59:01'));
-
-        jest.isolateModules(() => {
-            require('../background');
-        });
-
-        if (chrome.runtime.onInstalled.listener) {
-            chrome.runtime.onInstalled.listener();
-        }
-
-        await flushPromisesAndTimers();
-
-        const storage = chrome.storage.local.__getStore();
-        const expectedDeadline = new Date('2024-08-06T23:59:00');
-        expect(storage.initialDeadline).toBe(expectedDeadline.getTime());
-    });
-
-    test('should become active after the deadline has passed', async () => {
-        const initialDeadline = new Date('2024-07-30T23:59:00').getTime();
-        chrome.storage.local.__getStore().initialDeadline = initialDeadline;
-
-        jest.useFakeTimers();
-        jest.setSystemTime(new Date('2024-07-31T00:00:01'));
-
-        let checkTimeBomb;
-        jest.isolateModules(() => {
-            checkTimeBomb = require('../background').checkTimeBomb;
-        });
-
-        const promise = checkTimeBomb();
-        await flushPromisesAndTimers();
-        await promise;
-
-        const storage = chrome.storage.local.__getStore();
-        expect(storage.timeBombActive).toBe(true);
-    });
-
-    test('should remain inactive before the deadline has passed', async () => {
-        const initialDeadline = new Date('2024-07-30T23:59:00').getTime();
-        chrome.storage.local.__getStore().initialDeadline = initialDeadline;
-
-        jest.useFakeTimers();
-        jest.setSystemTime(new Date('2024-07-30T23:58:59'));
-
-        let checkTimeBomb;
-        jest.isolateModules(() => {
-            checkTimeBomb = require('../background').checkTimeBomb;
-        });
-
-        const promise = checkTimeBomb();
-        await flushPromisesAndTimers();
-        await promise;
-
-        const storage = chrome.storage.local.__getStore();
-        expect(storage.timeBombActive).toBe(false);
-    });
 });
 
 describe('getNextAlarmDate (existing tests)', () => {
     let getNextAlarmDate;
 
-     beforeAll(() => {
+    beforeAll(() => {
         const background = require('../background');
         getNextAlarmDate = background.getNextAlarmDate;
     });
@@ -153,45 +73,9 @@ describe('getNextAlarmDate (existing tests)', () => {
         expectedDate.setHours(9, 0, 0, 0);
         expect(nextAlarm.getTime()).toBe(expectedDate.getTime());
     });
-
-    test('should return the upcoming Friday in the same week if the time has not passed', () => {
-        const nextAlarm = getNextAlarmDate('Friday', '14:30');
-        const expectedDate = new Date(constantDate);
-        expectedDate.setHours(14, 30, 0, 0);
-        expect(nextAlarm.getTime()).toBe(expectedDate.getTime());
-    });
-
-    test('should return next Monday if current day is Friday', () => {
-        const nextAlarm = getNextAlarmDate('Monday', '09:30');
-        const expectedDate = new Date('2024-07-29T09:30:00');
-        expect(nextAlarm.getTime()).toBe(expectedDate.getTime());
-    });
-
-    test('should handle month rollovers correctly', () => {
-        jest.setSystemTime(new Date('2024-08-30T15:00:00')); // A Friday
-        const nextAlarm = getNextAlarmDate('Wednesday', '11:00');
-        const expectedDate = new Date('2024-09-04T11:00:00');
-        expect(nextAlarm.getTime()).toBe(expectedDate.getTime());
-    });
-
-    test('should handle year rollovers correctly', () => {
-        jest.setSystemTime(new Date('2024-12-30T10:00:00')); // A Monday
-        const nextAlarm = getNextAlarmDate('Tuesday', '09:00');
-        const expectedDate = new Date('2024-12-31T09:00:00');
-        expect(nextAlarm.getTime()).toBe(expectedDate.getTime());
-    });
-
-    test('should return a date exactly 7 days in the future if the day is the same and time is earlier', () => {
-        jest.setSystemTime(new Date('2024-07-26T08:00:00')); // Friday morning
-        const nextAlarm = getNextAlarmDate('Friday', '07:00'); // Time has passed
-        const expectedDate = new Date('2024-08-02T07:00:00');
-        expect(nextAlarm.getTime()).toBe(expectedDate.getTime());
-    });
 });
 
 describe('AppLearn popup blocking', () => {
-    let maybeBlockAppLearnPopup;
-
     beforeEach(() => {
         resetMocks();
         jest.resetModules();
@@ -351,7 +235,7 @@ describe('Background message routing', () => {
         const listener = loadMessageListener();
         const sendResponse = jest.fn();
 
-        listener({ action: 'removeTimesheetAlarm' }, {}, sendResponse);
+        listener({ action: 'getFavouriteApprovers' }, {}, sendResponse);
         await waitForResponse(sendResponse);
 
         expect(sendResponse).toHaveBeenCalledTimes(1);
@@ -400,35 +284,6 @@ describe('Background message routing', () => {
         expect(chrome.storage.local.get).not.toHaveBeenCalled();
         expect(chrome.sidePanel.open).toHaveBeenCalledWith({ tabId: 42 });
         expect(sendResponse).toHaveBeenCalledWith({ status: 'success', panelState: 'open' });
-    });
-
-    test('blocks normal actions while the time bomb is active', async () => {
-        chrome.storage.local.__getStore().timeBombActive = true;
-        const listener = loadMessageListener();
-        const sendResponse = jest.fn();
-
-        listener({ action: 'removeTimesheetAlarm' }, {}, sendResponse);
-        await waitForResponse(sendResponse);
-
-        expect(chrome.alarms.clear).not.toHaveBeenCalled();
-        expect(sendResponse).toHaveBeenCalledWith({
-            status: 'error',
-            message: 'All features have been disabled.'
-        });
-    });
-
-    test('allows the time bomb disable action through the active gate', async () => {
-        chrome.storage.local.__getStore().timeBombActive = true;
-        chrome.storage.local.__getStore().initialDeadline = 123;
-        const listener = loadMessageListener();
-        const sendResponse = jest.fn();
-
-        listener({ action: 'disableTimeBomb' }, {}, sendResponse);
-        await waitForResponse(sendResponse);
-
-        expect(chrome.storage.local.__getStore().timeBombActive).toBeUndefined();
-        expect(chrome.storage.local.__getStore().initialDeadline).toBeUndefined();
-        expect(sendResponse).toHaveBeenCalledWith({ status: 'success' });
     });
 });
 

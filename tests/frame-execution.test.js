@@ -21,9 +21,6 @@ describe('Mediaocean frame execution boundary', () => {
 
         expect(contentScript).toContain(frameGuard);
         expect(contentScript.indexOf(frameGuard)).toBeLessThan(
-            contentScript.indexOf("chrome.storage.local.get('timeBombActive'")
-        );
-        expect(contentScript.indexOf(frameGuard)).toBeLessThan(
             contentScript.indexOf('setInterval(() =>')
         );
         expect(contentScript.indexOf(frameGuard)).toBeLessThan(

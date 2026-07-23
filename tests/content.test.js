@@ -19,10 +19,18 @@ describe('Content Script Main Logic', () => {
     let document;
     let consoleSpy;
 
-    const setupJSDOM = (url, timeBombActive = false, customReminders = [], options = {}) => {
+    const setupJSDOM = (url, param2 = [], param3 = [], param4 = {}) => {
+        let customReminders = [];
+        let options = {};
+        if (typeof param2 === 'boolean') {
+            customReminders = Array.isArray(param3) ? param3 : [];
+            options = param4 || {};
+        } else {
+            customReminders = Array.isArray(param2) ? param2 : [];
+            options = param3 || {};
+        }
         require('./mocks/chrome');
         chrome.runtime.id = 'test-extension-id';
-        chrome.storage.local.__getStore().timeBombActive = timeBombActive;
         chrome.storage.sync.__getStore().customReminders = customReminders;
 
         const configureStorageGet = (storageArea) => {
@@ -84,8 +92,8 @@ describe('Content Script Main Logic', () => {
         const mutationCallbackMap = new Map();
         window.MutationObserver = jest.fn(function(callback) {
             const instance = {
-                observe: jest.fn(() => mutationCallbackMap.set(this, callback)),
-                disconnect: jest.fn(() => mutationCallbackMap.delete(this)),
+                observe: jest.fn(() => mutationCallbackMap.set(instance, callback)),
+                disconnect: jest.fn(() => mutationCallbackMap.delete(instance)),
                 __trigger: (mutations) => {
                     const cb = mutationCallbackMap.get(this);
                     if (cb) cb(mutations, this);
@@ -122,15 +130,8 @@ describe('Content Script Main Logic', () => {
         jest.clearAllMocks();
     });
 
-    test('should NOT initialize features if time bomb is active', () => {
-        setupJSDOM('https://groupmuk-prisma.mediaocean.com/', true);
-        jest.advanceTimersByTime(100);
-        expect(consoleSpy).toHaveBeenCalledWith('Ops Toolshed features disabled due to time bomb.');
-    });
-
-    test('should initialize features if time bomb is NOT active', () => {
-        const { window } = setupJSDOM('https://groupmuk-prisma.mediaocean.com/', false);
-        jest.advanceTimersByTime(100);
+    test('should initialize features on injection', () => {
+        const { window } = setupJSDOM('https://groupmuk-prisma.mediaocean.com/');
         const hasInitializationLog = consoleSpy.mock.calls.some(call => call.join(' ').includes('[ContentScript Prisma] Script Injected'));
         expect(hasInitializationLog).toBe(true);
         expect(window.statsCollector).toBeDefined();
