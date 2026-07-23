@@ -404,6 +404,17 @@ button:disabled, .settings-button:disabled {
     color: #333;
 }
 
+.onboarding-launch-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.onboarding-launch-actions .settings-button {
+    margin: 0;
+}
+
 .nested-toggle-group {
     margin: -4px 0 14px 20px;
     padding-left: 12px;

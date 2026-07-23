@@ -33,7 +33,7 @@ button, select { color: inherit; }
     min-height: calc(100dvh - 56px);
     margin: 0 auto;
     display: grid;
-    grid-template-rows: auto auto 1fr auto;
+    grid-template-rows: auto 1fr auto;
     overflow: hidden;
     border: 1px solid #e2e2e7;
     border-radius: var(--radius);
@@ -61,7 +61,7 @@ button, select { color: inherit; }
 
 .brand img { width: 34px; height: 34px; border-radius: 9px; }
 
-.quiet-action, .secondary-action, .primary-action, .onboarding-tab, .segmented-choice button {
+.quiet-action, .secondary-action, .primary-action, .segmented-choice button {
     border: 0;
     cursor: pointer;
 }
@@ -74,73 +74,32 @@ button, select { color: inherit; }
 
 .quiet-action:hover { color: var(--ink); }
 
-.onboarding-tabs {
-    display: flex;
-    gap: 10px;
-    padding: 0 28px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    border-bottom: 1px solid var(--line);
-}
-
-.onboarding-tab {
-    position: relative;
-    min-width: max-content;
-    padding: 17px 14px 15px;
-    background: transparent;
-    color: #727582;
-    font-weight: 500;
-}
-
-.onboarding-tab::after {
-    position: absolute;
-    right: 14px;
-    bottom: -1px;
-    left: 14px;
-    height: 3px;
-    border-radius: 3px 3px 0 0;
-    background: var(--accent);
-    content: "";
-    opacity: 0;
-    transform: scaleX(.55);
-    transition: opacity 180ms ease, transform 180ms ease;
-}
-
-.onboarding-tab.active { color: var(--accent-dark); }
-.onboarding-tab.active::after { opacity: 1; transform: scaleX(1); }
-
 .onboarding-stage { padding: clamp(28px, 4vw, 48px); }
 
-.stage-copy { max-width: 700px; margin-bottom: 30px; }
-.stage-kicker { margin: 0 0 9px; color: var(--accent-dark); font-size: 14px; font-weight: 600; }
+.onboarding-progress { display: flex; align-items: center; gap: 10px; margin-bottom: 26px; color: var(--muted); font-size: 14px; font-weight: 600; }
+.onboarding-progress strong { color: var(--accent-dark); }
+.progress-rail { width: 90px; height: 4px; overflow: hidden; border-radius: 999px; background: #ebeaf0; }
+.progress-rail span { display: block; width: 33.333%; height: 100%; background: var(--accent); transition: width 220ms cubic-bezier(.16, 1, .3, 1); }
+.stage-copy { max-width: 760px; margin-bottom: 30px; }
 .stage-copy h1 { margin: 0; font-size: clamp(32px, 4vw, 48px); line-height: 1.05; letter-spacing: -0.035em; }
 .stage-description { max-width: 620px; margin: 15px 0 0; color: var(--muted); font-size: 17px; line-height: 1.55; }
 
 .onboarding-page.active { animation: page-in 260ms cubic-bezier(.16, 1, .3, 1); }
 
-.welcome-layout, .choice-layout, .ready-layout {
+.choice-layout, .ready-layout {
     display: grid;
     grid-template-columns: minmax(0, 1.5fr) minmax(240px, .75fr);
     gap: clamp(30px, 5vw, 64px);
     align-items: start;
 }
 
-.welcome-message h2, .ready-layout h2 { margin: 0 0 12px; font-size: 24px; }
-.welcome-message > p, .ready-layout > div > p { max-width: 60ch; margin: 0; color: var(--muted); line-height: 1.6; }
+.ready-layout h2 { margin: 0 0 12px; font-size: 24px; }
+.ready-layout > div > p { max-width: 60ch; margin: 0; color: var(--muted); line-height: 1.6; }
 
-.welcome-points { margin-top: 28px; display: grid; gap: 16px; }
-.welcome-points div { display: grid; grid-template-columns: 150px 1fr; gap: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
-.welcome-points span { color: var(--muted); }
-
-.welcome-mark, .context-note, .tour-preview {
+.context-note, .tour-preview {
     border-radius: var(--radius);
     background: var(--soft);
 }
-
-.welcome-mark { min-height: 265px; padding: 28px; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; }
-.welcome-mark img { width: 68px; height: 68px; margin-bottom: auto; border-radius: 16px; box-shadow: 0 10px 24px rgba(6, 8, 141, .16); }
-.welcome-mark strong { font-size: 20px; }
-.welcome-mark span { margin-top: 6px; color: var(--muted); }
 
 .choice-list { display: grid; gap: 11px; }
 .setting-choice {
@@ -184,6 +143,11 @@ button, select { color: inherit; }
 .setting-choice:focus-within { outline: 3px solid rgba(232, 47, 121, .18); outline-offset: 2px; }
 
 .featured-choice { background: #fff; }
+.recommended-layout { align-items: stretch; }
+.reassurance-note { display: flex; flex-direction: column; justify-content: center; gap: 13px; border-left: 4px solid var(--accent); }
+.reassurance-note p { margin: 0; }
+.reassurance-mark { display: grid; width: 26px; height: 26px; place-items: center; border-radius: 50%; background: #fff0f5; color: var(--accent-dark); font-weight: 700; }
+.workflow-layout { align-items: start; }
 .pid-choice > div:first-child { max-width: 520px; }
 .pid-choice .segmented-choice { flex: 0 0 auto; }
 .segmented-choice { display: inline-flex; padding: 3px; border: 1px solid #d8d9df; border-radius: 999px; background: #f1f1f4; }
@@ -198,7 +162,6 @@ button, select { color: inherit; }
 
 .ready-layout { align-items: stretch; }
 .tour-preview { display: flex; flex-direction: column; justify-content: center; border-left: 4px solid var(--accent); }
-.tour-preview > span { margin-bottom: 10px; color: var(--accent-dark); font-size: 13px; font-weight: 600; }
 .tour-preview strong { font-size: 20px; }
 .setup-summary { margin-top: 24px; color: var(--ink); font-weight: 600; }
 .onboarding-error { margin: 20px 0 0; padding: 12px 14px; border-radius: 10px; background: #fff0f4; color: #9f1747; }
@@ -229,10 +192,9 @@ button:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid
 @media (max-width: 760px) {
     body { padding: 0; }
     .onboarding-shell { min-height: 100dvh; border: 0; border-radius: 0; }
-    .onboarding-header, .onboarding-tabs, .onboarding-footer { padding-right: 18px; padding-left: 18px; }
+    .onboarding-header, .onboarding-footer { padding-right: 18px; padding-left: 18px; }
     .onboarding-stage { padding: 28px 18px; }
-    .welcome-layout, .choice-layout, .ready-layout { grid-template-columns: 1fr; }
-    .welcome-points div { grid-template-columns: 1fr; gap: 5px; }
+    .choice-layout, .ready-layout { grid-template-columns: 1fr; }
     .context-note { display: none; }
     .pid-choice { align-items: flex-start; flex-direction: column; }
     .onboarding-footer { align-items: flex-start; flex-direction: column; }

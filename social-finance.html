@@ -22,108 +22,149 @@
             <p>Compare what is in Meta currently to what is booked in Prisma. The report helps break down for you any differences, guiding you on a course to 1:1 matching of bookings.</p>
         </section>
 
-        <section class="control-panel" aria-labelledby="source-heading">
-            <fieldset class="platform-selector">
+        <section class="control-panel" aria-label="Social booking comparison workflow">
+            <ol class="workflow-progress" aria-label="Comparison progress">
+                <li class="is-current" data-workflow-progress="upload" aria-current="step">
+                    <button class="workflow-step-button" type="button">
+                        <span>1</span>
+                        <div><strong>Upload reports</strong><small>Required now</small></div>
+                    </button>
+                </li>
+                <li data-workflow-progress="scope">
+                    <button class="workflow-step-button" type="button" disabled>
+                        <span>2</span>
+                        <div><strong>Confirm scope</strong><small>After upload</small></div>
+                    </button>
+                </li>
+                <li data-workflow-progress="compare">
+                    <button class="workflow-step-button" type="button" disabled>
+                        <span>3</span>
+                        <div><strong>Compare &amp; act</strong><small>When scope is ready</small></div>
+                    </button>
+                </li>
+            </ol>
+
+            <section id="uploadStage" class="workflow-panel upload-stage" aria-labelledby="source-heading">
+                <fieldset class="platform-selector">
                 <legend>Platform</legend>
                 <div class="platform-options">
                     <label class="platform-option">
                         <input type="radio" name="platform" value="meta" checked>
-                        <span><b>Meta</b></span>
+                        <span><svg class="filter-chip-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg><b>Meta</b></span>
                     </label>
                     <label class="platform-option">
                         <input type="radio" name="platform" value="tiktok" disabled>
-                        <span><b>TikTok</b><small>Coming soon</small></span>
+                        <span><svg class="filter-chip-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg><b>TikTok</b><small>Coming soon</small></span>
                     </label>
                     <label class="platform-option">
                         <input type="radio" name="platform" value="snap" disabled>
-                        <span><b>Snap</b><small>Coming soon</small></span>
+                        <span><svg class="filter-chip-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg><b>Snap</b><small>Coming soon</small></span>
                     </label>
                     <label class="platform-option">
                         <input type="radio" name="platform" value="pinterest" disabled>
-                        <span><b>Pinterest</b><small>Coming soon</small></span>
+                        <span><svg class="filter-chip-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg><b>Pinterest</b><small>Coming soon</small></span>
                     </label>
                 </div>
-            </fieldset>
-            <div class="section-heading">
-                <h2 id="source-heading">Add your report data</h2>
-                <p>Start with a Meta Ads Report so the checker knows which accounts it may read. You can then refresh those accounts through Meta's API.</p>
-            </div>
-            <aside class="upload-readiness" aria-label="Before you upload">
-                <strong>Before you compare</strong>
-                <span>Both sources must cover the same client account(s) and reporting months. CSV files stay in this browser tab; saved Meta API details stay only in this Chrome profile.</span>
-            </aside>
-            <div class="source-grid">
-                <article class="file-card">
-                    <span class="workflow-step" aria-hidden="true">1</span>
+                </fieldset>
+                <div class="section-heading">
+                    <h2 id="source-heading">Upload both reports</h2>
+                    <p>Add the Meta activity report and the matching Prisma booking report. The checker validates the required columns before scope review.</p>
+                </div>
+                <aside class="upload-readiness" aria-label="What scope means">
+                    <strong>What “scope” means</strong>
+                    <span>Both reports must cover the same selected Meta Account IDs and the same reporting months. The checker only confirms a missing booking when every selected account-month is represented in Prisma.</span>
+                </aside>
+                <div class="source-grid">
+                    <article class="file-card">
                     <span class="file-kicker">Meta import</span>
                     <strong>Meta Ads Report</strong>
-                    <span class="export-source">In Meta Ads Reporting, use the <b>Meta Spend Across Agency</b> template and export at campaign level. The report supplies the Account IDs the API is allowed to refresh.</span>
-                    <span class="requirement-label">Your CSV must include</span>
-                    <ul class="report-requirements">
-                        <li><b>Account ID</b></li>
-                        <li><b>Campaign ID</b></li>
-                        <li><b>Amount spent</b></li>
-                        <li><b>Month</b> or <b>Reporting starts</b></li>
-                    </ul>
-                    <span class="requirement-label optional-label">Optional reference columns</span>
-                    <ul class="report-requirements optional-requirements">
-                        <li><b>Account name</b></li>
-                        <li><b>Campaign name</b></li>
-                        <li><b>Ad set ID</b></li>
-                        <li><b>Ad set name</b></li>
-                        <li><b>Campaign budget</b></li>
-                        <li><b>Campaign budget type</b></li>
-                        <li><b>Delivery</b></li>
-                        <li><b>Ad set start</b></li>
-                        <li><b>Ad set end</b></li>
-                    </ul>
-                    <span class="helpful-fields">Account, campaign, and ad set references are remembered locally. Upload another report when you add a new Meta ad account or want to rebuild that reference.</span>
+                    <span class="export-source">In <a id="metaAdsReportingLink" href="https://adsmanager.facebook.com/adsmanager/" target="_blank" rel="noopener noreferrer">Meta Ads Reporting</a>, use the <b>Meta Spend Across Agency</b> template. The report supplies the Account IDs the API needs to pull data.</span>
                     <input id="metaFile" type="file" accept=".csv,text/csv" aria-label="Choose Meta campaign CSV" aria-describedby="metaUploadScope">
-                    <span id="metaUploadScope" class="scope-note"><b>Scope:</b> include every relevant Meta account and campaign for the months being checked.</span>
                     <span id="metaDropZone" class="file-drop-zone" role="button" tabindex="0" aria-label="Drag and drop or choose a Meta CSV">
                         <strong>Drag and drop Meta CSV here</strong>
                         <span>or <span class="drop-zone-action">choose a file</span></span>
                         <em id="metaFileName" aria-live="polite">No file selected</em>
                         <button id="removeMetaFile" class="remove-file hidden" type="button">Remove file</button>
                     </span>
-                </article>
-                <article class="file-card">
-                    <span class="workflow-step" aria-hidden="true">2</span>
-                    <span class="file-kicker">Prisma export</span>
-                    <strong>Prisma booking report</strong>
-                    <span class="export-source">Use the Prisma CSV that lists placements and their booked values.</span>
+                    <span id="metaColumnCheck" class="column-check" aria-live="polite"></span>
                     <span class="requirement-label">Your CSV must include</span>
                     <ul class="report-requirements">
-                        <li><b>Partner account id</b></li>
-                        <li><b>Partner line id</b></li>
-                        <li><b>Period</b></li>
-                        <li><b>PLANNED_AMOUNT</b> or <b>Gross Amount</b></li>
+                        <li data-required-column="accountId"><b>Account ID</b></li>
+                        <li data-required-column="campaignId"><b>Campaign ID</b></li>
+                        <li data-required-column="spend"><b>Amount spent</b></li>
+                        <li data-required-column="month"><b>Month</b> or <b>Reporting starts</b></li>
                     </ul>
-                    <span class="requirement-label optional-label">Optional columns</span>
-                    <ul class="report-requirements optional-requirements">
-                        <li><b>Campaign, Plan or Order name</b></li>
-                        <li><b>Client name</b></li>
-                        <li><b>Product name</b></li>
-                        <li><b>Days in Flight start date</b></li>
-                        <li><b>Days in Flight end date</b></li>
-                        <li><b>Placement creator or Owner</b></li>
-                    </ul>
-                    <span class="helpful-fields">These add likely booking matches, client context, date checks, and an owner to contact.</span>
+                    <details class="optional-columns">
+                        <summary>Optional reference columns <span>9</span></summary>
+                        <ul class="report-requirements optional-requirements">
+                            <li><b>Account name</b></li>
+                            <li><b>Campaign name</b></li>
+                            <li><b>Ad set ID</b></li>
+                            <li><b>Ad set name</b></li>
+                            <li><b>Campaign budget</b></li>
+                            <li><b>Campaign budget type</b></li>
+                            <li><b>Delivery</b></li>
+                            <li><b>Ad set start</b></li>
+                            <li><b>Ad set end</b></li>
+                        </ul>
+                        <span class="helpful-fields">These add account, campaign, budget, delivery, and ad set context. Imported references are remembered locally.</span>
+                    </details>
+                    <span id="metaUploadScope" class="scope-note"><b>Scope:</b> include every relevant Meta account and campaign for the months being checked.</span>
+                </article>
+                <article class="file-card">
+                    <span class="file-kicker">Prisma export</span>
+                    <strong>Prisma booking report</strong>
+                    <span class="export-source">In <a href="https://groupmuk-prisma.mediaocean.com/viewport-home/#osAppId=prsm-cvr&amp;osPspId=prsm-cvr" target="_blank" rel="noopener noreferrer">Prisma Reporting</a>, pull the latest report you require, for example the Meta Integration Tracker.</span>
                     <input id="prismaFile" type="file" accept=".csv,text/csv" aria-label="Choose Prisma booking CSV" aria-describedby="prismaUploadScope">
-                    <span id="prismaUploadScope" class="scope-note"><b>Scope:</b> use the same client/accounts and reporting months as the Meta report.</span>
                     <span id="prismaDropZone" class="file-drop-zone" role="button" tabindex="0" aria-label="Drag and drop or choose a Prisma CSV">
                         <strong>Drag and drop Prisma CSV here</strong>
                         <span>or <span class="drop-zone-action">choose a file</span></span>
                         <em id="prismaFileName" aria-live="polite">No file selected</em>
                         <button id="removePrismaFile" class="remove-file hidden" type="button">Remove file</button>
                     </span>
+                    <span id="prismaColumnCheck" class="column-check" aria-live="polite"></span>
+                    <span class="requirement-label">Your CSV must include</span>
+                    <ul class="report-requirements">
+                        <li data-required-column="accountId"><b>Partner account id</b></li>
+                        <li data-required-column="campaignId"><b>Partner line id</b></li>
+                        <li data-required-column="month"><b>Period</b></li>
+                        <li data-required-column="planned"><b>PLANNED_AMOUNT</b> or <b>Gross Amount</b></li>
+                    </ul>
+                    <details class="optional-columns">
+                        <summary>Optional reference columns <span>8</span></summary>
+                        <ul class="report-requirements optional-requirements">
+                            <li><b>Campaign, Plan or Order name</b></li>
+                            <li><b>Client name</b></li>
+                            <li><b>Product name</b></li>
+                            <li><b>Days in Flight start date</b></li>
+                            <li><b>Days in Flight end date</b></li>
+                            <li><b>Currency code</b></li>
+                            <li><b>Buy number or Placement number</b></li>
+                            <li><b>Placement creator or Owner</b></li>
+                        </ul>
+                        <span class="helpful-fields">These add currency checks, stable monthly booking references, likely matches, client context, date checks, and an owner to contact.</span>
+                    </details>
+                    <span id="prismaUploadScope" class="scope-note"><b>Scope:</b> use the same client/accounts and reporting months as the Meta report.</span>
                 </article>
-            </div>
+                </div>
+                <div class="stage-actions">
+                    <span id="uploadStageStatus" aria-live="polite">Upload both CSV reports to continue.</span>
+                    <button id="continueToScope" type="button" disabled>Confirm scope &amp; mapping</button>
+                </div>
+            </section>
+
+            <section id="scopeStage" class="workflow-panel scope-stage hidden" aria-labelledby="scope-heading">
+                <div class="stage-heading">
+                    <div class="section-heading">
+                        <h2 id="scope-heading">Confirm the comparison scope</h2>
+                        <p>Check that Meta and Prisma cover the same Account IDs and reporting months, then map each Meta account to the right Prisma client and product.</p>
+                    </div>
+                    <button id="backToUploads" class="text-action" type="button">Change uploads</button>
+                </div>
             <section id="metaApiPanel" class="meta-source-panel live-refresh-panel" aria-labelledby="meta-api-heading">
-                <span class="workflow-step" aria-hidden="true">3</span>
                 <div class="source-panel-heading">
                     <b id="meta-api-heading">Optional Meta live refresh</b>
-                    <span>Use a read-only Meta token to refresh status, dates, budgets, ad sets, and spend. It is stored only in this Chrome profile; <code>ads_read</code> is sufficient.</span>
+                    <span>Use a read-only Meta token to refresh account currency and timezone, campaign and ad-set schedules, statuses, budgets, daily spend, update times, impressions, reach, and monthly spend. The token is stored only in this Chrome profile, and only reads information from Meta - no changes on platform will occur.</span>
                 </div>
                 <div class="live-refresh-controls">
                     <div>
@@ -157,9 +198,8 @@
                 </div>
             </section>
             <div id="accountScopePanel" class="account-scope hidden">
-                <span class="workflow-step" aria-hidden="true">4</span>
                 <div class="account-scope-heading">
-                    <div><strong>Meta account scope</strong><span>Accounts recognised from the Meta Ads Report. Select those that should be in the Prisma booking report.</span></div>
+                    <div><strong>Meta accounts to compare</strong><span>Select the Account IDs that should also appear in the Prisma report. Unselected accounts are excluded from the comparison.</span></div>
                     <div><button id="selectAllAccounts" class="text-action" type="button">Select all</button><button id="clearAccounts" class="text-action" type="button">Clear</button></div>
                 </div>
                 <div id="accountOptions" class="account-options"></div>
@@ -174,9 +214,8 @@
                 </div>
             </div>
             <div id="prismaScopePanel" class="prisma-scope hidden">
-                <span class="workflow-step" aria-hidden="true">5</span>
                 <div class="account-scope-heading">
-                    <div><strong>Prisma client scope</strong><span>Partner account ID in Prisma maps to Account ID in Meta. Review this before comparing.</span></div>
+                    <div><strong>Prisma coverage and mapping</strong><span>Prisma Partner account ID is matched to Meta Account ID. Review any unmatched Account IDs and confirm the client/product mapping before comparing.</span></div>
                 </div>
                 <div id="prismaScopeStatus" class="reference-status" aria-live="polite"></div>
                 <div id="prismaScopeComparison" class="scope-comparison"></div>
@@ -200,8 +239,8 @@
                     <input id="asOfDate" type="date">
                 </label>
                 <label class="comparison-setting">
-                    <span>Ignore differences up to (£)</span>
-                    <small>At £1, differences of £1 or less are left out of the results.</small>
+                    <span>Ignore differences up to</span>
+                    <small>At 1, differences of 1 or less in the Meta account currency are left out of the results.</small>
                     <input id="tolerance" type="number" min="0" step="0.01" value="1">
                 </label>
                 <label class="comparison-setting">
@@ -216,16 +255,26 @@
                 <span>Missing bookings are only confirmed when Prisma includes every selected Meta account and reporting month.</span>
             </div>
             <div id="validationMessages" class="messages" aria-live="polite"></div>
+            </section>
         </section>
 
         <section id="results" class="results hidden" aria-labelledby="results-heading">
             <div class="section-heading result-heading">
-                <h2 id="results-heading">Comparison results</h2>
-                <button id="downloadReport" class="secondary-action" type="button">Download report CSV</button>
+                <div class="result-title">
+                    <h2 id="results-heading">Comparison results</h2>
+                    <a id="dataConfidenceLink" class="confidence-status" href="#dataDiagnostics">
+                        <span>Data source check</span>
+                        <strong id="dataDiagnosticsBadge" class="diagnostics-badge">Upload only</strong>
+                    </a>
+                </div>
+                <div class="result-actions">
+                    <button id="backToScope" class="text-action" type="button">Review scope</button>
+                    <button id="downloadReport" class="secondary-action" type="button">Download report CSV</button>
+                </div>
             </div>
             <div id="metaDataSource" class="data-source-banner" aria-live="polite"></div>
             <div id="financialHeadline" class="financial-headline" aria-label="Financial totals"></div>
-            <div id="summaryCards" class="summary-grid"></div>
+            <div id="summaryCards" class="action-headline"></div>
             <div id="coverageWarnings" class="coverage-warnings"></div>
             <section id="socialActionList" class="social-action-list breakdown-section" aria-labelledby="social-action-heading">
                 <div class="breakdown-heading">
@@ -252,7 +301,7 @@
                 </div>
                 <div class="table-frame client-breakdown-table">
                     <table>
-                        <thead id="clientBreakdownHeader"><tr><th>Client</th><th>Product</th><th>Mapped Meta accounts</th><th class="number">Meta spend</th><th class="number">Prisma booked</th><th class="number">Variance</th></tr></thead>
+                        <thead id="clientBreakdownHeader"><tr><th>Client</th><th>Product</th><th>Currency</th><th>Mapped Meta accounts</th><th class="number">Meta spend</th><th class="number">Prisma booked</th><th class="number">Variance</th></tr></thead>
                         <tbody id="clientBreakdownBody"></tbody>
                     </table>
                 </div>
@@ -272,12 +321,12 @@
                     <summary>Evidence <span id="evidenceFilterCount">4 selected</span></summary>
                     <div class="filter-popover" id="evidenceFilterOptions">
                         <div class="filter-actions"><button type="button" data-filter-action="all">Select all</button><button type="button" data-filter-action="none">Clear</button></div>
-                        <label><input type="checkbox" value="Missing/unlinked" checked>Missing / unlinked</label>
-                        <label><input type="checkbox" value="Needs update" checked>Needs update</label>
-                        <label><input type="checkbox" value="Monitor" checked>Monitor</label>
-                        <label><input type="checkbox" value="Investigate" checked>Investigate</label>
-                        <label><input type="checkbox" value="Outside scope">Outside report months</label>
-                        <label><input type="checkbox" value="Matched">Matched</label>
+                        <label><input type="checkbox" value="Missing/unlinked" checked><span>Missing / unlinked <small data-evidence-total="Missing/unlinked"></small></span></label>
+                        <label><input type="checkbox" value="Needs update" checked><span>Needs update <small data-evidence-total="Needs update"></small></span></label>
+                        <label><input type="checkbox" value="Monitor" checked><span>Monitor <small data-evidence-total="Monitor"></small></span></label>
+                        <label><input type="checkbox" value="Investigate" checked><span>Investigate <small data-evidence-total="Investigate"></small></span></label>
+                        <label><input type="checkbox" value="Outside scope"><span>Outside report months <small data-evidence-total="Outside scope"></small></span></label>
+                        <label><input type="checkbox" value="Matched"><span>Matched <small data-evidence-total="Matched"></small></span></label>
                     </div>
                 </details>
                 <details class="filter-menu" id="accountFilterMenu">
@@ -294,6 +343,14 @@
                     <tbody id="reportBody"></tbody>
                 </table>
             </div>
+            </section>
+            <section class="data-diagnostics" aria-labelledby="data-diagnostics-heading">
+                <details id="dataDiagnostics">
+                    <summary>
+                        <span><strong id="data-diagnostics-heading">Data source check</strong><small>Compare the uploaded Meta Ads Report with the live API pull and review what was used.</small></span>
+                    </summary>
+                    <div id="dataDiagnosticsContent" class="data-diagnostics-content"></div>
+                </details>
             </section>
         </section>
     </main>

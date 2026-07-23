@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ops Toolshed tour v2</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="onboarding-tour-v2.css">
+</head>
+<body>
+    <main class="tour-shell">
+        <header class="tour-header"><div class="tour-brand"><img src="icon.png" alt=""><span>Ops Toolshed tour</span></div><button id="skip-tour" type="button">Skip tour</button></header>
+        <div class="tour-progress" aria-hidden="true"><span id="tour-progress-fill"></span></div>
+        <section class="tour-content" aria-live="polite">
+            <p id="tour-count" class="tour-count"></p>
+            <h1 id="tour-title"></h1>
+            <p id="tour-description" class="tour-description"></p>
+            <ul id="tour-features" class="tour-features" aria-label="Features in this chapter"></ul>
+            <p id="tour-status" class="tour-status" role="status"></p>
+        </section>
+        <footer class="tour-footer"><button id="tour-back" class="tour-secondary" type="button">Back</button><button id="tour-next" class="tour-primary" type="button">Next</button></footer>
+    </main>
+    <script src="onboarding-tour-v2.js"></script>
+</body>
+</html>

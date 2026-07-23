@@ -327,6 +327,24 @@ document.addEventListener('DOMContentLoaded', async function() {
                 .catch(error => console.error('Could not launch user onboarding:', error));
         });
     }
+
+    const ONBOARDING_PRISMA_HOME = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns';
+
+    function openOnboardingSidePanel(path) {
+        try {
+            const tab = chrome.tabs.create({ url: ONBOARDING_PRISMA_HOME });
+            tab?.catch?.(error => console.error('Could not open Prisma for the onboarding tour:', error));
+            const options = chrome.sidePanel?.setOptions?.({ path, enabled: true });
+            options?.catch?.(error => console.error('Could not prepare onboarding side panel:', error));
+            const result = chrome.sidePanel?.open?.({ windowId: chrome.windows?.WINDOW_ID_CURRENT ?? -2 });
+            result?.catch?.(error => console.error('Could not open onboarding side panel:', error));
+        } catch (error) {
+            console.error('Could not open onboarding side panel:', error);
+        }
+    }
+
+    document.getElementById('launchOnboardingTourV1Button')?.addEventListener('click', () => openOnboardingSidePanel('onboarding-tour.html'));
+    document.getElementById('launchOnboardingTourV2Button')?.addEventListener('click', () => openOnboardingSidePanel('onboarding-tour-v2.html'));
  
     // Tab switching logic 
     const tabContainer = document.querySelector('.tab-container'); 

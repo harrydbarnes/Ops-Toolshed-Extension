@@ -16,8 +16,10 @@ describe('Social Booking Checker upload guidance', () => {
     test('explains the shared scope and local handling before comparison', () => {
         const guidance = document.querySelector('.upload-readiness').textContent;
 
-        expect(guidance).toContain('same client account(s) and reporting months');
-        expect(guidance).toContain('only in this Chrome profile');
+        expect(guidance).toContain('same selected Meta Account IDs');
+        expect(guidance).toContain('same reporting months');
+        expect(guidance).toContain('every selected account-month is represented in Prisma');
+        expect(document.body.textContent).toContain('only in this Chrome profile');
     });
 
     test('uses the updated name and user-facing explanation throughout the launcher', () => {
@@ -36,6 +38,13 @@ describe('Social Booking Checker upload guidance', () => {
         expect(platforms[0].disabled).toBe(false);
         expect(platforms.slice(1).every(input => input.disabled)).toBe(true);
         expect(document.querySelector('.platform-options').textContent).toContain('Coming soon');
+    });
+
+    test('styles platform choices as compact Material-style filter chips', () => {
+        expect(css).toContain('min-height: 32px;');
+        expect(css).toContain('border-radius: 8px;');
+        expect(css).toContain('.filter-chip-icon');
+        expect(document.querySelector('.platform-option .filter-chip-icon path').getAttribute('d')).toContain('M9 16.17');
     });
 
     test('uses the shared Ops Toolshed visual language and concise population confirmation', () => {
@@ -69,6 +78,8 @@ describe('Social Booking Checker upload guidance', () => {
         const input = card.querySelector('#metaFile');
         expect(input.getAttribute('aria-label')).toBe('Choose Meta campaign CSV');
         expect(input.getAttribute('aria-describedby')).toBe('metaUploadScope');
+        expect(card.querySelector('.export-source').textContent).toContain('In Meta Ads Reporting, use the');
+        expect(document.querySelector('#metaAdsReportingLink').href).toBe('https://adsmanager.facebook.com/adsmanager/');
     });
 
     test('lists the required Prisma report columns and matching scope', () => {
@@ -91,15 +102,18 @@ describe('Social Booking Checker upload guidance', () => {
         const input = card.querySelector('#prismaFile');
         expect(input.getAttribute('aria-label')).toBe('Choose Prisma booking CSV');
         expect(input.getAttribute('aria-describedby')).toBe('prismaUploadScope');
+        expect(card.querySelector('.export-source').textContent).toContain('In Prisma Reporting, pull the latest report you require, for example the Meta Integration Tracker.');
+        expect(document.querySelector('.file-card:nth-of-type(2) .export-source a').href).toBe('https://groupmuk-prisma.mediaocean.com/viewport-home/#osAppId=prsm-cvr&osPspId=prsm-cvr');
     });
 
     test('aligns upload cards and places imported-account removal at the scope footer', () => {
         expect(document.querySelector('#metaDropZone').parentElement.querySelector('#metaReferenceStatus')).toBeNull();
         expect(document.querySelector('#accountScopePanel .account-scope-footer #metaReferenceStatus')).not.toBeNull();
         expect(document.querySelector('#accountScopePanel .account-scope-footer #removeMetaReference')).not.toBeNull();
-        expect(css).toContain('align-items: stretch;');
-        expect(css).toContain('min-height: 128px;');
-        expect(css).toContain('.account-scope-footer');
+          expect(css).toContain('align-items: stretch;');
+          expect(css).toContain('min-height: 128px;');
+          expect(css).toContain('min-height: 38px;');
+          expect(css).toContain('.account-scope-footer');
     });
 
     test('explains optional checks and comparison settings in plain language', () => {
@@ -113,11 +127,16 @@ describe('Social Booking Checker upload guidance', () => {
         expect(pageText).toContain('Optional reference columns');
         expect(settingsText).toContain('Check date');
         expect(settingsText).toContain('Use today unless');
-        expect(settingsText).toContain('Ignore differences up to (£)');
-        expect(settingsText).toContain('differences of £1 or less');
+        expect(settingsText).toContain('Ignore differences up to');
+        expect(settingsText).toContain('differences of 1 or less in the Meta account currency');
         expect(settingsText).toContain('Month closes after (working days)');
         expect(settingsText).toContain('working days from month-end');
         expect(document.querySelector('#runComparison').textContent).toBe('Compare bookings');
+    });
+
+    test('uses an animated chevron for optional reference-column disclosures', () => {
+        expect(css).toContain('.optional-columns summary::after');
+        expect(css).toContain('.optional-columns[open] summary::after { transform: rotate(180deg); }');
     });
 
     test('offers drag and drop or file browsing for both reports', () => {
@@ -135,11 +154,14 @@ describe('Social Booking Checker upload guidance', () => {
     });
 
     test('requires report-led discovery and offers a read-only API refresh without Business credentials', () => {
-        expect([...document.querySelectorAll('.workflow-step')].map(step => step.textContent)).toEqual(['1', '2', '3', '4', '5']);
-        expect(css).toContain('.workflow-step');
-        expect(css).toContain('top: -11px');
-        expect(css).toContain('background: #3d3aae');
-        expect(css).toContain('color: #fff');
+        expect([...document.querySelectorAll('[data-workflow-progress] strong')].map(step => step.textContent)).toEqual(['Upload reports', 'Confirm scope', 'Compare & act']);
+        expect([...document.querySelectorAll('.workflow-step-button')].map(button => button.type)).toEqual(['button', 'button', 'button']);
+        expect(document.querySelector('[data-workflow-progress="scope"] .workflow-step-button').disabled).toBe(true);
+        expect(document.querySelector('[data-workflow-progress="upload"]').getAttribute('aria-current')).toBe('step');
+        expect(document.querySelector('#scopeStage').classList).toContain('hidden');
+        expect(document.querySelector('#continueToScope').disabled).toBe(true);
+        expect(css).toContain('.workflow-progress');
+        expect(css).toContain('--workflow: #3d3aae');
         expect(css).toContain('.prisma-scope { position: relative;');
         expect(document.querySelector('#metaAccessToken').type).toBe('password');
         expect(document.querySelector('#metaBusinessId')).toBeNull();
@@ -147,15 +169,15 @@ describe('Social Booking Checker upload guidance', () => {
         expect(document.querySelector('#removeMetaToken').getAttribute('aria-label')).toBe('Remove saved access token');
         expect(document.querySelector('#removeMetaBusinessId')).toBeNull();
         expect(document.querySelector('#metaApiPanel').textContent).toContain('Optional Meta live refresh');
-        expect(document.querySelector('#metaApiPanel').textContent).toContain('ads_read');
+        expect(document.querySelector('#metaApiPanel').textContent).toContain('only reads information from Meta');
         expect(document.querySelector('#metaApiPanel').textContent).toContain('stored only in this Chrome profile');
         expect(document.querySelector('#metaApiPanel .privacy-note')).toBeNull();
         expect(document.querySelector('#metaApiPanel').classList).toContain('live-refresh-panel');
-        expect(document.querySelector('#metaApiPanel').compareDocumentPosition(document.querySelector('#accountScopePanel')) & 4).toBeTruthy();
+        expect(document.querySelector('#metaApiPanel').closest('#scopeStage')).not.toBeNull();
         expect(document.querySelector('#metaApiDatePreset').options).toHaveLength(8);
         expect(document.querySelector('#pullMetaData').textContent).toBe('Refresh selected Meta accounts');
-        expect(document.querySelector('#prismaScopePanel').textContent).toContain('Prisma client scope');
-        expect(document.querySelector('#prismaScopePanel').textContent).toContain('Partner account ID in Prisma maps to Account ID in Meta');
+        expect(document.querySelector('#prismaScopePanel').textContent).toContain('Prisma coverage and mapping');
+        expect(document.querySelector('#prismaScopePanel').textContent).toContain('Prisma Partner account ID is matched to Meta Account ID');
         expect(script).toContain('Selected Meta accounts not in Prisma report');
         expect(script).toContain('Prisma accounts not selected in Meta');
         expect(css).toContain('.api-status:not(.is-loading)::before');
@@ -204,6 +226,12 @@ describe('Social Booking Checker upload guidance', () => {
         expect([...document.querySelectorAll('.sort-button')].map(button => button.dataset.sort)).toEqual(['metaSpend', 'prismaPlanned', 'variance']);
     });
 
+    test('keeps campaign column resizing CSP-safe', () => {
+        expect(script).not.toContain('style="width:${campaignColumnWidth(column)}px"');
+        expect(script).not.toContain('column.style.width');
+        expect(script).toContain('sheet.insertRule');
+    });
+
     test('explains reconciliation evidence on hover and keyboard focus', () => {
         expect(script).toContain('EVIDENCE_EXPLANATIONS');
         expect(script).toContain('Missing/unlinked');
@@ -218,7 +246,7 @@ describe('Social Booking Checker upload guidance', () => {
         expect(document.querySelector('#manualMatchModal').textContent).toContain('Match unmatched Meta spend');
         expect(document.querySelector('#manualMatchModal').textContent).toContain('Ranked Prisma candidates');
         expect(document.querySelector('#applyManualMatches').textContent).toBe('Save review decisions');
-        expect(script).toContain('Click To Match');
+        expect(script).toContain('Match unmatched spend');
         expect(script).toContain('Search eligible Prisma campaigns');
         expect(css).toContain('.manual-match-dialog');
         expect(css).toContain('.candidate-search');
@@ -246,6 +274,10 @@ describe('Social Booking Checker upload guidance', () => {
     test('shows headline financial totals and API source evidence without repeating the outside-scope tooltip', () => {
         expect(document.querySelector('#financialHeadline')).not.toBeNull();
         expect(document.querySelector('#metaDataSource')).not.toBeNull();
+        expect(document.querySelector('#summaryCards').classList).toContain('action-headline');
+        expect(document.querySelectorAll('.summary-card')).toHaveLength(0);
+        expect(document.querySelector('#dataConfidenceLink').getAttribute('href')).toBe('#dataDiagnostics');
+        expect(document.querySelector('#dataDiagnostics').contains(document.querySelector('#dataDiagnosticsBadge'))).toBe(false);
         expect(document.querySelector('.scope-explanation')).toBeNull();
         expect(css).toContain('.financial-headline');
     });

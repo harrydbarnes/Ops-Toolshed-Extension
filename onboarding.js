@@ -19,19 +19,18 @@
         timesheetReminderEnabled: true
     };
     const stepCopy = [
-        ['A better Prisma starts here', 'Make everyday media operations feel lighter.', 'Choose the features that suit your workflow, then see the most useful tools in context.'],
-        ['Your Prisma experience', 'Start with the improvements you will notice most.', 'These recommended choices focus on navigation, identity and access to guidance.'],
-        ['Everyday workflow', 'Remove a few clicks from repeat tasks.', 'Choose the shortcuts that fit how you move through campaigns and accounts.'],
-        ['Helpful, not noisy', 'Set reminders to match your working rhythm.', 'Keep useful checks visible without letting prompts get in the way.'],
-        ['Setup complete', 'You are ready to explore Ops Toolshed.', 'Open Prisma and follow the side panel to see your main tools in context.']
+        ['Choose your defaults', 'Start with the tools you’ll notice every day.', 'We’ve picked a practical starting set for navigating campaigns, keeping account context visible, and finding help without leaving Prisma.'],
+        ['Fine-tune your workflow', 'Choose the shortcuts that fit your day.', 'Set up useful copy actions, reminders and account switching before you open Prisma.'],
+        ['See it in Prisma', 'Your setup is ready.', 'Open Prisma and follow the focused side-panel guide to see the most useful areas in context.']
     ];
     let activeStep = 0;
     let currentSettings = { ...defaults };
 
     const elements = {
-        tabs: Array.from(document.querySelectorAll('.onboarding-tab')),
         pages: Array.from(document.querySelectorAll('.onboarding-page')),
-        kicker: document.getElementById('stage-kicker'),
+        progressCount: document.getElementById('progress-count'),
+        progressFill: document.getElementById('progress-fill'),
+        progressLabel: document.getElementById('progress-label'),
         title: document.getElementById('stage-title'),
         description: document.getElementById('stage-description'),
         previous: document.getElementById('previous-step'),
@@ -120,17 +119,12 @@
 
     function renderStep(index, focusTab = false) {
         activeStep = Math.max(0, Math.min(stepCopy.length - 1, index));
-        const [kicker, title, description] = stepCopy[activeStep];
-        elements.kicker.textContent = kicker;
+        const [label, title, description] = stepCopy[activeStep];
+        elements.progressCount.textContent = `${activeStep + 1} of ${stepCopy.length}`;
+        elements.progressFill.style.width = `${((activeStep + 1) / stepCopy.length) * 100}%`;
+        elements.progressLabel.textContent = label;
         elements.title.textContent = title;
         elements.description.textContent = description;
-        elements.tabs.forEach((tab, tabIndex) => {
-            const active = tabIndex === activeStep;
-            tab.classList.toggle('active', active);
-            tab.setAttribute('aria-selected', String(active));
-            tab.tabIndex = active ? 0 : -1;
-            if (active && focusTab) tab.focus();
-        });
         elements.pages.forEach((page, pageIndex) => {
             const active = pageIndex === activeStep;
             page.hidden = !active;
@@ -138,7 +132,7 @@
         });
         elements.previous.hidden = activeStep === 0;
         elements.next.hidden = activeStep === stepCopy.length - 1;
-        elements.next.textContent = activeStep === 0 ? 'Get started' : 'Continue';
+        elements.next.textContent = activeStep === stepCopy.length - 2 ? 'Review setup' : 'Continue';
         elements.start.hidden = activeStep !== stepCopy.length - 1;
         if (activeStep === stepCopy.length - 1) updateSummary();
     }
@@ -153,9 +147,9 @@
 
     function startGuidedTour() {
         elements.error.hidden = true;
-        void markComplete({ onboardingTourActive: true, onboardingTourStep: 0 });
+        void markComplete({ onboardingTourActive: true, onboardingTourStep: 0, onboardingTourVersion: 'v2' });
         try {
-            const optionsResult = chrome.sidePanel?.setOptions?.({ path: 'onboarding-tour.html', enabled: true });
+            const optionsResult = chrome.sidePanel?.setOptions?.({ path: 'onboarding-tour-v2.html', enabled: true });
             optionsResult?.catch?.(() => {
                 elements.error.textContent = 'The guided panel could not be prepared. Prisma will still open, and you can return to Settings at any time.';
                 elements.error.hidden = false;
@@ -209,15 +203,6 @@
         });
     });
 
-    elements.tabs.forEach((tab, index) => {
-        tab.addEventListener('click', () => renderStep(index));
-        tab.addEventListener('keydown', event => {
-            if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
-            event.preventDefault();
-            const direction = event.key === 'ArrowRight' ? 1 : -1;
-            renderStep((index + direction + elements.tabs.length) % elements.tabs.length, true);
-        });
-    });
     elements.previous.addEventListener('click', () => renderStep(activeStep - 1));
     elements.next.addEventListener('click', () => renderStep(activeStep + 1));
     elements.start.addEventListener('click', startGuidedTour);

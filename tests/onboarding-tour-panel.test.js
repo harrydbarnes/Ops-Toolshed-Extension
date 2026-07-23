@@ -125,4 +125,15 @@ describe('Onboarding side-panel journey', () => {
         expect(chrome.sidePanel.setOptions).not.toHaveBeenCalled();
         dom.window.close();
     });
+
+    test('skipping clears the current tour state and closes the v1 panel without navigating Prisma', async () => {
+        const { dom, chrome } = setup();
+        await Promise.resolve();
+        await dom.window.onboardingTourPanel.finishTour(true);
+
+        expect(chrome.tabs.update).not.toHaveBeenCalled();
+        expect(chrome.sidePanel.close).toHaveBeenCalledWith({ tabId: 12 });
+        expect(chrome.storage.local.set).toHaveBeenCalledWith(expect.objectContaining({ onboardingTourSkipped: true, onboardingTourCompleted: false }));
+        dom.window.close();
+    });
 });

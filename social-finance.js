@@ -1,7 +1,7 @@
 (function () {
     const engine = window.socialFinanceEngine;
     const metaApi = window.metaReportApi;
-    const state = { metaText: '', uploadedMetaText: '', metaTextSource: '', prismaText: '', report: null, metaAccounts: [], metaReference: null, prismaReference: null, accountMappings: {}, manualMatches: {}, candidateRejections: {}, wrikeReferences: {}, campaignColumnWidths: {}, manualMatchTrigger: null, showMatchedScopeAccounts: false, shownMappingCampaignsAccountId: '', apiSync: null, sort: { key: '', direction: 'descending' }, socialActionSort: { key: '', direction: 'ascending' }, clientSort: { key: '', direction: 'ascending' } };
+    const state = { metaText: '', uploadedMetaText: '', metaTextSource: '', prismaText: '', report: null, metaAccounts: [], metaReference: null, prismaReference: null, accountMappings: {}, manualMatches: {}, candidateRejections: {}, wrikeReferences: {}, campaignColumnWidths: {}, manualMatchTrigger: null, showMatchedScopeAccounts: false, shownMappingCampaignsAccountId: '', apiSync: null, uploadValidity: { metaText: false, prismaText: false }, workflowStage: 'upload', sort: { key: '', direction: 'descending' }, socialActionSort: { key: '', direction: 'ascending' }, clientSort: { key: '', direction: 'ascending' } };
     const elements = {};
     const ACCOUNT_SCOPE_STORAGE_KEY = 'socialBookingMetaAccountScope';
     const META_API_STORAGE_KEY = 'socialBookingMetaApiCredentials';
@@ -14,8 +14,23 @@
     const SAVED_TOKEN_MASK = '••••••••••••';
 
     function byId(id) { return document.getElementById(id); }
-    function currency(value) {
-        return value === null || value === undefined || value === '' ? 'Not available' : new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value);
+    function currency(value, currencyCode = '') {
+        if (value === null || value === undefined || value === '') return 'Not available';
+        const code = String(currencyCode || '').trim().toUpperCase();
+        if (/^[A-Z]{3}$/.test(code)) {
+            try {
+                return new Intl.NumberFormat('en-GB', { style: 'currency', currency: code }).format(value);
+            } catch (_) {}
+        }
+        return new Intl.NumberFormat('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+    }
+
+    function metaCurrencyFor(row) {
+        return row?.metaCurrency || row?.currency || '';
+    }
+
+    function prismaCurrencyFor(row) {
+        return row?.prismaCurrency || row?.currency || '';
     }
     function escapeHtml(value) {
         return String(value ?? '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
@@ -78,11 +93,27 @@
         const stored = await readLocalStorage(META_API_STORAGE_KEY);
         const credentials = stored[META_API_STORAGE_KEY] || {};
         if (Object.prototype.hasOwnProperty.call(credentials, 'businessId')) {
-            const migrated = credentials.accessToken ? { accessToken: credentials.accessToken } : {};
+            const businessId = String(credentials.businessId || '').replace(/^act_/, '');
+            const migrated = {
+                ...(credentials.accessToken ? { accessToken: credentials.accessToken } : {}),
+                ...(/^\d+$/.test(businessId) ? { reportingBusinessId: businessId } : {})
+            };
             await writeLocalStorage({ [META_API_STORAGE_KEY]: migrated });
             return migrated;
         }
         return credentials;
+    }
+
+    async function updateMetaAdsReportingLink() {
+        try {
+            const credentials = await savedMetaCredentials();
+            const businessId = String(credentials.reportingBusinessId || '').replace(/^act_/, '');
+            elements.metaAdsReportingLink.href = /^\d+$/.test(businessId)
+                ? `https://adsmanager.facebook.com/adsmanager/reporting/?business_id=${encodeURIComponent(businessId)}`
+                : 'https://adsmanager.facebook.com/adsmanager/';
+        } catch (_) {
+            elements.metaAdsReportingLink.href = 'https://adsmanager.facebook.com/adsmanager/';
+        }
     }
 
     function setStatus(element, message, kind = '') {
@@ -173,6 +204,107 @@
         renderPopulationCoverage();
     }
 
+    function uploadsReady() {
+        return state.uploadValidity.metaText && state.uploadValidity.prismaText;
+    }
+
+    function updateUploadReadiness() {
+        if (!elements.continueToScope) return;
+        const ready = uploadsReady();
+        elements.continueToScope.disabled = !ready;
+        elements.uploadStageStatus.textContent = ready
+            ? 'Both reports contain the required columns. Continue to review their shared scope.'
+            : 'Upload both CSV reports with their required columns to continue.';
+        elements.uploadStageStatus.classList.toggle('is-ready', ready);
+    }
+
+    function setWorkflowStage(stage) {
+        if (stage !== 'upload' && !uploadsReady()) stage = 'upload';
+        state.workflowStage = stage;
+        elements.uploadStage.classList.toggle('hidden', stage !== 'upload');
+        elements.scopeStage.classList.toggle('hidden', stage !== 'scope');
+        if (stage !== 'compare') elements.results.classList.add('hidden');
+        document.querySelectorAll('[data-workflow-progress]').forEach((item, index) => {
+            const itemStage = item.dataset.workflowProgress;
+            const itemIndex = ['upload', 'scope', 'compare'].indexOf(itemStage);
+            const currentIndex = ['upload', 'scope', 'compare'].indexOf(stage);
+            item.classList.toggle('is-current', itemStage === stage);
+            item.classList.toggle('is-complete', itemIndex < currentIndex);
+            const button = item.querySelector('.workflow-step-button');
+            if (button) button.disabled = itemStage === 'scope' ? !uploadsReady() : itemStage === 'compare' ? !state.report : false;
+            if (itemStage === stage) {
+                item.setAttribute('aria-current', 'step');
+                button?.setAttribute('aria-current', 'step');
+            } else {
+                item.removeAttribute('aria-current');
+                button?.removeAttribute('aria-current');
+            }
+        });
+    }
+
+    function navigateWorkflowStage(stage) {
+        const available = stage === 'upload' || stage === 'scope' && uploadsReady() || stage === 'compare' && Boolean(state.report);
+        if (!available) return;
+        setWorkflowStage(stage);
+        const target = stage === 'compare' ? elements.results : stage === 'scope' ? elements.scopeStage : elements.uploadStage;
+        if (target && typeof target.scrollIntoView === 'function') {
+            target.scrollIntoView({
+                behavior: typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+                block: 'start'
+            });
+        }
+    }
+
+    function scrollToComparisonResults() {
+        if (!elements.results || typeof elements.results.scrollIntoView !== 'function') return;
+        elements.results.scrollIntoView({
+            behavior: typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+            block: 'start'
+        });
+    }
+
+    function validateUploadColumns(key, text) {
+        const parsed = engine.parseCsv(text);
+        const aggregate = key === 'metaText' ? engine.aggregateMeta(parsed) : engine.aggregatePrisma(parsed);
+        const sourceLabel = key === 'metaText' ? 'Meta export' : 'Prisma export';
+        const errors = [...(aggregate.errors || [])];
+        if (!parsed.rows.length) errors.push(`${sourceLabel} has no data rows.`);
+        return errors;
+    }
+
+    function renderColumnCheck(key, errors, hasFile = true) {
+        const check = key === 'metaText' ? elements.metaColumnCheck : elements.prismaColumnCheck;
+        const card = check.closest('.file-card');
+        const ready = hasFile && !errors.length;
+        const missingColumns = new Set();
+        const markMissing = (column, text) => {
+            if (errors.some(error => error.includes(text))) missingColumns.add(column);
+        };
+        if (key === 'metaText') {
+            markMissing('accountId', 'missing Account ID');
+            markMissing('campaignId', 'missing Campaign ID');
+            markMissing('spend', 'missing Amount spent');
+            markMissing('month', 'missing Month or Reporting starts');
+        } else {
+            markMissing('accountId', 'missing Partner account id');
+            markMissing('campaignId', 'missing Partner line id');
+            markMissing('month', 'missing Period');
+            markMissing('planned', 'missing PLANNED_AMOUNT/Gross Amount');
+        }
+        card.querySelectorAll('[data-required-column]').forEach(chip => {
+            const found = hasFile && !missingColumns.has(chip.dataset.requiredColumn);
+            chip.classList.toggle('is-found', found);
+            if (found) chip.setAttribute('aria-label', `${chip.textContent.trim()}: found in report`);
+            else chip.removeAttribute('aria-label');
+        });
+        state.uploadValidity[key] = ready;
+        check.textContent = !hasFile || ready ? '' : `Needs attention: ${errors.join(' ')}`;
+        check.classList.toggle('is-ready', ready);
+        check.classList.toggle('is-error', hasFile && !ready);
+        card.classList.toggle('has-column-error', hasFile && !ready);
+        updateUploadReadiness();
+    }
+
     async function loadFile(file, key, labelId, dropZone, removeButton) {
         if (!file) return;
         const isCsv = file.type === 'text/csv' || /\.csv$/i.test(file.name || '');
@@ -189,6 +321,7 @@
         byId(labelId).textContent = `${file.name}, ${(file.size / 1024).toFixed(1)} KB`;
         dropZone.classList.add('has-file');
         removeButton.classList.remove('hidden');
+        renderColumnCheck(key, validateUploadColumns(key, state[key]));
         resetReport();
         renderMessages([]);
         if (key === 'metaText') await importMetaReference();
@@ -245,6 +378,7 @@
             byId(labelId).textContent = 'No file selected';
             dropZone.classList.remove('has-file', 'is-dragging');
             removeButton.classList.add('hidden');
+            renderColumnCheck(key, [], false);
             if (key === 'metaText') {
                 if (state.metaReference && state.metaReference.accounts.length) renderAccountOptions(state.metaReference.accounts);
                 else {
@@ -254,6 +388,7 @@
             }
             resetReport();
             renderMessages([]);
+            setWorkflowStage('upload');
         });
     }
 
@@ -368,6 +503,19 @@
         if (state.report) renderReport();
     }
 
+    function applyUniqueAccountMappingSuggestions() {
+        const scopes = state.prismaReference?.clientProducts || [];
+        let changed = false;
+        state.metaAccounts.forEach(account => {
+            if (state.accountMappings[account.id]) return;
+            const choices = scopes.filter(scope => scope.accountIds?.includes(account.id));
+            if (choices.length !== 1) return;
+            state.accountMappings[account.id] = { client: choices[0].client || '', product: choices[0].product || '' };
+            changed = true;
+        });
+        if (changed) writeLocalStorage({ [ACCOUNT_MAPPING_STORAGE_KEY]: state.accountMappings }).catch(error => setStatus(elements.prismaScopeStatus, error.message, 'error'));
+    }
+
     async function restoreAccountMappings() {
         try {
             const stored = await readLocalStorage(ACCOUNT_MAPPING_STORAGE_KEY);
@@ -445,6 +593,7 @@
             renderMessages(extracted.errors);
             return;
         }
+        applyUniqueAccountMappingSuggestions();
         renderPrismaScope();
     }
 
@@ -516,23 +665,33 @@
         try {
             const client = await createMetaClient();
             const records = [];
+            const accountSummaries = [];
             for (let index = 0; index < accountIds.length; index++) {
                 const account = state.metaAccounts.find(item => item.id === accountIds[index]) || { id: accountIds[index], name: accountIds[index] };
                 activeAccount = account;
-                setStatus(elements.metaApiStatus, `Getting dates, delivery status, budget and spend from ${account.name} (${index + 1} of ${accountIds.length})…`, 'loading');
+                setStatus(elements.metaApiStatus, `Getting account settings, ad-set schedules, budgets, delivery and daily spend from ${account.name} (${index + 1} of ${accountIds.length})…`, 'loading');
                 const sync = await client.syncAccount(account, startDate, endDate);
                 records.push(...sync.records);
+                accountSummaries.push({
+                    accountId: account.id,
+                    accountName: account.name,
+                    campaigns: sync.campaigns.length,
+                    adSets: sync.adSets.length,
+                    campaignMonthRows: sync.records.length,
+                    currency: sync.account?.currency || '',
+                    timezone: sync.account?.timezone_name || ''
+                });
                 state.metaReference = metaApi.mergeReferenceData(state.metaReference, account, sync);
             }
             await writeLocalStorage({ [META_REFERENCE_STORAGE_KEY]: state.metaReference });
             state.metaAccounts = state.metaReference.accounts.sort((left, right) => left.name.localeCompare(right.name));
             state.metaText = metaApi.reportToMetaCsv(records);
             state.metaTextSource = 'api';
-            state.apiSync = { accountCount: accountIds.length, startDate, endDate, syncedAt: new Date().toISOString() };
+            state.apiSync = { accountCount: accountIds.length, startDate, endDate, syncedAt: new Date().toISOString(), accountSummaries };
             saveAccountScope();
             resetReport();
             elements.clearMetaApiData.classList.remove('hidden');
-            setStatus(elements.metaApiStatus, `${records.length} campaign-month row${records.length === 1 ? '' : 's'} ready to compare.`, 'ready');
+            setStatus(elements.metaApiStatus, `${records.length} enriched campaign-month row${records.length === 1 ? '' : 's'} ready to compare.`, 'ready');
             syncComplete = true;
             renderReferenceStatus();
             renderMessages([]);
@@ -565,28 +724,217 @@
         return Array.from(elements.accountOptions.querySelectorAll('input:checked')).map(input => input.value);
     }
 
+    function diagnosticRecords(text, accountIds, startDate, endDate) {
+        if (!text) return [];
+        const aggregate = engine.aggregateMeta(engine.parseCsv(text));
+        if (aggregate.errors?.length) return [];
+        const scope = new Set(accountIds);
+        const startMonth = String(startDate || '').slice(0, 7);
+        const endMonth = String(endDate || '').slice(0, 7);
+        return aggregate.records.filter(record => {
+            const month = record.month && !Number.isNaN(record.month.getTime()) ? record.month.toISOString().slice(0, 7) : '';
+            return (!scope.size || scope.has(record.accountId)) && (!startMonth || month >= startMonth) && (!endMonth || month <= endMonth);
+        });
+    }
+
+    function diagnosticPercent(count, total) {
+        return total ? `${Math.round((count / total) * 100)}%` : 'Not available';
+    }
+
+    function uploadedReportingRange(text, accountIds) {
+        const parsed = engine.parseCsv(text);
+        const columns = engine.resolveColumns(parsed.headers, {
+            accountId: ['account id', 'account_id'],
+            start: ['reporting starts', 'report start'],
+            end: ['reporting ends', 'report end']
+        });
+        if (!columns.start || !columns.end) return null;
+        const scope = new Set(accountIds);
+        const starts = [];
+        const ends = [];
+        parsed.rows.forEach(row => {
+            const accountId = columns.accountId ? String(row[columns.accountId] || '').trim().replace(/\.0$/, '') : '';
+            if (scope.size && accountId && !scope.has(accountId)) return;
+            const start = engine.parseDate(row[columns.start]);
+            const end = engine.parseDate(row[columns.end]);
+            if (start) starts.push(start.toISOString().slice(0, 10));
+            if (end) ends.push(end.toISOString().slice(0, 10));
+        });
+        starts.sort();
+        ends.sort();
+        return starts.length && ends.length ? { startDate: starts[0], endDate: ends[ends.length - 1] } : null;
+    }
+
+    function buildDataDiagnostics() {
+        if (!state.uploadedMetaText) return { available: false, message: 'Upload a Meta Ads Report first. It supplies the account scope and the baseline needed for this check.' };
+        if (state.metaTextSource !== 'api' || !state.apiSync) return { available: false, message: 'The comparison is using the uploaded Meta Ads Report. Refresh the selected Meta accounts, then compare bookings again to check the upload against live API data.' };
+
+        const accountIds = selectedAccountIds();
+        const uploaded = diagnosticRecords(state.uploadedMetaText, accountIds, state.apiSync.startDate, state.apiSync.endDate);
+        const api = diagnosticRecords(state.metaText, accountIds, state.apiSync.startDate, state.apiSync.endDate);
+        const uploadedRange = uploadedReportingRange(state.uploadedMetaText, accountIds);
+        const uploadedByKey = new Map(uploaded.map(record => [record.key, record]));
+        const apiByKey = new Map(api.map(record => [record.key, record]));
+        const keys = new Set([...uploadedByKey.keys(), ...apiByKey.keys()]);
+        const differences = [];
+        let exactMatches = 0;
+        let uploadedOnly = 0;
+        let apiOnly = 0;
+        let changedSpend = 0;
+        keys.forEach(key => {
+            const reportRecord = uploadedByKey.get(key);
+            const apiRecord = apiByKey.get(key);
+            const reportSpend = reportRecord ? reportRecord.spend : null;
+            const apiSpend = apiRecord ? apiRecord.spend : null;
+            const variance = (apiSpend || 0) - (reportSpend || 0);
+            let result = 'Spend differs';
+            if (!reportRecord) { apiOnly++; result = 'API only'; }
+            else if (!apiRecord) { uploadedOnly++; result = 'Upload only'; }
+            else if (Math.abs(variance) <= 0.01) { exactMatches++; result = 'Matches'; }
+            else changedSpend++;
+            if (result !== 'Matches') {
+                const record = apiRecord || reportRecord;
+                differences.push({
+                    account: record.account || record.accountId,
+                    campaignName: record.campaignName || 'Name not supplied',
+                    campaignId: record.campaignId,
+                    month: record.month.toISOString().slice(0, 7),
+                    reportSpend,
+                    apiSpend,
+                    variance,
+                    currency: apiRecord?.currency || reportRecord?.currency || '',
+                    result
+                });
+            }
+        });
+        differences.sort((left, right) => Math.abs(right.variance) - Math.abs(left.variance));
+        const sum = records => records.reduce((total, record) => total + record.spend, 0);
+        const currencies = [...new Set([...uploaded, ...api].map(record => record.currency || ''))];
+        const currencyTotals = currencies.map(currencyCode => {
+            const recordsFor = records => records.filter(record => (record.currency || '') === currencyCode);
+            const uploadedTotal = sum(recordsFor(uploaded));
+            const apiTotal = sum(recordsFor(api));
+            return { currency: currencyCode, uploadedSpend: uploadedTotal, apiSpend: apiTotal, variance: apiTotal - uploadedTotal };
+        });
+        return {
+            available: true,
+            uploadedRows: uploaded.length,
+            apiRows: api.length,
+            uploadedSpend: sum(uploaded),
+            apiSpend: sum(api),
+            exactMatches,
+            uploadedOnly,
+            apiOnly,
+            changedSpend,
+            differences,
+            apiRecords: api,
+            accountSummaries: state.apiSync.accountSummaries || [],
+            accountCount: state.apiSync.accountCount,
+            startDate: state.apiSync.startDate,
+            endDate: state.apiSync.endDate,
+            syncedAt: state.apiSync.syncedAt,
+            uploadedRange,
+            rangeMatches: Boolean(uploadedRange && uploadedRange.startDate === state.apiSync.startDate && uploadedRange.endDate === state.apiSync.endDate),
+            currencyTotals
+        };
+    }
+
+    function renderDataDiagnostics() {
+        const diagnostics = buildDataDiagnostics();
+        if (!diagnostics.available) {
+            elements.dataDiagnosticsBadge.textContent = 'Upload only';
+            elements.dataDiagnosticsBadge.className = 'diagnostics-badge';
+            elements.dataDiagnosticsContent.innerHTML = `<div class="diagnostics-empty"><strong>Comparison not available yet</strong><span>${escapeHtml(diagnostics.message)}</span></div>`;
+            return;
+        }
+        const differenceCount = diagnostics.uploadedOnly + diagnostics.apiOnly + diagnostics.changedSpend;
+        const totalApiRows = diagnostics.apiRecords.length;
+        const startCoverage = diagnostics.apiRecords.filter(record => record.start).length;
+        const endCoverage = diagnostics.apiRecords.filter(record => record.end).length;
+        const statusCoverage = diagnostics.apiRecords.filter(record => record.status).length;
+        const budgetCoverage = diagnostics.apiRecords.filter(record => record.budget !== null).length;
+        const adSetDateCoverage = diagnostics.apiRecords.filter(record => /ad set/i.test(record.scheduleSource || '') && record.start && record.end).length;
+        const adSetStatusCoverage = diagnostics.apiRecords.filter(record => record.adSetStatus).length;
+        const budgetRemainingCoverage = diagnostics.apiRecords.filter(record => record.budgetRemaining !== null).length;
+        const updatedCoverage = diagnostics.apiRecords.filter(record => record.updatedTime).length;
+        const deliveryCoverage = diagnostics.apiRecords.filter(record => record.impressions !== null && record.impressions !== undefined).length;
+        const dailySpendCoverage = diagnostics.apiRecords.filter(record => record.dailySpend?.length).length;
+        const accountSettingsCoverage = diagnostics.apiRecords.filter(record => record.currency && record.timezone).length;
+        const uploadedRangeLabel = diagnostics.uploadedRange ? `${diagnostics.uploadedRange.startDate} to ${diagnostics.uploadedRange.endDate}` : 'Not available in the uploaded report';
+        const scopeWarning = diagnostics.rangeMatches
+            ? ''
+            : `<div class="diagnostics-scope-warning"><strong>Check the reporting dates</strong><span>The API covers ${escapeHtml(`${diagnostics.startDate} to ${diagnostics.endDate}`)}, while the uploaded report covers ${escapeHtml(uploadedRangeLabel)}. Spend differences are not like-for-like until those dates match.</span></div>`;
+        const summaryRows = diagnostics.accountSummaries.map(account => `<tr><td>${escapeHtml(account.accountName)}</td><td class="campaign-id">${escapeHtml(account.accountId)}</td><td>${escapeHtml(account.currency || 'Not supplied')}</td><td>${escapeHtml(account.timezone || 'Not supplied')}</td><td class="number">${account.campaigns}</td><td class="number">${account.adSets}</td><td class="number">${account.campaignMonthRows}</td></tr>`).join('');
+        const differenceRows = diagnostics.differences.slice(0, 100).map(row => `<tr><td>${escapeHtml(row.result)}</td><td>${escapeHtml(row.account)}</td><td>${escapeHtml(row.campaignName)}<span class="minor">${escapeHtml(row.campaignId)}</span></td><td>${escapeHtml(row.month)}</td><td class="number">${escapeHtml(currency(row.reportSpend, row.currency))}</td><td class="number">${escapeHtml(currency(row.apiSpend, row.currency))}</td><td class="number">${escapeHtml(currency(row.variance, row.currency))}</td></tr>`).join('');
+        const diagnosticTotal = key => diagnostics.currencyTotals.map(total => currency(total[key], total.currency)).join(' · ');
+        const needsReview = differenceCount || !diagnostics.rangeMatches;
+        elements.dataDiagnosticsBadge.textContent = needsReview ? 'Review source' : 'High confidence';
+        elements.dataDiagnosticsBadge.className = `diagnostics-badge ${needsReview ? 'has-differences' : 'is-matched'}`;
+        elements.dataDiagnosticsContent.innerHTML = `
+            <div class="diagnostics-intro"><div><strong>Compared on Account ID, Campaign ID and month</strong><span>${escapeHtml(`${diagnostics.accountCount} selected account${diagnostics.accountCount === 1 ? '' : 's'}, ${diagnostics.startDate} to ${diagnostics.endDate}. Spend matches allow a 0.01 rounding difference in the account currency.`)}</span></div><button id="downloadDataDiagnostics" class="secondary-action" type="button">Download check CSV</button></div>
+            ${scopeWarning}
+            <div class="diagnostics-metrics" aria-label="Data source comparison totals">
+                <div><span>Uploaded report</span><strong>${diagnostics.uploadedRows} rows</strong><small>${escapeHtml(diagnosticTotal('uploadedSpend'))} spend</small></div>
+                <div><span>Meta API</span><strong>${diagnostics.apiRows} rows</strong><small>${escapeHtml(diagnosticTotal('apiSpend'))} spend</small></div>
+                <div><span>Exact matches</span><strong>${diagnostics.exactMatches}</strong><small>Campaign-month rows</small></div>
+                <div><span>Spend variance</span><strong>${escapeHtml(diagnosticTotal('variance'))}</strong><small>API minus uploaded</small></div>
+            </div>
+            <div class="diagnostics-grid">
+                <section><h3>What the API supplied</h3><p>Account currency and timezone; campaign and ad-set schedules, status, budgets and update times; daily and monthly spend; impressions and reach.</p><dl><div><dt>Ad-set dates</dt><dd>${diagnosticPercent(adSetDateCoverage, totalApiRows)}</dd></div><div><dt>Ad-set status</dt><dd>${diagnosticPercent(adSetStatusCoverage, totalApiRows)}</dd></div><div><dt>Budget remaining</dt><dd>${diagnosticPercent(budgetRemainingCoverage, totalApiRows)}</dd></div><div><dt>Update time</dt><dd>${diagnosticPercent(updatedCoverage, totalApiRows)}</dd></div><div><dt>Daily spend</dt><dd>${diagnosticPercent(dailySpendCoverage, totalApiRows)}</dd></div><div><dt>Delivery indicators</dt><dd>${diagnosticPercent(deliveryCoverage, totalApiRows)}</dd></div><div><dt>Currency and timezone</dt><dd>${diagnosticPercent(accountSettingsCoverage, totalApiRows)}</dd></div><div><dt>Any schedule</dt><dd>${diagnosticPercent(Math.min(startCoverage, endCoverage), totalApiRows)}</dd></div><div><dt>Campaign status</dt><dd>${diagnosticPercent(statusCoverage, totalApiRows)}</dd></div><div><dt>Comparable budget</dt><dd>${diagnosticPercent(budgetCoverage, totalApiRows)}</dd></div></dl></section>
+                <section><h3>How each source is used</h3><p><strong>Meta upload:</strong> establishes the allowed account scope and supplies fallback campaign-month spend. <strong>Meta API:</strong> replaces those Meta rows after a successful refresh and supplies live operational context. <strong>Prisma:</strong> supplies Partner account/line IDs, booked values, currency, Buy/Placement references, flight dates, placement details and workflow evidence.</p><p class="diagnostics-note">Spend-to-booked findings compare Meta spend with Prisma planned amount only when their currencies agree. Budgets explain setup and remaining capacity; they are not treated as a monthly booking value.</p></section>
+            </div>
+            <section class="diagnostics-table-section"><h3>API refresh activity</h3><div class="table-frame"><table><thead><tr><th>Account</th><th>Account ID</th><th>Currency</th><th>Timezone</th><th class="number">Campaigns</th><th class="number">Ad sets</th><th class="number">Campaign-month rows</th></tr></thead><tbody>${summaryRows}</tbody></table></div></section>
+            <section class="diagnostics-table-section"><h3>Source differences</h3>${differenceRows ? `<p>Showing up to 100 rows with a missing source or spend difference.</p><div class="table-frame"><table><thead><tr><th>Result</th><th>Account</th><th>Campaign</th><th>Month</th><th class="number">Uploaded spend</th><th class="number">API spend</th><th class="number">Variance</th></tr></thead><tbody>${differenceRows}</tbody></table></div>` : '<div class="diagnostics-success">Every campaign-month row and spend value matches for this scope.</div>'}</section>`;
+    }
+
+    function downloadDataDiagnostics() {
+        const diagnostics = buildDataDiagnostics();
+        if (!diagnostics.available) return;
+        const headers = ['Result', 'Account', 'Campaign name', 'Campaign ID', 'Month', 'Account currency', 'Uploaded spend', 'API spend', 'Variance'];
+        const rows = diagnostics.differences.map(row => [row.result, row.account, row.campaignName, row.campaignId, row.month, row.currency, row.reportSpend, row.apiSpend, row.variance]);
+        const csv = [headers.join(','), ...rows.map(row => row.map(csvEscape).join(','))].join('\r\n');
+        downloadCsv(`social_booking_checker_data_source_check_${diagnostics.startDate}_${diagnostics.endDate}.csv`, csv);
+    }
+
     function renderMessages(errors) {
         elements.validationMessages.innerHTML = errors.map(error => `<div class="message">${escapeHtml(error)}</div>`).join('');
     }
 
     function renderSummary(summary) {
         const varianceClass = summary.variance > 0 ? 'is-positive' : summary.variance < 0 ? 'is-negative' : '';
+        const totals = Array.isArray(summary.currencyTotals) && summary.currencyTotals.length
+            ? summary.currencyTotals
+            : [{ currency: summary.currency || '', metaBudget: summary.metaBudget, metaSpend: summary.metaSpend, prismaPlanned: summary.prismaPlanned, variance: summary.variance }];
+        const financialValue = key => totals.map(total => currency(total[key], total.currency)).join(' · ');
         elements.financialHeadline.innerHTML = [
-            ['Meta budget', currency(summary.metaBudget)],
-            ['Meta spend', currency(summary.metaSpend)],
-            ['Prisma booked', currency(summary.prismaPlanned)],
-            ['Variance', currency(summary.variance), `variance ${varianceClass}`]
+            ['Meta budget', financialValue('metaBudget')],
+            ['Meta spend', financialValue('metaSpend')],
+            ['Prisma booked', financialValue('prismaPlanned')],
+            ['Variance', financialValue('variance'), `variance ${summary.mixedCurrencies ? '' : varianceClass}`]
         ].map(([label, value, className = '']) => `<article class="financial-total ${className}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`).join('');
-        const cards = [
-            ['Campaign-month rows', summary.total],
-            ['Missing / unlinked', summary.missingOrUnlinked, 'alert'],
-            ['Need an update', summary.needsUpdate, 'update'],
-            ['Monitor', summary.monitor],
-            ['Investigate', summary.investigate],
-            ['Outside report scope', summary.outsideScope],
-            ['Unmatched Meta spend', currency(summary.unmatchedSpend), 'alert', summary.unmatchedSpend > 0 || Object.keys(state.manualMatches).length]
-        ];
-        elements.summaryCards.innerHTML = cards.map(([label, value, className = '', isAction = false]) => `<article class="summary-card ${className}${isAction ? ' is-action is-monetary' : ''}">${evidenceTooltip(label, '', true)}<strong>${escapeHtml(value)}</strong>${isAction ? '<button class="summary-card-action" type="button" data-open-manual-match="true" aria-haspopup="dialog">Click To Match</button>' : ''}</article>`).join('');
+        const actionCount = summary.missingOrUnlinked + summary.needsUpdate + summary.investigate;
+        const headline = actionCount
+            ? `Review ${actionCount} item${actionCount === 1 ? '' : 's'} before sharing`
+            : 'No actions need review';
+        const supporting = actionCount
+            ? 'The action queue prioritises report coverage, missing bookings, booking updates, and items that still need investigation.'
+            : 'The selected accounts and months have no missing, update, or investigation actions.';
+        const hasUnmatchedSpend = summary.unmatchedSpend > 0 || Object.keys(state.manualMatches).length;
+        const actionButton = hasUnmatchedSpend
+            ? '<button type="button" data-open-manual-match="true" aria-haspopup="dialog">Match unmatched spend</button>'
+            : `<button type="button" data-scroll-actions="true">${actionCount ? 'Open action queue' : 'View action queue'}</button>`;
+        elements.summaryCards.innerHTML = `<div class="action-headline-copy"><strong>${escapeHtml(headline)}</strong><span>${escapeHtml(supporting)}</span></div>${actionButton}`;
+        const counts = {
+            'Missing/unlinked': summary.missingOrUnlinked,
+            'Needs update': summary.needsUpdate,
+            Monitor: summary.monitor,
+            Investigate: summary.investigate,
+            'Outside scope': summary.outsideScope,
+            Matched: summary.matched ?? Math.max(0, summary.total - summary.missingOrUnlinked - summary.needsUpdate - summary.monitor - summary.investigate - summary.outsideScope)
+        };
+        document.querySelectorAll('[data-evidence-total]').forEach(element => {
+            element.textContent = `(${counts[element.dataset.evidenceTotal] || 0})`;
+        });
     }
 
     function monthFilteredRows() {
@@ -691,32 +1039,33 @@
 
     function renderClientBreakdown() {
         const groups = new Map();
-        const ensureGroup = (client, product) => {
+        const ensureGroup = (client, product, currencyCode) => {
             const normalizedClient = client || 'Unmapped Meta accounts';
             const normalizedProduct = product || 'Map this account to a Prisma client/product';
-            const key = `${normalizedClient}\u0000${normalizedProduct}`;
-            if (!groups.has(key)) groups.set(key, { client: normalizedClient, product: normalizedProduct, accounts: new Set(), metaSpend: 0, prismaPlanned: 0 });
+            const normalizedCurrency = currencyCode || '';
+            const key = `${normalizedClient}\u0000${normalizedProduct}\u0000${normalizedCurrency}`;
+            if (!groups.has(key)) groups.set(key, { client: normalizedClient, product: normalizedProduct, currency: normalizedCurrency, accounts: new Set(), metaSpend: 0, prismaPlanned: 0 });
             return groups.get(key);
         };
         accountFilteredRows().forEach(row => {
             const mapping = state.accountMappings[row.accountId] || {};
             if (row.metaSpend !== null && row.metaSpend !== undefined) {
-                const group = ensureGroup(mapping.client, mapping.product);
+                const group = ensureGroup(mapping.client, mapping.product, row.currency);
                 group.accounts.add(row.account || row.accountId);
                 group.metaSpend += Number(row.metaSpend) || 0;
             }
             if (row.prismaPlanned !== null && row.prismaPlanned !== undefined) {
-                const group = ensureGroup(row.prismaClient || mapping.client, row.prismaProduct || mapping.product);
+                const group = ensureGroup(row.prismaClient || mapping.client, row.prismaProduct || mapping.product, row.currency);
                 group.prismaPlanned += Number(row.prismaPlanned) || 0;
             }
         });
         const groupsSorted = [...groups.values()].sort((left, right) => `${left.client}|${left.product}`.localeCompare(`${right.client}|${right.product}`));
         state.clientBreakdownRows = sortTableRows(groupsSorted.map(group => ({ ...group, accounts: [...group.accounts].join(', ') || 'None', variance: group.metaSpend - group.prismaPlanned })), state.clientSort);
         renderSortableHeader(elements.clientBreakdownHeader, [
-            { label: 'Client', key: 'client' }, { label: 'Product', key: 'product' }, { label: 'Mapped Meta accounts', key: 'accounts' },
+            { label: 'Client', key: 'client' }, { label: 'Product', key: 'product' }, { label: 'Currency', key: 'currency' }, { label: 'Mapped Meta accounts', key: 'accounts' },
             { label: 'Meta spend', key: 'metaSpend', number: true }, { label: 'Prisma booked', key: 'prismaPlanned', number: true }, { label: 'Variance', key: 'variance', number: true }
         ], state.clientSort, 'client');
-        elements.clientBreakdownBody.innerHTML = state.clientBreakdownRows.map(group => `<tr><td>${escapeHtml(group.client)}</td><td>${escapeHtml(group.product)}</td><td>${escapeHtml(group.accounts)}</td><td class="number">${escapeHtml(currency(group.metaSpend))}</td><td class="number">${escapeHtml(currency(group.prismaPlanned))}</td><td class="number">${escapeHtml(currency(group.variance))}</td></tr>`).join('');
+        elements.clientBreakdownBody.innerHTML = state.clientBreakdownRows.map(group => `<tr><td>${escapeHtml(group.client)}</td><td>${escapeHtml(group.product)}</td><td>${escapeHtml(group.currency || 'Not supplied')}</td><td>${escapeHtml(group.accounts)}</td><td class="number">${escapeHtml(currency(group.metaSpend, group.currency))}</td><td class="number">${escapeHtml(currency(group.prismaPlanned, group.currency))}</td><td class="number">${escapeHtml(currency(group.variance, group.currency))}</td></tr>`).join('');
     }
 
     function candidateSummary(row) {
@@ -724,12 +1073,14 @@
         if (!candidate) return 'No credible Prisma candidate';
         const campaign = candidate.campaignName || 'Campaign name not supplied';
         const lineId = candidate.campaignId ? `Partner line ID ${candidate.campaignId}` : 'Partner line ID missing';
-        return `${candidate.level}, ${candidate.score}%: ${campaign}; ${lineId}; ${currency(candidate.planned)} booked`;
+        return `${candidate.level}, ${candidate.score}%: ${campaign}; ${lineId}; ${currency(candidate.planned, candidate.currency || prismaCurrencyFor(row))} booked`;
     }
 
     function supportingEvidence(row) {
         const placementEvidence = (row.prismaPlacementNames || []).map(name => `Prisma placement: ${name}`);
-        return [...(row.issues || []), ...placementEvidence];
+        const placementNumbers = (row.prismaPlacementNumbers || []).map(number => `Prisma Placement number: ${number}`);
+        const buyNumbers = (row.prismaBuyNumbers || []).map(number => `Prisma Buy number: ${number}`);
+        return [...(row.issues || []), ...placementEvidence, ...placementNumbers, ...buyNumbers];
     }
 
     function socialActionRows() {
@@ -802,7 +1153,7 @@
             const wrikeCell = needsWrike
                 ? `<input class="wrike-input" type="text" value="${escapeHtml(row.wrike)}" data-wrike-meta-key="${escapeHtml(row.metaKey)}" placeholder="Wrike link or reference" aria-label="Wrike reference for ${escapeHtml(row.campaignName || row.campaignId)}">${row.wrike ? '' : '<span class="minor wrike-needed">Required before booking</span>'}`
                 : escapeHtml(row.wrike || 'Not required for this action');
-            return `<tr><td>${escapeHtml(row.client)}<span class="minor">${escapeHtml(row.product)}</span></td><td>${escapeHtml(row.account)}<span class="minor">ID ${escapeHtml(row.accountId)}</span></td><td>${escapeHtml(row.campaignName || 'Name not supplied')}<span class="minor campaign-id">${escapeHtml(row.campaignId)}</span></td><td>${escapeHtml(row.month)}</td><td class="number">${escapeHtml(currency(row.metaSpend))}</td><td>${wrikeCell}</td><td><span class="action-label">${escapeHtml(row.action)}</span><span class="action-reason">${escapeHtml(row.actionReason)}</span></td><td>${escapeHtml(row.candidateSummary)}</td></tr>`;
+            return `<tr><td>${escapeHtml(row.client)}<span class="minor">${escapeHtml(row.product)}</span></td><td>${escapeHtml(row.account)}<span class="minor">ID ${escapeHtml(row.accountId)}</span></td><td>${escapeHtml(row.campaignName || 'Name not supplied')}<span class="minor campaign-id">${escapeHtml(row.campaignId)}</span></td><td>${escapeHtml(row.month)}</td><td class="number">${escapeHtml(currency(row.metaSpend, row.currency))}</td><td>${wrikeCell}</td><td><span class="action-label">${escapeHtml(row.action)}</span><span class="action-reason">${escapeHtml(row.actionReason)}</span></td><td>${escapeHtml(row.candidateSummary)}</td></tr>`;
         }).join('') : '<tr><td class="action-empty" colspan="8">No Social actions match the current month, account, and action filters.</td></tr>';
     }
 
@@ -815,8 +1166,12 @@
     }
 
     function socialActionCsv(rows) {
-        const headers = ['Client', 'Product', 'Meta account', 'Account ID', 'Campaign name', 'Campaign ID', 'Month', 'Meta spend', 'Wrike reference', 'Recommended action', 'Reason', 'Possible Prisma match'];
-        return [headers.join(','), ...rows.map(row => [row.client, row.product, row.account, row.accountId, row.campaignName, row.campaignId, row.month, row.metaSpend, row.wrike, row.action, row.actionReason, row.candidateSummary].map(csvEscape).join(','))].join('\r\n');
+        const headers = ['Client', 'Product', 'Meta account', 'Account ID', 'Campaign name', 'Campaign ID', 'Month', 'Meta currency', 'Prisma currency', 'Meta spend', 'Meta impressions', 'Meta reach', 'Meta last delivery', 'Meta updated time', 'Meta budget remaining', 'Prisma Placement number(s)', 'Prisma Buy number(s)', 'Wrike reference', 'Recommended action', 'Reason', 'Supporting evidence', 'Possible Prisma match'];
+        return [headers.join(','), ...rows.map(row => [
+            row.client, row.product, row.account, row.accountId, row.campaignName, row.campaignId, row.month, metaCurrencyFor(row), prismaCurrencyFor(row), row.metaSpend,
+            row.metaImpressions, row.metaReach, row.metaLastDelivery, row.metaUpdatedTime, row.metaBudgetRemaining, (row.prismaPlacementNumbers || []).join('; '), (row.prismaBuyNumbers || []).join('; '),
+            row.wrike, row.action, row.actionReason, supportingEvidence(row).join('; '), row.candidateSummary
+        ].map(csvEscape).join(','))].join('\r\n');
     }
 
     function downloadSocialActions() {
@@ -824,8 +1179,10 @@
     }
 
     function socialActionShareText(rows) {
-        const spend = rows.reduce((sum, row) => sum + (Number(row.metaSpend) || 0), 0);
-        const heading = `Social booking actions: ${rows.length} campaign${rows.length === 1 ? '' : 's'}, ${currency(spend)} Meta spend`;
+        const byCurrency = new Map();
+        rows.forEach(row => byCurrency.set(row.currency || '', (byCurrency.get(row.currency || '') || 0) + (Number(row.metaSpend) || 0)));
+        const spendLabel = [...byCurrency].map(([code, spend]) => currency(spend, code)).join(' · ');
+        const heading = `Social booking actions: ${rows.length} campaign${rows.length === 1 ? '' : 's'}, ${spendLabel} Meta spend`;
         const details = rows.map(row => `- ${row.client} / ${row.product}: ${row.campaignName || row.campaignId} (${row.month}) | ${row.action} | Wrike: ${row.wrike || 'needed'}`);
         return [heading, ...details].join('\n');
     }
@@ -870,7 +1227,10 @@
                 campaignId: candidate.campaignId,
                 campaignName: candidate.campaignName,
                 placementNames: candidate.prismaPlacementNames || [],
+                placementNumbers: candidate.prismaPlacementNumbers || [],
+                buyNumbers: candidate.prismaBuyNumbers || [],
                 planned: candidate.prismaPlanned,
+                currency: prismaCurrencyFor(candidate),
                 score: null,
                 level: 'Available campaign',
                 reasons: []
@@ -880,13 +1240,13 @@
             const choices = candidates.map((candidate, candidateIndex) => {
                 const rejected = (state.candidateRejections[row.metaKey] || []).includes(candidate.key);
                 const placementNames = candidate.placementNames || [];
-                const details = [candidate.campaignId ? `Partner line ID ${candidate.campaignId}` : 'Partner line ID missing', placementNames.length ? `Placement: ${placementNames.join(' | ')}` : '', `${currency(candidate.planned)} booked`, ...(candidate.reasons || [])].filter(Boolean).join('; ');
+                const details = [candidate.campaignId ? `Partner line ID ${candidate.campaignId}` : 'Partner line ID missing', placementNames.length ? `Placement: ${placementNames.join(' | ')}` : '', candidate.placementNumbers?.length ? `Placement number: ${candidate.placementNumbers.join(' | ')}` : '', candidate.buyNumbers?.length ? `Buy number: ${candidate.buyNumbers.join(' | ')}` : '', `${currency(candidate.planned, candidate.currency || prismaCurrencyFor(row))} booked`, ...(candidate.reasons || [])].filter(Boolean).join('; ');
                 const searchText = `${candidate.campaignName || ''} ${placementNames.join(' ')} ${candidate.campaignId || ''} ${candidate.client || ''} ${candidate.product || ''} ${candidate.planned || ''}`.toLowerCase();
                 return `<div class="candidate-choice" data-candidate-choice data-candidate-default-hidden="${candidateIndex > 2}" data-candidate-search-text="${escapeHtml(searchText)}"${candidateIndex > 2 ? ' hidden' : ''}><input type="radio" name="match-${rowIndex}" value="${escapeHtml(candidate.prismaKey)}" data-manual-meta-key="${escapeHtml(row.metaKey)}" ${candidate.prismaKey ? '' : 'disabled'} aria-label="Confirm ${escapeHtml(candidate.campaignName || 'Prisma candidate')}"><div><strong>${escapeHtml(candidate.campaignName || 'Campaign name not supplied')}</strong><small>${escapeHtml(details)}</small><label class="candidate-reject"><input type="checkbox" data-reject-meta-key="${escapeHtml(row.metaKey)}" data-reject-candidate-key="${escapeHtml(candidate.key)}" ${rejected ? 'checked' : ''}>Not the same campaign</label></div><span class="candidate-score">${candidate.score === null ? escapeHtml(candidate.level) : `${escapeHtml(candidate.score)}%`}</span></div>`;
             }).join('');
             const candidateLabel = `${candidates.length} eligible unlinked Prisma campaign${candidates.length === 1 ? '' : 's'} in this Meta account and month`;
             const noCandidates = '<span class="candidate-none candidate-empty">No eligible unlinked Prisma campaign is available for this Meta account and month. Existing Prisma campaigns are already linked, or this report has no other booking in scope. Client/product mapping only improves ranking; it does not hide candidates.</span>';
-            return `<tr><td>${escapeHtml(row.account)}<span class="minor">ID ${escapeHtml(row.accountId)}</span></td><td>${escapeHtml(row.campaignName || 'Name not supplied')}</td><td><span class="campaign-id">${escapeHtml(row.campaignId)}</span>${row.month ? `<span class="minor">${escapeHtml(row.month)}</span>` : ''}</td><td class="number">${escapeHtml(currency(row.metaSpend))}</td><td><div class="candidate-stack"><label class="candidate-none"><input type="radio" name="match-${rowIndex}" value="" data-manual-meta-key="${escapeHtml(row.metaKey)}" checked>Leave unmatched</label>${choices ? `<label class="candidate-search">Search eligible Prisma campaigns<input type="search" data-candidate-search placeholder="Campaign name, Partner line ID, client or product" aria-label="Search eligible Prisma campaigns for ${escapeHtml(row.campaignName || row.campaignId)}"><small data-candidate-search-results>${escapeHtml(candidateLabel)}</small></label>${choices}` : noCandidates}</div></td></tr>`;
+            return `<tr><td>${escapeHtml(row.account)}<span class="minor">ID ${escapeHtml(row.accountId)}</span></td><td>${escapeHtml(row.campaignName || 'Name not supplied')}</td><td><span class="campaign-id">${escapeHtml(row.campaignId)}</span>${row.month ? `<span class="minor">${escapeHtml(row.month)}</span>` : ''}</td><td class="number">${escapeHtml(currency(row.metaSpend, row.currency))}</td><td><div class="candidate-stack"><label class="candidate-none"><input type="radio" name="match-${rowIndex}" value="" data-manual-meta-key="${escapeHtml(row.metaKey)}" checked>Leave unmatched</label>${choices ? `<label class="candidate-search">Search eligible Prisma campaigns<input type="search" data-candidate-search placeholder="Campaign name, Partner line ID, client or product" aria-label="Search eligible Prisma campaigns for ${escapeHtml(row.campaignName || row.campaignId)}"><small data-candidate-search-results>${escapeHtml(candidateLabel)}</small></label>${choices}` : noCandidates}</div></td></tr>`;
         }).join('');
         const hasDecisions = Object.keys(state.manualMatches).length > 0 || Object.values(state.candidateRejections).some(values => values?.length);
         elements.clearManualMatches.classList.toggle('hidden', !hasDecisions);
@@ -967,8 +1327,37 @@
         return Number.isFinite(saved) ? Math.min(720, Math.max(96, saved)) : column.width;
     }
 
+    function campaignColumnClass(key) {
+        return `campaign-column-${String(key || '').replace(/[^a-z0-9_-]/gi, '-')}`;
+    }
+
+    function campaignColumnStyleSheet() {
+        return Array.from(document.styleSheets).find(sheet => {
+            try {
+                return Array.from(sheet.cssRules || []).some(rule => rule.selectorText === '#campaignTable col.campaign-column-evidence');
+            } catch (_) {
+                return false;
+            }
+        }) || null;
+    }
+
+    function applyCampaignColumnWidth(key, width) {
+        const sheet = campaignColumnStyleSheet();
+        if (!sheet) return;
+        const selector = `#campaignTable col.${campaignColumnClass(key)}`;
+        try {
+            const index = Array.from(sheet.cssRules).findIndex(rule => rule.selectorText === selector);
+            if (index < 0) return;
+            sheet.deleteRule(index);
+            sheet.insertRule(`${selector}{width:${width}px}`, index);
+        } catch (_) {
+            // The browser keeps the safe stylesheet default if CSSOM updates are unavailable.
+        }
+    }
+
     function renderCampaignColumns(columns) {
-        elements.campaignColumnGroup.innerHTML = columns.map(column => `<col data-campaign-column="${escapeHtml(column.key)}" style="width:${campaignColumnWidth(column)}px">`).join('');
+        elements.campaignColumnGroup.innerHTML = columns.map(column => `<col data-campaign-column="${escapeHtml(column.key)}" class="${campaignColumnClass(column.key)}">`).join('');
+        columns.forEach(column => applyCampaignColumnWidth(column.key, campaignColumnWidth(column)));
     }
 
     function saveCampaignColumnWidths() {
@@ -977,19 +1366,19 @@
 
     function setCampaignColumnWidth(key, width) {
         state.campaignColumnWidths[key] = Math.min(720, Math.max(96, Math.round(width)));
-        const column = elements.campaignColumnGroup.querySelector(`[data-campaign-column="${key}"]`);
-        if (column) column.style.width = `${state.campaignColumnWidths[key]}px`;
+        applyCampaignColumnWidth(key, state.campaignColumnWidths[key]);
     }
 
-    function bindCampaignColumnResizers() {
+    function bindCampaignColumnResizers(columns) {
         elements.reportHeader.querySelectorAll('[data-column-resize]').forEach(handle => {
             const key = handle.dataset.columnResize;
             const column = elements.campaignColumnGroup.querySelector(`[data-campaign-column="${key}"]`);
+            const configuredColumn = columns.find(item => item.key === key) || { key, width: 160 };
             if (!column) return;
             handle.addEventListener('pointerdown', event => {
                 event.preventDefault();
                 const startX = event.clientX;
-                const startWidth = Number.parseInt(column.style.width, 10) || column.getBoundingClientRect().width || campaignColumnWidth({ key, width: 160 });
+                const startWidth = Number(state.campaignColumnWidths[key]) || column.getBoundingClientRect().width || campaignColumnWidth(configuredColumn);
                 const move = moveEvent => setCampaignColumnWidth(key, startWidth + moveEvent.clientX - startX);
                 const stop = () => {
                     document.removeEventListener('pointermove', move);
@@ -1005,7 +1394,7 @@
                 if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
                 event.preventDefault();
                 const direction = event.key === 'ArrowRight' ? 1 : -1;
-                const currentWidth = Number.parseInt(column.style.width, 10) || campaignColumnWidth({ key, width: 160 });
+                const currentWidth = Number(state.campaignColumnWidths[key]) || campaignColumnWidth(configuredColumn);
                 setCampaignColumnWidth(key, currentWidth + (direction * 20));
                 saveCampaignColumnWidths();
             });
@@ -1020,7 +1409,7 @@
         renderCampaignColumns(columns);
         elements.reportHeader.innerHTML = `<tr>${columns.map(column => `<th class="${column.number ? 'number' : ''}"${column.sortable ? ` data-sort-key="${column.key}"` : ''}>${column.sortable ? `<button class="sort-button" type="button" data-sort="${column.key}">${escapeHtml(column.label)} <span aria-hidden="true"></span></button>` : escapeHtml(column.label)}<span class="column-resizer" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Resize ${escapeHtml(column.label)} column" data-column-resize="${escapeHtml(column.key)}"></span></th>`).join('')}</tr>`;
         elements.reportHeader.querySelectorAll('.sort-button[data-sort]').forEach(button => button.addEventListener('click', () => toggleSort(button.dataset.sort)));
-        bindCampaignColumnResizers();
+        bindCampaignColumnResizers(columns);
         elements.reportBody.innerHTML = rows.map(row => `
             <tr>
                 <td>${evidenceTooltip(row.evidence, `evidence-pill ${evidenceClass(row.evidence)}`)}</td>
@@ -1028,9 +1417,9 @@
                 <td>${escapeHtml(row.campaignName || 'Name not supplied')}</td>
                 <td><span class="campaign-id">${escapeHtml(row.campaignId)}</span></td>
                 ${showMonth ? `<td>${escapeHtml(row.month)}</td>` : ''}
-                <td class="number">${escapeHtml(currency(row.metaSpend))}</td>
-                <td class="number">${escapeHtml(currency(row.prismaPlanned))}</td>
-                <td class="number">${escapeHtml(currency(row.variance))}</td>
+                <td class="number">${escapeHtml(currency(row.metaSpend, metaCurrencyFor(row)))}</td>
+                <td class="number">${escapeHtml(currency(row.prismaPlanned, prismaCurrencyFor(row)))}</td>
+                <td class="number">${row.currencyMismatch ? 'Not comparable' : escapeHtml(currency(row.variance, metaCurrencyFor(row)))}</td>
                 <td><strong>${escapeHtml(row.classification)}</strong><span class="minor">${escapeHtml(row.owner || 'Owner not supplied')}</span></td>
                     <td>${supportingEvidence(row).map(issue => escapeHtml(issue)).join('<br>') || 'No secondary issues'}</td>
             </tr>`).join('');
@@ -1102,12 +1491,15 @@
         elements.metaDataSource.classList.toggle('is-live', Boolean(usingApi));
         elements.metaDataSource.textContent = usingApi
             ? `Using live Meta API data for ${state.apiSync.accountCount} selected account${state.apiSync.accountCount === 1 ? '' : 's'}, ${state.apiSync.startDate} to ${state.apiSync.endDate}.`
-            : 'Using the uploaded Meta Ads Report. Refresh selected Meta accounts to update campaign dates, delivery status, budgets, ad sets, and spend through the Meta API.';
+            : 'Using the uploaded Meta Ads Report. Refresh selected Meta accounts to add account currency and timezone, ad-set schedules, statuses and budgets, daily spend, update times, impressions, reach, and current monthly spend.';
         populateMonthFilters(report.rows);
         populateAccountFilter(report.rows);
         elements.coverageWarnings.innerHTML = report.warnings.map(warning => `<span class="coverage-warning">${escapeHtml(warning)}</span>`).join('');
         elements.results.classList.remove('hidden');
         renderReport();
+        renderDataDiagnostics();
+        setWorkflowStage('compare');
+        scrollToComparisonResults();
     }
 
     function downloadReport() {
@@ -1132,8 +1524,8 @@
     }
 
     function downloadClientBreakdown() {
-        const headers = ['Client', 'Product', 'Mapped Meta accounts', 'Meta spend', 'Prisma booked', 'Variance'];
-        const csv = [headers.join(','), ...(state.clientBreakdownRows || []).map(row => [row.client, row.product, row.accounts, row.metaSpend, row.prismaPlanned, row.variance].map(csvEscape).join(','))].join('\r\n');
+        const headers = ['Client', 'Product', 'Currency', 'Mapped Meta accounts', 'Meta spend', 'Prisma booked', 'Variance'];
+        const csv = [headers.join(','), ...(state.clientBreakdownRows || []).map(row => [row.client, row.product, row.currency, row.accounts, row.metaSpend, row.prismaPlanned, row.variance].map(csvEscape).join(','))].join('\r\n');
         downloadCsv(`social_booking_checker_client_breakdown_${elements.asOfDate.value || 'report'}.csv`, csv);
     }
 
@@ -1158,11 +1550,11 @@
         const campaignRows = filteredRows();
         const showMonth = new Set(accountFilteredRows().map(row => row.month).filter(Boolean)).size > 1;
         const headings = isClient
-            ? [{ label: 'Client' }, { label: 'Product' }, { label: 'Mapped Meta accounts' }, { label: 'Meta spend', number: true }, { label: 'Prisma booked', number: true }, { label: 'Variance', number: true }]
+            ? [{ label: 'Client' }, { label: 'Product' }, { label: 'Currency' }, { label: 'Mapped Meta accounts' }, { label: 'Meta spend', number: true }, { label: 'Prisma booked', number: true }, { label: 'Variance', number: true }]
             : [{ label: 'Evidence' }, { label: 'Account' }, { label: 'Campaign name' }, { label: 'Campaign ID' }, ...(showMonth ? [{ label: 'Month' }] : []), { label: 'Meta spend', number: true }, { label: 'Prisma booked', number: true }, { label: 'Variance', number: true }, { label: 'Finding' }];
         const rows = isClient
-            ? clientRows.map(row => [row.client, row.product, row.accounts, currency(row.metaSpend), currency(row.prismaPlanned), currency(row.variance)])
-            : campaignRows.map(row => [row.evidence, row.account, row.campaignName || 'Name not supplied', row.campaignId, ...(showMonth ? [row.month] : []), currency(row.metaSpend), currency(row.prismaPlanned), currency(row.variance), row.classification]);
+            ? clientRows.map(row => [row.client, row.product, row.currency || 'Not supplied', row.accounts, currency(row.metaSpend, row.currency), currency(row.prismaPlanned, row.currency), currency(row.variance, row.currency)])
+            : campaignRows.map(row => [row.evidence, row.account, row.campaignName || 'Name not supplied', row.campaignId, ...(showMonth ? [row.month] : []), currency(row.metaSpend, row.currency), currency(row.prismaPlanned, row.currency), currency(row.variance, row.currency), row.classification]);
         const popup = window.open('', '_blank');
         if (!popup) return;
         popup.document.open();
@@ -1172,11 +1564,20 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        ['validationMessages', 'results', 'metaDataSource', 'financialHeadline', 'summaryCards', 'coverageWarnings', 'populationCoverage', 'socialActionList', 'socialActionHeader', 'socialActionBody', 'socialActionFilter', 'socialActionSearch', 'socialActionCount', 'socialActionStatus', 'copySocialActions', 'downloadSocialActions', 'clientBreakdown', 'clientBreakdownHeader', 'clientBreakdownBody', 'campaignBreakdown', 'campaignColumnGroup', 'reportSearch', 'monthFromFilter', 'monthToFilter', 'visibleCount', 'reportHeader', 'reportBody', 'asOfDate', 'tolerance', 'closedWorkingDay', 'accountScopePanel', 'accountOptions', 'prismaScopePanel', 'prismaScopeStatus', 'prismaScopeComparison', 'matchedScopeAccounts', 'accountMappingOptions', 'metaApiPanel', 'metaAccessToken', 'saveMetaCredentials', 'metaCredentialStatus', 'removeMetaToken', 'metaApiDatePreset', 'metaApiStartDate', 'metaApiEndDate', 'metaApiStatus', 'apiAccountActions', 'pullMetaData', 'clearMetaApiData', 'metaReferenceStatus', 'removeMetaReference', 'evidenceFilterOptions', 'evidenceFilterCount', 'accountFilterOptions', 'accountFilterCount', 'manualMatchModal', 'manualMatchStatus', 'manualMatchBody', 'closeManualMatch', 'cancelManualMatch', 'applyManualMatches', 'clearManualMatches'].forEach(id => { elements[id] = byId(id); });
+        ['validationMessages', 'results', 'uploadStage', 'scopeStage', 'continueToScope', 'uploadStageStatus', 'backToUploads', 'backToScope', 'dataConfidenceLink', 'metaDataSource', 'financialHeadline', 'summaryCards', 'coverageWarnings', 'populationCoverage', 'socialActionList', 'socialActionHeader', 'socialActionBody', 'socialActionFilter', 'socialActionSearch', 'socialActionCount', 'socialActionStatus', 'copySocialActions', 'downloadSocialActions', 'clientBreakdown', 'clientBreakdownHeader', 'clientBreakdownBody', 'campaignBreakdown', 'campaignColumnGroup', 'reportSearch', 'monthFromFilter', 'monthToFilter', 'visibleCount', 'reportHeader', 'reportBody', 'asOfDate', 'tolerance', 'closedWorkingDay', 'accountScopePanel', 'accountOptions', 'prismaScopePanel', 'prismaScopeStatus', 'prismaScopeComparison', 'matchedScopeAccounts', 'accountMappingOptions', 'metaApiPanel', 'metaAccessToken', 'saveMetaCredentials', 'metaCredentialStatus', 'removeMetaToken', 'metaApiDatePreset', 'metaApiStartDate', 'metaApiEndDate', 'metaApiStatus', 'apiAccountActions', 'pullMetaData', 'clearMetaApiData', 'metaReferenceStatus', 'removeMetaReference', 'evidenceFilterOptions', 'evidenceFilterCount', 'accountFilterOptions', 'accountFilterCount', 'manualMatchModal', 'manualMatchStatus', 'manualMatchBody', 'closeManualMatch', 'cancelManualMatch', 'applyManualMatches', 'clearManualMatches', 'dataDiagnostics', 'dataDiagnosticsBadge', 'dataDiagnosticsContent', 'metaColumnCheck', 'prismaColumnCheck', 'metaAdsReportingLink'].forEach(id => { elements[id] = byId(id); });
         elements.asOfDate.value = new Date().toISOString().slice(0, 10);
         applyDatePreset();
         setupFileUpload('metaFile', 'metaDropZone', 'removeMetaFile', 'metaText', 'metaFileName');
         setupFileUpload('prismaFile', 'prismaDropZone', 'removePrismaFile', 'prismaText', 'prismaFileName');
+        elements.continueToScope.addEventListener('click', () => setWorkflowStage('scope'));
+        elements.backToUploads.addEventListener('click', () => setWorkflowStage('upload'));
+        elements.backToScope.addEventListener('click', () => setWorkflowStage('scope'));
+        document.querySelector('.workflow-progress').addEventListener('click', event => {
+            const button = event.target.closest('.workflow-step-button');
+            if (!button || button.disabled) return;
+            navigateWorkflowStage(button.closest('[data-workflow-progress]').dataset.workflowProgress);
+        });
+        elements.dataConfidenceLink.addEventListener('click', () => { elements.dataDiagnostics.open = true; });
         elements.saveMetaCredentials.addEventListener('click', saveMetaCredentials);
         elements.removeMetaToken.addEventListener('click', removeMetaCredential);
         elements.metaAccessToken.addEventListener('focus', clearSavedTokenMask);
@@ -1187,6 +1588,10 @@
         byId('runComparison').addEventListener('click', runComparison);
         byId('downloadReport').addEventListener('click', downloadReport);
         elements.results.addEventListener('click', event => {
+            if (event.target.closest('#downloadDataDiagnostics')) {
+                downloadDataDiagnostics();
+                return;
+            }
             const download = event.target.closest('[data-download-breakdown]');
             const expand = event.target.closest('[data-expand-breakdown]');
             const open = event.target.closest('[data-open-breakdown]');
@@ -1221,7 +1626,14 @@
             state.showMatchedScopeAccounts = !state.showMatchedScopeAccounts;
             renderPrismaScope();
         });
-        elements.summaryCards.addEventListener('click', event => { if (event.target.closest('[data-open-manual-match]')) openManualMatch(); });
+        elements.summaryCards.addEventListener('click', event => {
+            if (event.target.closest('[data-open-manual-match]')) {
+                openManualMatch();
+                return;
+            }
+            if (!event.target.closest('[data-scroll-actions]')) return;
+            elements.socialActionList.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+        });
         elements.manualMatchBody.addEventListener('input', event => {
             const input = event.target.closest('input[data-candidate-search]');
             if (!input) return;
@@ -1279,6 +1691,9 @@
         }));
         elements.reportSearch.addEventListener('input', renderRows);
         updateFilterCounts();
+        updateUploadReadiness();
+        setWorkflowStage('upload');
+        updateMetaAdsReportingLink();
         renderCredentialStatus();
         restoreMetaReference();
         restoreAccountMappings();

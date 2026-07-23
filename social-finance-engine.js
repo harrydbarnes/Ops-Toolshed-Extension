@@ -11,13 +11,39 @@
         month: ['month', 'reporting month'],
         reportingStart: ['reporting starts', 'report start'],
         spend: ['amount spent (gbp)', 'amount spent', 'spend'],
+        currency: ['account currency', 'currency'],
+        timezone: ['account timezone', 'timezone'],
+        timezoneOffset: ['account timezone offset', 'timezone offset'],
         budget: ['campaign budget', 'ad set budget', 'budget'],
         budgetType: ['campaign budget type', 'budget type'],
+        budgetLevel: ['budget level'],
+        budgetSource: ['budget source'],
+        budgetRemaining: ['budget remaining'],
+        adSetBudget: ['ad set budget total', 'ad set budget'],
+        adSetBudgetType: ['ad set budget type'],
+        budgetSharing: ['ad set budget sharing enabled', 'budget sharing enabled'],
+        budgetSchedule: ['budget schedule enabled'],
         status: ['delivery', 'delivery status', 'effective status', 'status'],
-        start: ['campaign start', 'campaign start date', 'ad set start', 'ad set start date', 'scheduled start', 'starts'],
-        end: ['campaign end', 'campaign end date', 'ad set end', 'ad set end date', 'scheduled end', 'ends'],
+        effectiveStatus: ['effective status', 'delivery', 'delivery status', 'status'],
+        configuredStatus: ['configured status'],
+        adSetStatus: ['ad set status', 'ad set statuses'],
+        start: ['ad set start', 'ad set start date', 'campaign start', 'campaign start date', 'scheduled start', 'starts'],
+        end: ['ad set end', 'ad set end date', 'campaign end', 'campaign end date', 'scheduled end', 'ends'],
+        campaignStart: ['campaign start', 'campaign start date'],
+        campaignEnd: ['campaign end', 'campaign end date'],
+        updatedTime: ['meta updated time', 'updated time'],
+        campaignUpdatedTime: ['campaign updated time'],
+        adSetUpdatedTime: ['ad set latest updated time', 'ad set updated time'],
+        impressions: ['impressions'],
+        reach: ['reach'],
+        dailySpend: ['daily spend by date', 'daily spend'],
+        activeSpendDays: ['active delivery days', 'active spend days'],
+        firstDelivery: ['first delivery date'],
+        lastDelivery: ['last delivery date'],
         adSetId: ['ad set id', 'adset id'],
-        adSetName: ['ad set name', 'adset name']
+        adSetName: ['ad set name', 'adset name'],
+        adSetCount: ['ad set count'],
+        activeAdSetCount: ['active ad set count']
     };
 
     const PRISMA_ALIASES = {
@@ -27,6 +53,9 @@
         planned: ['planned_amount', 'planned amount', 'gross amount', 'gross planned amount'],
         campaignName: ['campaign name', 'plan name', 'order name'],
         placementName: ['placement name', 'prisma placement name'],
+        placementNumber: ['placement number', 'placement id'],
+        buyNumber: ['buy number', 'buy no', 'd number'],
+        currency: ['currency code', 'currency'],
         client: ['client name', 'client'],
         product: ['product name', 'product'],
         partner: ['partner'],
@@ -37,7 +66,8 @@
         periodStatus: ['period status'],
         owner: ['placement creator', 'owner'],
         start: ['days in flight start date', 'placement start date', 'booked start date', 'start date'],
-        end: ['days in flight end date', 'flight end date', 'placement end date', 'booked end date', 'end date']
+        end: ['days in flight end date', 'flight end date', 'placement end date', 'booked end date', 'end date'],
+        updatedTime: ['placement updated time', 'booking updated time', 'last updated', 'updated time', 'updated date']
     };
 
     function parseCsv(text) {
@@ -118,8 +148,59 @@
         return Number.isFinite(number) ? number : null;
     }
 
+    function parseNumber(value) {
+        const number = Number(String(value ?? '').replace(/,/g, '').trim());
+        return Number.isFinite(number) ? number : null;
+    }
+
+    function parseBoolean(value) {
+        const normalized = String(value ?? '').trim().toLowerCase();
+        if (['true', 'yes', '1'].includes(normalized)) return true;
+        if (['false', 'no', '0'].includes(normalized)) return false;
+        return null;
+    }
+
+    function inferCurrency(columns) {
+        const header = String(columns.spend || '').toUpperCase();
+        const code = header.match(/\b(GBP|USD|EUR|AUD|CAD|JPY|CHF|NZD|SEK|NOK|DKK)\b/);
+        return code ? code[1] : '';
+    }
+
+    function parseDailySpend(value) {
+        if (Array.isArray(value)) return value;
+        const raw = String(value || '').trim();
+        if (!raw) return [];
+        try {
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (_) {
+            return raw.split('|').map(part => {
+                const [date, spend] = part.split(':');
+                return { date: String(date || '').trim(), spend: parseMoney(spend) || 0 };
+            }).filter(item => /^\d{4}-\d{2}-\d{2}$/.test(item.date));
+        }
+    }
+
+    function latestText(left, right) {
+        if (!left) return right || '';
+        if (!right) return left;
+        return String(left) > String(right) ? left : right;
+    }
+
     function toIsoDate(date) {
         return date && !Number.isNaN(date.getTime()) ? date.toISOString().slice(0, 10) : '';
+    }
+
+    function parseTimestamp(value) {
+        const raw = String(value ?? '').trim();
+        if (!raw) return null;
+        const timestamp = new Date(raw);
+        return Number.isNaN(timestamp.getTime()) ? null : timestamp;
+    }
+
+    function displayTimestamp(date) {
+        if (!date || Number.isNaN(date.getTime())) return '';
+        return date.toISOString().replace('.000Z', 'Z');
     }
 
     function parseDate(value, monthFirst = false) {
@@ -222,22 +303,81 @@
             const end = columns.end ? parseDate(row[columns.end]) : null;
             const existing = groups.get(key) || {
                 key, accountId, campaignId, month, account: '', campaignName: '', status: '', spend: 0,
-                budget: null, budgetRaw: '', budgetType: '', start: null, end: null, rows: 0, sourceRows: []
+                currency: '', timezone: '', timezoneOffset: '', effectiveStatus: '', configuredStatus: '', adSetStatus: '',
+                budget: null, budgetRaw: '', budgetType: '', budgetLevel: '', budgetSource: '', budgetRemaining: null,
+                adSetBudget: null, adSetBudgetType: '', budgetSharing: null, budgetSchedule: null,
+                start: null, end: null, scheduleSource: /ad set/i.test(columns.start || '') ? 'Meta ad-set schedule' : 'Meta campaign schedule', campaignStart: null, campaignEnd: null,
+                updatedTime: '', campaignUpdatedTime: '', adSetUpdatedTime: '',
+                impressions: 0, reach: 0, dailySpendMap: new Map(), activeSpendDays: 0,
+                firstDelivery: null, lastDelivery: null, adSetCount: 0, activeAdSetCount: 0,
+                rows: 0, sourceRows: []
             };
             existing.account ||= columns.account ? String(row[columns.account] || '').trim() : '';
             existing.campaignName ||= columns.campaignName ? String(row[columns.campaignName] || '').trim() : '';
             existing.status ||= columns.status ? String(row[columns.status] || '').trim() : '';
+            existing.currency ||= columns.currency ? String(row[columns.currency] || '').trim().toUpperCase() : inferCurrency(columns);
+            existing.timezone ||= columns.timezone ? String(row[columns.timezone] || '').trim() : '';
+            existing.timezoneOffset ||= columns.timezoneOffset ? String(row[columns.timezoneOffset] || '').trim() : '';
+            existing.effectiveStatus ||= columns.effectiveStatus ? String(row[columns.effectiveStatus] || '').trim() : '';
+            existing.configuredStatus ||= columns.configuredStatus ? String(row[columns.configuredStatus] || '').trim() : '';
+            existing.adSetStatus ||= columns.adSetStatus ? String(row[columns.adSetStatus] || '').trim() : '';
             existing.spend += spend;
             existing.budgetRaw ||= budgetRaw;
             existing.budgetType ||= budgetType;
+            existing.budgetLevel ||= columns.budgetLevel ? String(row[columns.budgetLevel] || '').trim() : '';
+            existing.budgetSource ||= columns.budgetSource ? String(row[columns.budgetSource] || '').trim() : '';
+            const remaining = columns.budgetRemaining ? parseMoney(row[columns.budgetRemaining]) : null;
+            if (remaining !== null) existing.budgetRemaining = existing.budgetRemaining === null ? remaining : Math.max(existing.budgetRemaining, remaining);
+            const adSetBudget = columns.adSetBudget ? parseMoney(row[columns.adSetBudget]) : null;
+            if (adSetBudget !== null) existing.adSetBudget = existing.adSetBudget === null ? adSetBudget : Math.max(existing.adSetBudget, adSetBudget);
+            existing.adSetBudgetType ||= columns.adSetBudgetType ? String(row[columns.adSetBudgetType] || '').trim() : '';
+            if (existing.budgetSharing === null && columns.budgetSharing) existing.budgetSharing = parseBoolean(row[columns.budgetSharing]);
+            if (existing.budgetSchedule === null && columns.budgetSchedule) existing.budgetSchedule = parseBoolean(row[columns.budgetSchedule]);
             if (budget !== null) existing.budget = existing.budget === null ? budget : Math.max(existing.budget, budget);
             if (start && (!existing.start || start < existing.start)) existing.start = start;
             if (end && (!existing.end || end > existing.end)) existing.end = end;
+            const campaignStart = columns.campaignStart ? parseDate(row[columns.campaignStart]) : null;
+            const campaignEnd = columns.campaignEnd ? parseDate(row[columns.campaignEnd]) : null;
+            if (campaignStart && (!existing.campaignStart || campaignStart < existing.campaignStart)) existing.campaignStart = campaignStart;
+            if (campaignEnd && (!existing.campaignEnd || campaignEnd > existing.campaignEnd)) existing.campaignEnd = campaignEnd;
+            existing.updatedTime = latestText(existing.updatedTime, columns.updatedTime ? String(row[columns.updatedTime] || '').trim() : '');
+            existing.campaignUpdatedTime = latestText(existing.campaignUpdatedTime, columns.campaignUpdatedTime ? String(row[columns.campaignUpdatedTime] || '').trim() : '');
+            existing.adSetUpdatedTime = latestText(existing.adSetUpdatedTime, columns.adSetUpdatedTime ? String(row[columns.adSetUpdatedTime] || '').trim() : '');
+            existing.impressions += columns.impressions ? (parseNumber(row[columns.impressions]) || 0) : 0;
+            const reach = columns.reach ? parseNumber(row[columns.reach]) : null;
+            if (reach !== null) existing.reach = Math.max(existing.reach, reach);
+            parseDailySpend(columns.dailySpend ? row[columns.dailySpend] : '').forEach(day => {
+                if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(String(day.date || ''))) return;
+                const current = existing.dailySpendMap.get(day.date) || { date: day.date, spend: 0, impressions: 0, reach: 0 };
+                current.spend += Number(day.spend || 0);
+                current.impressions += Number(day.impressions || 0);
+                current.reach = Math.max(current.reach, Number(day.reach || 0));
+                existing.dailySpendMap.set(day.date, current);
+            });
+            existing.activeSpendDays = Math.max(existing.activeSpendDays, columns.activeSpendDays ? (parseNumber(row[columns.activeSpendDays]) || 0) : 0);
+            const firstDelivery = columns.firstDelivery ? parseDate(row[columns.firstDelivery]) : null;
+            const lastDelivery = columns.lastDelivery ? parseDate(row[columns.lastDelivery]) : null;
+            if (firstDelivery && (!existing.firstDelivery || firstDelivery < existing.firstDelivery)) existing.firstDelivery = firstDelivery;
+            if (lastDelivery && (!existing.lastDelivery || lastDelivery > existing.lastDelivery)) existing.lastDelivery = lastDelivery;
+            existing.adSetCount = Math.max(existing.adSetCount, columns.adSetCount ? (parseNumber(row[columns.adSetCount]) || 0) : 0);
+            existing.activeAdSetCount = Math.max(existing.activeAdSetCount, columns.activeAdSetCount ? (parseNumber(row[columns.activeAdSetCount]) || 0) : 0);
             existing.rows++;
             existing.sourceRows.push(rowIndex + 2);
             groups.set(key, existing);
         });
-        return { columns, records: [...groups.values()], errors };
+        const records = [...groups.values()].map(record => {
+            const dailySpend = [...record.dailySpendMap.values()].sort((left, right) => left.date.localeCompare(right.date));
+            const deliveryDays = dailySpend.filter(day => day.spend > 0 || day.impressions > 0);
+            return {
+                ...record,
+                dailySpend,
+                activeSpendDays: record.activeSpendDays || deliveryDays.length,
+                firstDelivery: record.firstDelivery || (deliveryDays[0] ? parseDate(deliveryDays[0].date) : null),
+                lastDelivery: record.lastDelivery || (deliveryDays.at(-1) ? parseDate(deliveryDays.at(-1).date) : null),
+                dailySpendMap: undefined
+            };
+        });
+        return { columns, records, errors };
     }
 
     function extractMetaReferenceData(parsed) {
@@ -338,6 +478,9 @@
                 planned: parseMoney(row[columns.planned]) || 0,
                 campaignName: columns.campaignName ? String(row[columns.campaignName] || '').trim() : '',
                 placementName: columns.placementName ? String(row[columns.placementName] || '').trim() : '',
+                placementNumber: columns.placementNumber ? cleanId(row[columns.placementNumber]) : '',
+                buyNumber: columns.buyNumber ? cleanId(row[columns.buyNumber]) : '',
+                currency: columns.currency ? String(row[columns.currency] || '').trim().toUpperCase() : '',
                 client: columns.client ? String(row[columns.client] || '').trim() : '',
                 product: columns.product ? String(row[columns.product] || '').trim() : '',
                 orderStatus: columns.orderStatus ? String(row[columns.orderStatus] || '').trim() : '',
@@ -348,6 +491,7 @@
                 owner: columns.owner ? String(row[columns.owner] || '').trim() : '',
                 start: columns.start ? parseDate(row[columns.start], true) : null,
                 end: columns.end ? parseDate(row[columns.end], true) : null,
+                updatedTime: columns.updatedTime ? String(row[columns.updatedTime] || '').trim() : '',
                 sourceRow: rowIndex + 2
             };
             const usableAccount = usableId(accountId);
@@ -361,13 +505,24 @@
             }
             if (!month) return;
             const key = recordKey(accountId, campaignId, month);
+            const bookingIdentifier = normalized.placementNumber || normalized.buyNumber;
+            const bookingKey = bookingIdentifier ? `${normalized.placementNumber ? 'placement' : 'buy'}:${bookingIdentifier}|${toIsoDate(month).slice(0, 7)}` : '';
             const existing = groups.get(key) || {
                 key, accountId, campaignId, month, planned: 0, campaignName: '', placementNames: [], client: '', product: '', orderStatus: '', integratedStatus: '', deliveryStatus: '', flightStatus: '', periodStatus: '',
-                owner: '', partner: '', start: null, end: null, rows: 0, sourceRows: []
+                placementNumbers: [], buyNumbers: [], bookingKeys: [], bookingKeySet: new Set(), currency: '', currencies: [], owner: '', partner: '', start: null, end: null, updatedTime: '', rows: 0, sourceRows: []
             };
-            existing.planned += normalized.planned;
+            const isDuplicateBooking = Boolean(bookingKey && existing.bookingKeySet.has(bookingKey));
+            if (!isDuplicateBooking) existing.planned += normalized.planned;
             existing.campaignName ||= normalized.campaignName;
             if (normalized.placementName && !existing.placementNames.includes(normalized.placementName)) existing.placementNames.push(normalized.placementName);
+            if (normalized.placementNumber && !existing.placementNumbers.includes(normalized.placementNumber)) existing.placementNumbers.push(normalized.placementNumber);
+            if (normalized.buyNumber && !existing.buyNumbers.includes(normalized.buyNumber)) existing.buyNumbers.push(normalized.buyNumber);
+            if (bookingKey && !existing.bookingKeySet.has(bookingKey)) {
+                existing.bookingKeySet.add(bookingKey);
+                existing.bookingKeys.push(bookingKey);
+            }
+            if (normalized.currency && !existing.currencies.includes(normalized.currency)) existing.currencies.push(normalized.currency);
+            existing.currency ||= normalized.currency;
             existing.client ||= normalized.client;
             existing.product ||= normalized.product;
             existing.orderStatus ||= normalized.orderStatus;
@@ -379,11 +534,18 @@
             existing.partner ||= normalized.partner;
             if (normalized.start && (!existing.start || normalized.start < existing.start)) existing.start = normalized.start;
             if (normalized.end && (!existing.end || normalized.end > existing.end)) existing.end = normalized.end;
+            existing.updatedTime = latestText(existing.updatedTime, normalized.updatedTime);
             existing.rows++;
             existing.sourceRows.push(normalized.sourceRow);
             groups.set(key, existing);
         });
-        return { columns, records: [...groups.values()], allRows, unintegratedRows, errors };
+        return {
+            columns,
+            records: [...groups.values()].map(record => ({ ...record, bookingKeySet: undefined, currency: record.currencies.length === 1 ? record.currencies[0] : record.currency })),
+            allRows,
+            unintegratedRows,
+            errors
+        };
     }
 
     function referenceTokens(value) {
@@ -463,8 +625,12 @@
                 campaignId: row.campaignId || '',
                 campaignName: row.campaignName || '',
                 placementNames,
+                placementNumbers: row.placementNumbers || [],
+                buyNumbers: row.buyNumbers || [],
+                bookingKeys: row.bookingKeys || [],
                 client: row.client || '',
                 product: row.product || '',
+                currency: row.currency || '',
                 planned: row.planned,
                 owner: row.owner || '',
                 sourceRow: row.sourceRow || row.sourceRows?.[0] || null,
@@ -486,14 +652,36 @@
     function summarizeRows(rows) {
         const reportRows = rows || [];
         const campaignBudgets = new Map();
+        const currencyTotals = new Map();
+        const currencyBudgets = new Map();
+        let currencyMismatchCount = 0;
         reportRows.forEach(row => {
+            if (row.currencyMismatch) {
+                currencyMismatchCount++;
+                return;
+            }
+            const currency = row.currency || '';
+            if (!currencyTotals.has(currency)) currencyTotals.set(currency, { currency, metaBudget: 0, metaSpend: 0, prismaPlanned: 0 });
+            const currencyTotal = currencyTotals.get(currency);
+            currencyTotal.metaSpend += row.metaSpend || 0;
+            currencyTotal.prismaPlanned += row.prismaPlanned || 0;
             if (row.metaBudget === null || row.metaBudget === undefined || row.metaBudget === '') return;
             const key = `${row.accountId || ''}|${row.campaignId || ''}`;
             const budget = Number(row.metaBudget);
-            if (Number.isFinite(budget)) campaignBudgets.set(key, Math.max(campaignBudgets.get(key) || 0, budget));
+            if (Number.isFinite(budget)) {
+                campaignBudgets.set(key, Math.max(campaignBudgets.get(key) || 0, budget));
+                if (!currencyBudgets.has(currency)) currencyBudgets.set(currency, new Map());
+                const budgetMap = currencyBudgets.get(currency);
+                budgetMap.set(key, Math.max(budgetMap.get(key) || 0, budget));
+            }
         });
-        const metaSpend = reportRows.reduce((sum, row) => sum + (row.metaSpend || 0), 0);
-        const prismaPlanned = reportRows.reduce((sum, row) => sum + (row.prismaPlanned || 0), 0);
+        currencyTotals.forEach((total, currency) => {
+            total.metaBudget = [...(currencyBudgets.get(currency)?.values() || [])].reduce((sum, budget) => sum + budget, 0);
+        });
+        const comparableRows = reportRows.filter(row => !row.currencyMismatch);
+        const metaSpend = comparableRows.reduce((sum, row) => sum + (row.metaSpend || 0), 0);
+        const prismaPlanned = comparableRows.reduce((sum, row) => sum + (row.prismaPlanned || 0), 0);
+        const currencies = [...currencyTotals.keys()].filter(Boolean);
         return {
             total: reportRows.length,
             matched: reportRows.filter(row => row.evidence === 'Matched').length,
@@ -506,8 +694,38 @@
             metaBudget: [...campaignBudgets.values()].reduce((sum, budget) => sum + budget, 0),
             metaSpend,
             prismaPlanned,
-            variance: metaSpend - prismaPlanned
+            variance: metaSpend - prismaPlanned,
+            currency: currencies.length === 1 ? currencies[0] : '',
+            currencies,
+            mixedCurrencies: currencies.length > 1 || (currencyTotals.has('') && currencyTotals.size > 1),
+            currencyMismatchCount,
+            currencyTotals: [...currencyTotals.values()].map(total => ({ ...total, variance: total.metaSpend - total.prismaPlanned }))
         };
+    }
+
+    function dailySpendContext(record, asOfDate) {
+        const points = (record.dailySpend || []).filter(point => point.date && parseDate(point.date) <= asOfDate);
+        if (!points.length) return null;
+        const finalDate = parseDate(points.at(-1).date);
+        const windowStart = new Date(finalDate.getTime());
+        windowStart.setUTCDate(windowStart.getUTCDate() - 6);
+        const recentSpend = points.filter(point => {
+            const date = parseDate(point.date);
+            return date && date >= windowStart && date <= finalDate;
+        }).reduce((sum, point) => sum + Number(point.spend || 0), 0);
+        return {
+            days: points.filter(point => Number(point.spend || 0) > 0 || Number(point.impressions || 0) > 0).length,
+            lastDate: toIsoDate(finalDate),
+            sevenDayAverage: recentSpend / 7
+        };
+    }
+
+    function isInactiveMetaRecord(record) {
+        const statuses = [record.status, record.effectiveStatus, record.configuredStatus, record.adSetStatus]
+            .join(' ').toUpperCase();
+        return /\b(PAUSED|ARCHIVED|DELETED|CAMPAIGN_PAUSED|ADSET_PAUSED)\b/.test(statuses)
+            && !/\bACTIVE\b/.test(statuses)
+            && !(record.activeAdSetCount > 0);
     }
 
     function compare(metaParsed, prismaParsed, options = {}) {
@@ -615,50 +833,71 @@
                         issues.push(`${candidate.level}: ${candidate.score}% match score${candidate.reasons.length ? ` (${candidate.reasons.join('; ')})` : ''}`);
                     } else {
                         const missingLabel = populationConfirmed ? 'Missing from Prisma' : 'No linked Prisma booking found';
-                        classification = platform.spend > tolerance
-                            ? `${missingLabel}: spending`
-                            : `${missingLabel}: pre-flight`;
-                        evidence = 'Missing/unlinked';
+                        if (platform.spend <= tolerance && !(platform.impressions > 0) && isInactiveMetaRecord(platform)) {
+                            classification = 'No booking action: inactive in Meta with no delivery';
+                            evidence = 'Monitor';
+                        } else {
+                            classification = platform.spend > tolerance || platform.impressions > 0
+                                ? `${missingLabel}: delivered or spending`
+                                : `${missingLabel}: active or scheduled pre-flight`;
+                            evidence = 'Missing/unlinked';
+                        }
                     }
                 }
             } else {
-                const spendVariance = platform.spend - booking.planned;
+                const metaCurrency = platform.currency || '';
+                const prismaCurrency = booking.currency || '';
+                const currencyMismatch = Boolean(metaCurrency && prismaCurrency && metaCurrency !== prismaCurrency);
+                const spendVariance = currencyMismatch ? null : platform.spend - booking.planned;
                 const startVariance = daysBetween(platform.start, booking.start);
                 const endVariance = daysBetween(platform.end, booking.end);
                 const updateKinds = [];
                 const reviewKinds = [];
 
+                if (currencyMismatch) {
+                    classification = 'Currency check needed: Meta and Prisma differ';
+                    evidence = 'Investigate';
+                    issues.push(`Meta currency ${metaCurrency}; Prisma currency ${prismaCurrency}. Amounts are not compared or added together.`);
+                }
+
                 if (platform.start && booking.start && platform.start < booking.start) {
-                    issues.push('Meta starts before Prisma');
+                    issues.push(`${platform.scheduleSource || 'Meta schedule'} starts before Prisma`);
                     updateKinds.push('schedule');
                 } else if (startVariance !== null && startVariance !== 0) {
-                    issues.push(`Start date differs by ${startVariance} day(s)`);
+                    issues.push(`${platform.scheduleSource || 'Meta schedule'} start differs by ${startVariance} day(s)`);
                     reviewKinds.push('schedule');
                 }
                 if (platform.end && booking.end && platform.end > booking.end) {
-                    issues.push('Meta ends after Prisma');
+                    issues.push(`${platform.scheduleSource || 'Meta schedule'} ends after Prisma`);
                     updateKinds.push('schedule');
                 } else if (endVariance !== null && endVariance !== 0) {
-                    issues.push(`End date differs by ${endVariance} day(s)`);
+                    issues.push(`${platform.scheduleSource || 'Meta schedule'} end differs by ${endVariance} day(s)`);
                     reviewKinds.push('schedule');
                 }
 
-                if (spendVariance > tolerance) {
+                if (spendVariance !== null && spendVariance > tolerance) {
                     updateKinds.push('spend');
                     issues.push(`Meta spend exceeds Prisma booking by ${spendVariance.toFixed(2)}`);
-                } else if (spendVariance < -tolerance && monthClosed) {
+                } else if (spendVariance !== null && spendVariance < -tolerance && monthClosed) {
                     updateKinds.push('reconciliation');
                     issues.push(`Prisma booking exceeds closed-month Meta spend by ${Math.abs(spendVariance).toFixed(2)}`);
-                } else if (spendVariance < -tolerance) {
+                } else if (spendVariance !== null && spendVariance < -tolerance) {
                     reviewKinds.push('in-flight spend');
                     issues.push(`In-flight Meta spend is below Prisma booking by ${Math.abs(spendVariance).toFixed(2)}`);
                 }
 
                 if (platform.budget === null && platform.budgetRaw) issues.push(`Budget not comparable: ${platform.budgetRaw}`);
+                const metaUpdated = parseTimestamp(platform.updatedTime);
+                const prismaUpdated = parseTimestamp(booking.updatedTime);
+                if (metaUpdated && prismaUpdated && metaUpdated > prismaUpdated && (updateKinds.length || reviewKinds.length)) {
+                    issues.push(`Meta changed after the Prisma booking (${displayTimestamp(metaUpdated)} vs ${displayTimestamp(prismaUpdated)})`);
+                }
 
                 const uniqueUpdates = [...new Set(updateKinds)];
                 const uniqueReviews = [...new Set(reviewKinds)];
-                if (uniqueUpdates.length > 1) {
+                if (currencyMismatch) {
+                    // Date and workflow evidence remains useful, but monetary findings stay deliberately non-comparable.
+                } else if (uniqueUpdates.length > 1) {
                     classification = `Multiple updates needed: ${uniqueUpdates.join(' and ')} differ`;
                     evidence = 'Needs update';
                 } else if (uniqueUpdates[0] === 'schedule') {
@@ -690,6 +929,17 @@
                 if (manualBooking && evidence === 'Matched') classification = 'Matched manually: booking evidence valid';
             }
 
+            const dailyContext = dailySpendContext(platform, asOfDate);
+            if (dailyContext && (evidence === 'Monitor' || evidence === 'Needs update' || evidence === 'Investigate')) {
+                issues.push(`Daily Meta pace: ${dailyContext.days} delivery day(s); last 7 calendar days average ${dailyContext.sevenDayAverage.toFixed(2)} per day to ${dailyContext.lastDate}`);
+            }
+            if (evidence !== 'Matched' || platform.spend === 0) {
+                if (platform.impressions > 0) issues.push(`${Math.round(platform.impressions).toLocaleString('en-GB')} Meta impressions${platform.reach > 0 ? `; ${Math.round(platform.reach).toLocaleString('en-GB')} reach` : ''}`);
+                else if (meta.columns.impressions) issues.push('No Meta impressions in the selected reporting range');
+                if (platform.lastDelivery) issues.push(`Last Meta delivery ${toIsoDate(platform.lastDelivery)}`);
+                if (platform.budgetRemaining !== null && platform.budgetRemaining !== undefined) issues.push(`Meta budget remaining: ${Number(platform.budgetRemaining).toFixed(2)}${platform.budgetSource ? ` (${platform.budgetSource})` : ''}`);
+            }
+
             reportRows.push({
                 accountId: platform.accountId,
                 campaignId: platform.campaignId,
@@ -698,18 +948,49 @@
                 account: platform.account,
                 campaignName: platform.campaignName,
                 status: platform.status,
+                effectiveStatus: platform.effectiveStatus,
+                configuredStatus: platform.configuredStatus,
+                adSetStatus: platform.adSetStatus,
+                currency: platform.currency || booking?.currency || '',
+                metaCurrency: platform.currency || '',
+                prismaCurrency: booking?.currency || candidate?.currency || '',
+                currencyMismatch: Boolean(booking && platform.currency && booking.currency && platform.currency !== booking.currency),
+                timezone: platform.timezone,
+                timezoneOffset: platform.timezoneOffset,
                 metaSpend: platform.spend,
                 metaBudget: platform.budget,
                 metaBudgetType: platform.budgetType,
+                metaBudgetLevel: platform.budgetLevel,
+                metaBudgetSource: platform.budgetSource,
+                metaBudgetRemaining: platform.budgetRemaining,
+                metaAdSetBudget: platform.adSetBudget,
+                metaAdSetBudgetType: platform.adSetBudgetType,
+                metaBudgetSharing: platform.budgetSharing,
+                metaBudgetSchedule: platform.budgetSchedule,
+                metaImpressions: platform.impressions,
+                metaReach: platform.reach,
+                metaActiveSpendDays: platform.activeSpendDays,
+                metaFirstDelivery: toIsoDate(platform.firstDelivery),
+                metaLastDelivery: toIsoDate(platform.lastDelivery),
+                metaDailySpend: platform.dailySpend || [],
+                metaUpdatedTime: platform.updatedTime,
+                metaCampaignUpdatedTime: platform.campaignUpdatedTime,
+                metaAdSetUpdatedTime: platform.adSetUpdatedTime,
+                metaAdSetCount: platform.adSetCount,
+                metaActiveAdSetCount: platform.activeAdSetCount,
                 prismaPlanned: booking?.planned ?? null,
                 prismaClient: booking?.client || candidate?.client || '',
                 prismaProduct: booking?.product || candidate?.product || '',
                 prismaKey: booking?.key || '',
-                variance: booking ? platform.spend - booking.planned : platform.spend,
+                prismaBookingKeys: booking?.bookingKeys || [],
+                prismaPlacementNumbers: booking?.placementNumbers || [],
+                prismaBuyNumbers: booking?.buyNumbers || [],
+                variance: booking && !(platform.currency && booking.currency && platform.currency !== booking.currency) ? platform.spend - booking.planned : (booking ? null : platform.spend),
                 metaStart: toIsoDate(platform.start),
                 metaEnd: toIsoDate(platform.end),
                 prismaStart: toIsoDate(booking?.start),
                 prismaEnd: toIsoDate(booking?.end),
+                prismaUpdatedTime: booking?.updatedTime || '',
                 prismaOrderStatus: booking?.orderStatus || '',
                 prismaIntegratedStatus: booking?.integratedStatus || '',
                 prismaDeliveryStatus: booking?.deliveryStatus || '',
@@ -735,9 +1016,13 @@
                 accountId: booking.accountId, campaignId: booking.campaignId, month, account: booking.client,
                 metaKey: '', prismaKey: booking.key,
                 campaignName: booking.campaignName, status: '', metaSpend: null, metaBudget: null, metaBudgetType: '',
+                effectiveStatus: '', configuredStatus: '', adSetStatus: '', currency: booking.currency || '', metaCurrency: '', prismaCurrency: booking.currency || '', currencyMismatch: false, timezone: '', timezoneOffset: '',
+                metaBudgetLevel: '', metaBudgetSource: '', metaBudgetRemaining: null, metaAdSetBudget: null, metaAdSetBudgetType: '', metaBudgetSharing: null, metaBudgetSchedule: null,
+                metaImpressions: null, metaReach: null, metaActiveSpendDays: null, metaFirstDelivery: '', metaLastDelivery: '', metaDailySpend: [],
+                metaUpdatedTime: '', metaCampaignUpdatedTime: '', metaAdSetUpdatedTime: '', metaAdSetCount: null, metaActiveAdSetCount: null,
                 prismaPlanned: booking.planned, variance: -booking.planned,
-                prismaClient: booking.client, prismaProduct: booking.product,
-                metaStart: '', metaEnd: '', prismaStart: toIsoDate(booking.start), prismaEnd: toIsoDate(booking.end),
+                prismaClient: booking.client, prismaProduct: booking.product, prismaBookingKeys: booking.bookingKeys || [], prismaPlacementNumbers: booking.placementNumbers || [], prismaBuyNumbers: booking.buyNumbers || [],
+                metaStart: '', metaEnd: '', prismaStart: toIsoDate(booking.start), prismaEnd: toIsoDate(booking.end), prismaUpdatedTime: booking.updatedTime || '',
                 prismaOrderStatus: booking.orderStatus || '', prismaIntegratedStatus: booking.integratedStatus || '', prismaDeliveryStatus: booking.deliveryStatus || '', prismaFlightStatus: booking.flightStatus || '', prismaPeriodStatus: booking.periodStatus || '', prismaPlacementNames: booking.placementNames || [], prismaWorkflowIssues: prismaWorkflowIssues(booking),
                 classification: outsideMetaMonths ? 'Outside Meta reporting months' : 'Prisma booking absent from Meta population',
                 evidence: outsideMetaMonths ? 'Outside scope' : 'Investigate',
@@ -747,10 +1032,17 @@
 
         const summary = summarizeRows(reportRows);
         const warnings = [];
-        if (!meta.columns.start || !meta.columns.end) warnings.push('Meta campaign dates are unavailable; month coverage is checked instead. Sync through the Meta API or include campaign start and end columns in the report.');
+        if (!meta.columns.start || !meta.columns.end) warnings.push('Meta schedule dates are unavailable; month coverage is checked instead. Sync through the Meta API to use ad-set dates, or include schedule columns in the report.');
         if (!prisma.columns.start || !prisma.columns.end) warnings.push('Prisma booked start/end dates are unavailable; exact-day comparison cannot be completed.');
         if (!meta.columns.status) warnings.push('Meta delivery status is unavailable; £0 rows cannot be distinguished reliably as scheduled or inactive.');
-        if (meta.columns.budget) warnings.push('Meta campaign budget is context only; monthly findings compare Amount spent with Prisma PLANNED_AMOUNT.');
+        if (meta.columns.budget) warnings.push('Meta budget is context only; monthly findings compare Amount spent with Prisma PLANNED_AMOUNT. Budget level and source identify whether it belongs to the campaign or its ad sets.');
+        if (!meta.columns.currency && !metaRecords.some(record => record.currency)) warnings.push('Meta account currency is unavailable. Values are shown without assuming an account currency unless it can be inferred from the spend column heading.');
+        if (!prisma.columns.currency) warnings.push('Prisma Currency code is unavailable. Add it to the export so the checker can confirm Meta and Prisma amounts use the same currency.');
+        const currencies = [...new Set(metaRecords.map(record => record.currency).filter(Boolean))];
+        if (currencies.length > 1) warnings.push(`Selected Meta accounts use multiple currencies (${currencies.join(', ')}). Cross-account financial totals are separated by currency and must not be added together.`);
+        const currencyMismatches = reportRows.filter(row => row.currencyMismatch);
+        if (currencyMismatches.length) warnings.push(`${currencyMismatches.length} linked campaign-month row${currencyMismatches.length === 1 ? '' : 's'} use different Meta and Prisma currencies. Their amounts are kept separate and need a currency check before booking action.`);
+        if (meta.columns.updatedTime && !prisma.columns.updatedTime) warnings.push('Meta updated time is available, but the Prisma report has no booking updated time. The checker can show when Meta changed, but cannot confirm whether that change happened after the booking.');
         if (!coverage.isComplete) warnings.push(`Prisma report coverage is incomplete for ${coverageGaps.length} selected Meta account-month${coverageGaps.length === 1 ? '' : 's'}; missing campaigns are not yet definitive.`);
         if (prisma.unintegratedRows.length) warnings.push(`${prisma.unintegratedRows.length} Prisma row${prisma.unintegratedRows.length === 1 ? '' : 's'} have no usable Partner account ID or Partner line ID. They are retained as unintegrated booking evidence but cannot be linked automatically.`);
         const sourceAccounts = [...new Map(meta.records.map(record => [record.accountId, { id: record.accountId, name: record.account || record.accountId }])).values()]
@@ -769,19 +1061,34 @@
     function reportToCsv(rows) {
         const headers = [
             'Account ID', 'Meta account name', 'Campaign ID', 'Campaign name', 'Month', 'Meta delivery status',
-            'Meta spend', 'Meta campaign budget', 'Meta budget type', 'Prisma client', 'Prisma product', 'Prisma placement name(s)', 'Prisma booked', 'Variance',
-            'Meta campaign start', 'Meta campaign end', 'Prisma flight start', 'Prisma flight end',
+            'Meta effective status', 'Meta configured status', 'Meta ad set status', 'Account currency', 'Account timezone', 'Account timezone offset',
+            'Meta spend', 'Meta budget', 'Meta budget type', 'Meta budget level', 'Meta budget source', 'Meta budget remaining',
+            'Meta ad set budget', 'Meta ad set budget type', 'Meta ad set budget sharing', 'Meta budget schedule enabled',
+            'Meta impressions', 'Meta reach', 'Meta active delivery days', 'Meta first delivery', 'Meta last delivery', 'Meta daily spend',
+            'Meta updated time', 'Meta campaign updated time', 'Meta ad set updated time', 'Meta ad set count', 'Meta active ad set count',
+            'Meta currency', 'Prisma currency', 'Currency mismatch', 'Prisma client', 'Prisma product', 'Prisma placement name(s)', 'Prisma placement number(s)', 'Prisma Buy number(s)', 'Prisma booking key(s)', 'Prisma booked', 'Variance',
+            'Meta schedule start', 'Meta schedule end', 'Prisma flight start', 'Prisma flight end',
+            'Prisma booking updated time',
             'Prisma order status', 'Prisma integration status', 'Prisma delivery status', 'Prisma flight status', 'Prisma period status',
             'Finding', 'Evidence', 'Supporting evidence', 'Prisma workflow issues', 'Prisma placement creator', 'Candidate match score'
         ];
         const fields = [
             'accountId', 'account', 'campaignId', 'campaignName', 'month', 'status',
-            'metaSpend', 'metaBudget', 'metaBudgetType', 'prismaClient', 'prismaProduct', 'prismaPlacementNames', 'prismaPlanned', 'variance',
+            'effectiveStatus', 'configuredStatus', 'adSetStatus', 'currency', 'timezone', 'timezoneOffset',
+            'metaSpend', 'metaBudget', 'metaBudgetType', 'metaBudgetLevel', 'metaBudgetSource', 'metaBudgetRemaining',
+            'metaAdSetBudget', 'metaAdSetBudgetType', 'metaBudgetSharing', 'metaBudgetSchedule',
+            'metaImpressions', 'metaReach', 'metaActiveSpendDays', 'metaFirstDelivery', 'metaLastDelivery', 'metaDailySpend',
+            'metaUpdatedTime', 'metaCampaignUpdatedTime', 'metaAdSetUpdatedTime', 'metaAdSetCount', 'metaActiveAdSetCount',
+            'metaCurrency', 'prismaCurrency', 'currencyMismatch', 'prismaClient', 'prismaProduct', 'prismaPlacementNames', 'prismaPlacementNumbers', 'prismaBuyNumbers', 'prismaBookingKeys', 'prismaPlanned', 'variance',
             'metaStart', 'metaEnd', 'prismaStart', 'prismaEnd',
+            'prismaUpdatedTime',
             'prismaOrderStatus', 'prismaIntegratedStatus', 'prismaDeliveryStatus', 'prismaFlightStatus', 'prismaPeriodStatus',
             'classification', 'evidence', 'issues', 'prismaWorkflowIssues', 'owner', 'candidateScore'
         ];
-        const valueFor = (row, field) => Array.isArray(row[field]) ? row[field].join('; ') : row[field];
+        const valueFor = (row, field) => {
+            if (field === 'metaDailySpend') return (row[field] || []).map(day => `${day.date}:${day.spend}`).join('; ');
+            return Array.isArray(row[field]) ? row[field].join('; ') : row[field];
+        };
         return [headers.join(','), ...rows.map(row => fields.map(field => escapeCsv(valueFor(row, field))).join(','))].join('\r\n');
     }
 

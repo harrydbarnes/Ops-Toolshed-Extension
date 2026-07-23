@@ -38,16 +38,16 @@ function setup() {
 }
 
 describe('First-run onboarding', () => {
-    test('uses a five-step accessible tab flow', async () => {
+    test('uses a three-step sequential flow and presents recommended settings first', async () => {
         const { dom } = setup();
         await Promise.resolve();
 
-        const tabs = Array.from(dom.window.document.querySelectorAll('[role="tab"]'));
-        expect(tabs).toHaveLength(5);
-        expect(tabs[0].getAttribute('aria-selected')).toBe('true');
+        expect(dom.window.document.getElementById('progress-count').textContent).toBe('1 of 3');
+        expect(dom.window.document.querySelector('[data-page="0"] [data-setting="optimisedNewNavEnabled"]')).not.toBeNull();
+        expect(dom.window.document.querySelectorAll('[role="tab"]')).toHaveLength(0);
 
         dom.window.document.getElementById('next-step').click();
-        expect(tabs[1].getAttribute('aria-selected')).toBe('true');
+        expect(dom.window.document.getElementById('progress-count').textContent).toBe('2 of 3');
         expect(dom.window.document.querySelector('[data-page="1"]').hidden).toBe(false);
         dom.window.close();
     });
@@ -83,16 +83,16 @@ describe('First-run onboarding', () => {
         const { dom, local, chrome } = setup();
         await Promise.resolve();
 
-        const tabs = dom.window.document.querySelectorAll('[role="tab"]');
-        tabs[4].click();
+        dom.window.document.getElementById('next-step').click();
+        dom.window.document.getElementById('next-step').click();
         dom.window.document.getElementById('start-tour').click();
 
-        expect(chrome.sidePanel.setOptions).toHaveBeenCalledWith({ path: 'onboarding-tour.html', enabled: true });
+        expect(chrome.sidePanel.setOptions).toHaveBeenCalledWith({ path: 'onboarding-tour-v2.html', enabled: true });
         expect(chrome.sidePanel.open).toHaveBeenCalledWith({ windowId: -2 });
         expect(chrome.tabs.update).toHaveBeenCalledWith(expect.objectContaining({
             url: expect.stringContaining('groupmuk-prisma.mediaocean.com')
         }));
-        expect(local.store).toEqual(expect.objectContaining({ onboardingCompleted: true, onboardingTourActive: true }));
+        expect(local.store).toEqual(expect.objectContaining({ onboardingCompleted: true, onboardingTourActive: true, onboardingTourVersion: 'v2' }));
         dom.window.close();
     });
 });

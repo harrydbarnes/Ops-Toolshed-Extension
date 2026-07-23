@@ -19,6 +19,7 @@ describe('Social Booking Checker report uploads', () => {
         dom = new JSDOM(html, { runScripts: 'outside-only', url: 'https://extension.test/social-finance.html' });
         document = dom.window.document;
         const stored = {};
+        dom.window.__storedExtensionData = stored;
         dom.window.chrome = {
             runtime: {},
             storage: { local: {
@@ -40,7 +41,10 @@ describe('Social Booking Checker report uploads', () => {
         };
         dom.window.socialFinanceEngine = {
             parseCsv: jest.fn(() => ({ headers: [], rows: [] })),
-            aggregateMeta: jest.fn(() => ({ records: [] })),
+            resolveColumns: jest.fn(() => ({ accountId: null, start: null, end: null })),
+            parseDate: jest.fn(value => value ? new Date(`${value}T00:00:00Z`) : null),
+            aggregateMeta: jest.fn(() => ({ records: [], errors: [] })),
+            aggregatePrisma: jest.fn(() => ({ records: [], errors: [] })),
             extractMetaReferenceData: jest.fn(() => ({
                 accounts: [{ id: '111', name: 'Boots', lastSynced: '' }],
                 campaigns: [{ id: '9', name: 'Summer', accountId: '111' }],
@@ -77,6 +81,64 @@ describe('Social Booking Checker report uploads', () => {
         expect(document.querySelector('#metaFileName').textContent).toBe('No file selected');
         expect(document.querySelector('#metaDropZone').classList.contains('has-file')).toBe(false);
         expect(document.querySelector('#removeMetaFile').classList.contains('hidden')).toBe(true);
+    });
+
+    test('checks required columns immediately after each report is uploaded', async () => {
+        dom.window.socialFinanceEngine.aggregateMeta.mockReturnValueOnce({
+            records: [],
+            errors: ['Meta export is missing Amount spent.', 'Meta export is missing Month or Reporting starts.']
+        });
+        dom.window.socialFinanceEngine.aggregatePrisma.mockReturnValueOnce({
+            records: [],
+            errors: ['Prisma export is missing Partner line id.']
+        });
+        const meta = { name: 'meta.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('Account ID,Campaign ID\n111,9') };
+        const prisma = { name: 'prisma.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('Partner account id,Period,PLANNED_AMOUNT\n111,2026-06,10') };
+
+        dropFile(dom.window, document.querySelector('#metaDropZone'), meta);
+        dropFile(dom.window, document.querySelector('#prismaDropZone'), prisma);
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+
+        expect(document.querySelector('#metaColumnCheck').textContent).toContain('Meta export is missing Amount spent.');
+        expect(document.querySelector('#metaColumnCheck').classList.contains('is-error')).toBe(true);
+        expect(document.querySelector('#prismaColumnCheck').textContent).toContain('Prisma export is missing Partner line id.');
+        expect(document.querySelector('#prismaColumnCheck').classList.contains('is-error')).toBe(true);
+    });
+
+    test('reveals scope, live refresh, and comparison settings only after both reports are ready', async () => {
+        dom.window.socialFinanceEngine.parseCsv.mockReturnValue({ headers: ['Account ID'], rows: [{}] });
+        dom.window.socialFinanceEngine.aggregateMeta.mockReturnValue({ records: [{}], errors: [] });
+        dom.window.socialFinanceEngine.aggregatePrisma.mockReturnValue({ records: [{}], errors: [] });
+        const meta = { name: 'meta.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('meta') };
+        const prisma = { name: 'prisma.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('prisma') };
+
+        expect(document.querySelector('#scopeStage').classList.contains('hidden')).toBe(true);
+        dropFile(dom.window, document.querySelector('#metaDropZone'), meta);
+        dropFile(dom.window, document.querySelector('#prismaDropZone'), prisma);
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+
+        expect(document.querySelector('#continueToScope').disabled).toBe(false);
+        expect(document.querySelector('#metaColumnCheck').textContent).toBe('');
+        expect([...document.querySelectorAll('#metaFile ~ .report-requirements [data-required-column]')].every(chip => chip.classList.contains('is-found'))).toBe(true);
+        expect([...document.querySelectorAll('#prismaFile ~ .report-requirements [data-required-column]')].every(chip => chip.classList.contains('is-found'))).toBe(true);
+        document.querySelector('#continueToScope').click();
+        expect(document.querySelector('#uploadStage').classList.contains('hidden')).toBe(true);
+        expect(document.querySelector('#scopeStage').classList.contains('hidden')).toBe(false);
+        expect(document.querySelector('#metaApiPanel').closest('#scopeStage')).not.toBeNull();
+        expect(document.querySelector('.settings-row').closest('#scopeStage')).not.toBeNull();
+        expect(document.querySelector('[data-workflow-progress="scope"]').getAttribute('aria-current')).toBe('step');
+
+        const uploadStageScroll = jest.fn();
+        document.querySelector('#uploadStage').scrollIntoView = uploadStageScroll;
+        document.querySelector('[data-workflow-progress="upload"] .workflow-step-button').click();
+        expect(document.querySelector('#uploadStage').classList.contains('hidden')).toBe(false);
+        expect(uploadStageScroll).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+        document.querySelector('[data-workflow-progress="scope"] .workflow-step-button').click();
+        expect(document.querySelector('#scopeStage').classList.contains('hidden')).toBe(false);
+
+        document.querySelector('#backToUploads').click();
+        expect(document.querySelector('#uploadStage').classList.contains('hidden')).toBe(false);
+        expect(document.querySelector('#scopeStage').classList.contains('hidden')).toBe(true);
     });
 
     test('rejects a dropped file that is not a CSV', async () => {
@@ -129,6 +191,10 @@ describe('Social Booking Checker report uploads', () => {
         expect(bootsOptions.join(' ')).not.toContain('No7 / Skincare');
         expect(no7Options.join(' ')).toContain('No7 / Skincare');
         expect(no7Options.join(' ')).not.toContain('Boots / Opticians');
+        expect(dom.window.__storedExtensionData.socialBookingMetaPrismaMappings).toEqual({
+            '111': { client: 'Boots', product: 'Opticians' },
+            '222': { client: 'No7', product: 'Skincare' }
+        });
     });
 
     test('filters the analysis and summary to a selected month range', async () => {
@@ -152,15 +218,18 @@ describe('Social Booking Checker report uploads', () => {
         dropFile(dom.window, document.querySelector('#prismaDropZone'), prisma);
         await new Promise(resolve => dom.window.setTimeout(resolve, 0));
 
+        const scrollIntoView = jest.fn();
+        document.querySelector('#results').scrollIntoView = scrollIntoView;
         document.querySelector('#runComparison').click();
         expect(document.querySelector('#monthFromFilter').value).toBe('2026-06');
         expect(document.querySelector('#monthToFilter').value).toBe('2026-06');
-        expect(document.querySelector('.summary-card strong').textContent).toBe('1');
+        expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+        expect(document.querySelector('.action-headline-copy strong').textContent).toBe('Review 1 item before sharing');
         expect([...document.querySelectorAll('#reportHeader th')].map(cell => cell.textContent)).not.toContain('Month');
 
         document.querySelector('#monthFromFilter').value = '2026-05';
         document.querySelector('#monthFromFilter').dispatchEvent(new dom.window.Event('change', { bubbles: true }));
-        expect(document.querySelector('.summary-card strong').textContent).toBe('2');
+        expect(document.querySelector('.action-headline-copy strong').textContent).toBe('Review 2 items before sharing');
         expect(document.querySelector('#reportBody').textContent).toContain('June campaign');
         expect(document.querySelector('#reportBody').textContent).toContain('May campaign');
         expect([...document.querySelectorAll('#reportHeader th')].map(cell => cell.textContent)).toContain('Month');
@@ -209,12 +278,19 @@ describe('Social Booking Checker report uploads', () => {
 
         dom.window.socialFinanceEngine.compare = jest.fn(() => ({ rows: [], summary: {}, warnings: [], validationErrors: [] }));
         dom.window.socialFinanceEngine.summarizeRows = jest.fn(() => ({ total: 0, missingOrUnlinked: 0, needsUpdate: 0, monitor: 0, investigate: 0, outsideScope: 0, unmatchedSpend: 0, metaBudget: 0, metaSpend: 0, prismaPlanned: 0, variance: 0 }));
+        dom.window.socialFinanceEngine.aggregateMeta.mockReturnValue({
+            errors: [],
+            records: [{ key: '111|9|2026-06-01', accountId: '111', campaignId: '9', campaignName: 'Summer', account: 'Boots', month: new Date('2026-06-01T00:00:00Z'), spend: 10, budget: null, status: '', start: null, end: null }]
+        });
         const prisma = { name: 'prisma.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('prisma') };
         dropFile(dom.window, document.querySelector('#prismaDropZone'), prisma);
         await new Promise(resolve => dom.window.setTimeout(resolve, 0));
         document.querySelector('#runComparison').click();
         expect(document.querySelector('#metaDataSource').textContent).toContain('Using live Meta API data');
         expect(document.querySelector('#metaDataSource').textContent).toContain('2026-06-01 to 2026-06-30');
+        expect(document.querySelector('#dataDiagnosticsBadge').textContent).toBe('Review source');
+        expect(document.querySelector('#dataDiagnosticsContent').textContent).toContain('Compared on Account ID, Campaign ID and month');
+        expect(document.querySelector('#dataDiagnosticsContent').textContent).toContain('Account currency and timezone; campaign and ad-set schedules, status, budgets and update times; daily and monthly spend; impressions and reach.');
     });
 
     test('checks Prisma client account scope against the selected Meta scope', async () => {
@@ -276,7 +352,7 @@ describe('Social Booking Checker report uploads', () => {
         document.querySelector('#runComparison').click();
 
         document.querySelector('[data-open-manual-match="true"]').click();
-        expect(document.querySelector('[data-open-manual-match="true"]').textContent).toBe('Click To Match');
+        expect(document.querySelector('[data-open-manual-match="true"]').textContent).toBe('Match unmatched spend');
         expect(document.querySelector('#manualMatchModal').classList.contains('hidden')).toBe(false);
         expect(document.querySelector('#manualMatchBody').textContent).toContain('Meta campaign');
         const search = document.querySelector('input[data-candidate-search]');
@@ -289,7 +365,7 @@ describe('Social Booking Checker report uploads', () => {
         expect(choices[1].hidden).toBe(false);
         const candidate = document.querySelector('#manualMatchBody .candidate-choice');
         expect(candidate.textContent).toContain('Prisma campaign');
-        expect(candidate.textContent).toContain('£48.00 booked');
+        expect(candidate.textContent).toContain('48.00 booked');
         const radio = choices[1].querySelector('input[type="radio"]');
         expect(radio.value).toBe('111|prisma-2|2026-06-01');
         radio.checked = true;
@@ -349,15 +425,16 @@ describe('Social Booking Checker report uploads', () => {
 
         expect(document.querySelector('#accountFilterOptions').textContent).toContain('Boots');
         expect(document.querySelector('#accountFilterOptions').textContent).toContain('No7');
-        expect(document.querySelector('#financialHeadline').textContent).toContain('£40.00');
+        expect(document.querySelector('#financialHeadline').textContent).toContain('40.00');
         expect(document.querySelector('#clientBreakdownBody').textContent).toContain('Boots');
         expect(document.querySelector('#clientBreakdownBody').textContent).toContain('Opticians');
-        expect(document.querySelector('[data-campaign-column="campaignName"]').style.width).toBe('190px');
+        expect(document.querySelector('[data-campaign-column="campaignName"]').classList.contains('campaign-column-campaignName')).toBe(true);
+        expect(document.querySelector('[data-campaign-column="campaignName"]').hasAttribute('style')).toBe(false);
         const campaignNameResizer = document.querySelector('[data-column-resize="campaignName"]');
         campaignNameResizer.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
-        expect(document.querySelector('[data-campaign-column="campaignName"]').style.width).toBe('170px');
-        expect(document.querySelector('.summary-card .evidence-tooltip')).not.toBeNull();
-        expect(document.querySelector('.summary-card .tooltip-icon').textContent).toBe('i');
+        expect(document.querySelector('[data-campaign-column="campaignName"]').hasAttribute('style')).toBe(false);
+        expect(document.querySelector('[data-evidence-total="Missing/unlinked"]').textContent).toMatch(/^\(\d+\)$/);
+        expect(document.querySelectorAll('.summary-card')).toHaveLength(0);
         expect(document.querySelector('#reportBody .evidence-tooltip[data-tooltip*="linked Prisma booking"]')).not.toBeNull();
         document.querySelector('[data-expand-breakdown="campaign"]').click();
         expect(document.querySelector('#campaignBreakdown').classList.contains('is-expanded')).toBe(true);
@@ -368,7 +445,7 @@ describe('Social Booking Checker report uploads', () => {
         document.querySelector('#accountFilterOptions input[value="222"]').checked = false;
         document.querySelector('#accountFilterOptions input[value="222"]').dispatchEvent(new dom.window.Event('change', { bubbles: true }));
         expect(document.querySelector('#reportBody').textContent).not.toContain('Higher');
-        expect(document.querySelector('#financialHeadline').textContent).toContain('£10.00');
+        expect(document.querySelector('#financialHeadline').textContent).toContain('10.00');
 
         document.querySelector('#accountFilterOptions input[value="222"]').checked = true;
         document.querySelector('#accountFilterOptions input[value="222"]').dispatchEvent(new dom.window.Event('change', { bubbles: true }));

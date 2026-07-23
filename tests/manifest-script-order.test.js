@@ -47,7 +47,10 @@ describe('Manifest content-script order', () => {
             'onboarding.js',
             'onboarding-tour.html',
             'onboarding-tour.css',
-            'onboarding-tour.js'
+            'onboarding-tour.js',
+            'onboarding-tour-v2.html',
+            'onboarding-tour-v2.css',
+            'onboarding-tour-v2.js'
         ].forEach(file => {
             expect(fs.existsSync(path.resolve(__dirname, `../${file}`))).toBe(true);
         });

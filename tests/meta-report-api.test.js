@@ -47,20 +47,31 @@ describe('Meta report API client', () => {
         expect(fetchImpl).toHaveBeenCalledTimes(2);
     });
 
-    test('merges campaign, ad set, budget, status, dates, and monthly spend', async () => {
+    test('merges account settings, campaign and ad-set metadata, daily delivery, budgets, and monthly spend', async () => {
         const fetchImpl = jest.fn(async urlValue => {
             const url = new URL(urlValue);
+            if (url.pathname.endsWith('/act_111')) return response(200, {
+                id: 'act_111', name: 'Boots', currency: 'GBP', timezone_name: 'Europe/London', timezone_offset_hours_utc: 1
+            });
             if (url.pathname.endsWith('/campaigns')) return response(200, { data: [{
                 id: '9', name: 'Summer', start_time: '2026-06-03T00:00:00+0000', stop_time: '2026-08-31T23:59:59+0000',
-                status: 'ACTIVE', configured_status: 'ACTIVE', effective_status: 'ACTIVE', daily_budget: '10000', lifetime_budget: '25000'
+                status: 'ACTIVE', configured_status: 'ACTIVE', effective_status: 'ACTIVE', daily_budget: '10000', lifetime_budget: '25000',
+                budget_remaining: '12500', is_adset_budget_sharing_enabled: true, is_budget_schedule_enabled: false,
+                updated_time: '2026-07-20T10:00:00+0000'
             }] });
             if (url.pathname.endsWith('/adsets')) return response(200, { data: [
-                { id: 'a', campaign_id: '9', name: 'Prospecting' },
-                { id: 'b', campaign_id: '9', name: 'Retargeting' }
+                { id: 'a', campaign_id: '9', name: 'Prospecting', start_time: '2026-06-05T00:00:00+0000', end_time: '2026-07-31T23:59:59+0000', effective_status: 'ACTIVE', daily_budget: '5000', budget_remaining: '3000', updated_time: '2026-07-21T10:00:00+0000' },
+                { id: 'b', campaign_id: '9', name: 'Retargeting', start_time: '2026-06-10T00:00:00+0000', end_time: '2026-08-15T23:59:59+0000', effective_status: 'PAUSED', daily_budget: '5000', budget_remaining: '2000', updated_time: '2026-07-19T10:00:00+0000' }
             ] });
             if (url.pathname.endsWith('/insights')) {
                 const range = JSON.parse(url.searchParams.get('time_range'));
-                return response(200, { data: [{ campaign_id: '9', campaign_name: 'Summer', spend: range.since.startsWith('2026-06') ? '40' : '60' }] });
+                if (url.searchParams.get('time_increment') === '1') return response(200, { data: [
+                    { campaign_id: '9', campaign_name: 'Summer', date_start: range.since, date_stop: range.since, spend: '10', impressions: '100', reach: '80' },
+                    { campaign_id: '9', campaign_name: 'Summer', date_start: range.until, date_stop: range.until, spend: range.since.startsWith('2026-06') ? '30' : '50', impressions: '300', reach: '200' }
+                ] });
+                return response(200, { data: [{
+                    campaign_id: '9', campaign_name: 'Summer', spend: range.since.startsWith('2026-06') ? '40' : '60', impressions: '400', reach: '250'
+                }] });
             }
             throw new Error(`Unexpected URL ${url}`);
         });
@@ -75,8 +86,14 @@ describe('Meta report API client', () => {
         expect(rows[0]).toEqual(expect.objectContaining({
             accountId: '111', accountName: 'Boots', campaignId: '9', campaignName: 'Summer',
             adSetName: 'Prospecting, Retargeting', month: '2026-06', reportingStart: '2026-06-15',
-            reportingEnd: '2026-06-30', startDate: '2026-06-03', endDate: '2026-08-31',
-            budget: 250, budgetType: 'Lifetime', delivery: 'ACTIVE', effectiveStatus: 'ACTIVE', spend: 40
+            reportingEnd: '2026-06-30', startDate: '2026-06-05', endDate: '2026-08-15',
+            accountCurrency: 'GBP', accountTimezone: 'Europe/London',
+            budget: 250, budgetType: 'Lifetime', budgetLevel: 'Campaign', budgetRemaining: 125,
+            budgetSource: 'Campaign budget (CBO / Advantage campaign budget)', isAdSetBudgetSharingEnabled: true,
+            adSetBudget: 100, adSetBudgetType: 'Daily', adSetStatuses: 'ACTIVE, PAUSED',
+            delivery: 'ACTIVE', effectiveStatus: 'ACTIVE', spend: 40, impressions: 400, reach: 250,
+            activeSpendDays: 2, firstDeliveryDate: '2026-06-15', lastDeliveryDate: '2026-06-30',
+            updatedTime: '2026-07-21T10:00:00+0000'
         }));
         expect(rows[1]).toEqual(expect.objectContaining({ month: '2026-07', spend: 60 }));
     });
@@ -87,9 +104,11 @@ describe('Meta report API client', () => {
             { since: '2026-07-01', until: '2026-07-31', month: '2026-07' },
             { since: '2026-08-01', until: '2026-08-02', month: '2026-08' }
         ]);
-        const csv = reportToMetaCsv([{ accountId: '111', campaignId: '9', campaignName: 'Summer', month: '2026-06', spend: 12.5, delivery: 'ACTIVE', startDate: '2026-06-01', endDate: '2026-06-30' }]);
+        const csv = reportToMetaCsv([{ accountId: '111', campaignId: '9', campaignName: 'Summer', month: '2026-06', accountCurrency: 'GBP', spend: 12.5, delivery: 'ACTIVE', adSetStartDate: '2026-06-01', adSetEndDate: '2026-06-30', dailySpend: [{ date: '2026-06-01', spend: 12.5 }] }]);
         expect(csv).toContain('Account ID,Campaign ID');
-        expect(csv).toContain('Amount spent (GBP)');
+        expect(csv).toContain('Account currency');
+        expect(csv).toContain('Amount spent');
+        expect(csv).toContain('Daily spend by date');
         expect(csv).toContain('111,9,Summer');
         expect(csv).toContain('ACTIVE');
         expect(csv).toContain('2026-06-01,2026-06-30');

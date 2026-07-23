@@ -10,161 +10,59 @@
 <body>
     <main class="onboarding-shell">
         <header class="onboarding-header">
-            <a class="brand" href="settings.html" aria-label="Open Ops Toolshed settings">
-                <img src="icon.png" alt="">
-                <span>Ops Toolshed</span>
-            </a>
-            <button id="skip-onboarding" class="quiet-action" type="button">Skip setup</button>
+            <a class="brand" href="settings.html" aria-label="Open Ops Toolshed settings"><img src="icon.png" alt=""><span>Ops Toolshed</span></a>
+            <button id="skip-onboarding" class="quiet-action" type="button">Set up later</button>
         </header>
 
-        <nav class="onboarding-tabs" aria-label="Onboarding sections" role="tablist">
-            <button class="onboarding-tab active" type="button" role="tab" aria-selected="true" data-step="0">Welcome</button>
-            <button class="onboarding-tab" type="button" role="tab" aria-selected="false" tabindex="-1" data-step="1">Prisma</button>
-            <button class="onboarding-tab" type="button" role="tab" aria-selected="false" tabindex="-1" data-step="2">Workflow</button>
-            <button class="onboarding-tab" type="button" role="tab" aria-selected="false" tabindex="-1" data-step="3">Reminders</button>
-            <button class="onboarding-tab" type="button" role="tab" aria-selected="false" tabindex="-1" data-step="4">Ready</button>
-        </nav>
-
-        <section class="onboarding-stage">
+        <section class="onboarding-stage" aria-labelledby="stage-title">
+            <div class="onboarding-progress" aria-label="Onboarding progress"><strong id="progress-count">1 of 3</strong><span class="progress-rail" aria-hidden="true"><span id="progress-fill"></span></span><span id="progress-label">Choose your defaults</span></div>
             <div class="stage-copy">
-                <p id="stage-kicker" class="stage-kicker">A better Prisma starts here</p>
-                <h1 id="stage-title">Make everyday media operations feel lighter.</h1>
-                <p id="stage-description" class="stage-description">Choose the features that suit your workflow, then see the most useful tools in context.</p>
+                <h1 id="stage-title">Start with the tools you’ll notice every day.</h1>
+                <p id="stage-description" class="stage-description">We’ve picked a practical starting set for navigating campaigns, keeping account context visible, and finding help without leaving Prisma.</p>
             </div>
 
             <div class="stage-content">
-                <section class="onboarding-page active" data-page="0" role="tabpanel">
-                    <div class="welcome-layout">
-                        <div class="welcome-message">
-                            <h2>Useful from the first campaign</h2>
-                            <p>Ops Toolshed improves Prisma without changing how your core work is saved. You remain in control of every feature.</p>
-                            <div class="welcome-points" aria-label="Onboarding benefits">
-                                <div><strong>Faster navigation</strong><span>Bring common campaign actions closer.</span></div>
-                                <div><strong>Clearer context</strong><span>Keep IDs, budgets and account details visible.</span></div>
-                                <div><strong>Help when needed</strong><span>Open guides and reminders beside your work.</span></div>
-                            </div>
+                <section class="onboarding-page active" data-page="0">
+                    <div class="choice-layout recommended-layout">
+                        <div class="choice-list">
+                            <div class="setting-choice featured-choice"><div><strong>Your recommended setup</strong><span>These choices are on by default. Turn off anything that does not fit your day.</span></div></div>
+                            <label class="setting-choice"><span><strong>Optimised campaign navigation</strong><small>Add quick routes and improve campaign controls.</small></span><input type="checkbox" data-setting="optimisedNewNavEnabled" checked><i aria-hidden="true"></i></label>
+                            <label class="setting-choice"><span><strong>Full account identifier</strong><small>Show username and location in the Prisma banner.</small></span><input type="checkbox" data-setting="bannerUsernameEnabled" checked><i aria-hidden="true"></i></label>
+                            <label class="setting-choice"><span><strong>Help Guides launcher</strong><small>Keep searchable guidance one click away.</small></span><input type="checkbox" data-setting="helpGuidesEnabled" checked><i aria-hidden="true"></i></label>
+                            <label class="setting-choice"><span><strong>Block broken AppLearn popups</strong><small>Prevent unusable login windows interrupting Prisma.</small></span><input type="checkbox" data-setting="blockAppLearnPopupsEnabled" checked><i aria-hidden="true"></i></label>
                         </div>
-                        <aside class="welcome-mark" aria-label="Ops Toolshed introduction">
-                            <img src="icon.png" alt="Ops Toolshed logo">
-                            <strong>Your tools, set your way.</strong>
-                            <span>About two minutes to complete</span>
-                        </aside>
+                        <aside class="context-note reassurance-note"><span class="reassurance-mark" aria-hidden="true">✓</span><p>Nothing changes your core Prisma data. You can adjust every choice later in Settings.</p></aside>
                     </div>
                 </section>
 
-                <section class="onboarding-page" data-page="1" role="tabpanel" hidden>
-                    <div class="choice-layout">
+                <section class="onboarding-page" data-page="1" hidden>
+                    <div class="choice-layout workflow-layout">
                         <div class="choice-list">
-                            <div class="setting-choice featured-choice">
-                                <div><strong>Popup colour</strong><span>Choose the accent used by the toolbar popup.</span></div>
-                                <div class="segmented-choice" role="group" aria-label="Popup colour">
-                                    <button type="button" data-setting-choice="uiTheme" data-value="pink" aria-pressed="true">Pink</button>
-                                    <button type="button" data-setting-choice="uiTheme" data-value="black" aria-pressed="false">Black</button>
-                                </div>
-                            </div>
-                            <label class="setting-choice">
-                                <span><strong>Optimised campaign navigation</strong><small>Add quick routes and improve campaign controls.</small></span>
-                                <input type="checkbox" data-setting="optimisedNewNavEnabled" checked><i aria-hidden="true"></i>
-                            </label>
-                            <label class="setting-choice">
-                                <span><strong>Full account identifier</strong><small>Show username and location in the Prisma banner.</small></span>
-                                <input type="checkbox" data-setting="bannerUsernameEnabled" checked><i aria-hidden="true"></i>
-                            </label>
-                            <label class="setting-choice">
-                                <span><strong>Help Guides launcher</strong><small>Keep searchable guidance one click away.</small></span>
-                                <input type="checkbox" data-setting="helpGuidesEnabled" checked><i aria-hidden="true"></i>
-                            </label>
-                            <label class="setting-choice">
-                                <span><strong>Block broken AppLearn popups</strong><small>Prevent unusable login windows interrupting Prisma.</small></span>
-                                <input type="checkbox" data-setting="blockAppLearnPopupsEnabled" checked><i aria-hidden="true"></i>
-                            </label>
-                        </div>
-                        <aside class="context-note"><strong>Recommended</strong><p>These options improve common tasks while preserving Prisma's native controls.</p></aside>
-                    </div>
-                </section>
-
-                <section class="onboarding-page" data-page="2" role="tabpanel" hidden>
-                    <div class="choice-layout">
-                        <div class="choice-list">
-                            <label class="setting-choice">
-                                <span><strong>Campaign name quick copy</strong><small>Copy the campaign name directly from the header.</small></span>
-                                <input type="checkbox" data-setting="campaignNameQuickCopyEnabled" checked><i aria-hidden="true"></i>
-                            </label>
-                            <label class="setting-choice">
-                                <span><strong>Campaign IDs quick copy</strong><small>Copy Campaign ID and CL/PR/CA header values.</small></span>
-                                <input type="checkbox" data-setting="campaignHeaderQuickCopyEnabled" checked><i aria-hidden="true"></i>
-                            </label>
-                            <div class="setting-choice featured-choice pid-choice">
-                                <div><strong>Do you have two Prisma user PIDs?</strong><span>For example, UREL and UREL2. This decides whether Switch Accounts is shown.</span></div>
-                                <div class="segmented-choice" role="group" aria-label="Do you have two Prisma user PIDs?">
-                                    <button type="button" data-pid-choice="true" aria-pressed="true">Yes</button>
-                                    <button type="button" data-pid-choice="false" aria-pressed="false">No</button>
-                                </div>
-                            </div>
-                            <label class="setting-choice">
-                                <span><strong>Loading facts</strong><small>Replace some waiting time with short facts.</small></span>
-                                <input type="checkbox" data-setting="loadingFactsEnabled" checked><i aria-hidden="true"></i>
-                            </label>
+                            <div class="setting-choice featured-choice"><div><strong>Workflow preferences</strong><span>Choose the shortcuts and reminders that help you stay in flow.</span></div><div class="segmented-choice" role="group" aria-label="Popup colour"><button type="button" data-setting-choice="uiTheme" data-value="pink" aria-pressed="true">Pink</button><button type="button" data-setting-choice="uiTheme" data-value="black" aria-pressed="false">Black</button></div></div>
+                            <label class="setting-choice"><span><strong>Campaign name quick copy</strong><small>Copy the campaign name directly from the header.</small></span><input type="checkbox" data-setting="campaignNameQuickCopyEnabled" checked><i aria-hidden="true"></i></label>
+                            <label class="setting-choice"><span><strong>Campaign IDs quick copy</strong><small>Copy Campaign ID and CL/PR/CA header values.</small></span><input type="checkbox" data-setting="campaignHeaderQuickCopyEnabled" checked><i aria-hidden="true"></i></label>
+                            <div class="setting-choice featured-choice pid-choice"><div><strong>Do you have two Prisma user PIDs?</strong><span>For example, UREL and UREL2. This decides whether Switch Accounts is shown.</span></div><div class="segmented-choice" role="group" aria-label="Do you have two Prisma user PIDs?"><button type="button" data-pid-choice="true" aria-pressed="true">Yes</button><button type="button" data-pid-choice="false" aria-pressed="false">No</button></div></div>
+                            <label class="setting-choice"><span><strong>Loading facts</strong><small>Replace some waiting time with short facts.</small></span><input type="checkbox" data-setting="loadingFactsEnabled" checked><i aria-hidden="true"></i></label>
+                            <div class="setting-choice featured-choice reminder-frequency"><div><strong>Prisma reminder frequency</strong><span>Set how often built-in reminders can appear.</span></div><select data-setting="prismaReminderFrequency" aria-label="Prisma reminder frequency"><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="once">Once</option></select></div>
+                            <label class="setting-choice"><span><strong>Meta reconciliation reminder</strong><small>Prompt the checks needed before reconciliation.</small></span><input type="checkbox" data-setting="metaReminderEnabled" checked><i aria-hidden="true"></i></label>
+                            <label class="setting-choice"><span><strong>IAS booking reminder</strong><small>Show the IAS setup reminder on matching pages.</small></span><input type="checkbox" data-setting="iasReminderEnabled" checked><i aria-hidden="true"></i></label>
+                            <label class="setting-choice"><span><strong>Timesheet reminder</strong><small>Receive the weekly Aura timesheet notification.</small></span><input type="checkbox" data-setting="timesheetReminderEnabled" checked><i aria-hidden="true"></i></label>
                         </div>
                         <aside class="context-note"><strong>Small shortcuts add up</strong><p>All choices remain available in Settings and can be changed at any time.</p></aside>
                     </div>
                 </section>
 
-                <section class="onboarding-page" data-page="3" role="tabpanel" hidden>
-                    <div class="choice-layout">
-                        <div class="choice-list">
-                            <div class="setting-choice featured-choice">
-                                <div><strong>Prisma reminder frequency</strong><span>Set how often built-in reminders can appear.</span></div>
-                                <select data-setting="prismaReminderFrequency" aria-label="Prisma reminder frequency">
-                                    <option value="daily">Daily</option>
-                                    <option value="weekly">Weekly</option>
-                                    <option value="monthly">Monthly</option>
-                                    <option value="once">Once</option>
-                                </select>
-                            </div>
-                            <label class="setting-choice">
-                                <span><strong>Meta reconciliation reminder</strong><small>Prompt the checks needed before reconciliation.</small></span>
-                                <input type="checkbox" data-setting="metaReminderEnabled" checked><i aria-hidden="true"></i>
-                            </label>
-                            <label class="setting-choice">
-                                <span><strong>IAS booking reminder</strong><small>Show the IAS setup reminder on matching pages.</small></span>
-                                <input type="checkbox" data-setting="iasReminderEnabled" checked><i aria-hidden="true"></i>
-                            </label>
-                            <label class="setting-choice">
-                                <span><strong>Timesheet reminder</strong><small>Receive the weekly Aura timesheet notification.</small></span>
-                                <input type="checkbox" data-setting="timesheetReminderEnabled" checked><i aria-hidden="true"></i>
-                            </label>
-                        </div>
-                        <aside class="context-note"><strong>Keep it useful</strong><p>Start with the defaults, then tune timing from the full Reminders settings.</p></aside>
-                    </div>
-                </section>
-
-                <section class="onboarding-page" data-page="4" role="tabpanel" hidden>
+                <section class="onboarding-page" data-page="2" hidden>
                     <div class="ready-layout">
-                        <div>
-                            <h2>Your setup is ready.</h2>
-                            <p>Next, open Prisma with a side-panel guide that points to the features on the real page.</p>
-                            <div id="setup-summary" class="setup-summary" aria-live="polite"></div>
-                        </div>
-                        <aside class="tour-preview">
-                            <span>Guided walkthrough</span>
-                            <strong>See features where you use them</strong>
-                            <p>The side panel explains each tool while the matching Prisma element is highlighted.</p>
-                        </aside>
+                        <div><h2>Your setup is ready.</h2><p>Next, open Prisma with a focused side-panel guide that introduces the most useful areas in a few chapters.</p><div id="setup-summary" class="setup-summary" aria-live="polite"></div></div>
+                        <aside class="tour-preview"><strong>Side panel v2</strong><p>See key features where you use them, without stepping through every individual control.</p></aside>
                     </div>
                     <p id="onboarding-error" class="onboarding-error" role="alert" hidden></p>
                 </section>
             </div>
         </section>
 
-        <footer class="onboarding-footer">
-            <span id="save-status" role="status" aria-live="polite">Settings are saved as you go</span>
-            <div class="footer-actions">
-                <button id="previous-step" class="secondary-action" type="button" hidden>Back</button>
-                <button id="next-step" class="primary-action" type="button">Get started</button>
-                <button id="start-tour" class="primary-action" type="button" hidden>Open Prisma tour</button>
-            </div>
-        </footer>
+        <footer class="onboarding-footer"><span id="save-status" role="status" aria-live="polite">Your choices save automatically</span><div class="footer-actions"><button id="previous-step" class="secondary-action" type="button" hidden>Back</button><button id="next-step" class="primary-action" type="button">Continue</button><button id="start-tour" class="primary-action" type="button" hidden>Open Prisma tour</button></div></footer>
     </main>
     <script src="onboarding.js"></script>
 </body>
