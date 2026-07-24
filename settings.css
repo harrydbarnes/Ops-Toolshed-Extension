@@ -360,6 +360,20 @@ button:hover, .settings-button:hover {
     background-color: #05006a; /* Darker shade for hover */
 }
 
+/* Keep action controls consistent without affecting the Settings tab buttons. */
+.settings-button {
+    margin: 0;
+    padding: 9px 14px;
+    border-radius: 8px;
+    font-size: 0.94em;
+    font-weight: 600;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.settings-button:hover {
+    box-shadow: 0 3px 8px rgba(7, 0, 154, 0.18);
+}
+
 button:disabled, .settings-button:disabled {
     background-color: #cccccc; /* A light grey to indicate disabled */
     color: #3b3b3b; /* Darker text for accessibility (4.5:1 contrast) */

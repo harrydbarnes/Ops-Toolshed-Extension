@@ -58,8 +58,10 @@ describe('release metadata', () => {
 
         expect(css).toMatch(/\.release::before\s*{/);
         expect(css).toMatch(/#release-notes \.release li::before\s*{/);
-        expect(css).not.toMatch(/#release-notes \.release (?:h2::before|li::after)\s*{/);
+        expect(css).toMatch(/#release-notes \.release li::after\s*{/);
         expect(css).toMatch(/\.release-badge\s*{[^}]*width:\s*68px;/s);
+        expect(css).toMatch(/#release-notes \.release li::before\s*{[^}]*top:\s*13px;/s);
+        expect(css).toMatch(/#release-notes \.release li::after\s*{[^}]*top:\s*13px;/s);
         expect(itemRule).not.toMatch(/\bborder\s*:/);
         expect(itemRule).not.toMatch(/\bbackground\s*:/);
     });

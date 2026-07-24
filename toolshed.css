@@ -78,6 +78,7 @@ li {
     --md-sys-color-error-container: #ffdad3;
     --md-sys-color-outline-variant: #d9d9e2;
     --md-sys-shape-corner-full: 9999px;
+    --release-spine: #dedfed;
     position: relative;
     margin-bottom: 34px;
     padding-left: 42px;
@@ -86,16 +87,12 @@ li {
 .release::before {
     content: '';
     position: absolute;
-    top: 58px;
-    bottom: -20px;
+    top: 52px;
+    bottom: 20px;
     left: 11px;
     width: 2px;
     border-radius: var(--md-sys-shape-corner-full);
-    background: var(--md-sys-color-outline-variant);
-}
-
-.release:last-child::before {
-    bottom: 16px;
+    background: var(--release-spine);
 }
 
 #release-notes .release h2 {
@@ -115,28 +112,48 @@ li {
 #release-notes .release li {
     position: relative;
     display: grid;
-    grid-template-columns: max-content minmax(0, 1fr);
+    grid-template-columns: 68px minmax(0, 1fr);
     align-items: start;
     gap: 8px;
     margin: 0;
+    min-height: 20px;
     padding: 3px 0;
 }
 
 #release-notes .release li::before {
     content: '';
     position: absolute;
+    /* Align to the badge centre, not the variable-height release copy. */
     top: 13px;
-    left: -29px;
-    width: 22px;
+    left: -30px;
+    z-index: 0;
+    width: 30px;
     height: 2px;
     border-radius: var(--md-sys-shape-corner-full);
-    background: var(--md-sys-color-outline-variant);
+    background: var(--release-connector, #d9d9f5);
+    transform: translateY(-50%);
+}
+
+#release-notes .release li::after {
+    content: '';
+    position: absolute;
+    top: 13px;
+    left: -36px;
+    z-index: 1;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--release-node, #8b6ff3);
+    box-shadow: 0 0 0 3px #f5f5ff;
+    transform: translateY(-50%);
 }
 
 .release-badge {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    position: relative;
+    z-index: 1;
     width: 68px;
     min-height: 20px;
     padding: 1px 6px;
@@ -155,14 +172,29 @@ li {
     background: var(--md-sys-color-primary-container);
 }
 
+#release-notes .release li:has(.release-badge--new) {
+    --release-node: #8b6ff3;
+    --release-connector: #d9d9f5;
+}
+
 .release-badge--improved {
     color: var(--md-sys-color-on-secondary-container);
     background: var(--md-sys-color-secondary-container);
 }
 
+#release-notes .release li:has(.release-badge--improved) {
+    --release-node: #9e78b9;
+    --release-connector: #eadcf2;
+}
+
 .release-badge--fixed {
     color: var(--md-sys-color-on-error-container);
     background: var(--md-sys-color-error-container);
+}
+
+#release-notes .release li:has(.release-badge--fixed) {
+    --release-node: #dc806b;
+    --release-connector: #f5d1ca;
 }
 
 .release-copy {
