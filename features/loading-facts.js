@@ -210,6 +210,7 @@
     const DEBOUNCE_DELAY_MS = 200;
     const ANIMATION_DURATION_MS = 500;
     const CAMPAIGN_LOADING_END_DELAY_MS = 2500;
+    const HOVER_EXIT_DELAY_MS = 2000;
 
     const getStorageData = (area, keys) => new Promise(resolve => chrome.storage[area].get(keys, resolve));
 
@@ -224,6 +225,10 @@
             this.pendingShow = false;
             this.requestId = 0;
             this.campaignEndTimer = null;
+            this.toastRemovalTimer = null;
+            this.hoverExitTimer = null;
+            this.isToastHovered = false;
+            this.pendingToastHide = false;
 
             // State for managing async settings load
             this.settingsLoaded = false;
@@ -234,7 +239,7 @@
                     this.isEnabled = changes.loadingFactsEnabled.newValue !== false;
                     // If disabled while visible, hide immediately
                     if (!this.isEnabled && this.isVisible) {
-                        this.hideToast();
+                        this.hideToast({ force: true });
                     }
                 }
             });
@@ -256,12 +261,8 @@
                 this.isIntersecting = entry.isIntersecting;
                 if (this.isIntersecting && this.isElementVisible(this.observedSpinner)) {
                     this.showToast(this.observedSpinner);
-                } else if (this.isCampaignGridReady()) {
-                    this.hideToast();
-                } else if (this.isCampaignRoute() && document.getElementById(this.toastId)) {
-                    this.scheduleCampaignEnd();
                 } else {
-                    this.hideToast();
+                    this.handleNoVisibleSpinner();
                 }
             }, { threshold: 0.1 }); // Trigger when at least 10% visible
 
@@ -301,11 +302,59 @@
             this.campaignEndTimer = null;
         }
 
+        cancelHoverExitTimer() {
+            if (this.hoverExitTimer === null) return;
+            clearTimeout(this.hoverExitTimer);
+            this.hoverExitTimer = null;
+        }
+
+        keepToastVisible() {
+            this.pendingToastHide = false;
+            this.cancelHoverExitTimer();
+            const toast = document.getElementById(this.toastId);
+            if (!toast) return;
+
+            if (this.toastRemovalTimer !== null) {
+                clearTimeout(this.toastRemovalTimer);
+                this.toastRemovalTimer = null;
+            }
+            toast.classList.remove('slide-down');
+            toast.classList.add('slide-up');
+            this.isVisible = true;
+        }
+
+        requestToastHide() {
+            const toast = document.getElementById(this.toastId);
+            if (!toast) {
+                this.isVisible = false;
+                return;
+            }
+            if (this.isToastHovered) {
+                this.pendingToastHide = true;
+                return;
+            }
+            this.hideToast();
+        }
+
+        handleNoVisibleSpinner() {
+            if (this.isCampaignRoute() && document.getElementById(this.toastId)) {
+                this.scheduleCampaignEnd();
+            } else {
+                this.requestToastHide();
+            }
+        }
+
         scheduleCampaignEnd() {
             if (this.campaignEndTimer !== null) return;
             this.campaignEndTimer = setTimeout(() => {
                 this.campaignEndTimer = null;
-                this.hideToast();
+                const visibleSpinner = window.utils.findVisibleLoadingSpinners()
+                    .find(candidate => !this.isInsideSidePanel(candidate));
+                if (visibleSpinner && this.isElementVisible(visibleSpinner)) {
+                    this.checkForLoading();
+                    return;
+                }
+                this.requestToastHide();
             }, CAMPAIGN_LOADING_END_DELAY_MS);
         }
 
@@ -320,9 +369,11 @@
         updateToastPosition(spinner) {
             const toast = document.getElementById(this.toastId);
             const target = this.getSpinnerTarget(spinner);
-            if (!toast || !target) return;
+            if (!toast || !target) return false;
             const rect = target.getBoundingClientRect();
+            if (!Number.isFinite(rect.left) || rect.width <= 0 || rect.height <= 0) return false;
             toast.style.left = `${rect.left + (rect.width / 2)}px`;
+            return true;
         }
 
         checkForLoading() {
@@ -337,7 +388,7 @@
 
                 // If feature is disabled, ensure toast is hidden and return
                 if (!this.isEnabled) {
-                    if (this.isVisible) this.hideToast();
+                    if (this.isVisible) this.hideToast({ force: true });
                     return;
                 }
 
@@ -352,7 +403,7 @@
                     this.intersectionObserver.disconnect();
                     this.observedSpinner = null;
                     this.isIntersecting = false;
-                    this.hideToast();
+                    this.hideToast({ force: true });
                     return;
                 }
 
@@ -364,15 +415,12 @@
 
                 if (domVisible) {
                     this.cancelCampaignEndTimer();
+                    this.keepToastVisible();
                     if (spinner !== this.observedSpinner) {
                         this.intersectionObserver.disconnect();
                         this.observedSpinner = spinner;
                         this.isIntersecting = false;
-                        if (this.isCampaignRoute()) {
-                            this.updateToastPosition(spinner);
-                        } else {
-                            this.hideToast();
-                        }
+                        this.updateToastPosition(spinner);
                         this.intersectionObserver.observe(spinner);
                     } else if (this.isIntersecting) {
                         this.showToast(spinner);
@@ -381,13 +429,7 @@
                     this.intersectionObserver.disconnect();
                     this.observedSpinner = null;
                     this.isIntersecting = false;
-                    if (this.isCampaignGridReady()) {
-                        this.hideToast();
-                    } else if (this.isCampaignRoute() && document.getElementById(this.toastId)) {
-                        this.scheduleCampaignEnd();
-                    } else {
-                        this.hideToast();
-                    }
+                    this.handleNoVisibleSpinner();
                 }
             }, DEBOUNCE_DELAY_MS);
         }
@@ -469,19 +511,11 @@
             // Revert Wrapper Logic: Do NOT wrap the spinner.
             // Use sibling injection with absolute positioning.
 
-            // Smart Target Logic: Find the visual center of the spinner
-            const targetElement = this.getSpinnerTarget(spinner);
-
             const toast = document.createElement('div');
             toast.id = this.toastId;
             toast.className = 'loading-fact-toast slide-up';
-
-            // Initial positioning
-            // We need to append first or use the calculated value immediately?
-            // The logic below appends at the end. We can calculate now.
-            const rect = targetElement.getBoundingClientRect();
-            const centerX = rect.left + (rect.width / 2);
-            toast.style.left = `${centerX}px`;
+            toast.style.left = '50vw';
+            toast.style.visibility = 'hidden';
 
             // Add resize listener to track window changes
             this.resizeHandler = () => requestAnimationFrame(() => {
@@ -540,12 +574,35 @@
             actionsDiv.append(notSureButton, removeButton);
             toast.appendChild(actionsDiv);
 
+            toast.addEventListener('pointerenter', () => {
+                this.isToastHovered = true;
+                this.cancelHoverExitTimer();
+            });
+            toast.addEventListener('pointerleave', () => {
+                this.isToastHovered = false;
+                if (!this.pendingToastHide) return;
+                this.cancelHoverExitTimer();
+                this.hoverExitTimer = setTimeout(() => {
+                    this.hoverExitTimer = null;
+                    if (this.pendingToastHide && !this.isToastHovered) this.hideToast();
+                }, HOVER_EXIT_DELAY_MS);
+            });
+
             // Append to document.body to ensure it floats above all other content
             document.body.appendChild(toast);
+            const revealToast = () => {
+                this.updateToastPosition(spinner);
+                toast.style.visibility = 'visible';
+            };
+            if (typeof window.requestAnimationFrame === 'function') {
+                window.requestAnimationFrame(() => window.requestAnimationFrame(revealToast));
+            } else {
+                revealToast();
+            }
             this.isVisible = true;
         }
 
-        hideToast() {
+        hideToast({ force = false } = {}) {
             this.cancelCampaignEndTimer();
             this.requestId += 1;
             this.pendingShow = false;
@@ -554,6 +611,15 @@
                 this.isVisible = false;
                 return;
             }
+
+            if (!force && this.isToastHovered) {
+                this.pendingToastHide = true;
+                return;
+            }
+
+            this.pendingToastHide = false;
+            this.cancelHoverExitTimer();
+            if (this.toastRemovalTimer !== null || toast.classList.contains('slide-down')) return;
 
             // Cleanup resize listener
             if (this.resizeHandler) {
@@ -566,11 +632,12 @@
             toast.classList.add('slide-down');
 
             // Wait for animation to finish before removing
-            setTimeout(() => {
+            this.toastRemovalTimer = setTimeout(() => {
                 // Simply remove the toast element
                 if (toast && toast.parentNode) {
                     toast.parentNode.removeChild(toast);
                 }
+                this.toastRemovalTimer = null;
                 this.isVisible = false;
             }, ANIMATION_DURATION_MS); // Match CSS animation duration
         }

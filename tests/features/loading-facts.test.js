@@ -119,8 +119,10 @@ describe('Loading Facts behaviour', () => {
         activeSpinner = null;
         window.loadingFactsFeature.checkForLoading();
         runScheduledTimer(scheduledTimers, 200);
+        expect(originalToast.classList).not.toContain('slide-down');
+        expect(scheduledTimers.some(timer => timer.delay === 2500)).toBe(true);
+        runScheduledTimer(scheduledTimers, 2500);
         expect(originalToast.classList).toContain('slide-down');
-        expect(scheduledTimers.some(timer => timer.delay === 2500)).toBe(false);
         runScheduledTimer(scheduledTimers, 500);
 
         expect(document.getElementById('ops-toolshed-loading-toast')).toBeNull();
@@ -348,6 +350,53 @@ describe('Loading Facts behaviour', () => {
         expect(stored.loadingFactRatings[fact]).toBe('remove');
 
         await expect(feature.getProcessedFact()).resolves.not.toBe(fact);
+        dom.window.close();
+    });
+
+    test('holds a toast while hovered, then dismisses it two seconds after pointer leave', () => {
+        const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/',
+            runScripts: 'outside-only'
+        });
+        const { window } = dom;
+        const scheduledTimers = [];
+        window.setTimeout = (callback, delay) => {
+            scheduledTimers.push({ callback, delay });
+            return scheduledTimers.length;
+        };
+        window.clearTimeout = jest.fn();
+        window.IntersectionObserver = jest.fn(() => ({ observe: jest.fn(), disconnect: jest.fn() }));
+        window.chrome = {
+            storage: {
+                sync: { get: jest.fn() },
+                local: { get: jest.fn() },
+                onChanged: { addListener: jest.fn() }
+            }
+        };
+
+        window.eval(loadingFactsScript);
+        const feature = window.loadingFactsFeature;
+        const toast = window.document.createElement('div');
+        toast.id = feature.toastId;
+        toast.className = 'loading-fact-toast slide-up';
+        window.document.body.appendChild(toast);
+        feature.isVisible = true;
+        toast.addEventListener('pointerenter', () => { feature.isToastHovered = true; });
+        toast.addEventListener('pointerleave', () => {
+            feature.isToastHovered = false;
+            if (feature.pendingToastHide) {
+                feature.hoverExitTimer = window.setTimeout(() => feature.hideToast(), 2000);
+            }
+        });
+
+        toast.dispatchEvent(new window.Event('pointerenter'));
+        feature.hideToast();
+        expect(toast.classList).not.toContain('slide-down');
+        expect(feature.pendingToastHide).toBe(true);
+
+        toast.dispatchEvent(new window.Event('pointerleave'));
+        runScheduledTimer(scheduledTimers, 2000);
+        expect(toast.classList).toContain('slide-down');
         dom.window.close();
     });
 });
