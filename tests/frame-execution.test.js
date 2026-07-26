@@ -7,7 +7,9 @@ const campaignFeature = fs.readFileSync(path.resolve(__dirname, '../features/cam
 
 describe('Mediaocean frame execution boundary', () => {
     test('retains child-frame injection for the Campaign Details focus workflow', () => {
-        const registration = manifest.content_scripts[0];
+        const registration = manifest.content_scripts.find(entry =>
+            entry.js?.includes('content.js')
+        );
 
         expect(registration.all_frames).toBe(true);
         expect(registration.js).toContain('features/campaign.js');

@@ -16,6 +16,8 @@ describe('web-accessible resource scope', () => {
     test('keeps every exposed asset tied to its current Mediaocean consumer', () => {
         expect(logoFeature).toContain("chrome.runtime.getURL('icon.png')");
         expect(swapAccountsFeature).toContain("chrome.runtime.getURL('features/swap-accounts.css')");
-        expect(manifest.content_scripts[0].matches).toEqual(['https://*.mediaocean.com/*']);
+        expect(manifest.content_scripts.every(registration =>
+            registration.matches.includes('https://*.mediaocean.com/*')
+        )).toBe(true);
     });
 });

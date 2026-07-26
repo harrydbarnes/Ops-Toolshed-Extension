@@ -10,7 +10,7 @@ describe('Manifest content-script order', () => {
 
     test('loads utils before feature scripts and content.js last', () => {
         const mediaoceanRegistration = manifest.content_scripts.find(entry =>
-            entry.matches.includes('https://*.mediaocean.com/*')
+            entry.js?.includes('content.js')
         );
 
         expect(mediaoceanRegistration).toBeDefined();
@@ -32,7 +32,7 @@ describe('Manifest content-script order', () => {
         expect(manifest.host_permissions).toContain('https://insidemedia.sharepoint.com/*');
 
         const mediaoceanRegistration = manifest.content_scripts.find(entry =>
-            entry.matches.includes('https://*.mediaocean.com/*')
+            entry.js?.includes('content.js')
         );
         expect(mediaoceanRegistration.js).toContain('features/help-guides-launcher.js');
         expect(mediaoceanRegistration.js).toContain('features/banner-username.js');
