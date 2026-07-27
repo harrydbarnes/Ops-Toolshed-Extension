@@ -76,10 +76,123 @@ describe('getNextAlarmDate (existing tests)', () => {
 });
 
 describe('AppLearn popup blocking', () => {
+    const waitForPopupStatUpdate = async () => {
+        await new Promise(resolve => setTimeout(resolve, 0));
+        await new Promise(resolve => setTimeout(resolve, 0));
+        await new Promise(resolve => setTimeout(resolve, 0));
+    };
+
     beforeEach(() => {
         resetMocks();
         jest.resetModules();
         ({ maybeBlockAppLearnPopup } = require('../background'));
+    });
+
+    test('closes a blank child tab immediately while its Mediaocean opener reloads', async () => {
+        const tabUpdatedListener = chrome.tabs.onUpdated.addListener.mock.calls[0][0];
+        const tabCreatedListener = chrome.tabs.onCreated.addListener.mock.calls[0][0];
+        chrome.tabs.remove.mockResolvedValue(undefined);
+
+        tabUpdatedListener(10, { status: 'loading' }, {
+            id: 10,
+            windowId: 7,
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/'
+        });
+        tabCreatedListener({
+            id: 20,
+            windowId: 7,
+            openerTabId: 10,
+            pendingUrl: '',
+            url: ''
+        });
+
+        expect(chrome.tabs.remove).toHaveBeenCalledWith(20);
+        await waitForPopupStatUpdate();
+        expect(chrome.storage.local.__getStore().appLearnPopupsBlocked).toBe(1);
+    });
+
+    test('closes a same-window blank tab when AppLearn omits its opener', async () => {
+        const tabUpdatedListener = chrome.tabs.onUpdated.addListener.mock.calls[0][0];
+        const tabCreatedListener = chrome.tabs.onCreated.addListener.mock.calls[0][0];
+        chrome.tabs.remove.mockResolvedValue(undefined);
+
+        tabUpdatedListener(10, { status: 'loading' }, {
+            id: 10,
+            windowId: 7,
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/'
+        });
+        tabCreatedListener({
+            id: 20,
+            windowId: 7,
+            pendingUrl: '',
+            url: ''
+        });
+
+        expect(chrome.tabs.remove).toHaveBeenCalledWith(20);
+        await waitForPopupStatUpdate();
+        expect(chrome.storage.local.__getStore().appLearnPopupsBlocked).toBe(1);
+    });
+
+    test('leaves same-window blank tabs open after the short noopener guard expires', () => {
+        const now = jest.spyOn(Date, 'now');
+        now.mockReturnValueOnce(1000).mockReturnValue(4001);
+        const tabUpdatedListener = chrome.tabs.onUpdated.addListener.mock.calls[0][0];
+        const tabCreatedListener = chrome.tabs.onCreated.addListener.mock.calls[0][0];
+
+        tabUpdatedListener(10, { status: 'loading' }, {
+            id: 10,
+            windowId: 7,
+            url: 'https://go.demo.mediaocean.com/campaign-management/'
+        });
+        tabCreatedListener({
+            id: 20,
+            windowId: 7,
+            pendingUrl: '',
+            url: ''
+        });
+
+        expect(chrome.tabs.remove).not.toHaveBeenCalled();
+        now.mockRestore();
+    });
+
+    test('does not close blank child tabs after popup blocking is disabled', async () => {
+        const settingListener = chrome.storage.onChanged.addListener.mock.calls
+            .map(call => call[0])
+            .find(listener => listener.toString().includes('blockAppLearnPopupsEnabled'));
+        const tabUpdatedListener = chrome.tabs.onUpdated.addListener.mock.calls[0][0];
+        const tabCreatedListener = chrome.tabs.onCreated.addListener.mock.calls[0][0];
+
+        await settingListener({
+            blockAppLearnPopupsEnabled: { oldValue: true, newValue: false }
+        }, 'sync');
+        tabUpdatedListener(10, { status: 'loading' }, {
+            id: 10,
+            windowId: 7,
+            url: 'https://go.demo.mediaocean.com/campaign-management/'
+        });
+        tabCreatedListener({
+            id: 20,
+            windowId: 7,
+            openerTabId: 10,
+            pendingUrl: '',
+            url: ''
+        });
+
+        expect(chrome.tabs.remove).not.toHaveBeenCalled();
+    });
+
+    test('leaves unrelated blank child tabs open', () => {
+        const tabCreatedListener = chrome.tabs.onCreated.addListener.mock.calls[0][0];
+
+        tabCreatedListener({
+            id: 20,
+            windowId: 7,
+            openerTabId: 99,
+            pendingUrl: '',
+            url: ''
+        });
+
+        expect(chrome.tabs.remove).not.toHaveBeenCalled();
     });
 
     test.each([

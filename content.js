@@ -106,6 +106,10 @@ async function mainContentScriptInit() {
         window.actualiseShortcutFeature.initialize();
     }
 
+    if (isPrismaLike && window.maxCampaignBudgetFeature) {
+        window.maxCampaignBudgetFeature.initialize();
+    }
+
     if (isPrismaLike && window.campaignTabTitleFeature) {
         window.campaignTabTitleFeature.initialize();
     }
@@ -154,6 +158,10 @@ async function mainContentScriptInit() {
 
         if (isPrismaLike && window.actualiseShortcutFeature) {
             window.actualiseShortcutFeature.apply();
+        }
+
+        if (isPrismaLike && window.maxCampaignBudgetFeature) {
+            window.maxCampaignBudgetFeature.apply();
         }
 
         if (isPrismaLike && window.loadingFactsFeature) {

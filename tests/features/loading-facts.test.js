@@ -15,6 +15,29 @@ function runScheduledTimer(timers, delay) {
 }
 
 describe('Loading Facts behaviour', () => {
+    test('falls back to defaults when Chrome storage is unavailable', async () => {
+        const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP123&route=online',
+            runScripts: 'outside-only'
+        });
+        const { window } = dom;
+        window.chrome = {};
+        window.IntersectionObserver = jest.fn(function() {
+            return { observe: jest.fn(), disconnect: jest.fn() };
+        });
+        window.utils = {
+            findVisibleLoadingSpinners: jest.fn(() => []),
+            queryShadowDom: jest.fn(() => null),
+            isElementVisible: jest.fn(() => false)
+        };
+
+        window.eval(loadingFactsScript);
+        await expect(window.loadingFactsFeature.initialize()).resolves.toBeUndefined();
+        expect(window.loadingFactsFeature.isEnabled).toBe(true);
+        expect(window.loadingFactsFeature.settingsLoaded).toBe(true);
+        dom.window.close();
+    });
+
     test('keeps one fact visible while campaign loading replaces spinner elements', async () => {
         const dom = new JSDOM('<!doctype html><html><body><div class="mo-spinner"></div></body></html>', {
             url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP123&route=online',

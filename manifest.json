@@ -88,6 +88,7 @@
         "features/actualise-navbar.js",
         "features/actualise-shortcut.js",
         "features/actualise-scroll-restore.js",
+        "features/max-campaign-budget.js",
         "features/loading-facts.js",
         "features/help-guides-launcher.js",
         "features/onboarding-tour.js",

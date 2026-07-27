@@ -246,6 +246,72 @@ function isMediaoceanUrl(rawUrl) {
     }
 }
 
+const APPLEARN_BLANK_POPUP_WINDOW_MS = 15000;
+const APPLEARN_NOOPENER_WINDOW_MS = 3000;
+const loadingMediaoceanTabs = new Map();
+let blockAppLearnPopupsEnabled = true;
+
+chrome.storage.sync.get({ blockAppLearnPopupsEnabled: true })
+    .then(data => {
+        blockAppLearnPopupsEnabled = data.blockAppLearnPopupsEnabled !== false;
+    })
+    .catch(error => console.debug('Could not preload AppLearn popup setting:', error.message));
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== 'sync' || !changes.blockAppLearnPopupsEnabled) return;
+    blockAppLearnPopupsEnabled = changes.blockAppLearnPopupsEnabled.newValue !== false;
+});
+
+function rememberLoadingMediaoceanTab(tabId, windowId) {
+    if (!Number.isInteger(tabId)) return;
+    const now = Date.now();
+    loadingMediaoceanTabs.set(tabId, {
+        guardUntil: now + APPLEARN_BLANK_POPUP_WINDOW_MS,
+        noOpenerGuardUntil: now + APPLEARN_NOOPENER_WINDOW_MS,
+        windowId
+    });
+}
+
+function isBlankTabUrl(tab) {
+    const url = tab?.pendingUrl || tab?.url;
+    return !url || url === 'about:blank' || url === 'chrome://newtab/';
+}
+
+function closeBlankAppLearnCandidate(tab) {
+    if (!blockAppLearnPopupsEnabled || !isBlankTabUrl(tab)) return false;
+    if (!Number.isInteger(tab?.id)) return false;
+
+    const now = Date.now();
+    let loadingSourceFound = false;
+
+    for (const [tabId, loadingTab] of loadingMediaoceanTabs) {
+        if (loadingTab.guardUntil < now) {
+            loadingMediaoceanTabs.delete(tabId);
+            continue;
+        }
+
+        const isKnownChild = Number.isInteger(tab.openerTabId) && tab.openerTabId === tabId;
+        const isNoOpenerSibling = !Number.isInteger(tab.openerTabId)
+            && Number.isInteger(tab.windowId)
+            && tab.windowId === loadingTab.windowId
+            && loadingTab.noOpenerGuardUntil >= now;
+
+        if (isKnownChild || isNoOpenerSibling) {
+            loadingSourceFound = true;
+            break;
+        }
+    }
+
+    if (!loadingSourceFound) return false;
+
+    // Do not wait for the blank tab to navigate to AppLearn: removing it in
+    // the creation event prevents the visible flash reported on Prisma reload.
+    chrome.tabs.remove(tab.id)
+        .then(() => incrementAppLearnPopupBlockedStat())
+        .catch(error => console.debug('Could not close blank AppLearn popup candidate:', error.message));
+    return true;
+}
+
 let appLearnPopupStatUpdate = Promise.resolve();
 
 function incrementAppLearnPopupBlockedStat() {
@@ -290,11 +356,23 @@ async function maybeBlockAppLearnPopup(tabId, url, openerTabId) {
 }
 
 chrome.tabs.onCreated.addListener(tab => {
+    if (isMediaoceanUrl(tab.pendingUrl || tab.url)) {
+        rememberLoadingMediaoceanTab(tab.id, tab.windowId);
+    }
+    if (closeBlankAppLearnCandidate(tab)) return;
+
     maybeBlockAppLearnPopup(tab.id, tab.pendingUrl || tab.url, tab.openerTabId)
         .catch(error => console.error('Unexpected AppLearn popup check failure:', error));
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    const currentUrl = changeInfo.url || tab.url;
+    if (changeInfo.status === 'loading' && isMediaoceanUrl(currentUrl)) {
+        rememberLoadingMediaoceanTab(tabId, tab.windowId);
+    } else if (changeInfo.status === 'complete' || (changeInfo.url && !isMediaoceanUrl(currentUrl))) {
+        loadingMediaoceanTabs.delete(tabId);
+    }
+
     if (changeInfo.url) {
         maybeBlockAppLearnPopup(tabId, changeInfo.url, tab.openerTabId)
             .catch(error => console.error('Unexpected AppLearn popup check failure:', error));
@@ -319,6 +397,10 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
             }
         });
     }
+});
+
+chrome.tabs.onRemoved.addListener(tabId => {
+    loadingMediaoceanTabs.delete(tabId);
 });
 
 // --- Exports for Testing ---

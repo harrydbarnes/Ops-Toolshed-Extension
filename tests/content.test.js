@@ -11,6 +11,7 @@ const scriptsToLoad = [
     'features/gmi-chat.js',
     'features/live-chat-enhancements.js',
     'features/approver-pasting.js',
+    'features/max-campaign-budget.js',
     'content.js'
 ].map(scriptPath => fs.readFileSync(path.resolve(__dirname, `../${scriptPath}`), 'utf8'));
 

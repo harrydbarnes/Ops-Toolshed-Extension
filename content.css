@@ -470,6 +470,133 @@ body.reminder-theme-black #confirmation-popup {
     transform: translateY(-50%);
 }
 
+#toolshed-max-budget-panel {
+    position: fixed;
+    z-index: 2147483644;
+    width: 230px;
+    padding: 8px;
+    border: 1px solid #b7c1cc;
+    border-radius: 3px;
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(18, 38, 63, 0.2);
+    color: #263746;
+    font-family: Arial, sans-serif;
+}
+
+#toolshed-max-budget-panel::before {
+    position: absolute;
+    top: -6px;
+    left: 18px;
+    width: 10px;
+    height: 10px;
+    border-top: 1px solid #b7c1cc;
+    border-left: 1px solid #b7c1cc;
+    background: #fff;
+    content: "";
+    transform: rotate(45deg);
+}
+
+.toolshed-max-budget-button,
+.toolshed-max-budget-month-button {
+    min-height: 30px;
+    border: 1px solid #0875ca;
+    border-radius: 3px;
+    background: #0875ca;
+    color: #fff;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 18px;
+}
+
+.toolshed-max-budget-button {
+    flex: 1;
+    padding: 5px 10px;
+}
+
+.toolshed-max-budget-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.toolshed-max-budget-close {
+    flex: 0 0 30px;
+    min-height: 30px;
+    padding: 0;
+    border: 1px solid #b7c1cc;
+    border-radius: 3px;
+    background: #fff;
+    color: #52616d;
+    cursor: pointer;
+    font-size: 19px;
+    line-height: 26px;
+}
+
+.toolshed-max-budget-close:hover,
+.toolshed-max-budget-close:focus {
+    border-color: #7e8c99;
+    background: #f3f5f7;
+    color: #263746;
+    outline: none;
+}
+
+.toolshed-max-budget-button:hover,
+.toolshed-max-budget-button:focus,
+.toolshed-max-budget-month-button:hover,
+.toolshed-max-budget-month-button:focus {
+    border-color: #075b9c;
+    background: #075b9c;
+    outline: none;
+}
+
+.toolshed-max-budget-button:disabled,
+.toolshed-max-budget-month-button:disabled,
+.toolshed-max-budget-month-button.mo-disabled {
+    border-color: #c7cfd7;
+    background: #e6e9ed;
+    color: #7a8793;
+    cursor: not-allowed;
+}
+
+.toolshed-max-budget-status {
+    margin-top: 6px;
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.toolshed-max-budget-status[data-state="success"],
+.toolshed-max-budget-actualise-status[data-state="success"] {
+    color: #287d3c;
+}
+
+.toolshed-max-budget-status[data-state="error"],
+.toolshed-max-budget-actualise-status[data-state="error"] {
+    color: #b52222;
+}
+
+.toolshed-max-budget-month-button {
+    margin-left: 8px;
+    padding: 4px 10px;
+}
+
+.toolshed-max-budget-actualise-status {
+    align-self: center;
+    max-width: 390px;
+    margin-left: 8px;
+    color: #5e6c78;
+    font-size: 11px;
+    line-height: 1.3;
+}
+
+.toolshed-max-budget-native-note {
+    padding: 5px 20px 7px;
+    color: #667582;
+    font-size: 11px;
+    font-style: italic;
+    line-height: 1.3;
+    white-space: nowrap;
+}
+
 /* On wide screens there is enough clearance to centre the workflow controls
    against the full page. Narrower screens retain the available-space layout. */
 @media (min-width: 1440px) {

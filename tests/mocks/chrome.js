@@ -127,6 +127,9 @@ global.chrome = {
     onUpdated: {
       addListener: jest.fn(),
     },
+    onRemoved: {
+      addListener: jest.fn(),
+    },
   },
   scripting: {
     executeScript: jest.fn(),
@@ -170,6 +173,7 @@ global.resetMocks = () => {
     global.chrome.tabs.update.mockClear();
     global.chrome.tabs.onCreated.addListener.mockClear();
     global.chrome.tabs.onUpdated.addListener.mockClear();
+    global.chrome.tabs.onRemoved.addListener.mockClear();
     global.chrome.scripting.executeScript.mockClear();
     global.chrome.sidePanel.open.mockReset();
     global.chrome.sidePanel.setOptions.mockReset();

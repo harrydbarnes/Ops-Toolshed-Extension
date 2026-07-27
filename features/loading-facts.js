@@ -212,7 +212,34 @@
     const CAMPAIGN_LOADING_END_DELAY_MS = 2500;
     const HOVER_EXIT_DELAY_MS = 2000;
 
-    const getStorageData = (area, keys) => new Promise(resolve => chrome.storage[area].get(keys, resolve));
+    function getStorageArea(area) {
+        if (typeof chrome === 'undefined') return null;
+        return chrome.storage?.[area] || null;
+    }
+
+    function getStorageData(area, keys) {
+        return new Promise(resolve => {
+            const storageArea = getStorageArea(area);
+            if (!storageArea?.get) {
+                resolve({});
+                return;
+            }
+
+            let settled = false;
+            const resolveOnce = data => {
+                if (settled) return;
+                settled = true;
+                resolve(data || {});
+            };
+
+            try {
+                const result = storageArea.get(keys, resolveOnce);
+                if (result?.then) result.then(resolveOnce).catch(() => resolveOnce({}));
+            } catch (_error) {
+                resolveOnce({});
+            }
+        });
+    }
 
     class LoadingFactsFeature {
         constructor() {
@@ -234,7 +261,10 @@
             this.settingsLoaded = false;
 
             // Listen for changes
-            chrome.storage.onChanged.addListener((changes, area) => {
+            const storageChanges = typeof chrome === 'undefined'
+                ? null
+                : chrome.storage?.onChanged;
+            storageChanges?.addListener((changes, area) => {
                 if (area === 'sync' && changes.loadingFactsEnabled) {
                     this.isEnabled = changes.loadingFactsEnabled.newValue !== false;
                     // If disabled while visible, hide immediately
@@ -486,7 +516,7 @@
 
             const data = await getStorageData('local', 'loadingFactRatings');
             const ratings = { ...(data.loadingFactRatings || {}), [fact]: rating };
-            chrome.storage.local.set({ loadingFactRatings: ratings });
+            getStorageArea('local')?.set?.({ loadingFactRatings: ratings });
         }
 
         async showToast(spinner) {
