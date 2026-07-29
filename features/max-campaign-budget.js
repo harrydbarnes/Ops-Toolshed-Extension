@@ -259,7 +259,6 @@
         button.textContent = 'Max Campaign Budget';
         button.removeAttribute('data-toggle');
         button.removeAttribute('data-original-title');
-        button.classList.add('toolshed-max-budget-month-button');
         button.addEventListener('click', event => {
             event.preventDefault();
             event.stopPropagation();

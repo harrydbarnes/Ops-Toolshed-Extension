@@ -2,7 +2,9 @@
     'use strict';
 
     const MENU_ID = 'toolshed-export-all-actuals';
+    const COMBINE_MENU_ID = 'toolshed-combine-actuals';
     const STATUS_ID = 'toolshed-export-all-actuals-status';
+    const FILE_INPUT_ID = 'toolshed-combine-actuals-input';
     const MONTH_SELECTOR = '#mos-paginator li > a';
     const ACTIVE_MONTH_SELECTOR = '#mos-paginator li.active > a';
     const IMPORT_EXPORT_BUTTON_SELECTOR = '#btn-importExportPlacements';
@@ -14,11 +16,15 @@
     const EXPORT_TRIGGER_GAP_MS = timing.exportTriggerGapMs || 1200;
     const MENU_OPEN_TIMEOUT_MS = timing.menuOpenTimeoutMs || 3000;
     const STATUS_DURATION_MS = timing.statusDurationMs || 6000;
+    const COMBINE_STATUS_DURATION_MS = timing.combineStatusDurationMs || 30000;
+    const MAX_COMBINE_FILES = 36;
+    const MAX_CSV_FILE_SIZE = 10 * 1024 * 1024;
 
     let initialized = false;
     let running = false;
     let cancelRequested = false;
     let statusRemovalTimer = null;
+    let lastExportedMonthCount = 0;
 
     function getHashParams() {
         return new URLSearchParams(window.location.hash.replace(/^#/, ''));
@@ -46,16 +52,33 @@
         return document.querySelector(ACTIVE_MONTH_SELECTOR)?.textContent.trim() || '';
     }
 
-    function updateMenuItem() {
-        const item = document.getElementById(MENU_ID);
+    function updateMenuItemState(item, disabled, desiredText) {
         if (!item) return;
 
-        item.classList.toggle('mo-disabled', running);
-        item.setAttribute('aria-disabled', String(running));
+        if (item.classList.contains('mo-disabled') !== disabled) {
+            item.classList.toggle('mo-disabled', disabled);
+        }
+        const ariaDisabled = String(disabled);
+        if (item.getAttribute('aria-disabled') !== ariaDisabled) {
+            item.setAttribute('aria-disabled', ariaDisabled);
+        }
         const link = item.querySelector('a');
-        if (link) link.textContent = running
+        if (link && link.textContent !== desiredText) link.textContent = desiredText;
+    }
+
+    function updateMenuItems() {
+        updateMenuItemState(
+            document.getElementById(MENU_ID),
+            running,
+            running
             ? 'Exporting every month\u2019s actuals view\u2026'
-            : 'Export every month\u2019s actuals view';
+            : 'Export every month\u2019s actuals view'
+        );
+        updateMenuItemState(
+            document.getElementById(COMBINE_MENU_ID),
+            running,
+            'Combine downloaded actuals views'
+        );
     }
 
     function handleMenuClick(event) {
@@ -64,9 +87,27 @@
         exportAllMonths();
     }
 
+    function handleCombineMenuClick(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!running) chooseCsvFiles();
+    }
+
+    function createMenuItem(id, handler) {
+        const item = document.createElement('li');
+        item.id = id;
+
+        const link = document.createElement('a');
+        link.href = '#';
+        link.addEventListener('click', handler);
+        item.appendChild(link);
+        return item;
+    }
+
     function apply() {
         if (!isActualiseRoute()) {
             document.getElementById(MENU_ID)?.remove();
+            document.getElementById(COMBINE_MENU_ID)?.remove();
             return;
         }
 
@@ -74,27 +115,30 @@
         const menu = nativeExportItem?.parentElement;
         if (!menu || getVisibleMonths().length < 2) {
             document.getElementById(MENU_ID)?.remove();
+            document.getElementById(COMBINE_MENU_ID)?.remove();
             return;
         }
 
         let item = document.getElementById(MENU_ID);
         if (!item) {
-            item = document.createElement('li');
-            item.id = MENU_ID;
-
-            const link = document.createElement('a');
-            link.href = '#';
-            link.addEventListener('click', handleMenuClick);
-            item.appendChild(link);
+            item = createMenuItem(MENU_ID, handleMenuClick);
             nativeExportItem.after(item);
         } else if (item.previousElementSibling !== nativeExportItem) {
             nativeExportItem.after(item);
         }
 
-        updateMenuItem();
+        let combineItem = document.getElementById(COMBINE_MENU_ID);
+        if (!combineItem) {
+            combineItem = createMenuItem(COMBINE_MENU_ID, handleCombineMenuClick);
+            item.after(combineItem);
+        } else if (combineItem.previousElementSibling !== item) {
+            item.after(combineItem);
+        }
+
+        updateMenuItems();
     }
 
-    function showStatus(message, state = 'running') {
+    function showStatus(message, state = 'running', action = 'cancel') {
         window.clearTimeout(statusRemovalTimer);
 
         let status = document.getElementById(STATUS_ID);
@@ -118,18 +162,213 @@
                 messageElement.textContent = 'Stopping after the current export\u2026';
             });
             status.appendChild(cancelButton);
+
+            const combineButton = document.createElement('button');
+            combineButton.type = 'button';
+            combineButton.className =
+                'toolshed-export-all-actuals-cancel toolshed-export-all-actuals-combine';
+            combineButton.textContent = 'Combine CSVs';
+            combineButton.addEventListener('click', () => {
+                chooseCsvFiles(lastExportedMonthCount);
+            });
+            status.appendChild(combineButton);
             document.body.appendChild(status);
         }
 
         status.dataset.state = state;
         status.querySelector('.toolshed-export-all-actuals-message').textContent = message;
         const cancelButton = status.querySelector('.toolshed-export-all-actuals-cancel');
-        cancelButton.hidden = state !== 'running';
+        const combineButton = status.querySelector('.toolshed-export-all-actuals-combine');
+        cancelButton.hidden = action !== 'cancel';
         cancelButton.disabled = false;
+        combineButton.hidden = action !== 'combine';
+        combineButton.disabled = false;
 
         if (state !== 'running') {
-            statusRemovalTimer = window.setTimeout(() => status.remove(), STATUS_DURATION_MS);
+            const duration = action === 'combine' ? COMBINE_STATUS_DURATION_MS : STATUS_DURATION_MS;
+            statusRemovalTimer = window.setTimeout(() => status.remove(), duration);
         }
+    }
+
+    function parseCsvRows(text) {
+        const input = String(text || '').replace(/^\uFEFF/, '');
+        const rows = [];
+        let row = [];
+        let field = '';
+        let inQuotes = false;
+
+        for (let index = 0; index < input.length; index += 1) {
+            const character = input[index];
+            if (character === '"') {
+                if (inQuotes && input[index + 1] === '"') {
+                    field += '"';
+                    index += 1;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+                continue;
+            }
+            if (character === ',' && !inQuotes) {
+                row.push(field);
+                field = '';
+                continue;
+            }
+            if ((character === '\r' || character === '\n') && !inQuotes) {
+                row.push(field);
+                rows.push(row);
+                row = [];
+                field = '';
+                if (character === '\r' && input[index + 1] === '\n') index += 1;
+                continue;
+            }
+            field += character;
+        }
+
+        if (inQuotes) throw new Error('A selected CSV has an unclosed quoted field.');
+        if (field || row.length) {
+            row.push(field);
+            rows.push(row);
+        }
+        return rows.filter(candidate => !candidate.every(value => value === ''));
+    }
+
+    function escapeCsvField(value) {
+        const text = String(value ?? '');
+        return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    }
+
+    function parseActualizationFilename(name) {
+        const match = String(name || '').match(
+            /^(Actualization-.+)-(\d{4})-(0[1-9]|1[0-2])(?: \(\d+\))?\.csv$/i
+        );
+        if (!match) return null;
+        return {
+            prefix: match[1],
+            month: `${match[2]}-${match[3]}`
+        };
+    }
+
+    async function mergeActualizationCsvFiles(files, expectedCount = 0) {
+        const selectedFiles = Array.from(files || []);
+        if (selectedFiles.length < 2) {
+            throw new Error('Select at least two Prisma Actualization CSV files.');
+        }
+        if (selectedFiles.length > MAX_COMBINE_FILES) {
+            throw new Error(`Select no more than ${MAX_COMBINE_FILES} CSV files.`);
+        }
+        if (expectedCount && selectedFiles.length !== expectedCount) {
+            throw new Error(`Select all ${expectedCount} CSV files from this export run.`);
+        }
+
+        const describedFiles = selectedFiles.map(file => {
+            const description = parseActualizationFilename(file.name);
+            if (!description) {
+                throw new Error('Select only Prisma Actualization CSV files.');
+            }
+            if (Number(file.size || 0) > MAX_CSV_FILE_SIZE) {
+                throw new Error(`${file.name} is unexpectedly large.`);
+            }
+            return { file, ...description };
+        });
+
+        const prefixes = new Set(describedFiles.map(item => item.prefix.toLowerCase()));
+        if (prefixes.size !== 1) {
+            throw new Error('Select Actualization CSVs from one campaign and user only.');
+        }
+
+        const months = new Set();
+        describedFiles.forEach(item => {
+            if (months.has(item.month)) {
+                throw new Error(`More than one CSV was selected for ${item.month}.`);
+            }
+            months.add(item.month);
+        });
+        describedFiles.sort((left, right) => left.month.localeCompare(right.month));
+
+        let header = null;
+        const combinedRows = [];
+        for (const item of describedFiles) {
+            const rows = parseCsvRows(await item.file.text());
+            if (rows.length === 0) throw new Error(`${item.file.name} is empty.`);
+
+            if (!header) {
+                header = rows[0];
+            } else if (
+                rows[0].length !== header.length ||
+                rows[0].some((value, index) => value !== header[index])
+            ) {
+                throw new Error(`${item.file.name} has different columns.`);
+            }
+
+            rows.slice(1).forEach((dataRow, rowIndex) => {
+                if (dataRow.length !== header.length) {
+                    throw new Error(`${item.file.name} row ${rowIndex + 2} has a different column count.`);
+                }
+                combinedRows.push(dataRow);
+            });
+        }
+
+        const allRows = [header, ...combinedRows];
+        const csv = `\uFEFF${allRows
+            .map(row => row.map(escapeCsvField).join(','))
+            .join('\r\n')}\r\n`;
+        const firstMonth = describedFiles[0].month;
+        const lastMonth = describedFiles[describedFiles.length - 1].month;
+        return {
+            csv,
+            filename: `${describedFiles[0].prefix}-${firstMonth}-to-${lastMonth}.csv`,
+            fileCount: describedFiles.length,
+            rowCount: combinedRows.length
+        };
+    }
+
+    function downloadCombinedCsv(result) {
+        const blob = new Blob([result.csv], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = result.filename;
+        link.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function chooseCsvFiles(expectedCount = 0) {
+        document.getElementById(FILE_INPUT_ID)?.remove();
+
+        const input = document.createElement('input');
+        input.id = FILE_INPUT_ID;
+        input.type = 'file';
+        input.accept = '.csv,text/csv';
+        input.multiple = true;
+        input.hidden = true;
+
+        input.addEventListener('cancel', () => input.remove(), { once: true });
+        input.addEventListener('change', async () => {
+            const files = Array.from(input.files || []);
+            if (files.length === 0) {
+                input.remove();
+                return;
+            }
+
+            showStatus('Combining downloaded Actualization CSVs\u2026', 'running', 'none');
+            try {
+                const result = await mergeActualizationCsvFiles(files, expectedCount);
+                downloadCombinedCsv(result);
+                showStatus(
+                    `Combined ${result.fileCount} months and ${result.rowCount} data rows into ${result.filename}.`,
+                    'success',
+                    'none'
+                );
+            } catch (error) {
+                console.error('[Ops Toolshed] Could not combine Actualization CSVs:', error);
+                showStatus(`CSV combine stopped: ${error.message}`, 'error', 'none');
+            } finally {
+                input.remove();
+            }
+        }, { once: true });
+
+        document.body.appendChild(input);
+        input.click();
     }
 
     function wait(ms) {
@@ -231,7 +470,8 @@
 
         running = true;
         cancelRequested = false;
-        updateMenuItem();
+        lastExportedMonthCount = 0;
+        updateMenuItems();
 
         const originalMonth = getActiveMonth();
         const campaignId = getCampaignId();
@@ -256,18 +496,23 @@
 
             await restoreMonth(originalMonth, campaignId);
             if (cancelRequested) {
-                showStatus(`Stopped after starting ${completed} of ${months.length} exports.`, 'info');
+                showStatus(`Stopped after starting ${completed} of ${months.length} exports.`, 'info', 'none');
             } else {
-                showStatus(`Started actuals view exports for all ${completed} months.`, 'success');
+                lastExportedMonthCount = months.length;
+                showStatus(
+                    `Started actuals view exports for all ${completed} months. Select the downloaded CSVs to combine them.`,
+                    'success',
+                    'combine'
+                );
             }
         } catch (error) {
             await restoreMonth(originalMonth, campaignId);
             console.error('[Ops Toolshed] Export every month failed:', error);
-            showStatus(`Bulk export stopped: ${error.message}`, 'error');
+            showStatus(`Bulk export stopped: ${error.message}`, 'error', 'none');
         } finally {
             running = false;
             cancelRequested = false;
-            updateMenuItem();
+            updateMenuItems();
         }
     }
 
@@ -284,6 +529,9 @@
         initialize,
         apply,
         exportAllMonths,
+        mergeActualizationCsvFiles,
+        parseCsvRows,
+        chooseCsvFiles,
         isRunning: () => running
     };
 })();

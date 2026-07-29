@@ -227,6 +227,9 @@ describe('Max Campaign Budget', () => {
         const button = document.getElementById('toolshed-max-budget-actualise');
         expect(button).not.toBeNull();
         expect(button.textContent).toBe('Max Campaign Budget');
+        expect(button.classList).toContain('mo-btn');
+        expect(button.classList).toContain('mo-btn-primary');
+        expect(button.classList).not.toContain('toolshed-max-budget-month-button');
         expect(button.disabled).toBe(true);
 
         document.getElementById('payableActualCostJul26-2').dispatchEvent(
