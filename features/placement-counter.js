@@ -4,6 +4,7 @@
     let toastTimeout;
     let currentToast = null;
     let debounceTimeout = null;
+    let selectionListenerInstalled = false;
     const SETTING_KEY = 'countPlacementsSelectedEnabled';
 
     const EXCLUSION_TEXTS = [
@@ -11,13 +12,22 @@
         "media total" // User requested exclusion
     ];
 
-    function getHierarchyLevel(row) {
-        const levelElement = row.querySelector('[class*="hierarchical-level-"]');
-        if (!levelElement) return null;
+    function getHierarchyLevel(row, nameCell) {
+        const rowLevelElements = Array.from(
+            row.querySelectorAll('[class*="hierarchical-level-"]')
+        );
+        const levelElements = nameCell
+            ? [nameCell, ...rowLevelElements.filter(element => element !== nameCell)]
+            : rowLevelElements;
 
-        const levelClass = Array.from(levelElement.classList)
-            .find(className => /^hierarchical-level-\d+$/.test(className));
-        return levelClass ? Number(levelClass.replace('hierarchical-level-', '')) : null;
+        for (const levelElement of levelElements) {
+            const levelClass = Array.from(levelElement.classList)
+                .find(className => /^hierarchical-level-\d+$/.test(className));
+            if (levelClass) {
+                return Number(levelClass.replace('hierarchical-level-', ''));
+            }
+        }
+        return null;
     }
 
     function formatSelectionMessage(packageCounts, placementCount) {
@@ -87,7 +97,13 @@
                     return;
                 }
 
-                const selectedCheckboxes = gridContainer.querySelectorAll('input.mo-row-checkbox[type="checkbox"]:checked');
+                // Handsontable renders cloned overlay tables alongside its canonical
+                // master table. Read only the master so a stale clone cannot create a
+                // phantom selection.
+                const selectionRoot = gridContainer.querySelector('.ht_master') || gridContainer;
+                const selectedCheckboxes = selectionRoot.querySelectorAll(
+                    'input.mo-row-checkbox[type="checkbox"]:checked'
+                );
                 const selectedRows = [];
                 const selectedRowIds = new Set();
 
@@ -102,12 +118,29 @@
                     const nameCell = row.querySelector(`#placementName-${rowId}`);
                     const nameText = (nameCell ? nameCell.textContent : '').toLowerCase();
 
-                    const hierarchyLevel = getHierarchyLevel(row);
+                    const hierarchyLevel = getHierarchyLevel(row, nameCell);
                     const isLevel0 = hierarchyLevel === 0;
-                    const isPackage = row.matches('.mi-package') || row.querySelector('.mi-package');
+                    const isGroup = Boolean(
+                        nameCell && (
+                            nameCell.matches('.group-cell') ||
+                            Array.from(nameCell.classList)
+                                .some(className => className.startsWith('hierarchical-level-group-'))
+                        )
+                    );
+                    const isPackage = Boolean(
+                        row.matches('.mi-package, .mi-programmatic-package') ||
+                        row.querySelector('.mi-package, .mi-programmatic-package')
+                    );
                     const isTextExcluded = EXCLUSION_TEXTS.some(exclusion => nameText.includes(exclusion));
 
-                    selectedRows.push({ rowId, hierarchyLevel, isLevel0, isPackage, isTextExcluded });
+                    selectedRows.push({
+                        rowId,
+                        hierarchyLevel,
+                        isLevel0,
+                        isGroup,
+                        isPackage,
+                        isTextExcluded
+                    });
                 });
 
                 // A package is either explicitly marked with the box icon or is a selected
@@ -120,7 +153,11 @@
                         return;
                     }
 
-                    if (selectedRow.hierarchyLevel === null || selectedRow.isLevel0) return;
+                    if (
+                        selectedRow.isGroup ||
+                        selectedRow.hierarchyLevel === null ||
+                        selectedRow.isLevel0
+                    ) return;
 
                     for (let nextIndex = index + 1; nextIndex < selectedRows.length; nextIndex += 1) {
                         const nextLevel = selectedRows[nextIndex].hierarchyLevel;
@@ -141,7 +178,12 @@
                     for (let index = packageIndex + 1; index < selectedRows.length; index += 1) {
                         const childRow = selectedRows[index];
                         if (childRow.hierarchyLevel !== null && childRow.hierarchyLevel <= packageRow.hierarchyLevel) break;
-                        if (!childRow.isLevel0 && !childRow.isPackage && !childRow.isTextExcluded) {
+                        if (
+                            !childRow.isLevel0 &&
+                            !childRow.isGroup &&
+                            !childRow.isPackage &&
+                            !childRow.isTextExcluded
+                        ) {
                             placementCount += 1;
                             packageChildRowIds.add(childRow.rowId);
                         }
@@ -154,6 +196,7 @@
                     !packageIndexes.has(index) &&
                     !packageChildRowIds.has(selectedRow.rowId) &&
                     !selectedRow.isLevel0 &&
+                    !selectedRow.isGroup &&
                     !selectedRow.isTextExcluded
                 )).length;
                 const message = formatSelectionMessage(packageCounts, placementCount);
@@ -223,6 +266,18 @@
                 }
             }
         });
+
+        if (!selectionListenerInstalled) {
+            document.addEventListener('change', (event) => {
+                if (
+                    event.target &&
+                    event.target.matches('input.mo-row-checkbox[type="checkbox"]')
+                ) {
+                    checkSelectionAndDisplay();
+                }
+            }, true);
+            selectionListenerInstalled = true;
+        }
 
         checkSelectionAndDisplay();
     }

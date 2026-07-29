@@ -23,6 +23,9 @@ describe('Placement Counter Feature', () => {
             storage: {
                 sync: {
                     get: jest.fn((key, cb) => cb({ countPlacementsSelectedEnabled: true }))
+                },
+                onChanged: {
+                    addListener: jest.fn()
                 }
             }
         };
@@ -62,6 +65,23 @@ describe('Placement Counter Feature', () => {
         }
 
         return tr;
+    }
+
+    function createPrismaGroupRow(id, name, groupLevel, isChecked = true) {
+        const row = createRow(id, name, isChecked);
+        const checkbox = row.querySelector('.mo-row-checkbox');
+        const checkboxCell = document.createElement('td');
+        checkboxCell.classList.add('group-cell', `hierarchical-level-group-${groupLevel}`);
+        row.insertBefore(checkboxCell, checkbox);
+        checkboxCell.appendChild(checkbox);
+
+        const nameCell = row.querySelector(`#placementName-${id}`);
+        nameCell.classList.add(
+            'group-cell',
+            `hierarchical-level-group-${groupLevel}`,
+            'hierarchical-level-0'
+        );
+        return row;
     }
 
     test('should count valid placement rows', () => {
@@ -144,5 +164,69 @@ describe('Placement Counter Feature', () => {
 
         expect(document.querySelector('.placement-toast').textContent)
             .toBe('1 Package Selected (w/2 Placements)');
+    });
+
+    test('counts only the placement beneath selected Prisma Search group rows', () => {
+        const container = document.getElementById('grid-container_hot');
+        container.appendChild(createPrismaGroupRow('1', 'Search', 0));
+        container.appendChild(createPrismaGroupRow('2', 'GOOGLE ADS (GBP):SEARCH', 1));
+        container.appendChild(createRow('3', 'FY26 Liz Earle Search placement', true, [], 1));
+
+        window.placementCounterFeature.checkSelection();
+        jest.advanceTimersByTime(200);
+
+        expect(document.querySelector('.placement-toast').textContent)
+            .toBe('1 Placement Selected');
+    });
+
+    test('counts only the fee placement beneath a selected Prisma fee group row', () => {
+        const container = document.getElementById('grid-container_hot');
+        container.appendChild(createPrismaGroupRow(
+            '1',
+            'GOOGLE DIGITAL SERVICE CHARGE (GBP):Google Digital Service Charge',
+            1
+        ));
+        container.appendChild(createRow('2', 'Google Digital Service Charge 2%', true, [], 1));
+
+        window.placementCounterFeature.checkSelection();
+        jest.advanceTimersByTime(200);
+
+        expect(document.querySelector('.placement-toast').textContent)
+            .toBe('1 Placement Selected');
+    });
+
+    test('checks selection when a late-rendered Prisma checkbox changes', () => {
+        window.placementCounterFeature.initialize();
+        jest.advanceTimersByTime(200);
+
+        const container = document.getElementById('grid-container_hot');
+        const row = createRow('1', 'Late-rendered placement', false, [], 1);
+        container.appendChild(row);
+        const checkbox = row.querySelector('.mo-row-checkbox');
+        checkbox.checked = true;
+        checkbox.dispatchEvent(new window.Event('change', { bubbles: true }));
+
+        jest.advanceTimersByTime(200);
+
+        expect(document.querySelector('.placement-toast').textContent)
+            .toBe('1 Placement Selected');
+    });
+
+    test('uses the master Handsontable grid instead of a stale overlay clone', () => {
+        const container = document.getElementById('grid-container_hot');
+        const overlayClone = document.createElement('div');
+        overlayClone.className = 'ht_clone_top';
+        overlayClone.appendChild(createRow('1', 'Stale cloned placement', true, [], 1));
+        container.appendChild(overlayClone);
+
+        const master = document.createElement('div');
+        master.className = 'ht_master';
+        master.appendChild(createRow('1', 'Master placement', false, [], 1));
+        container.appendChild(master);
+
+        window.placementCounterFeature.checkSelection();
+        jest.advanceTimersByTime(200);
+
+        expect(document.querySelector('.placement-toast')).toBeNull();
     });
 });
