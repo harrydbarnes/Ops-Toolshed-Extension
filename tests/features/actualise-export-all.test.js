@@ -185,7 +185,7 @@ describe('Actualise export every month', () => {
             {
                 name: 'Actualization-CP37TC2-HBARN-2026-02.csv',
                 size: 100,
-                text: jest.fn(async () => 'Month,Name,Notes\r\n2026-02,Second,"Line one\r\nLine two"\r\n')
+                text: jest.fn(async () => 'Month,Name,Notes\r\n2026-02,Second,"Line one\r\nLine two",\r\n')
             },
             {
                 name: 'Actualization-CP37TC2-HBARN-2026-01.csv',
@@ -207,6 +207,21 @@ describe('Actualise export every month', () => {
         ]);
         expect(result.csv.match(/Month,Name,Notes/g)).toHaveLength(1);
         expect(result.csv.startsWith('\uFEFF')).toBe(true);
+        dom.window.close();
+    });
+
+    test('still rejects a surplus trailing field when it contains data', async () => {
+        const { dom, window } = createFeature();
+        const file = (name, csv) => ({
+            name,
+            size: csv.length,
+            text: jest.fn(async () => csv)
+        });
+
+        await expect(window.actualiseExportAllFeature.mergeActualizationCsvFiles([
+            file('Actualization-CP1-HBARN-2026-01.csv', 'Month,Value\r\n2026-01,1'),
+            file('Actualization-CP1-HBARN-2026-02.csv', 'Month,Value\r\n2026-02,2,unexpected')
+        ])).rejects.toThrow('different column count');
         dom.window.close();
     });
 

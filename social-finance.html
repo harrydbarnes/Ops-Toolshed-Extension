@@ -276,9 +276,18 @@
             <div id="financialHeadline" class="financial-headline" aria-label="Financial totals"></div>
             <div id="summaryCards" class="action-headline"></div>
             <div id="coverageWarnings" class="coverage-warnings"></div>
+            <section id="linkComparison" class="link-comparison breakdown-section" aria-labelledby="link-comparison-heading">
+                <div class="breakdown-heading">
+                    <div>
+                        <strong id="link-comparison-heading">Campaign link comparison</strong>
+                        <span>Compares Meta Campaign ID with Prisma Partner line ID for the selected accounts and months. Different-ID suggestions are shown separately because one Prisma campaign can legitimately cover several Meta campaigns.</span>
+                    </div>
+                </div>
+                <div id="linkComparisonMetrics" class="link-comparison-metrics"></div>
+            </section>
             <section id="socialActionList" class="social-action-list breakdown-section" aria-labelledby="social-action-heading">
                 <div class="breakdown-heading">
-                    <div><strong id="social-action-heading">Social action list</strong><span>Campaigns Social teams need to review. Get the approved Wrike reference first, then use it to create or update the booking in Prisma. References entered here are saved locally in this Chrome profile.</span></div>
+                    <div><strong id="social-action-heading">Social action list</strong><span>Campaigns Social teams need to review. A Wrike reference is required before creating or updating a Prisma booking, but not just to correct report scope, check a status, or confirm a possible match. References entered here are saved locally in this Chrome profile.</span></div>
                     <div class="breakdown-actions"><button id="copySocialActions" type="button">Copy list</button><button id="downloadSocialActions" type="button">Download CSV</button></div>
                 </div>
                 <div class="social-action-toolbar">

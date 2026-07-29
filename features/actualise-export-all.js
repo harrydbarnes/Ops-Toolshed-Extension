@@ -301,10 +301,14 @@
             }
 
             rows.slice(1).forEach((dataRow, rowIndex) => {
-                if (dataRow.length !== header.length) {
+                const normalizedRow = [...dataRow];
+                while (normalizedRow.length > header.length && normalizedRow.at(-1) === '') {
+                    normalizedRow.pop();
+                }
+                if (normalizedRow.length !== header.length) {
                     throw new Error(`${item.file.name} row ${rowIndex + 2} has a different column count.`);
                 }
-                combinedRows.push(dataRow);
+                combinedRows.push(normalizedRow);
             });
         }
 

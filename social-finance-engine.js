@@ -137,7 +137,9 @@
         const delivery = String(row.deliveryStatus || '').trim().toLowerCase();
         if (order.includes('needsrevision') || order.includes('needs revision')) issues.push(`Prisma order status: ${row.orderStatus}`);
         if (integrated.includes('not integrated')) issues.push(`Prisma integration status: ${row.integratedStatus}`);
-        if (delivery.includes('not received')) issues.push(`Prisma delivery status: ${row.deliveryStatus}`);
+        if (delivery.includes('not received')) {
+            issues.push('Prisma has not recorded receiving platform delivery data for this placement (Delivery status: Not Received). This does not mean the campaign had no delivery in Meta.');
+        }
         return issues;
     }
 
@@ -436,8 +438,10 @@
             accounts.set(accountId, existing);
             if (client || product) {
                 const key = `${client}\u0000${product}`;
-                const scope = clientProducts.get(key) || { client, product, accountIds: new Set() };
+                const scope = clientProducts.get(key) || { client, product, accountIds: new Set(), campaignIds: new Set() };
                 scope.accountIds.add(accountId);
+                const campaignId = columns.campaignId ? cleanId(row[columns.campaignId]) : '';
+                if (usableId(campaignId)) scope.campaignIds.add(campaignId);
                 clientProducts.set(key, scope);
             }
         });
@@ -451,7 +455,8 @@
             clientProducts: [...clientProducts.values()].map(scope => ({
                 client: scope.client,
                 product: scope.product,
-                accountIds: [...scope.accountIds].sort()
+                accountIds: [...scope.accountIds].sort(),
+                campaignIds: [...scope.campaignIds].sort()
             })).sort((left, right) => `${left.client}|${left.product}`.localeCompare(`${right.client}|${right.product}`)),
             errors
         };
@@ -489,8 +494,9 @@
                 flightStatus: columns.flightStatus ? String(row[columns.flightStatus] || '').trim() : '',
                 periodStatus: columns.periodStatus ? String(row[columns.periodStatus] || '').trim() : '',
                 owner: columns.owner ? String(row[columns.owner] || '').trim() : '',
-                start: columns.start ? parseDate(row[columns.start], true) : null,
-                end: columns.end ? parseDate(row[columns.end], true) : null,
+                // Prisma exports use UK day-first dates (for example 01/05/2026).
+                start: columns.start ? parseDate(row[columns.start]) : null,
+                end: columns.end ? parseDate(row[columns.end]) : null,
                 updatedTime: columns.updatedTime ? String(row[columns.updatedTime] || '').trim() : '',
                 sourceRow: rowIndex + 2
             };
@@ -774,7 +780,7 @@
             gaps: coverageGaps,
             isComplete: Boolean(metaAccountMonths.size) && coverageGaps.length === 0
         };
-        const populationConfirmed = options.populationConfirmed === true && coverage.isComplete;
+        const populationConfirmationEnabled = options.populationConfirmed === true;
         const linkedPrismaKeys = new Set(metaRecords.map(platform => {
             const manualBooking = manualMatches[platform.key] ? prismaByKey.get(manualMatches[platform.key]) : null;
             return (manualBooking || prismaByKey.get(platform.key))?.key;
@@ -800,6 +806,8 @@
             }
 
             const monthClosed = asOfDate > addWorkingDays(endOfMonth(platform.month), closedWorkingDay);
+            const platformAccountMonth = `${platform.accountId}|${toIsoDate(platform.month).slice(0, 7)}`;
+            const accountMonthConfirmed = populationConfirmationEnabled && prismaAccountMonths.has(platformAccountMonth);
             if (!booking) {
                 if (accountMismatches.length) {
                     classification = 'Account ID mismatch: Campaign ID is booked under another Prisma partner';
@@ -832,7 +840,7 @@
                         evidence = 'Investigate';
                         issues.push(`${candidate.level}: ${candidate.score}% match score${candidate.reasons.length ? ` (${candidate.reasons.join('; ')})` : ''}`);
                     } else {
-                        const missingLabel = populationConfirmed ? 'Missing from Prisma' : 'No linked Prisma booking found';
+                        const missingLabel = accountMonthConfirmed ? 'Missing from Prisma' : 'No linked Prisma booking found';
                         if (platform.spend <= tolerance && !(platform.impressions > 0) && isInactiveMetaRecord(platform)) {
                             classification = 'No booking action: inactive in Meta with no delivery';
                             evidence = 'Monitor';
@@ -863,16 +871,14 @@
                 if (platform.start && booking.start && platform.start < booking.start) {
                     issues.push(`${platform.scheduleSource || 'Meta schedule'} starts before Prisma`);
                     updateKinds.push('schedule');
-                } else if (startVariance !== null && startVariance !== 0) {
-                    issues.push(`${platform.scheduleSource || 'Meta schedule'} start differs by ${startVariance} day(s)`);
-                    reviewKinds.push('schedule');
+                } else if (startVariance !== null && startVariance > 0) {
+                    issues.push(`Prisma booking covers the Meta start and begins ${startVariance} day(s) earlier`);
                 }
                 if (platform.end && booking.end && platform.end > booking.end) {
                     issues.push(`${platform.scheduleSource || 'Meta schedule'} ends after Prisma`);
                     updateKinds.push('schedule');
-                } else if (endVariance !== null && endVariance !== 0) {
-                    issues.push(`${platform.scheduleSource || 'Meta schedule'} end differs by ${endVariance} day(s)`);
-                    reviewKinds.push('schedule');
+                } else if (endVariance !== null && endVariance < 0) {
+                    issues.push(`Prisma booking covers the Meta end and finishes ${Math.abs(endVariance)} day(s) later`);
                 }
 
                 if (spendVariance !== null && spendVariance > tolerance) {
@@ -930,7 +936,7 @@
             }
 
             const dailyContext = dailySpendContext(platform, asOfDate);
-            if (dailyContext && (evidence === 'Monitor' || evidence === 'Needs update' || evidence === 'Investigate')) {
+            if (!monthClosed && dailyContext && (evidence === 'Monitor' || evidence === 'Needs update' || evidence === 'Investigate')) {
                 issues.push(`Daily Meta pace: ${dailyContext.days} delivery day(s); last 7 calendar days average ${dailyContext.sevenDayAverage.toFixed(2)} per day to ${dailyContext.lastDate}`);
             }
             if (evidence !== 'Matched' || platform.spend === 0) {
@@ -979,6 +985,7 @@
                 metaAdSetCount: platform.adSetCount,
                 metaActiveAdSetCount: platform.activeAdSetCount,
                 prismaPlanned: booking?.planned ?? null,
+                prismaCampaignId: booking?.campaignId || '',
                 prismaClient: booking?.client || candidate?.client || '',
                 prismaProduct: booking?.product || candidate?.product || '',
                 prismaKey: booking?.key || '',
@@ -1013,7 +1020,7 @@
             const month = toIsoDate(booking.month).slice(0, 7);
             const outsideMetaMonths = !metaMonths.has(month);
             reportRows.push({
-                accountId: booking.accountId, campaignId: booking.campaignId, month, account: booking.client,
+                accountId: booking.accountId, campaignId: booking.campaignId, prismaCampaignId: booking.campaignId, month, account: booking.client,
                 metaKey: '', prismaKey: booking.key,
                 campaignName: booking.campaignName, status: '', metaSpend: null, metaBudget: null, metaBudgetType: '',
                 effectiveStatus: '', configuredStatus: '', adSetStatus: '', currency: booking.currency || '', metaCurrency: '', prismaCurrency: booking.currency || '', currencyMismatch: false, timezone: '', timezoneOffset: '',
@@ -1043,7 +1050,7 @@
         const currencyMismatches = reportRows.filter(row => row.currencyMismatch);
         if (currencyMismatches.length) warnings.push(`${currencyMismatches.length} linked campaign-month row${currencyMismatches.length === 1 ? '' : 's'} use different Meta and Prisma currencies. Their amounts are kept separate and need a currency check before booking action.`);
         if (meta.columns.updatedTime && !prisma.columns.updatedTime) warnings.push('Meta updated time is available, but the Prisma report has no booking updated time. The checker can show when Meta changed, but cannot confirm whether that change happened after the booking.');
-        if (!coverage.isComplete) warnings.push(`Prisma report coverage is incomplete for ${coverageGaps.length} selected Meta account-month${coverageGaps.length === 1 ? '' : 's'}; missing campaigns are not yet definitive.`);
+        if (!coverage.isComplete) warnings.push(`Prisma report coverage is incomplete for ${coverageGaps.length} selected Meta account-month${coverageGaps.length === 1 ? '' : 's'}; missing findings in those account-months remain provisional until the export scope is corrected.`);
         if (prisma.unintegratedRows.length) warnings.push(`${prisma.unintegratedRows.length} Prisma row${prisma.unintegratedRows.length === 1 ? '' : 's'} have no usable Partner account ID or Partner line ID. They are retained as unintegrated booking evidence but cannot be linked automatically.`);
         const sourceAccounts = [...new Map(meta.records.map(record => [record.accountId, { id: record.accountId, name: record.account || record.accountId }])).values()]
             .sort((left, right) => left.name.localeCompare(right.name));
@@ -1066,7 +1073,7 @@
             'Meta ad set budget', 'Meta ad set budget type', 'Meta ad set budget sharing', 'Meta budget schedule enabled',
             'Meta impressions', 'Meta reach', 'Meta active delivery days', 'Meta first delivery', 'Meta last delivery', 'Meta daily spend',
             'Meta updated time', 'Meta campaign updated time', 'Meta ad set updated time', 'Meta ad set count', 'Meta active ad set count',
-            'Meta currency', 'Prisma currency', 'Currency mismatch', 'Prisma client', 'Prisma product', 'Prisma placement name(s)', 'Prisma placement number(s)', 'Prisma Buy number(s)', 'Prisma booking key(s)', 'Prisma booked', 'Variance',
+            'Meta currency', 'Prisma currency', 'Currency mismatch', 'Prisma Partner line ID', 'Prisma client', 'Prisma product', 'Prisma placement name(s)', 'Prisma placement number(s)', 'Prisma Buy number(s)', 'Prisma booking key(s)', 'Prisma booked', 'Variance',
             'Meta schedule start', 'Meta schedule end', 'Prisma flight start', 'Prisma flight end',
             'Prisma booking updated time',
             'Prisma order status', 'Prisma integration status', 'Prisma delivery status', 'Prisma flight status', 'Prisma period status',
@@ -1079,7 +1086,7 @@
             'metaAdSetBudget', 'metaAdSetBudgetType', 'metaBudgetSharing', 'metaBudgetSchedule',
             'metaImpressions', 'metaReach', 'metaActiveSpendDays', 'metaFirstDelivery', 'metaLastDelivery', 'metaDailySpend',
             'metaUpdatedTime', 'metaCampaignUpdatedTime', 'metaAdSetUpdatedTime', 'metaAdSetCount', 'metaActiveAdSetCount',
-            'metaCurrency', 'prismaCurrency', 'currencyMismatch', 'prismaClient', 'prismaProduct', 'prismaPlacementNames', 'prismaPlacementNumbers', 'prismaBuyNumbers', 'prismaBookingKeys', 'prismaPlanned', 'variance',
+            'metaCurrency', 'prismaCurrency', 'currencyMismatch', 'prismaCampaignId', 'prismaClient', 'prismaProduct', 'prismaPlacementNames', 'prismaPlacementNumbers', 'prismaBuyNumbers', 'prismaBookingKeys', 'prismaPlanned', 'variance',
             'metaStart', 'metaEnd', 'prismaStart', 'prismaEnd',
             'prismaUpdatedTime',
             'prismaOrderStatus', 'prismaIntegratedStatus', 'prismaDeliveryStatus', 'prismaFlightStatus', 'prismaPeriodStatus',
