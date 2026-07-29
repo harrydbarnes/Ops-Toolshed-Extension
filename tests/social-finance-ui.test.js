@@ -79,7 +79,7 @@ describe('Social Booking Checker upload guidance', () => {
         expect(input.getAttribute('aria-label')).toBe('Choose Meta campaign CSV');
         expect(input.getAttribute('aria-describedby')).toBe('metaUploadScope');
         expect(card.querySelector('.export-source').textContent).toContain('In Meta Ads Reporting, use the');
-        expect(document.querySelector('#metaAdsReportingLink').href).toBe('https://adsmanager.facebook.com/adsmanager/');
+        expect(document.querySelector('#metaAdsReportingLink').href).toBe('https://adsmanager.facebook.com/adsmanager/reporting');
     });
 
     test('lists the required Prisma report columns and matching scope', () => {

@@ -5,6 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     const META_ALIASES = {
         accountId: ['account id', 'account_id'],
+        businessId: ['business id', 'business_id', 'business manager id', 'business manager id.'],
         campaignId: ['campaign id', 'campaign_id'],
         campaignName: ['campaign name', 'campaign'],
         account: ['account name', 'account'],
@@ -412,7 +413,8 @@
                 campaignId
             });
         });
-        return { accounts: [...accounts.values()], campaigns: [...campaigns.values()], adSets: [...adSets.values()], errors };
+        const businessId = parsed.rows.map(row => cleanId(columns.businessId ? row[columns.businessId] : '')).find(usableId) || '';
+        return { accounts: [...accounts.values()], campaigns: [...campaigns.values()], adSets: [...adSets.values()], businessId, errors };
     }
 
     function extractPrismaReferenceData(parsed) {

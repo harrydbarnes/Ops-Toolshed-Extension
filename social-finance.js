@@ -105,15 +105,18 @@
     }
 
     async function updateMetaAdsReportingLink() {
-        try {
-            const credentials = await savedMetaCredentials();
-            const businessId = String(credentials.reportingBusinessId || '').replace(/^act_/, '');
-            elements.metaAdsReportingLink.href = /^\d+$/.test(businessId)
-                ? `https://adsmanager.facebook.com/adsmanager/reporting/?business_id=${encodeURIComponent(businessId)}`
-                : 'https://adsmanager.facebook.com/adsmanager/';
-        } catch (_) {
-            elements.metaAdsReportingLink.href = 'https://adsmanager.facebook.com/adsmanager/';
+        let businessId = String(state.metaReference?.businessId || '').replace(/^act_/, '');
+        if (!/^\d+$/.test(businessId)) {
+            try {
+                const credentials = await savedMetaCredentials();
+                businessId = String(credentials.reportingBusinessId || '').replace(/^act_/, '');
+            } catch (_) {
+                businessId = '';
+            }
         }
+        elements.metaAdsReportingLink.href = /^\d+$/.test(businessId)
+            ? `https://adsmanager.facebook.com/adsmanager/reporting?business_id=${encodeURIComponent(businessId)}&global_scope_id=${encodeURIComponent(businessId)}`
+            : 'https://adsmanager.facebook.com/adsmanager/reporting';
     }
 
     function setStatus(element, message, kind = '') {
@@ -592,9 +595,10 @@
             renderMessages(extracted.errors);
             return;
         }
-        state.metaReference = { ...extracted, importedAt: new Date().toISOString() };
+        state.metaReference = { ...extracted, businessId: extracted.businessId || state.metaReference?.businessId || '', importedAt: new Date().toISOString() };
         state.metaAccounts = extracted.accounts.sort((left, right) => left.name.localeCompare(right.name));
         await writeLocalStorage({ [META_REFERENCE_STORAGE_KEY]: state.metaReference });
+        updateMetaAdsReportingLink();
         renderAccountOptions(state.metaAccounts);
         renderReferenceStatus();
     }
@@ -618,6 +622,7 @@
                 state.metaReference = reference;
                 state.metaAccounts = reference.accounts.sort((left, right) => left.name.localeCompare(right.name));
                 renderAccountOptions(state.metaAccounts);
+                updateMetaAdsReportingLink();
             }
             renderReferenceStatus();
         } catch (error) {
@@ -637,6 +642,7 @@
         elements.accountOptions.innerHTML = '';
         elements.accountScopePanel.classList.add('hidden');
         renderReferenceStatus();
+        updateMetaAdsReportingLink();
         resetReport();
     }
 
