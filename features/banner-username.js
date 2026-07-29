@@ -8,6 +8,7 @@
     const ORIGINAL_TEXT_ALIGN_ATTRIBUTE = 'data-ops-toolshed-original-account-text-align';
     const ORIGINAL_LEFT_ATTRIBUTE = 'data-ops-toolshed-original-account-left';
     const DISCOVERY_TIMEOUT_MS = 2500;
+    const ORGANISATION_CODE_PATTERN = /^[a-z0-9._-]+$/i;
 
     let isEnabled = true;
     let settingsLoaded = false;
@@ -59,6 +60,27 @@
         return parseUsername(value);
     }
 
+    function parseUsernamePrefix(value) {
+        const prefix = String(value || '').trim().split('@')[0];
+        return ORGANISATION_CODE_PATTERN.test(prefix) ? prefix : null;
+    }
+
+    function parseOrganisationCode(value) {
+        const organisation = String(value || '').replace(/\s+/g, ' ').trim();
+        return ORGANISATION_CODE_PATTERN.test(organisation) &&
+            organisation === organisation.toUpperCase() && !organisation.includes('@')
+            ? organisation
+            : null;
+    }
+
+    function buildUsername(prefix, organisation) {
+        const parsedPrefix = parseUsernamePrefix(prefix);
+        const parsedOrganisation = parseOrganisationCode(organisation);
+        return parsedPrefix && parsedOrganisation
+            ? parseUsername(`${parsedPrefix}@${parsedOrganisation}`)
+            : null;
+    }
+
     function rememberUsername(username) {
         const parsedUsername = parseCachedUsername(username);
         if (!parsedUsername) return;
@@ -108,6 +130,23 @@
         if (!usernameElement) return null;
         return parseUsername(
             usernameElement.getAttribute('data-full-text') || usernameElement.textContent
+        );
+    }
+
+    function readBannerUsernamePrefix(accountLabel) {
+        if (!accountLabel || accountLabel.hasAttribute(ORIGINAL_LABEL_ATTRIBUTE)) return null;
+        return parseUsernamePrefix(
+            accountLabel.getAttribute('data-full-text') || accountLabel.textContent
+        );
+    }
+
+    function readActiveOrganisation() {
+        const contextMenu = findDeep('mo-banner-sub-context-menu');
+        if (!contextMenu) return null;
+        const contextRoot = contextMenu.shadowRoot || contextMenu;
+        const contextLabel = findDeep('#user-context-menu-label', contextRoot);
+        return parseOrganisationCode(
+            contextLabel?.getAttribute('data-full-text') || contextLabel?.textContent
         );
     }
 
@@ -179,12 +218,53 @@
     function clickMenuTrigger(menuTrigger, menuActivator) {
         const clickTarget = menuActivator || menuTrigger;
         if (!clickTarget) return;
+        if (typeof clickTarget.click === 'function') {
+            clickTarget.click();
+            return;
+        }
         clickTarget.dispatchEvent(new MouseEvent('click', {
             bubbles: true,
             cancelable: true,
             composed: true,
             view: window
         }));
+    }
+
+    function concealControlledOverlay(menuTrigger) {
+        const overlayId = menuTrigger?.getAttribute('aria-controls');
+        if (!overlayId || typeof document === 'undefined' || !document.body) return () => {};
+
+        let concealedOverlay = null;
+        let originalVisibility = '';
+        let originalVisibilityPriority = '';
+
+        const concealOverlay = () => {
+            if (concealedOverlay) return;
+            const overlay = document.getElementById(overlayId);
+            if (!overlay) return;
+            concealedOverlay = overlay;
+            originalVisibility = overlay.style.getPropertyValue('visibility');
+            originalVisibilityPriority = overlay.style.getPropertyPriority('visibility');
+            overlay.style.setProperty('visibility', 'hidden', 'important');
+        };
+
+        const observer = new MutationObserver(concealOverlay);
+        observer.observe(document.body, { childList: true, subtree: true });
+        concealOverlay();
+
+        return () => {
+            observer.disconnect();
+            if (!concealedOverlay) return;
+            if (originalVisibility) {
+                concealedOverlay.style.setProperty(
+                    'visibility',
+                    originalVisibility,
+                    originalVisibilityPriority
+                );
+            } else {
+                concealedOverlay.style.removeProperty('visibility');
+            }
+        };
     }
 
     function getObservableRoots() {
@@ -287,6 +367,9 @@
         const menuWasOpen = menuTrigger.getAttribute('aria-expanded') === 'true';
         discoveryPromise = new Promise(resolve => {
             const observers = [];
+            const revealControlledOverlay = menuWasOpen
+                ? () => {}
+                : concealControlledOverlay(menuTrigger);
             let timeoutId = null;
             let finished = false;
 
@@ -300,6 +383,7 @@
                 if (!menuWasOpen && menuTrigger.getAttribute('aria-expanded') === 'true') {
                     clickMenuTrigger(menuTrigger, menuActivator);
                 }
+                revealControlledOverlay();
                 resolve(username);
             };
 
@@ -337,9 +421,15 @@
 
         const visibleUsername = readUsernameFromMenu();
         if (visibleUsername) rememberUsername(visibleUsername);
+
+        const activeOrganisation = readActiveOrganisation();
+        const bannerPrefix = readBannerUsernamePrefix(accountLabel);
+        const cachedPrefix = parseUsernamePrefix(resolvedUsername);
+        const bannerUsername = buildUsername(bannerPrefix || cachedPrefix, activeOrganisation);
+        if (bannerUsername) rememberUsername(bannerUsername);
+
         if (resolvedUsername) {
             replaceAccountLabel(accountLabel);
-            return;
         }
 
         discoverUsername(userMenu, menuTrigger, menuActivator);
