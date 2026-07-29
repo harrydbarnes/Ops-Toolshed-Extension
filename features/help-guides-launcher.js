@@ -9,6 +9,7 @@
     const DRAG_THRESHOLD = 8;
     const EDGE_RELEASE_DISTANCE = 34;
     const EDGE_RESISTANCE = 0.18;
+    const EDGE_ANCHOR_TOLERANCE = 1;
     const CONTROL_GAP = 14;
     const COLLISION_SELECTOR = [
         '#launcher-button-container',
@@ -176,6 +177,67 @@
         return position;
     }
 
+    function ratioBetween(value, minimum, maximum) {
+        const range = maximum - minimum;
+        if (range <= 0) return 0;
+        return Math.min(1, Math.max(0, (value - minimum) / range));
+    }
+
+    function createPositionPreference(button, position) {
+        const clamped = clampPosition(button, position.left, position.top);
+        const atLeft = Math.abs(clamped.left - EDGE_GAP) <= EDGE_ANCHOR_TOLERANCE;
+        const atRight = Math.abs(clamped.left - clamped.maxLeft) <= EDGE_ANCHOR_TOLERANCE;
+        const atTop = Math.abs(clamped.top - EDGE_GAP) <= EDGE_ANCHOR_TOLERANCE;
+        const atBottom = Math.abs(clamped.top - clamped.maxTop) <= EDGE_ANCHOR_TOLERANCE;
+        return {
+            left: clamped.left,
+            top: clamped.top,
+            horizontalAnchor: atLeft ? 'left' : atRight ? 'right' : 'ratio',
+            verticalAnchor: atTop ? 'top' : atBottom ? 'bottom' : 'ratio',
+            horizontalRatio: ratioBetween(clamped.left, EDGE_GAP, clamped.maxLeft),
+            verticalRatio: ratioBetween(clamped.top, EDGE_GAP, clamped.maxTop)
+        };
+    }
+
+    function isStoredPreference(value) {
+        return ['left', 'right', 'ratio'].includes(value?.horizontalAnchor) &&
+            ['top', 'bottom', 'ratio'].includes(value?.verticalAnchor) &&
+            Number.isFinite(value?.horizontalRatio) &&
+            Number.isFinite(value?.verticalRatio);
+    }
+
+    function resolvePositionPreference(button, preference = preferredPosition) {
+        if (!preference) return null;
+        const bounds = clampPosition(button, preference.left, preference.top);
+        let left = preference.left;
+        let top = preference.top;
+
+        if (preference.horizontalAnchor === 'left') left = EDGE_GAP;
+        else if (preference.horizontalAnchor === 'right') left = bounds.maxLeft;
+        else if (preference.horizontalAnchor === 'ratio') {
+            left = EDGE_GAP + (bounds.maxLeft - EDGE_GAP) * preference.horizontalRatio;
+        }
+
+        if (preference.verticalAnchor === 'top') top = EDGE_GAP;
+        else if (preference.verticalAnchor === 'bottom') top = bounds.maxTop;
+        else if (preference.verticalAnchor === 'ratio') {
+            top = EDGE_GAP + (bounds.maxTop - EDGE_GAP) * preference.verticalRatio;
+        }
+
+        return clampPosition(button, left, top);
+    }
+
+    function serialisePositionPreference(preference) {
+        return {
+            left: Math.round(preference.left),
+            top: Math.round(preference.top),
+            horizontalAnchor: preference.horizontalAnchor,
+            verticalAnchor: preference.verticalAnchor,
+            horizontalRatio: Number(preference.horizontalRatio.toFixed(6)),
+            verticalRatio: Number(preference.verticalRatio.toFixed(6))
+        };
+    }
+
     function isVisibleCornerControl(element, button) {
         if (!element || element === button || button.contains(element)) return false;
         const rect = element.getBoundingClientRect();
@@ -222,7 +284,7 @@
 
     function reconcileLauncherPosition(button = document.getElementById(BUTTON_ID)) {
         if (!button || !preferredPosition || button.classList.contains('is-dragging')) return;
-        const basePosition = clampPosition(button, preferredPosition.left, preferredPosition.top);
+        const basePosition = resolvePositionPreference(button);
         const obstacleElements = new Set([
             ...document.querySelectorAll(COLLISION_SELECTOR),
             ...findUnderlyingCornerControls(basePosition, button)
@@ -272,9 +334,11 @@
     }
 
     function savePosition(position) {
-        preferredPosition = { left: position.left, top: position.top };
+        const button = document.getElementById(BUTTON_ID);
+        if (!button) return;
+        preferredPosition = createPositionPreference(button, position);
         chrome.storage?.local?.set?.({
-            [POSITION_KEY]: { left: Math.round(position.left), top: Math.round(position.top) }
+            [POSITION_KEY]: serialisePositionPreference(preferredPosition)
         });
     }
 
@@ -309,7 +373,7 @@
         savePosition(snapped);
     }
 
-    function restorePosition(callback) {
+    function restorePosition(button, callback) {
         if (!chrome.storage?.local?.get) {
             callback(null);
             return;
@@ -320,8 +384,22 @@
                 callback(null);
                 return;
             }
-            preferredPosition = { left: saved.left, top: saved.top };
-            callback(preferredPosition);
+            preferredPosition = isStoredPreference(saved)
+                ? {
+                    left: saved.left,
+                    top: saved.top,
+                    horizontalAnchor: saved.horizontalAnchor,
+                    verticalAnchor: saved.verticalAnchor,
+                    horizontalRatio: saved.horizontalRatio,
+                    verticalRatio: saved.verticalRatio
+                }
+                : createPositionPreference(button, saved);
+            if (!isStoredPreference(saved)) {
+                chrome.storage.local.set?.({
+                    [POSITION_KEY]: serialisePositionPreference(preferredPosition)
+                });
+            }
+            callback(resolvePositionPreference(button));
         });
     }
 
@@ -505,10 +583,10 @@
         makeDraggable(button);
         document.body.appendChild(button);
         startCollisionObserver();
-        restorePosition(savedPosition => {
+        restorePosition(button, savedPosition => {
             const rect = button.getBoundingClientRect();
             const target = savedPosition || { left: rect.left, top: rect.top };
-            if (!savedPosition) preferredPosition = { left: target.left, top: target.top };
+            if (!savedPosition) preferredPosition = createPositionPreference(button, target);
             animateLauncherIn(button, target);
         });
     }

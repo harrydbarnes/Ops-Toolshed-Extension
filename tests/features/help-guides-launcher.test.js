@@ -232,15 +232,118 @@ describe('Help Guides page launcher', () => {
         dom.window.close();
     });
 
+    test('keeps a bottom-right launcher anchored when the viewport grows', () => {
+        const { dom } = createFeature({ position: { left: 842, top: 638 } });
+        const { window } = dom;
+        Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1000 });
+        Object.defineProperty(window, 'innerHeight', { configurable: true, value: 700 });
+        Object.defineProperty(window.HTMLElement.prototype, 'offsetWidth', {
+            configurable: true,
+            get() { return this.id === 'toolshed-help-guides-launcher' ? 140 : 0; }
+        });
+        Object.defineProperty(window.HTMLElement.prototype, 'offsetHeight', {
+            configurable: true,
+            get() { return this.id === 'toolshed-help-guides-launcher' ? 44 : 0; }
+        });
+        window.helpGuidesLauncherFeature.initialize();
+        const launcher = window.document.getElementById('toolshed-help-guides-launcher');
+
+        Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1600 });
+        Object.defineProperty(window, 'innerHeight', { configurable: true, value: 900 });
+        window.dispatchEvent(new window.Event('resize'));
+
+        expect(launcher.style.left).toBe('1442px');
+        expect(launcher.style.top).toBe('838px');
+        dom.window.close();
+    });
+
+    test.each([
+        [
+            'bottom-left',
+            {
+                left: 18,
+                top: 638,
+                horizontalAnchor: 'left',
+                verticalAnchor: 'bottom',
+                horizontalRatio: 0,
+                verticalRatio: 1
+            },
+            '18px'
+        ],
+        [
+            'bottom-right',
+            {
+                left: 842,
+                top: 638,
+                horizontalAnchor: 'right',
+                verticalAnchor: 'bottom',
+                horizontalRatio: 1,
+                verticalRatio: 1
+            },
+            '1442px'
+        ]
+    ])('restores a stored %s anchor against a larger startup viewport', (_label, position, expectedLeft) => {
+        const { dom } = createFeature({ position });
+        const { window } = dom;
+        Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1600 });
+        Object.defineProperty(window, 'innerHeight', { configurable: true, value: 900 });
+        Object.defineProperty(window.HTMLElement.prototype, 'offsetWidth', {
+            configurable: true,
+            get() { return this.id === 'toolshed-help-guides-launcher' ? 140 : 0; }
+        });
+        Object.defineProperty(window.HTMLElement.prototype, 'offsetHeight', {
+            configurable: true,
+            get() { return this.id === 'toolshed-help-guides-launcher' ? 44 : 0; }
+        });
+
+        window.helpGuidesLauncherFeature.initialize();
+        const launcher = window.document.getElementById('toolshed-help-guides-launcher');
+
+        expect(launcher.style.left).toBe(expectedLeft);
+        expect(launcher.style.top).toBe('838px');
+        dom.window.close();
+    });
+
+    test('keeps a middle-page launcher at the same relative viewport position', () => {
+        const { dom } = createFeature({ position: { left: 430, top: 328 } });
+        const { window } = dom;
+        Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1000 });
+        Object.defineProperty(window, 'innerHeight', { configurable: true, value: 700 });
+        Object.defineProperty(window.HTMLElement.prototype, 'offsetWidth', {
+            configurable: true,
+            get() { return this.id === 'toolshed-help-guides-launcher' ? 140 : 0; }
+        });
+        Object.defineProperty(window.HTMLElement.prototype, 'offsetHeight', {
+            configurable: true,
+            get() { return this.id === 'toolshed-help-guides-launcher' ? 44 : 0; }
+        });
+        window.helpGuidesLauncherFeature.initialize();
+        const launcher = window.document.getElementById('toolshed-help-guides-launcher');
+
+        Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1600 });
+        Object.defineProperty(window, 'innerHeight', { configurable: true, value: 900 });
+        window.dispatchEvent(new window.Event('resize'));
+
+        expect(launcher.style.left).toBe('730px');
+        expect(launcher.style.top).toBe('428px');
+        dom.window.close();
+    });
+
     test('temporarily shifts left of a live-chat launcher and returns when it disappears', () => {
         const { dom } = createFeature({ position: { left: 840, top: 638 } });
         const { window } = dom;
         Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1000 });
         Object.defineProperty(window, 'innerHeight', { configurable: true, value: 700 });
+        Object.defineProperty(window.HTMLElement.prototype, 'offsetWidth', {
+            configurable: true,
+            get() { return this.id === 'toolshed-help-guides-launcher' ? 140 : 0; }
+        });
+        Object.defineProperty(window.HTMLElement.prototype, 'offsetHeight', {
+            configurable: true,
+            get() { return this.id === 'toolshed-help-guides-launcher' ? 44 : 0; }
+        });
         window.helpGuidesLauncherFeature.initialize();
         const launcher = window.document.getElementById('toolshed-help-guides-launcher');
-        Object.defineProperty(launcher, 'offsetWidth', { configurable: true, value: 140 });
-        Object.defineProperty(launcher, 'offsetHeight', { configurable: true, value: 44 });
 
         const chatLauncher = window.document.createElement('iframe');
         chatLauncher.id = 'launcher';
