@@ -38,6 +38,7 @@ describe('Manifest content-script order', () => {
         expect(mediaoceanRegistration.js).toContain('features/banner-username.js');
         expect(mediaoceanRegistration.js).toContain('features/actualise-navbar.js');
         expect(mediaoceanRegistration.js).toContain('features/actualise-shortcut.js');
+        expect(mediaoceanRegistration.js).toContain('features/actualise-export-all.js');
         expect(mediaoceanRegistration.js).toContain('features/max-campaign-budget.js');
         expect(mediaoceanRegistration.js).toContain('features/onboarding-tour.js');
     });

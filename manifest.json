@@ -87,6 +87,7 @@
         "features/order-view-toggle.js",
         "features/actualise-navbar.js",
         "features/actualise-shortcut.js",
+        "features/actualise-export-all.js",
         "features/actualise-scroll-restore.js",
         "features/max-campaign-budget.js",
         "features/loading-facts.js",
