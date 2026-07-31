@@ -161,6 +161,11 @@ async function performDNumberSearch(request, sender, sendResponse) {
 }
 
 async function getClipboardText(request, sender, sendResponse, context) {
+    const verified = getVerifiedPrismaRequest({}, sender);
+    if (sender?.id !== chrome.runtime.id || !verified) {
+        sendResponse({ status: 'error', message: 'Clipboard reads are only available from Prisma.' });
+        return;
+    }
     await context.handleOffscreenClipboard(request, sendResponse);
 }
 

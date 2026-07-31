@@ -46,11 +46,39 @@ describe('Internal Approval recipient history controls', () => {
             },
             runtime: { sendMessage: jest.fn() }
         };
+        window.utils = {
+            waitForElement: jest.fn(selector => Promise.resolve(
+                selector === '.select2-search-field input'
+                    ? document.querySelector('.select2-input')
+                    : document.querySelector('.select2-result-selectable')
+            )),
+            waitForElementToDisappear: jest.fn().mockResolvedValue(undefined)
+        };
 
         document.querySelector('.select2-input').focus();
         const script = document.createElement('script');
         script.textContent = featureScript;
         document.body.appendChild(script);
+    }
+
+    function installAndCapturePasteHandler() {
+        let pasteHandler;
+        const originalAddEventListener = window.HTMLButtonElement.prototype.addEventListener;
+        const addEventListenerSpy = jest
+            .spyOn(window.HTMLButtonElement.prototype, 'addEventListener')
+            .mockImplementation(function(type, listener, options) {
+                if (type === 'click' && this.textContent === 'Paste Approvers') {
+                    pasteHandler = listener;
+                }
+                return originalAddEventListener.call(this, type, listener, options);
+            });
+
+        window.approverPastingFeature.handleApproverPasting();
+        addEventListenerSpy.mockRestore();
+        return {
+            pasteButton: document.querySelector('.prisma-paste-button'),
+            pasteHandler
+        };
     }
 
     afterEach(() => dom?.window.close());
@@ -106,5 +134,39 @@ describe('Internal Approval recipient history controls', () => {
 
         expect(document.querySelector('.select2-result-selectable')).toBeNull();
         expect(storedRecipients).toEqual(['first@example.com', 'second@example.com']);
+    });
+
+    test('does not read the clipboard after a synthetic page click', async () => {
+        setupDom();
+        const { pasteButton } = installAndCapturePasteHandler();
+
+        pasteButton.click();
+        await flushPromises();
+
+        expect(window.chrome.runtime.sendMessage).not.toHaveBeenCalled();
+        expect(pasteButton.disabled).toBe(false);
+        expect(pasteButton.textContent).toBe('Paste Approvers');
+    });
+
+    test('keeps the full paste workflow working after a genuine user click', async () => {
+        setupDom();
+        document.execCommand = jest.fn().mockReturnValue(true);
+        window.chrome.runtime.sendMessage.mockImplementation(async request => (
+            request.action === 'getClipboardText'
+                ? { status: 'success', text: 'first@example.com' }
+                : { status: 'success' }
+        ));
+        const { pasteButton, pasteHandler } = installAndCapturePasteHandler();
+
+        await pasteHandler.call(pasteButton, { isTrusted: true });
+
+        expect(window.chrome.runtime.sendMessage.mock.calls.map(([request]) => request)).toEqual([
+            { action: 'getClipboardText' },
+            { action: 'copyToClipboard', text: 'first@example.com' },
+            { action: 'copyToClipboard', text: 'first@example.com' }
+        ]);
+        expect(document.execCommand).toHaveBeenCalledWith('paste');
+        expect(pasteButton.disabled).toBe(false);
+        expect(pasteButton.textContent).toBe('Paste Approvers');
     });
 });

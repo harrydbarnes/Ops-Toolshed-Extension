@@ -225,6 +225,33 @@ describe('Actualise export every month', () => {
         dom.window.close();
     });
 
+    test('neutralizes spreadsheet formulas while preserving signed numeric values', async () => {
+        const { dom, window } = createFeature();
+        const file = (name, csv) => ({
+            name,
+            size: csv.length,
+            text: jest.fn(async () => csv)
+        });
+
+        const result = await window.actualiseExportAllFeature.mergeActualizationCsvFiles([
+            file(
+                'Actualization-CP1-HBARN-2026-01.csv',
+                'Month,Formula,Negative,Positive,At\r\n2026-01,=1+1,-123.45,+42,@SUM(A1:A2)'
+            ),
+            file(
+                'Actualization-CP1-HBARN-2026-02.csv',
+                'Month,Formula,Negative,Positive,At\r\n2026-02,+CMD,"-SUM(A1,A2)",0,Safe'
+            )
+        ]);
+
+        expect(window.actualiseExportAllFeature.parseCsvRows(result.csv)).toEqual([
+            ['Month', 'Formula', 'Negative', 'Positive', 'At'],
+            ['2026-01', "'=1+1", '-123.45', '+42', "'@SUM(A1:A2)"],
+            ['2026-02', "'+CMD", "'-SUM(A1,A2)", '0', 'Safe']
+        ]);
+        dom.window.close();
+    });
+
     test('rejects different headers, campaigns and duplicate months', async () => {
         const { dom, window } = createFeature();
         const file = (name, csv) => ({

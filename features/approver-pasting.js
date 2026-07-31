@@ -162,7 +162,11 @@
         pasteFavouritesButton.className = 'prisma-paste-button';
         pasteFavouritesButton.style.marginLeft = '5px';
 
-        pasteButton.addEventListener('click', async () => {
+        pasteButton.addEventListener('click', async (event) => {
+            // Page scripts can synthesize clicks on injected DOM controls. Only a
+            // real user gesture may cross the privileged clipboard-read boundary.
+            if (!event.isTrusted) return;
+
             pasteButton.disabled = true;
             pasteButton.textContent = 'Pasting...';
             let originalClipboard = '';

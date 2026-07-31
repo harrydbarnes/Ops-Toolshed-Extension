@@ -16,6 +16,7 @@ function loadOffscreenDocument() {
 
     window.chrome = {
         runtime: {
+            id: 'test-extension-id',
             onMessage: {
                 addListener: jest.fn(listener => {
                     messageListener = listener;
@@ -29,9 +30,9 @@ function loadOffscreenDocument() {
         dom,
         window,
         document: window.document,
-        dispatchMessage(message, sendResponse = jest.fn()) {
+        dispatchMessage(message, sendResponse = jest.fn(), sender = { id: 'test-extension-id' }) {
             return {
-                keepChannelOpen: messageListener(message, {}, sendResponse),
+                keepChannelOpen: messageListener(message, sender, sendResponse),
                 sendResponse
             };
         }
@@ -93,6 +94,28 @@ describe('offscreen document message handling', () => {
 
         expect(context.document.execCommand).toHaveBeenCalledWith(command);
         expect(result.sendResponse).toHaveBeenCalledWith(response);
+        expect(context.document.querySelector('textarea')).toBeNull();
+    });
+
+    test('rejects direct clipboard requests from a content-script context', () => {
+        context = loadOffscreenDocument();
+        context.document.execCommand = jest.fn();
+
+        const result = context.dispatchMessage(
+            { action: 'readClipboard' },
+            jest.fn(),
+            {
+                id: 'test-extension-id',
+                tab: { id: 42 },
+                url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/'
+            }
+        );
+
+        expect(context.document.execCommand).not.toHaveBeenCalled();
+        expect(result.sendResponse).toHaveBeenCalledWith({
+            status: 'error',
+            message: 'Unauthorized clipboard request.'
+        });
         expect(context.document.querySelector('textarea')).toBeNull();
     });
 

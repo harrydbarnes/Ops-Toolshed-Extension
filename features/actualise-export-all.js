@@ -232,8 +232,16 @@
         return rows.filter(candidate => !candidate.every(value => value === ''));
     }
 
-    function escapeCsvField(value) {
+    const PLAIN_SIGNED_NUMBER = /^\s*[+-]?(?:(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?\s*$/i;
+
+    function neutralizeSpreadsheetFormula(value) {
         const text = String(value ?? '');
+        const isFormulaLike = /^\s*[=+\-@]/.test(text);
+        return isFormulaLike && !PLAIN_SIGNED_NUMBER.test(text) ? `'${text}` : text;
+    }
+
+    function escapeCsvField(value) {
+        const text = neutralizeSpreadsheetFormula(value);
         return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
     }
 

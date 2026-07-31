@@ -299,6 +299,11 @@ describe('Background message routing', () => {
     beforeEach(() => {
         resetMocks();
         jest.useRealTimers();
+        chrome.runtime.id = 'test-extension-id';
+    });
+
+    afterEach(() => {
+        delete chrome.runtime.id;
     });
 
     test('rejects malformed messages without throwing', async () => {
@@ -383,6 +388,49 @@ describe('Background message routing', () => {
         expect(chrome.alarms.clear).toHaveBeenCalledWith('timesheetReminder');
         expect(sendResponse).toHaveBeenCalledTimes(1);
         expect(sendResponse).toHaveBeenCalledWith({ status: 'Alarm removed' });
+    });
+
+    test('rejects clipboard reads from an unverified page sender', async () => {
+        const listener = loadMessageListener();
+        const sendResponse = jest.fn();
+
+        listener({ action: 'getClipboardText' }, {
+            id: chrome.runtime.id,
+            tab: { id: 42 },
+            frameId: 0,
+            url: 'https://attacker.example/approval'
+        }, sendResponse);
+        await waitForResponse(sendResponse);
+
+        expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
+        expect(sendResponse).toHaveBeenCalledWith({
+            status: 'error',
+            message: 'Clipboard reads are only available from Prisma.'
+        });
+    });
+
+    test('allows clipboard reads from a verified Mediaocean frame', async () => {
+        chrome.runtime.getContexts.mockResolvedValue([{}]);
+        chrome.runtime.sendMessage.mockResolvedValue({ status: 'success', text: 'first@example.com' });
+        const listener = loadMessageListener();
+        const sendResponse = jest.fn();
+
+        listener({ action: 'getClipboardText' }, {
+            id: chrome.runtime.id,
+            tab: { id: 42 },
+            frameId: 3,
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#approval'
+        }, sendResponse);
+        await waitForResponse(sendResponse);
+
+        expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+            action: 'readClipboard',
+            text: undefined
+        });
+        expect(sendResponse).toHaveBeenCalledWith({
+            status: 'success',
+            text: 'first@example.com'
+        });
     });
 
     test('opens Help Guides before any asynchronous storage gate can consume the user gesture', async () => {
