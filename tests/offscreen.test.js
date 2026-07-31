@@ -55,7 +55,7 @@ describe('offscreen document message handling', () => {
             return true;
         });
 
-        const result = context.dispatchMessage({ action: 'readClipboard' });
+        const result = context.dispatchMessage({ target: 'offscreen', action: 'readClipboard' });
 
         expect(result.keepChannelOpen).toBe(true);
         expect(result.sendResponse).toHaveBeenCalledWith({
@@ -74,6 +74,7 @@ describe('offscreen document message handling', () => {
         });
 
         const result = context.dispatchMessage({
+            target: 'offscreen',
             action: 'copyToClipboard',
             text: 'copy me'
         });
@@ -90,14 +91,14 @@ describe('offscreen document message handling', () => {
         context = loadOffscreenDocument();
         context.document.execCommand = jest.fn().mockReturnValue(false);
 
-        const result = context.dispatchMessage({ action, text: 'copy me' });
+        const result = context.dispatchMessage({ target: 'offscreen', action, text: 'copy me' });
 
         expect(context.document.execCommand).toHaveBeenCalledWith(command);
         expect(result.sendResponse).toHaveBeenCalledWith(response);
         expect(context.document.querySelector('textarea')).toBeNull();
     });
 
-    test('rejects direct clipboard requests from a content-script context', () => {
+    test('ignores clipboard requests that are not explicitly targeted at the offscreen document', () => {
         context = loadOffscreenDocument();
         context.document.execCommand = jest.fn();
 
@@ -112,10 +113,8 @@ describe('offscreen document message handling', () => {
         );
 
         expect(context.document.execCommand).not.toHaveBeenCalled();
-        expect(result.sendResponse).toHaveBeenCalledWith({
-            status: 'error',
-            message: 'Unauthorized clipboard request.'
-        });
+        expect(result.keepChannelOpen).toBe(false);
+        expect(result.sendResponse).not.toHaveBeenCalled();
         expect(context.document.querySelector('textarea')).toBeNull();
     });
 
@@ -130,7 +129,7 @@ describe('offscreen document message handling', () => {
         });
         jest.spyOn(context.window.console, 'error').mockImplementation(() => {});
 
-        const result = context.dispatchMessage({ action, text: 'copy me' });
+        const result = context.dispatchMessage({ target: 'offscreen', action, text: 'copy me' });
 
         expect(result.sendResponse).toHaveBeenCalledWith({
             status: 'error',

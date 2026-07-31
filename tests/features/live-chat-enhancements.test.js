@@ -78,6 +78,18 @@ describe('Live chat enhancements', () => {
         dom.window.close();
     });
 
+    test('requests the supported Moe messaging open action after choosing Connect with Moe', () => {
+        const { dom, aiChat } = setup();
+        const openMoe = jest.fn();
+        dom.window.document.addEventListener('ops-toolshed-open-moe', openMoe);
+
+        dom.window.liveChatEnhancements.initialize();
+        aiChat.click();
+
+        expect(openMoe).toHaveBeenCalledTimes(1);
+        dom.window.close();
+    });
+
     test('leaves the native AI Chat action untouched when direct Moe chat is disabled', () => {
         const { dom, aiChat, connectItem } = setup({ directMoeChatEnabled: false });
         const nativeAiAction = jest.fn();

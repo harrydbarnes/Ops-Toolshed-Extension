@@ -169,7 +169,12 @@ async function getClipboardText(request, sender, sendResponse, context) {
     await context.handleOffscreenClipboard(request, sendResponse);
 }
 
-async function copyToClipboard(request, sender, sendResponse, context) {
+async function copyCampaignUrlToClipboard(request, sender, sendResponse, context) {
+    const verified = getVerifiedPrismaRequest({}, sender);
+    if (sender?.id !== chrome.runtime.id || !verified) {
+        sendResponse({ status: 'error', message: 'Campaign URL copies are only available from Prisma.' });
+        return;
+    }
     await context.handleOffscreenClipboard(request, sendResponse);
 }
 
@@ -364,7 +369,7 @@ export const messageHandlers = {
     metaBillingCheck,
     performDNumberSearch,
     getClipboardText,
-    copyToClipboard,
+    copyCampaignUrlToClipboard,
     getFavouriteApprovers,
     openApproversPage,
     openHelpGuides,

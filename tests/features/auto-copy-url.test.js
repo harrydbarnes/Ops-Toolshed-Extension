@@ -141,7 +141,7 @@ describe('Auto Copy Campaign URL Feature', () => {
         await jest.advanceTimersByTimeAsync(0);
 
         expect(window.chrome.runtime.sendMessage).toHaveBeenCalledWith({
-            action: 'copyToClipboard',
+            action: 'copyCampaignUrlToClipboard',
             text: window.location.href
         });
         expect(copyHandler).not.toHaveBeenCalled();

@@ -149,6 +149,7 @@ async function createOffscreenDocument() {
 async function playAlarmSound() {
   await createOffscreenDocument();
   chrome.runtime.sendMessage({
+      target: 'offscreen',
       action: 'playAlarm',
       sound: chrome.runtime.getURL('alarm.mp3')
   }).catch(error => console.error('Error sending message to offscreen document:', error));
@@ -158,6 +159,7 @@ async function handleOffscreenClipboard(request, sendResponse) {
     await createOffscreenDocument();
     try {
         const response = await chrome.runtime.sendMessage({
+            target: 'offscreen',
             action: request.action === 'getClipboardText' ? 'readClipboard' : 'copyToClipboard',
             text: request.text
         });
@@ -170,6 +172,8 @@ async function handleOffscreenClipboard(request, sendResponse) {
 
 // --- Main Message Router ---
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request?.target === 'offscreen') return false;
+
     let hasResponded = false;
     const respondOnce = (response) => {
         if (hasResponded) return false;

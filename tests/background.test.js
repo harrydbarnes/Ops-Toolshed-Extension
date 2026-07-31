@@ -424,6 +424,7 @@ describe('Background message routing', () => {
         await waitForResponse(sendResponse);
 
         expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+            target: 'offscreen',
             action: 'readClipboard',
             text: undefined
         });
@@ -431,6 +432,65 @@ describe('Background message routing', () => {
             status: 'success',
             text: 'first@example.com'
         });
+    });
+
+    test('relays campaign URL copies to the targeted offscreen clipboard action', async () => {
+        chrome.runtime.getContexts.mockResolvedValue([{}]);
+        chrome.runtime.sendMessage.mockResolvedValue({ status: 'success' });
+        const listener = loadMessageListener();
+        const sendResponse = jest.fn();
+
+        listener({
+            action: 'copyCampaignUrlToClipboard',
+            text: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP123'
+        }, {
+            id: chrome.runtime.id,
+            tab: { id: 42 },
+            frameId: 0,
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP123'
+        }, sendResponse);
+        await waitForResponse(sendResponse);
+
+        expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+            target: 'offscreen',
+            action: 'copyToClipboard',
+            text: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP123'
+        });
+        expect(sendResponse).toHaveBeenCalledWith({ status: 'success' });
+    });
+
+    test('rejects campaign URL copies from an unverified sender', async () => {
+        const listener = loadMessageListener();
+        const sendResponse = jest.fn();
+
+        listener({
+            action: 'copyCampaignUrlToClipboard',
+            text: 'https://attacker.example/'
+        }, {
+            id: chrome.runtime.id,
+            tab: { id: 42 },
+            frameId: 0,
+            url: 'https://attacker.example/'
+        }, sendResponse);
+        await waitForResponse(sendResponse);
+
+        expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
+        expect(sendResponse).toHaveBeenCalledWith({
+            status: 'error',
+            message: 'Campaign URL copies are only available from Prisma.'
+        });
+    });
+
+    test('ignores messages explicitly targeted at the offscreen document', () => {
+        const listener = loadMessageListener();
+        const sendResponse = jest.fn();
+
+        expect(listener({
+            target: 'offscreen',
+            action: 'copyToClipboard',
+            text: 'copy me'
+        }, { id: chrome.runtime.id }, sendResponse)).toBe(false);
+        expect(sendResponse).not.toHaveBeenCalled();
     });
 
     test('opens Help Guides before any asynchronous storage gate can consume the user gesture', async () => {

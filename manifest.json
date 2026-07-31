@@ -67,6 +67,12 @@
     },
     {
       "matches": ["https://*.mediaocean.com/*"],
+      "js": ["features/moe-launcher-bridge.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://*.mediaocean.com/*"],
       "js": [
         "utils.js",
         "features/feedback-modal.js",

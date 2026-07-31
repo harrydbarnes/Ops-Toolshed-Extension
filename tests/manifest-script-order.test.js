@@ -31,6 +31,19 @@ describe('Manifest content-script order', () => {
         expect(loadingMonitorIndex).toBeLessThan(scripts.indexOf('features/loading-facts.js'));
     });
 
+    test('loads the lightweight Moe launcher bridge in the main page only', () => {
+        const registration = manifest.content_scripts.find(entry =>
+            entry.js?.includes('features/moe-launcher-bridge.js')
+        );
+
+        expect(registration).toMatchObject({
+            run_at: 'document_start',
+            world: 'MAIN'
+        });
+        expect(registration.all_frames).not.toBe(true);
+        expect(registration.js).toEqual(['features/moe-launcher-bridge.js']);
+    });
+
     test('declares the Help Guides side panel and launcher wiring', () => {
         expect(manifest.permissions).toContain('sidePanel');
         expect(manifest.side_panel).toEqual({ default_path: 'help-guides.html' });

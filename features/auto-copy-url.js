@@ -278,7 +278,7 @@
 
     async function copyWithExtensionClipboard(pageLink) {
         const response = await chrome.runtime.sendMessage({
-            action: 'copyToClipboard',
+            action: 'copyCampaignUrlToClipboard',
             text: pageLink
         });
 

@@ -1,5 +1,7 @@
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    const isClipboardAction = message.action === 'readClipboard' || message.action === 'copyToClipboard';
+    const isClipboardAction = message?.action === 'readClipboard' || message?.action === 'copyToClipboard';
+    if (isClipboardAction && message.target !== 'offscreen') return false;
+
     const isInternalExtensionSender = sender?.id === chrome.runtime.id && !sender?.tab;
     if (isClipboardAction && !isInternalExtensionSender) {
         sendResponse({ status: 'error', message: 'Unauthorized clipboard request.' });

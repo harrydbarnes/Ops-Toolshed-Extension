@@ -6,6 +6,7 @@
     const DIRECT_MOE_HOVER_CLASS = 'toolshed-hovering-ai-chat';
     const MOE_INTRO_TEXT = 'AI-powered support assistant';
     const CONNECT_WITH_MOE_TEXT = 'Connect with Moe';
+    const OPEN_MOE_EVENT = 'ops-toolshed-open-moe';
     let directMoeChatEnabled = true;
     let directMoeSettingsRequested = false;
     let directMoeStorageListenerBound = false;
@@ -98,6 +99,7 @@
         const connectItem = findConnectWithMoeItem();
         if (connectItem) {
             connectItem.click();
+            document.dispatchEvent(new CustomEvent(OPEN_MOE_EVENT));
             finishDirectMoeHandoff();
             return;
         }
