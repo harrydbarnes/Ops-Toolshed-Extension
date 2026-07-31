@@ -10,7 +10,10 @@
     chrome.storage.onChanged.addListener((changes, area) => {
         if (area === 'sync' && changes.statsCollectorEnabled) {
             isEnabled = changes.statsCollectorEnabled.newValue !== false;
-            if (!isEnabled) loadingSpinnerStartTime = null;
+            if (!isEnabled) {
+                loadingSpinnerStartTime = null;
+                loadingSpinnerArea = '';
+            }
             else scheduleLoadingCheck();
         }
     });
@@ -90,6 +93,7 @@
 
     // --- 2. Track Loading Spinner Time ---
     let loadingSpinnerStartTime = null;
+    let loadingSpinnerArea = '';
     let loadingCheckScheduled = false;
 
     function scheduleLoadingCheck() {
@@ -102,35 +106,51 @@
         });
     }
 
-    function checkLoadingState() {
+    function getVisibleSpinners(state) {
+        if (Array.isArray(state?.visibleSpinners)) return state.visibleSpinners;
+        if (window.loadingMonitor?.getState) {
+            return window.loadingMonitor.getState().visibleSpinners;
+        }
+        return window.utils.findVisibleLoadingSpinners();
+    }
+
+    function recordLoadingSegment(endedAt = Date.now()) {
+        if (loadingSpinnerStartTime === null) return;
+        const duration = (endedAt - loadingSpinnerStartTime) / 1000;
+        const area = loadingSpinnerArea || getPrismaArea();
+        loadingSpinnerStartTime = null;
+        loadingSpinnerArea = '';
+        if (duration > 0) trackStat('LOADING_TIME', { seconds: duration, area });
+    }
+
+    function checkLoadingState(state) {
         if (!isEnabled) {
             loadingSpinnerStartTime = null;
+            loadingSpinnerArea = '';
             return;
         }
-        const hasVisibleSpinner = window.utils.findVisibleLoadingSpinners().length > 0;
+        const hasVisibleSpinner = getVisibleSpinners(state).length > 0;
+        const currentArea = getPrismaArea();
 
         if (hasVisibleSpinner && loadingSpinnerStartTime === null) {
             loadingSpinnerStartTime = Date.now();
+            loadingSpinnerArea = currentArea;
             console.log('[Stats Collector] Loading spinner detected. Timer started.');
+        } else if (hasVisibleSpinner && loadingSpinnerArea !== currentArea) {
+            const areaChangedAt = Date.now();
+            recordLoadingSegment(areaChangedAt);
+            loadingSpinnerStartTime = areaChangedAt;
+            loadingSpinnerArea = currentArea;
         } else if (!hasVisibleSpinner && loadingSpinnerStartTime !== null) {
-            const duration = (Date.now() - loadingSpinnerStartTime) / 1000; // in seconds
-            loadingSpinnerStartTime = null;
+            const duration = (Date.now() - loadingSpinnerStartTime) / 1000;
             console.log(`[Stats Collector] Loading finished. Duration: ${duration.toFixed(2)}s`);
-            if (duration > 0) trackStat('LOADING_TIME', {
-                seconds: duration,
-                area: getPrismaArea()
-            });
+            recordLoadingSegment();
         }
     }
 
     function finishActiveLoadingMeasurement() {
         if (!isEnabled || loadingSpinnerStartTime === null) return;
-        const duration = (Date.now() - loadingSpinnerStartTime) / 1000;
-        loadingSpinnerStartTime = null;
-        if (duration > 0) trackStat('LOADING_TIME', {
-            seconds: duration,
-            area: getPrismaArea()
-        });
+        recordLoadingSegment();
     }
 
     // --- 3. Track Click Events (Save Placements & Reconciliations) ---
@@ -163,18 +183,24 @@
     function initializeStatsCollector() {
         if (isInitialized) return;
 
-        const observer = new MutationObserver(observeLoadingSpinner);
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true,
-            attributes: true,
-            attributeFilter: ['class', 'style', 'hidden']
-        });
-        checkLoadingState();
+        if (window.loadingMonitor?.subscribe) {
+            window.loadingMonitor.subscribe(checkLoadingState);
+        } else {
+            const observer = new MutationObserver(observeLoadingSpinner);
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['class', 'style', 'hidden']
+            });
+            checkLoadingState();
+        }
 
         // Use event delegation for buttons
         document.body.addEventListener('click', handleClickEvents);
         window.addEventListener('pagehide', finishActiveLoadingMeasurement);
+        window.addEventListener('hashchange', () => checkLoadingState());
+        window.addEventListener('popstate', () => checkLoadingState());
 
         isInitialized = true;
         console.log("Stats Collector Initialized");

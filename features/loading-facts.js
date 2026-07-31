@@ -281,7 +281,11 @@
             this.isEnabled = data.loadingFactsEnabled !== false;
             this.settingsLoaded = true;
 
-            // MutationObserver removed as per optimization request (content.js handles it)
+            if (window.loadingMonitor?.subscribe) {
+                this.unsubscribeLoadingMonitor = window.loadingMonitor.subscribe(state => {
+                    this.checkForLoading(state);
+                });
+            }
 
             // IntersectionObserver for visibility tracking
             this.intersectionObserver = new IntersectionObserver((entries) => {
@@ -296,8 +300,9 @@
                 }
             }, { threshold: 0.1 }); // Trigger when at least 10% visible
 
-            // Initial check in case the page loaded with a spinner
-            this.checkForLoading();
+            // Fallback for isolated tests or older extension contexts that do not
+            // have the shared loading monitor.
+            if (!window.loadingMonitor?.subscribe) this.checkForLoading();
         }
 
         isElementVisible(element) {
@@ -317,6 +322,9 @@
         }
 
         isInsideSidePanel(element) {
+            if (window.loadingMonitor?.isInsideSidePanel) {
+                return window.loadingMonitor.isInsideSidePanel(element);
+            }
             let current = element;
             while (current) {
                 if (current.matches?.('mo-side-panel')) return true;
@@ -378,8 +386,11 @@
             if (this.campaignEndTimer !== null) return;
             this.campaignEndTimer = setTimeout(() => {
                 this.campaignEndTimer = null;
-                const visibleSpinner = window.utils.findVisibleLoadingSpinners()
-                    .find(candidate => !this.isInsideSidePanel(candidate));
+                const monitorState = window.loadingMonitor?.getState?.();
+                const visibleSpinner = monitorState
+                    ? monitorState.pageVisibleSpinners[0]
+                    : window.utils.findVisibleLoadingSpinners()
+                        .find(candidate => !this.isInsideSidePanel(candidate));
                 if (visibleSpinner && this.isElementVisible(visibleSpinner)) {
                     this.checkForLoading();
                     return;
@@ -406,7 +417,8 @@
             return true;
         }
 
-        checkForLoading() {
+        checkForLoading(monitorState = null) {
+            if (monitorState) this.latestLoadingState = monitorState;
             // Debounce the check to prevent flickering
             if (this.debounceTimer) clearTimeout(this.debounceTimer);
 
@@ -422,9 +434,14 @@
                     return;
                 }
 
-                const visibleSpinners = window.utils.findVisibleLoadingSpinners();
-                const spinner = visibleSpinners.find(candidate => !this.isInsideSidePanel(candidate)) || null;
-                const hasSidePanelSpinner = visibleSpinners.some(candidate => this.isInsideSidePanel(candidate));
+                const state = this.latestLoadingState || window.loadingMonitor?.getState?.();
+                const visibleSpinners = state?.visibleSpinners || window.utils.findVisibleLoadingSpinners();
+                const spinner = state
+                    ? state.pageVisibleSpinners[0] || null
+                    : visibleSpinners.find(candidate => !this.isInsideSidePanel(candidate)) || null;
+                const hasSidePanelSpinner = state
+                    ? state.sidePanelVisibleSpinners.length > 0
+                    : visibleSpinners.some(candidate => this.isInsideSidePanel(candidate));
 
                 // Side-panel work (for example submitting a campaign for approval)
                 // is intentionally excluded from loading facts.

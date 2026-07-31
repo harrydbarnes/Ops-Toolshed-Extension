@@ -24,6 +24,11 @@ describe('Manifest content-script order', () => {
             expect(scripts.indexOf(featureScript)).toBeGreaterThan(utilsIndex);
         });
         expect(scripts[scripts.length - 1]).toBe('content.js');
+
+        const loadingMonitorIndex = scripts.indexOf('features/loading-monitor.js');
+        expect(loadingMonitorIndex).toBeGreaterThan(utilsIndex);
+        expect(loadingMonitorIndex).toBeLessThan(scripts.indexOf('features/stats-collector.js'));
+        expect(loadingMonitorIndex).toBeLessThan(scripts.indexOf('features/loading-facts.js'));
     });
 
     test('declares the Help Guides side panel and launcher wiring', () => {

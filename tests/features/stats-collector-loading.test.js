@@ -137,4 +137,33 @@ describe('loading-time collection', () => {
         dom.window.close();
     });
 
+    test('splits continuous loading time when navigation changes the Prisma area', () => {
+        const { dom, window, setNow } = createCollector(
+            'https://groupmuk-prisma.mediaocean.com/campaign-management/#osPspId=cm-dashboard&route=campaigns'
+        );
+        const spinner = makeVisible(window.document.createElement('mo-spinner'));
+
+        setNow(1000);
+        window.document.body.appendChild(spinner);
+        window.statsCollector.checkLoadingState();
+        setNow(1500);
+        window.history.replaceState({}, '', '#ptb-mod=plan&ptb-ctx=rfpSummary');
+        window.statsCollector.checkLoadingState();
+        setNow(2500);
+        spinner.remove();
+        window.statsCollector.checkLoadingState();
+
+        expect(window.chrome.runtime.sendMessage).toHaveBeenNthCalledWith(1, {
+            action: 'TRACK_STAT',
+            type: 'LOADING_TIME',
+            value: { seconds: 0.5, area: 'home' }
+        });
+        expect(window.chrome.runtime.sendMessage).toHaveBeenNthCalledWith(2, {
+            action: 'TRACK_STAT',
+            type: 'LOADING_TIME',
+            value: { seconds: 1, area: 'plan' }
+        });
+        dom.window.close();
+    });
+
 });

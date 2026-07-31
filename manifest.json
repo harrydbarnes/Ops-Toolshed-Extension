@@ -78,6 +78,7 @@
         "features/gmi-chat.js",
         "features/live-chat-enhancements.js",
         "features/approver-pasting.js",
+        "features/loading-monitor.js",
         "features/stats-collector.js",
         "features/placement-counter.js",
         "features/banner-username.js",

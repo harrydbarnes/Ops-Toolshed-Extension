@@ -156,5 +156,44 @@ describe('Auto Copy Campaign URL Feature', () => {
 
         expect(copyHandler).not.toHaveBeenCalled();
         expect(showToast).not.toHaveBeenCalled();
+        expect(document.querySelector('mo-icon[name="link"]').classList).not.toContain('auto-copy-icon');
+    });
+
+    test('does not rescan the page when the global content refresh calls it again', () => {
+        setupDom(true);
+        const pageScan = jest.spyOn(document.documentElement, 'querySelectorAll');
+
+        window.autoCopyUrlFeature.handleAutoCopy();
+        window.autoCopyUrlFeature.handleAutoCopy();
+
+        expect(pageScan).not.toHaveBeenCalled();
+    });
+
+    test('tracks a newly rendered Prisma page-link icon without a whole-page refresh', async () => {
+        setupDom(true);
+        const replacementPopover = document.createElement('mo-popover');
+        const replacementIcon = document.createElement('mo-icon');
+        replacementIcon.setAttribute('name', 'link');
+        replacementPopover.appendChild(replacementIcon);
+        document.querySelector('mo-banner').appendChild(replacementPopover);
+
+        await Promise.resolve();
+        jest.runOnlyPendingTimers();
+
+        expect(replacementIcon.classList).toContain('auto-copy-icon');
+        expect(window.autoCopyUrlFeature._test.getTrackedLinkIconCount()).toBe(2);
+    });
+
+    test('removes the cue when a tracked icon is no longer a page-link icon', async () => {
+        setupDom(true);
+        const icon = document.querySelector('mo-icon[name="link"]');
+        expect(icon.classList).toContain('auto-copy-icon');
+
+        icon.setAttribute('name', 'close');
+        await Promise.resolve();
+        jest.runOnlyPendingTimers();
+
+        expect(icon.classList).not.toContain('auto-copy-icon');
+        expect(window.autoCopyUrlFeature._test.getTrackedLinkIconCount()).toBe(0);
     });
 });

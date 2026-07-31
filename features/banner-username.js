@@ -20,6 +20,10 @@
     let storageListenerBound = false;
     let pidSelectionListenerBound = false;
     let overlayLifecycleBound = false;
+    let overlayLifecycleObserver = null;
+    const bannerDiscoveryObservers = new Map();
+    let cachedBannerParts = null;
+    let lifecycleStarted = false;
     const attemptedMenus = new WeakSet();
     const lifecycleObservers = new Map();
     const overlayObservers = new Map();
@@ -151,15 +155,23 @@
     }
 
     function getBannerParts() {
+        if (cachedBannerParts?.userMenu?.isConnected && cachedBannerParts?.accountLabel?.isConnected) {
+            return cachedBannerParts;
+        }
         const userMenu = findDeep('mo-banner-user-menu');
-        if (!userMenu) return {};
+        if (!userMenu) {
+            cachedBannerParts = null;
+            return {};
+        }
         const menuRoot = userMenu.shadowRoot || userMenu;
-        return {
+        const parts = {
             userMenu,
             accountLabel: findDeep('.user-company-name', menuRoot),
             menuTrigger: findDeep('mo-menu', menuRoot),
             menuActivator: findDeep('.user-company-name', menuRoot)
         };
+        if (parts.accountLabel) cachedBannerParts = parts;
+        return parts;
     }
 
     function replaceAccountLabel(accountLabel) {
@@ -278,7 +290,7 @@
 
     function getBannerLifecycleRoots() {
         if (typeof document === 'undefined') return [];
-        const userMenu = findDeep('mo-banner-user-menu');
+        const { userMenu } = getBannerParts();
         if (!userMenu) return [];
         const menuRoot = userMenu.shadowRoot || userMenu;
         const roots = [menuRoot];
@@ -289,11 +301,11 @@
     }
 
     function scheduleLifecycleApply() {
-        if (lifecycleApplyScheduled) return;
+        if (lifecycleApplyScheduled || !settingsLoaded || !isEnabled) return;
         lifecycleApplyScheduled = true;
         Promise.resolve().then(() => {
             lifecycleApplyScheduled = false;
-            if (typeof document === 'undefined' || !document.documentElement) return;
+            if (!isEnabled || typeof document === 'undefined' || !document.documentElement) return;
             discoveryCheckForUsername?.();
             observeLifecycleRoots();
             apply();
@@ -336,12 +348,74 @@
     function bindOverlayLifecycle() {
         if (overlayLifecycleBound || typeof document === 'undefined' || !document.body) return;
         overlayLifecycleBound = true;
-        const observer = new MutationObserver(() => {
+        overlayLifecycleObserver = new MutationObserver(() => {
             observeControlledAccountOverlay();
             Promise.resolve().then(observeControlledAccountOverlay);
         });
-        observer.observe(document.body, { childList: true });
+        overlayLifecycleObserver.observe(document.body, { childList: true });
         observeControlledAccountOverlay();
+    }
+
+    function addedTreeContainsUserMenu(node) {
+        if (node?.nodeType !== Node.ELEMENT_NODE) return false;
+        if (node.matches?.('mo-banner-user-menu')) return true;
+        return Boolean(
+            findDeep('mo-banner-user-menu', node) ||
+            (node.shadowRoot && findDeep('mo-banner-user-menu', node.shadowRoot))
+        );
+    }
+
+    function observeBannerDiscoveryRoot(root) {
+        if (!root?.querySelectorAll || bannerDiscoveryObservers.has(root)) return;
+        const observer = new MutationObserver(records => {
+            const bannerWasReplaced = cachedBannerParts?.userMenu && !cachedBannerParts.userMenu.isConnected;
+            let bannerWasAdded = false;
+            records.forEach(record => {
+                Array.from(record.addedNodes || []).forEach(node => {
+                    if (addedTreeContainsUserMenu(node)) bannerWasAdded = true;
+                    if (node?.nodeType !== Node.ELEMENT_NODE) return;
+                    if (node.shadowRoot) observeBannerDiscoveryRoot(node.shadowRoot);
+                    node.querySelectorAll?.('*').forEach(element => {
+                        if (element.shadowRoot) observeBannerDiscoveryRoot(element.shadowRoot);
+                    });
+                });
+            });
+            if (!bannerWasReplaced && !bannerWasAdded) return;
+            cachedBannerParts = null;
+            scheduleLifecycleApply();
+        });
+        observer.observe(root, { childList: true, subtree: true });
+        bannerDiscoveryObservers.set(root, observer);
+        root.querySelectorAll('*').forEach(element => {
+            if (element.shadowRoot) observeBannerDiscoveryRoot(element.shadowRoot);
+        });
+    }
+
+    function bindBannerDiscovery() {
+        if (typeof document === 'undefined' || !document.body) return;
+        observeBannerDiscoveryRoot(document.body);
+    }
+
+    function stopLifecycleObservers() {
+        bannerDiscoveryObservers.forEach(observer => observer.disconnect());
+        bannerDiscoveryObservers.clear();
+        overlayLifecycleObserver?.disconnect();
+        overlayLifecycleObserver = null;
+        overlayLifecycleBound = false;
+        lifecycleObservers.forEach(observer => observer.disconnect());
+        lifecycleObservers.clear();
+        overlayObservers.forEach(record => record.observer.disconnect());
+        overlayObservers.clear();
+        cachedBannerParts = null;
+        lifecycleStarted = false;
+    }
+
+    function startLifecycleObservers() {
+        if (!isEnabled || lifecycleStarted) return;
+        lifecycleStarted = true;
+        bindBannerDiscovery();
+        bindOverlayLifecycle();
+        observeLifecycleRoots();
     }
 
     function observeLifecycleRoots() {
@@ -409,12 +483,12 @@
     }
 
     function apply() {
-        observeLifecycleRoots();
         if (!settingsLoaded || !cacheLoaded) return;
         if (!isEnabled) {
             restoreAccountLabels();
             return;
         }
+        startLifecycleObservers();
 
         const { userMenu, accountLabel, menuTrigger, menuActivator } = getBannerParts();
         if (!userMenu || !accountLabel) return;
@@ -436,13 +510,12 @@
     }
 
     function initialize() {
-        observeLifecycleRoots();
-        bindOverlayLifecycle();
         bindPidSelectionInvalidation();
         loadRememberedUsername();
         chrome.storage.sync.get({ [SETTING_KEY]: true }, data => {
             isEnabled = data[SETTING_KEY] !== false;
             settingsLoaded = true;
+            if (isEnabled) startLifecycleObservers();
             apply();
         });
 
@@ -451,6 +524,8 @@
             chrome.storage.onChanged.addListener((changes, area) => {
                 if (area !== 'sync' || !changes[SETTING_KEY]) return;
                 isEnabled = changes[SETTING_KEY].newValue !== false;
+                if (isEnabled) startLifecycleObservers();
+                else stopLifecycleObservers();
                 apply();
             });
         }

@@ -157,6 +157,11 @@ describe('Prisma banner username feature', () => {
 
         expect(page.accountLabel.textContent).toBe('GROUPM UK (OWNER)');
         expect(page.getTriggerClicks()).toBe(0);
+
+        const pageScan = jest.spyOn(page.window.document.documentElement, 'querySelectorAll');
+        page.window.document.body.appendChild(page.window.document.createElement('div'));
+        await settleDiscovery(page.window);
+        expect(pageScan).not.toHaveBeenCalled();
         page.dom.window.close();
     });
 
@@ -257,7 +262,8 @@ describe('Prisma banner username feature', () => {
         replacementShadow.appendChild(replacementLabel);
         page.window.document.querySelector('mo-banner-user-menu').replaceWith(replacementMenu);
 
-        page.window.bannerUsernameFeature.apply();
+        await settleDiscovery(page.window);
+        await settleDiscovery(page.window);
 
         expect(replacementLabel.textContent).toBe('HBARN@NGMCLON');
         expect(replacementLabel.getAttribute('data-ops-toolshed-original-account-label')).toBe('ANOTHER ACCOUNT (OWNER)');

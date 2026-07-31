@@ -172,20 +172,12 @@ async function mainContentScriptInit() {
             window.maxCampaignBudgetFeature.apply();
         }
 
-        if (isPrismaLike && window.loadingFactsFeature) {
-            window.loadingFactsFeature.checkForLoading();
-        }
-
         if (window.appLearnFeature) {
             window.appLearnFeature.applyTransparency();
         }
 
         if (window.helpGuidesLauncherFeature) {
             window.helpGuidesLauncherFeature.ensureLauncher();
-        }
-
-        if (isPrismaLike && window.bannerUsernameFeature) {
-            window.bannerUsernameFeature.apply();
         }
 
         if (isPrismaLike && window.logoFeature.shouldReplaceLogoOnThisPage()) {
@@ -202,15 +194,9 @@ async function mainContentScriptInit() {
                 window.approverPastingFeature.handleManageFavouritesButton();
                 window.approverPastingFeature.addRecipientHistoryControls();
                 window.gmiChatFeature.handleGmiChatButton();
-                window.liveChatEnhancements.initialize();
-
                 // NEW LINE ADDED: Explicit check for placement selection on DOM change
                 if (window.placementCounterFeature) {
                     window.placementCounterFeature.checkSelection();
-                }
-
-                if (window.autoCopyUrlFeature) {
-                    window.autoCopyUrlFeature.handleAutoCopy();
                 }
 
                 if (window.orderIdCopyFeature) {

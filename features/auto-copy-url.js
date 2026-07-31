@@ -2,19 +2,20 @@
     'use strict';
 
     let listenerAttached = false;
+    let initialized = false;
+    let cueTrackingStarted = false;
     let isEnabled = true;
     let urlMode = 'short';
     let ignoreNextTrigger = false;
-
-    chrome.storage.sync.get(['autoCopyUrlEnabled', 'autoCopyUrlMode'], (data) => {
-        isEnabled = data.autoCopyUrlEnabled !== false;
-        urlMode = data.autoCopyUrlMode === 'full' ? 'full' : 'short';
-    });
+    const linkIcons = new Set();
+    const cueObservedRoots = new WeakSet();
+    const pendingCueRoots = new Set();
+    let cueRefreshScheduled = false;
 
     chrome.storage.onChanged.addListener((changes, area) => {
         if (area === 'sync' && changes.autoCopyUrlEnabled) {
             isEnabled = changes.autoCopyUrlEnabled.newValue !== false;
-            updateLinkIconCue();
+            applyKnownLinkIconCues();
         }
         if (area === 'sync' && changes.autoCopyUrlMode) {
             urlMode = changes.autoCopyUrlMode.newValue === 'full' ? 'full' : 'short';
@@ -129,14 +130,85 @@
         return clickedBanner && clickedLinkControl;
     }
 
-    function updateLinkIconCue() {
-        queryAllDeep()
-            .filter(element =>
-                element.tagName === 'MO-ICON' &&
-                element.getAttribute('name') === 'link' &&
-                element.closest?.('mo-popover')
-            )
-            .forEach(icon => icon.classList.toggle('auto-copy-icon', isEnabled));
+    function registerLinkIcon(element) {
+        if (element?.tagName !== 'MO-ICON' || element.getAttribute('name') !== 'link') return;
+        if (!element.closest?.('mo-popover')) return;
+        linkIcons.add(element);
+        element.classList.toggle('auto-copy-icon', isEnabled);
+    }
+
+    function inspectCueRoot(root) {
+        if (!root) return;
+        if (root.nodeType === Node.ELEMENT_NODE) registerLinkIcon(root);
+        if (!root.querySelectorAll) return;
+
+        root.querySelectorAll('mo-icon[name="link"]').forEach(registerLinkIcon);
+        root.querySelectorAll('*').forEach(element => {
+            if (element.shadowRoot) observeCueRoot(element.shadowRoot);
+        });
+        if (root.shadowRoot) observeCueRoot(root.shadowRoot);
+    }
+
+    function applyKnownLinkIconCues() {
+        linkIcons.forEach(icon => {
+            const isPageLinkIcon = icon.tagName === 'MO-ICON' &&
+                icon.getAttribute('name') === 'link' &&
+                icon.closest?.('mo-popover');
+            if (!icon.isConnected || !isPageLinkIcon) {
+                icon.classList.remove('auto-copy-icon');
+                linkIcons.delete(icon);
+                return;
+            }
+            icon.classList.toggle('auto-copy-icon', isEnabled);
+        });
+    }
+
+    function flushCueRoots() {
+        cueRefreshScheduled = false;
+        pendingCueRoots.forEach(inspectCueRoot);
+        pendingCueRoots.clear();
+        applyKnownLinkIconCues();
+    }
+
+    function scheduleCueRefresh() {
+        if (cueRefreshScheduled) return;
+        cueRefreshScheduled = true;
+        const schedule = window.requestAnimationFrame || (callback => window.setTimeout(callback, 0));
+        schedule(flushCueRoots);
+    }
+
+    function handleCueMutations(records) {
+        records.forEach(record => {
+            if (record.type === 'attributes') {
+                record.target.classList?.remove('auto-copy-icon');
+                pendingCueRoots.add(record.target);
+            }
+            record.addedNodes?.forEach(node => {
+                if (node.nodeType === Node.ELEMENT_NODE || node.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+                    pendingCueRoots.add(node);
+                }
+            });
+        });
+        scheduleCueRefresh();
+    }
+
+    function observeCueRoot(root) {
+        if (!root?.querySelectorAll || cueObservedRoots.has(root)) return;
+        cueObservedRoots.add(root);
+        const observer = new MutationObserver(handleCueMutations);
+        observer.observe(root, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['name']
+        });
+        inspectCueRoot(root);
+    }
+
+    function startLinkIconCueTracking() {
+        if (cueTrackingStarted || !document.documentElement) return;
+        cueTrackingStarted = true;
+        observeCueRoot(document.documentElement);
     }
 
     function findPageLinkValue() {
@@ -283,8 +355,6 @@
     }
 
     function handleAutoCopy() {
-        updateLinkIconCue();
-
         if (listenerAttached) return;
 
         document.addEventListener('click', (event) => {
@@ -312,9 +382,12 @@
     }
 
     function initialize() {
+        if (initialized) return;
+        initialized = true;
         chrome.storage.sync.get(['autoCopyUrlEnabled', 'autoCopyUrlMode'], (data) => {
             isEnabled = data.autoCopyUrlEnabled !== false;
             urlMode = data.autoCopyUrlMode === 'full' ? 'full' : 'short';
+            startLinkIconCueTracking();
             handleAutoCopy();
         });
     }
@@ -327,7 +400,9 @@
             queryAllDeep,
             findPageLinkValue,
             showCopiedToast,
-            findPageLinkPanel
+            findPageLinkPanel,
+            applyKnownLinkIconCues,
+            getTrackedLinkIconCount: () => linkIcons.size
         }
     };
 
