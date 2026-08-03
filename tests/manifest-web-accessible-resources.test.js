@@ -17,7 +17,7 @@ describe('web-accessible resource scope', () => {
         expect(logoFeature).toContain("chrome.runtime.getURL('icon.png')");
         expect(swapAccountsFeature).toContain("chrome.runtime.getURL('features/swap-accounts.css')");
         expect(manifest.content_scripts.every(registration =>
-            registration.matches.includes('https://*.mediaocean.com/*')
+            registration.matches.every(match => match.startsWith('https://*.mediaocean.com/'))
         )).toBe(true);
     });
 });

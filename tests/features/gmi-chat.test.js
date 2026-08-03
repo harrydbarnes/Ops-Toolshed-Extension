@@ -16,7 +16,7 @@ describe('GMI Chat behaviour', () => {
         const dom = new JSDOM(`<!doctype html>
             <html>
                 <head><style>${contentStyles}</style></head>
-                <body class="approver-widget-optimise">
+                <body class="approver-widget-placement-enabled">
                     <div class="workflow-widget-wrapper"></div>
                 </body>
             </html>`, {

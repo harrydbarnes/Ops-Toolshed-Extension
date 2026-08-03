@@ -138,15 +138,17 @@ describe('Help Guides page launcher', () => {
         dom.window.close();
     });
 
-    test('does not replace the onboarding panel when the tour is active', () => {
+    test('does not leave the launcher inert when a stale onboarding flag remains', async () => {
         const { dom } = createFeature({ onboardingTourActive: true });
         const { window } = dom;
         window.helpGuidesLauncherFeature.initialize();
         window.chrome.runtime.sendMessage.mockClear();
 
         window.document.getElementById('toolshed-help-guides-launcher').click();
+        await Promise.resolve();
 
-        expect(window.chrome.runtime.sendMessage).not.toHaveBeenCalled();
+        expect(window.chrome.runtime.sendMessage).toHaveBeenCalledWith({ action: 'openHelpGuides' });
+        expect(window.helpGuidesLauncherFeature.isPanelOpen()).toBe(true);
         dom.window.close();
     });
 

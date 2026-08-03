@@ -42,7 +42,7 @@ describe('workflow widget alignment', () => {
     test.each([
         { bodyClass: '', state: 'features are disabled' },
         {
-            bodyClass: 'approver-widget-optimise gmi-chat-enabled',
+            bodyClass: 'approver-widget-placement-enabled gmi-chat-enabled',
             state: 'features are enabled'
         }
     ])('centres the workflow wrapper when $state', ({ bodyClass }) => {

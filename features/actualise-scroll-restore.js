@@ -2,21 +2,28 @@
     'use strict';
 
     const SETTING_KEY = 'actualiseScrollRestoreEnabled';
-    const PARENT_SETTING_KEY = 'optimisedNewNavEnabled';
     // Prisma's save cycle can take several seconds before it replaces the grid.
     // Keep the captured position available long enough to cover that delayed
     // soft refresh without persisting it beyond the current action.
     const RESTORE_WINDOW_MS = 15000;
+    const FALLBACK_SCROLLER_SELECTOR = [
+        '#grid-container_hot .wtHolder',
+        '.handsontable .wtHolder',
+        '.ht_master .wtHolder',
+        '.wtHolder',
+        '#actualise-grid'
+    ].join(', ');
 
     let featureEnabled = true;
-    let parentEnabled = true;
     let settingsLoaded = false;
     let initialized = false;
     let trackedScroller = null;
     let trackedScrollerKey = '';
+    let trackedScrollerSelector = '';
     let savedScrollLeft = 0;
     let actionScrollLeft = 0;
     let actionScrollerKey = '';
+    let actionScrollerSelector = '';
     let restoreUntil = 0;
     let restoreQueued = false;
 
@@ -28,7 +35,7 @@
     }
 
     function isActive() {
-        return settingsLoaded && featureEnabled && parentEnabled && isActualiseRoute();
+        return settingsLoaded && featureEnabled && isActualiseRoute();
     }
 
     function isHorizontalScroller(element) {
@@ -48,23 +55,65 @@
         return `${element.tagName.toLowerCase()}.${classes}`;
     }
 
+    function escapeCssIdentifier(value) {
+        if (window.CSS?.escape) return window.CSS.escape(value);
+        return value.replace(/(^-?\d)|[^a-zA-Z0-9_-]/g, match =>
+            `\\${match.codePointAt(0).toString(16)} `
+        );
+    }
+
+    function getScrollerSelector(element) {
+        if (element.id) return '';
+
+        for (const attribute of ['data-cy', 'data-testid', 'role']) {
+            const value = element.getAttribute(attribute);
+            if (value) {
+                const escapedValue = value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+                return `[${attribute}="${escapedValue}"]`;
+            }
+        }
+
+        const classes = Array.from(element.classList).sort();
+        if (classes.length === 0) return '';
+        return `${element.tagName.toLowerCase()}${classes.map(name => `.${escapeCssIdentifier(name)}`).join('')}`;
+    }
+
     function rememberScroller(element) {
         if (!isActive() || !isHorizontalScroller(element)) return;
 
         trackedScroller = element;
         trackedScrollerKey = getScrollerKey(element);
+        trackedScrollerSelector = getScrollerSelector(element);
         savedScrollLeft = Math.max(0, element.scrollLeft);
     }
 
     function findMatchingScrollers() {
-        const candidates = Array.from(document.querySelectorAll('*'))
-            .filter(isHorizontalScroller);
-        if (candidates.length === 0) return [];
+        let candidates = [];
+        if (trackedScrollerKey.startsWith('id:')) {
+            const identifiedScroller = document.getElementById(trackedScrollerKey.slice(3));
+            if (identifiedScroller) candidates.push(identifiedScroller);
+        } else if (trackedScrollerSelector) {
+            try {
+                candidates = Array.from(document.querySelectorAll(trackedScrollerSelector));
+            } catch (error) {
+                candidates = [];
+            }
+        }
 
-        const exactMatches = candidates.filter(candidate => getScrollerKey(candidate) === trackedScrollerKey);
+        const exactMatches = candidates.filter(candidate =>
+            isHorizontalScroller(candidate) && getScrollerKey(candidate) === trackedScrollerKey
+        );
         if (exactMatches.length > 0) return exactMatches;
 
-        return [candidates.sort((a, b) => b.scrollWidth - a.scrollWidth)[0]];
+        const fallbackCandidates = Array.from(document.querySelectorAll(FALLBACK_SCROLLER_SELECTOR))
+            .filter(isHorizontalScroller);
+        let widestCandidate = null;
+        fallbackCandidates.forEach(candidate => {
+            if (!widestCandidate || candidate.scrollWidth > widestCandidate.scrollWidth) {
+                widestCandidate = candidate;
+            }
+        });
+        return widestCandidate ? [widestCandidate] : [];
     }
 
     function freezeActionPosition() {
@@ -76,6 +125,7 @@
         if (savedScrollLeft > 0) {
             actionScrollLeft = savedScrollLeft;
             actionScrollerKey = trackedScrollerKey;
+            actionScrollerSelector = trackedScrollerSelector;
         }
     }
 
@@ -86,6 +136,7 @@
 
         savedScrollLeft = actionScrollLeft;
         trackedScrollerKey = actionScrollerKey;
+        trackedScrollerSelector = actionScrollerSelector;
         restoreUntil = Date.now() + RESTORE_WINDOW_MS;
         const armedUntil = restoreUntil;
         window.setTimeout(() => {
@@ -101,6 +152,7 @@
     function clearActionState() {
         actionScrollLeft = 0;
         actionScrollerKey = '';
+        actionScrollerSelector = '';
         restoreUntil = 0;
     }
 
@@ -165,6 +217,7 @@
         });
         trackedScroller = candidates[0];
         trackedScrollerKey = getScrollerKey(candidates[0]);
+        trackedScrollerSelector = getScrollerSelector(candidates[0]);
         return true;
     }
 
@@ -195,9 +248,8 @@
         if (initialized) return;
         initialized = true;
 
-        chrome.storage.sync.get([SETTING_KEY, PARENT_SETTING_KEY], data => {
+        chrome.storage.sync.get([SETTING_KEY], data => {
             featureEnabled = data[SETTING_KEY] !== false;
-            parentEnabled = data[PARENT_SETTING_KEY] !== false;
             settingsLoaded = true;
         });
 
@@ -215,11 +267,10 @@
     }
 
     chrome.storage.onChanged.addListener((changes, area) => {
-        if (area !== 'sync' || (!changes[SETTING_KEY] && !changes[PARENT_SETTING_KEY])) return;
+        if (area !== 'sync' || !changes[SETTING_KEY]) return;
         if (changes[SETTING_KEY]) featureEnabled = changes[SETTING_KEY].newValue !== false;
-        if (changes[PARENT_SETTING_KEY]) parentEnabled = changes[PARENT_SETTING_KEY].newValue !== false;
         settingsLoaded = true;
-        if (!featureEnabled || !parentEnabled) clearActionState();
+        if (!featureEnabled) clearActionState();
     });
 
     window.actualiseScrollRestoreFeature = {

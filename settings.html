@@ -19,16 +19,30 @@
             <a href="toolshed.html" class="nav-link">Release Notes, Roadmap + Stats</a>
         </header>
 
-        <div class="tab-container" role="tablist">
-            <button class="tab-button active" data-tab="features" role="tab" id="tab-features" aria-controls="features" aria-selected="true">Features</button>
-            <button class="tab-button" data-tab="loading-facts" role="tab" id="tab-loading-facts" aria-controls="loading-facts" aria-selected="false" tabindex="-1">Loading Facts</button>
-            <button class="tab-button" data-tab="reminders" role="tab" id="tab-reminders" aria-controls="reminders" aria-selected="false" tabindex="-1">Reminders</button>
-            <button class="tab-button" data-tab="custom-reminders" role="tab" id="tab-custom-reminders" aria-controls="custom-reminders" aria-selected="false" tabindex="-1">Custom Reminders</button>
+        <div class="settings-tab-toolbar">
+            <div class="tab-container" role="tablist">
+                <button class="tab-button active" data-tab="features" role="tab" id="tab-features" aria-controls="features" aria-selected="true">Features</button>
+                <button class="tab-button" data-tab="loading-facts" role="tab" id="tab-loading-facts" aria-controls="loading-facts" aria-selected="false" tabindex="-1">Loading Facts</button>
+                <button class="tab-button" data-tab="reminders" role="tab" id="tab-reminders" aria-controls="reminders" aria-selected="false" tabindex="-1">Reminders</button>
+                <button class="tab-button" data-tab="custom-reminders" role="tab" id="tab-custom-reminders" aria-controls="custom-reminders" aria-selected="false" tabindex="-1">Custom Reminders</button>
+            </div>
+            <div id="feature-settings-search" class="feature-settings-search" role="search">
+                <svg class="feature-settings-search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <circle cx="11" cy="11" r="7"></circle>
+                    <path d="m20 20-4-4"></path>
+                </svg>
+                <input id="feature-settings-search-input" type="text" placeholder="Search features..." aria-label="Search feature settings" aria-controls="features" autocomplete="off" spellcheck="false">
+                <button id="clear-feature-settings-search" class="feature-settings-search-clear" type="button" aria-label="Clear feature search" title="Clear search" hidden>
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M18 6 6 18M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
         </div>
 
         <div id="features" class="tab-content active" role="tabpanel" aria-labelledby="tab-features">
-            <section id="general-settings">
-                <h2>General</h2>
+            <section id="appearance-settings">
+                <h2>Appearance</h2>
                 <div class="toggle-container">
                     <span>Popup UI Theme:</span>
                     <div class="segmented-control" id="uiThemeSegmented" role="group" aria-label="Popup UI Theme">
@@ -41,24 +55,24 @@
                             Black
                         </button>
                     </div>
-                    <!--
-                        DROPDOWN ROLLBACK (Popup UI Theme)
-                        Replace uiThemeSegmented above with the markup below, then switch the
-                        initializer in settings.js as described beside initializeSegmentedControl:
-                        <div class="theme-select-wrapper">
-                            <div class="custom-dropdown" id="uiThemeDropdown">
-                                <div class="dropdown-trigger" tabindex="0">
-                                    <span class="color-preview-rect"></span>
-                                    <span class="selected-text">Pink</span>
-                                </div>
-                                <div class="dropdown-options">
-                                    <div class="dropdown-option" data-value="pink"><span class="color-preview-rect pink"></span>Pink</div>
-                                    <div class="dropdown-option" data-value="black"><span class="color-preview-rect black"></span>Black</div>
-                                </div>
-                            </div>
-                        </div>
-                    -->
+                    <!-- DROPDOWN ROLLBACK (Popup UI Theme): restore uiThemeDropdown and its existing initializer if required. -->
                 </div>
+                <div class="toggle-container">
+                    <span>Replace Prisma Logo:</span>
+                    <label class="toggle"><input type="checkbox" id="logoToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Translucent 'AppLearn' Logo:</span>
+                    <label class="toggle"><input type="checkbox" id="appLearnReplaceToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Show username in Prisma banner:</span>
+                    <label class="toggle"><input type="checkbox" id="bannerUsernameToggle"><span class="slider"></span></label>
+                </div>
+            </section>
+
+            <section id="productivity-settings">
+                <h2>Productivity</h2>
                 <div class="toggle-container">
                     <span>Meta finance tool:</span>
                     <div class="segmented-control" id="metaFinanceToolSegmented" role="group" aria-label="Meta finance tool">
@@ -67,295 +81,167 @@
                     </div>
                 </div>
                 <div class="toggle-container">
-                        <span>Replace Prisma Logo:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="logoToggle">
-                            <span class="slider"></span>
-                        </label>
+                    <span>Show Loading Facts:</span>
+                    <div class="button-and-toggle-group">
+                        <button id="loadingFactsStatsButton" class="settings-button loading-facts-stats-button" type="button">Fact stats</button>
+                        <label class="toggle"><input type="checkbox" id="loadingFactsToggle"><span class="slider"></span></label>
                     </div>
-                    <div class="toggle-container">
-                        <span>Stats Collector:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="statsCollectorToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>Show Loading Facts:</span>
-                        <div class="button-and-toggle-group">
-                            <button id="loadingFactsStatsButton" class="settings-button loading-facts-stats-button" type="button">Fact stats</button>
-                            <label class="toggle">
-                                <input type="checkbox" id="loadingFactsToggle">
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                    </div>
-                    <div class="toggle-container">
-                        <span>Translucent 'AppLearn' Logo:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="appLearnReplaceToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>Block broken AppLearn login popups:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="blockAppLearnPopupsToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                </section>
+                </div>
+                <div class="toggle-container">
+                    <span>Help Guides launcher:</span>
+                    <label class="toggle"><input type="checkbox" id="helpGuidesToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Count Placements Selected:</span>
+                    <label class="toggle"><input type="checkbox" id="countPlacementsSelectedToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Approver Sidebar Enhancements:</span>
+                    <label class="toggle"><input type="checkbox" id="approverSidebarEnhancementsToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Actualise bulk export:</span>
+                    <label class="toggle"><input type="checkbox" id="actualiseBulkExportToggle"><span class="slider"></span></label>
+                </div>
+            </section>
 
-                <section id="campaign-management-settings">
-                    <h2>Prisma Efficiency Gains</h2>
-                    <div class="toggle-container">
-                        <span>Use campaign name as tab title:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="campaignTabTitleToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>Help Guides launcher:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="helpGuidesToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>Optimised New Campaign Navigation:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="optimisedNewNavToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div id="optimisedNewNavSubOptions" class="nested-toggle-group" aria-label="Optimised new campaign navigation options">
-                        <div class="toggle-container nested-toggle-container">
-                            <span>Add Orders shortcut tab to menu</span>
-                            <label class="toggle">
-                                <input type="checkbox" id="ordersShortcutToggle">
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                        <div class="toggle-container nested-toggle-container">
-                            <span>Add Actualise shortcut tab to menu</span>
-                            <label class="toggle">
-                                <input type="checkbox" id="actualiseShortcutToggle">
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                        <div class="toggle-container nested-toggle-container">
-                            <span>Optimise placement of Approver Widget</span>
-                            <label class="toggle">
-                                <input type="checkbox" id="approverWidgetPlacementToggle">
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                        <div class="toggle-container nested-toggle-container">
-                            <span>Quick details, copy campaign and history buttons</span>
-                            <label class="toggle">
-                                <input type="checkbox" id="quickCampaignActionsToggle">
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                        <div class="toggle-container nested-toggle-container">
-                            <span>Budget widget optimised</span>
-                            <label class="toggle">
-                                <input type="checkbox" id="budgetWidgetOptimisedToggle">
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                        <div class="toggle-container nested-toggle-container">
-                            <span>Campaign name quick copy</span>
-                            <label class="toggle">
-                                <input type="checkbox" id="campaignNameQuickCopyToggle">
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                        <div class="toggle-container nested-toggle-container">
-                            <span>Campaign ID and CL/PR/CA quick copy</span>
-                            <label class="toggle">
-                                <input type="checkbox" id="campaignHeaderQuickCopyToggle">
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                        <div class="toggle-container nested-toggle-container">
-                            <span>Campaign dates quick edit shortcut</span>
-                            <label class="toggle">
-                                <input type="checkbox" id="campaignDateShortcutToggle">
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                        <div class="toggle-container nested-toggle-container">
-                            <span>New Order UI Optimisation</span>
-                            <label class="toggle">
-                                <input type="checkbox" id="newOrderUiOptimisationToggle">
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                        <div class="toggle-container nested-toggle-container">
-                            <span>Preserve horizontal scroll position in Actualise</span>
-                            <label class="toggle">
-                                <input type="checkbox" id="actualiseScrollRestoreToggle">
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                        <div class="toggle-container nested-toggle-container">
-                            <span>Show navigation bar in Actualise</span>
-                            <label class="toggle">
-                                <input type="checkbox" id="actualiseNavbarToggle">
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                    </div>
-                    <div class="toggle-container">
-                        <span>GMI Chat Shortcut:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="gmiChatShortcutToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>Auto Copy Campaign URL:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="autoCopyUrlToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div id="autoCopyUrlSubOptions" class="nested-toggle-group" aria-label="Auto Copy Campaign URL options">
-                        <div class="toggle-container nested-toggle-container">
-                            <span>URL format</span>
-                            <div class="segmented-control" id="autoCopyUrlModeSegmented" role="group" aria-label="URL format">
-                                <button type="button" data-value="short" aria-pressed="true">Short</button>
-                                <button type="button" data-value="full" aria-pressed="false">Full</button>
-                            </div>
-                            <!--
-                                DROPDOWN ROLLBACK (URL format)
-                                Replace autoCopyUrlModeSegmented above with:
-                                <div class="custom-dropdown compact-custom-dropdown" id="autoCopyUrlModeDropdown">
-                                    <div class="dropdown-trigger" tabindex="0"><span class="selected-text">Short URL</span></div>
-                                    <div class="dropdown-options">
-                                        <div class="dropdown-option" data-value="short">Short URL</div>
-                                        <div class="dropdown-option" data-value="full">Full URL</div>
-                                    </div>
-                                </div>
-                                Then use the dropdown initializer and variable names documented in settings.js.
-                            -->
-                        </div>
-                    </div>
-                    <div class="toggle-container">
-                        <span>Order ID Copy Button:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="orderIdCopyToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>'Add Campaign' auto clicks 'Enter Full Details':</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="addCampaignShortcutToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>Hide unused sections on 'Add Campaign':</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="hidingSectionsToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>Automate 'Budget type' and 'Media mix' selection:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="automateFormFieldsToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>Approver Widget Optimise:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="approverWidgetOptimiseToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>Count Placements Selected:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="countPlacementsSelectedToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>Switch Accounts button:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="swapAccountsToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>Return to previous page after switching accounts:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="rememberAccountSwitchUrlToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>Show username in Prisma banner:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="bannerUsernameToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>See Comments on Locked Buys:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="seeCommentsOnLockedBuysToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                </section>
+            <section id="navigation-settings">
+                <h2>Navigation</h2>
+                <div class="toggle-container">
+                    <span>Use campaign name as tab title:</span>
+                    <label class="toggle"><input type="checkbox" id="campaignTabTitleToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Add Orders shortcut tab to menu:</span>
+                    <label class="toggle"><input type="checkbox" id="ordersShortcutToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Add Actualise shortcut tab to menu:</span>
+                    <label class="toggle"><input type="checkbox" id="actualiseShortcutToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Show navigation bar in Actualise:</span>
+                    <label class="toggle"><input type="checkbox" id="actualiseNavbarToggle"><span class="slider"></span></label>
+                </div>
+            </section>
 
-                <section id="live-chat-settings">
-                    <h2>Live Chat Enhancements</h2>
-                    <div class="toggle-container">
-                        <span>Smaller Chat Font:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="fontSizeToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>Resizable Chat Window:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="resizableChatToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>Scheduled Chat Launcher (10 AM - 12 PM):</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="scheduledChatToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="toggle-container">
-                        <span>Open AI Chat directly with Moe:</span>
-                        <label class="toggle">
-                            <input type="checkbox" id="directMoeChatToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                </section>
+            <section id="quick-actions-settings">
+                <h2>Quick Actions</h2>
+                <div class="toggle-container">
+                    <span>Quick details, copy campaign and history buttons:</span>
+                    <label class="toggle"><input type="checkbox" id="quickCampaignActionsToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Campaign name quick copy:</span>
+                    <label class="toggle"><input type="checkbox" id="campaignNameQuickCopyToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Campaign ID and CL/PR/CA quick copy:</span>
+                    <label class="toggle"><input type="checkbox" id="campaignHeaderQuickCopyToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Campaign dates quick edit shortcut:</span>
+                    <label class="toggle"><input type="checkbox" id="campaignDateShortcutToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Order ID Copy Button:</span>
+                    <label class="toggle"><input type="checkbox" id="orderIdCopyToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Max Campaign Budget feature:</span>
+                    <label class="toggle"><input type="checkbox" id="maxCampaignBudgetToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Switch Accounts button:</span>
+                    <label class="toggle"><input type="checkbox" id="swapAccountsToggle"><span class="slider"></span></label>
+                </div>
+            </section>
 
-                <section id="onboarding-test-settings">
-                    <h2>User Onboarding</h2>
-                    <p>Open the first-run setup, or launch either Prisma side-panel walkthrough directly for testing.</p>
-                    <div class="onboarding-launch-actions">
-                        <button id="launchOnboardingButton" class="settings-button" type="button">Launch user onboarding</button>
-                        <button id="launchOnboardingTourV1Button" class="settings-button settings-button-secondary" type="button">Open side panel v1</button>
-                        <button id="launchOnboardingTourV2Button" class="settings-button" type="button">Open side panel v2</button>
+            <section id="automation-settings">
+                <h2>Automation</h2>
+                <div class="toggle-container">
+                    <span>Auto Copy Campaign URL:</span>
+                    <label class="toggle"><input type="checkbox" id="autoCopyUrlToggle"><span class="slider"></span></label>
+                </div>
+                <div id="autoCopyUrlSubOptions" class="nested-toggle-group" aria-label="Auto Copy Campaign URL options">
+                    <div class="toggle-container nested-toggle-container">
+                        <span>URL format</span>
+                        <div class="segmented-control" id="autoCopyUrlModeSegmented" role="group" aria-label="URL format">
+                            <button type="button" data-value="short" aria-pressed="true">Short</button>
+                            <button type="button" data-value="full" aria-pressed="false">Full</button>
+                        </div>
+                        <!-- DROPDOWN ROLLBACK (URL format): restore autoCopyUrlModeDropdown and its existing initializer if required. -->
                     </div>
-                </section>
+                </div>
+                <div class="toggle-container">
+                    <span>'Add Campaign' auto clicks 'Enter Full Details':</span>
+                    <label class="toggle"><input type="checkbox" id="addCampaignShortcutToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Hide unused sections on 'Add Campaign':</span>
+                    <label class="toggle"><input type="checkbox" id="hidingSectionsToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Automate 'Budget type' and 'Media mix' selection:</span>
+                    <label class="toggle"><input type="checkbox" id="automateFormFieldsToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Return to previous page after switching accounts:</span>
+                    <label class="toggle"><input type="checkbox" id="rememberAccountSwitchUrlToggle"><span class="slider"></span></label>
+                </div>
+            </section>
+
+            <section id="campaign-view-settings">
+                <h2>Campaign View</h2>
+                <div class="toggle-container">
+                    <span>Optimise placement of Approver Widget:</span>
+                    <label class="toggle"><input type="checkbox" id="approverWidgetPlacementToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Budget widget optimised:</span>
+                    <label class="toggle"><input type="checkbox" id="budgetWidgetOptimisedToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>New Order UI Optimisation:</span>
+                    <label class="toggle"><input type="checkbox" id="newOrderUiOptimisationToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>See Comments on Locked Buys:</span>
+                    <label class="toggle"><input type="checkbox" id="seeCommentsOnLockedBuysToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>GMI Chat Shortcut:</span>
+                    <label class="toggle"><input type="checkbox" id="gmiChatShortcutToggle"><span class="slider"></span></label>
+                </div>
+            </section>
+
+            <section id="live-chat-settings">
+                <h2>Live Chat</h2>
+                <div class="toggle-container"><span>Smaller Chat Font:</span><label class="toggle"><input type="checkbox" id="fontSizeToggle"><span class="slider"></span></label></div>
+                <div class="toggle-container"><span>Resizable Chat Window:</span><label class="toggle"><input type="checkbox" id="resizableChatToggle"><span class="slider"></span></label></div>
+                <div class="toggle-container"><span>Scheduled Chat Launcher (10 AM - 12 PM):</span><label class="toggle"><input type="checkbox" id="scheduledChatToggle"><span class="slider"></span></label></div>
+                <div class="toggle-container"><span>Open AI Chat directly with Moe:</span><label class="toggle"><input type="checkbox" id="directMoeChatToggle"><span class="slider"></span></label></div>
+            </section>
+
+            <section id="fixes-settings">
+                <h2>Fixes</h2>
+                <div class="toggle-container"><span>Block broken AppLearn login popups:</span><label class="toggle"><input type="checkbox" id="blockAppLearnPopupsToggle"><span class="slider"></span></label></div>
+                <div class="toggle-container"><span>Preserve horizontal scroll position in Actualise:</span><label class="toggle"><input type="checkbox" id="actualiseScrollRestoreToggle"><span class="slider"></span></label></div>
+                <div class="toggle-container"><span>Keep Order Summary headers aligned while scrolling:</span><label class="toggle"><input type="checkbox" id="orderGridScrollSyncToggle"><span class="slider"></span></label></div>
+            </section>
+
+            <section id="advanced-settings">
+                <h2>Advanced</h2>
+                <div class="toggle-container"><span>Stats Collector:</span><label class="toggle"><input type="checkbox" id="statsCollectorToggle"><span class="slider"></span></label></div>
+                <div class="onboarding-launch-actions">
+                    <button id="loadingFactsReviewButton" class="settings-button settings-button-secondary" type="button">Loading Fact Review</button>
+                    <button id="launchOnboardingButton" class="settings-button" type="button">Launch user onboarding</button>
+                    <button id="launchOnboardingTourV1Button" class="settings-button settings-button-secondary" type="button">Open side panel v1</button>
+                    <button id="launchOnboardingTourV2Button" class="settings-button" type="button">Open side panel v2</button>
+                    <button id="resetFeatureSettingsButton" class="settings-button settings-button-secondary" type="button">Default Settings</button>
+                </div>
+            </section>
+            <p id="feature-settings-search-empty" class="feature-settings-search-empty" role="status" aria-live="polite" hidden>No feature settings found.</p>
         </div>
 
         <div id="loading-facts" class="tab-content" role="tabpanel" aria-labelledby="tab-loading-facts" hidden>

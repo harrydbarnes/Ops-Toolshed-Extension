@@ -1,4 +1,4 @@
-const { SETTINGS_DEFAULTS, loadSettingsWithDefaults } = require('../settings');
+const { FEATURE_SETTINGS_DEFAULTS, SETTINGS_DEFAULTS, loadSettingsWithDefaults } = require('../settings');
 
 const EXPECTED_DEFAULTS = {
     uiTheme: 'pink',
@@ -9,6 +9,8 @@ const EXPECTED_DEFAULTS = {
     appLearnReplaceEnabled: true,
     blockAppLearnPopupsEnabled: true,
     helpGuidesEnabled: true,
+    approverSidebarEnhancementsEnabled: true,
+    actualiseBulkExportEnabled: true,
     prismaReminderFrequency: 'daily',
     prismaCountdownDuration: '5',
     metaReminderEnabled: true,
@@ -21,12 +23,12 @@ const EXPECTED_DEFAULTS = {
     hidingSectionsEnabled: true,
     automateFormFieldsEnabled: true,
     countPlacementsSelectedEnabled: true,
-    approverWidgetOptimiseEnabled: true,
     swapAccountsEnabled: true,
     rememberAccountSwitchUrlEnabled: true,
     bannerUsernameEnabled: true,
     alwaysShowCommentsEnabled: true,
     orderIdCopyEnabled: true,
+    maxCampaignBudgetEnabled: true,
     newOrderUiOptimisationEnabled: true,
     ordersShortcutEnabled: true,
     actualiseShortcutEnabled: true,
@@ -42,7 +44,7 @@ const EXPECTED_DEFAULTS = {
     gmiChatShortcutEnabled: true,
     autoCopyUrlEnabled: true,
     loadingFactsEnabled: true,
-    optimisedNewNavEnabled: true,
+    orderGridScrollSyncEnabled: true,
     statsCollectorEnabled: true,
     timesheetReminderEnabled: true,
     reminderDay: 'Friday',
@@ -53,6 +55,25 @@ const EXPECTED_DEFAULTS = {
 describe('batched Settings initialization', () => {
     test('keeps every established Settings default explicit and unchanged', () => {
         expect(SETTINGS_DEFAULTS).toEqual(EXPECTED_DEFAULTS);
+    });
+
+    test('feature defaults exclude all reminder settings and user-created reminder data', () => {
+        expect(FEATURE_SETTINGS_DEFAULTS).toEqual(expect.objectContaining({
+            uiTheme: 'pink',
+            orderGridScrollSyncEnabled: true,
+            statsCollectorEnabled: true
+        }));
+        [
+            'reminderTheme',
+            'prismaReminderFrequency',
+            'prismaCountdownDuration',
+            'metaReminderEnabled',
+            'iasReminderEnabled',
+            'timesheetReminderEnabled',
+            'reminderDay',
+            'reminderTime',
+            'customReminders'
+        ].forEach(key => expect(FEATURE_SETTINGS_DEFAULTS).not.toHaveProperty(key));
     });
 
     test('reads once, preserves stored values, and writes all missing defaults once', async () => {

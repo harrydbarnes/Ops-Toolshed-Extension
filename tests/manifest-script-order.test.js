@@ -24,11 +24,25 @@ describe('Manifest content-script order', () => {
             expect(scripts.indexOf(featureScript)).toBeGreaterThan(utilsIndex);
         });
         expect(scripts[scripts.length - 1]).toBe('content.js');
+        expect(mediaoceanRegistration.all_frames).not.toBe(true);
 
         const loadingMonitorIndex = scripts.indexOf('features/loading-monitor.js');
         expect(loadingMonitorIndex).toBeGreaterThan(utilsIndex);
         expect(loadingMonitorIndex).toBeLessThan(scripts.indexOf('features/stats-collector.js'));
         expect(loadingMonitorIndex).toBeLessThan(scripts.indexOf('features/loading-facts.js'));
+    });
+
+    test('limits child-frame enhancement injection to Campaign Details focus', () => {
+        const frameRegistration = manifest.content_scripts.find(entry =>
+            entry.js?.includes('features/campaign-details-focus.js')
+        );
+
+        expect(frameRegistration.js).toEqual(['features/campaign-details-focus.js']);
+        expect(frameRegistration.css).toBeUndefined();
+        expect(frameRegistration.all_frames).toBe(true);
+        expect(frameRegistration.matches).toEqual([
+            'https://*.mediaocean.com/idesk/prisma-campaign-details/*'
+        ]);
     });
 
     test('loads the lightweight Moe launcher bridge in the main page only', () => {
@@ -57,6 +71,7 @@ describe('Manifest content-script order', () => {
         expect(mediaoceanRegistration.js).toContain('features/actualise-navbar.js');
         expect(mediaoceanRegistration.js).toContain('features/actualise-shortcut.js');
         expect(mediaoceanRegistration.js).toContain('features/actualise-export-all.js');
+        expect(mediaoceanRegistration.js).toContain('features/order-grid-scroll-sync.js');
         expect(mediaoceanRegistration.js).toContain('features/max-campaign-budget.js');
         expect(mediaoceanRegistration.js).toContain('features/onboarding-tour.js');
     });

@@ -1,18 +1,17 @@
 # Ops Toolshed Chrome Extension 🛠️
 
-**Current version: 1.6**
+**Current version: 1.7**
 
 Ops Toolshed is a Chrome extension that streamlines day-to-day campaign management in Prisma and provides quick access to common Operations tools.
 
-## What's new in 1.6
+## What's new in 1.7
 
-- Redesigned Custom Reminders with Simple and Advanced URL matching, a site-only shortcut, and an animated editor that keeps the background Settings layout fixed.
-- Improved reminder matching on dynamic Prisma pages, with edited rules applied immediately and clearer custom versus built-in popup styling.
-- The replacement Prisma logo now applies or restores immediately when its setting changes, without refreshing the page.
-- Fixed clipped dropdown text in the Submit Feedback modal when it is opened over Prisma.
-- Improved D/O number search and extension message handling so failures return clearer errors instead of silently timing out.
-- Added a Social Booking Checker that compares Meta campaign-month activity with Prisma Partner Line IDs, planned values and available schedule dates, then exports an evidence-labelled exception CSV.
-- Campaign tabs now keep the campaign name across Prisma routes, campaign-date shortcuts wait for the Basic editor to become ready, and the approver widget returns to its optimised position after Buy/Orders navigation.
+- Faster Prisma campaign handling: repeated DOM updates are coalesced into one route-aware refresh, Actualise restores only the active grid, and child frames receive only their required lightweight enhancement.
+- Settings are organised by purpose, searchable, and can restore feature defaults without changing reminders or saved reminder data.
+- Approver Sidebar Enhancements, Actualise bulk export, and Max Campaign Budget now have their own independent Settings controls.
+- Order Summary now highlights Orders, keeps horizontal headers aligned, avoids redundant legacy work on the new Orders UI, and supports direct sidebar Order ID copying there.
+- Campaign/header copy actions, Help Guides, the Approver Widget, and new-order controls remain stable across Prisma route changes.
+- Direct Moe opens its chat window after Connect with Moe while observing only the relevant UI roots.
 
 ## Features
 

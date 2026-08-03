@@ -14,7 +14,7 @@ function makeScrollable(element, scrollLeft = 0) {
     return element;
 }
 
-function createPage(enabled = true, parentEnabled = true) {
+function createPage(enabled = true) {
     const dom = new JSDOM('<!doctype html><html><body><div id="actualise-grid" class="actualise-grid"></div><button id="approval">Yes</button><button id="save">Save</button><button id="cancel">Cancel</button></body></html>', {
         url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#ptb-ctx=actualize&route=actualize',
         runScripts: 'dangerously'
@@ -23,10 +23,7 @@ function createPage(enabled = true, parentEnabled = true) {
     dom.window.chrome = {
         storage: {
             sync: {
-                get: (_keys, callback) => callback({
-                    actualiseScrollRestoreEnabled: enabled,
-                    optimisedNewNavEnabled: parentEnabled
-                })
+                get: (_keys, callback) => callback({ actualiseScrollRestoreEnabled: enabled })
             },
             onChanged: { addListener: () => {} }
         }
@@ -83,6 +80,95 @@ describe('Actualise horizontal scroll restoration', () => {
 
         expect(master.scrollLeft).toBe(346);
         expect(headerClone.scrollLeft).toBe(346);
+        dom.window.close();
+    });
+
+    test('targets matching Handsontable scrollers without scanning every page element', () => {
+        const dom = createPage();
+        const { document } = dom.window;
+        document.body.insertAdjacentHTML(
+            'beforeend',
+            Array.from({ length: 1000 }, (_, index) => `<div class="unrelated-${index}"></div>`).join('')
+        );
+        const master = makeScrollable(document.getElementById('actualise-grid'), 280);
+        master.removeAttribute('id');
+        master.className = 'wtHolder';
+        const headerClone = makeScrollable(master.cloneNode(), 280);
+        master.after(headerClone);
+
+        dom.window.actualiseScrollRestoreFeature.initialize();
+        master.dispatchEvent(new dom.window.Event('scroll'));
+        dom.window.actualiseScrollRestoreFeature.captureBeforeAction();
+        master.scrollLeft = 0;
+        headerClone.scrollLeft = 0;
+        const querySelectorAll = jest.spyOn(document, 'querySelectorAll');
+
+        dom.window.actualiseScrollRestoreFeature.restoreScrollPosition();
+
+        expect(master.scrollLeft).toBe(280);
+        expect(headerClone.scrollLeft).toBe(280);
+        expect(querySelectorAll.mock.calls.some(([selector]) => selector === '*')).toBe(false);
+        dom.window.close();
+    });
+
+    test('uses direct ID lookup when Prisma replaces an identified scroller', () => {
+        const dom = createPage();
+        const { document } = dom.window;
+        const original = makeScrollable(document.getElementById('actualise-grid'), 375);
+
+        dom.window.actualiseScrollRestoreFeature.initialize();
+        original.dispatchEvent(new dom.window.Event('scroll'));
+        dom.window.actualiseScrollRestoreFeature.captureBeforeAction();
+        const replacement = makeScrollable(original.cloneNode(), 0);
+        original.replaceWith(replacement);
+        const querySelectorAll = jest.spyOn(document, 'querySelectorAll');
+
+        dom.window.actualiseScrollRestoreFeature.restoreScrollPosition();
+
+        expect(replacement.scrollLeft).toBe(375);
+        expect(querySelectorAll).not.toHaveBeenCalled();
+        dom.window.close();
+    });
+
+    test('falls back to the live Handsontable grid if Prisma changes the scroller identity', () => {
+        const dom = createPage();
+        const { document } = dom.window;
+        const original = makeScrollable(document.getElementById('actualise-grid'), 515);
+
+        dom.window.actualiseScrollRestoreFeature.initialize();
+        original.dispatchEvent(new dom.window.Event('scroll'));
+        dom.window.actualiseScrollRestoreFeature.captureBeforeAction();
+        const replacement = makeScrollable(document.createElement('div'), 0);
+        replacement.className = 'wtHolder';
+        original.replaceWith(replacement);
+
+        dom.window.actualiseScrollRestoreFeature.restoreScrollPosition();
+
+        expect(replacement.scrollLeft).toBe(515);
+        dom.window.close();
+    });
+
+    test('ignores a matching ID that is no longer horizontally scrollable', () => {
+        const dom = createPage();
+        const { document } = dom.window;
+        const original = makeScrollable(document.getElementById('actualise-grid'), 455);
+
+        dom.window.actualiseScrollRestoreFeature.initialize();
+        original.dispatchEvent(new dom.window.Event('scroll'));
+        dom.window.actualiseScrollRestoreFeature.captureBeforeAction();
+
+        const collapsedReplacement = original.cloneNode();
+        Object.defineProperty(collapsedReplacement, 'scrollWidth', { configurable: true, value: 500 });
+        Object.defineProperty(collapsedReplacement, 'clientWidth', { configurable: true, value: 500 });
+        original.replaceWith(collapsedReplacement);
+        const liveGrid = makeScrollable(document.createElement('div'), 0);
+        liveGrid.className = 'wtHolder';
+        collapsedReplacement.after(liveGrid);
+
+        dom.window.actualiseScrollRestoreFeature.restoreScrollPosition();
+
+        expect(collapsedReplacement.scrollLeft).toBe(0);
+        expect(liveGrid.scrollLeft).toBe(455);
         dom.window.close();
     });
 
@@ -162,17 +248,4 @@ describe('Actualise horizontal scroll restoration', () => {
         dom.window.close();
     });
 
-    test('does nothing while the optimised navigation parent is disabled', () => {
-        const dom = createPage(true, false);
-        const grid = makeScrollable(dom.window.document.getElementById('actualise-grid'), 300);
-
-        dom.window.actualiseScrollRestoreFeature.initialize();
-        grid.dispatchEvent(new dom.window.Event('scroll'));
-        dom.window.actualiseScrollRestoreFeature.captureBeforeAction();
-        grid.scrollLeft = 0;
-        dom.window.actualiseScrollRestoreFeature.restoreScrollPosition();
-
-        expect(grid.scrollLeft).toBe(0);
-        dom.window.close();
-    });
 });

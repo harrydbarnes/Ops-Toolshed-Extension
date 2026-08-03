@@ -10,15 +10,60 @@ const featureCode = fs.readFileSync(
 describe('Max Campaign Budget', () => {
     function createFeature({
         url = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=buy&ptb-ctx=digital&route=online',
-        body = ''
+        body = '',
+        enabled = true
     } = {}) {
         const dom = new JSDOM(`<!doctype html><html><body>${body}</body></html>`, {
             runScripts: 'dangerously',
             url
         });
+        let storageListener;
+        dom.window.chrome = {
+            storage: {
+                sync: {
+                    get: jest.fn((_keys, callback) => callback({ maxCampaignBudgetEnabled: enabled }))
+                },
+                onChanged: {
+                    addListener: jest.fn(listener => { storageListener = listener; })
+                }
+            }
+        };
         dom.window.eval(featureCode);
-        return { dom, window: dom.window, document: dom.window.document };
+        return {
+            dom,
+            window: dom.window,
+            document: dom.window.document,
+            setEnabled(value) {
+                storageListener({ maxCampaignBudgetEnabled: { newValue: value } }, 'sync');
+            }
+        };
     }
+
+    test('responds to the Settings feature and removes its visible controls when disabled', () => {
+        jest.useFakeTimers();
+        const feature = createFeature({
+            enabled: false,
+            body: '<table><tr><td id="plannedCost-1">Â£25.00</td></tr></table>'
+        });
+        feature.window.maxCampaignBudgetFeature.initialize();
+        feature.document.getElementById('plannedCost-1').dispatchEvent(
+            new feature.window.Event('pointerdown', { bubbles: true, composed: true })
+        );
+        jest.runOnlyPendingTimers();
+        expect(feature.document.getElementById('toolshed-max-budget-panel')).toBeNull();
+
+        feature.setEnabled(true);
+        feature.document.getElementById('plannedCost-1').dispatchEvent(
+            new feature.window.Event('pointerdown', { bubbles: true, composed: true })
+        );
+        jest.runOnlyPendingTimers();
+        expect(feature.document.getElementById('toolshed-max-budget-panel')).not.toBeNull();
+
+        feature.setEnabled(false);
+        expect(feature.document.getElementById('toolshed-max-budget-panel')).toBeNull();
+        jest.useRealTimers();
+        feature.dom.window.close();
+    });
 
     test('parses exact, abbreviated, and accounting-style currency values', () => {
         const { dom, window } = createFeature();

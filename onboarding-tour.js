@@ -8,7 +8,6 @@
         bannerUsernameEnabled: true,
         swapAccountsEnabled: true,
         rememberAccountSwitchUrlEnabled: true,
-        optimisedNewNavEnabled: true,
         ordersShortcutEnabled: true,
         actualiseShortcutEnabled: true,
         actualiseNavbarEnabled: true,
@@ -22,7 +21,6 @@
         countPlacementsSelectedEnabled: true,
         approverWidgetPlacementEnabled: true,
         gmiChatShortcutEnabled: true,
-        approverWidgetOptimiseEnabled: true,
         addCampaignShortcutEnabled: true,
         hidingSectionsEnabled: true,
         automateFormFieldsEnabled: true
@@ -146,7 +144,7 @@
             });
         });
 
-        if (isEnabled('optimisedNewNavEnabled')) {
+        {
             result.push({
                 id: 'campaign-navigation', section: 'Campaign navigation', title: 'Keep the working areas close together.',
                 description: 'The sleeker navigation removes unused space while keeping campaign sections easy to reach.',
@@ -200,7 +198,7 @@
             });
         }
 
-        if (isEnabled('approverWidgetOptimiseEnabled')) {
+        if (isEnabled('approverWidgetPlacementEnabled')) {
             result.push({
                 id: 'open-approver-widget', section: 'Approver management', title: 'Open the approver widget to continue.',
                 description: 'Open the highlighted widget fully so the To field and approver controls are visible.',

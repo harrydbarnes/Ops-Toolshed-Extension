@@ -14,7 +14,8 @@ const contentStyles = fs.readFileSync(
 describe('Actualise export every month', () => {
     function createFeature({
         months = ['Jan 26', 'Feb 26', 'Mar 26'],
-        activeMonth = 'Feb 26'
+        activeMonth = 'Feb 26',
+        enabled = true
     } = {}) {
         const monthItems = months.map(month =>
             `<li class="${month === activeMonth ? 'active' : ''}"><a>${month}</a></li>`
@@ -64,9 +65,42 @@ describe('Actualise export every month', () => {
         dom.window.utils = {
             findVisibleLoadingSpinners: jest.fn(() => [])
         };
+        let storageListener;
+        dom.window.chrome = {
+            storage: {
+                sync: {
+                    get: jest.fn((_keys, callback) => callback({ actualiseBulkExportEnabled: enabled }))
+                },
+                onChanged: {
+                    addListener: jest.fn(listener => { storageListener = listener; })
+                }
+            }
+        };
         dom.window.eval(featureCode);
-        return { dom, window: dom.window, exports };
+        return {
+            dom,
+            window: dom.window,
+            exports,
+            setEnabled(value) {
+                storageListener({ actualiseBulkExportEnabled: { newValue: value } }, 'sync');
+            }
+        };
     }
+
+    test('responds to the Settings feature without leaving stale export options', () => {
+        const feature = createFeature({ enabled: false });
+        feature.window.actualiseExportAllFeature.initialize();
+        expect(feature.window.document.getElementById('toolshed-export-all-actuals')).toBeNull();
+
+        feature.setEnabled(true);
+        expect(feature.window.document.getElementById('toolshed-export-all-actuals')).not.toBeNull();
+        expect(feature.window.document.getElementById('toolshed-combine-actuals')).not.toBeNull();
+
+        feature.setEnabled(false);
+        expect(feature.window.document.getElementById('toolshed-export-all-actuals')).toBeNull();
+        expect(feature.window.document.getElementById('toolshed-combine-actuals')).toBeNull();
+        feature.dom.window.close();
+    });
 
     test('adds one native-style option immediately after Export actuals view', () => {
         const { dom, window } = createFeature();

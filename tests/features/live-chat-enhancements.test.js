@@ -7,7 +7,7 @@ const script = fs.readFileSync(
     'utf8'
 );
 
-function setup({ directMoeChatEnabled = true } = {}) {
+function setup({ directMoeChatEnabled = true, unrelatedShadowRoots = 0 } = {}) {
     const dom = new JSDOM('<!doctype html><html><head></head><body></body></html>', {
         runScripts: 'outside-only',
         url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/'
@@ -23,6 +23,14 @@ function setup({ directMoeChatEnabled = true } = {}) {
             }
         }
     };
+
+    for (let index = 0; index < unrelatedShadowRoots; index += 1) {
+        const unrelatedHost = dom.window.document.createElement('unrelated-widget');
+        unrelatedHost.attachShadow({ mode: 'open' }).appendChild(
+            dom.window.document.createElement('span')
+        );
+        dom.window.document.body.appendChild(unrelatedHost);
+    }
 
     const banner = dom.window.document.createElement('mo-banner');
     const bannerShadow = banner.attachShadow({ mode: 'open' });
@@ -44,7 +52,17 @@ function setup({ directMoeChatEnabled = true } = {}) {
     dom.window.document.body.appendChild(connectItem);
 
     dom.window.eval(script);
-    return { dom, listeners, aiChat, nativeMenu, menuShadow, connectItem };
+    return {
+        dom,
+        listeners,
+        aiChat,
+        banner,
+        nativeMenu,
+        bannerShadow,
+        helpShadow,
+        menuShadow,
+        connectItem
+    };
 }
 
 describe('Live chat enhancements', () => {
@@ -120,6 +138,50 @@ describe('Live chat enhancements', () => {
 
         expect(connect).toHaveBeenCalledTimes(1);
         dom.window.close();
+    });
+
+    test('observes only the document and Direct Moe shadow-root chain', () => {
+        const page = setup({ unrelatedShadowRoots: 20 });
+        const observe = jest.spyOn(page.dom.window.MutationObserver.prototype, 'observe');
+
+        page.dom.window.liveChatEnhancements.initialize();
+
+        const observedRoots = new Set(observe.mock.calls.map(([root]) => root));
+        expect(observedRoots).toEqual(new Set([
+            page.dom.window.document.documentElement,
+            page.bannerShadow,
+            page.helpShadow,
+            page.menuShadow
+        ]));
+        page.dom.window.close();
+    });
+
+    test('rebinds when Prisma replaces the complete banner hierarchy', async () => {
+        const page = setup();
+        const connect = jest.fn();
+        page.connectItem.addEventListener('click', connect);
+        page.dom.window.liveChatEnhancements.initialize();
+
+        page.banner.remove();
+        const replacementBanner = page.dom.window.document.createElement('mo-banner');
+        const replacementBannerRoot = replacementBanner.attachShadow({ mode: 'open' });
+        const replacementHelp = page.dom.window.document.createElement('mo-banner-help-menu');
+        const replacementHelpRoot = replacementHelp.attachShadow({ mode: 'open' });
+        const replacementMenu = page.dom.window.document.createElement('mo-menu');
+        replacementMenu.setAttribute('aria-expanded', 'false');
+        const replacementMenuRoot = replacementMenu.attachShadow({ mode: 'open' });
+        const replacementAiChat = page.dom.window.document.createElement('button');
+        replacementAiChat.textContent = 'AI Chat';
+        replacementMenuRoot.appendChild(replacementAiChat);
+        replacementHelpRoot.appendChild(replacementMenu);
+        replacementBannerRoot.appendChild(replacementHelp);
+        page.dom.window.document.body.appendChild(replacementBanner);
+        await Promise.resolve();
+
+        replacementAiChat.click();
+
+        expect(connect).toHaveBeenCalledTimes(1);
+        page.dom.window.close();
     });
 
     test('suppresses the Moe introduction when AI Chat is hovered', async () => {

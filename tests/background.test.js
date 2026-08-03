@@ -459,6 +459,122 @@ describe('Background message routing', () => {
         expect(sendResponse).toHaveBeenCalledWith({ status: 'success' });
     });
 
+    test('relays verified campaign header copies to the protected offscreen clipboard action', async () => {
+        chrome.runtime.getContexts.mockResolvedValue([{}]);
+        chrome.runtime.sendMessage.mockResolvedValue({ status: 'success' });
+        const listener = loadMessageListener();
+        const sendResponse = jest.fn();
+
+        listener({
+            action: 'copyCampaignHeaderToClipboard',
+            text: 'CP123'
+        }, {
+            id: chrome.runtime.id,
+            tab: { id: 42 },
+            frameId: 0,
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP123'
+        }, sendResponse);
+        await waitForResponse(sendResponse);
+
+        expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+            target: 'offscreen',
+            action: 'copyToClipboard',
+            text: 'CP123'
+        });
+        expect(sendResponse).toHaveBeenCalledWith({ status: 'success' });
+    });
+
+    test('relays a verified Order ID copy to the protected offscreen clipboard action', async () => {
+        chrome.runtime.getContexts.mockResolvedValue([{}]);
+        chrome.runtime.sendMessage.mockResolvedValue({ status: 'success' });
+        const listener = loadMessageListener();
+        const sendResponse = jest.fn();
+
+        listener({
+            action: 'copyOrderIdToClipboard',
+            text: 'O-D30UV6T'
+        }, {
+            id: chrome.runtime.id,
+            tab: { id: 42 },
+            frameId: 0,
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP123&ptb-ctx=orderSummary&showOrders=true'
+        }, sendResponse);
+        await waitForResponse(sendResponse);
+
+        expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+            target: 'offscreen',
+            action: 'copyToClipboard',
+            text: 'O-D30UV6T'
+        });
+        expect(sendResponse).toHaveBeenCalledWith({ status: 'success' });
+    });
+
+    test('rejects malformed Order ID copy requests', async () => {
+        const listener = loadMessageListener();
+        const sendResponse = jest.fn();
+
+        listener({
+            action: 'copyOrderIdToClipboard',
+            text: 'not-an-order-id'
+        }, {
+            id: chrome.runtime.id,
+            tab: { id: 42 },
+            frameId: 0,
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP123&ptb-ctx=orderSummary&showOrders=true'
+        }, sendResponse);
+        await waitForResponse(sendResponse);
+
+        expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
+        expect(sendResponse).toHaveBeenCalledWith({
+            status: 'error',
+            message: 'A valid Order ID is required.'
+        });
+    });
+
+    test('rejects Order ID copies from an unverified sender', async () => {
+        const listener = loadMessageListener();
+        const sendResponse = jest.fn();
+
+        listener({
+            action: 'copyOrderIdToClipboard',
+            text: 'O-D30UV6T'
+        }, {
+            id: 'another-extension',
+            tab: { id: 42 },
+            frameId: 0,
+            url: 'https://attacker.example/'
+        }, sendResponse);
+        await waitForResponse(sendResponse);
+
+        expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
+        expect(sendResponse).toHaveBeenCalledWith({
+            status: 'error',
+            message: 'Order ID copies are only available from Prisma.'
+        });
+    });
+
+    test('rejects campaign header copies from an unverified sender', async () => {
+        const listener = loadMessageListener();
+        const sendResponse = jest.fn();
+
+        listener({
+            action: 'copyCampaignHeaderToClipboard',
+            text: 'CP123'
+        }, {
+            id: 'another-extension',
+            tab: { id: 42 },
+            frameId: 0,
+            url: 'https://attacker.example/'
+        }, sendResponse);
+        await waitForResponse(sendResponse);
+
+        expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
+        expect(sendResponse).toHaveBeenCalledWith({
+            status: 'error',
+            message: 'Campaign header copies are only available from Prisma.'
+        });
+    });
+
     test('rejects campaign URL copies from an unverified sender', async () => {
         const listener = loadMessageListener();
         const sendResponse = jest.fn();

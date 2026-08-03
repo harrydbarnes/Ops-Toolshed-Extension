@@ -12,36 +12,52 @@
     let directMoeStorageListenerBound = false;
     let directMoeObserver = null;
     let directMoeObservedRoots = new WeakSet();
+    let currentDirectMoeRoots = {
+        bannerRoot: null,
+        helpRoot: null,
+        menu: null,
+        menuRoot: null
+    };
     let boundAiChatButton = null;
     let connectRetryTimer = null;
+    let discoveryRetryTimer = null;
     let hoverCleanupTimer = null;
 
-    function findDeepMatching(predicate, root = document) {
-        if (!root?.querySelectorAll) return null;
-        for (const element of root.querySelectorAll('*')) {
-            if (predicate(element)) return element;
-            if (!element.shadowRoot) continue;
-            const match = findDeepMatching(predicate, element.shadowRoot);
-            if (match) return match;
-        }
-        return null;
+    function normalizedText(element) {
+        return (element?.textContent || '').replace(/\s+/g, ' ').trim();
     }
 
-    function findAiChatButton() {
-        return findDeepMatching(element => element.matches?.('button, [role="button"]') &&
-            (element.textContent || '').replace(/\s+/g, ' ').trim() === 'AI Chat');
+    function findTextMatch(root, selector, expectedText) {
+        if (!root?.querySelectorAll) return null;
+        return Array.from(root.querySelectorAll(selector))
+            .find(element => normalizedText(element) === expectedText) || null;
+    }
+
+    function getDirectMoeRoots() {
+        const banner = document.querySelector('mo-banner');
+        const bannerRoot = banner?.shadowRoot || null;
+        const helpMenu = bannerRoot?.querySelector('mo-banner-help-menu') || null;
+        const helpRoot = helpMenu?.shadowRoot || null;
+        const menu = helpRoot?.querySelector('mo-menu') || null;
+        const menuRoot = menu?.shadowRoot || null;
+        return { bannerRoot, helpRoot, menu, menuRoot };
+    }
+
+    function findAiChatButton(roots = getDirectMoeRoots()) {
+        return findTextMatch(roots.menuRoot, 'button, [role="button"]', 'AI Chat');
     }
 
     function findHelpMenuTrigger() {
-        const helpMenu = findDeepMatching(element => element.tagName === 'MO-BANNER-HELP-MENU');
-        return helpMenu?.shadowRoot?.querySelector('mo-menu') ||
-            findDeepMatching(element => element.tagName === 'MO-MENU' &&
-                (element.textContent || '').includes('AI Chat'));
+        return getDirectMoeRoots().menu;
     }
 
     function findConnectWithMoeItem() {
-        return findDeepMatching(element => element.tagName === 'MO-MENU-ITEM' &&
-            (element.textContent || '').replace(/\s+/g, ' ').trim() === CONNECT_WITH_MOE_TEXT);
+        const roots = getDirectMoeRoots();
+        for (const root of [document, roots.menuRoot, roots.helpRoot, roots.bannerRoot]) {
+            const match = findTextMatch(root, 'mo-menu-item', CONNECT_WITH_MOE_TEXT);
+            if (match) return match;
+        }
+        return null;
     }
 
     function injectDirectMoeStyles() {
@@ -61,8 +77,15 @@
         document.head.appendChild(style);
     }
 
-    function dismissMoeIntroduction() {
-        document.querySelectorAll('#pendo-base, [id^="pendo-g-"]').forEach(element => {
+    function dismissMoeIntroduction(searchRoots = [document]) {
+        const candidates = new Set();
+        searchRoots.forEach(root => {
+            if (root?.matches?.('#pendo-base, [id^="pendo-g-"]')) candidates.add(root);
+            root?.querySelectorAll?.('#pendo-base, [id^="pendo-g-"]').forEach(element => {
+                candidates.add(element);
+            });
+        });
+        candidates.forEach(element => {
             const text = (element.textContent || '').replace(/\s+/g, ' ').trim();
             if (text.includes(MOE_INTRO_TEXT) && text.includes(CONNECT_WITH_MOE_TEXT)) {
                 element.remove();
@@ -125,8 +148,8 @@
         chooseConnectWithMoe();
     }
 
-    function bindDirectMoeButton() {
-        const nextButton = directMoeChatEnabled ? findAiChatButton() : null;
+    function bindDirectMoeButton(roots = getDirectMoeRoots()) {
+        const nextButton = directMoeChatEnabled ? findAiChatButton(roots) : null;
         if (nextButton === boundAiChatButton) return;
         boundAiChatButton?.removeEventListener('click', handleDirectMoeClick, true);
         boundAiChatButton?.removeEventListener('pointerenter', handleDirectMoeHover, true);
@@ -143,15 +166,60 @@
         boundAiChatButton?.addEventListener('mouseleave', handleDirectMoeHoverEnd, true);
     }
 
-    function observeDirectMoeRoots(root) {
-        if (!directMoeObserver || !root?.querySelectorAll) return;
+    function observeDirectMoeRoot(root) {
+        if (!directMoeObserver || !root) return;
         if (!directMoeObservedRoots.has(root)) {
             directMoeObservedRoots.add(root);
             directMoeObserver.observe(root, { childList: true, subtree: true });
         }
-        root.querySelectorAll('*').forEach(element => {
-            if (element.shadowRoot) observeDirectMoeRoots(element.shadowRoot);
-        });
+    }
+
+    function refreshDirectMoeBindings() {
+        const roots = getDirectMoeRoots();
+        currentDirectMoeRoots = roots;
+        observeDirectMoeRoot(document.documentElement);
+        observeDirectMoeRoot(roots.bannerRoot);
+        observeDirectMoeRoot(roots.helpRoot);
+        observeDirectMoeRoot(roots.menuRoot);
+        bindDirectMoeButton(roots);
+        return Boolean(boundAiChatButton?.isConnected);
+    }
+
+    function scheduleDirectMoeDiscovery(attempt = 0) {
+        clearTimeout(discoveryRetryTimer);
+        discoveryRetryTimer = null;
+        if (!directMoeChatEnabled || boundAiChatButton?.isConnected || attempt >= 20) return;
+        discoveryRetryTimer = window.setTimeout(() => {
+            discoveryRetryTimer = null;
+            if (!refreshDirectMoeBindings()) scheduleDirectMoeDiscovery(attempt + 1);
+        }, 150);
+    }
+
+    function mutationContainsMoeHost(node) {
+        if (node?.nodeType !== 1) return false;
+        return node.matches?.('mo-banner, mo-banner-help-menu, mo-menu') ||
+            Boolean(node.querySelector?.('mo-banner, mo-banner-help-menu, mo-menu'));
+    }
+
+    function handleDirectMoeMutations(records) {
+        const addedNodes = records.flatMap(record => Array.from(record.addedNodes || []));
+        const knownShadowRootChanged = records.some(record =>
+            record.target === currentDirectMoeRoots.bannerRoot ||
+            record.target === currentDirectMoeRoots.helpRoot ||
+            record.target === currentDirectMoeRoots.menuRoot
+        );
+        const relevantHostAdded = addedNodes.some(mutationContainsMoeHost);
+
+        if (!boundAiChatButton?.isConnected || knownShadowRootChanged || relevantHostAdded) {
+            if (!refreshDirectMoeBindings()) scheduleDirectMoeDiscovery();
+        }
+
+        if (
+            document.body.classList.contains(DIRECT_MOE_BODY_CLASS) ||
+            document.body.classList.contains(DIRECT_MOE_HOVER_CLASS)
+        ) {
+            dismissMoeIntroduction(addedNodes);
+        }
     }
 
     function configureDirectMoeFeature(enabled) {
@@ -164,26 +232,27 @@
             boundAiChatButton?.removeEventListener('pointerleave', handleDirectMoeHoverEnd, true);
             boundAiChatButton?.removeEventListener('mouseleave', handleDirectMoeHoverEnd, true);
             boundAiChatButton = null;
+            clearTimeout(discoveryRetryTimer);
+            discoveryRetryTimer = null;
             directMoeObserver?.disconnect();
             directMoeObserver = null;
             directMoeObservedRoots = new WeakSet();
+            currentDirectMoeRoots = {
+                bannerRoot: null,
+                helpRoot: null,
+                menu: null,
+                menuRoot: null
+            };
             document.body.classList.remove(DIRECT_MOE_BODY_CLASS);
             document.body.classList.remove(DIRECT_MOE_HOVER_CLASS);
             return;
         }
 
         injectDirectMoeStyles();
-        bindDirectMoeButton();
         if (!directMoeObserver && document.documentElement) {
-            directMoeObserver = new MutationObserver(records => {
-                records.forEach(record => record.addedNodes.forEach(node => {
-                    if (node.nodeType === 1) observeDirectMoeRoots(node);
-                }));
-                bindDirectMoeButton();
-                dismissMoeIntroduction();
-            });
-            observeDirectMoeRoots(document.documentElement);
+            directMoeObserver = new MutationObserver(handleDirectMoeMutations);
         }
+        if (!refreshDirectMoeBindings()) scheduleDirectMoeDiscovery();
     }
 
     function initializeDirectMoeFeature() {
@@ -193,7 +262,7 @@
                 configureDirectMoeFeature(settings.directMoeChatEnabled);
             });
         } else {
-            bindDirectMoeButton();
+            if (!refreshDirectMoeBindings()) scheduleDirectMoeDiscovery();
         }
 
         if (!directMoeStorageListenerBound && chrome.storage?.onChanged) {

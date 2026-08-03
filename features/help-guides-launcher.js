@@ -25,7 +25,6 @@
     ].join(',');
     let isEnabled = null;
     let isPanelOpen = false;
-    let onboardingTourActive = false;
     let panelStateRevision = 0;
     let routeListenersBound = false;
     let bannerObserver = null;
@@ -47,7 +46,7 @@
         event?.preventDefault();
         event?.stopPropagation();
         if (event?.detail > 0) event.currentTarget?.blur?.();
-        if (isEnabled !== true || onboardingTourActive) return;
+        if (isEnabled !== true) return;
 
         const previousPanelState = isPanelOpen;
         const action = isPanelOpen ? 'closeHelpGuidesFromLauncher' : 'openHelpGuides';
@@ -602,10 +601,6 @@
             waitForBannerAndEnsureLauncher();
             window.appLearnFeature?.applyTransparency();
         });
-        chrome.storage.local?.get?.({ onboardingTourActive: false }, data => {
-            onboardingTourActive = data.onboardingTourActive === true;
-        });
-
         const stateRequestRevision = panelStateRevision;
         chrome.runtime?.sendMessage?.({ action: 'getHelpGuidesPanelState' })
             .then(response => {
@@ -620,10 +615,6 @@
         if (!storageListenerBound && chrome.storage.onChanged) {
             storageListenerBound = true;
             chrome.storage.onChanged.addListener((changes, area) => {
-                if (area === 'local' && changes.onboardingTourActive) {
-                    onboardingTourActive = changes.onboardingTourActive.newValue === true;
-                    return;
-                }
                 if (area === 'sync' && changes.helpGuidesEnabled) {
                     isEnabled = changes.helpGuidesEnabled.newValue !== false;
                     waitForBannerAndEnsureLauncher();

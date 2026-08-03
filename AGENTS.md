@@ -62,7 +62,8 @@ Run the smallest relevant test first, followed by the full suite when the change
 | Campaign header, navigation, tab title, Actualise, name copy | `features/campaign.js`, `features/campaign-tab-title.js`, `background/message-handlers.js`, `content.css` | `tests/features/campaign-navigation-ui.test.js`, `tests/features/campaign-budget-route.test.js`, `tests/features/campaign-tab-title.test.js`, `tests/background.test.js` |
 | Order controls | `features/order-id-copy.js`, `features/order-view-toggle.js` | `tests/features/order-id-copy.test.js`, `tests/features/order-view-toggle.test.js` |
 | AppLearn overlay and popup blocking | `features/applearn-replace.js`, `background.js`, `settings.js` | `tests/features/applearn-replace.test.js`, `tests/background.test.js`, `tests/settings-applearn-popup.test.js` |
-| Approver workflow | `features/approver-pasting.js`, `approvers.js`, `approvers-data.js` | `tests/workflow-centering.test.js`, `tests/security/approvers_xss.test.js` |
+| Approver workflow | `features/approver-pasting.js`, `approvers.js`, `approvers-data.js` | `tests/features/approver-pasting.test.js`, `tests/workflow-centering.test.js`, `tests/security/approvers_xss.test.js` |
+| Actualise bulk export and Max Campaign Budget | `features/actualise-export-all.js`, `features/max-campaign-budget.js` | `tests/features/actualise-export-all.test.js`, `tests/features/max-campaign-budget.test.js` |
 | Stats and Toolshed | `features/stats-collector.js`, `toolshed.js`, `toolshed.html` | `tests/stats-manager.test.js`, `tests/toolshed-stats.test.js` |
 | Feedback modal | `features/feedback-modal.js`, `features/feedback-modal.css` | `tests/features/feedback-modal.test.js`, `tests/features/feedback-modal-styles.test.js` |
 | Loading facts and GMI chat | `features/loading-facts.js`, `features/gmi-chat.js`, `content.css` | `tests/features/loading-facts.test.js`, `tests/features/gmi-chat.test.js`, `tests/workflow-centering.test.js` |
@@ -76,6 +77,24 @@ Useful commands:
 npm test
 node node_modules/jest/bin/jest.js --runTestsByPath tests/toolshed-stats.test.js --runInBand --coverage=false
 ```
+
+### Prisma Refactor Regression Gate
+
+Before and after changing `content.js` reconciliation, route gating, campaign navigation,
+Orders UI detection, content-script/frame injection, or protected clipboard routing:
+
+1. Run `npm run test:feature-contracts`. This is the mandatory user-facing feature gate.
+2. For performance work, capture `npm run benchmark:prisma-observer` before the change and
+   again afterwards; report both results rather than only the final measurement.
+3. Run the full Jest suite after the focused gate passes.
+4. Reload the extension and smoke-test a legacy Orders campaign, a new Orders campaign,
+   Plan, Actualise, campaign/header copy actions, Approver Widget placement, and Help Guides.
+
+`tests/settings-feature-toggle-contract.test.js` must discover every checkbox shown on the
+Features tab. A new visible toggle is incomplete until the contract includes its storage key,
+default, and real click-to-persist behavior. Do not weaken route-lifecycle assertions merely
+to preserve a performance optimization; feature owners must be reconciled so they can remove
+stale controls after Prisma swaps DOM or Orders UI generation in place.
 
 Do not use `--forceExit`; it can hide leaked timers or unclosed JSDOM windows. If Jest does not exit, rerun the affected suite with `--detectOpenHandles`, close every manually created JSDOM window, and report incomplete verification honestly.
 

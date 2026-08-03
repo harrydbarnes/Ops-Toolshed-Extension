@@ -73,8 +73,22 @@ export const renderApprovers = (approvers, context) => {
     });
 };
 
+export const syncSearchClearButton = (searchInput, clearButton) => {
+    if (!searchInput || !clearButton) return;
+    clearButton.hidden = searchInput.value.length === 0;
+};
+
+export const clearApproverSearch = ({ searchInput, clearButton, filterApprovers }) => {
+    if (!searchInput || !clearButton) return;
+    searchInput.value = '';
+    syncSearchClearButton(searchInput, clearButton);
+    filterApprovers?.();
+    searchInput.focus();
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('search-input');
+    const clearSearchButton = document.getElementById('clear-search-button');
     const favoritesOnlyButton = document.getElementById('favorites-only-button');
     const businessUnitsContainer = document.getElementById('business-units-filters');
     const functionContainer = document.getElementById('function-filters');
@@ -187,7 +201,14 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // Event Listeners
-    searchInput.addEventListener('input', filterApprovers);
+    searchInput.addEventListener('input', () => {
+        syncSearchClearButton(searchInput, clearSearchButton);
+        filterApprovers();
+    });
+    clearSearchButton?.addEventListener('click', () => {
+        clearApproverSearch({ searchInput, clearButton: clearSearchButton, filterApprovers });
+    });
+    syncSearchClearButton(searchInput, clearSearchButton);
 
     favoritesOnlyButton.addEventListener('click', () => {
         favoritesOnlyButton.classList.toggle('active');

@@ -178,6 +178,33 @@ async function copyCampaignUrlToClipboard(request, sender, sendResponse, context
     await context.handleOffscreenClipboard(request, sendResponse);
 }
 
+async function copyCampaignHeaderToClipboard(request, sender, sendResponse, context) {
+    const verified = getVerifiedPrismaRequest({}, sender);
+    if (sender?.id !== chrome.runtime.id || !verified) {
+        sendResponse({ status: 'error', message: 'Campaign header copies are only available from Prisma.' });
+        return;
+    }
+    if (typeof request?.text !== 'string' || !request.text.trim()) {
+        sendResponse({ status: 'error', message: 'Campaign header copy text is missing.' });
+        return;
+    }
+    await context.handleOffscreenClipboard(request, sendResponse);
+}
+
+async function copyOrderIdToClipboard(request, sender, sendResponse, context) {
+    const verified = getVerifiedPrismaRequest({}, sender);
+    if (sender?.id !== chrome.runtime.id || !verified) {
+        sendResponse({ status: 'error', message: 'Order ID copies are only available from Prisma.' });
+        return;
+    }
+    const orderId = typeof request?.text === 'string' ? request.text.trim() : '';
+    if (!/^O-[A-Z0-9]+$/i.test(orderId)) {
+        sendResponse({ status: 'error', message: 'A valid Order ID is required.' });
+        return;
+    }
+    await context.handleOffscreenClipboard({ ...request, text: orderId }, sendResponse);
+}
+
 async function getFavouriteApprovers(request, sender, sendResponse) {
     try {
         const data = await chrome.storage.local.get(['favoriteApprovers']);
@@ -370,6 +397,8 @@ export const messageHandlers = {
     performDNumberSearch,
     getClipboardText,
     copyCampaignUrlToClipboard,
+    copyCampaignHeaderToClipboard,
+    copyOrderIdToClipboard,
     getFavouriteApprovers,
     openApproversPage,
     openHelpGuides,

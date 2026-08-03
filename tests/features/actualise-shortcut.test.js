@@ -10,7 +10,6 @@ const featureCode = fs.readFileSync(
 describe('Actualise navigation shortcut', () => {
     function createFeature({
         enabled = true,
-        parentEnabled = true,
         includeOrders = true,
         injectedActualiseNavbar = false,
         url = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP3GH64&ptb-mod=buy&ptb-ctx=digital&route=online'
@@ -49,8 +48,7 @@ describe('Actualise navigation shortcut', () => {
                 sync: {
                     get: jest.fn((defaults, callback) => callback({
                         ...defaults,
-                        actualiseShortcutEnabled: enabled,
-                        optimisedNewNavEnabled: parentEnabled
+                        actualiseShortcutEnabled: enabled
                     }))
                 },
                 onChanged: {
@@ -106,11 +104,42 @@ describe('Actualise navigation shortcut', () => {
         dom.window.close();
     });
 
-    test.each([
-        ['feature setting', { enabled: false }],
-        ['navigation parent setting', { parentEnabled: false }]
-    ])('does not add the shortcut when the %s is disabled', (_label, options) => {
-        const { dom, window } = createFeature(options);
+    test('marks Orders instead of Buy active on an Order Summary route', () => {
+        const { dom, window } = createFeature({
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP3GH64&ptb-mod=buy&ptb-ctx=orderSummary&showOrders=true'
+        });
+        window.actualiseShortcutFeature.initialize();
+
+        const actualise = window.document.getElementById('p2b-navbar-section-actualise');
+        const orders = window.document.getElementById('p2b-navbar-section-orders');
+        const buy = window.document.getElementById('p2b-navbar-section-buy');
+        expect(orders.classList).toContain('active');
+        expect(orders.getAttribute('aria-current')).toBe('page');
+        expect(buy.classList).not.toContain('active');
+        expect(buy.hasAttribute('aria-current')).toBe(false);
+        expect(actualise.classList).not.toContain('active');
+        dom.window.close();
+    });
+
+    test('reconciles Orders and Buy active state after an in-place route change', () => {
+        const { dom, window } = createFeature({
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP3GH64&ptb-mod=buy&ptb-ctx=orderSummary&showOrders=true'
+        });
+        window.actualiseShortcutFeature.initialize();
+        window.history.replaceState({}, '', '#campaign-id=CP3GH64&ptb-mod=buy&ptb-ctx=digital&route=online');
+        window.actualiseShortcutFeature.apply();
+
+        const orders = window.document.getElementById('p2b-navbar-section-orders');
+        const buy = window.document.getElementById('p2b-navbar-section-buy');
+        expect(buy.classList).toContain('active');
+        expect(buy.getAttribute('aria-current')).toBe('page');
+        expect(orders.classList).not.toContain('active');
+        expect(orders.hasAttribute('aria-current')).toBe(false);
+        dom.window.close();
+    });
+
+    test('does not add the shortcut when its setting is disabled', () => {
+        const { dom, window } = createFeature({ enabled: false });
         window.actualiseShortcutFeature.initialize();
 
         expect(window.document.getElementById('p2b-navbar-section-actualise')).toBeNull();

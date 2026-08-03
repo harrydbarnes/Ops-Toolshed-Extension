@@ -9,31 +9,34 @@
         style.textContent = `
             .order-id-copy-toast {
                 position: fixed;
-                top: 60px; /* Slightly lower than 20px to avoid overlapping top bar */
-                right: 20px;
-                background-color: #ff3d80; /* Default Pink */
-                color: white;
-                padding: 10px 20px;
-                border-radius: 5px;
                 z-index: 2147483647;
-                font-family: 'Outfit', sans-serif;
-                font-size: 14px;
-                font-weight: 500;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                transform: translateX(-50%) translateY(-4px);
+                padding: 6px 10px;
+                border-radius: 4px;
+                background: #333333;
+                color: #ffffff;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+                font: 13px/18px Arial, sans-serif;
+                white-space: nowrap;
+                pointer-events: none;
                 visibility: hidden;
                 opacity: 0;
-                transform: translateY(-100%); /* Start from top */
-                transition: visibility 0s 0.5s, opacity 0.5s ease, transform 0.5s ease;
-                pointer-events: none;
+                transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s 0.2s;
             }
-            /* Theme Override */
-            body.ui-theme-black .order-id-copy-toast {
-                background-color: #333;
+            .order-id-copy-toast::before {
+                content: '';
+                position: absolute;
+                top: -5px;
+                left: 50%;
+                transform: translateX(-50%);
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-bottom: 5px solid #333333;
             }
             .order-id-copy-toast.show {
                 visibility: visible;
                 opacity: 1;
-                transform: translateY(0);
+                transform: translateX(-50%) translateY(0);
                 transition-delay: 0s;
             }
             .order-id-copy-cell {
@@ -74,14 +77,26 @@
                 background-color: var(--btn-copied-bg);
                 color: var(--btn-copied-text-color);
             }
+            #cm-buy-sidebar-nav-list [id$="-order-header"] > .mo-nav-list-item-content {
+                cursor: pointer;
+            }
+            #cm-buy-sidebar-nav-list [id$="-order-header"] > .mo-nav-list-item-content.copied {
+                color: #ff3d80;
+            }
+            body.ui-theme-black
+                #cm-buy-sidebar-nav-list [id$="-order-header"] > .mo-nav-list-item-content.copied {
+                color: #ffffff;
+            }
         `;
         document.head.appendChild(style);
     }
 
     let toastTimeout;
     let currentToast = null;
+    let sidebarCopyListenerAttached = false;
+    let featureEnabled = true;
 
-    function showToast(message) {
+    function showToast(message, target) {
         clearTimeout(toastTimeout);
         if (!currentToast) {
             currentToast = document.createElement('div');
@@ -95,6 +110,11 @@
              currentToast.classList.add('show');
         }
         currentToast.textContent = message;
+        const rect = target?.getBoundingClientRect?.();
+        if (rect) {
+            currentToast.style.left = `${rect.left + (rect.width / 2)}px`;
+            currentToast.style.top = `${rect.bottom + 8}px`;
+        }
         toastTimeout = setTimeout(hideToast, 3000);
     }
 
@@ -117,30 +137,95 @@
     }
 
     function handleCopy(button, orderIdText) {
+        if (!featureEnabled) return;
         const cleanedId = cleanOrderId(orderIdText);
-        navigator.clipboard.writeText(cleanedId).then(() => {
-            showToast(`Copied Order ID: ${cleanedId}`);
+        chrome.runtime.sendMessage({
+            action: 'copyOrderIdToClipboard',
+            text: cleanedId
+        }).then(response => {
+            if (response?.status !== 'success') {
+                throw new Error(response?.message || 'Clipboard service did not confirm the copy.');
+            }
+            showToast('Order ID Copied to Clipboard!', button);
 
-            // Visual feedback on button
-            const originalText = button.textContent;
+            // Visual feedback on legacy buttons and new-UI sidebar IDs.
+            const isButton = button.matches('.order-id-copy-btn');
+            const originalText = isButton ? button.textContent : null;
 
-            button.textContent = 'Copied!';
+            if (isButton) button.textContent = 'Copied!';
             button.classList.add('copied');
 
             setTimeout(() => {
-                button.textContent = originalText;
+                if (isButton) button.textContent = originalText;
                 button.classList.remove('copied');
             }, 2000);
 
         }).catch(err => {
             console.error('Failed to copy text: ', err);
-            showToast('Failed to copy Order ID');
+            showToast('Failed to copy Order ID', button);
+        });
+    }
+
+    function isOrderSummaryRoute() {
+        const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+        const pspId = params.get('osPspId');
+        return window.location.href.includes('=prsm-cm-ord&campaign-id=') || (
+            Boolean(params.get('campaign-id')) &&
+            pspId === 'prsm-cm-plan-to-buy' &&
+            params.get('ptb-ctx') === 'orderSummary'
+        );
+    }
+
+    function isNewOrderUi() {
+        return Boolean(document.querySelector(
+            '#cm-buy-sidebar-order-revisions-header .mo-nav-list-item-accessory-content mo-menu'
+        ));
+    }
+
+    function getNewUiOrderIdTarget(eventTarget) {
+        const content = eventTarget?.closest?.('.mo-nav-list-item-content');
+        const header = content?.parentElement;
+        if (
+            !content ||
+            !header?.matches?.('#cm-buy-sidebar-nav-list [id$="-order-header"]')
+        ) {
+            return null;
+        }
+
+        const orderId = content.textContent.trim();
+        return /^O-[A-Z0-9]+$/i.test(orderId) ? { content, orderId } : null;
+    }
+
+    function handleNewUiSidebarClick(event) {
+        if (!featureEnabled) return;
+        const target = getNewUiOrderIdTarget(event.target);
+        if (!target || !isOrderSummaryRoute() || !isNewOrderUi()) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        handleCopy(target.content, target.orderId);
+    }
+
+    function ensureNewUiSidebarCopyListener() {
+        if (sidebarCopyListenerAttached) return;
+        sidebarCopyListenerAttached = true;
+        document.addEventListener('click', handleNewUiSidebarClick);
+    }
+
+    function removeLegacyCopyControls() {
+        document.querySelectorAll('.order-id-copy-cell').forEach(cell => {
+            cell.querySelector('.order-id-copy-btn')?.remove();
+            cell.classList.remove('order-id-copy-cell');
         });
     }
 
     function checkAndAddCopyButtons() {
-        // Only run on specific URLs
-        if (!window.location.href.includes('=prsm-cm-ord&campaign-id=')) {
+        ensureNewUiSidebarCopyListener();
+        if (!isOrderSummaryRoute()) {
+            return;
+        }
+        if (isNewOrderUi()) {
+            removeLegacyCopyControls();
             return;
         }
 
@@ -187,7 +272,10 @@
             }
 
             if (data.orderIdCopyEnabled !== false) {
+                 featureEnabled = true;
                  checkAndAddCopyButtons();
+            } else {
+                 featureEnabled = false;
             }
         });
 
@@ -200,11 +288,19 @@
                     document.body.classList.remove('ui-theme-black');
                 }
             }
+            if (namespace === 'sync' && changes.orderIdCopyEnabled) {
+                featureEnabled = changes.orderIdCopyEnabled.newValue !== false;
+                if (featureEnabled) checkAndAddCopyButtons();
+                else removeLegacyCopyControls();
+            }
         });
     }
 
     window.orderIdCopyFeature = {
         initialize,
-        checkAndAddCopyButtons
+        checkAndAddCopyButtons,
+        isOrderSummaryRoute,
+        isNewOrderUi,
+        getNewUiOrderIdTarget
     };
 })();

@@ -2,12 +2,10 @@
     'use strict';
 
     const SETTING_KEY = 'actualiseNavbarEnabled';
-    const PARENT_SETTING_KEY = 'optimisedNewNavEnabled';
     const ORDERS_SETTING_KEY = 'ordersShortcutEnabled';
     const WRAPPER_ID = 'toolshed-actualise-navbar-wrapper';
 
     let featureEnabled = true;
-    let parentEnabled = true;
     let ordersEnabled = true;
     let settingsLoaded = false;
     let initialized = false;
@@ -121,7 +119,7 @@
     }
 
     function apply() {
-        if (!settingsLoaded || !featureEnabled || !parentEnabled || !isActualiseRoute()) {
+        if (!settingsLoaded || !featureEnabled || !isActualiseRoute()) {
             removeNavbar();
             return;
         }
@@ -150,11 +148,9 @@
 
         chrome.storage.sync.get({
             [SETTING_KEY]: true,
-            [PARENT_SETTING_KEY]: true,
             [ORDERS_SETTING_KEY]: true
         }, data => {
             featureEnabled = data[SETTING_KEY] !== false;
-            parentEnabled = data[PARENT_SETTING_KEY] !== false;
             ordersEnabled = data[ORDERS_SETTING_KEY] !== false;
             settingsLoaded = true;
             apply();
@@ -163,9 +159,8 @@
         chrome.storage.onChanged?.addListener((changes, area) => {
             if (area !== 'sync') return;
             if (changes[SETTING_KEY]) featureEnabled = changes[SETTING_KEY].newValue !== false;
-            if (changes[PARENT_SETTING_KEY]) parentEnabled = changes[PARENT_SETTING_KEY].newValue !== false;
             if (changes[ORDERS_SETTING_KEY]) ordersEnabled = changes[ORDERS_SETTING_KEY].newValue !== false;
-            if (changes[SETTING_KEY] || changes[PARENT_SETTING_KEY] || changes[ORDERS_SETTING_KEY]) apply();
+            if (changes[SETTING_KEY] || changes[ORDERS_SETTING_KEY]) apply();
         });
 
         window.addEventListener('hashchange', apply);
@@ -178,6 +173,6 @@
         apply,
         removeNavbar,
         isActualiseRoute,
-        isEnabled: () => settingsLoaded && featureEnabled && parentEnabled
+        isEnabled: () => settingsLoaded && featureEnabled
     };
 })();

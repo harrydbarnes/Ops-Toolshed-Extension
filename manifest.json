@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "minimum_chrome_version": "116",
   "name": "Ops Toolshed",
-  "version": "1.6",
+  "version": "1.7",
   "description": "Enhances Prisma functionality and provides quick access to various tools. Built by Harry Barnes.",
   "permissions": [
     "activeTab",
@@ -72,6 +72,11 @@
       "world": "MAIN"
     },
     {
+      "matches": ["https://*.mediaocean.com/idesk/prisma-campaign-details/*"],
+      "js": ["features/campaign-details-focus.js"],
+      "all_frames": true
+    },
+    {
       "matches": ["https://*.mediaocean.com/*"],
       "js": [
         "utils.js",
@@ -91,6 +96,7 @@
         "features/swap-accounts.js",
         "features/auto-copy-url.js",
         "features/order-id-copy.js",
+        "features/order-grid-scroll-sync.js",
         "features/order-view-toggle.js",
         "features/actualise-navbar.js",
         "features/actualise-shortcut.js",
@@ -103,8 +109,7 @@
         "features/applearn-replace.js",
         "content.js"
       ],
-      "css": ["approvers.css", "content.css", "features/feedback-modal.css"],
-      "all_frames": true
+      "css": ["approvers.css", "content.css", "features/feedback-modal.css"]
     }
   ],
   "web_accessible_resources": [{

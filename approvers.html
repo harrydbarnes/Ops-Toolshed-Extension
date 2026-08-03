@@ -19,8 +19,13 @@
         </div>
 
         <div class="search-container">
-            <i class="fas fa-search"></i>
-            <input type="text" id="search-input" placeholder="Search by name or email...">
+            <i class="fas fa-search" aria-hidden="true"></i>
+            <input type="text" id="search-input" placeholder="Search by name or email..." aria-label="Search approvers">
+            <button id="clear-search-button" class="search-clear-button" type="button" aria-label="Clear search" title="Clear search" hidden>
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M18 6 6 18M6 6l12 12"></path>
+                </svg>
+            </button>
         </div>
 
         <div class="favorites-container">

@@ -1,7 +1,10 @@
 (function() {
     'use strict';
 
+    const SETTING_KEY = 'approverSidebarEnhancementsEnabled';
     const REMOVED_RECIPIENTS_STORAGE_KEY = 'removedInternalApprovalRecipients';
+    let initialized = false;
+    let featureEnabled = true;
     let removedRecipients = new Set();
     let removedRecipientsReady;
 
@@ -43,12 +46,36 @@
         if (!toInput || toInput.dataset.opsToolshedRecipientHistoryGuarded) return;
 
         toInput.dataset.opsToolshedRecipientHistoryGuarded = 'true';
-        const hideUntilFiltered = () => document.body.classList.add('ops-toolshed-recipient-history-pending');
+        const hideUntilFiltered = () => {
+            if (featureEnabled) document.body.classList.add('ops-toolshed-recipient-history-pending');
+        };
         toInput.addEventListener('mousedown', hideUntilFiltered);
         toInput.addEventListener('focus', hideUntilFiltered);
         toInput.addEventListener('blur', () => {
             document.body.classList.remove('ops-toolshed-recipient-history-pending');
         });
+    }
+
+    function removeEnhancements() {
+        document.querySelectorAll('.prisma-paste-button, .manage-favourites-button, .ops-toolshed-recipient-history-actions')
+            .forEach(control => control.remove());
+        document.querySelectorAll('.select2-result-label[data-ops-toolshed-recipient-history-handled]')
+            .forEach(label => {
+                const email = label.querySelector('.ops-toolshed-recipient-history-email')?.textContent || label.textContent;
+                label.replaceChildren(document.createTextNode(email.trim()));
+                delete label.dataset.opsToolshedRecipientHistoryHandled;
+            });
+        document.body?.classList.remove('ops-toolshed-recipient-history-pending');
+    }
+
+    function apply() {
+        if (!featureEnabled) {
+            removeEnhancements();
+            return;
+        }
+        handleApproverPasting();
+        handleManageFavouritesButton();
+        addRecipientHistoryControls();
     }
 
     function removeRecipientFromHistory(email, result) {
@@ -58,11 +85,16 @@
     }
 
     function addRecipientHistoryControls() {
+        if (!featureEnabled) {
+            removeEnhancements();
+            return;
+        }
         const toInput = getInternalApprovalRecipientInput();
         if (!toInput) return;
         installRecipientHistoryVisibilityGuard();
 
         getRemovedRecipients().then(() => {
+            if (!featureEnabled) return;
             const dropdown = getVisibleRecipientDropdown(toInput);
             if (!dropdown) return;
 
@@ -136,6 +168,10 @@
     }
 
     function handleApproverPasting() {
+        if (!featureEnabled) {
+            removeEnhancements();
+            return;
+        }
         const selectors = {
             toLabel: 'label',
             selectContainer: '.select2-choices',
@@ -238,6 +274,10 @@
     }
 
     function handleManageFavouritesButton() {
+        if (!featureEnabled) {
+            removeEnhancements();
+            return;
+        }
         const clearButton = Array.from(document.querySelectorAll('button.btn-link.mo-btn-link')).find(btn => btn.textContent.trim() === 'Clear');
         if (!clearButton) return;
 
@@ -259,7 +299,29 @@
         clearButton.parentNode.insertBefore(manageFavouritesButton, clearButton.nextSibling);
     }
 
+    function initialize() {
+        if (initialized) return;
+        initialized = true;
+
+        if (typeof chrome === 'undefined' || !chrome.storage?.sync) {
+            apply();
+            return;
+        }
+
+        chrome.storage.sync.get({ [SETTING_KEY]: true }, data => {
+            featureEnabled = data[SETTING_KEY] !== false;
+            apply();
+        });
+        chrome.storage.onChanged?.addListener((changes, area) => {
+            if (area !== 'sync' || !changes[SETTING_KEY]) return;
+            featureEnabled = changes[SETTING_KEY].newValue !== false;
+            apply();
+        });
+    }
+
     window.approverPastingFeature = {
+        initialize,
+        apply,
         handleApproverPasting,
         handleManageFavouritesButton,
         addRecipientHistoryControls

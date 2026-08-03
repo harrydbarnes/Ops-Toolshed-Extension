@@ -43,7 +43,8 @@ describe('First-run onboarding', () => {
         await Promise.resolve();
 
         expect(dom.window.document.getElementById('progress-count').textContent).toBe('1 of 3');
-        expect(dom.window.document.querySelector('[data-page="0"] [data-setting="optimisedNewNavEnabled"]')).not.toBeNull();
+        expect(dom.window.document.querySelector('[data-page="0"] [data-setting="helpGuidesEnabled"]')).not.toBeNull();
+        expect(dom.window.document.querySelector('[data-setting="optimisedNewNavEnabled"]')).toBeNull();
         expect(dom.window.document.querySelectorAll('[role="tab"]')).toHaveLength(0);
 
         dom.window.document.getElementById('next-step').click();

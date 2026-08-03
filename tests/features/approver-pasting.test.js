@@ -18,8 +18,10 @@ describe('Internal Approval recipient history controls', () => {
         await Promise.resolve();
     }
 
-    function setupDom(initiallyRemoved = []) {
+    function setupDom(initiallyRemoved = [], enabled = true, deferRemovedRecipients = false) {
         storedRecipients = initiallyRemoved;
+        let storageListener;
+        let resolveRemovedRecipients;
         dom = new JSDOM(`<!doctype html><html><body>
             <div class="control-group">
                 <label>To</label>
@@ -36,12 +38,22 @@ describe('Internal Approval recipient history controls', () => {
         document = window.document;
         window.chrome = {
             storage: {
+                sync: {
+                    get: jest.fn((_keys, callback) => callback({ approverSidebarEnhancementsEnabled: enabled }))
+                },
                 local: {
-                    get: jest.fn().mockResolvedValue({ removedInternalApprovalRecipients: initiallyRemoved }),
+                    get: deferRemovedRecipients
+                        ? jest.fn(() => new Promise(resolve => {
+                            resolveRemovedRecipients = () => resolve({ removedInternalApprovalRecipients: initiallyRemoved });
+                        }))
+                        : jest.fn().mockResolvedValue({ removedInternalApprovalRecipients: initiallyRemoved }),
                     set: jest.fn(items => {
                         storedRecipients = items.removedInternalApprovalRecipients;
                         return Promise.resolve();
                     })
+                },
+                onChanged: {
+                    addListener: jest.fn(listener => { storageListener = listener; })
                 }
             },
             runtime: { sendMessage: jest.fn() }
@@ -59,6 +71,12 @@ describe('Internal Approval recipient history controls', () => {
         const script = document.createElement('script');
         script.textContent = featureScript;
         document.body.appendChild(script);
+        return {
+            setEnabled(value) {
+                storageListener({ approverSidebarEnhancementsEnabled: { newValue: value } }, 'sync');
+            },
+            resolveRemovedRecipients: () => resolveRemovedRecipients?.()
+        };
     }
 
     function installAndCapturePasteHandler() {
@@ -82,6 +100,43 @@ describe('Internal Approval recipient history controls', () => {
     }
 
     afterEach(() => dom?.window.close());
+
+    test('responds to the Settings feature and restores controls without duplicates', async () => {
+        const feature = setupDom([], false);
+        window.approverPastingFeature.initialize();
+        window.approverPastingFeature.handleApproverPasting();
+        window.approverPastingFeature.addRecipientHistoryControls();
+        await flushPromises();
+        expect(document.querySelector('.prisma-paste-button')).toBeNull();
+        expect(document.querySelector('.ops-toolshed-recipient-history-remove')).toBeNull();
+
+        feature.setEnabled(true);
+        await flushPromises();
+        expect(document.querySelectorAll('.prisma-paste-button')).toHaveLength(2);
+        expect(document.querySelectorAll('.ops-toolshed-recipient-history-remove')).toHaveLength(2);
+
+        feature.setEnabled(false);
+        expect(document.querySelector('.prisma-paste-button')).toBeNull();
+        expect(document.querySelector('.ops-toolshed-recipient-history-remove')).toBeNull();
+        expect(document.body.classList.contains('ops-toolshed-recipient-history-pending')).toBe(false);
+
+        feature.setEnabled(true);
+        await flushPromises();
+        expect(document.querySelectorAll('.prisma-paste-button')).toHaveLength(2);
+        expect(document.querySelectorAll('.ops-toolshed-recipient-history-remove')).toHaveLength(2);
+    });
+
+    test('does not add delayed recipient-history controls after the feature is disabled', async () => {
+        const feature = setupDom([], true, true);
+        window.approverPastingFeature.initialize();
+
+        feature.setEnabled(false);
+        feature.resolveRemovedRecipients();
+        await flushPromises();
+
+        expect(document.querySelector('.prisma-paste-button')).toBeNull();
+        expect(document.querySelector('.ops-toolshed-recipient-history-remove')).toBeNull();
+    });
 
     test('adds individual remove controls and persists the selected removal', async () => {
         setupDom();

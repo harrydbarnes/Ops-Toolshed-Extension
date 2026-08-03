@@ -424,7 +424,7 @@ body.reminder-theme-black #confirmation-popup {
     margin-left: 8px;
 }
 
-.approver-widget-optimise.gmi-chat-enabled .workflow-widget-wrapper {
+.approver-widget-placement-enabled.gmi-chat-enabled .workflow-widget-wrapper {
     min-width: 260px;
     max-width: 300px;
 }
@@ -668,7 +668,7 @@ body.reminder-theme-black #confirmation-popup {
 }
 
 /* Set a fixed height for the workflow widget cell for consistent alignment */
-.approver-widget-optimise #campaignHeader .mo.pull-right.container-fluid.workflow-cell {
+.approver-widget-placement-enabled #campaignHeader .mo.pull-right.container-fluid.workflow-cell {
     height: 45px;
 }
 

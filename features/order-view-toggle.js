@@ -2,7 +2,6 @@
     'use strict';
 
     const SETTING_KEY = 'newOrderUiOptimisationEnabled';
-    const PARENT_SETTING_KEY = 'optimisedNewNavEnabled';
     const HEADER_ID = 'cm-buy-sidebar-order-revisions-header';
     const TOGGLE_CLASS = 'order-view-toggle';
     const NATIVE_OPTION_IDS = {
@@ -11,10 +10,20 @@
     };
 
     let featureEnabled = true;
-    let parentEnabled = true;
     let settingsLoaded = false;
     let selectedView = 'latest';
     let hasAppliedDefault = false;
+
+    function getNewOrderUiElements() {
+        const header = document.getElementById(HEADER_ID);
+        const accessory = header?.querySelector('.mo-nav-list-item-accessory-content');
+        const nativeMenu = accessory?.querySelector('mo-menu');
+        return { header, accessory, nativeMenu };
+    }
+
+    function isNewOrderUi() {
+        return Boolean(getNewOrderUiElements().nativeMenu);
+    }
 
     function updateToggleState(toggle, view) {
         if (!toggle) return;
@@ -97,15 +106,16 @@
     }
 
     function handleOrderViewToggle() {
-        if (!settingsLoaded || !featureEnabled || !parentEnabled) {
+        if (!settingsLoaded || !featureEnabled) {
             removeOrderViewToggle();
             return;
         }
 
-        const header = document.getElementById(HEADER_ID);
-        const accessory = header?.querySelector('.mo-nav-list-item-accessory-content');
-        const nativeMenu = accessory?.querySelector('mo-menu');
-        if (!header || !accessory || !nativeMenu) return;
+        const { header, accessory, nativeMenu } = getNewOrderUiElements();
+        if (!header || !accessory || !nativeMenu) {
+            removeOrderViewToggle();
+            return;
+        }
 
         header.classList.add('order-view-toggle-active');
         let toggle = accessory.querySelector(`.${TOGGLE_CLASS}`);
@@ -131,18 +141,16 @@
     }
 
     function initialize() {
-        chrome.storage.sync.get([SETTING_KEY, PARENT_SETTING_KEY], data => {
+        chrome.storage.sync.get([SETTING_KEY], data => {
             featureEnabled = data[SETTING_KEY] !== false;
-            parentEnabled = data[PARENT_SETTING_KEY] !== false;
             settingsLoaded = true;
             handleOrderViewToggle();
         });
     }
 
     chrome.storage.onChanged.addListener((changes, area) => {
-        if (area !== 'sync' || (!changes[SETTING_KEY] && !changes[PARENT_SETTING_KEY])) return;
+        if (area !== 'sync' || !changes[SETTING_KEY]) return;
         if (changes[SETTING_KEY]) featureEnabled = changes[SETTING_KEY].newValue !== false;
-        if (changes[PARENT_SETTING_KEY]) parentEnabled = changes[PARENT_SETTING_KEY].newValue !== false;
         settingsLoaded = true;
         handleOrderViewToggle();
     });
@@ -150,6 +158,8 @@
     window.orderViewToggleFeature = {
         handleOrderViewToggle,
         initialize,
+        isNewOrderUi,
+        removeOrderViewToggle,
         selectOrderView
     };
 })();

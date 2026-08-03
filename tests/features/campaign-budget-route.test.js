@@ -25,10 +25,7 @@ function createCampaignPage(url, settings = {}) {
         runtime: { id: 'test-extension', lastError: null },
         storage: {
             sync: {
-                get: (_keys, callback) => callback({
-                    optimisedNewNavEnabled: true,
-                    ...settings
-                })
+                get: (_keys, callback) => callback(settings)
             },
             onChanged: { addListener: () => {} }
         }
@@ -68,10 +65,9 @@ describe('campaign budget optimisation route scope', () => {
         dom.window.close();
     });
 
-    test('removes stale budget styles even when navigation optimisation is disabled', () => {
+    test('removes stale budget styles on the dashboard', () => {
         const dom = createCampaignPage(
-            'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns',
-            { optimisedNewNavEnabled: false }
+            'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns'
         );
         const staleStyle = dom.window.document.createElement('style');
         staleStyle.id = 'optimised-budget-styles';

@@ -6,6 +6,10 @@ const featureScript = fs.readFileSync(
     path.resolve(__dirname, '../../features/campaign.js'),
     'utf8'
 );
+const campaignDetailsFocusScript = fs.readFileSync(
+    path.resolve(__dirname, '../../features/campaign-details-focus.js'),
+    'utf8'
+);
 
 function createPage(settings = {}, url = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-buy&campaign-id=CP3FMRK&route=online') {
     const dom = new JSDOM(`<!doctype html><html><head></head><body>
@@ -13,6 +17,7 @@ function createPage(settings = {}, url = 'https://groupmuk-prisma.mediaocean.com
             <div slot="right"><div class="workflow-widget-wrapper">Approvers</div></div>
         </div>
         <div class="p2b-navbar-wrapper">
+            <a id="p2b-navbar-section-buy" class="mo-navbar-section active" aria-current="page" href="#campaign-id=CP123&ptb-mod=buy&ptb-ctx=digital">BUY</a>
             <a id="p2b-navbar-section-analyze" href="#campaign-id=CP123&ptb-mod=analyze">ANALYSE</a>
         </div>
         <div class="mo-page-header">
@@ -39,10 +44,7 @@ function createPage(settings = {}, url = 'https://groupmuk-prisma.mediaocean.com
         },
         storage: {
             sync: {
-                get: (_keys, callback) => callback({
-                    optimisedNewNavEnabled: true,
-                    ...settings
-                })
+                get: (_keys, callback) => callback(settings)
             },
             onChanged: { addListener: () => {} }
         }
@@ -75,6 +77,97 @@ function mockBuyDetailsTextMetrics(dom, buyDetails, beforePipeWidth = 80) {
 }
 
 describe('campaign navigation UI optimisation', () => {
+    test.each(['legacy', 'new'])('marks Orders instead of Buy active on a %s Order Summary UI', orderUi => {
+        const dom = createPage({}, 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP3FMRK&ptb-mod=buy&ptb-ctx=orderSummary&showOrders=true');
+        const { document } = dom.window;
+        if (orderUi === 'new') {
+            const orderSidebarHeader = document.createElement('div');
+            orderSidebarHeader.id = 'cm-buy-sidebar-order-revisions-header';
+            orderSidebarHeader.innerHTML = '<mo-menu><button>Latest</button><button>All</button></mo-menu>';
+            document.body.appendChild(orderSidebarHeader);
+        }
+
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+
+        const buy = document.getElementById('p2b-navbar-section-buy');
+        const orders = document.getElementById('p2b-navbar-section-orders');
+        expect(orders.classList).toContain('active');
+        expect(orders.getAttribute('aria-current')).toBe('page');
+        expect(buy.classList).not.toContain('active');
+        expect(buy.hasAttribute('aria-current')).toBe(false);
+        dom.window.close();
+    });
+
+    test('reconciles Orders and Buy active state after an in-place route change', () => {
+        const dom = createPage({}, 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP3FMRK&ptb-mod=buy&ptb-ctx=orderSummary&showOrders=true');
+        const { document } = dom.window;
+
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+        dom.window.history.replaceState({}, '', '#campaign-id=CP3FMRK&ptb-mod=buy&ptb-ctx=digital&route=online');
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+
+        const buy = document.getElementById('p2b-navbar-section-buy');
+        const orders = document.getElementById('p2b-navbar-section-orders');
+        expect(buy.classList).toContain('active');
+        expect(buy.getAttribute('aria-current')).toBe('page');
+        expect(orders.classList).not.toContain('active');
+        expect(orders.hasAttribute('aria-current')).toBe(false);
+        dom.window.close();
+    });
+
+    test('uses the placement setting as the sole approver layout switch', () => {
+        const enabledDom = createPage();
+        const disabledDom = createPage({ approverWidgetPlacementEnabled: false });
+
+        expect(enabledDom.window.document.body.classList)
+            .toContain('approver-widget-placement-enabled');
+        expect(disabledDom.window.document.body.classList)
+            .not.toContain('approver-widget-placement-enabled');
+
+        enabledDom.window.close();
+        disabledDom.window.close();
+    });
+
+    test('targets the workflow widget without scanning every right-slot candidate repeatedly', () => {
+        const dom = createPage();
+        const { document } = dom.window;
+        const originalQuerySelectorAll = document.querySelectorAll.bind(document);
+        const broadRightSlotQuery = jest.spyOn(document, 'querySelectorAll');
+
+        for (let index = 0; index < 20; index += 1) {
+            const unrelated = document.createElement('div');
+            unrelated.setAttribute('slot', 'right');
+            unrelated.textContent = `Unrelated ${index}`;
+            document.body.prepend(unrelated);
+        }
+
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+
+        expect(
+            broadRightSlotQuery.mock.calls.filter(([selector]) => selector === 'div[slot="right"]')
+        ).toHaveLength(0);
+        expect(document.querySelector('.workflow-widget-wrapper').parentElement.parentElement)
+            .toBe(document.querySelector('.p2b-navbar-wrapper'));
+
+        broadRightSlotQuery.mockRestore();
+        document.querySelectorAll = originalQuerySelectorAll;
+        dom.window.close();
+    });
+
+    test('finds a workflow widget nested inside the live Prisma right slot', () => {
+        const dom = createPage();
+        const { document } = dom.window;
+        const workflowSlot = document.querySelector('div[slot="right"]');
+        workflowSlot.innerHTML = '<div class="pad hydrated"><div class="workflow-widget-wrapper">Approvers</div></div>';
+
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+
+        expect(workflowSlot.parentElement).toBe(document.querySelector('.p2b-navbar-wrapper'));
+        expect(workflowSlot.classList.contains('ai-style-change-1')).toBe(true);
+        dom.window.close();
+    });
+
     test('keeps the approver workflow slot visible while Actualise removes the navbar', () => {
         const dom = createPage();
         const { document } = dom.window;
@@ -158,7 +251,7 @@ describe('campaign navigation UI optimisation', () => {
         await Promise.resolve();
 
         expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
-            action: 'copyToClipboard',
+            action: 'copyCampaignHeaderToClipboard',
             text: 'Test Campaign Name'
         });
         const toast = document.getElementById('campaign-name-copy-toast');
@@ -181,7 +274,7 @@ describe('campaign navigation UI optimisation', () => {
 
         expect(chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
         expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
-            action: 'copyToClipboard',
+            action: 'copyCampaignHeaderToClipboard',
             text: 'Test Campaign Name'
         });
         dom.window.close();
@@ -201,7 +294,7 @@ describe('campaign navigation UI optimisation', () => {
         await Promise.resolve();
 
         expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
-            action: 'copyToClipboard',
+            action: 'copyCampaignHeaderToClipboard',
             text: 'CP3FMRK'
         });
         const toast = document.getElementById('campaign-name-copy-toast');
@@ -223,7 +316,7 @@ describe('campaign navigation UI optimisation', () => {
         await Promise.resolve();
 
         expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
-            action: 'copyToClipboard',
+            action: 'copyCampaignHeaderToClipboard',
             text: 'CP3FMRK'
         });
         dom.window.close();
@@ -243,7 +336,7 @@ describe('campaign navigation UI optimisation', () => {
         await Promise.resolve();
 
         expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
-            action: 'copyToClipboard',
+            action: 'copyCampaignHeaderToClipboard',
             text: 'LB9/2/245'
         });
         const toast = document.getElementById('campaign-name-copy-toast');
@@ -260,7 +353,7 @@ describe('campaign navigation UI optimisation', () => {
         await Promise.resolve();
 
         expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
-            action: 'copyToClipboard',
+            action: 'copyCampaignHeaderToClipboard',
             text: 'LB9/2/245'
         });
         dom.window.close();
@@ -298,9 +391,34 @@ describe('campaign navigation UI optimisation', () => {
         dom.window.close();
     });
 
+    test('prefers a native Actualise month toolbar that appears after the fallback row', () => {
+        const dom = createPage();
+        const { document } = dom.window;
+
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+        const workflowSlot = document.querySelector('div[slot="right"]');
+        document.querySelector('.p2b-navbar-wrapper').remove();
+        dom.window.history.replaceState({}, '', '#ptb-ctx=actualize&route=actualize');
+
+        const fallbackRow = document.createElement('div');
+        fallbackRow.innerHTML = '<a>Jun 26</a><a>Jul 26</a>';
+        document.body.prepend(fallbackRow);
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+        expect(fallbackRow.contains(workflowSlot)).toBe(true);
+
+        const nativeRow = document.createElement('div');
+        nativeRow.id = 'month-filter-toolbar';
+        document.body.prepend(nativeRow);
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+
+        expect(nativeRow.contains(workflowSlot)).toBe(true);
+        dom.window.close();
+    });
+
     test('Campaign Details iframe activates its own Basic edit control', () => {
         const dom = createPage({}, 'https://groupmuk-prisma.mediaocean.com/idesk/prisma-campaign-details/index.html?osModalId=prsm-cm-cmpdtls');
         const { document, chrome } = dom.window;
+        dom.window.eval(campaignDetailsFocusScript);
         const editIcon = document.createElement('mo-icon');
         editIcon.id = 'campaign-details-basics-pencil-icon';
         editIcon.click = jest.fn();
@@ -319,6 +437,16 @@ describe('campaign navigation UI optimisation', () => {
         expect(sendResponse).toHaveBeenCalledWith({ status: 'accepted' });
         expect(editIcon.scrollIntoView).toHaveBeenCalledWith({ block: 'center', behavior: 'smooth' });
         expect(editIcon.click).toHaveBeenCalledTimes(1);
+        dom.window.close();
+    });
+
+    test('Campaign Details frame helper remains inert on the top-level campaign page', () => {
+        const dom = createPage();
+        const { chrome } = dom.window;
+
+        dom.window.eval(campaignDetailsFocusScript);
+
+        expect(chrome.runtime.onMessage.addListener).not.toHaveBeenCalled();
         dom.window.close();
     });
 

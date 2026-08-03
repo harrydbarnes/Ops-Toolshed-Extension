@@ -102,13 +102,57 @@ body.approvers-page {
 
 #search-input {
     width: 100%;
-    padding: 15px 20px 15px 50px;
+    padding: 15px 58px 15px 50px;
     border: 1px solid #ddd;
     border-radius: 8px;
     font-size: 16px;
     box-sizing: border-box;
     background-color: #fff;
     box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.search-clear-button {
+    position: absolute;
+    top: 50%;
+    right: 7px;
+    width: 40px;
+    height: 40px;
+    padding: 10px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: #5f6368;
+    cursor: pointer;
+    transform: translateY(-50%);
+    transition: background-color 150ms cubic-bezier(0.2, 0, 0, 1), color 150ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.search-clear-button[hidden] {
+    display: none;
+}
+
+.search-clear-button svg {
+    display: block;
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-width: 2;
+}
+
+.search-clear-button:hover {
+    background-color: rgba(31, 31, 31, 0.08);
+    color: #1f1f1f;
+}
+
+.search-clear-button:active {
+    background-color: rgba(31, 31, 31, 0.12);
+}
+
+.search-clear-button:focus-visible {
+    outline: 2px solid #E6007E;
+    outline-offset: 2px;
 }
 
 /* Filter Sections */

@@ -4,6 +4,7 @@
     const FLOATING_PANEL_ID = 'toolshed-max-budget-panel';
     const ACTUALISE_BUTTON_ID = 'toolshed-max-budget-actualise';
     const ACTUALISE_STATUS_ID = 'toolshed-max-budget-actualise-status';
+    const SETTING_KEY = 'maxCampaignBudgetEnabled';
     const INSERTED_VALUE_ATTRIBUTE = 'data-toolshed-max-budget-inserted';
     const NATIVE_NOTE_CLASS = 'toolshed-max-budget-native-note';
     const BUDGET_CONTAINER_ID = 'campaign-budget-overview-container';
@@ -14,6 +15,8 @@
     const CELL_COMMIT_TIMEOUT_MS = 1800;
 
     let initialized = false;
+    let settingsLoaded = false;
+    let featureEnabled = true;
     let selectedCellId = '';
     let busy = false;
     let cachedBudgetMetadata = null;
@@ -153,6 +156,14 @@
 
     function removeFloatingPanel() {
         document.getElementById(FLOATING_PANEL_ID)?.remove();
+    }
+
+    function removeFeatureControls() {
+        removeFloatingPanel();
+        document.getElementById(ACTUALISE_BUTTON_ID)?.remove();
+        document.getElementById(ACTUALISE_STATUS_ID)?.remove();
+        document.querySelectorAll(`.${NATIVE_NOTE_CLASS}`).forEach(note => note.remove());
+        selectedCellId = '';
     }
 
     function setPanelStatus(message, state = '') {
@@ -841,7 +852,7 @@
     }
 
     function handlePointerDown(event) {
-        if (busy) return;
+        if (!settingsLoaded || !featureEnabled || busy) return;
 
         const path = event.composedPath?.() || [];
         const featureControl = path.find(node =>
@@ -871,7 +882,7 @@
         if (isBuyRoute()) {
             if (isEditableTargetCell(cell)) {
                 window.setTimeout(() => {
-                    if (document.getElementById(selectedCellId)) positionFloatingPanel(cell);
+                    if (featureEnabled && document.getElementById(selectedCellId)) positionFloatingPanel(cell);
                     updateButtonState();
                 }, 0);
             } else {
@@ -884,6 +895,10 @@
     }
 
     function handleViewportChange() {
+        if (!settingsLoaded || !featureEnabled) {
+            removeFeatureControls();
+            return;
+        }
         const cell = getTargetCell();
         if (isBuyRoute() && isEditableTargetCell(cell)) {
             positionFloatingPanel(cell);
@@ -893,6 +908,10 @@
     }
 
     function apply() {
+        if (!settingsLoaded || !featureEnabled) {
+            removeFeatureControls();
+            return;
+        }
         if (!isBuyRoute()) removeFloatingPanel();
         ensureActualiseButton();
         ensureNativeRevertNote();
@@ -915,7 +934,23 @@
             removeFloatingPanel();
             apply();
         });
-        apply();
+        if (!chrome.storage?.sync) {
+            settingsLoaded = true;
+            apply();
+            return;
+        }
+
+        chrome.storage.sync.get({ [SETTING_KEY]: true }, data => {
+            featureEnabled = data[SETTING_KEY] !== false;
+            settingsLoaded = true;
+            apply();
+        });
+        chrome.storage.onChanged?.addListener((changes, area) => {
+            if (area !== 'sync' || !changes[SETTING_KEY]) return;
+            featureEnabled = changes[SETTING_KEY].newValue !== false;
+            settingsLoaded = true;
+            apply();
+        });
     }
 
     window.maxCampaignBudgetFeature = {

@@ -10,7 +10,6 @@ const featureCode = fs.readFileSync(
 describe('Actualise navigation bar', () => {
     function createFeature({
         enabled = true,
-        parentEnabled = true,
         ordersEnabled = true,
         includeWorkspace = true,
         url = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP3GH64&ptb-mod=buy&ptb-ctx=actualize&route=actualize&mos=2026-07-20'
@@ -29,7 +28,6 @@ describe('Actualise navigation bar', () => {
                     get: jest.fn((defaults, callback) => callback({
                         ...defaults,
                         actualiseNavbarEnabled: enabled,
-                        optimisedNewNavEnabled: parentEnabled,
                         ordersShortcutEnabled: ordersEnabled
                     }))
                 },
@@ -64,11 +62,8 @@ describe('Actualise navigation bar', () => {
         dom.window.close();
     });
 
-    test.each([
-        ['feature setting', { enabled: false }],
-        ['navigation parent setting', { parentEnabled: false }]
-    ])('does not add the navbar when the %s is disabled', (_label, options) => {
-        const { dom, window } = createFeature(options);
+    test('does not add the navbar when its setting is disabled', () => {
+        const { dom, window } = createFeature({ enabled: false });
         window.actualiseNavbarFeature.initialize();
 
         expect(window.document.getElementById('toolshed-actualise-navbar-wrapper')).toBeNull();

@@ -1,18 +1,11 @@
 (function() { // Wrap the entire script in an IIFE to control execution.
-  // The manifest intentionally injects feature modules into child frames so
-  // Campaign Details can focus its Basic control from inside its iframe.
-  // Page-level orchestration belongs only to the top frame, however; running
-  // it in every frame duplicates polling, observers, stats, and UI work.
+  // Page-level orchestration belongs only to the top frame. Campaign Details
+  // receives its own lightweight frame script for the Basic-field shortcut.
   if (window.top !== window.self) return;
 
   initializeContentScript();
 
   function initializeContentScript() {
-    chrome.storage.sync.get('approverWidgetOptimiseEnabled', (data) => {
-        if (data.approverWidgetOptimiseEnabled) {
-            document.body.classList.add('approver-widget-optimise');
-        }
-    });
     console.log("[ContentScript Prisma] Script Injected on URL:", window.location.href, "at", new Date().toLocaleTimeString());
 
 
@@ -75,6 +68,10 @@ async function mainContentScriptInit() {
         window.placementCounterFeature.initialize();
     }
 
+    if (isPrismaLike && window.approverPastingFeature) {
+        window.approverPastingFeature.initialize();
+    }
+
     // Switch accounts is allowed on Prisma + Aura (gated by its own setting)
     if ((isPrismaLike || isAura) && window.swapAccountsFeature) {
         window.swapAccountsFeature.initialize();
@@ -92,6 +89,10 @@ async function mainContentScriptInit() {
 
     if (isPrismaLike && window.orderViewToggleFeature) {
         window.orderViewToggleFeature.initialize();
+    }
+
+    if (isPrismaLike && window.orderGridScrollSyncFeature) {
+        window.orderGridScrollSyncFeature.initialize();
     }
 
     if (isPrismaLike && window.actualiseScrollRestoreFeature) {
@@ -151,72 +152,126 @@ async function mainContentScriptInit() {
         }, 2000);
     }
 
-    const observer = new MutationObserver(function(mutations) {
-        if (isPrismaLike && window.orderViewToggleFeature) {
-            window.orderViewToggleFeature.handleOrderViewToggle();
+    let fastReconciliationQueued = false;
+    let deferredReconciliationTimer = null;
+    const scheduleFrame = window.requestAnimationFrame || (callback => window.setTimeout(callback, 0));
+
+    function getDynamicRouteContext() {
+        const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+        const pspId = params.get('osPspId') || '';
+        const href = window.location.href;
+        const isDashboard = pspId === 'cm-dashboard' || href.includes('cm-dashboard');
+        const hasCampaign = Boolean(params.get('campaign-id'));
+        const isCampaignWorkspace = !isDashboard && (
+            hasCampaign || pspId.startsWith('prsm-cm-')
+        );
+        const isActualise = isCampaignWorkspace && (
+            params.get('ptb-ctx') === 'actualize' || params.get('route') === 'actualize'
+        );
+        const isBuy = isCampaignWorkspace && params.get('ptb-mod') === 'buy' && !isActualise;
+        const isOrderSummary = isCampaignWorkspace && (
+            pspId === 'prsm-cm-ord' || params.get('ptb-ctx') === 'orderSummary'
+        );
+
+        return {
+            isActualise,
+            isBuy,
+            isCampaignWorkspace,
+            isOrderSummary
+        };
+    }
+
+    function runFastDynamicUiReconciliation() {
+        const route = getDynamicRouteContext();
+
+        if (isPrismaLike) {
+            if (route.isBuy && window.orderViewToggleFeature) {
+                const hasNewOrderUi = window.orderViewToggleFeature.isNewOrderUi?.() === true;
+                const hasStaleOrderViewControls = Boolean(document.querySelector(
+                    '.order-view-toggle, #cm-buy-sidebar-order-revisions-header.order-view-toggle-active'
+                ));
+                if (hasNewOrderUi || hasStaleOrderViewControls) {
+                    window.orderViewToggleFeature.handleOrderViewToggle();
+                }
+            }
+            if (route.isActualise && window.actualiseNavbarFeature) {
+                window.actualiseNavbarFeature.apply();
+            }
+            if (route.isCampaignWorkspace && window.actualiseShortcutFeature) {
+                window.actualiseShortcutFeature.apply();
+            }
+            if (route.isActualise && window.actualiseExportAllFeature) {
+                window.actualiseExportAllFeature.apply();
+            }
+            if (route.isCampaignWorkspace && window.maxCampaignBudgetFeature) {
+                window.maxCampaignBudgetFeature.apply();
+            }
         }
 
-        if (isPrismaLike && window.actualiseNavbarFeature) {
-            window.actualiseNavbarFeature.apply();
-        }
+        window.appLearnFeature?.applyTransparency();
+        window.helpGuidesLauncherFeature?.ensureLauncher();
+    }
 
-        if (isPrismaLike && window.actualiseShortcutFeature) {
-            window.actualiseShortcutFeature.apply();
-        }
-
-        if (isPrismaLike && window.actualiseExportAllFeature) {
-            window.actualiseExportAllFeature.apply();
-        }
-
-        if (isPrismaLike && window.maxCampaignBudgetFeature) {
-            window.maxCampaignBudgetFeature.apply();
-        }
-
-        if (window.appLearnFeature) {
-            window.appLearnFeature.applyTransparency();
-        }
-
-        if (window.helpGuidesLauncherFeature) {
-            window.helpGuidesLauncherFeature.ensureLauncher();
-        }
+    function runDeferredDynamicUiReconciliation() {
+        const route = getDynamicRouteContext();
 
         if (isPrismaLike && window.logoFeature.shouldReplaceLogoOnThisPage()) {
             window.logoFeature.checkAndReplaceLogo();
-            // No need to iterate mutations for these checks, just run them if any mutation occurred
-            setTimeout(() => { // Debounce/delay slightly
-                window.remindersFeature.checkForMetaConditions();
-                window.remindersFeature.checkForIASConditions();
-                window.remindersFeature.checkCustomReminders(); // Check for custom reminders on DOM changes
+            window.remindersFeature.checkForMetaConditions();
+            window.remindersFeature.checkForIASConditions();
+            window.remindersFeature.checkCustomReminders();
+
+            if (route.isCampaignWorkspace) {
                 window.campaignFeature.handleCampaignManagementFeatures();
-                window.campaignFeature.handleAlwaysShowComments();
+                if (route.isActualise) window.campaignFeature.handleAlwaysShowComments();
                 window.campaignFeature.handleCampaignNavigationOptimisation();
                 window.approverPastingFeature.handleApproverPasting();
                 window.approverPastingFeature.handleManageFavouritesButton();
                 window.approverPastingFeature.addRecipientHistoryControls();
                 window.gmiChatFeature.handleGmiChatButton();
-                // NEW LINE ADDED: Explicit check for placement selection on DOM change
-                if (window.placementCounterFeature) {
-                    window.placementCounterFeature.checkSelection();
-                }
+                window.placementCounterFeature?.checkSelection();
+            }
 
-                if (window.orderIdCopyFeature) {
-                    window.orderIdCopyFeature.checkAndAddCopyButtons();
+            if (route.isOrderSummary) {
+                window.orderGridScrollSyncFeature?.syncAll();
+                const hasNewOrderUi = window.orderViewToggleFeature?.isNewOrderUi?.() === true;
+                const hasStaleLegacyOrderIdControls = Boolean(document.querySelector('.order-id-copy-cell'));
+                if (!hasNewOrderUi || hasStaleLegacyOrderIdControls) {
+                    // The feature performs a targeted new/legacy UI check before
+                    // any legacy cell scan and removes stale legacy controls.
+                    window.orderIdCopyFeature?.checkAndAddCopyButtons();
                 }
-
-            }, 300);
+            }
         } else if (isAura && window.logoFeature.shouldReplaceLogoOnThisPage()) {
             window.logoFeature.checkAndReplaceLogo();
-            setTimeout(() => {
-                // Aura: only popup reminders + auto-copy URL are allowed here.
-                window.remindersFeature.checkForMetaConditions();
-                window.remindersFeature.checkForIASConditions();
-                window.remindersFeature.checkCustomReminders();
+            window.remindersFeature.checkForMetaConditions();
+            window.remindersFeature.checkForIASConditions();
+            window.remindersFeature.checkCustomReminders();
+            window.autoCopyUrlFeature?.handleAutoCopy();
+        }
+    }
 
-                if (window.autoCopyUrlFeature) {
-                    window.autoCopyUrlFeature.handleAutoCopy();
-                }
+    function scheduleDynamicUiReconciliation() {
+        if (!fastReconciliationQueued) {
+            fastReconciliationQueued = true;
+            scheduleFrame(() => {
+                fastReconciliationQueued = false;
+                runFastDynamicUiReconciliation();
+            });
+        }
+
+        // Throttle rather than restart this timer so continuous Prisma rendering
+        // cannot postpone the heavier reconciliation indefinitely.
+        if (deferredReconciliationTimer === null) {
+            deferredReconciliationTimer = window.setTimeout(() => {
+                deferredReconciliationTimer = null;
+                runDeferredDynamicUiReconciliation();
             }, 300);
         }
+    }
+
+    const observer = new MutationObserver(function() {
+        scheduleDynamicUiReconciliation();
     });
     observer.observe(document.body, { childList: true, subtree: true });
 }

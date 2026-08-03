@@ -22,6 +22,8 @@ const SETTINGS_DEFAULTS = Object.freeze({
     appLearnReplaceEnabled: true,
     blockAppLearnPopupsEnabled: true,
     helpGuidesEnabled: true,
+    approverSidebarEnhancementsEnabled: true,
+    actualiseBulkExportEnabled: true,
     prismaReminderFrequency: 'daily',
     prismaCountdownDuration: '5',
     metaReminderEnabled: true,
@@ -34,12 +36,12 @@ const SETTINGS_DEFAULTS = Object.freeze({
     hidingSectionsEnabled: true,
     automateFormFieldsEnabled: true,
     countPlacementsSelectedEnabled: true,
-    approverWidgetOptimiseEnabled: true,
     swapAccountsEnabled: true,
     rememberAccountSwitchUrlEnabled: true,
     bannerUsernameEnabled: true,
     alwaysShowCommentsEnabled: true,
     orderIdCopyEnabled: true,
+    maxCampaignBudgetEnabled: true,
     newOrderUiOptimisationEnabled: true,
     ordersShortcutEnabled: true,
     actualiseShortcutEnabled: true,
@@ -55,13 +57,30 @@ const SETTINGS_DEFAULTS = Object.freeze({
     gmiChatShortcutEnabled: true,
     autoCopyUrlEnabled: true,
     loadingFactsEnabled: true,
-    optimisedNewNavEnabled: true,
+    orderGridScrollSyncEnabled: true,
     statsCollectorEnabled: true,
     timesheetReminderEnabled: true,
     reminderDay: 'Friday',
     reminderTime: '14:30',
     customReminders: Object.freeze([])
 });
+
+const REMINDER_SETTING_KEYS = new Set([
+    'reminderTheme',
+    'prismaReminderFrequency',
+    'prismaCountdownDuration',
+    'metaReminderEnabled',
+    'iasReminderEnabled',
+    'timesheetReminderEnabled',
+    'reminderDay',
+    'reminderTime',
+    'customReminders'
+]);
+
+const FEATURE_SETTINGS_DEFAULTS = Object.freeze(Object.fromEntries(
+    Object.entries(SETTINGS_DEFAULTS)
+        .filter(([key]) => !REMINDER_SETTING_KEYS.has(key))
+));
 
 async function loadSettingsWithDefaults(storageArea, defaults = SETTINGS_DEFAULTS) {
     const callStorage = (method, ...args) => new Promise((resolve, reject) => {
@@ -282,6 +301,51 @@ function showConfirmationPopup({ title, message, confirmText, cancelText, onConf
 const syncedToggleInputs = new Map();
 let settingsPageInitialized = false;
 
+function normalizeFeatureSearchText(value) {
+    return String(value || '').toLocaleLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function filterFeatureSettings(query, sections) {
+    const tokens = normalizeFeatureSearchText(query).split(' ').filter(Boolean);
+    let visibleSectionCount = 0;
+
+    Array.from(sections || []).forEach(section => {
+        const headingMatches = tokens.length > 0 && tokens.every(token =>
+            normalizeFeatureSearchText(section.querySelector(':scope > h2')?.textContent).includes(token)
+        );
+        const items = Array.from(section.children).filter(element => element.tagName !== 'H2');
+        let hasVisibleItem = false;
+
+        items.forEach(item => {
+            if (item.classList.contains('onboarding-launch-actions')) {
+                let hasVisibleButton = false;
+                item.querySelectorAll(':scope > .settings-button').forEach(button => {
+                    const matches = tokens.length === 0 || headingMatches || tokens.every(token =>
+                        normalizeFeatureSearchText(button.textContent).includes(token)
+                    );
+                    button.classList.toggle('settings-search-hidden', !matches);
+                    if (matches) hasVisibleButton = true;
+                });
+                item.classList.toggle('settings-search-hidden', !hasVisibleButton);
+                if (hasVisibleButton) hasVisibleItem = true;
+                return;
+            }
+
+            const matches = tokens.length === 0 || headingMatches || tokens.every(token =>
+                normalizeFeatureSearchText(item.textContent).includes(token)
+            );
+            item.classList.toggle('settings-search-hidden', !matches);
+            if (matches) hasVisibleItem = true;
+        });
+
+        const visible = tokens.length === 0 || headingMatches || hasVisibleItem;
+        section.classList.toggle('settings-search-hidden', !visible);
+        if (visible) visibleSectionCount += 1;
+    });
+
+    return visibleSectionCount;
+}
+
 // Helper function to set up a toggle switch 
 function setupToggle(toggleId, storageKey, logMessage, settings) {
     const toggle = document.getElementById(toggleId); 
@@ -345,6 +409,33 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     document.getElementById('launchOnboardingTourV1Button')?.addEventListener('click', () => openOnboardingSidePanel('onboarding-tour.html'));
     document.getElementById('launchOnboardingTourV2Button')?.addEventListener('click', () => openOnboardingSidePanel('onboarding-tour-v2.html'));
+
+    const featureSearchContainer = document.getElementById('feature-settings-search');
+    const featureSearchInput = document.getElementById('feature-settings-search-input');
+    const clearFeatureSearchButton = document.getElementById('clear-feature-settings-search');
+    const featureSearchEmpty = document.getElementById('feature-settings-search-empty');
+    const featureSections = document.querySelectorAll('#features > section');
+
+    const applyFeatureSearch = () => {
+        const query = featureSearchInput?.value || '';
+        const visibleSections = filterFeatureSettings(query, featureSections);
+        if (clearFeatureSearchButton) clearFeatureSearchButton.hidden = query.length === 0;
+        if (featureSearchEmpty) featureSearchEmpty.hidden = query.trim().length === 0 || visibleSections > 0;
+    };
+
+    featureSearchInput?.addEventListener('input', applyFeatureSearch);
+    featureSearchInput?.addEventListener('keydown', event => {
+        if (event.key !== 'Escape' || !featureSearchInput.value) return;
+        event.preventDefault();
+        featureSearchInput.value = '';
+        applyFeatureSearch();
+    });
+    clearFeatureSearchButton?.addEventListener('click', () => {
+        featureSearchInput.value = '';
+        applyFeatureSearch();
+        featureSearchInput.focus();
+    });
+    applyFeatureSearch();
  
     // Tab switching logic 
     const tabContainer = document.querySelector('.tab-container'); 
@@ -381,6 +472,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             activeButton.removeAttribute('tabindex');
             activePanel.classList.add('active');
             activePanel.hidden = false;
+            if (featureSearchContainer) featureSearchContainer.hidden = tabName !== 'features';
 
             if (updateUrl && window.location.hash !== `#${tabName}`) {
                 window.history.pushState({}, document.title, `#${tabName}`);
@@ -657,6 +749,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupToggle('appLearnReplaceToggle', 'appLearnReplaceEnabled', 'AppLearn transparency setting saved:', settings);
     setupToggle('blockAppLearnPopupsToggle', 'blockAppLearnPopupsEnabled', 'AppLearn popup blocking setting saved:', settings);
     setupToggle('helpGuidesToggle', 'helpGuidesEnabled', 'Help Guides setting saved:', settings);
+    setupToggle('approverSidebarEnhancementsToggle', 'approverSidebarEnhancementsEnabled', 'Approver Sidebar Enhancements setting saved:', settings);
+    setupToggle('actualiseBulkExportToggle', 'actualiseBulkExportEnabled', 'Actualise bulk export setting saved:', settings);
  
     // Prisma Reminders 
     const prismaReminderFrequency = document.getElementById('prismaReminderFrequency');
@@ -767,12 +861,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupToggle('hidingSectionsToggle', 'hidingSectionsEnabled', 'Hiding Sections setting saved:', settings);
     setupToggle('automateFormFieldsToggle', 'automateFormFieldsEnabled', 'Automate Form Fields setting saved:', settings);
     setupToggle('countPlacementsSelectedToggle', 'countPlacementsSelectedEnabled', 'Count Placements Selected setting saved:', settings);
-    setupToggle('approverWidgetOptimiseToggle', 'approverWidgetOptimiseEnabled', 'Approver Widget Optimise setting saved:', settings);
     setupToggle('swapAccountsToggle', 'swapAccountsEnabled', 'Switch Accounts setting saved:', settings);
     setupToggle('rememberAccountSwitchUrlToggle', 'rememberAccountSwitchUrlEnabled', 'Remember page after account switch setting saved:', settings);
     setupToggle('bannerUsernameToggle', 'bannerUsernameEnabled', 'Prisma banner username setting saved:', settings);
     setupToggle('seeCommentsOnLockedBuysToggle', 'alwaysShowCommentsEnabled', 'See Comments on Locked Buys setting saved:', settings);
     setupToggle('orderIdCopyToggle', 'orderIdCopyEnabled', 'Order ID Copy setting saved:', settings);
+    setupToggle('maxCampaignBudgetToggle', 'maxCampaignBudgetEnabled', 'Max Campaign Budget setting saved:', settings);
     setupToggle('newOrderUiOptimisationToggle', 'newOrderUiOptimisationEnabled', 'New Order UI Optimisation setting saved:', settings);
     setupToggle('ordersShortcutToggle', 'ordersShortcutEnabled', 'Orders shortcut setting saved:', settings);
     setupToggle('actualiseShortcutToggle', 'actualiseShortcutEnabled', 'Actualise shortcut setting saved:', settings);
@@ -788,6 +882,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupToggle('gmiChatShortcutToggle', 'gmiChatShortcutEnabled', 'GMI Chat Shortcut setting saved:', settings);
     setupToggle('autoCopyUrlToggle', 'autoCopyUrlEnabled', 'Auto Copy URL setting saved:', settings);
     setupToggle('loadingFactsToggle', 'loadingFactsEnabled', 'Show Loading Facts setting saved:', settings);
+    setupToggle('orderGridScrollSyncToggle', 'orderGridScrollSyncEnabled', 'Order grid header alignment setting saved:', settings);
 
     const loadingFactsStatsButton = document.getElementById('loadingFactsStatsButton');
     const loadingFactSummary = document.getElementById('loadingFactSummary');
@@ -865,6 +960,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     loadingFactsStatsButton?.addEventListener('click', () => {
         document.getElementById('tab-loading-facts')?.click();
     });
+    document.getElementById('loadingFactsReviewButton')?.addEventListener('click', () => {
+        document.getElementById('tab-loading-facts')?.click();
+    });
     document.getElementById('tab-loading-facts')?.addEventListener('click', renderLoadingFactReview);
 
     exportLoadingFactRatings?.addEventListener('click', async () => {
@@ -918,38 +1016,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         setAutoCopyUrlSubOptionsEnabled(autoCopyUrlToggle.checked);
     });
 
-    // Optimised campaign navigation master toggle. Child preferences remain
-    // stored while the parent is off, so they return exactly as configured.
-    const optimisedNewNavToggle = document.getElementById('optimisedNewNavToggle');
-    const optimisedNewNavSubOptions = document.getElementById('optimisedNewNavSubOptions');
-    const navigationSubOptionInputs = optimisedNewNavSubOptions
-        ? Array.from(optimisedNewNavSubOptions.querySelectorAll('input[type="checkbox"]'))
-        : [];
-
-    const setNavigationSubOptionsEnabled = (isEnabled) => {
-        navigationSubOptionInputs.forEach(input => {
-            input.disabled = !isEnabled;
-        });
-        if (optimisedNewNavSubOptions) {
-            optimisedNewNavSubOptions.classList.toggle('is-disabled', !isEnabled);
-            optimisedNewNavSubOptions.setAttribute('aria-disabled', String(!isEnabled));
-        }
-    };
-
-    if (optimisedNewNavToggle) {
-        syncedToggleInputs.set('optimisedNewNavEnabled', optimisedNewNavToggle);
-        optimisedNewNavToggle.checked = settings.optimisedNewNavEnabled;
-        setNavigationSubOptionsEnabled(settings.optimisedNewNavEnabled);
-
-        optimisedNewNavToggle.addEventListener('change', function() {
-            const isEnabled = this.checked;
-            setNavigationSubOptionsEnabled(isEnabled);
-            chrome.storage.sync.set({ optimisedNewNavEnabled: isEnabled }, () => {
-                 console.log('Optimised New Nav saved:', isEnabled);
-            });
-        });
-    }
-
     // Keep an already-open Settings page in sync with changes made by the
     // popup kill switch or any other extension surface.
     chrome.storage.onChanged.addListener((changes, area) => {
@@ -960,9 +1026,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             input.checked = changes[storageKey].newValue !== false;
         });
 
-        if (changes.optimisedNewNavEnabled) {
-            setNavigationSubOptionsEnabled(changes.optimisedNewNavEnabled.newValue !== false);
-        }
         if (changes.autoCopyUrlEnabled) {
             setAutoCopyUrlSubOptionsEnabled(changes.autoCopyUrlEnabled.newValue !== false);
         }
@@ -986,6 +1049,41 @@ document.addEventListener('DOMContentLoaded', async function() {
                 detail: changes.metaFinanceToolMode.newValue === 'legacy' ? 'legacy' : 'social'
             }));
         }
+    });
+
+    document.getElementById('resetFeatureSettingsButton')?.addEventListener('click', () => {
+        showConfirmationPopup({
+            title: 'Restore default settings?',
+            message: 'This resets the Features tab only. Reminder settings, custom reminders, collected statistics and Loading Fact feedback will not be changed.',
+            confirmText: 'Restore defaults',
+            cancelText: 'Cancel',
+            onConfirm: () => {
+                chrome.storage.sync.set(FEATURE_SETTINGS_DEFAULTS, () => {
+                    if (chrome.runtime.lastError) {
+                        showToast('Could not restore default settings.');
+                        return;
+                    }
+
+                    Object.assign(settings, FEATURE_SETTINGS_DEFAULTS);
+                    syncedToggleInputs.forEach((input, storageKey) => {
+                        if (Object.prototype.hasOwnProperty.call(FEATURE_SETTINGS_DEFAULTS, storageKey)) {
+                            input.checked = FEATURE_SETTINGS_DEFAULTS[storageKey] !== false;
+                        }
+                    });
+                    setAutoCopyUrlSubOptionsEnabled(FEATURE_SETTINGS_DEFAULTS.autoCopyUrlEnabled);
+                    [
+                        ['uiThemeSegmented', FEATURE_SETTINGS_DEFAULTS.uiTheme],
+                        ['autoCopyUrlModeSegmented', FEATURE_SETTINGS_DEFAULTS.autoCopyUrlMode],
+                        ['metaFinanceToolSegmented', FEATURE_SETTINGS_DEFAULTS.metaFinanceToolMode]
+                    ].forEach(([controlId, value]) => {
+                        document.getElementById(controlId)?.dispatchEvent(new CustomEvent('segmented-control:set-value', {
+                            detail: value
+                        }));
+                    });
+                    showToast('Feature settings restored to defaults.');
+                });
+            }
+        });
     });
  
     // Stats Collector with Confirmation 
@@ -1794,6 +1892,9 @@ if (typeof module !== 'undefined' && module.exports) {
         escapeHTML,
         isMissingContentScriptReceiverError,
         SETTINGS_DEFAULTS,
+        FEATURE_SETTINGS_DEFAULTS,
+        filterFeatureSettings,
+        normalizeFeatureSearchText,
         loadSettingsWithDefaults,
     }; 
 }

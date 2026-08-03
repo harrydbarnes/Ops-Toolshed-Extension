@@ -3,6 +3,7 @@
 
     const MENU_ID = 'toolshed-export-all-actuals';
     const COMBINE_MENU_ID = 'toolshed-combine-actuals';
+    const SETTING_KEY = 'actualiseBulkExportEnabled';
     const STATUS_ID = 'toolshed-export-all-actuals-status';
     const FILE_INPUT_ID = 'toolshed-combine-actuals-input';
     const MONTH_SELECTOR = '#mos-paginator li > a';
@@ -21,6 +22,8 @@
     const MAX_CSV_FILE_SIZE = 10 * 1024 * 1024;
 
     let initialized = false;
+    let settingsLoaded = false;
+    let featureEnabled = true;
     let running = false;
     let cancelRequested = false;
     let statusRemovalTimer = null;
@@ -105,7 +108,7 @@
     }
 
     function apply() {
-        if (!isActualiseRoute()) {
+        if (!settingsLoaded || !featureEnabled || !isActualiseRoute()) {
             document.getElementById(MENU_ID)?.remove();
             document.getElementById(COMBINE_MENU_ID)?.remove();
             return;
@@ -534,7 +537,23 @@
 
         window.addEventListener('hashchange', apply);
         window.addEventListener('pageshow', apply);
-        apply();
+        if (!chrome.storage?.sync) {
+            settingsLoaded = true;
+            apply();
+            return;
+        }
+
+        chrome.storage.sync.get({ [SETTING_KEY]: true }, data => {
+            featureEnabled = data[SETTING_KEY] !== false;
+            settingsLoaded = true;
+            apply();
+        });
+        chrome.storage.onChanged?.addListener((changes, area) => {
+            if (area !== 'sync' || !changes[SETTING_KEY]) return;
+            featureEnabled = changes[SETTING_KEY].newValue !== false;
+            settingsLoaded = true;
+            apply();
+        });
     }
 
     window.actualiseExportAllFeature = {

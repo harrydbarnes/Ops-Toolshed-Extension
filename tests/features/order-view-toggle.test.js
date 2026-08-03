@@ -11,7 +11,7 @@ const contentStyles = fs.readFileSync(
     'utf8'
 );
 
-function createPage(enabled = true, parentEnabled = true) {
+function createPage(enabled = true) {
     const dom = new JSDOM(`<!doctype html><html><body>
         <div id="cm-buy-sidebar-order-revisions-header">
             <span>ORDERS</span>
@@ -42,8 +42,7 @@ function createPage(enabled = true, parentEnabled = true) {
         storage: {
             sync: {
                 get: (_key, callback) => callback({
-                    newOrderUiOptimisationEnabled: enabled,
-                    optimisedNewNavEnabled: parentEnabled
+                    newOrderUiOptimisationEnabled: enabled
                 })
             },
             onChanged: {
@@ -61,11 +60,6 @@ function createPage(enabled = true, parentEnabled = true) {
         setEnabled(value) {
             storageListener({
                 newOrderUiOptimisationEnabled: { newValue: value }
-            }, 'sync');
-        },
-        setParentEnabled(value) {
-            storageListener({
-                optimisedNewNavEnabled: { newValue: value }
             }, 'sync');
         }
     };
@@ -124,18 +118,34 @@ describe('new order UI optimisation', () => {
         page.dom.window.close();
     });
 
-    test('is removed while the navigation parent is off and returns with its preference', async () => {
+    test('does not retain Latest or All controls in the legacy Order UI', () => {
         const page = createPage();
+        const { document } = page.dom.window;
+        document.querySelector('mo-menu').remove();
+        const staleToggle = document.createElement('div');
+        staleToggle.className = 'order-view-toggle';
+        document.getElementById('cm-buy-sidebar-order-revisions-header').appendChild(staleToggle);
+
+        page.dom.window.orderViewToggleFeature.initialize();
+
+        expect(document.querySelector('.order-view-toggle')).toBeNull();
+        expect(page.dom.window.orderViewToggleFeature.isNewOrderUi()).toBe(false);
+        page.dom.window.close();
+    });
+
+    test('removes Latest and All when Prisma changes from the new UI to legacy in place', async () => {
+        const page = createPage();
+        const { document } = page.dom.window;
         page.dom.window.orderViewToggleFeature.initialize();
         await flushAsync();
+        expect(document.querySelector('.order-view-toggle')).not.toBeNull();
 
-        expect(page.dom.window.document.querySelector('.order-view-toggle')).not.toBeNull();
-        page.setParentEnabled(false);
-        expect(page.dom.window.document.querySelector('.order-view-toggle')).toBeNull();
+        document.querySelector('mo-menu').remove();
+        page.dom.window.orderViewToggleFeature.handleOrderViewToggle();
 
-        page.setParentEnabled(true);
-        await flushAsync();
-        expect(page.dom.window.document.querySelector('.order-view-toggle')).not.toBeNull();
+        expect(document.querySelector('.order-view-toggle')).toBeNull();
+        expect(document.getElementById('cm-buy-sidebar-order-revisions-header').classList)
+            .not.toContain('order-view-toggle-active');
         page.dom.window.close();
     });
 });

@@ -8,7 +8,6 @@
     let hidingSectionsEnabled = true;
     let automateFormFieldsEnabled = true;
     let alwaysShowCommentsEnabled = true;
-    let optimisedNewNavEnabled = true;
     let ordersShortcutEnabled = true;
     let approverWidgetPlacementEnabled = true;
     let quickCampaignActionsEnabled = true;
@@ -17,12 +16,13 @@
     let campaignHeaderQuickCopyEnabled = true;
     let campaignDateShortcutEnabled = true;
     let relocatedWorkflowSlot = null;
+    let cachedNavbarWrapper = null;
+    let cachedActualiseMonthRow = null;
+    const cachedNavigationElements = Object.create(null);
     let campaignNameToastTimeout = null;
     let campaignNameCopyListenerAttached = false;
     let campaignDetailsRequestAttempt = 0;
     let campaignDetailsRequestTimeout = null;
-    let localBasicFocusAttempt = 0;
-    let localBasicFocusTimeout = null;
 
     // Class selectors for Budget UI
     const BUDGET_CONTAINER_ID = 'campaign-budget-overview-container';
@@ -34,6 +34,14 @@
     const BUDGET_STYLE_ID = 'optimised-budget-styles';
     const ACTUALISE_WORKFLOW_CLASS = 'actualise-workflow-slot';
     const ACTUALISE_MONTH_ROW_CLASS = 'toolshed-actualise-month-row';
+    const APPROVER_WIDGET_PLACEMENT_CLASS = 'approver-widget-placement-enabled';
+
+    function syncApproverWidgetPlacementClass() {
+        document.body?.classList.toggle(
+            APPROVER_WIDGET_PLACEMENT_CLASS,
+            approverWidgetPlacementEnabled
+        );
+    }
 
     // Initialize settings
     if (chrome.runtime && chrome.runtime.id) {
@@ -41,7 +49,6 @@
             'hidingSectionsEnabled',
             'automateFormFieldsEnabled',
             'alwaysShowCommentsEnabled',
-            'optimisedNewNavEnabled',
             'ordersShortcutEnabled',
             'approverWidgetPlacementEnabled',
             'quickCampaignActionsEnabled',
@@ -54,7 +61,6 @@
             if (data.hidingSectionsEnabled !== undefined) hidingSectionsEnabled = data.hidingSectionsEnabled;
             if (data.automateFormFieldsEnabled !== undefined) automateFormFieldsEnabled = data.automateFormFieldsEnabled;
             if (data.alwaysShowCommentsEnabled !== undefined) alwaysShowCommentsEnabled = data.alwaysShowCommentsEnabled;
-            if (data.optimisedNewNavEnabled !== undefined) optimisedNewNavEnabled = data.optimisedNewNavEnabled;
             if (data.ordersShortcutEnabled !== undefined) ordersShortcutEnabled = data.ordersShortcutEnabled;
             if (data.approverWidgetPlacementEnabled !== undefined) approverWidgetPlacementEnabled = data.approverWidgetPlacementEnabled;
             if (data.quickCampaignActionsEnabled !== undefined) quickCampaignActionsEnabled = data.quickCampaignActionsEnabled;
@@ -62,6 +68,7 @@
             if (data.campaignNameQuickCopyEnabled !== undefined) campaignNameQuickCopyEnabled = data.campaignNameQuickCopyEnabled;
             if (data.campaignHeaderQuickCopyEnabled !== undefined) campaignHeaderQuickCopyEnabled = data.campaignHeaderQuickCopyEnabled;
             if (data.campaignDateShortcutEnabled !== undefined) campaignDateShortcutEnabled = data.campaignDateShortcutEnabled;
+            syncApproverWidgetPlacementClass();
         });
 
         chrome.storage.onChanged.addListener((changes, namespace) => {
@@ -69,7 +76,6 @@
             if (changes.hidingSectionsEnabled) hidingSectionsEnabled = changes.hidingSectionsEnabled.newValue;
             if (changes.automateFormFieldsEnabled) automateFormFieldsEnabled = changes.automateFormFieldsEnabled.newValue;
             if (changes.alwaysShowCommentsEnabled) alwaysShowCommentsEnabled = changes.alwaysShowCommentsEnabled.newValue;
-            if (changes.optimisedNewNavEnabled) optimisedNewNavEnabled = changes.optimisedNewNavEnabled.newValue;
             if (changes.ordersShortcutEnabled) ordersShortcutEnabled = changes.ordersShortcutEnabled.newValue;
             if (changes.approverWidgetPlacementEnabled) approverWidgetPlacementEnabled = changes.approverWidgetPlacementEnabled.newValue;
             if (changes.quickCampaignActionsEnabled) quickCampaignActionsEnabled = changes.quickCampaignActionsEnabled.newValue;
@@ -79,6 +85,9 @@
             if (changes.campaignDateShortcutEnabled) {
                 campaignDateShortcutEnabled = changes.campaignDateShortcutEnabled.newValue;
                 if (!campaignDateShortcutEnabled) cancelCampaignDetailsRequest();
+            }
+            if (changes.approverWidgetPlacementEnabled) {
+                syncApproverWidgetPlacementClass();
             }
         });
     }
@@ -142,6 +151,78 @@
     function resetCampaignFlags() {
         mediaMixAutomated = false;
         budgetTypeAutomated = false;
+        cachedNavbarWrapper = null;
+        cachedActualiseMonthRow = null;
+        Object.keys(cachedNavigationElements).forEach(key => {
+            delete cachedNavigationElements[key];
+        });
+    }
+
+    function getCachedNavigationElement(key, selector) {
+        const cached = cachedNavigationElements[key];
+        if (cached?.isConnected && cached.matches(selector)) return cached;
+
+        const next = document.querySelector(selector);
+        if (next) cachedNavigationElements[key] = next;
+        else delete cachedNavigationElements[key];
+        return next;
+    }
+
+    function getNavbarWrapper() {
+        if (cachedNavbarWrapper?.isConnected) return cachedNavbarWrapper;
+        cachedNavbarWrapper = document.querySelector('.p2b-navbar-wrapper');
+        return cachedNavbarWrapper;
+    }
+
+    function getConnectedWorkflowSlot() {
+        if (
+            relocatedWorkflowSlot?.isConnected &&
+            relocatedWorkflowSlot.querySelector('.workflow-widget-wrapper')
+        ) {
+            return relocatedWorkflowSlot;
+        }
+
+        const workflowWidget = document.querySelector('div[slot="right"] .workflow-widget-wrapper');
+        return workflowWidget?.closest('div[slot="right"]') || null;
+    }
+
+    function findActualiseMonthRow() {
+        const nativeMonthRow = document.getElementById('month-filter-toolbar');
+        if (nativeMonthRow) {
+            cachedActualiseMonthRow = nativeMonthRow;
+            return cachedActualiseMonthRow;
+        }
+        if (cachedActualiseMonthRow?.isConnected) return cachedActualiseMonthRow;
+
+        const monthPattern = /^(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\s+\d{2,4}$/i;
+        const controlSelector = 'a, button, mo-button, mo-tab, [role="button"], [role="tab"]';
+        const matchingControls = Array.from(document.querySelectorAll(controlSelector))
+            .filter(element => monthPattern.test(element.textContent.trim()));
+        const matchingSet = new Set(matchingControls);
+        const monthButtons = matchingControls.filter(element => {
+            let ancestor = element.parentElement;
+            while (ancestor && ancestor !== document.body) {
+                if (matchingSet.has(ancestor)) return false;
+                ancestor = ancestor.parentElement;
+            }
+            return true;
+        });
+
+        if (monthButtons.length === 0) return null;
+        if (monthButtons.length === 1) {
+            cachedActualiseMonthRow = monthButtons[0].parentElement;
+            return cachedActualiseMonthRow;
+        }
+
+        let candidate = monthButtons[0].parentElement;
+        while (candidate && candidate !== document.body) {
+            if (monthButtons.filter(button => candidate.contains(button)).length >= 2) {
+                cachedActualiseMonthRow = candidate;
+                return cachedActualiseMonthRow;
+            }
+            candidate = candidate.parentElement;
+        }
+        return null;
     }
 
     function handleAlwaysShowComments() {
@@ -216,19 +297,14 @@
     }
 
     function handleCampaignNavigationOptimisation() {
+        syncApproverWidgetPlacementClass();
         if (window.location.href.includes('cm-dashboard')) {
             document.getElementById(BUDGET_STYLE_ID)?.remove();
             return;
         }
 
-        if (!optimisedNewNavEnabled) {
-            document.getElementById(BUDGET_STYLE_ID)?.remove();
-            return;
-        }
-
-        const navbarWrapper = document.querySelector('.p2b-navbar-wrapper');
-        const connectedWorkflowSlot = Array.from(document.querySelectorAll('div[slot="right"]'))
-            .find(slot => slot.querySelector('.workflow-widget-wrapper')) || null;
+        const navbarWrapper = getNavbarWrapper();
+        const connectedWorkflowSlot = getConnectedWorkflowSlot();
         if (connectedWorkflowSlot && connectedWorkflowSlot !== relocatedWorkflowSlot) {
             relocatedWorkflowSlot?.classList.remove('ai-style-change-1', ACTUALISE_WORKFLOW_CLASS);
             relocatedWorkflowSlot?.parentElement?.classList.remove(ACTUALISE_MONTH_ROW_CLASS);
@@ -239,25 +315,6 @@
         const previewLinkContainer = navbarWrapper ? navbarWrapper.querySelector('.omni-navigation-preview-link-container') : null;
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const isActualise = hashParams.get('ptb-ctx') === 'actualize' || hashParams.get('route') === 'actualize';
-
-        const findActualiseMonthRow = () => {
-            const monthPattern = /^(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\s+\d{2,4}$/i;
-            const matchingControls = Array.from(document.querySelectorAll('a, button, mo-button, mo-tab, [role="button"], [role="tab"]'))
-                .filter(element => monthPattern.test(element.textContent.trim()));
-            const monthButtons = matchingControls.filter(element =>
-                !matchingControls.some(other => other !== element && other.contains(element))
-            );
-
-            if (monthButtons.length === 0) return null;
-            if (monthButtons.length === 1) return monthButtons[0].parentElement;
-
-            let candidate = monthButtons[0].parentElement;
-            while (candidate && candidate !== document.body) {
-                if (monthButtons.filter(button => candidate.contains(button)).length >= 2) return candidate;
-                candidate = candidate.parentElement;
-            }
-            return null;
-        };
 
         if (approverWidgetPlacementEnabled && navbarWrapper && rightSlotDiv) {
             rightSlotDiv.classList.remove(ACTUALISE_WORKFLOW_CLASS);
@@ -272,7 +329,7 @@
                 rightSlotDiv.classList.add('ai-style-change-1');
             }
         } else if (approverWidgetPlacementEnabled && isActualise && rightSlotDiv) {
-            const actualiseMonthRow = document.querySelector('#month-filter-toolbar') || findActualiseMonthRow();
+            const actualiseMonthRow = findActualiseMonthRow();
             if (actualiseMonthRow && rightSlotDiv.parentElement !== actualiseMonthRow) {
                 actualiseMonthRow.appendChild(rightSlotDiv);
             }
@@ -337,7 +394,7 @@
     function copyHeaderValue(value, target, message) {
         if (!value) return;
 
-        chrome.runtime.sendMessage({ action: 'copyToClipboard', text: value })
+        chrome.runtime.sendMessage({ action: 'copyCampaignHeaderToClipboard', text: value })
             .then(response => {
                 if (response?.status !== 'success') {
                     throw new Error(response?.message || 'Clipboard service did not confirm the copy.');
@@ -616,10 +673,6 @@
         target.click?.();
     }
 
-    function isCampaignDetailsFrame() {
-        return window.location.pathname.includes('/idesk/prisma-campaign-details/');
-    }
-
     function isCampaignDetailsOpen() {
         const [, hash = ''] = window.location.href.split('#');
         return new URLSearchParams(hash).get('osModalId') === 'prsm-cm-cmpdtls';
@@ -631,38 +684,6 @@
             window.clearTimeout(campaignDetailsRequestTimeout);
             campaignDetailsRequestTimeout = null;
         }
-    }
-
-    function focusBasicInCurrentFrame(attemptId, deadline = Date.now() + 12000) {
-        if (attemptId !== localBasicFocusAttempt || !isCampaignDetailsFrame()) return false;
-        if (document.getElementById('gwt-debug-campaignFlightStart')) {
-            localBasicFocusTimeout = null;
-            return true;
-        }
-
-        const editControl = document.getElementById('campaign-details-basics-pencil-icon');
-        const rect = editControl?.getBoundingClientRect?.();
-        if (editControl && rect && rect.width > 0 && rect.height > 0) {
-            editControl.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
-            activateElement(editControl);
-        }
-
-        if (Date.now() < deadline) {
-            localBasicFocusTimeout = window.setTimeout(
-                () => focusBasicInCurrentFrame(attemptId, deadline),
-                300
-            );
-        }
-        return false;
-    }
-
-    function startBasicFocusInCurrentFrame() {
-        localBasicFocusAttempt += 1;
-        if (localBasicFocusTimeout !== null) {
-            window.clearTimeout(localBasicFocusTimeout);
-            localBasicFocusTimeout = null;
-        }
-        focusBasicInCurrentFrame(localBasicFocusAttempt, Date.now() + 12000);
     }
 
     function requestCampaignDetailsBasicFocus(attemptId, deadline) {
@@ -720,8 +741,6 @@
         campaignNameCopyListenerAttached = true;
 
         document.addEventListener('pointerdown', event => {
-            if (!optimisedNewNavEnabled) return;
-
             if (campaignDateShortcutEnabled && handleCampaignDateShortcut(event)) return;
             if (campaignHeaderQuickCopyEnabled && handleBuyDetailsCopy(event)) return;
             if (!campaignNameQuickCopyEnabled) return;
@@ -744,7 +763,7 @@
     }
 
     function handleBudgetDisplayOptimisation() {
-        if (!optimisedNewNavEnabled || !budgetWidgetOptimisedEnabled) {
+        if (!budgetWidgetOptimisedEnabled) {
             document.getElementById(BUDGET_STYLE_ID)?.remove();
             return;
         }
@@ -831,11 +850,32 @@
         }
     }
 
-    function handleOrdersNavigationLink() {
-        if (!optimisedNewNavEnabled || !ordersShortcutEnabled) return;
+    function syncOrdersNavigationActiveState(ordersBtn) {
+        const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+        const isActualise = params.get('ptb-ctx') === 'actualize' || params.get('route') === 'actualize';
+        const isOrderSummary = params.get('ptb-ctx') === 'orderSummary' && params.get('showOrders') === 'true';
+        const isBuy = !isActualise && !isOrderSummary && params.get('ptb-mod') === 'buy';
+        const buyBtn = document.getElementById('p2b-navbar-section-buy');
 
-        // Avoid duplicates
-        if (document.getElementById('p2b-navbar-section-orders')) return;
+        ordersBtn.classList.toggle('active', isOrderSummary);
+        if (isOrderSummary) ordersBtn.setAttribute('aria-current', 'page');
+        else ordersBtn.removeAttribute('aria-current');
+
+        if (buyBtn) {
+            buyBtn.classList.toggle('active', isBuy);
+            if (isBuy) buyBtn.setAttribute('aria-current', 'page');
+            else buyBtn.removeAttribute('aria-current');
+        }
+    }
+
+    function handleOrdersNavigationLink() {
+        if (!ordersShortcutEnabled) return;
+
+        const existingOrdersBtn = document.getElementById('p2b-navbar-section-orders');
+        if (existingOrdersBtn) {
+            syncOrdersNavigationActiveState(existingOrdersBtn);
+            return;
+        }
 
         const analyzeBtn = document.querySelector('#p2b-navbar-section-analyze');
         if (analyzeBtn) {
@@ -860,7 +900,7 @@
             }
 
             // 3. Ensure visual state handling
-            ordersBtn.classList.remove('active');
+            syncOrdersNavigationActiveState(ordersBtn);
 
             // 4. Insert into the DOM
             analyzeBtn.after(ordersBtn);
@@ -868,12 +908,21 @@
     }
 
     function handleCampaignMenuRelocation() {
-        if (!optimisedNewNavEnabled || !quickCampaignActionsEnabled) return;
+        if (!quickCampaignActionsEnabled) return;
 
         // 1. Find the native menu position and hide its original components.
-        const originalToolbarItem = document.querySelector('mo-toolbar-item#campaign-menu-icon');
-        const originalOverlay = document.querySelector('mo-overlay#mo-overlay-8');
-        const campaignNamePopover = document.querySelector('.mo-campaign-name-popover');
+        const originalToolbarItem = getCachedNavigationElement(
+            'campaignMenuIcon',
+            'mo-toolbar-item#campaign-menu-icon'
+        );
+        const originalOverlay = getCachedNavigationElement(
+            'campaignMenuOverlay',
+            'mo-overlay#mo-overlay-8'
+        );
+        const campaignNamePopover = getCachedNavigationElement(
+            'campaignNamePopover',
+            '.mo-campaign-name-popover'
+        );
         if (originalOverlay) originalOverlay.style.display = 'none';
 
         // Keep an existing extracted toolbar anchored to a newly rendered native
@@ -890,7 +939,7 @@
         }
 
         // 2. Create the new icon container
-        const buyDetails = document.querySelector('.buy-details-wrapper');
+        const buyDetails = getCachedNavigationElement('buyDetails', '.buy-details-wrapper');
         if (!originalToolbarItem && !buyDetails) return;
 
         const iconContainer = document.createElement('div');
@@ -969,15 +1018,6 @@
     // during the first click without losing the copy handler.
     if (window.top === window.self) {
         handleCampaignNameCopy();
-    }
-
-    if (chrome.runtime?.onMessage?.addListener) {
-        chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-            if (request?.action !== 'focusCampaignDetailsBasic' || !isCampaignDetailsFrame()) return;
-
-            sendResponse({ status: 'accepted' });
-            startBasicFocusInCurrentFrame();
-        });
     }
 
     window.campaignFeature = {

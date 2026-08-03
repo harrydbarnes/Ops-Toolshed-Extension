@@ -4,7 +4,6 @@
     const PRISMA_HOME = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns';
     const defaults = {
         uiTheme: 'pink',
-        optimisedNewNavEnabled: true,
         bannerUsernameEnabled: true,
         helpGuidesEnabled: true,
         blockAppLearnPopupsEnabled: true,
