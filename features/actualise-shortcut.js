@@ -67,20 +67,21 @@
 
     function restoreBuyActiveState() {
         if (!document.getElementById(ACTUALISE_WRAPPER_ID)) return;
-        const buyLink = document.getElementById('p2b-navbar-section-buy');
+        const sections = getNavbarSections();
+        const buyLink = sections?.querySelector('#p2b-navbar-section-buy');
         buyLink?.classList.add('active');
         buyLink?.setAttribute('aria-current', 'page');
     }
 
     function removeShortcut() {
-        document.getElementById(LINK_ID)?.remove();
+        document.querySelectorAll(`#${LINK_ID}`).forEach(link => link.remove());
         restoreBuyActiveState();
     }
 
-    function applyActiveState(link) {
+    function applyActiveState(link, sections) {
         const params = getHashParams();
-        const buyLink = document.getElementById('p2b-navbar-section-buy');
-        const ordersLink = document.getElementById('p2b-navbar-section-orders');
+        const buyLink = sections?.querySelector('#p2b-navbar-section-buy');
+        const ordersLink = sections?.querySelector('#p2b-navbar-section-orders');
         const actualiseActive = isActualiseRoute();
         const ordersActive = !actualiseActive && isOrderSummaryRoute(params);
         const buyActive = !actualiseActive && !ordersActive && params.get('ptb-mod') === 'buy';
@@ -99,13 +100,13 @@
         const params = getHashParams();
         const campaignId = params.get('campaign-id');
         const sections = getNavbarSections();
-        const analyzeLink = document.getElementById('p2b-navbar-section-analyze');
-        const ordersLink = document.getElementById('p2b-navbar-section-orders');
-        const buyLink = document.getElementById('p2b-navbar-section-buy');
+        const analyzeLink = sections?.querySelector('#p2b-navbar-section-analyze');
+        const ordersLink = sections?.querySelector('#p2b-navbar-section-orders');
+        const buyLink = sections?.querySelector('#p2b-navbar-section-buy');
         const insertionPoint = ordersLink || analyzeLink || buyLink;
         if (!campaignId || !sections || !insertionPoint) return;
 
-        let link = document.getElementById(LINK_ID);
+        let link = sections.querySelector(`#${LINK_ID}`);
         if (!link) {
             link = document.createElement('a');
             link.id = LINK_ID;
@@ -115,7 +116,7 @@
 
         link.href = buildActualiseHref(campaignId, getActualiseMonth(params));
         if (link.previousElementSibling !== insertionPoint) insertionPoint.after(link);
-        applyActiveState(link);
+        applyActiveState(link, sections);
     }
 
     function initialize() {

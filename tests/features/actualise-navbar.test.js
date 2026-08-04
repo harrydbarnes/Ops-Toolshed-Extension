@@ -183,6 +183,140 @@ describe('Actualise navigation bar', () => {
         dom.window.close();
     });
 
+    test.each([
+        ['Digital', 'digital', '<a id="p2b-navbar-section-traffic"></a><a id="p2b-navbar-section-analyze"></a>'],
+        ['Print', 'print', '']
+    ])('hands off the %s Buy route once native Plan and Buy are mounted', (label, mediaType, extraSections) => {
+        const { dom, window } = createFeature({ mediaType });
+        window.actualiseNavbarFeature.initialize();
+        window.eval(shortcutCode);
+        window.actualiseShortcutFeature.initialize();
+
+        window.history.replaceState(
+            {},
+            '',
+            '#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP3GH64&ptb-mod=buy&ptb-ctx=digital&route=online'
+        );
+
+        const workspace = window.document.querySelector('.ptb-workspace-content-container');
+        const content = workspace.querySelector('.ptb-content-with-sidebar-wrapper');
+        const nativeWrapper = window.document.createElement('div');
+        nativeWrapper.className = 'p2b-navbar-wrapper';
+        nativeWrapper.innerHTML = `
+            <div id="p2b-navbar">
+                <div class="mo-navbar-sections">
+                    <a id="p2b-navbar-section-plan"></a>
+                    <a id="p2b-navbar-section-buy"></a>
+                    ${extraSections}
+                    <div class="mo-navbar-sections-triangle"></div>
+                </div>
+            </div>
+        `;
+        workspace.insertBefore(nativeWrapper, content);
+
+        window.actualiseNavbarFeature.apply();
+        window.actualiseShortcutFeature.apply();
+
+        expect(window.document.getElementById('toolshed-actualise-navbar-wrapper')).toBeNull();
+        expect(window.document.querySelectorAll('.p2b-navbar-wrapper')).toHaveLength(1);
+        expect(nativeWrapper.querySelector('#p2b-navbar-section-actualise')).not.toBeNull();
+        dom.window.close();
+    });
+
+    test.each([
+        ['Digital', 'digital'],
+        ['Print', 'print']
+    ])('does not show the native %s Orders bar while entering Actualise', (label, mediaType) => {
+        const { dom, window } = createFeature({
+            mediaType,
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP3GH64&ptb-mod=buy&ptb-ctx=orderSummary&showOrders=true'
+        });
+        window.actualiseNavbarFeature.initialize();
+
+        const workspace = window.document.querySelector('.ptb-workspace-content-container');
+        const content = workspace.querySelector('.ptb-content-with-sidebar-wrapper');
+        const nativeWrapper = window.document.createElement('div');
+        nativeWrapper.className = 'p2b-navbar-wrapper';
+        nativeWrapper.innerHTML = `
+            <div id="p2b-navbar">
+                <div class="mo-navbar-sections">
+                    <a id="p2b-navbar-section-plan"></a>
+                    <a id="p2b-navbar-section-buy"></a>
+                    <a id="p2b-navbar-section-orders"></a>
+                    <div class="mo-navbar-sections-triangle"></div>
+                </div>
+            </div>
+        `;
+        workspace.insertBefore(nativeWrapper, content);
+
+        window.history.replaceState(
+            {},
+            '',
+            '#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP3GH64&ptb-mod=buy&ptb-ctx=actualize&route=actualize&mos=2026-07-20'
+        );
+        window.actualiseNavbarFeature.apply();
+
+        const visibleWrappers = Array.from(window.document.querySelectorAll('.p2b-navbar-wrapper'))
+            .filter(wrapper => wrapper.style.display !== 'none');
+        expect(visibleWrappers).toHaveLength(1);
+        expect(visibleWrappers[0].id).toBe('toolshed-actualise-navbar-wrapper');
+
+        window.history.replaceState(
+            {},
+            '',
+            '#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP3GH64&ptb-mod=buy&ptb-ctx=orderSummary&showOrders=true'
+        );
+        window.actualiseNavbarFeature.apply();
+
+        expect(nativeWrapper.style.display).not.toBe('none');
+        expect(window.document.getElementById('toolshed-actualise-navbar-wrapper')).toBeNull();
+        dom.window.close();
+    });
+
+    test.each([
+        ['Digital', 'digital', '<a id="p2b-navbar-section-analyze"></a>'],
+        ['Print', 'print', '']
+    ])('creates native Orders before removing the %s Actualise bar', (label, mediaType, extraSections) => {
+        const { dom, window } = createFeature({ mediaType });
+        window.actualiseNavbarFeature.initialize();
+
+        const workspace = window.document.querySelector('.ptb-workspace-content-container');
+        const content = workspace.querySelector('.ptb-content-with-sidebar-wrapper');
+        const nativeWrapper = window.document.createElement('div');
+        nativeWrapper.className = 'p2b-navbar-wrapper';
+        nativeWrapper.innerHTML = `
+            <div id="p2b-navbar">
+                <div class="mo-navbar-sections">
+                    <a id="p2b-navbar-section-plan"></a>
+                    <a id="p2b-navbar-section-buy"></a>
+                    ${extraSections}
+                    <div class="mo-navbar-sections-triangle"></div>
+                </div>
+            </div>
+        `;
+        workspace.insertBefore(nativeWrapper, content);
+
+        window.campaignFeature = {
+            ensureOrdersNavigation: jest.fn(() => {
+                const orders = window.document.createElement('a');
+                orders.id = 'p2b-navbar-section-orders';
+                nativeWrapper.querySelector('.mo-navbar-sections').appendChild(orders);
+            })
+        };
+        window.history.replaceState(
+            {},
+            '',
+            '#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP3GH64&ptb-mod=buy&ptb-ctx=digital&route=online'
+        );
+
+        window.actualiseNavbarFeature.apply();
+
+        expect(window.campaignFeature.ensureOrdersNavigation).toHaveBeenCalledTimes(1);
+        expect(nativeWrapper.querySelector('#p2b-navbar-section-orders')).not.toBeNull();
+        expect(window.document.getElementById('toolshed-actualise-navbar-wrapper')).toBeNull();
+        dom.window.close();
+    });
+
     test('responds immediately when its setting changes', () => {
         const { dom, window, listeners } = createFeature();
         window.actualiseNavbarFeature.initialize();

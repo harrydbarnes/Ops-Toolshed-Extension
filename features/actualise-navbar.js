@@ -4,6 +4,9 @@
     const SETTING_KEY = 'actualiseNavbarEnabled';
     const ORDERS_SETTING_KEY = 'ordersShortcutEnabled';
     const WRAPPER_ID = 'toolshed-actualise-navbar-wrapper';
+    const NATIVE_HIDDEN_ATTRIBUTE = 'toolshedActualiseNativeHidden';
+    const NATIVE_PREVIOUS_DISPLAY_ATTRIBUTE = 'toolshedActualisePreviousDisplay';
+    const NATIVE_HIDDEN_SELECTOR = '[data-toolshed-actualise-native-hidden="true"]';
 
     let featureEnabled = true;
     let ordersEnabled = true;
@@ -43,22 +46,54 @@
         );
     }
 
+    function getNativeNavbarContainers() {
+        const containers = new Set();
+
+        Array.from(document.querySelectorAll('.p2b-navbar-wrapper')).forEach(wrapper => {
+            if (!wrapper.closest(`#${WRAPPER_ID}`)) containers.add(wrapper);
+        });
+
+        Array.from(document.querySelectorAll('#p2b-navbar')).forEach(navbar => {
+            if (navbar.closest(`#${WRAPPER_ID}`)) return;
+            containers.add(navbar.closest('.p2b-navbar-wrapper') || navbar);
+        });
+
+        return Array.from(containers);
+    }
+
+    function hideNativeNavbarContainers() {
+        getNativeNavbarContainers().forEach(container => {
+            if (container.dataset[NATIVE_HIDDEN_ATTRIBUTE] !== 'true') {
+                container.dataset[NATIVE_HIDDEN_ATTRIBUTE] = 'true';
+                container.dataset[NATIVE_PREVIOUS_DISPLAY_ATTRIBUTE] = container.style.display;
+            }
+            container.style.display = 'none';
+        });
+    }
+
+    function restoreNativeNavbarContainers() {
+        document.querySelectorAll(NATIVE_HIDDEN_SELECTOR)
+            .forEach(container => {
+                const previousDisplay = container.dataset[NATIVE_PREVIOUS_DISPLAY_ATTRIBUTE];
+                if (previousDisplay) container.style.display = previousDisplay;
+                else container.style.removeProperty('display');
+                delete container.dataset[NATIVE_HIDDEN_ATTRIBUTE];
+                delete container.dataset[NATIVE_PREVIOUS_DISPLAY_ATTRIBUTE];
+            });
+    }
+
     function hasNativeNavbarReadyForHandoff() {
         const navbar = getNativeNavbar();
         const sections = navbar?.querySelector(':scope > .mo-navbar-sections') ||
             navbar?.querySelector('.mo-navbar-sections');
         if (!sections) return false;
 
-        if (!ordersEnabled) {
-            return Boolean(sections.querySelector('#p2b-navbar-section-buy, #p2b-navbar-section-analyze'));
-        }
-
-        return Boolean(
-            sections.querySelector('#p2b-navbar-section-orders') ||
-            Array.from(sections.querySelectorAll('a')).some(link =>
-                link.textContent.trim().toLowerCase() === 'orders'
-            )
-        );
+        // Orders and Actualise are extension-owned additions to Prisma's
+        // native bar. Any native navigation link is the handoff point; wait
+        // for the native sections to contain a link before removing the
+        // temporary Actualise bar, but do not wait for our own Orders shortcut
+        // to exist first.
+        return Boolean(sections.querySelector('a'));
     }
 
     function buildHref(entries) {
@@ -169,6 +204,7 @@
 
     function apply() {
         if (!settingsLoaded || !featureEnabled) {
+            restoreNativeNavbarContainers();
             removeNavbar();
             return;
         }
@@ -178,13 +214,25 @@
         // native replacement exists so the Actualise shortcut has no visible
         // gap during the handoff.
         if (!isActualiseRoute()) {
-            if (isCampaignWorkspaceRoute() && !hasNativeNavbarReadyForHandoff()) return;
+            if (isCampaignWorkspaceRoute() && !hasNativeNavbarReadyForHandoff()) {
+                hideNativeNavbarContainers();
+                return;
+            }
+            if (isCampaignWorkspaceRoute()) {
+                window.campaignFeature?.ensureOrdersNavigation?.();
+            }
             if (window.actualiseShortcutFeature?.isInitialized?.()) {
                 window.actualiseShortcutFeature.apply();
             }
             removeNavbar();
+            restoreNativeNavbarContainers();
             return;
         }
+
+        // The native Orders bar can remain mounted for a short time after the
+        // hash changes. Hide it before inserting Actualise so both owners are
+        // never visible in the same frame.
+        hideNativeNavbarContainers();
 
         const campaignId = getHashParams().get('campaign-id');
         const workspace = document.querySelector('.ptb-workspace-content-container');

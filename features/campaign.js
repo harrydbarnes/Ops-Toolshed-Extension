@@ -35,6 +35,7 @@
     const ACTUALISE_WORKFLOW_CLASS = 'actualise-workflow-slot';
     const ACTUALISE_MONTH_ROW_CLASS = 'toolshed-actualise-month-row';
     const APPROVER_WIDGET_PLACEMENT_CLASS = 'approver-widget-placement-enabled';
+    const ACTUALISE_NAVBAR_WRAPPER_ID = 'toolshed-actualise-navbar-wrapper';
 
     function syncApproverWidgetPlacementClass() {
         document.body?.classList.toggle(
@@ -169,8 +170,18 @@
     }
 
     function getNavbarWrapper() {
-        if (cachedNavbarWrapper?.isConnected) return cachedNavbarWrapper;
-        cachedNavbarWrapper = document.querySelector('.p2b-navbar-wrapper');
+        const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+        const isActualise = params.get('ptb-ctx') === 'actualize' || params.get('route') === 'actualize';
+        const wrappers = Array.from(document.querySelectorAll('.p2b-navbar-wrapper'));
+        const injectedWrapper = wrappers.find(wrapper => wrapper.id === ACTUALISE_NAVBAR_WRAPPER_ID);
+        const nativeWrapper = wrappers.find(wrapper => wrapper.id !== ACTUALISE_NAVBAR_WRAPPER_ID);
+        const expectedWrapper = isActualise ? injectedWrapper || nativeWrapper : nativeWrapper;
+
+        if (cachedNavbarWrapper?.isConnected && cachedNavbarWrapper === expectedWrapper) {
+            return cachedNavbarWrapper;
+        }
+
+        cachedNavbarWrapper = expectedWrapper || null;
         return cachedNavbarWrapper;
     }
 
@@ -189,8 +200,18 @@
         // Create the Orders shortcut before removing Analyse, since Prisma's
         // native Analyse link is the usual template for that shortcut.
         handleOrdersNavigationLink();
-        document.getElementById('p2b-navbar-section-traffic')?.remove();
-        document.getElementById('p2b-navbar-section-analyze')?.remove();
+        const sections = getNavbarSectionsForCurrentWrapper();
+        sections?.querySelector('#p2b-navbar-section-traffic')?.remove();
+        sections?.querySelector('#p2b-navbar-section-analyze')?.remove();
+    }
+
+    function getNavbarSectionsForCurrentWrapper() {
+        const wrapper = getNavbarWrapper();
+        const navbar = wrapper?.querySelector('#p2b-navbar');
+        return navbar?.querySelector(':scope > .mo-navbar-sections') ||
+            navbar?.querySelector('.mo-navbar-sections') ||
+            wrapper?.querySelector('.mo-navbar-sections') ||
+            wrapper;
     }
 
     function getConnectedWorkflowSlot() {
@@ -875,7 +896,10 @@
         const isActualise = params.get('ptb-ctx') === 'actualize' || params.get('route') === 'actualize';
         const isOrderSummary = params.get('ptb-ctx') === 'orderSummary' && params.get('showOrders') === 'true';
         const isBuy = !isActualise && !isOrderSummary && params.get('ptb-mod') === 'buy';
-        const buyBtn = document.getElementById('p2b-navbar-section-buy');
+        const sections = ordersBtn.closest('.mo-navbar-sections') ||
+            ordersBtn.closest('.p2b-navbar-wrapper') ||
+            ordersBtn.parentElement;
+        const buyBtn = sections?.querySelector('#p2b-navbar-section-buy');
 
         ordersBtn.classList.toggle('active', isOrderSummary);
         if (isOrderSummary) ordersBtn.setAttribute('aria-current', 'page');
@@ -925,7 +949,10 @@
     function handleOrdersNavigationLink() {
         if (!ordersShortcutEnabled) return;
 
-        const existingOrdersBtn = document.getElementById('p2b-navbar-section-orders');
+        const sections = getNavbarSectionsForCurrentWrapper();
+        if (!sections) return;
+
+        const existingOrdersBtn = sections.querySelector('#p2b-navbar-section-orders');
         if (existingOrdersBtn) {
             syncOrdersNavigationActiveState(existingOrdersBtn);
             if (syncOrdersNavigationHref(existingOrdersBtn)) {
@@ -934,9 +961,9 @@
             return;
         }
 
-        const analyzeBtn = document.querySelector('#p2b-navbar-section-analyze');
+        const analyzeBtn = sections.querySelector('#p2b-navbar-section-analyze');
         const templateBtn = analyzeBtn || (
-            isPrintMediaType() ? document.querySelector('#p2b-navbar-section-buy') : null
+            isPrintMediaType() ? sections.querySelector('#p2b-navbar-section-buy') : null
         );
         if (templateBtn) {
             // 1. Create the Orders button based on the native navigation structure
@@ -962,11 +989,15 @@
             // 3. Ensure visual state handling
             syncOrdersNavigationHref(ordersBtn, templateHref);
             enableOrdersNavigationButton(ordersBtn);
-            syncOrdersNavigationActiveState(ordersBtn);
 
             // 4. Insert into the DOM
             templateBtn.after(ordersBtn);
+            syncOrdersNavigationActiveState(ordersBtn);
         }
+    }
+
+    function ensureOrdersNavigation() {
+        handleOrdersNavigationLink();
     }
 
     function handleCampaignMenuRelocation() {
@@ -1086,6 +1117,7 @@
         handleCampaignManagementFeatures,
         handleAlwaysShowComments,
         handleCampaignNavigationOptimisation,
+        ensureOrdersNavigation,
         isPrintMediaType,
         syncPrintNavigationSections,
         resetCampaignFlags
