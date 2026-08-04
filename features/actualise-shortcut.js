@@ -22,6 +22,17 @@
         return params.get('ptb-ctx') === 'orderSummary' && params.get('showOrders') === 'true';
     }
 
+    function getNavbarSections() {
+        const navbars = Array.from(document.querySelectorAll('#p2b-navbar'));
+        const injectedNavbar = navbars.find(navbar => navbar.closest(`#${ACTUALISE_WRAPPER_ID}`));
+        const nativeNavbar = navbars.find(navbar => !navbar.closest(`#${ACTUALISE_WRAPPER_ID}`));
+        const navbar = isActualiseRoute()
+            ? injectedNavbar || nativeNavbar
+            : nativeNavbar || injectedNavbar;
+        return navbar?.querySelector(':scope > .mo-navbar-sections') ||
+            navbar?.querySelector('.mo-navbar-sections');
+    }
+
     function setActiveState(link, active) {
         if (!link) return;
         link.classList.toggle('active', active);
@@ -87,9 +98,12 @@
 
         const params = getHashParams();
         const campaignId = params.get('campaign-id');
-        const sections = document.querySelector('#p2b-navbar > .mo-navbar-sections');
+        const sections = getNavbarSections();
         const analyzeLink = document.getElementById('p2b-navbar-section-analyze');
-        if (!campaignId || !sections || !analyzeLink) return;
+        const ordersLink = document.getElementById('p2b-navbar-section-orders');
+        const buyLink = document.getElementById('p2b-navbar-section-buy');
+        const insertionPoint = ordersLink || analyzeLink || buyLink;
+        if (!campaignId || !sections || !insertionPoint) return;
 
         let link = document.getElementById(LINK_ID);
         if (!link) {
@@ -100,8 +114,6 @@
         }
 
         link.href = buildActualiseHref(campaignId, getActualiseMonth(params));
-        const ordersLink = document.getElementById('p2b-navbar-section-orders');
-        const insertionPoint = ordersLink || analyzeLink;
         if (link.previousElementSibling !== insertionPoint) insertionPoint.after(link);
         applyActiveState(link);
     }
@@ -133,6 +145,7 @@
         removeShortcut,
         isActualiseRoute,
         isOrderSummaryRoute,
+        isInitialized: () => initialized,
         isEnabled: () => settingsLoaded && featureEnabled
     };
 })();

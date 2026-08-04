@@ -17,7 +17,10 @@
                 color: #ffffff;
                 box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
                 font: 13px/18px Arial, sans-serif;
-                white-space: nowrap;
+                max-width: calc(100vw - 24px);
+                box-sizing: border-box;
+                text-align: center;
+                white-space: normal;
                 pointer-events: none;
                 visibility: hidden;
                 opacity: 0;
@@ -112,7 +115,15 @@
         currentToast.textContent = message;
         const rect = target?.getBoundingClientRect?.();
         if (rect) {
-            currentToast.style.left = `${rect.left + (rect.width / 2)}px`;
+            const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+            const toastWidth = currentToast.getBoundingClientRect?.().width || 0;
+            const targetCenter = rect.left + (rect.width / 2);
+            const minCenter = (toastWidth / 2) + 12;
+            const maxCenter = viewportWidth - (toastWidth / 2) - 12;
+            const centeredLeft = viewportWidth > 0 && toastWidth > 0
+                ? Math.min(Math.max(targetCenter, minCenter), Math.max(minCenter, maxCenter))
+                : targetCenter;
+            currentToast.style.left = `${centeredLeft}px`;
             currentToast.style.top = `${rect.bottom + 8}px`;
         }
         toastTimeout = setTimeout(hideToast, 3000);
@@ -176,6 +187,18 @@
         );
     }
 
+    function isBuyOrdersRoute() {
+        const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+        return Boolean(params.get('campaign-id')) &&
+            params.get('ptb-mod') === 'buy' &&
+            params.get('ptb-ctx') !== 'actualize' &&
+            params.get('route') !== 'actualize';
+    }
+
+    function isOrdersSidebarRoute() {
+        return isOrderSummaryRoute() || isBuyOrdersRoute();
+    }
+
     function isNewOrderUi() {
         return Boolean(document.querySelector(
             '#cm-buy-sidebar-order-revisions-header .mo-nav-list-item-accessory-content mo-menu'
@@ -199,7 +222,7 @@
     function handleNewUiSidebarClick(event) {
         if (!featureEnabled) return;
         const target = getNewUiOrderIdTarget(event.target);
-        if (!target || !isOrderSummaryRoute() || !isNewOrderUi()) return;
+        if (!target || !isOrdersSidebarRoute() || !isNewOrderUi()) return;
 
         event.preventDefault();
         event.stopPropagation();
@@ -300,6 +323,7 @@
         initialize,
         checkAndAddCopyButtons,
         isOrderSummaryRoute,
+        isOrdersSidebarRoute,
         isNewOrderUi,
         getNewUiOrderIdTarget
     };

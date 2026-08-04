@@ -6,6 +6,10 @@ const loadingFactsScript = fs.readFileSync(
     path.resolve(__dirname, '../../features/loading-facts.js'),
     'utf8'
 );
+const contentCss = fs.readFileSync(
+    path.resolve(__dirname, '../../content.css'),
+    'utf8'
+);
 
 function runScheduledTimer(timers, delay) {
     const timerIndex = timers.findIndex(timer => timer.delay === delay);
@@ -15,6 +19,10 @@ function runScheduledTimer(timers, delay) {
 }
 
 describe('Loading Facts behaviour', () => {
+    test('uses responsive bottom spacing for short and tall viewports', () => {
+        expect(contentCss).toContain('--toast-bottom-position: clamp(30px, 8vh, 65px);');
+    });
+
     test('falls back to defaults when Chrome storage is unavailable', async () => {
         const dom = new JSDOM('<!doctype html><html><body></body></html>', {
             url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP123&route=online',

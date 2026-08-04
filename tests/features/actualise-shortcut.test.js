@@ -87,6 +87,19 @@ describe('Actualise navigation shortcut', () => {
         dom.window.close();
     });
 
+    test('falls back to Buy when a Print navbar has no Analyse link', () => {
+        const { dom, window } = createFeature();
+        window.document.getElementById('p2b-navbar-section-analyze').remove();
+        window.actualiseShortcutFeature.initialize();
+
+        const buy = window.document.getElementById('p2b-navbar-section-buy');
+        const orders = window.document.getElementById('p2b-navbar-section-orders');
+        const actualise = window.document.getElementById('p2b-navbar-section-actualise');
+        expect(buy.nextElementSibling).toBe(orders);
+        expect(orders.nextElementSibling).toBe(actualise);
+        dom.window.close();
+    });
+
     test('preserves the selected month and marks Actualise active inside Actualise', () => {
         const { dom, window } = createFeature({
             injectedActualiseNavbar: true,

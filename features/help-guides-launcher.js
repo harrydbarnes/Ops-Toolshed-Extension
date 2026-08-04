@@ -25,7 +25,11 @@
     ].join(',');
     let isEnabled = null;
     let isPanelOpen = false;
+    let panelStateKnown = false;
     let panelStateRevision = 0;
+    let panelToggleInFlight = false;
+    let pendingPanelState = null;
+    let activePanelToggle = null;
     let routeListenersBound = false;
     let bannerObserver = null;
     let collisionObserver = null;
@@ -46,23 +50,42 @@
         event?.preventDefault();
         event?.stopPropagation();
         if (event?.detail > 0) event.currentTarget?.blur?.();
-        if (isEnabled !== true) return;
+        if (isEnabled !== true || !panelStateKnown || panelToggleInFlight) return;
 
         const previousPanelState = isPanelOpen;
         const action = isPanelOpen ? 'closeHelpGuidesFromLauncher' : 'openHelpGuides';
         isPanelOpen = action === 'openHelpGuides';
-        const requestRevision = ++panelStateRevision;
+        panelToggleInFlight = true;
+        pendingPanelState = isPanelOpen;
+        const toggleRequest = {
+            previousPanelState,
+            desiredPanelState: isPanelOpen,
+            confirmed: false
+        };
+        activePanelToggle = toggleRequest;
+        panelStateRevision += 1;
         chrome.runtime.sendMessage({ action })
             .then(response => {
-                if (requestRevision !== panelStateRevision) return;
-                if (response?.status !== 'success') {
-                    isPanelOpen = previousPanelState;
-                    return;
+                if (!toggleRequest.confirmed) {
+                    if (response?.status !== 'success') {
+                        isPanelOpen = previousPanelState;
+                    } else {
+                        isPanelOpen = response.panelState === 'open';
+                    }
                 }
-                isPanelOpen = response.panelState === 'open';
+                if (activePanelToggle === toggleRequest) {
+                    panelToggleInFlight = false;
+                    pendingPanelState = null;
+                    activePanelToggle = null;
+                }
             })
             .catch(error => {
-                if (requestRevision === panelStateRevision) isPanelOpen = previousPanelState;
+                if (!toggleRequest.confirmed) isPanelOpen = previousPanelState;
+                if (activePanelToggle === toggleRequest) {
+                    panelToggleInFlight = false;
+                    pendingPanelState = null;
+                    activePanelToggle = null;
+                }
                 console.warn('Could not toggle Help Guides:', error.message);
             });
     }
@@ -596,21 +619,46 @@
             return;
         }
 
+        if (!runtimeListenerBound && chrome.runtime?.onMessage) {
+            runtimeListenerBound = true;
+            chrome.runtime.onMessage.addListener(message => {
+                if (message?.action !== 'helpGuidesPanelState') return;
+                panelStateKnown = true;
+                panelStateRevision += 1;
+                if (panelToggleInFlight && activePanelToggle) {
+                    if (message.open === pendingPanelState) {
+                        isPanelOpen = message.open === true;
+                        activePanelToggle.confirmed = true;
+                        panelToggleInFlight = false;
+                        pendingPanelState = null;
+                    }
+                    return;
+                }
+                isPanelOpen = message.open === true;
+            });
+        }
+
         chrome.storage.sync.get({ helpGuidesEnabled: true }, data => {
             isEnabled = data.helpGuidesEnabled !== false;
             waitForBannerAndEnsureLauncher();
             window.appLearnFeature?.applyTransparency();
         });
         const stateRequestRevision = panelStateRevision;
-        chrome.runtime?.sendMessage?.({ action: 'getHelpGuidesPanelState' })
-            .then(response => {
+        const stateRequest = chrome.runtime?.sendMessage?.({ action: 'getHelpGuidesPanelState' });
+        if (stateRequest?.then) {
+            stateRequest.then(response => {
                 if (response?.status === 'success' && stateRequestRevision === panelStateRevision) {
                     isPanelOpen = response.open === true;
                 }
+                panelStateKnown = true;
             })
-            .catch(() => {
-                // The service worker can still be starting during page load.
-            });
+                .catch(() => {
+                    // The service worker can still be starting during page load.
+                    panelStateKnown = true;
+                });
+        } else {
+            panelStateKnown = true;
+        }
 
         if (!storageListenerBound && chrome.storage.onChanged) {
             storageListenerBound = true;
@@ -620,15 +668,6 @@
                     waitForBannerAndEnsureLauncher();
                     window.appLearnFeature?.applyTransparency();
                 }
-            });
-        }
-
-        if (!runtimeListenerBound && chrome.runtime?.onMessage) {
-            runtimeListenerBound = true;
-            chrome.runtime.onMessage.addListener(message => {
-                if (message?.action !== 'helpGuidesPanelState') return;
-                panelStateRevision += 1;
-                isPanelOpen = message.open === true;
             });
         }
 

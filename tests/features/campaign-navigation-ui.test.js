@@ -115,6 +115,63 @@ describe('campaign navigation UI optimisation', () => {
         dom.window.close();
     });
 
+    test('removes Traffic and Analyse from Print campaign navigation', () => {
+        const dom = createPage();
+        const { document } = dom.window;
+        const navbar = document.querySelector('.p2b-navbar-wrapper');
+        const traffic = document.createElement('a');
+        traffic.id = 'p2b-navbar-section-traffic';
+        traffic.textContent = 'TRAFFIC';
+        navbar.insertBefore(traffic, document.getElementById('p2b-navbar-section-analyze'));
+
+        const printIcon = document.createElement('mo-icon');
+        printIcon.setAttribute('name', 'print');
+        document.querySelector('.mo-page-header').appendChild(printIcon);
+
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+
+        expect(document.getElementById('p2b-navbar-section-traffic')).toBeNull();
+        expect(document.getElementById('p2b-navbar-section-analyze')).toBeNull();
+        const orders = document.getElementById('p2b-navbar-section-orders');
+        expect(orders).not.toBeNull();
+        expect(orders.getAttribute('href')).toContain('ptb-ctx=orderSummary');
+        expect(orders.getAttribute('href')).toContain('showOrders=true');
+        dom.window.close();
+    });
+
+    test('repairs a Print Orders link from the left-side Order summary route', () => {
+        const dom = createPage();
+        const { document } = dom.window;
+        const navbar = document.querySelector('.p2b-navbar-wrapper');
+        const existingOrders = document.createElement('a');
+        existingOrders.id = 'p2b-navbar-section-orders';
+        existingOrders.className = 'mo-navbar-section mo-text-uppercase disabled';
+        existingOrders.textContent = 'ORDERS';
+        existingOrders.setAttribute('href', '');
+        navbar.appendChild(existingOrders);
+
+        const sidebarOrderSummary = document.createElement('a');
+        sidebarOrderSummary.textContent = 'Order summary';
+        sidebarOrderSummary.setAttribute(
+            'href',
+            '#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP3FMRK&ptb-mod=buy&ptb-ctx=orderSummary&showOrders=true'
+        );
+        document.body.appendChild(sidebarOrderSummary);
+
+        const printIcon = document.createElement('mo-icon');
+        printIcon.setAttribute('name', 'print');
+        document.querySelector('.mo-page-header').appendChild(printIcon);
+
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+
+        expect(existingOrders.getAttribute('href')).toBe(sidebarOrderSummary.getAttribute('href'));
+        expect(existingOrders.classList).not.toContain('disabled');
+        expect(existingOrders.classList).not.toContain('mo-disabled');
+        expect(existingOrders.hasAttribute('aria-disabled')).toBe(false);
+        expect(document.getElementById('p2b-navbar-section-analyze')).toBeNull();
+        dom.window.close();
+    });
+
     test('uses the placement setting as the sole approver layout switch', () => {
         const enabledDom = createPage();
         const disabledDom = createPage({ approverWidgetPlacementEnabled: false });

@@ -113,6 +113,12 @@ describe('Content Script Main Logic', () => {
             document.head.appendChild(scriptEl);
         });
 
+        // Route-startup tests can replace feature modules after their source
+        // has loaded but before DOMContentLoaded invokes content.js.
+        if (options.featureMocks) {
+            Object.assign(window, options.featureMocks);
+        }
+
         // Manually dispatch DOMContentLoaded to ensure the script's main logic runs.
         if (options.dispatchDOMContentLoaded !== false) {
             document.dispatchEvent(new window.Event('DOMContentLoaded', { bubbles: true, cancelable: true }));
@@ -146,6 +152,123 @@ describe('Content Script Main Logic', () => {
         expect(window.statsCollector).toBeDefined();
     });
 
+    test('starts campaign features only on campaign routes and keeps Actualise/Orders route gates narrow', async () => {
+        const featureNames = [
+            'appLearnFeature',
+            'helpGuidesLauncherFeature',
+            'bannerUsernameFeature',
+            'placementCounterFeature',
+            'approverPastingFeature',
+            'swapAccountsFeature',
+            'autoCopyUrlFeature',
+            'orderIdCopyFeature',
+            'orderViewToggleFeature',
+            'orderGridScrollSyncFeature',
+            'actualiseScrollRestoreFeature',
+            'actualiseNavbarFeature',
+            'actualiseShortcutFeature',
+            'actualiseExportAllFeature',
+            'maxCampaignBudgetFeature',
+            'campaignTabTitleFeature',
+            'loadingFactsFeature',
+            'liveChatEnhancements'
+        ];
+        const makeMocks = () => Object.fromEntries(featureNames.map(name => [name, {
+            initialize: jest.fn(),
+            apply: jest.fn(),
+            applyTransparency: jest.fn(),
+            ensureLauncher: jest.fn(),
+            handleOrderViewToggle: jest.fn(),
+            isNewOrderUi: jest.fn(() => false),
+            handleApproverPasting: jest.fn(),
+            handleManageFavouritesButton: jest.fn(),
+            addRecipientHistoryControls: jest.fn(),
+            handleAutoCopy: jest.fn(),
+            checkSelection: jest.fn(),
+            syncAll: jest.fn(),
+            checkAndAddCopyButtons: jest.fn()
+        }]));
+        const logoMock = { shouldReplaceLogoOnThisPage: jest.fn(() => false) };
+
+        const dashboardMocks = makeMocks();
+        dashboardMocks.logoFeature = logoMock;
+        const dashboard = setupJSDOM(
+            'https://groupmuk-prisma.mediaocean.com/campaign-management/#osPspId=cm-dashboard&route=campaigns',
+            [],
+            { synchronousStorage: true, featureMocks: dashboardMocks }
+        );
+        await Promise.resolve();
+        jest.runOnlyPendingTimers();
+
+        expect(dashboardMocks.appLearnFeature.initialize).toHaveBeenCalledTimes(1);
+        expect(dashboardMocks.helpGuidesLauncherFeature.initialize).toHaveBeenCalledTimes(1);
+        expect(dashboardMocks.loadingFactsFeature.initialize).toHaveBeenCalledTimes(1);
+        expect(dashboardMocks.bannerUsernameFeature.initialize).toHaveBeenCalledTimes(1);
+        expect(dashboardMocks.placementCounterFeature.initialize).not.toHaveBeenCalled();
+        expect(dashboardMocks.approverPastingFeature.initialize).not.toHaveBeenCalled();
+        expect(dashboardMocks.autoCopyUrlFeature.initialize).not.toHaveBeenCalled();
+        expect(dashboardMocks.liveChatEnhancements.initialize).not.toHaveBeenCalled();
+        expect(dashboardMocks.orderIdCopyFeature.initialize).not.toHaveBeenCalled();
+        expect(dashboardMocks.orderViewToggleFeature.initialize).not.toHaveBeenCalled();
+        expect(dashboardMocks.orderGridScrollSyncFeature.initialize).not.toHaveBeenCalled();
+        expect(dashboardMocks.actualiseNavbarFeature.initialize).not.toHaveBeenCalled();
+        expect(dashboardMocks.actualiseShortcutFeature.initialize).not.toHaveBeenCalled();
+
+        dashboard.window.history.replaceState(
+            {},
+            '',
+            '#osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=buy&ptb-ctx=digital'
+        );
+        dashboard.window.dispatchEvent(new dashboard.window.Event('popstate'));
+        jest.advanceTimersByTime(20);
+        jest.advanceTimersByTime(300);
+        await Promise.resolve();
+        expect(dashboardMocks.orderIdCopyFeature.initialize).toHaveBeenCalledTimes(1);
+        expect(dashboardMocks.orderViewToggleFeature.initialize).toHaveBeenCalledTimes(1);
+        expect(dashboardMocks.approverPastingFeature.initialize).toHaveBeenCalledTimes(1);
+        expect(dashboardMocks.autoCopyUrlFeature.initialize).toHaveBeenCalledTimes(1);
+        dashboard.window.close();
+
+        const campaignMocks = makeMocks();
+        campaignMocks.logoFeature = logoMock;
+        const campaign = setupJSDOM(
+            'https://groupmuk-prisma.mediaocean.com/campaign-management/#osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=buy&ptb-ctx=digital',
+            [],
+            { synchronousStorage: true, featureMocks: campaignMocks }
+        );
+        await Promise.resolve();
+
+        expect(campaignMocks.placementCounterFeature.initialize).toHaveBeenCalledTimes(1);
+        expect(campaignMocks.approverPastingFeature.initialize).toHaveBeenCalledTimes(1);
+        expect(campaignMocks.autoCopyUrlFeature.initialize).toHaveBeenCalledTimes(1);
+        expect(campaignMocks.liveChatEnhancements.initialize).toHaveBeenCalledTimes(1);
+        expect(campaignMocks.orderIdCopyFeature.initialize).toHaveBeenCalledTimes(1);
+        expect(campaignMocks.orderViewToggleFeature.initialize).toHaveBeenCalledTimes(1);
+        expect(campaignMocks.actualiseShortcutFeature.initialize).toHaveBeenCalledTimes(1);
+        expect(campaignMocks.actualiseNavbarFeature.initialize).not.toHaveBeenCalled();
+        expect(campaignMocks.actualiseExportAllFeature.initialize).not.toHaveBeenCalled();
+        expect(campaignMocks.orderGridScrollSyncFeature.initialize).not.toHaveBeenCalled();
+        campaign.window.close();
+
+        const actualiseMocks = makeMocks();
+        actualiseMocks.logoFeature = logoMock;
+        const actualise = setupJSDOM(
+            'https://groupmuk-prisma.mediaocean.com/campaign-management/#osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=buy&ptb-ctx=actualize&route=actualize',
+            [],
+            { synchronousStorage: true, featureMocks: actualiseMocks }
+        );
+        await Promise.resolve();
+
+        expect(actualiseMocks.actualiseScrollRestoreFeature.initialize).toHaveBeenCalledTimes(1);
+        expect(actualiseMocks.actualiseNavbarFeature.initialize).toHaveBeenCalledTimes(1);
+        expect(actualiseMocks.actualiseExportAllFeature.initialize).toHaveBeenCalledTimes(1);
+        expect(actualiseMocks.actualiseShortcutFeature.initialize).toHaveBeenCalledTimes(1);
+        expect(actualiseMocks.orderIdCopyFeature.initialize).toHaveBeenCalledTimes(1);
+        expect(actualiseMocks.orderViewToggleFeature.initialize).toHaveBeenCalledTimes(1);
+        expect(actualiseMocks.orderGridScrollSyncFeature.initialize).not.toHaveBeenCalled();
+        actualise.window.close();
+    });
+
     test('coalesces repeated Prisma mutation batches into one fast and one deferred reconciliation', async () => {
         const { window, document, mutationObservers } = setupJSDOM(
             'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=buy&ptb-ctx=actualize&route=actualize',
@@ -161,7 +284,10 @@ describe('Content Script Main Logic', () => {
         );
         expect(observer).toBeDefined();
 
-        window.actualiseNavbarFeature = { apply: jest.fn() };
+        window.actualiseNavbarFeature = {
+            isInitialized: jest.fn(() => true),
+            apply: jest.fn()
+        };
         window.actualiseShortcutFeature = { apply: jest.fn() };
         window.actualiseExportAllFeature = { apply: jest.fn() };
         window.orderViewToggleFeature = { handleOrderViewToggle: jest.fn() };
@@ -373,6 +499,62 @@ describe('Content Script Main Logic', () => {
 
         expect(intervalCallbacks).toHaveLength(0);
         expect(document.getElementById('optimised-budget-styles')).toBeNull();
+    });
+
+    test('does not reconcile Prisma features for extension-owned DOM churn', async () => {
+        const { window, document, mutationObservers } = setupJSDOM(
+            'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=buy&route=online',
+            false,
+            [],
+            { synchronousStorage: true }
+        );
+        await Promise.resolve();
+        jest.runOnlyPendingTimers();
+        const navigation = jest.spyOn(window.campaignFeature, 'handleCampaignNavigationOptimisation').mockClear();
+        const observer = mutationObservers.find(instance =>
+            instance.__callback.toString().includes('scheduleDynamicUiReconciliation')
+        );
+        const extensionNode = document.createElement('div');
+        extensionNode.className = 'toolshed-feature-preview';
+
+        observer.__trigger([{ type: 'childList', target: document.body, addedNodes: [extensionNode] }]);
+        jest.runOnlyPendingTimers();
+
+        expect(navigation).not.toHaveBeenCalled();
+    });
+
+    test('reconciles mapped dirty groups for a known native region', async () => {
+        const { window, document, mutationObservers } = setupJSDOM(
+            'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=plan&ptb-ctx=rfpSummary',
+            false,
+            [],
+            { synchronousStorage: true }
+        );
+        await Promise.resolve();
+        jest.runOnlyPendingTimers();
+
+        const navigation = jest.spyOn(
+            window.campaignFeature,
+            'handleCampaignNavigationOptimisation'
+        ).mockClear();
+        window.actualiseNavbarFeature = { apply: jest.fn() };
+        window.actualiseShortcutFeature = { apply: jest.fn() };
+        const observer = mutationObservers.find(instance =>
+            instance.__callback.toString().includes('markDirtyFeaturesFromMutations')
+        );
+        const nativeWorkflowRegion = document.createElement('div');
+        nativeWorkflowRegion.className = 'workflow-widget-wrapper';
+
+        observer.__trigger([{
+            type: 'childList',
+            target: document.body,
+            addedNodes: [nativeWorkflowRegion]
+        }]);
+        jest.runOnlyPendingTimers();
+
+        expect(navigation).toHaveBeenCalledTimes(1);
+        expect(window.actualiseNavbarFeature.apply).not.toHaveBeenCalled();
+        expect(window.actualiseShortcutFeature.apply).not.toHaveBeenCalled();
     });
 
     test('closes the message channel immediately for unknown actions', () => {

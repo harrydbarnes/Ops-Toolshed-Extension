@@ -19,6 +19,48 @@
         return params.get('ptb-ctx') === 'actualize' || params.get('route') === 'actualize';
     }
 
+    function isCampaignWorkspaceRoute() {
+        const params = getHashParams();
+        const pspId = params.get('osPspId') || '';
+        const isDashboard = pspId === 'cm-dashboard' || window.location.href.includes('cm-dashboard');
+        return !isDashboard && (
+            Boolean(params.get('campaign-id')) || pspId.startsWith('prsm-cm-')
+        );
+    }
+
+    function isPrintMediaType() {
+        if (document.querySelector('#ptb-header mo-icon[name="print"], .mo-page-header mo-icon[name="print"]')) {
+            return true;
+        }
+
+        return Array.from(document.querySelectorAll('.buy-details-background, .buy-details-wrapper'))
+            .some(element => /\|\s*P(?:\s|\/)/i.test(element.textContent || ''));
+    }
+
+    function getNativeNavbar() {
+        return Array.from(document.querySelectorAll('#p2b-navbar')).find(navbar =>
+            !navbar.closest(`#${WRAPPER_ID}`)
+        );
+    }
+
+    function hasNativeNavbarReadyForHandoff() {
+        const navbar = getNativeNavbar();
+        const sections = navbar?.querySelector(':scope > .mo-navbar-sections') ||
+            navbar?.querySelector('.mo-navbar-sections');
+        if (!sections) return false;
+
+        if (!ordersEnabled) {
+            return Boolean(sections.querySelector('#p2b-navbar-section-buy, #p2b-navbar-section-analyze'));
+        }
+
+        return Boolean(
+            sections.querySelector('#p2b-navbar-section-orders') ||
+            Array.from(sections.querySelectorAll('a')).some(link =>
+                link.textContent.trim().toLowerCase() === 'orders'
+            )
+        );
+    }
+
     function buildHref(entries) {
         const params = new URLSearchParams();
         entries.forEach(([key, value]) => params.set(key, value));
@@ -52,6 +94,8 @@
         wrapper.className = 'p2b-navbar-wrapper toolshed-actualise-navbar-wrapper';
         wrapper.dataset.campaignId = campaignId;
         wrapper.dataset.ordersEnabled = String(ordersEnabled);
+        const printMediaType = isPrintMediaType();
+        wrapper.dataset.printMediaType = String(printMediaType);
 
         const navbar = document.createElement('div');
         navbar.id = 'p2b-navbar';
@@ -71,18 +115,23 @@
                 'Buy',
                 buildHref([...base, ['ptb-mod', 'buy'], ['ptb-ctx', 'digital'], ['route', 'online']]),
                 true
-            ),
-            createSection(
-                'p2b-navbar-section-traffic',
-                'Traffic',
-                buildHref([...base, ['ptb-mod', 'traffic']])
-            ),
-            createSection(
-                'p2b-navbar-section-analyze',
-                'Analyse',
-                buildHref([...base, ['ptb-mod', 'analyze']])
             )
         );
+
+        if (!printMediaType) {
+            sections.append(
+                createSection(
+                    'p2b-navbar-section-traffic',
+                    'Traffic',
+                    buildHref([...base, ['ptb-mod', 'traffic']])
+                ),
+                createSection(
+                    'p2b-navbar-section-analyze',
+                    'Analyse',
+                    buildHref([...base, ['ptb-mod', 'analyze']])
+                )
+            );
+        }
 
         if (ordersEnabled) {
             sections.appendChild(createSection(
@@ -119,7 +168,20 @@
     }
 
     function apply() {
-        if (!settingsLoaded || !featureEnabled || !isActualiseRoute()) {
+        if (!settingsLoaded || !featureEnabled) {
+            removeNavbar();
+            return;
+        }
+
+        // Prisma replaces the Actualise-only navbar asynchronously when a
+        // campaign route changes. Keep the existing nav mounted until the
+        // native replacement exists so the Actualise shortcut has no visible
+        // gap during the handoff.
+        if (!isActualiseRoute()) {
+            if (isCampaignWorkspaceRoute() && !hasNativeNavbarReadyForHandoff()) return;
+            if (window.actualiseShortcutFeature?.isInitialized?.()) {
+                window.actualiseShortcutFeature.apply();
+            }
             removeNavbar();
             return;
         }
@@ -130,9 +192,11 @@
         if (!campaignId || !workspace || !content) return;
 
         const existing = document.getElementById(WRAPPER_ID);
+        const printMediaType = isPrintMediaType();
         const needsRefresh = existing && (
             existing.dataset.campaignId !== campaignId ||
-            existing.dataset.ordersEnabled !== String(ordersEnabled)
+            existing.dataset.ordersEnabled !== String(ordersEnabled) ||
+            existing.dataset.printMediaType !== String(printMediaType)
         );
         if (needsRefresh) existing.remove();
 
@@ -173,6 +237,8 @@
         apply,
         removeNavbar,
         isActualiseRoute,
+        isPrintMediaType,
+        isInitialized: () => initialized,
         isEnabled: () => settingsLoaded && featureEnabled
     };
 })();

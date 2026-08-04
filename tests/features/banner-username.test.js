@@ -270,6 +270,25 @@ describe('Prisma banner username feature', () => {
         page.dom.window.close();
     });
 
+    test('keeps discovery scoped to banner hosts instead of scanning every page element', async () => {
+        const page = createPage();
+        page.window.bannerUsernameFeature.initialize();
+        await settleDiscovery(page.window);
+
+        const bodyScan = jest.spyOn(page.window.document.body, 'querySelectorAll');
+        const unrelatedHost = page.window.document.createElement('div');
+        const unrelatedShadow = unrelatedHost.attachShadow({ mode: 'open' });
+        const unrelatedLabel = page.window.document.createElement('div');
+        unrelatedLabel.className = 'user-company-name';
+        unrelatedShadow.appendChild(unrelatedLabel);
+        page.window.document.body.appendChild(unrelatedHost);
+        await settleDiscovery(page.window);
+
+        expect(bodyScan).not.toHaveBeenCalledWith('*');
+        expect(unrelatedLabel.textContent).toBe('');
+        page.dom.window.close();
+    });
+
     test('only accepts Mediaocean-style username identifiers', () => {
         const page = createPage({ enabled: false });
 

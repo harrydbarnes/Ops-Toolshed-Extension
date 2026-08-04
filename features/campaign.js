@@ -174,6 +174,25 @@
         return cachedNavbarWrapper;
     }
 
+    function isPrintMediaType() {
+        if (document.querySelector('#ptb-header mo-icon[name="print"], .mo-page-header mo-icon[name="print"]')) {
+            return true;
+        }
+
+        return Array.from(document.querySelectorAll('.buy-details-background, .buy-details-wrapper'))
+            .some(element => /\|\s*P(?:\s|\/)/i.test(element.textContent || ''));
+    }
+
+    function syncPrintNavigationSections() {
+        if (!isPrintMediaType()) return;
+
+        // Create the Orders shortcut before removing Analyse, since Prisma's
+        // native Analyse link is the usual template for that shortcut.
+        handleOrdersNavigationLink();
+        document.getElementById('p2b-navbar-section-traffic')?.remove();
+        document.getElementById('p2b-navbar-section-analyze')?.remove();
+    }
+
     function getConnectedWorkflowSlot() {
         if (
             relocatedWorkflowSlot?.isConnected &&
@@ -342,6 +361,7 @@
         handleCampaignMenuRelocation();
         handleCampaignNameCopy();
         handleOrdersNavigationLink();
+        syncPrintNavigationSections();
         handleBudgetDisplayOptimisation(); // Trigger budget display changes
     }
 
@@ -868,42 +888,84 @@
         }
     }
 
+    function getOrderSummaryHref(templateHref = '') {
+        const campaignId = new URLSearchParams(window.location.hash.replace(/^#/, '')).get('campaign-id');
+        const sidebarLink = Array.from(document.querySelectorAll('a[href]')).find(link => {
+            if (link.id === 'p2b-navbar-section-orders') return false;
+            const href = link.getAttribute('href') || '';
+            return href.includes('ptb-ctx=orderSummary') &&
+                href.includes('showOrders=true') &&
+                (!campaignId || href.includes(`campaign-id=${campaignId}`));
+        });
+        if (sidebarLink) return sidebarLink.getAttribute('href');
+
+        const baseUrlMatch = templateHref.match(/^(.*campaign-id=[^&]*)/);
+        if (baseUrlMatch) {
+            return `${baseUrlMatch[1]}&ptb-mod=buy&ptb-ctx=orderSummary&showOrders=true`;
+        }
+
+        if (!campaignId) return '';
+        return `#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=${encodeURIComponent(campaignId)}&ptb-mod=buy&ptb-ctx=orderSummary&showOrders=true`;
+    }
+
+    function syncOrdersNavigationHref(ordersBtn, templateHref = '') {
+        const ordersHref = getOrderSummaryHref(templateHref || ordersBtn.getAttribute('href') || '');
+        if (!ordersHref) return false;
+        ordersBtn.setAttribute('href', ordersHref);
+        return true;
+    }
+
+    function enableOrdersNavigationButton(ordersBtn) {
+        if (!ordersBtn) return;
+        ordersBtn.classList.remove('disabled', 'mo-disabled');
+        ordersBtn.removeAttribute('disabled');
+        ordersBtn.removeAttribute('aria-disabled');
+    }
+
     function handleOrdersNavigationLink() {
         if (!ordersShortcutEnabled) return;
 
         const existingOrdersBtn = document.getElementById('p2b-navbar-section-orders');
         if (existingOrdersBtn) {
             syncOrdersNavigationActiveState(existingOrdersBtn);
+            if (syncOrdersNavigationHref(existingOrdersBtn)) {
+                enableOrdersNavigationButton(existingOrdersBtn);
+            }
             return;
         }
 
         const analyzeBtn = document.querySelector('#p2b-navbar-section-analyze');
-        if (analyzeBtn) {
-            // 1. Create the Orders button based on the Analyze button structure
-            const ordersBtn = analyzeBtn.cloneNode(true);
+        const templateBtn = analyzeBtn || (
+            isPrintMediaType() ? document.querySelector('#p2b-navbar-section-buy') : null
+        );
+        if (templateBtn) {
+            // 1. Create the Orders button based on the native navigation structure
+            const ordersBtn = templateBtn.cloneNode(true);
             ordersBtn.id = 'p2b-navbar-section-orders';
 
             // Text content handling
             ordersBtn.textContent = 'ORDERS';
 
             // 2. Update the href dynamically to point to the orders module
-            const analyzeHref = analyzeBtn.getAttribute('href') || '';
-            const baseUrlMatch = analyzeHref.match(/^(.*campaign-id=[^&]*)/);
+            const templateHref = templateBtn.getAttribute('href') || '';
+            const baseUrlMatch = templateHref.match(/^(.*campaign-id=[^&]*)/);
 
             if (baseUrlMatch) {
                 const newParams = "&ptb-mod=buy&ptb-ctx=orderSummary&showOrders=true";
                 const ordersHref = baseUrlMatch[1] + newParams;
                 ordersBtn.setAttribute('href', ordersHref);
             } else {
-                const ordersHref = analyzeHref.replace('ptb-mod=analyze', 'ptb-mod=orders');
+                const ordersHref = templateHref.replace(/ptb-mod=[^&]*/, 'ptb-mod=orders');
                 ordersBtn.setAttribute('href', ordersHref);
             }
 
             // 3. Ensure visual state handling
+            syncOrdersNavigationHref(ordersBtn, templateHref);
+            enableOrdersNavigationButton(ordersBtn);
             syncOrdersNavigationActiveState(ordersBtn);
 
             // 4. Insert into the DOM
-            analyzeBtn.after(ordersBtn);
+            templateBtn.after(ordersBtn);
         }
     }
 
@@ -1024,6 +1086,8 @@
         handleCampaignManagementFeatures,
         handleAlwaysShowComments,
         handleCampaignNavigationOptimisation,
+        isPrintMediaType,
+        syncPrintNavigationSections,
         resetCampaignFlags
     };
 })();

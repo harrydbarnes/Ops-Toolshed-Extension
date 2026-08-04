@@ -11,9 +11,206 @@
 
 // Reminder-related functions are now in features/reminders.js
 
+// Dynamic Prisma rendering can invalidate only a subset of our controls. Keep
+// those subsets dirty until the deferred reconciliation has completed so the
+// observer does not ask every feature to rescan on every native render batch.
+const DIRTY_FEATURE_GROUPS = [
+    'shell',
+    'orders',
+    'actualise',
+    'campaign',
+    'approvals',
+    'chat',
+    'placement',
+    'reminders',
+    'autoCopy',
+    'logo'
+];
+
+const EXTENSION_OWNED_SELECTOR = [
+    '[id^="toolshed-"]',
+    '[id^="ops-toolshed-"]',
+    '[class*="toolshed-"]',
+    '.prisma-paste-button',
+    '.manage-favourites-button',
+    '.gmi-chat-button',
+    '.custom-prisma-logo',
+    '.order-id-copy-cell',
+    '.order-id-copy-btn',
+    '.order-id-copy-toast',
+    '.order-view-toggle',
+    '.placement-toast',
+    '.reminder-overlay',
+    '.loading-fact-toast',
+    '.extracted-action-tooltip',
+    '.tooltip-arrow-custom',
+    '.switch-account-button',
+    '#mo-extracted-actions-toolbar',
+    '#campaign-name-copy-toast',
+    '#p2b-navbar-section-orders',
+    '#p2b-navbar-section-actualise',
+    '#order-id-copy-styles',
+    '#resizable-chat-handle',
+    '#launcher-button-container',
+    '#custom-reminder-display-popup',
+    '#optimised-budget-styles',
+    '#optimised-order-grid-scroll-styles'
+].join(', ');
+
+const DIRTY_FEATURE_HINTS = [
+    {
+        groups: ['orders'],
+        selector: '#cm-buy-sidebar-order-revisions-header, #cm-buy-sidebar-order-revisions, [data-cy="order-summary"]'
+    },
+    {
+        groups: ['actualise'],
+        selector: '#mos-paginator, #mos-import-export, [data-cy="actualise-grid"]'
+    },
+    {
+        groups: ['campaign', 'actualise'],
+        selector: '.p2b-navbar-wrapper, #month-filter-toolbar'
+    },
+    {
+        groups: ['campaign', 'actualise'],
+        selector: '#ptb-header mo-icon[name="print"], .mo-page-header mo-icon[name="print"], .buy-details-background, .buy-details-wrapper'
+    },
+    {
+        groups: ['campaign', 'approvals', 'chat', 'placement'],
+        selector: '.workflow-widget-wrapper'
+    },
+    {
+        groups: ['campaign', 'chat'],
+        selector: '.mo-campaign-name-wrapper'
+    },
+    {
+        groups: ['approvals'],
+        selector: '.select2-choices, .select2-drop-active'
+    },
+    {
+        groups: ['chat'],
+        selector: 'mo-banner, mo-banner-help-menu, mo-menu'
+    },
+    {
+        groups: ['shell'],
+        selector: 'mo-side-panel, #vp-block, mo-spinner, .mo-spinner'
+    },
+    {
+        groups: ['placement'],
+        selector: '[data-placement-id], .placement-row'
+    }
+];
+
+function createDirtyFeatureState(value) {
+    return DIRTY_FEATURE_GROUPS.reduce((state, group) => {
+        state[group] = value;
+        return state;
+    }, {});
+}
+
+let dirtyFeatures = createDirtyFeatureState(true);
+let dirtyRevision = 0;
+let scheduleDynamicUiReconciliationCallback = null;
+
+function markAllFeaturesDirty() {
+    const wasClean = !DIRTY_FEATURE_GROUPS.some(group => dirtyFeatures[group]);
+    dirtyFeatures = createDirtyFeatureState(true);
+    if (wasClean) dirtyRevision += 1;
+}
+
+function markFeatureGroupsDirty(groups) {
+    let changed = false;
+    groups.forEach(group => {
+        if (!dirtyFeatures[group]) {
+            dirtyFeatures[group] = true;
+            changed = true;
+        }
+    });
+    if (changed) dirtyRevision += 1;
+}
+
+function hasDirtyFeature(group) {
+    return dirtyFeatures[group] === true;
+}
+
+function hasAnyDirtyFeatures() {
+    return DIRTY_FEATURE_GROUPS.some(group => dirtyFeatures[group]);
+}
+
+function clearDirtyFeaturesIfUnchanged(revision) {
+    if (dirtyRevision === revision) {
+        dirtyFeatures = createDirtyFeatureState(false);
+    }
+}
+
+function isExtensionOwnedElement(node) {
+    if (!node || node.nodeType !== 1) return false;
+    if (node === document.body || node === document.documentElement) return false;
+    if (node.matches?.(EXTENSION_OWNED_SELECTOR)) return true;
+    return Boolean(node.querySelector?.(EXTENSION_OWNED_SELECTOR));
+}
+
+function isExtensionOwnedRoot(node) {
+    if (!node || node.nodeType !== 1) return false;
+    if (node === document.body || node === document.documentElement) return false;
+    return Boolean(node.matches?.(EXTENSION_OWNED_SELECTOR));
+}
+
+function elementTouchesDirtyHint(element, selector) {
+    if (!element || element.nodeType !== 1) return false;
+    if (element.matches?.(selector)) return true;
+
+    // Do not inspect the entire document for a body-level mutation. The
+    // changed nodes themselves are checked below, while a nested target can
+    // still identify its owning native region.
+    if (element === document.body || element === document.documentElement) return false;
+    return Boolean(element.querySelector?.(selector));
+}
+
+function markDirtyFeaturesFromMutations(mutations) {
+    const groups = new Set();
+    let sawNativeMutation = false;
+
+    for (const mutation of mutations || []) {
+        const changedElements = [
+            ...(mutation.addedNodes || []),
+            ...(mutation.removedNodes || [])
+        ].filter(node => node?.nodeType === 1);
+
+        // A mutation made entirely inside one of our own nodes cannot make a
+        // missing native Prisma target appear, so it needs no reconciliation.
+        const extensionOwned = isExtensionOwnedRoot(mutation.target) || (
+            changedElements.length > 0
+                ? changedElements.every(isExtensionOwnedElement)
+                : isExtensionOwnedElement(mutation.target)
+        );
+        if (extensionOwned) continue;
+
+        sawNativeMutation = true;
+        const candidates = changedElements.length > 0
+            ? changedElements
+            : [mutation.target];
+        const matchingHints = DIRTY_FEATURE_HINTS.filter(hint =>
+            candidates.some(candidate => elementTouchesDirtyHint(candidate, hint.selector))
+        );
+
+        // Unknown native changes remain a safe full reconciliation. The dirty
+        // groups are an optimization for known regions, never a correctness
+        // gate for a new Prisma component we have not mapped yet.
+        if (matchingHints.length === 0) {
+            markAllFeaturesDirty();
+            return true;
+        }
+        matchingHints.forEach(hint => hint.groups.forEach(group => groups.add(group)));
+    }
+
+    if (!sawNativeMutation) return false;
+    markFeatureGroupsDirty(groups);
+    return true;
+}
+
 let currentUrlForDismissFlags = window.location.href;
 function handleUrlChange() {
-    if (currentUrlForDismissFlags === window.location.href) return;
+    if (currentUrlForDismissFlags === window.location.href) return false;
 
     console.log("[ContentScript Prisma] URL changed, reminder dismissal flags reset.");
     window.remindersFeature.resetReminderDismissalFlags();
@@ -21,6 +218,9 @@ function handleUrlChange() {
     window.campaignFeature.handleCampaignNavigationOptimisation();
     window.statsCollector.trackCampaignId(); // Centralized call
     currentUrlForDismissFlags = window.location.href;
+    markAllFeaturesDirty();
+    scheduleDynamicUiReconciliationCallback?.();
+    return true;
 }
 
 // Prisma's SPA changes normally arrive with one of these navigation events.
@@ -41,6 +241,8 @@ window.addEventListener('popstate', handleUrlChange);
 
 // Logo-related functions are now in features/logo.js
 
+let contentScriptInitializationStarted = false;
+
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', mainContentScriptInit);
 } else {
@@ -48,6 +250,8 @@ if (document.readyState === 'loading') {
 }
 
 async function mainContentScriptInit() {
+    if (contentScriptInitializationStarted) return;
+    contentScriptInitializationStarted = true;
     console.log("[ContentScript Prisma] DOMContentLoaded or already loaded. Initializing checks.");
 
     const hostname = window.location.hostname || new URL(window.location.href).hostname;
@@ -55,96 +259,71 @@ async function mainContentScriptInit() {
         hostname.includes('prisma.mediaocean.com') ||
         hostname.includes('go.demo.mediaocean.com');
     const isAura = hostname.includes('aura.mediaocean.com');
+    const isMediaoceanPage = hostname.includes('mediaocean.com');
+    const initialRoute = getDynamicRouteContext();
+    const initializedFeatureInstances = new WeakSet();
 
-    // Initialize features that should run once
-    window.statsCollector.initialize();
-    if (window.appLearnFeature) {
-        window.appLearnFeature.initialize();
+    function initializeFeature(feature, shouldInitialize) {
+        if (!shouldInitialize || !feature || typeof feature.initialize !== 'function') return;
+        if (initializedFeatureInstances.has(feature)) return;
+        initializedFeatureInstances.add(feature);
+        feature.initialize();
     }
-    if (window.helpGuidesLauncherFeature) {
-        window.helpGuidesLauncherFeature.initialize();
+
+    // Initialize global shell features only on Mediaocean pages.  Campaign,
+    // Actualise, and Orders features are started lazily for their matching
+    // route so dashboard/home tabs do not carry their listeners and observers.
+    if (isMediaoceanPage) {
+        window.statsCollector?.initialize?.();
+        initializeFeature(window.appLearnFeature, true);
+        initializeFeature(window.helpGuidesLauncherFeature, true);
+        window.statsCollector?.trackCampaignId?.(); // Initial call on page load
     }
+
     if (isPrismaLike && window.bannerUsernameFeature) {
-        window.bannerUsernameFeature.initialize();
-    }
-    window.statsCollector.trackCampaignId(); // Initial call on page load
-
-    // Placement counter is Prisma-only
-    if (isPrismaLike && window.placementCounterFeature) {
-        window.placementCounterFeature.initialize();
+        initializeFeature(window.bannerUsernameFeature, true);
     }
 
-    if (isPrismaLike && window.approverPastingFeature) {
-        window.approverPastingFeature.initialize();
-    }
+    // Placement, approvals, campaign chat, and campaign link controls only
+    // need to listen while a campaign workspace is open.
+    initializeFeature(window.placementCounterFeature, isPrismaLike && initialRoute.isCampaignWorkspace);
+    initializeFeature(window.approverPastingFeature, isPrismaLike && initialRoute.isCampaignWorkspace);
+    initializeFeature(window.autoCopyUrlFeature, (isPrismaLike || isAura) && initialRoute.isCampaignWorkspace);
+    initializeFeature(window.liveChatEnhancements, isPrismaLike && initialRoute.isCampaignWorkspace);
+    initializeFeature(window.campaignTabTitleFeature, isPrismaLike && initialRoute.isCampaignWorkspace);
 
     // Switch accounts is allowed on Prisma + Aura (gated by its own setting)
-    if ((isPrismaLike || isAura) && window.swapAccountsFeature) {
-        window.swapAccountsFeature.initialize();
-    }
+    initializeFeature(window.swapAccountsFeature, isPrismaLike || isAura);
 
-    // Auto-copy URL is allowed on Prisma + Aura (gated by its own setting)
-    if ((isPrismaLike || isAura) && window.autoCopyUrlFeature) {
-        window.autoCopyUrlFeature.initialize();
-    }
+    // The Orders sidebar is visible from the campaign Buy tab as well as
+    // Order Summary, so these two controls follow the whole campaign route.
+    initializeFeature(window.orderIdCopyFeature, isPrismaLike && initialRoute.isCampaignWorkspace);
+    initializeFeature(window.orderViewToggleFeature, isPrismaLike && initialRoute.isCampaignWorkspace);
+    initializeFeature(window.orderGridScrollSyncFeature, isPrismaLike && initialRoute.isOrderSummary);
 
-    // Order ID copy is Prisma-only
-    if (isPrismaLike && window.orderIdCopyFeature) {
-        window.orderIdCopyFeature.initialize();
-    }
-
-    if (isPrismaLike && window.orderViewToggleFeature) {
-        window.orderViewToggleFeature.initialize();
-    }
-
-    if (isPrismaLike && window.orderGridScrollSyncFeature) {
-        window.orderGridScrollSyncFeature.initialize();
-    }
-
-    if (isPrismaLike && window.actualiseScrollRestoreFeature) {
-        window.actualiseScrollRestoreFeature.initialize();
-    }
-
-    if (isPrismaLike && window.actualiseNavbarFeature) {
-        window.actualiseNavbarFeature.initialize();
-    }
-
-    if (isPrismaLike && window.actualiseShortcutFeature) {
-        window.actualiseShortcutFeature.initialize();
-    }
-
-    if (isPrismaLike && window.actualiseExportAllFeature) {
-        window.actualiseExportAllFeature.initialize();
-    }
-
-    if (isPrismaLike && window.maxCampaignBudgetFeature) {
-        window.maxCampaignBudgetFeature.initialize();
-    }
-
-    if (isPrismaLike && window.campaignTabTitleFeature) {
-        window.campaignTabTitleFeature.initialize();
-    }
+    initializeFeature(window.actualiseScrollRestoreFeature, isPrismaLike && initialRoute.isActualise);
+    initializeFeature(window.actualiseNavbarFeature, isPrismaLike && initialRoute.isActualise);
+    initializeFeature(window.actualiseShortcutFeature, isPrismaLike && initialRoute.isCampaignWorkspace);
+    initializeFeature(window.actualiseExportAllFeature, isPrismaLike && initialRoute.isActualise);
+    initializeFeature(window.maxCampaignBudgetFeature, isPrismaLike && initialRoute.isCampaignWorkspace);
 
     // Initialize Loading Facts Feature
-    if (isPrismaLike && window.loadingFactsFeature) {
-        window.loadingFactsFeature.initialize();
-    }
-
-    if (isPrismaLike && window.liveChatEnhancements) {
-        window.liveChatEnhancements.initialize();
-    }
+    initializeFeature(window.loadingFactsFeature, isPrismaLike);
 
     // Prisma: full enhancement set
     if (isPrismaLike && window.logoFeature.shouldReplaceLogoOnThisPage()) {
         await window.remindersFeature.fetchCustomReminders(); // Fetch initial set of custom reminders
         window.logoFeature.checkAndReplaceLogo();
         setTimeout(() => {
+            const route = getDynamicRouteContext();
             window.remindersFeature.checkForMetaConditions();
             window.remindersFeature.checkForIASConditions();
             window.remindersFeature.checkCustomReminders(); // Initial check for custom reminders
-            window.campaignFeature.handleCampaignManagementFeatures();
-            window.campaignFeature.handleAlwaysShowComments();
-            window.campaignFeature.handleCampaignNavigationOptimisation();
+            if (route.isCampaignWorkspace) {
+                window.campaignFeature.handleCampaignManagementFeatures();
+                if (route.isActualise) window.campaignFeature.handleAlwaysShowComments();
+                window.campaignFeature.handleCampaignNavigationOptimisation();
+            }
         }, 2000);
     // Aura: only logo replacement + popup reminders (custom or otherwise)
     } else if (isAura && window.logoFeature.shouldReplaceLogoOnThisPage()) {
@@ -191,7 +370,29 @@ async function mainContentScriptInit() {
         const route = getDynamicRouteContext();
 
         if (isPrismaLike) {
-            if (route.isBuy && window.orderViewToggleFeature) {
+            if (route.isCampaignWorkspace) {
+                initializeFeature(window.orderIdCopyFeature, true);
+                initializeFeature(window.orderViewToggleFeature, true);
+                initializeFeature(window.actualiseShortcutFeature, true);
+                initializeFeature(window.placementCounterFeature, true);
+                initializeFeature(window.approverPastingFeature, true);
+                initializeFeature(window.liveChatEnhancements, true);
+                initializeFeature(window.campaignTabTitleFeature, true);
+                initializeFeature(window.autoCopyUrlFeature, true);
+            }
+            if (route.isOrderSummary) {
+                initializeFeature(window.orderGridScrollSyncFeature, true);
+            }
+            if (route.isActualise) {
+                initializeFeature(window.actualiseScrollRestoreFeature, true);
+                initializeFeature(window.actualiseNavbarFeature, true);
+                initializeFeature(window.actualiseExportAllFeature, true);
+            }
+            if (route.isCampaignWorkspace) {
+                initializeFeature(window.maxCampaignBudgetFeature, true);
+            }
+
+            if (hasDirtyFeature('orders') && (route.isBuy || route.isOrderSummary) && window.orderViewToggleFeature) {
                 const hasNewOrderUi = window.orderViewToggleFeature.isNewOrderUi?.() === true;
                 const hasStaleOrderViewControls = Boolean(document.querySelector(
                     '.order-view-toggle, #cm-buy-sidebar-order-revisions-header.order-view-toggle-active'
@@ -200,45 +401,80 @@ async function mainContentScriptInit() {
                     window.orderViewToggleFeature.handleOrderViewToggle();
                 }
             }
-            if (route.isActualise && window.actualiseNavbarFeature) {
+            if (
+                hasDirtyFeature('actualise') &&
+                route.isCampaignWorkspace &&
+                window.actualiseNavbarFeature?.isInitialized?.()
+            ) {
                 window.actualiseNavbarFeature.apply();
             }
-            if (route.isCampaignWorkspace && window.actualiseShortcutFeature) {
+            if (hasDirtyFeature('actualise') && route.isCampaignWorkspace && window.actualiseShortcutFeature) {
                 window.actualiseShortcutFeature.apply();
             }
-            if (route.isActualise && window.actualiseExportAllFeature) {
+            if (hasDirtyFeature('actualise') && route.isActualise && window.actualiseExportAllFeature) {
                 window.actualiseExportAllFeature.apply();
             }
-            if (route.isCampaignWorkspace && window.maxCampaignBudgetFeature) {
+            if (hasDirtyFeature('campaign') && route.isCampaignWorkspace) {
+                window.campaignFeature?.syncPrintNavigationSections?.();
+            }
+            if (hasDirtyFeature('campaign') && route.isCampaignWorkspace && window.maxCampaignBudgetFeature) {
                 window.maxCampaignBudgetFeature.apply();
             }
         }
 
-        window.appLearnFeature?.applyTransparency();
-        window.helpGuidesLauncherFeature?.ensureLauncher();
+        if (hasDirtyFeature('shell')) {
+            window.appLearnFeature?.applyTransparency?.();
+            window.helpGuidesLauncherFeature?.ensureLauncher?.();
+        }
     }
 
     function runDeferredDynamicUiReconciliation() {
         const route = getDynamicRouteContext();
+        const reconciliationRevision = dirtyRevision;
+
+        if (isPrismaLike && route.isCampaignWorkspace) {
+            initializeFeature(window.placementCounterFeature, true);
+            initializeFeature(window.approverPastingFeature, true);
+            initializeFeature(window.liveChatEnhancements, true);
+            initializeFeature(window.campaignTabTitleFeature, true);
+            initializeFeature(window.autoCopyUrlFeature, true);
+            initializeFeature(window.orderIdCopyFeature, true);
+            initializeFeature(window.orderViewToggleFeature, true);
+        }
+        if (isPrismaLike && route.isOrderSummary) {
+            initializeFeature(window.orderGridScrollSyncFeature, true);
+        }
 
         if (isPrismaLike && window.logoFeature.shouldReplaceLogoOnThisPage()) {
-            window.logoFeature.checkAndReplaceLogo();
-            window.remindersFeature.checkForMetaConditions();
-            window.remindersFeature.checkForIASConditions();
-            window.remindersFeature.checkCustomReminders();
-
-            if (route.isCampaignWorkspace) {
-                window.campaignFeature.handleCampaignManagementFeatures();
-                if (route.isActualise) window.campaignFeature.handleAlwaysShowComments();
-                window.campaignFeature.handleCampaignNavigationOptimisation();
-                window.approverPastingFeature.handleApproverPasting();
-                window.approverPastingFeature.handleManageFavouritesButton();
-                window.approverPastingFeature.addRecipientHistoryControls();
-                window.gmiChatFeature.handleGmiChatButton();
-                window.placementCounterFeature?.checkSelection();
+            if (hasDirtyFeature('logo')) {
+                window.logoFeature.checkAndReplaceLogo();
+            }
+            if (hasDirtyFeature('reminders')) {
+                window.remindersFeature.checkForMetaConditions();
+                window.remindersFeature.checkForIASConditions();
+                window.remindersFeature.checkCustomReminders();
             }
 
-            if (route.isOrderSummary) {
+            if (route.isCampaignWorkspace) {
+                if (hasDirtyFeature('campaign')) {
+                    window.campaignFeature.handleCampaignManagementFeatures();
+                    if (route.isActualise) window.campaignFeature.handleAlwaysShowComments();
+                    window.campaignFeature.handleCampaignNavigationOptimisation();
+                }
+                if (hasDirtyFeature('approvals')) {
+                    window.approverPastingFeature?.handleApproverPasting?.();
+                    window.approverPastingFeature?.handleManageFavouritesButton?.();
+                    window.approverPastingFeature?.addRecipientHistoryControls?.();
+                }
+                if (hasDirtyFeature('chat')) {
+                    window.gmiChatFeature?.handleGmiChatButton?.();
+                }
+                if (hasDirtyFeature('placement')) {
+                    window.placementCounterFeature?.checkSelection();
+                }
+            }
+
+            if (hasDirtyFeature('orders') && route.isOrderSummary) {
                 window.orderGridScrollSyncFeature?.syncAll();
                 const hasNewOrderUi = window.orderViewToggleFeature?.isNewOrderUi?.() === true;
                 const hasStaleLegacyOrderIdControls = Boolean(document.querySelector('.order-id-copy-cell'));
@@ -249,15 +485,27 @@ async function mainContentScriptInit() {
                 }
             }
         } else if (isAura && window.logoFeature.shouldReplaceLogoOnThisPage()) {
-            window.logoFeature.checkAndReplaceLogo();
-            window.remindersFeature.checkForMetaConditions();
-            window.remindersFeature.checkForIASConditions();
-            window.remindersFeature.checkCustomReminders();
-            window.autoCopyUrlFeature?.handleAutoCopy();
+            if (hasDirtyFeature('logo')) {
+                window.logoFeature.checkAndReplaceLogo();
+            }
+            if (hasDirtyFeature('reminders')) {
+                window.remindersFeature.checkForMetaConditions();
+                window.remindersFeature.checkForIASConditions();
+            }
+            if (hasDirtyFeature('reminders') || hasDirtyFeature('autoCopy')) {
+                window.remindersFeature.checkCustomReminders();
+            }
+            if (hasDirtyFeature('autoCopy') && route.isCampaignWorkspace) {
+                window.autoCopyUrlFeature?.handleAutoCopy();
+            }
         }
+
+        clearDirtyFeaturesIfUnchanged(reconciliationRevision);
     }
 
     function scheduleDynamicUiReconciliation() {
+        if (!hasAnyDirtyFeatures()) return;
+
         if (!fastReconciliationQueued) {
             fastReconciliationQueued = true;
             scheduleFrame(() => {
@@ -276,11 +524,20 @@ async function mainContentScriptInit() {
         }
     }
 
-    const observer = new MutationObserver(function() {
-        handleUrlChange();
-        scheduleDynamicUiReconciliation();
+    scheduleDynamicUiReconciliationCallback = scheduleDynamicUiReconciliation;
+
+    const observer = new MutationObserver(function(mutations) {
+        const urlChanged = handleUrlChange();
+        const nativeMutationNeedsReconciliation = markDirtyFeaturesFromMutations(mutations);
+        if (urlChanged || nativeMutationNeedsReconciliation) {
+            scheduleDynamicUiReconciliation();
+        }
     });
     observer.observe(document.body, { childList: true, subtree: true });
+
+    // Run one initial pass so the dirty state is cleared before the observer
+    // begins filtering extension-owned DOM churn.
+    scheduleDynamicUiReconciliation();
 }
 
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {

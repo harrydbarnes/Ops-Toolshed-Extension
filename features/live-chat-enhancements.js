@@ -15,6 +15,7 @@
     let currentDirectMoeRoots = {
         bannerRoot: null,
         helpRoot: null,
+        widgetRoot: null,
         menu: null,
         menuRoot: null
     };
@@ -34,17 +35,26 @@
     }
 
     function getDirectMoeRoots() {
+        if (typeof document === 'undefined') {
+            return { bannerRoot: null, helpRoot: null, widgetRoot: null, menu: null, menuRoot: null };
+        }
         const banner = document.querySelector('mo-banner');
         const bannerRoot = banner?.shadowRoot || null;
         const helpMenu = bannerRoot?.querySelector('mo-banner-help-menu') || null;
         const helpRoot = helpMenu?.shadowRoot || null;
-        const menu = helpRoot?.querySelector('mo-menu') || null;
+        const helpWidget = helpRoot?.querySelector('mo-banner-widget') || null;
+        const widgetRoot = helpWidget?.shadowRoot || null;
+        const menu = widgetRoot?.querySelector('mo-menu') || helpRoot?.querySelector('mo-menu') || null;
         const menuRoot = menu?.shadowRoot || null;
-        return { bannerRoot, helpRoot, menu, menuRoot };
+        return { bannerRoot, helpRoot, widgetRoot, menu, menuRoot };
     }
 
     function findAiChatButton(roots = getDirectMoeRoots()) {
-        return findTextMatch(roots.menuRoot, 'button, [role="button"]', 'AI Chat');
+        for (const root of [roots.menu, roots.menuRoot]) {
+            const match = findTextMatch(root, 'button, [role="button"]', 'AI Chat');
+            if (match) return match;
+        }
+        return null;
     }
 
     function findHelpMenuTrigger() {
@@ -53,7 +63,7 @@
 
     function findConnectWithMoeItem() {
         const roots = getDirectMoeRoots();
-        for (const root of [document, roots.menuRoot, roots.helpRoot, roots.bannerRoot]) {
+        for (const root of [document, roots.menu, roots.menuRoot, roots.widgetRoot, roots.helpRoot, roots.bannerRoot]) {
             const match = findTextMatch(root, 'mo-menu-item', CONNECT_WITH_MOE_TEXT);
             if (match) return match;
         }
@@ -175,11 +185,13 @@
     }
 
     function refreshDirectMoeBindings() {
+        if (typeof document === 'undefined' || !document.documentElement) return false;
         const roots = getDirectMoeRoots();
         currentDirectMoeRoots = roots;
         observeDirectMoeRoot(document.documentElement);
         observeDirectMoeRoot(roots.bannerRoot);
         observeDirectMoeRoot(roots.helpRoot);
+        observeDirectMoeRoot(roots.widgetRoot);
         observeDirectMoeRoot(roots.menuRoot);
         bindDirectMoeButton(roots);
         return Boolean(boundAiChatButton?.isConnected);
@@ -198,14 +210,16 @@
     function mutationContainsMoeHost(node) {
         if (node?.nodeType !== 1) return false;
         return node.matches?.('mo-banner, mo-banner-help-menu, mo-menu') ||
-            Boolean(node.querySelector?.('mo-banner, mo-banner-help-menu, mo-menu'));
+            Boolean(node.querySelector?.('mo-banner, mo-banner-help-menu, mo-banner-widget, mo-menu'));
     }
 
     function handleDirectMoeMutations(records) {
+        if (typeof document === 'undefined' || !document.body) return;
         const addedNodes = records.flatMap(record => Array.from(record.addedNodes || []));
         const knownShadowRootChanged = records.some(record =>
             record.target === currentDirectMoeRoots.bannerRoot ||
             record.target === currentDirectMoeRoots.helpRoot ||
+            record.target === currentDirectMoeRoots.widgetRoot ||
             record.target === currentDirectMoeRoots.menuRoot
         );
         const relevantHostAdded = addedNodes.some(mutationContainsMoeHost);
@@ -240,6 +254,7 @@
             currentDirectMoeRoots = {
                 bannerRoot: null,
                 helpRoot: null,
+                widgetRoot: null,
                 menu: null,
                 menuRoot: null
             };

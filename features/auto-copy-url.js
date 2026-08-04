@@ -12,6 +12,28 @@
     const pendingCueRoots = new Set();
     let cueRefreshScheduled = false;
 
+    // Prisma renders the campaign link control through a small, known set of
+    // custom elements.  Keep discovery inside those hosts instead of walking
+    // every element on the page (and every unrelated Shadow DOM tree).
+    const KNOWN_CUE_HOST_SELECTOR = [
+        'mo-banner',
+        'mo-popover',
+        'mo-banner-widget',
+        'mo-icon[name="link"]',
+        'mo-input',
+        'input',
+        'mo-button.copy-button'
+    ].join(',');
+    const KNOWN_CUE_ELEMENT_SELECTOR = [
+        'mo-banner',
+        'mo-popover',
+        'mo-banner-widget',
+        'mo-icon[name="link"]',
+        'mo-input',
+        'input',
+        'mo-button.copy-button'
+    ].join(',');
+
     chrome.storage.onChanged.addListener((changes, area) => {
         if (area === 'sync' && changes.autoCopyUrlEnabled) {
             isEnabled = changes.autoCopyUrlEnabled.newValue !== false;
@@ -26,19 +48,49 @@
         return (element?.innerText || element?.textContent || '').replace(/\s+/g, ' ').trim();
     }
 
-    function queryAllDeep(root = document) {
+    function queryKnownDeep(selector, root = document) {
         const results = [];
-        const visit = (currentRoot) => {
-            if (!currentRoot?.querySelectorAll) return;
+        const seenRoots = new Set();
+        const seenElements = new Set();
 
-            currentRoot.querySelectorAll('*').forEach(element => {
+        const visit = currentRoot => {
+            if (!currentRoot || seenRoots.has(currentRoot)) return;
+            seenRoots.add(currentRoot);
+
+            if (currentRoot.nodeType === Node.ELEMENT_NODE && currentRoot.matches?.(selector)) {
+                seenElements.add(currentRoot);
+                results.push(currentRoot);
+            }
+
+            currentRoot.querySelectorAll?.(selector).forEach(element => {
+                if (seenElements.has(element)) return;
+                seenElements.add(element);
                 results.push(element);
-                if (element.shadowRoot) visit(element.shadowRoot);
+            });
+
+            if (currentRoot.shadowRoot) visit(currentRoot.shadowRoot);
+            currentRoot.querySelectorAll?.(KNOWN_CUE_HOST_SELECTOR).forEach(host => {
+                if (host.shadowRoot) visit(host.shadowRoot);
             });
         };
 
         visit(root);
         return results;
+    }
+
+    function queryAllDeep(root = document) {
+        return queryKnownDeep(KNOWN_CUE_ELEMENT_SELECTOR, root);
+    }
+
+    function isWithinPageLinkPopover(element) {
+        let current = element;
+        const visited = new Set();
+        while (current && !visited.has(current)) {
+            visited.add(current);
+            if (current.matches?.('mo-popover')) return true;
+            current = current.parentElement || current.getRootNode?.().host || null;
+        }
+        return false;
     }
 
     function waitForDeepElement(predicate, timeout = 5000, description = 'element') {
@@ -47,7 +99,7 @@
             const startedAt = Date.now();
 
             const interval = setInterval(() => {
-                const element = queryAllDeep().find(predicate);
+                const element = queryKnownDeep(KNOWN_CUE_ELEMENT_SELECTOR).find(predicate);
                 if (element) {
                     clearInterval(interval);
                     resolve(element);
@@ -122,7 +174,7 @@
                 return false;
             }
 
-            return queryAllDeep(element).some(descendant =>
+            return queryKnownDeep('mo-icon[name="link"]', element).some(descendant =>
                 descendant.tagName === 'MO-ICON' && descendant.getAttribute('name') === 'link'
             );
         });
@@ -132,7 +184,7 @@
 
     function registerLinkIcon(element) {
         if (element?.tagName !== 'MO-ICON' || element.getAttribute('name') !== 'link') return;
-        if (!element.closest?.('mo-popover')) return;
+        if (!isWithinPageLinkPopover(element)) return;
         linkIcons.add(element);
         element.classList.toggle('auto-copy-icon', isEnabled);
     }
@@ -142,8 +194,8 @@
         if (root.nodeType === Node.ELEMENT_NODE) registerLinkIcon(root);
         if (!root.querySelectorAll) return;
 
-        root.querySelectorAll('mo-icon[name="link"]').forEach(registerLinkIcon);
-        root.querySelectorAll('*').forEach(element => {
+        queryKnownDeep('mo-icon[name="link"]', root).forEach(registerLinkIcon);
+        root.querySelectorAll?.(KNOWN_CUE_HOST_SELECTOR).forEach(element => {
             if (element.shadowRoot) observeCueRoot(element.shadowRoot);
         });
         if (root.shadowRoot) observeCueRoot(root.shadowRoot);
@@ -153,7 +205,7 @@
         linkIcons.forEach(icon => {
             const isPageLinkIcon = icon.tagName === 'MO-ICON' &&
                 icon.getAttribute('name') === 'link' &&
-                icon.closest?.('mo-popover');
+                isWithinPageLinkPopover(icon);
             if (!icon.isConnected || !isPageLinkIcon) {
                 icon.classList.remove('auto-copy-icon');
                 linkIcons.delete(icon);
@@ -212,7 +264,7 @@
     }
 
     function findPageLinkValue() {
-        const pageLinkInput = queryAllDeep().find(element =>
+        const pageLinkInput = queryKnownDeep('mo-input, input').find(element =>
             (element.tagName === 'MO-INPUT' || element.tagName === 'INPUT') &&
             /^https:\/\/tiny\.mediaocean\.com\//i.test(element.value || element.getAttribute?.('value') || '')
         );
@@ -221,7 +273,7 @@
     }
 
     function findPageLinkPanel() {
-        const pageLinkInput = queryAllDeep().find(element =>
+        const pageLinkInput = queryKnownDeep('mo-input, input').find(element =>
             (element.tagName === 'MO-INPUT' || element.tagName === 'INPUT') &&
             /^https:\/\/tiny\.mediaocean\.com\//i.test(element.value || element.getAttribute?.('value') || '')
         );
@@ -229,7 +281,7 @@
 
         let candidate = pageLinkInput;
         while (candidate && candidate !== document.documentElement) {
-            const containsCopyButton = queryAllDeep(candidate).some(element =>
+            const containsCopyButton = queryKnownDeep('mo-button.copy-button', candidate).some(element =>
                 element.tagName === 'MO-BUTTON' &&
                 element.classList.contains('copy-button') &&
                 /^Copy$/i.test(getText(element))
@@ -302,10 +354,10 @@
     }
 
     function closePageLinkPopover() {
-        const linkIcon = queryAllDeep().find(element =>
+        const linkIcon = queryKnownDeep('mo-icon[name="link"]').find(element =>
             element.tagName === 'MO-ICON' &&
             element.getAttribute('name') === 'link' &&
-            element.closest?.('mo-popover')
+            isWithinPageLinkPopover(element)
         );
         if (!linkIcon) return;
 

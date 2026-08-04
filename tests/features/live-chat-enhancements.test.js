@@ -7,7 +7,7 @@ const script = fs.readFileSync(
     'utf8'
 );
 
-function setup({ directMoeChatEnabled = true, unrelatedShadowRoots = 0 } = {}) {
+function setup({ directMoeChatEnabled = true, unrelatedShadowRoots = 0, nestedMoeMenu = false } = {}) {
     const dom = new JSDOM('<!doctype html><html><head></head><body></body></html>', {
         runScripts: 'outside-only',
         url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/'
@@ -41,8 +41,17 @@ function setup({ directMoeChatEnabled = true, unrelatedShadowRoots = 0 } = {}) {
     const menuShadow = nativeMenu.attachShadow({ mode: 'open' });
     const aiChat = dom.window.document.createElement('button');
     aiChat.textContent = 'AI Chat';
-    menuShadow.appendChild(aiChat);
-    helpShadow.appendChild(nativeMenu);
+    let widgetShadow = null;
+    if (nestedMoeMenu) {
+        const widget = dom.window.document.createElement('mo-banner-widget');
+        widgetShadow = widget.attachShadow({ mode: 'open' });
+        widgetShadow.appendChild(nativeMenu);
+        nativeMenu.appendChild(aiChat);
+        helpShadow.appendChild(widget);
+    } else {
+        menuShadow.appendChild(aiChat);
+        helpShadow.appendChild(nativeMenu);
+    }
     bannerShadow.appendChild(helpMenu);
     dom.window.document.body.appendChild(banner);
 
@@ -61,6 +70,7 @@ function setup({ directMoeChatEnabled = true, unrelatedShadowRoots = 0 } = {}) {
         bannerShadow,
         helpShadow,
         menuShadow,
+        widgetShadow,
         connectItem
     };
 }
@@ -181,6 +191,27 @@ describe('Live chat enhancements', () => {
         replacementAiChat.click();
 
         expect(connect).toHaveBeenCalledTimes(1);
+        page.dom.window.close();
+    });
+
+    test('binds the nested Help widget layout and removes a delayed Moe introduction', async () => {
+        const page = setup({ nestedMoeMenu: true });
+        const connect = jest.fn();
+        page.connectItem.addEventListener('click', connect);
+
+        page.dom.window.liveChatEnhancements.initialize();
+        page.aiChat.click();
+
+        expect(connect).toHaveBeenCalledTimes(1);
+        expect(page.dom.window.document.body.classList).toContain('toolshed-opening-moe');
+
+        const delayedIntro = page.dom.window.document.createElement('div');
+        delayedIntro.id = 'pendo-base';
+        delayedIntro.textContent = 'Moe, your AI-powered support assistant. Select Connect with Moe to start chatting.';
+        page.dom.window.document.body.appendChild(delayedIntro);
+        await Promise.resolve();
+
+        expect(page.dom.window.document.getElementById('pendo-base')).toBeNull();
         page.dom.window.close();
     });
 

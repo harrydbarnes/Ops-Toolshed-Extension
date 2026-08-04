@@ -89,7 +89,11 @@ async function benchmarkCentralObserver() {
     window.orderIdCopyFeature = { initialize: () => {}, checkAndAddCopyButtons: () => work('checkAndAddCopyButtons') };
     window.orderViewToggleFeature = { initialize: () => {}, handleOrderViewToggle: () => work('handleOrderViewToggle') };
     window.actualiseScrollRestoreFeature = { initialize: () => {} };
-    window.actualiseNavbarFeature = { initialize: () => {}, apply: () => work('actualiseNavbarApply') };
+    window.actualiseNavbarFeature = {
+        initialize: () => {},
+        isInitialized: () => true,
+        apply: () => work('actualiseNavbarApply')
+    };
     window.actualiseShortcutFeature = { initialize: () => {}, apply: () => work('actualiseShortcutApply') };
     window.actualiseExportAllFeature = { initialize: () => {}, apply: () => work('actualiseExportApply') };
     window.maxCampaignBudgetFeature = { initialize: () => {}, apply: () => work('maxCampaignBudgetApply') };
@@ -127,6 +131,24 @@ async function benchmarkCentralObserver() {
     }
     if (!observerCallback) throw new Error('Content observer did not initialize.');
 
+    const flushScheduledWork = () => {
+        while (frames.size > 0) {
+            const queued = Array.from(frames.values());
+            frames.clear();
+            queued.forEach(callback => callback(performance.now()));
+        }
+        while (timers.size > 0) {
+            const queued = Array.from(timers.values());
+            timers.clear();
+            queued.forEach(task => task.callback());
+        }
+    };
+
+    // Drain the one-time initial pass before measuring observer work. This
+    // prevents its queued frame/timer flags from suppressing the first test
+    // mutation batch.
+    flushScheduledWork();
+
     // Exclude initialization work from the mutation-path measurement.
     Object.keys(counters).forEach(key => { counters[key] = 0; });
     timers.clear();
@@ -139,27 +161,50 @@ async function benchmarkCentralObserver() {
     const started = performance.now();
     for (let index = 0; index < iterations; index += 1) observerCallback(mutation);
 
-    while (frames.size > 0) {
-        const queued = Array.from(frames.values());
-        frames.clear();
-        queued.forEach(callback => callback(performance.now()));
-    }
-    while (timers.size > 0) {
-        const queued = Array.from(timers.values());
-        timers.clear();
-        queued.forEach(task => task.callback());
-    }
+    flushScheduledWork();
     const elapsedMs = performance.now() - started;
     const totalFeatureCalls = Object.values(counters).reduce((sum, count) => sum + count, 0);
+    const genericCalls = { ...counters };
+    const genericScheduledTimers = scheduledTimerCount;
+    const genericScheduledFrames = scheduledFrameCount;
+
+    // Measure extension-owned DOM churn separately. Dirty reconciliation should
+    // ignore these mutations because they cannot make native Prisma targets appear.
+    Object.keys(counters).forEach(key => { counters[key] = 0; });
+    timers.clear();
+    frames.clear();
+    scheduledTimerCount = 0;
+    scheduledFrameCount = 0;
+    const extensionNoiseNode = window.document.createElement('div');
+    extensionNoiseNode.className = 'toolshed-benchmark-noise';
+    const extensionMutation = [{
+        type: 'childList',
+        target: window.document.body,
+        addedNodes: [extensionNoiseNode]
+    }];
+    const extensionStarted = performance.now();
+    for (let index = 0; index < iterations; index += 1) observerCallback(extensionMutation);
+
+    flushScheduledWork();
+    const extensionNoiseElapsedMs = performance.now() - extensionStarted;
+    const extensionNoiseFeatureCalls = Object.values(counters).reduce((sum, count) => sum + count, 0);
+    const extensionNoiseScheduledTimers = scheduledTimerCount;
+    const extensionNoiseScheduledFrames = scheduledFrameCount;
 
     dom.window.close();
     return {
         mutationBatches: iterations,
         totalFeatureCalls,
-        scheduledTimers: scheduledTimerCount,
-        scheduledFrames: scheduledFrameCount,
+        scheduledTimers: genericScheduledTimers,
+        scheduledFrames: genericScheduledFrames,
         elapsedMs: Number(elapsedMs.toFixed(2)),
-        calls: counters
+        calls: genericCalls,
+        extensionNoise: {
+            totalFeatureCalls: extensionNoiseFeatureCalls,
+            scheduledTimers: extensionNoiseScheduledTimers,
+            scheduledFrames: extensionNoiseScheduledFrames,
+            elapsedMs: Number(extensionNoiseElapsedMs.toFixed(2))
+        }
     };
 }
 

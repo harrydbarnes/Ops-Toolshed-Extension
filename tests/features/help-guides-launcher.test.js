@@ -83,7 +83,7 @@ describe('Help Guides page launcher', () => {
         dom.window.close();
     });
 
-    test('adds one accessible translucent launcher and opens the side panel on click', () => {
+    test('adds one accessible translucent launcher and opens the side panel on click', async () => {
         const { dom } = createFeature();
         const { window } = dom;
 
@@ -103,6 +103,7 @@ describe('Help Guides page launcher', () => {
         expect(launcherStyles).toContain('white-space: nowrap');
         expect(launcherStyles).not.toContain('#ff4087');
         expect(launcherStyles).toContain('"Outfit"');
+        await Promise.resolve();
         buttons[0].click();
         expect(window.chrome.runtime.sendMessage).toHaveBeenCalledWith({ action: 'openHelpGuides' });
         dom.window.close();
@@ -127,6 +128,7 @@ describe('Help Guides page launcher', () => {
         window.helpGuidesLauncherFeature.initialize();
         const launcher = window.document.getElementById('toolshed-help-guides-launcher');
 
+        await Promise.resolve();
         launcher.click();
         await Promise.resolve();
         expect(window.helpGuidesLauncherFeature.isPanelOpen()).toBe(true);
@@ -144,6 +146,7 @@ describe('Help Guides page launcher', () => {
         window.helpGuidesLauncherFeature.initialize();
         window.chrome.runtime.sendMessage.mockClear();
 
+        await Promise.resolve();
         window.document.getElementById('toolshed-help-guides-launcher').click();
         await Promise.resolve();
 
@@ -163,6 +166,51 @@ describe('Help Guides page launcher', () => {
 
         expect(window.chrome.runtime.sendMessage).toHaveBeenLastCalledWith({ action: 'closeHelpGuidesFromLauncher' });
         expect(window.helpGuidesLauncherFeature.isPanelOpen()).toBe(false);
+        dom.window.close();
+    });
+
+    test('does not reopen the sidebar while a launcher close request is still settling', async () => {
+        const { dom } = createFeature({ panelInitiallyOpen: true });
+        const { window } = dom;
+        window.helpGuidesLauncherFeature.initialize();
+        await Promise.resolve();
+        window.chrome.runtime.sendMessage.mockClear();
+
+        let resolveClose;
+        window.chrome.runtime.sendMessage.mockImplementation(({ action }) => {
+            if (action === 'closeHelpGuidesFromLauncher') {
+                return new Promise(resolve => {
+                    resolveClose = resolve;
+                });
+            }
+            return Promise.resolve({ status: 'success', panelState: 'open' });
+        });
+
+        const launcher = window.document.getElementById('toolshed-help-guides-launcher');
+        launcher.click();
+        launcher.click();
+
+        const actions = window.chrome.runtime.sendMessage.mock.calls.map(([message]) => message.action);
+        expect(actions).toEqual(['closeHelpGuidesFromLauncher']);
+
+        resolveClose({ status: 'success', panelState: 'closed' });
+        await Promise.resolve();
+        expect(window.helpGuidesLauncherFeature.isPanelOpen()).toBe(false);
+        dom.window.close();
+    });
+
+    test('does not expose a stale open action while the initial panel state is pending', async () => {
+        const { dom } = createFeature({ panelInitiallyOpen: true });
+        const { window } = dom;
+        window.helpGuidesLauncherFeature.initialize();
+        const launcher = window.document.getElementById('toolshed-help-guides-launcher');
+
+        launcher.click();
+        await Promise.resolve();
+
+        expect(window.chrome.runtime.sendMessage).toHaveBeenLastCalledWith({ action: 'getHelpGuidesPanelState' });
+        launcher.click();
+        expect(window.chrome.runtime.sendMessage).toHaveBeenLastCalledWith({ action: 'closeHelpGuidesFromLauncher' });
         dom.window.close();
     });
 

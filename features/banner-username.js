@@ -9,6 +9,17 @@
     const ORIGINAL_LEFT_ATTRIBUTE = 'data-ops-toolshed-original-account-left';
     const DISCOVERY_TIMEOUT_MS = 2500;
     const ORGANISATION_CODE_PATTERN = /^[a-z0-9._-]+$/i;
+    // The banner is composed from these known custom-element hosts.  Restrict
+    // recursive discovery to them so unrelated page components and Shadow DOM
+    // trees are never scanned while resolving the account label.
+    const KNOWN_BANNER_HOST_SELECTOR = [
+        'mo-banner',
+        'mo-banner-user-menu',
+        'mo-banner-sub-context-menu',
+        'mo-banner-widget',
+        'mo-menu',
+        'mo-popover'
+    ].join(',');
 
     let isEnabled = true;
     let settingsLoaded = false;
@@ -29,30 +40,56 @@
     const overlayObservers = new Map();
     let lifecycleApplyScheduled = false;
 
-    function queryAllDeep(root = document) {
-        const results = [];
+    function getKnownBannerRoots(root = document) {
+        const roots = [];
+        const visited = new Set();
+
         const visit = currentRoot => {
-            if (!currentRoot?.querySelectorAll) return;
-            currentRoot.querySelectorAll('*').forEach(element => {
-                results.push(element);
-                if (element.shadowRoot) visit(element.shadowRoot);
+            if (!currentRoot || visited.has(currentRoot)) return;
+            visited.add(currentRoot);
+            roots.push(currentRoot);
+
+            if (currentRoot.shadowRoot) visit(currentRoot.shadowRoot);
+            currentRoot.querySelectorAll?.(KNOWN_BANNER_HOST_SELECTOR).forEach(host => {
+                if (host.shadowRoot) visit(host.shadowRoot);
             });
         };
+
         visit(root);
+        return roots;
+    }
+
+    function queryKnownDeep(selector, root = document) {
+        for (const currentRoot of getKnownBannerRoots(root)) {
+            const directMatch = currentRoot.nodeType === Node.ELEMENT_NODE &&
+                currentRoot.matches?.(selector)
+                ? currentRoot
+                : currentRoot.querySelector?.(selector);
+            if (directMatch) return directMatch;
+        }
+        return null;
+    }
+
+    function queryAllKnownDeep(selector, root = document) {
+        const results = [];
+        const seenElements = new Set();
+        getKnownBannerRoots(root).forEach(currentRoot => {
+            if (currentRoot.nodeType === Node.ELEMENT_NODE && currentRoot.matches?.(selector) &&
+                !seenElements.has(currentRoot)) {
+                seenElements.add(currentRoot);
+                results.push(currentRoot);
+            }
+            currentRoot.querySelectorAll?.(selector).forEach(element => {
+                if (seenElements.has(element)) return;
+                seenElements.add(element);
+                results.push(element);
+            });
+        });
         return results;
     }
 
     function findDeep(selector, root = document) {
-        if (!root?.querySelector) return null;
-        const directMatch = root.querySelector(selector);
-        if (directMatch) return directMatch;
-
-        for (const element of root.querySelectorAll('*')) {
-            if (!element.shadowRoot) continue;
-            const shadowMatch = findDeep(selector, element.shadowRoot);
-            if (shadowMatch) return shadowMatch;
-        }
-        return null;
+        return queryKnownDeep(selector, root);
     }
 
     function parseUsername(value) {
@@ -130,7 +167,10 @@
     }
 
     function readUsernameFromMenu() {
-        const usernameElement = findDeep('#mo-user-name');
+        const { menuTrigger } = getBannerParts();
+        const overlayId = menuTrigger?.getAttribute('aria-controls');
+        const controlledOverlay = overlayId ? document.getElementById(overlayId) : null;
+        const usernameElement = findDeep('#mo-user-name', controlledOverlay || document);
         if (!usernameElement) return null;
         return parseUsername(
             usernameElement.getAttribute('data-full-text') || usernameElement.textContent
@@ -208,7 +248,7 @@
     }
 
     function restoreAccountLabels() {
-        queryAllDeep().forEach(element => {
+        queryAllKnownDeep(`.user-company-name[${ORIGINAL_LABEL_ATTRIBUTE}]`).forEach(element => {
             if (!element.matches?.(`.user-company-name[${ORIGINAL_LABEL_ATTRIBUTE}]`)) return;
             element.textContent = element.getAttribute(ORIGINAL_LABEL_ATTRIBUTE) || '';
             const originalMinWidth = element.getAttribute(ORIGINAL_MIN_WIDTH_ATTRIBUTE) || '';
@@ -280,12 +320,15 @@
     }
 
     function getObservableRoots() {
-        if (typeof document === 'undefined' || !document.documentElement) return [];
-        const roots = [document.documentElement];
-        queryAllDeep().forEach(element => {
-            if (element.shadowRoot) roots.push(element.shadowRoot);
-        });
-        return roots.filter(Boolean);
+        if (typeof document === 'undefined' || !document.body) return [];
+        const roots = [document.body];
+        const { userMenu } = getBannerParts();
+        if (userMenu) roots.push(userMenu.shadowRoot || userMenu);
+        const { menuTrigger } = getBannerParts();
+        const overlayId = menuTrigger?.getAttribute('aria-controls');
+        const overlay = overlayId ? document.getElementById(overlayId) : null;
+        if (overlay) roots.push(overlay.shadowRoot || overlay);
+        return [...new Set(roots.filter(Boolean))];
     }
 
     function getBannerLifecycleRoots() {
@@ -293,11 +336,7 @@
         const { userMenu } = getBannerParts();
         if (!userMenu) return [];
         const menuRoot = userMenu.shadowRoot || userMenu;
-        const roots = [menuRoot];
-        queryAllDeep(menuRoot).forEach(element => {
-            if (element.shadowRoot) roots.push(element.shadowRoot);
-        });
-        return roots;
+        return getKnownBannerRoots(menuRoot);
     }
 
     function scheduleLifecycleApply() {
@@ -356,12 +395,15 @@
         observeControlledAccountOverlay();
     }
 
-    function addedTreeContainsUserMenu(node) {
+    function addedTreeContainsBannerParts(node) {
         if (node?.nodeType !== Node.ELEMENT_NODE) return false;
-        if (node.matches?.('mo-banner-user-menu')) return true;
+        if (node.matches?.(
+            'mo-banner, mo-banner-user-menu, mo-banner-sub-context-menu, mo-menu, .user-company-name, .user-menu-label'
+        )) return true;
         return Boolean(
             findDeep('mo-banner-user-menu', node) ||
-            (node.shadowRoot && findDeep('mo-banner-user-menu', node.shadowRoot))
+            findDeep('.user-company-name', node) ||
+            findDeep('mo-menu', node)
         );
     }
 
@@ -372,10 +414,10 @@
             let bannerWasAdded = false;
             records.forEach(record => {
                 Array.from(record.addedNodes || []).forEach(node => {
-                    if (addedTreeContainsUserMenu(node)) bannerWasAdded = true;
+                    if (addedTreeContainsBannerParts(node)) bannerWasAdded = true;
                     if (node?.nodeType !== Node.ELEMENT_NODE) return;
                     if (node.shadowRoot) observeBannerDiscoveryRoot(node.shadowRoot);
-                    node.querySelectorAll?.('*').forEach(element => {
+                    node.querySelectorAll?.(KNOWN_BANNER_HOST_SELECTOR).forEach(element => {
                         if (element.shadowRoot) observeBannerDiscoveryRoot(element.shadowRoot);
                     });
                 });
@@ -386,7 +428,7 @@
         });
         observer.observe(root, { childList: true, subtree: true });
         bannerDiscoveryObservers.set(root, observer);
-        root.querySelectorAll('*').forEach(element => {
+        root.querySelectorAll(KNOWN_BANNER_HOST_SELECTOR).forEach(element => {
             if (element.shadowRoot) observeBannerDiscoveryRoot(element.shadowRoot);
         });
     }

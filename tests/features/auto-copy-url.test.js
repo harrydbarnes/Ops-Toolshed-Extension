@@ -196,4 +196,30 @@ describe('Auto Copy Campaign URL Feature', () => {
         expect(icon.classList).not.toContain('auto-copy-icon');
         expect(window.autoCopyUrlFeature._test.getTrackedLinkIconCount()).toBe(0);
     });
+
+    test('discovers link icons through known Prisma hosts without traversing unrelated Shadow DOM', async () => {
+        setupDom(true);
+        const pageScan = jest.spyOn(document.documentElement, 'querySelectorAll');
+
+        const nestedPopover = document.createElement('mo-popover');
+        const nestedShadow = nestedPopover.attachShadow({ mode: 'open' });
+        const nestedIcon = document.createElement('mo-icon');
+        nestedIcon.setAttribute('name', 'link');
+        nestedShadow.appendChild(nestedIcon);
+        document.querySelector('mo-banner').appendChild(nestedPopover);
+
+        const unrelatedHost = document.createElement('div');
+        const unrelatedShadow = unrelatedHost.attachShadow({ mode: 'open' });
+        const unrelatedIcon = document.createElement('mo-icon');
+        unrelatedIcon.setAttribute('name', 'link');
+        unrelatedShadow.appendChild(unrelatedIcon);
+        document.body.appendChild(unrelatedHost);
+
+        await Promise.resolve();
+        jest.runOnlyPendingTimers();
+
+        expect(nestedIcon.classList).toContain('auto-copy-icon');
+        expect(unrelatedIcon.classList).not.toContain('auto-copy-icon');
+        expect(pageScan).not.toHaveBeenCalledWith('*');
+    });
 });
