@@ -84,6 +84,10 @@ describe('Live chat enhancements', () => {
         const nativeAiAction = jest.fn();
         const openMenu = jest.fn(() => nativeMenu.setAttribute('aria-expanded', 'true'));
         const connect = jest.fn();
+        const loadingFactSuppression = jest.fn();
+        dom.window.document.addEventListener('toolshed-loading-fact-suppression', event => {
+            loadingFactSuppression(event.detail);
+        });
         aiChat.addEventListener('click', nativeAiAction);
         nativeMenu.addEventListener('click', openMenu);
         connectItem.addEventListener('click', connect);
@@ -101,8 +105,10 @@ describe('Live chat enhancements', () => {
         expect(connect).toHaveBeenCalledTimes(1);
         expect(dom.window.document.getElementById('pendo-base')).toBeNull();
         expect(dom.window.document.body.classList).toContain('toolshed-opening-moe');
+        expect(loadingFactSuppression).toHaveBeenCalledWith({ active: true });
         jest.advanceTimersByTime(500);
         expect(dom.window.document.body.classList).not.toContain('toolshed-opening-moe');
+        expect(loadingFactSuppression).toHaveBeenLastCalledWith({ active: false });
         dom.window.close();
     });
 

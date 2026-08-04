@@ -286,6 +286,14 @@
                     }
                 }
             });
+            document.addEventListener('toolshed-loading-fact-suppression', event => {
+                if (event.detail?.active !== true) return;
+                this.cancelCampaignEndTimer();
+                this.intersectionObserver?.disconnect?.();
+                this.observedSpinner = null;
+                this.isIntersecting = false;
+                this.hideToast({ force: true });
+            });
         }
 
         async initialize() {
@@ -340,11 +348,15 @@
             }
             let current = element;
             while (current) {
-                if (current.matches?.('mo-side-panel')) return true;
+                if (current.matches?.('mo-side-panel, .workflow-widget-wrapper')) return true;
                 const root = current.getRootNode?.();
                 current = current.parentElement || root?.host || null;
             }
             return false;
+        }
+
+        isLoadingFactSuppressed() {
+            return Boolean(document.body?.classList?.contains('toolshed-opening-moe'));
         }
 
         cancelCampaignEndTimer() {
@@ -447,6 +459,18 @@
                     return;
                 }
 
+                // Direct Moe opens a native support surface that can expose a
+                // short-lived page spinner. It is not Prisma work, so do not
+                // show or retain a Loading Fact for that hand-off.
+                if (this.isLoadingFactSuppressed()) {
+                    this.cancelCampaignEndTimer();
+                    this.intersectionObserver.disconnect();
+                    this.observedSpinner = null;
+                    this.isIntersecting = false;
+                    this.hideToast({ force: true });
+                    return;
+                }
+
                 const state = this.latestLoadingState || window.loadingMonitor?.getState?.();
                 const visibleSpinners = state?.visibleSpinners || window.utils.findVisibleLoadingSpinners();
                 const spinner = state
@@ -458,7 +482,7 @@
 
                 // Side-panel work (for example submitting a campaign for approval)
                 // is intentionally excluded from loading facts.
-                if (hasSidePanelSpinner) {
+                if (hasSidePanelSpinner && !spinner) {
                     this.cancelCampaignEndTimer();
                     this.intersectionObserver.disconnect();
                     this.observedSpinner = null;
@@ -559,6 +583,10 @@
         }
 
         async showToast(spinner) {
+            if (this.isLoadingFactSuppressed()) {
+                this.hideToast({ force: true });
+                return;
+            }
             if (document.getElementById(this.toastId) || this.pendingShow || !spinner) return;
 
             this.pendingShow = true;
@@ -570,6 +598,7 @@
                 !this.isEnabled ||
                 !this.isIntersecting ||
                 spinner !== this.observedSpinner ||
+                this.isLoadingFactSuppressed() ||
                 this.isInsideSidePanel(spinner) ||
                 !spinner.isConnected ||
                 !this.isElementVisible(spinner) ||

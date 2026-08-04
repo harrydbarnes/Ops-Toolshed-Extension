@@ -233,6 +233,23 @@ function persistOpenHelpGuideTabs() {
     });
 }
 
+async function getLiveHelpGuidesPanelState(tabId) {
+    if (typeof chrome.runtime?.getContexts !== 'function' || !tabId) return null;
+    try {
+        const contexts = await chrome.runtime.getContexts({
+            contextTypes: ['SIDE_PANEL'],
+            tabIds: [tabId]
+        });
+        if (!Array.isArray(contexts)) return null;
+        const panelUrl = chrome.runtime.getURL('help-guides.html');
+        return contexts.some(context =>
+            context.documentUrl === panelUrl || context.documentUrl?.startsWith(`${panelUrl}?`)
+        );
+    } catch {
+        return null;
+    }
+}
+
 async function getHelpGuidesPanelState(request, sender, sendResponse) {
     const tabId = sender?.tab?.id;
     if (!tabId) {
@@ -244,18 +261,11 @@ async function getHelpGuidesPanelState(request, sender, sendResponse) {
     const storedTabIds = stored?.[OPEN_HELP_GUIDE_TABS_KEY] || [];
     storedTabIds.forEach(storedTabId => openHelpGuideTabs.add(storedTabId));
 
-    if (typeof chrome.runtime?.getContexts === 'function') {
-        const contexts = await chrome.runtime.getContexts({
-            contextTypes: ['SIDE_PANEL'],
-            tabIds: [tabId]
-        });
-        if (Array.isArray(contexts)) {
-            const panelUrl = chrome.runtime.getURL('help-guides.html');
-            const isOpen = contexts.some(context => context.documentUrl === panelUrl || context.documentUrl?.startsWith(`${panelUrl}?`));
-            if (isOpen) openHelpGuideTabs.add(tabId);
-            else openHelpGuideTabs.delete(tabId);
-            await persistOpenHelpGuideTabs();
-        }
+    const liveState = await getLiveHelpGuidesPanelState(tabId);
+    if (typeof liveState === 'boolean') {
+        if (liveState) openHelpGuideTabs.add(tabId);
+        else openHelpGuideTabs.delete(tabId);
+        await persistOpenHelpGuideTabs();
     }
     sendResponse({ status: 'success', open: openHelpGuideTabs.has(tabId) });
 }
@@ -341,6 +351,12 @@ export async function handleHelpGuidesPanelEvent(info, isOpen) {
         const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
         tabId = activeTab?.id;
     }
+    // Chrome can deliver an old close event after a replacement panel has
+    // already opened. Reconcile close events against the live context before
+    // publishing state, otherwise the launcher briefly believes the panel is
+    // closed and the next click refreshes it instead of closing it.
+    const liveState = !isOpen ? await getLiveHelpGuidesPanelState(tabId) : null;
+    if (liveState === true) isOpen = true;
     await setHelpGuidesPanelState(tabId, isOpen);
 }
 

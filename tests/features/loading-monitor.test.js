@@ -92,4 +92,23 @@ describe('shared Prisma loading monitor', () => {
         expect(state.visibleSpinners).toEqual([candidate]);
         dom.window.close();
     });
+
+    test('allocates approver workflow spinners to the side-panel bucket', () => {
+        const dom = new JSDOM('<!doctype html><html><body><div class="workflow-widget-wrapper"><mo-spinner></mo-spinner></div></body></html>', {
+            runScripts: 'outside-only',
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/'
+        });
+        const { window } = dom;
+        window.requestAnimationFrame = callback => callback();
+        window.eval(utilsCode);
+        window.eval(monitorCode);
+        const spinner = window.document.querySelector('mo-spinner');
+        spinner.getBoundingClientRect = () => ({ left: 0, top: 0, right: 40, bottom: 40, width: 40, height: 40 });
+
+        const state = window.loadingMonitor.refreshNow();
+
+        expect(state.pageVisibleSpinners).toEqual([]);
+        expect(state.sidePanelVisibleSpinners).toEqual([spinner]);
+        dom.window.close();
+    });
 });

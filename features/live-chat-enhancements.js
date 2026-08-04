@@ -7,6 +7,7 @@
     const MOE_INTRO_TEXT = 'AI-powered support assistant';
     const CONNECT_WITH_MOE_TEXT = 'Connect with Moe';
     const OPEN_MOE_EVENT = 'ops-toolshed-open-moe';
+    const LOADING_FACT_SUPPRESSION_EVENT = 'toolshed-loading-fact-suppression';
     let directMoeChatEnabled = true;
     let directMoeSettingsRequested = false;
     let directMoeStorageListenerBound = false;
@@ -106,7 +107,12 @@
     function finishDirectMoeHandoff() {
         clearTimeout(connectRetryTimer);
         connectRetryTimer = null;
-        window.setTimeout(() => document.body.classList.remove(DIRECT_MOE_BODY_CLASS), 500);
+        window.setTimeout(() => {
+            document.body.classList.remove(DIRECT_MOE_BODY_CLASS);
+            document.dispatchEvent(new CustomEvent(LOADING_FACT_SUPPRESSION_EVENT, {
+                detail: { active: false }
+            }));
+        }, 500);
     }
 
     function handleDirectMoeHover(event) {
@@ -151,6 +157,9 @@
         clearTimeout(connectRetryTimer);
         injectDirectMoeStyles();
         document.body.classList.add(DIRECT_MOE_BODY_CLASS);
+        document.dispatchEvent(new CustomEvent(LOADING_FACT_SUPPRESSION_EVENT, {
+            detail: { active: true }
+        }));
         dismissMoeIntroduction();
 
         const helpMenu = findHelpMenuTrigger();

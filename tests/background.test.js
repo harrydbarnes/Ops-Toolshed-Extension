@@ -860,6 +860,21 @@ describe('Help Guides native side panel lifecycle', () => {
         });
         expect(chrome.storage.session.__getStore().openHelpGuideTabIds).toEqual([]);
     });
+
+    test('does not let a stale close event hide a still-open Help Guides panel', async () => {
+        chrome.runtime.getContexts.mockResolvedValue([{
+            contextType: 'SIDE_PANEL',
+            tabId: 42,
+            documentUrl: 'mock-url/help-guides.html'
+        }]);
+        await chrome.sidePanel.onClosed.listener({ path: 'help-guides.html', tabId: 42, windowId: 7 });
+
+        expect(chrome.tabs.sendMessage).toHaveBeenLastCalledWith(42, {
+            action: 'helpGuidesPanelState',
+            open: true
+        });
+        expect(chrome.storage.session.__getStore().openHelpGuideTabIds).toEqual([42]);
+    });
 });
 
 describe('account-switch return URL storage', () => {
