@@ -31,10 +31,11 @@ describe('Mediaocean frame execution boundary', () => {
 
     test('stops page-level content orchestration before it starts in child frames', () => {
         const frameGuard = 'if (window.top !== window.self) return;';
+        const routeListener = "window.addEventListener('hashchange', handleUrlChange);";
 
         expect(contentScript).toContain(frameGuard);
         expect(contentScript.indexOf(frameGuard)).toBeLessThan(
-            contentScript.indexOf('setInterval(() =>')
+            contentScript.indexOf(routeListener)
         );
         expect(contentScript.indexOf(frameGuard)).toBeLessThan(
             contentScript.indexOf('new MutationObserver')

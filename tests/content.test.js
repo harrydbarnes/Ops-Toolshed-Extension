@@ -354,7 +354,7 @@ describe('Content Script Main Logic', () => {
         expect(window.orderViewToggleFeature.handleOrderViewToggle).toHaveBeenCalledTimes(1);
     });
 
-    test('cleans campaign budget styles immediately when the URL changes to the dashboard', () => {
+    test('cleans campaign budget styles immediately when the SPA URL changes to the dashboard', () => {
         const { window, document, intervalCallbacks } = setupJSDOM(
             'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-buy&route=actualize',
             false
@@ -369,13 +369,9 @@ describe('Content Script Main Logic', () => {
             '',
             '#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns'
         );
-        const urlWatcher = intervalCallbacks.find(callback =>
-            typeof callback === 'function' &&
-            callback.toString().includes('currentUrlForDismissFlags')
-        );
-        expect(urlWatcher).toEqual(expect.any(Function));
-        urlWatcher();
+        window.dispatchEvent(new window.Event('popstate'));
 
+        expect(intervalCallbacks).toHaveLength(0);
         expect(document.getElementById('optimised-budget-styles')).toBeNull();
     });
 

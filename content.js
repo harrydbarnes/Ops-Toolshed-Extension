@@ -12,16 +12,22 @@
 // Reminder-related functions are now in features/reminders.js
 
 let currentUrlForDismissFlags = window.location.href;
-setInterval(() => {
-    if (currentUrlForDismissFlags !== window.location.href) {
-        console.log("[ContentScript Prisma] URL changed, reminder dismissal flags reset.");
-        window.remindersFeature.resetReminderDismissalFlags();
-        window.campaignFeature.resetCampaignFlags();
-        window.campaignFeature.handleCampaignNavigationOptimisation();
-        window.statsCollector.trackCampaignId(); // Centralized call
-        currentUrlForDismissFlags = window.location.href;
-    }
-}, 500);
+function handleUrlChange() {
+    if (currentUrlForDismissFlags === window.location.href) return;
+
+    console.log("[ContentScript Prisma] URL changed, reminder dismissal flags reset.");
+    window.remindersFeature.resetReminderDismissalFlags();
+    window.campaignFeature.resetCampaignFlags();
+    window.campaignFeature.handleCampaignNavigationOptimisation();
+    window.statsCollector.trackCampaignId(); // Centralized call
+    currentUrlForDismissFlags = window.location.href;
+}
+
+// Prisma's SPA changes normally arrive with one of these navigation events.
+// The central DOM observer also calls handleUrlChange below for replaceState-style
+// transitions that do not emit a browser navigation event.
+window.addEventListener('hashchange', handleUrlChange);
+window.addEventListener('popstate', handleUrlChange);
 
 // D-Number search, GMI chat, and other features will be extracted.
 // For now, their functions are removed and will be replaced by calls to the new modules.
@@ -271,6 +277,7 @@ async function mainContentScriptInit() {
     }
 
     const observer = new MutationObserver(function() {
+        handleUrlChange();
         scheduleDynamicUiReconciliation();
     });
     observer.observe(document.body, { childList: true, subtree: true });
