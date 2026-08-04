@@ -301,6 +301,207 @@ function showConfirmationPopup({ title, message, confirmText, cancelText, onConf
 const syncedToggleInputs = new Map();
 let settingsPageInitialized = false;
 
+// Kept with the setting identifiers so the copy remains accurate when a setting is renamed.
+// The preview is a compact, illustrative Prisma window rather than a captured user campaign.
+const FEATURE_SETTING_PREVIEWS = {
+    uiThemeSegmented: ['Popup UI theme', 'Choose the pink or black presentation used by the extension popup.', 'Popup'],
+    logoToggle: ['Replace Prisma Logo', 'Swaps the standard Prisma mark for the selected Toolshed logo treatment.', 'Prisma header'],
+    appLearnReplaceToggle: ['Translucent AppLearn Logo', 'Makes the AppLearn logo less visually dominant while keeping it recognisable.', 'AppLearn'],
+    bannerUsernameToggle: ['Prisma banner username', 'Shows the signed-in Mediaocean username in the Prisma banner.', 'Hello, Alex'],
+    metaFinanceToolSegmented: ['Meta finance tool', 'Selects whether the popup opens Booking Checker or the legacy Billing Check workflow.', 'Booking Checker'],
+    loadingFactsToggle: ['Loading Facts', 'Shows a useful fact while Prisma is processing an Actualise action.', 'Did you know?'],
+    helpGuidesToggle: ['Help Guides launcher', 'Adds a draggable launcher that opens searchable Prisma help guides.', 'Help Guides'],
+    countPlacementsSelectedToggle: ['Count Placements Selected', 'Displays the number of selected placement rows beside Prisma’s selection tools.', '12 selected'],
+    approverSidebarEnhancementsToggle: ['Approver Sidebar Enhancements', 'Makes the Approver sidebar easier to scan and use during approval workflows.', 'Approvers'],
+    actualiseBulkExportToggle: ['Actualise bulk export', 'Exports each visible Actualise month and combines the results into one CSV-ready file.', 'Export all months'],
+    campaignTabTitleToggle: ['Campaign tab title', 'Uses the active campaign name as the browser tab title.', 'Spring Launch | Prisma'],
+    ordersShortcutToggle: ['Orders shortcut', 'Adds an Orders shortcut to the campaign navigation menu.', 'Orders'],
+    actualiseShortcutToggle: ['Actualise shortcut', 'Adds a shortcut that opens the current Actualise month directly.', 'Actualise'],
+    actualiseNavbarToggle: ['Actualise navigation bar', 'Keeps Prisma’s main Plan, Buy, Traffic, Analyse and Orders navigation visible in Actualise.', 'Plan  Buy  Orders'],
+    quickCampaignActionsToggle: ['Quick campaign actions', 'Adds quick details, copy campaign and history actions to campaign pages.', 'Copy campaign'],
+    campaignNameQuickCopyToggle: ['Campaign name copy', 'Adds a one-click copy action for the campaign name.', 'Campaign name copied'],
+    campaignHeaderQuickCopyToggle: ['Campaign header copy', 'Adds copy actions for the campaign ID and CL, PR and CA references.', 'ID copied'],
+    campaignDateShortcutToggle: ['Campaign dates shortcut', 'Adds a direct shortcut for editing campaign dates.', 'Edit dates'],
+    orderIdCopyToggle: ['Order ID copy', 'Lets you click an Order ID in the new Orders sidebar to copy it.', 'Order ID copied'],
+    maxCampaignBudgetToggle: ['Max Campaign Budget', 'Calculates a safe maximum campaign budget from the live billable response or a validated projection.', 'Max budget'],
+    swapAccountsToggle: ['Switch Accounts', 'Adds a faster account-switch action where it is useful in Prisma.', 'Switch account'],
+    autoCopyUrlToggle: ['Auto Copy Campaign URL', 'Copies the current campaign URL when you open a campaign.', 'URL copied'],
+    autoCopyUrlModeSegmented: ['URL format', 'Choose a short shareable campaign URL or the full address.', 'Short URL'],
+    addCampaignShortcutToggle: ['Add Campaign shortcut', 'Automatically opens Enter Full Details after choosing Add Campaign.', 'Enter Full Details'],
+    hidingSectionsToggle: ['Hide unused Add Campaign sections', 'Reduces visual noise by hiding sections that are not needed when adding a campaign.', 'Focused form'],
+    automateFormFieldsToggle: ['Automate form fields', 'Preselects the Budget type and Media mix fields during campaign creation.', 'Fields selected'],
+    rememberAccountSwitchUrlToggle: ['Restore page after account switch', 'Returns you to the Prisma page you were viewing after a new account has loaded.', 'Back to campaign'],
+    approverWidgetPlacementToggle: ['Approver Widget placement', 'Places the Approver Widget in the clearest campaign-page position.', 'Approver Widget'],
+    budgetWidgetOptimisedToggle: ['Budget widget', 'Improves the placement and visibility of the campaign budget widget.', 'Budget summary'],
+    newOrderUiOptimisationToggle: ['New Order UI', 'Applies the extension’s layout improvements to Prisma’s newer Orders interface.', 'Orders workspace'],
+    seeCommentsOnLockedBuysToggle: ['Comments on locked Buys', 'Keeps comments visible when a Buy is locked.', 'Comments'],
+    gmiChatShortcutToggle: ['GMI Chat shortcut', 'Adds a direct shortcut to the GMI chat workflow.', 'Open GMI Chat'],
+    fontSizeToggle: ['Smaller Chat Font', 'Uses a more compact font size in the live chat window.', 'Compact chat'],
+    resizableChatToggle: ['Resizable Chat Window', 'Lets you resize the live chat window to suit the task.', 'Resize ↘'],
+    scheduledChatToggle: ['Scheduled Chat Launcher', 'Shows the chat launcher during its scheduled 10 AM to 12 PM window.', 'Chat available'],
+    directMoeChatToggle: ['Direct Moe Chat', 'Opens the AI chat directly with Moe from Prisma’s help flow.', 'Connect with Moe'],
+    blockAppLearnPopupsToggle: ['Block AppLearn popups', 'Closes the broken blank AppLearn login popups without affecting normal exports.', 'Popup blocked'],
+    actualiseScrollRestoreToggle: ['Actualise scroll restoration', 'Restores the active grid’s horizontal position after an Actualise save refresh.', 'Position restored'],
+    orderGridScrollSyncToggle: ['Order Summary alignment', 'Keeps Order Summary headers aligned with the scrolling grid.', 'Headers aligned'],
+    statsCollectorToggle: ['Stats Collector', 'Records waiting-time and productivity signals for the local Toolshed statistics view.', 'Stats updated']
+};
+
+function getFeaturePreviewImage(controlId) {
+    if (controlId === 'helpGuidesToggle') return 'assets/feature-previews/prisma-help-guides.png';
+    if (['gmiChatShortcutToggle', 'fontSizeToggle', 'resizableChatToggle', 'scheduledChatToggle', 'directMoeChatToggle'].includes(controlId)) {
+        return 'assets/feature-previews/prisma-ai-chat.png';
+    }
+    return 'assets/feature-previews/prisma-navigation.png';
+}
+
+function ensureFeaturePreviewTooltip(root = document) {
+    let tooltip = root.getElementById('feature-settings-tooltip');
+    if (tooltip) return tooltip;
+
+    tooltip = root.createElement('div');
+    tooltip.id = 'feature-settings-tooltip';
+    tooltip.className = 'feature-rich-tooltip';
+    tooltip.setAttribute('role', 'tooltip');
+    tooltip.setAttribute('aria-hidden', 'true');
+
+    const image = root.createElement('img');
+    image.className = 'feature-rich-tooltip-image';
+    image.alt = '';
+    const copy = root.createElement('div');
+    copy.className = 'feature-rich-tooltip-copy';
+    const heading = root.createElement('strong');
+    heading.id = 'feature-settings-tooltip-title';
+    const paragraph = root.createElement('p');
+    paragraph.id = 'feature-settings-tooltip-description';
+    copy.append(heading, paragraph);
+    tooltip.append(image, copy);
+    root.body.append(tooltip);
+    return tooltip;
+}
+
+function addFeatureSettingPreviews(root = document) {
+    const tooltip = ensureFeaturePreviewTooltip(root);
+    root.querySelectorAll('#features .toggle-container').forEach(container => {
+        const control = container.querySelector('input[type="checkbox"], .segmented-control');
+        const preview = control && FEATURE_SETTING_PREVIEWS[control.id];
+        if (!preview) return;
+        container.dataset.featurePreviewControl = control.id;
+        const label = Array.from(container.children).find(child => child.tagName === 'SPAN');
+        if (label && !container.querySelector('.feature-tooltip-indicator')) {
+            const labelGroup = root.createElement('span');
+            labelGroup.className = 'feature-setting-label';
+            const indicator = root.createElement('span');
+            indicator.className = 'feature-tooltip-indicator';
+            indicator.setAttribute('aria-hidden', 'true');
+            indicator.textContent = 'i';
+            label.before(labelGroup);
+            labelGroup.append(label, indicator);
+        }
+        control.setAttribute('aria-describedby', tooltip.querySelector('p').id);
+    });
+}
+
+function setupFeaturePreviewInteractions(root = document, delay = 500) {
+    const tooltip = ensureFeaturePreviewTooltip(root);
+    // The grace period covers the visible gap between a setting row and the tooltip.
+    // Use the same duration after leaving the tooltip so the interaction feels consistent.
+    const tooltipTransferDelay = 800;
+    const tooltipLeaveDelay = 800;
+    let tooltipDismissTimer;
+
+    const cancelTooltipDismissal = () => {
+        clearTimeout(tooltipDismissTimer);
+        tooltipDismissTimer = undefined;
+    };
+    const closeTooltip = () => {
+        tooltip.classList.remove('is-preview-open');
+        tooltip.setAttribute('aria-hidden', 'true');
+    };
+    const scheduleTooltipDismissal = (dismissDelay) => {
+        cancelTooltipDismissal();
+        tooltipDismissTimer = setTimeout(() => {
+            closeTooltip();
+            tooltipDismissTimer = undefined;
+        }, dismissDelay);
+    };
+
+    if (!tooltip.dataset.dismissalReady) {
+        tooltip.dataset.dismissalReady = 'true';
+        tooltip.addEventListener('pointerenter', cancelTooltipDismissal);
+        tooltip.addEventListener('pointerleave', () => scheduleTooltipDismissal(tooltipLeaveDelay));
+    }
+
+    root.querySelectorAll('#features .toggle-container').forEach(container => {
+        if (container.dataset.featurePreviewInteractionsReady) return;
+        const controlId = container.dataset.featurePreviewControl;
+        const preview = FEATURE_SETTING_PREVIEWS[controlId];
+        if (!preview) return;
+        container.dataset.featurePreviewInteractionsReady = 'true';
+        let revealTimer;
+
+        const cancelReveal = () => {
+            clearTimeout(revealTimer);
+            revealTimer = undefined;
+        };
+        const closePreview = (dismissDelay = tooltipTransferDelay) => {
+            cancelReveal();
+            scheduleTooltipDismissal(dismissDelay);
+        };
+        const showPreview = () => {
+            const [title, description, action] = preview;
+            const image = tooltip.querySelector('img');
+            image.src = getFeaturePreviewImage(controlId);
+            image.alt = `Prisma example: ${action}`;
+            tooltip.querySelector('strong').textContent = title;
+            tooltip.querySelector('p').textContent = description;
+            tooltip.classList.add('is-preview-open');
+            tooltip.setAttribute('aria-hidden', 'false');
+
+            const bounds = container.getBoundingClientRect();
+            const tooltipBounds = tooltip.getBoundingClientRect();
+            const viewport = root.defaultView || window;
+            const horizontalPadding = 12;
+            const left = Math.max(horizontalPadding, Math.min(bounds.left, viewport.innerWidth - tooltipBounds.width - horizontalPadding));
+            const below = bounds.bottom + 8;
+            const placeBelow = below + tooltipBounds.height <= viewport.innerHeight;
+            const top = placeBelow
+                ? below
+                : Math.max(horizontalPadding, bounds.top - tooltipBounds.height - 8);
+            tooltip.style.left = `${left}px`;
+            tooltip.style.top = `${top}px`;
+            tooltip.dataset.placement = placeBelow ? 'below' : 'above';
+        };
+        const scheduleReveal = () => {
+            cancelTooltipDismissal();
+            if (tooltip.classList.contains('is-preview-open') || revealTimer) return;
+            revealTimer = setTimeout(() => {
+                showPreview();
+                revealTimer = undefined;
+            }, delay);
+        };
+
+        container.addEventListener('pointermove', event => {
+            const bounds = container.getBoundingClientRect();
+            // The left third is an intentional discovery area. Once open, the tooltip
+            // remains stable while the pointer travels anywhere across its source row.
+            if (tooltip.classList.contains('is-preview-open')) {
+                cancelTooltipDismissal();
+                return;
+            }
+            if (event.clientX <= bounds.left + (bounds.width / 3)) scheduleReveal();
+            else cancelReveal();
+        });
+        container.addEventListener('pointerleave', closePreview);
+        container.addEventListener('focusin', () => {
+            cancelReveal();
+            showPreview();
+        });
+        container.addEventListener('focusout', event => {
+            if (!container.contains(event.relatedTarget)) closePreview(0);
+        });
+    });
+}
+
 function normalizeFeatureSearchText(value) {
     return String(value || '').toLocaleLowerCase().replace(/\s+/g, ' ').trim();
 }
@@ -415,6 +616,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     const clearFeatureSearchButton = document.getElementById('clear-feature-settings-search');
     const featureSearchEmpty = document.getElementById('feature-settings-search-empty');
     const featureSections = document.querySelectorAll('#features > section');
+    addFeatureSettingPreviews();
+    setupFeaturePreviewInteractions();
 
     const applyFeatureSearch = () => {
         const query = featureSearchInput?.value || '';
@@ -1895,6 +2098,11 @@ if (typeof module !== 'undefined' && module.exports) {
         FEATURE_SETTINGS_DEFAULTS,
         filterFeatureSettings,
         normalizeFeatureSearchText,
+        FEATURE_SETTING_PREVIEWS,
+        ensureFeaturePreviewTooltip,
+        addFeatureSettingPreviews,
+        setupFeaturePreviewInteractions,
+        getFeaturePreviewImage,
         loadSettingsWithDefaults,
     }; 
 }

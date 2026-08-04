@@ -302,6 +302,41 @@ describe('Loading Facts behaviour', () => {
         dom.window.close();
     });
 
+    test('avoids facts shown recently and records the newly selected fact', async () => {
+        const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/',
+            runScripts: 'outside-only'
+        });
+        const { window } = dom;
+        const firstFact = 'The average person spends 6 months of their life waiting in queues';
+        const secondFact = 'The longest traffic jam in history lasted 12 days in Beijing (2010)';
+        const stored = { loadingFactHistory: [firstFact] };
+        window.Math.random = () => 0;
+        window.utils = {
+            queryShadowDom: jest.fn(() => null),
+            isElementVisible: jest.fn(() => false),
+            findVisibleLoadingSpinners: jest.fn(() => [])
+        };
+        window.IntersectionObserver = jest.fn(() => ({ observe: jest.fn(), disconnect: jest.fn() }));
+        window.chrome = {
+            storage: {
+                sync: { get: jest.fn((_keys, callback) => callback({ loadingFactsEnabled: true })) },
+                local: {
+                    get: jest.fn((_keys, callback) => callback(stored)),
+                    set: jest.fn(update => Object.assign(stored, update))
+                },
+                onChanged: { addListener: jest.fn() }
+            }
+        };
+
+        window.eval(loadingFactsScript);
+        const feature = window.loadingFactsFeature;
+
+        await expect(feature.getProcessedFact()).resolves.toBe(secondFact);
+        expect(stored.loadingFactHistory).toEqual([secondFact, firstFact]);
+        dom.window.close();
+    });
+
     test('shows a fact for a wide Actualise loader without a Shadow Root', async () => {
         const dom = new JSDOM('<!doctype html><html><body><mo-spinner></mo-spinner></body></html>', {
             url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#ptb-ctx=actualize&route=actualize',

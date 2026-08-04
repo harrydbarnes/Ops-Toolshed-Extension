@@ -7,7 +7,6 @@
         "The word 'queue' comes from the Latin 'cauda', meaning 'tail'",
         "Occupied time feels shorter than unoccupied time - that's why mirrors are by elevators",
         "Disney deliberately snakes their queues to make them look shorter",
-        "The longest ever sausage roll was 111ft long... quite a queue of pastry",
         "A 'ji-gong' is a professional line waiter you can hire in China",
         "The average person spends 2 days a year waiting at traffic lights",
         "The 'wait' for the first photo ever taken was 8 hours (1826)",
@@ -21,7 +20,6 @@
         "Once upon a time, someone in Ops during their first week was caught chain smoking outside whilst 15 minutes late for work",
         "A watched loading spinner takes approximately three times longer. This has not been peer reviewed",
         "The average lift journey lasts less than a minute, although waiting for one can feel considerably longer",
-        "London's first traffic lights were installed outside Parliament in 1868",
         "Early traffic lights used gas lamps rather than electricity",
         "The first mechanical alarm clock could only ring at 4am",
         "The first text message, sent in 1992, simply said 'Merry Christmas'",
@@ -55,23 +53,46 @@
         "The QR code was invented in Japan to track automotive parts",
         "The first voluntary standards for common web-banner sizes were announced in 1996",
         "IAB UK has measured the size of Britain's digital advertising industry since 1997",
-        "Digital advertising involves an impressive number of systems agreeing that one person saw one rectangle",
+        "Digital advertising involves an impressive number of systems agreeing that one person saw an MPU",
+        "Country pop singer Stella Lefty is the daughter of MediaOcean co-founder Eric Lefkofsky. I wonder if she can book a campaign for us sometime?",
+        "Wrike turns a request into a task before it turns into a Prisma. How beautiful!",
+        "In Wrike, every time we have a task on hold for more than a day, Prisma gets inpatient like a dog waiting for its dinner",
+        "A well-written Wrike request can save a surprising number of follow-up messages.",
+        "Christmas campaigns are planned well in advance, but not as early in the year as Trish buys her presents",
+        "A task marked “In progress” is sometimes progressing emotionally.",
+        "Coca-Cola was first served in Atlanta in 1886.",
+        "The Coca-Cola contour bottle was designed in 1915.",
+        "Coca-Cola’s name came from coca leaves and kola nuts.",
+        "The original Coca-Cola was sold as a syrup at a pharmacy soda fountain.",
+        "Coca-Cola’s contour bottle was designed to be recognisable even in the dark.",
+        "A Coca-Cola Zero brief always contains zero errors.",
+        "Louis-François Cartier founded Cartier in Paris in 1847.",
+        "Cartier introduced the Tank watch in 1917.",
+        "Cartier’s panther first appeared as a motif in 1914.",
+        "The Cartier Love bracelet was introduced in New York in 1969.",
+        "Cartier is sometimes called “the jeweller of kings and the king of jewellers”.",
+        "Reckitt began as Reckitt & Sons in Hull in 1840.",
+        "Dettol was introduced in 1932.",
+        "Reckitt’s founder Isaac Reckitt began by making household starch.",
+        "A household product can be used in seconds and planned in media for months.",
+        "Reckitt brands have turned everyday routines into household names around the world.",
+        "Jaguar began in 1922 as the Swallow Sidecar Company.",
+        "The original Land Rover was unveiled at the Amsterdam Motor Show in 1948.",
+        "Jaguar Land Rover combines two British automotive names with very different origins.",
+        "A Jaguar Land Rover campaign has more moving parts than the average media plan.",
+        "Estée Lauder launched her company in 1946 with four skincare products.",
+        "Estée Lauder’s first department-store counter opened at Saks Fifth Avenue in 1948.",
+        "Estée Lauder is widely associated with popularising the gift-with-purchase.",
         "CAPTCHA stands for Completely Automated Public Turing test to tell Computers and Humans Apart",
-        "The first computer virus created for Microsoft DOS was called Brain",
         "A viewable impression asks whether an advert had an opportunity to be seen, not whether anyone actually looked at it",
-        "The first widely recognised emoticon was proposed in 1982",
-        "The first widely recognised emoticon used a colon, hyphen and closing parenthesis",
         "The save icon is a floppy disk. Please tell me you know what that is?",
         "An advert can be successfully served, measured and reported without being especially memorable",
         "IAB guidance from 2004 recommended limiting pop-up adverts to one per user session. It was a different time",
-        "A computer mouse is measured partly in Mickeys, a unit describing mouse movement",
         "The first computer mouse was made from wood",
         "The first computer bug was an actual moth found trapped in a relay",
         "Tesco began in 1919 when Jack Cohen sold surplus groceries from a market stall in East London",
         "The Tesco name combines the initials of tea supplier T.E. Stockwell with the beginning of Jack Cohen's surname",
         "The first official Tesco store opened in Burnt Oak in 1929",
-        "Early hard drives could weigh more than a refrigerator",
-        "The first commercial hard drive stored only a few megabytes",
         "The day after tomorrow is sometimes called 'overmorrow'. Otherwise known as when you should be booking your next campaign by",
         "Tesco Clubcard launched in 1995",
         "Tesco Value launched in 1993",
@@ -79,38 +100,18 @@
         "Tesco opened its first self-service store in St Albans in 1948",
         "A Tesco Clubcard mailing in 1999 contained around 80,000 variations of letters, offers and magazines",
         "Tesco celebrated Clubcard's thirtieth anniversary in 2025 by opening a temporary nightclub called Club Card",
-        "Tesco Clubcard proves that data collection can begin with the innocent phrase 'Have you got a Clubcard?'",
         "Tesco's 'Every Little Helps' slogan first appeared during the 1990s",
         "Queue is pronounced the same even if its final four letters are removed",
-        "The ampersand was once treated as part of the English alphabet",
-        "The word 'robot' comes from a Czech word associated with forced labour",
         "The word 'deadline' once referred to a boundary that prisoners were forbidden to cross",
         "'Uncopyrightable' is one of the longest common English words without a repeated letter",
-        "Bubble wrap was originally intended to be textured wallpaper",
         "A campaign can have perfect naming conventions right up until somebody adds 'NEW FINAL USE THIS'",
-        "The Slinky was created after a tension spring accidentally fell from a shelf",
-        "Velcro was inspired by burrs sticking to clothing and animal fur",
-        "The microwave oven was inspired by a melted chocolate bar near radar equipment",
-        "Popsicles were reportedly invented accidentally by an eleven-year-old",
-        "The first vending machine dispensed holy water in ancient Egypt",
         "The oldest surviving written customer complaint concerns poor-quality copper",
         "Customer complaints have existed for more than three thousand years",
-        "The Great Pyramid was already ancient when Cleopatra lived",
-        "Cleopatra lived closer to the Moon landing than to the construction of the Great Pyramid",
-        "Oxford University is older than the Aztec Empire",
-        "The fax machine was patented before the American Civil War",
         "Boots began with a herbalist store opened by John Boot in Nottingham in 1849",
         "Boots appointed its first qualified pharmacist in 1884",
         "Boots opened its thousandth store in 1933",
         "Boots introduced a five-day working week for factory staff without reducing their pay during the 1930s",
         "The first speeding conviction involved a vehicle travelling about eight miles per hour",
-        "London's first motorised taxi appeared before the first London Underground escalator",
-        "The London Underground map prioritises clarity over geographical accuracy",
-        "The London Underground originally used steam trains",
-        "The first London Underground line opened in 1863",
-        "The name Big Ben technically refers to the bell rather than the entire clock tower",
-        "A standard London bus is commonly used as an unofficial British unit of size",
-        "A standard football pitch is commonly used as an unofficial unit of area",
         "No loading spinner has ever been improved by clicking it repeatedly",
         "Refreshing the page transfers your optimism into a fresh browser request",
         "This loading screen is proudly powered by suspense",
@@ -158,7 +159,6 @@
         "Nescafé launched in 1938 after years of work to turn surplus Brazilian coffee into a soluble drink",
         "Nescafé's name combines Nestlé with café",
         "Nescafé accompanied the Apollo 11 crew on their journey to the Moon",
-        "Milo launched in Australia in 1934",
         "KitKat first launched in York in 1935 under the name 'Chocolate Crisp'",
         "The KitKat name first appeared on the packaging in 1937",
         "'Have a break, have a KitKat' was first used in 1958",
@@ -166,7 +166,7 @@
         "The two-finger KitKat launched in 1960",
         "KitKat Chunky launched in 1999",
         "KitKat is available in more than 80 countries",
-        "Japan has produced KitKat flavours including wasabi and sake",
+        "Japan has produced some unique KitKat flavours, including wasabi and sake",
         "Nestlé acquired Rowntree Mackintosh in 1988, adding KitKat, After Eight and Smarties to its portfolio",
         "Nespresso officially launched in 1986",
         "After Eight is owned by Nestlé, although eating one at 7:59 remains technically possible",
@@ -211,6 +211,7 @@
     const ANIMATION_DURATION_MS = 500;
     const CAMPAIGN_LOADING_END_DELAY_MS = 2500;
     const HOVER_EXIT_DELAY_MS = 2000;
+    const RECENT_FACT_HISTORY_LIMIT = 60;
 
     function getStorageArea(area) {
         if (typeof chrome === 'undefined') return null;
@@ -239,6 +240,18 @@
                 resolveOnce({});
             }
         });
+    }
+
+    function setStorageData(area, values) {
+        const storageArea = getStorageArea(area);
+        if (!storageArea?.set) return;
+
+        try {
+            const result = storageArea.set(values);
+            if (result?.catch) result.catch(() => {});
+        } catch (_error) {
+            // Loading facts remain available if storage is unavailable.
+        }
     }
 
     class LoadingFactsFeature {
@@ -497,7 +510,7 @@
 
         async getProcessedFact() {
             const data = await getStorageData('local', [
-                'legacyStats', 'dailyStats', 'prismaUserStats', 'loadingFactRatings'
+                'legacyStats', 'dailyStats', 'prismaUserStats', 'loadingFactRatings', 'loadingFactHistory'
             ]);
             const historicTime = data.legacyStats?.totalLoadingTime ??
                 data.prismaUserStats?.totalLoadingTime ??
@@ -515,7 +528,16 @@
             const factPool = availableFacts.filter(fact => ratings[fact] !== 'remove');
 
             if (factPool.length > 0) {
-                const fact = factPool[Math.floor(Math.random() * factPool.length)];
+                const recentHistory = Array.isArray(data.loadingFactHistory)
+                    ? data.loadingFactHistory.filter(fact => factPool.includes(fact))
+                    : [];
+                const unseenFacts = factPool.filter(fact => !recentHistory.includes(fact));
+                const selectionPool = unseenFacts.length > 0 ? unseenFacts : factPool;
+                const fact = selectionPool[Math.floor(Math.random() * selectionPool.length)];
+                const updatedHistory = [fact, ...recentHistory.filter(item => item !== fact)]
+                    .slice(0, RECENT_FACT_HISTORY_LIMIT);
+
+                setStorageData('local', { loadingFactHistory: updatedHistory });
 
                 // If we picked a time-based fact, format and replace the placeholder
                 if (fact.includes('{{TIME}}')) {
@@ -533,7 +555,7 @@
 
             const data = await getStorageData('local', 'loadingFactRatings');
             const ratings = { ...(data.loadingFactRatings || {}), [fact]: rating };
-            getStorageArea('local')?.set?.({ loadingFactRatings: ratings });
+            setStorageData('local', { loadingFactRatings: ratings });
         }
 
         async showToast(spinner) {
