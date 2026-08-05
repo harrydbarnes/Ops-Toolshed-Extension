@@ -199,6 +199,44 @@ describe('Loading Facts behaviour', () => {
         dom.window.close();
     });
 
+    test('ignores the class-based workflow panel busy icon', async () => {
+        const dom = new JSDOM('<!doctype html><html><body><div class="mo-workflow-panel"><div class="mo-side-panel"><div id="vp-block"><i id="vp-busy-icon" class="fa fa-circle-o-notch fa-spin"></i></div></div></div></body></html>', {
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP123&route=online',
+            runScripts: 'outside-only'
+        });
+        const { window } = dom;
+        const spinner = window.document.getElementById('vp-busy-icon');
+        const scheduledTimers = [];
+        spinner.getBoundingClientRect = () => ({ left: 0, top: 0, width: 40, height: 40, right: 40, bottom: 40 });
+        window.setTimeout = (callback, delay) => {
+            scheduledTimers.push({ callback, delay });
+            return scheduledTimers.length;
+        };
+        window.clearTimeout = jest.fn();
+        const observe = jest.fn();
+        window.IntersectionObserver = jest.fn(() => ({ observe, disconnect: jest.fn() }));
+        window.utils = {
+            queryShadowDom: jest.fn(() => null),
+            isElementVisible: jest.fn(() => true),
+            findVisibleLoadingSpinners: jest.fn(() => [spinner])
+        };
+        window.chrome = {
+            storage: {
+                sync: { get: jest.fn((_keys, callback) => callback({ loadingFactsEnabled: true })) },
+                local: { get: jest.fn((_keys, callback) => callback({ legacyStats: { totalLoadingTime: 1 } })) },
+                onChanged: { addListener: jest.fn() }
+            }
+        };
+
+        window.eval(loadingFactsScript);
+        await window.loadingFactsFeature.initialize();
+        runScheduledTimer(scheduledTimers, 200);
+
+        expect(observe).not.toHaveBeenCalled();
+        expect(window.document.getElementById('ops-toolshed-loading-toast')).toBeNull();
+        dom.window.close();
+    });
+
     test('does not show a loading fact during the direct AI Chat hand-off', async () => {
         const dom = new JSDOM('<!doctype html><html><body class="toolshed-opening-moe"><div class="mo-spinner"></div></body></html>', {
             url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/',

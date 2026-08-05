@@ -10,7 +10,7 @@
     // Prisma renders the approver workflow in a sidebar-like region without
     // using its native <mo-side-panel> host. Treat that region as side-panel
     // work so approval-only spinners do not look like page loading.
-    const SIDE_PANEL_ANCESTOR_SELECTOR = 'mo-side-panel, .workflow-widget-wrapper';
+    const SIDE_PANEL_ANCESTOR_SELECTOR = 'mo-side-panel, .mo-side-panel, .workflow-widget-wrapper';
     const candidates = new Set();
     const listeners = new Set();
     const observedRoots = new WeakSet();

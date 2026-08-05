@@ -111,4 +111,23 @@ describe('shared Prisma loading monitor', () => {
         expect(state.sidePanelVisibleSpinners).toEqual([spinner]);
         dom.window.close();
     });
+
+    test('allocates the live workflow panel busy icon to the side-panel bucket', () => {
+        const dom = new JSDOM('<!doctype html><html><body><div id="workflowWidgetContainer"><div class="mo-workflow-panel"><div class="mo-side-panel"><div id="vp-block"><i id="vp-busy-icon" class="fa fa-circle-o-notch fa-spin"></i></div></div></div></div></body></html>', {
+            runScripts: 'outside-only',
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/'
+        });
+        const { window } = dom;
+        window.requestAnimationFrame = callback => callback();
+        window.eval(utilsCode);
+        window.eval(monitorCode);
+        const spinner = window.document.getElementById('vp-busy-icon');
+        spinner.getBoundingClientRect = () => ({ left: 0, top: 0, right: 40, bottom: 40, width: 40, height: 40 });
+
+        const state = window.loadingMonitor.refreshNow();
+
+        expect(state.pageVisibleSpinners).toEqual([]);
+        expect(state.sidePanelVisibleSpinners).toEqual([spinner]);
+        dom.window.close();
+    });
 });

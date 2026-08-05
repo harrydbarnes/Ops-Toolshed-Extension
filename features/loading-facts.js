@@ -348,7 +348,7 @@
             }
             let current = element;
             while (current) {
-                if (current.matches?.('mo-side-panel, .workflow-widget-wrapper')) return true;
+                if (current.matches?.('mo-side-panel, .mo-side-panel, .workflow-widget-wrapper')) return true;
                 const root = current.getRootNode?.();
                 current = current.parentElement || root?.host || null;
             }

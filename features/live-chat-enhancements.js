@@ -104,9 +104,26 @@
         });
     }
 
+    // Prisma leaves the Help menu expanded when the nested Connect with Moe
+    // item hands off to the Moe chat surface. Close the live trigger before
+    // the hand-off completes so the native menu cannot remain behind Moe.
+    function closeNativeMoeMenu() {
+        const cachedMenu = currentDirectMoeRoots.menu;
+        const helpMenu = cachedMenu?.isConnected ? cachedMenu : findHelpMenuTrigger();
+        if (!helpMenu) return;
+
+        // Some Prisma menu versions do not update their trigger state when a
+        // menu item is activated. Keep the reflected state deterministic after
+        // the native item click. Updating the trigger state directly avoids
+        // dispatching a second menu-toggle click while Moe is opening.
+        helpMenu.setAttribute('aria-expanded', 'false');
+        helpMenu.blur?.();
+    }
+
     function finishDirectMoeHandoff() {
         clearTimeout(connectRetryTimer);
         connectRetryTimer = null;
+        closeNativeMoeMenu();
         window.setTimeout(() => {
             document.body.classList.remove(DIRECT_MOE_BODY_CLASS);
             document.dispatchEvent(new CustomEvent(LOADING_FACT_SUPPRESSION_EVENT, {
@@ -138,6 +155,7 @@
         const connectItem = findConnectWithMoeItem();
         if (connectItem) {
             connectItem.click();
+            closeNativeMoeMenu();
             document.dispatchEvent(new CustomEvent(OPEN_MOE_EVENT));
             finishDirectMoeHandoff();
             return;

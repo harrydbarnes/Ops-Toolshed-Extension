@@ -103,6 +103,7 @@ describe('Live chat enhancements', () => {
         expect(nativeAiAction).not.toHaveBeenCalled();
         expect(openMenu).toHaveBeenCalledTimes(1);
         expect(connect).toHaveBeenCalledTimes(1);
+        expect(nativeMenu.getAttribute('aria-expanded')).toBe('false');
         expect(dom.window.document.getElementById('pendo-base')).toBeNull();
         expect(dom.window.document.body.classList).toContain('toolshed-opening-moe');
         expect(loadingFactSuppression).toHaveBeenCalledWith({ active: true });
