@@ -152,6 +152,7 @@ body.reminder-theme-black #confirmation-popup {
    vertical gap while this class keeps the padding inside that width. */
 .loading-fact-toast--campaign-search {
     box-sizing: border-box;
+    transition: top 180ms ease-out, left 180ms ease-out, width 180ms ease-out;
 }
 
 .loading-fact-icon {

@@ -271,6 +271,10 @@
             this.hoverExitTimer = null;
             this.isToastHovered = false;
             this.pendingToastHide = false;
+            this.campaignSearchResizeObserver = null;
+            this.campaignSearchHostMutationObserver = null;
+            this.observedCampaignSearchOverlay = null;
+            this.campaignSearchPositionFrameScheduled = false;
 
             // State for managing async settings load
             this.settingsLoaded = false;
@@ -426,6 +430,75 @@
             }, CAMPAIGN_LOADING_END_DELAY_MS);
         }
 
+        disconnectCampaignSearchResizeObserver() {
+            this.campaignSearchResizeObserver?.disconnect?.();
+            this.campaignSearchResizeObserver = null;
+            this.observedCampaignSearchOverlay = null;
+            this.campaignSearchPositionFrameScheduled = false;
+        }
+
+        disconnectCampaignSearchObservers() {
+            this.disconnectCampaignSearchResizeObserver();
+            this.campaignSearchHostMutationObserver?.disconnect?.();
+            this.campaignSearchHostMutationObserver = null;
+        }
+
+        scheduleCampaignSearchPositionUpdate(spinner) {
+            if (this.campaignSearchPositionFrameScheduled) return;
+            this.campaignSearchPositionFrameScheduled = true;
+            const update = () => {
+                this.campaignSearchPositionFrameScheduled = false;
+                if (!this.isVisible || spinner !== this.observedSpinner) return;
+                this.updateToastPosition(spinner);
+            };
+
+            if (typeof window.requestAnimationFrame === 'function') {
+                window.requestAnimationFrame(update);
+            } else {
+                window.setTimeout(update, 0);
+            }
+        }
+
+        ensureCampaignSearchResizeObserver(spinner) {
+            const overlay = this.getCampaignSearchOverlay(spinner);
+            if (!overlay) return null;
+
+            this.ensureCampaignSearchHostMutationObserver(spinner);
+
+            if (this.observedCampaignSearchOverlay === overlay && this.campaignSearchResizeObserver) {
+                return overlay;
+            }
+
+            this.disconnectCampaignSearchResizeObserver();
+            const ResizeObserverConstructor = window.ResizeObserver;
+            if (typeof ResizeObserverConstructor !== 'function') return overlay;
+
+            this.observedCampaignSearchOverlay = overlay;
+            this.campaignSearchResizeObserver = new ResizeObserverConstructor(() => {
+                if (!this.isVisible || spinner !== this.observedSpinner) return;
+                this.scheduleCampaignSearchPositionUpdate(spinner);
+            });
+            this.campaignSearchResizeObserver.observe(overlay);
+            return overlay;
+        }
+
+        ensureCampaignSearchHostMutationObserver(spinner) {
+            if (this.campaignSearchHostMutationObserver ||
+                typeof window.MutationObserver !== 'function' ||
+                !document.body) {
+                return;
+            }
+
+            this.campaignSearchHostMutationObserver = new window.MutationObserver(records => {
+                if (!this.isVisible || spinner !== this.observedSpinner) return;
+                if (!records.some(record => record.type === 'childList')) return;
+                this.scheduleCampaignSearchPositionUpdate(spinner);
+            });
+            this.campaignSearchHostMutationObserver.observe(document.body, {
+                childList: true
+            });
+        }
+
         findAncestor(element, selector) {
             let current = element;
             while (current) {
@@ -438,7 +511,27 @@
 
         getCampaignSearchOverlay(spinner) {
             const overlay = this.findAncestor(spinner, 'mo-overlay[role="menu"]');
-            return overlay?.querySelector?.('mo-banner-recent-menu-content') ? overlay : null;
+            if (overlay?.querySelector?.('mo-banner-recent-menu-content')) return overlay;
+
+            // Prisma can replace the search input/spinner subtree when results
+            // arrive. In that case the old spinner no longer has the overlay as
+            // an ancestor, so recover the active campaign-search host directly.
+            const overlays = Array.from(document.querySelectorAll('mo-overlay[role="menu"]'))
+                .filter(candidate => candidate.querySelector?.('mo-banner-recent-menu-content'));
+            const visibleOverlay = overlays.find(candidate => {
+                const rect = candidate.getBoundingClientRect?.();
+                return rect && rect.width > 0 && rect.height > 0;
+            });
+            if (visibleOverlay) return visibleOverlay;
+            if (overlays[0]) return overlays[0];
+
+            // Keep tracking a known search host while Prisma briefly replaces
+            // its content during backspace/search transitions.
+            const observedOverlay = this.observedCampaignSearchOverlay;
+            return observedOverlay?.isConnected &&
+                observedOverlay.matches?.('mo-overlay[role="menu"]')
+                ? observedOverlay
+                : null;
         }
 
         getSpinnerTarget(spinner) {
@@ -455,6 +548,7 @@
 
             const campaignSearchOverlay = this.getCampaignSearchOverlay(spinner);
             if (campaignSearchOverlay) {
+                this.ensureCampaignSearchResizeObserver(spinner);
                 const overlayRect = campaignSearchOverlay.getBoundingClientRect();
                 if (!Number.isFinite(overlayRect.left) ||
                     !Number.isFinite(overlayRect.bottom) ||
@@ -746,6 +840,7 @@
             // Append to document.body to ensure it floats above all other content
             document.body.appendChild(toast);
             const revealToast = () => {
+                this.ensureCampaignSearchResizeObserver(spinner);
                 this.updateToastPosition(spinner);
                 toast.style.visibility = 'visible';
             };
@@ -781,6 +876,7 @@
                 window.removeEventListener('resize', this.resizeHandler);
                 this.resizeHandler = null;
             }
+            this.disconnectCampaignSearchObservers();
 
             // Replace slide-up class with slide-down for exit animation
             toast.classList.remove('slide-up');
