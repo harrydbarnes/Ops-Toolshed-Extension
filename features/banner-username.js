@@ -132,6 +132,10 @@
     }
 
     function clearRememberedUsername() {
+        // Prisma can reuse the same banner menu after a PID/account switch.
+        // Allow that menu to discover the newly signed-in account again.
+        const { userMenu } = getBannerParts();
+        if (userMenu) attemptedMenus.delete(userMenu);
         if (!resolvedUsername && !cachedUsername) return;
         resolvedUsername = null;
         cachedUsername = null;

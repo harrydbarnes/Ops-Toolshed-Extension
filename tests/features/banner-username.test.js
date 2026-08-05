@@ -218,6 +218,22 @@ describe('Prisma banner username feature', () => {
         page.dom.window.close();
     });
 
+    test('rediscovers the signed-in username after an account switch reuses the banner menu', async () => {
+        const page = createPage({ includePidOptions: true });
+
+        page.window.bannerUsernameFeature.initialize();
+        await settleDiscovery(page.window);
+        page.pidOption.click();
+
+        page.accountLabel.textContent = 'GROUPM UK (OWNER)';
+        await settleDiscovery(page.window);
+        await settleDiscovery(page.window);
+
+        expect(page.accountLabel.textContent).toBe('HBARN@NGMCLON');
+        expect(page.getTriggerClicks()).toBe(4);
+        page.dom.window.close();
+    });
+
     test('restores and reapplies the organisation label when the setting changes', async () => {
         const page = createPage();
         page.window.bannerUsernameFeature.initialize();
