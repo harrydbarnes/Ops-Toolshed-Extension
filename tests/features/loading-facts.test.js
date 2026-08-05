@@ -23,6 +23,68 @@ describe('Loading Facts behaviour', () => {
         expect(contentCss).toContain('--toast-bottom-position: clamp(20px, 4.762vh, 55px);');
     });
 
+    test('aligns the loading fact with the campaign search overlay', async () => {
+        const dom = new JSDOM('<!doctype html><html><body><mo-overlay role="menu"><mo-banner-recent-menu-content><mo-search-box><span class="search-spinner"></span></mo-search-box></mo-banner-recent-menu-content></mo-overlay></body></html>', {
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns',
+            runScripts: 'outside-only'
+        });
+        const { window } = dom;
+        const { document } = window;
+        const overlay = document.querySelector('mo-overlay');
+        const spinner = document.querySelector('.search-spinner');
+        overlay.getBoundingClientRect = () => ({
+            left: 50,
+            top: 40,
+            width: 560,
+            height: 195,
+            right: 610,
+            bottom: 235
+        });
+        spinner.getBoundingClientRect = () => ({
+            left: 570,
+            top: 80,
+            width: 20,
+            height: 20,
+            right: 590,
+            bottom: 100
+        });
+        window.requestAnimationFrame = callback => callback();
+        window.IntersectionObserver = jest.fn(() => ({ observe: jest.fn(), disconnect: jest.fn() }));
+        window.utils = {
+            queryShadowDom: jest.fn(() => null),
+            isElementVisible: jest.fn(() => true),
+            findVisibleLoadingSpinners: jest.fn(() => [spinner])
+        };
+        window.chrome = {
+            storage: {
+                local: {
+                    get: jest.fn((_keys, callback) => callback({})),
+                    set: jest.fn()
+                },
+                onChanged: { addListener: jest.fn() }
+            }
+        };
+
+        window.eval(loadingFactsScript);
+        const feature = window.loadingFactsFeature;
+        feature.isEnabled = true;
+        feature.isIntersecting = true;
+        feature.observedSpinner = spinner;
+
+        await feature.showToast(spinner);
+
+        const toast = document.getElementById('ops-toolshed-loading-toast');
+        expect(toast).not.toBeNull();
+        expect(toast.classList).toContain('loading-fact-toast--campaign-search');
+        expect(toast.style.left).toBe('330px');
+        expect(toast.style.top).toBe('251px');
+        expect(toast.style.width).toBe('560px');
+        expect(toast.style.minWidth).toBe('560px');
+        expect(toast.style.maxWidth).toBe('560px');
+        expect(toast.style.boxSizing).toBe('border-box');
+        dom.window.close();
+    });
+
     test('falls back to defaults when Chrome storage is unavailable', async () => {
         const dom = new JSDOM('<!doctype html><html><body></body></html>', {
             url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP123&route=online',

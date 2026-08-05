@@ -212,6 +212,8 @@
     const CAMPAIGN_LOADING_END_DELAY_MS = 2500;
     const HOVER_EXIT_DELAY_MS = 2000;
     const RECENT_FACT_HISTORY_LIMIT = 60;
+    const CAMPAIGN_SEARCH_TOAST_CLASS = 'loading-fact-toast--campaign-search';
+    const CAMPAIGN_SEARCH_TOAST_GAP_PX = 16;
 
     function getStorageArea(area) {
         if (typeof chrome === 'undefined') return null;
@@ -424,6 +426,21 @@
             }, CAMPAIGN_LOADING_END_DELAY_MS);
         }
 
+        findAncestor(element, selector) {
+            let current = element;
+            while (current) {
+                if (current.matches?.(selector)) return current;
+                const root = current.getRootNode?.();
+                current = current.parentElement || root?.host || null;
+            }
+            return null;
+        }
+
+        getCampaignSearchOverlay(spinner) {
+            const overlay = this.findAncestor(spinner, 'mo-overlay[role="menu"]');
+            return overlay?.querySelector?.('mo-banner-recent-menu-content') ? overlay : null;
+        }
+
         getSpinnerTarget(spinner) {
             if (!spinner) return null;
             if (spinner.offsetWidth <= 100) return spinner;
@@ -434,8 +451,47 @@
 
         updateToastPosition(spinner) {
             const toast = document.getElementById(this.toastId);
+            if (!toast || !spinner) return false;
+
+            const campaignSearchOverlay = this.getCampaignSearchOverlay(spinner);
+            if (campaignSearchOverlay) {
+                const overlayRect = campaignSearchOverlay.getBoundingClientRect();
+                if (!Number.isFinite(overlayRect.left) ||
+                    !Number.isFinite(overlayRect.bottom) ||
+                    overlayRect.width <= 0 ||
+                    overlayRect.height <= 0) {
+                    return false;
+                }
+
+                const toastHeight = toast.offsetHeight;
+                const viewportHeight = Number(window.innerHeight) || 0;
+                const preferredTop = overlayRect.bottom + CAMPAIGN_SEARCH_TOAST_GAP_PX;
+                const maxTop = viewportHeight > 0 && toastHeight > 0
+                    ? Math.max(20, viewportHeight - toastHeight - 20)
+                    : null;
+                const top = maxTop === null ? preferredTop : Math.min(preferredTop, maxTop);
+
+                toast.classList.add(CAMPAIGN_SEARCH_TOAST_CLASS);
+                toast.style.left = `${overlayRect.left + (overlayRect.width / 2)}px`;
+                toast.style.top = `${top}px`;
+                toast.style.bottom = 'auto';
+                toast.style.width = `${overlayRect.width}px`;
+                toast.style.minWidth = `${overlayRect.width}px`;
+                toast.style.maxWidth = `${overlayRect.width}px`;
+                toast.style.boxSizing = 'border-box';
+                return true;
+            }
+
+            toast.classList.remove(CAMPAIGN_SEARCH_TOAST_CLASS);
+            toast.style.top = '';
+            toast.style.bottom = '';
+            toast.style.width = '';
+            toast.style.minWidth = '';
+            toast.style.maxWidth = '';
+            toast.style.boxSizing = '';
+
             const target = this.getSpinnerTarget(spinner);
-            if (!toast || !target) return false;
+            if (!target) return false;
             const rect = target.getBoundingClientRect();
             if (!Number.isFinite(rect.left) || rect.width <= 0 || rect.height <= 0) return false;
             toast.style.left = `${rect.left + (rect.width / 2)}px`;
@@ -507,6 +563,7 @@
                         this.updateToastPosition(spinner);
                         this.intersectionObserver.observe(spinner);
                     } else if (this.isIntersecting) {
+                        this.updateToastPosition(spinner);
                         this.showToast(spinner);
                     }
                 } else {

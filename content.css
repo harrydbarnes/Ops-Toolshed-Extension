@@ -147,6 +147,13 @@ body.reminder-theme-black #confirmation-popup {
     box-shadow: 0 10px 30px rgba(0,0,0,0.4);
 }
 
+/* Campaign search facts match the native search overlay instead of the
+   right-aligned spinner inside its input. Runtime bounds set the width and
+   vertical gap while this class keeps the padding inside that width. */
+.loading-fact-toast--campaign-search {
+    box-sizing: border-box;
+}
+
 .loading-fact-icon {
     /* Absolute positioning to prevent pushing text off-center */
     position: absolute;
