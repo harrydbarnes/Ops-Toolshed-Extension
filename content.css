@@ -681,7 +681,7 @@ body.reminder-theme-black #confirmation-popup {
     --primary-pink: #ff3d80;
     /* Keep the fact clear of the bottom edge while reducing the empty space
        on shorter laptop-height viewports. */
-    --toast-bottom-position: clamp(30px, 8vh, 65px);
+    --toast-bottom-position: clamp(20px, 4.762vh, 55px);
     --toast-z-index: var(--z-index-max);
     --toast-border-radius: 50px;
     --toast-font-size: 14px;

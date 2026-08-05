@@ -195,6 +195,33 @@ describe('Placement Counter Feature', () => {
             .toBe('1 Placement Selected');
     });
 
+    test('labels selected rows inside the Fee section as fees', () => {
+        const container = document.getElementById('grid-container_hot');
+        container.appendChild(createPrismaGroupRow('1', 'Fee', 0));
+        container.appendChild(createRow('2', 'INTEGRAL AD SCIENCE:IAS', true, [], 1));
+        container.appendChild(createRow('3', 'TIMES ONLINE:Times News UK', true, [], 1));
+
+        window.placementCounterFeature.checkSelection();
+        jest.advanceTimersByTime(200);
+
+        expect(document.querySelector('.placement-toast').textContent)
+            .toBe('2 Fees Selected');
+    });
+
+    test('keeps Fee rows separate from placements after the Fee section ends', () => {
+        const container = document.getElementById('grid-container_hot');
+        container.appendChild(createPrismaGroupRow('1', 'Fee', 0));
+        container.appendChild(createRow('2', 'Production FEE', true, [], 1));
+        container.appendChild(createPrismaGroupRow('3', 'Placement', 0));
+        container.appendChild(createRow('4', 'Sponsored Post', true, [], 1));
+
+        window.placementCounterFeature.checkSelection();
+        jest.advanceTimersByTime(200);
+
+        expect(document.querySelector('.placement-toast').textContent)
+            .toBe('1 Placement Selected, 1 Fee Selected');
+    });
+
     test('checks selection when a late-rendered Prisma checkbox changes', () => {
         window.placementCounterFeature.initialize();
         jest.advanceTimersByTime(200);

@@ -20,7 +20,7 @@ function runScheduledTimer(timers, delay) {
 
 describe('Loading Facts behaviour', () => {
     test('uses responsive bottom spacing for short and tall viewports', () => {
-        expect(contentCss).toContain('--toast-bottom-position: clamp(30px, 8vh, 65px);');
+        expect(contentCss).toContain('--toast-bottom-position: clamp(20px, 4.762vh, 55px);');
     });
 
     test('falls back to defaults when Chrome storage is unavailable', async () => {

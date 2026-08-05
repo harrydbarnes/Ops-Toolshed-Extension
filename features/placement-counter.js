@@ -30,7 +30,73 @@
         return null;
     }
 
-    function formatSelectionMessage(packageCounts, placementCount) {
+    function getGroupLevel(row) {
+        const groupLevelElement = Array.from(
+            row.querySelectorAll('[class*="hierarchical-level-group-"]')
+        ).find(element => Array.from(element.classList)
+            .some(className => /^hierarchical-level-group-\d+$/.test(className)));
+
+        if (!groupLevelElement) return null;
+
+        const groupLevelClass = Array.from(groupLevelElement.classList)
+            .find(className => /^hierarchical-level-group-\d+$/.test(className));
+        return groupLevelClass
+            ? Number(groupLevelClass.replace('hierarchical-level-group-', ''))
+            : null;
+    }
+
+    function isGroupRow(row, nameCell) {
+        return Boolean(
+            nameCell && (
+                nameCell.matches('.group-cell') ||
+                Array.from(nameCell.classList)
+                    .some(className => className.startsWith('hierarchical-level-group-'))
+            )
+        );
+    }
+
+    function isFeeName(nameText) {
+        return /\bfees?\b/.test(nameText);
+    }
+
+    function getFeeRowIds(rows) {
+        const feeRowIds = new Set();
+        let activeFeeGroupLevel = null;
+
+        rows.forEach(row => {
+            const checkbox = row.querySelector('input.mo-row-checkbox[type="checkbox"]');
+            const rowId = checkbox?.dataset.row;
+            const nameCell = row.querySelector('[id^="placementName-"]');
+            const nameText = (nameCell?.textContent || '').toLowerCase();
+            const isGroup = isGroupRow(row, nameCell);
+            const hierarchyLevel = getHierarchyLevel(row, nameCell);
+            const groupLevel = getGroupLevel(row);
+            const effectiveGroupLevel = groupLevel ?? (isGroup ? hierarchyLevel : null);
+
+            if (activeFeeGroupLevel !== null) {
+                const isSiblingGroup = isGroup && effectiveGroupLevel !== null &&
+                    effectiveGroupLevel <= activeFeeGroupLevel;
+                const isSiblingLeaf = !isGroup && hierarchyLevel !== null &&
+                    hierarchyLevel <= activeFeeGroupLevel;
+                if (isSiblingGroup || isSiblingLeaf) {
+                    activeFeeGroupLevel = null;
+                }
+            }
+
+            if (isFeeName(nameText)) {
+                if (rowId) feeRowIds.add(rowId);
+                if (isGroup) {
+                    activeFeeGroupLevel = effectiveGroupLevel ?? 0;
+                }
+            } else if (activeFeeGroupLevel !== null && rowId) {
+                feeRowIds.add(rowId);
+            }
+        });
+
+        return feeRowIds;
+    }
+
+    function formatSelectionMessage(packageCounts, placementCount, feeCount) {
         const packageCount = packageCounts.length;
         const packageText = packageCount
             ? `${packageCount} Package${packageCount === 1 ? '' : 's'} Selected ` +
@@ -40,8 +106,11 @@
         const placementText = placementCount
             ? `${placementCount} Placement${placementCount === 1 ? '' : 's'} Selected`
             : '';
+        const feeText = feeCount
+            ? `${feeCount} Fee${feeCount === 1 ? '' : 's'} Selected`
+            : '';
 
-        return [packageText, placementText].filter(Boolean).join(', ');
+        return [packageText, placementText, feeText].filter(Boolean).join(', ');
     }
 
     // --- Toast Logic (Functions showToast and hideToast remain unchanged) ---
@@ -101,6 +170,8 @@
                 // master table. Read only the master so a stale clone cannot create a
                 // phantom selection.
                 const selectionRoot = gridContainer.querySelector('.ht_master') || gridContainer;
+                const allRows = Array.from(selectionRoot.querySelectorAll('tr'));
+                const feeRowIds = getFeeRowIds(allRows);
                 const selectedCheckboxes = selectionRoot.querySelectorAll(
                     'input.mo-row-checkbox[type="checkbox"]:checked'
                 );
@@ -120,18 +191,13 @@
 
                     const hierarchyLevel = getHierarchyLevel(row, nameCell);
                     const isLevel0 = hierarchyLevel === 0;
-                    const isGroup = Boolean(
-                        nameCell && (
-                            nameCell.matches('.group-cell') ||
-                            Array.from(nameCell.classList)
-                                .some(className => className.startsWith('hierarchical-level-group-'))
-                        )
-                    );
+                    const isGroup = isGroupRow(row, nameCell);
                     const isPackage = Boolean(
                         row.matches('.mi-package, .mi-programmatic-package') ||
                         row.querySelector('.mi-package, .mi-programmatic-package')
                     );
                     const isTextExcluded = EXCLUSION_TEXTS.some(exclusion => nameText.includes(exclusion));
+                    const isFee = feeRowIds.has(rowId) || isFeeName(nameText);
 
                     selectedRows.push({
                         rowId,
@@ -139,7 +205,8 @@
                         isLevel0,
                         isGroup,
                         isPackage,
-                        isTextExcluded
+                        isTextExcluded,
+                        isFee
                     });
                 });
 
@@ -182,7 +249,8 @@
                             !childRow.isLevel0 &&
                             !childRow.isGroup &&
                             !childRow.isPackage &&
-                            !childRow.isTextExcluded
+                            !childRow.isTextExcluded &&
+                            !childRow.isFee
                         ) {
                             placementCount += 1;
                             packageChildRowIds.add(childRow.rowId);
@@ -192,14 +260,21 @@
                     packageCounts.push(placementCount);
                 });
 
+                const feeCount = selectedRows.filter((selectedRow, index) => (
+                    !packageIndexes.has(index) &&
+                    !selectedRow.isLevel0 &&
+                    !selectedRow.isGroup &&
+                    selectedRow.isFee
+                )).length;
                 const placementCount = selectedRows.filter((selectedRow, index) => (
                     !packageIndexes.has(index) &&
                     !packageChildRowIds.has(selectedRow.rowId) &&
                     !selectedRow.isLevel0 &&
                     !selectedRow.isGroup &&
-                    !selectedRow.isTextExcluded
+                    !selectedRow.isTextExcluded &&
+                    !selectedRow.isFee
                 )).length;
-                const message = formatSelectionMessage(packageCounts, placementCount);
+                const message = formatSelectionMessage(packageCounts, placementCount, feeCount);
                 if (message) {
                     showToast(message);
                 } else {
