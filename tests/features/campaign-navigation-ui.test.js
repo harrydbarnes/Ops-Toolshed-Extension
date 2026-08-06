@@ -463,15 +463,43 @@ describe('campaign navigation UI optimisation', () => {
         const marker = document.querySelector('.toolshed-campaign-date-edit-marker');
         const icon = marker?.querySelector('svg');
         expect(marker).not.toBeNull();
+        expect(marker.tagName).toBe('BUTTON');
+        expect(marker.getAttribute('type')).toBe('button');
+        expect(marker.getAttribute('aria-label')).toBe('Edit campaign dates');
         expect(marker.textContent).toBe('');
         expect(icon).not.toBeNull();
         expect(icon.getAttribute('viewBox')).toBe('-0.5 0 24 24');
         expect(icon.getAttribute('data-orientation')).toBe('tip-bottom-left');
-        expect(marker.getAttribute('aria-hidden')).toBe('true');
         expect(dates.classList).toContain('toolshed-campaign-date-editable');
         expect(document.querySelectorAll('.toolshed-campaign-date-edit-marker')).toHaveLength(1);
         expect(dates.parentElement.classList).toContain('toolshed-campaign-date-edit-host');
         expect(marker.parentElement).toBe(dates.parentElement);
+        dom.window.close();
+    });
+
+    test('opens Campaign details when the campaign date pencil is clicked', async () => {
+        const dom = createPage();
+        const { document, chrome } = dom.window;
+        chrome.runtime.sendMessage.mockResolvedValue({ status: 'accepted' });
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+
+        document.querySelector('.toolshed-campaign-date-edit-marker').click();
+        await Promise.resolve();
+
+        expect(dom.window.location.href).toContain('osModalId=prsm-cm-cmpdtls');
+        dom.window.close();
+    });
+
+    test('removes Prisma hover tooltip metadata from the campaign date while quick edit is enabled', () => {
+        const dom = createPage();
+        const { document } = dom.window;
+        const dates = document.querySelector('.mo-date-field-wrapper');
+        dates.setAttribute('title', 'Campaign dates');
+
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+
+        expect(dates.hasAttribute('data-full-text')).toBe(false);
+        expect(dates.hasAttribute('title')).toBe(false);
         dom.window.close();
     });
 
@@ -569,7 +597,7 @@ describe('campaign navigation UI optimisation', () => {
             borderRadius: '0.45em',
             paddingBottom: '0.15em',
             zIndex: '0',
-            pointerEvents: 'none'
+            pointerEvents: 'auto'
         });
         dom.window.close();
     });

@@ -41,6 +41,7 @@
     const CAMPAIGN_DATE_EDIT_MARKER_CLASS = 'toolshed-campaign-date-edit-marker';
     const CAMPAIGN_DATE_EDIT_ICON_CLASS = `${CAMPAIGN_DATE_EDIT_MARKER_CLASS}-icon`;
     const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+    const campaignDateTooltipState = new WeakMap();
 
     function syncApproverWidgetPlacementClass() {
         document.body?.classList.toggle(
@@ -794,6 +795,37 @@
         return icon;
     }
 
+    function suppressCampaignDateTooltip(dateElement) {
+        if (!dateElement) return;
+
+        if (!campaignDateTooltipState.has(dateElement)) {
+            campaignDateTooltipState.set(dateElement, {
+                dataFullText: dateElement.getAttribute('data-full-text'),
+                title: dateElement.getAttribute('title')
+            });
+        }
+
+        dateElement.removeAttribute('data-full-text');
+        dateElement.removeAttribute('title');
+    }
+
+    function restoreCampaignDateTooltip(dateElement) {
+        const originalState = campaignDateTooltipState.get(dateElement);
+        if (!originalState) return;
+
+        if (originalState.dataFullText === null) {
+            dateElement.removeAttribute('data-full-text');
+        } else {
+            dateElement.setAttribute('data-full-text', originalState.dataFullText);
+        }
+        if (originalState.title === null) {
+            dateElement.removeAttribute('title');
+        } else {
+            dateElement.setAttribute('title', originalState.title);
+        }
+        campaignDateTooltipState.delete(dateElement);
+    }
+
     function unwrapCampaignDateEditHost(host) {
         const dateElement = host.querySelector('.mo-date-field-wrapper');
         if (dateElement && host.parentElement) {
@@ -822,9 +854,12 @@
 
         dateElement.classList.toggle(CAMPAIGN_DATE_EDITABLE_CLASS, campaignDateShortcutEnabled);
         if (!campaignDateShortcutEnabled) {
+            restoreCampaignDateTooltip(dateElement);
             if (host) unwrapCampaignDateEditHost(host);
             return;
         }
+
+        suppressCampaignDateTooltip(dateElement);
 
         if (!host) {
             const parent = dateElement.parentElement;
@@ -837,9 +872,11 @@
 
         let marker = host.querySelector(`.${CAMPAIGN_DATE_EDIT_MARKER_CLASS}`);
         if (!marker) {
-            marker = document.createElement('span');
+            marker = document.createElement('button');
+            marker.type = 'button';
             marker.className = CAMPAIGN_DATE_EDIT_MARKER_CLASS;
-            marker.setAttribute('aria-hidden', 'true');
+            marker.setAttribute('aria-label', 'Edit campaign dates');
+            marker.addEventListener('click', handleCampaignDateShortcut);
             host.appendChild(marker);
         }
 
@@ -849,7 +886,10 @@
     }
 
     function handleCampaignDateShortcut(event) {
-        const dateElement = event.target.closest?.('.mo-date-field-wrapper');
+        const dateElement = event.target.closest?.('.mo-date-field-wrapper') ||
+            event.target.closest?.(`.${CAMPAIGN_DATE_EDIT_MARKER_CLASS}`)
+                ?.closest(`.${CAMPAIGN_DATE_EDIT_HOST_CLASS}`)
+                ?.querySelector('.mo-date-field-wrapper');
         if (!dateElement) return false;
 
         event.preventDefault();

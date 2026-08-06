@@ -12,6 +12,7 @@ describe('Prisma banner username feature', () => {
         enabled = true,
         deferBannerParts = false,
         deferOverlayUsername = false,
+        nestedOverlayUsername = false,
         cachedUsername = null,
         includePidOptions = false,
         initialAccountLabel = 'GROUPM UK (OWNER)'
@@ -68,10 +69,20 @@ describe('Prisma banner username feature', () => {
             username.setAttribute('data-full-text', 'HBARN@NGMCLON');
             username.textContent = 'HBARN@NGMCLON';
             window.document.body.appendChild(overlay);
+            const appendUsername = () => {
+                if (!nestedOverlayUsername) {
+                    overlayShadow.appendChild(username);
+                    return;
+                }
+                const contentHost = window.document.createElement('mo-banner-user-menu-content');
+                const contentShadow = contentHost.attachShadow({ mode: 'open' });
+                contentShadow.appendChild(username);
+                overlay.appendChild(contentHost);
+            };
             if (deferOverlayUsername) {
-                window.setTimeout(() => overlayShadow.appendChild(username), 0);
+                window.setTimeout(appendUsername, 0);
             } else {
-                overlayShadow.appendChild(username);
+                appendUsername();
             }
         });
 
@@ -147,6 +158,20 @@ describe('Prisma banner username feature', () => {
         expect(page.window.bannerUsernameFeature.getResolvedUsername()).toBe('HBARN@NGMCLON');
         expect(page.localStorage.set).toHaveBeenCalledWith({ opsToolshed_bannerUsername: 'HBARN@NGMCLON' });
         page.dom.window.close();
+    });
+
+    test('reads the username from Prisma banner menu content Shadow DOM', async () => {
+        const page = createPage({ nestedOverlayUsername: true });
+
+        page.window.bannerUsernameFeature.initialize();
+        await settleDiscovery(page.window);
+
+        try {
+            expect(page.accountLabel.textContent).toBe('HBARN@NGMCLON');
+            expect(page.getTriggerClicks()).toBe(2);
+        } finally {
+            page.dom.window.close();
+        }
     });
 
     test('leaves the banner untouched when the setting is disabled', async () => {

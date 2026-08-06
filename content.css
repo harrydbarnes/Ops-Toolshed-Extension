@@ -464,6 +464,7 @@ body.reminder-theme-black #confirmation-popup {
 }
 
 .toolshed-campaign-date-edit-marker {
+    appearance: none;
     position: absolute;
     top: auto;
     bottom: -0.9em;
@@ -474,7 +475,9 @@ body.reminder-theme-black #confirmation-popup {
     display: flex;
     align-items: flex-end;
     justify-content: center;
-    pointer-events: none;
+    margin: 0;
+    font: inherit;
+    pointer-events: auto;
     box-sizing: border-box;
     padding-inline: 0.2em;
     padding-bottom: 0.15em;
@@ -482,6 +485,7 @@ body.reminder-theme-black #confirmation-popup {
     border: 1px solid rgba(148, 163, 184, 0.28);
     border-radius: 0.45em;
     color: #1e293b;
+    cursor: pointer;
 }
 
 .toolshed-campaign-date-edit-marker-icon {

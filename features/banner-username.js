@@ -15,6 +15,7 @@
     const KNOWN_BANNER_HOST_SELECTOR = [
         'mo-banner',
         'mo-banner-user-menu',
+        'mo-banner-user-menu-content',
         'mo-banner-sub-context-menu',
         'mo-banner-widget',
         'mo-menu',
