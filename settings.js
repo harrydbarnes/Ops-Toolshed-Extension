@@ -46,6 +46,7 @@ const SETTINGS_DEFAULTS = Object.freeze({
     ordersShortcutEnabled: true,
     actualiseShortcutEnabled: true,
     approverWidgetPlacementEnabled: true,
+    dstAssuranceEnabled: true,
     quickCampaignActionsEnabled: true,
     budgetWidgetOptimisedEnabled: true,
     campaignNameQuickCopyEnabled: true,
@@ -332,6 +333,7 @@ const FEATURE_SETTING_PREVIEWS = {
     automateFormFieldsToggle: ['Automate form fields', 'Preselects the Budget type and Media mix fields during campaign creation.', 'Fields selected'],
     rememberAccountSwitchUrlToggle: ['Restore page after account switch', 'Returns you to the Prisma page you were viewing after a new account has loaded.', 'Back to campaign'],
     approverWidgetPlacementToggle: ['Approver Widget placement', 'Places the Approver Widget in the clearest campaign-page position.', 'Approver Widget'],
+    dstAssuranceToggle: ['DST Assurance', 'Checks Facebook media for a correctly supplied Meta Location Fee at 2% of booked media.', 'DST Booked'],
     budgetWidgetOptimisedToggle: ['Budget widget', 'Improves the placement and visibility of the campaign budget widget.', 'Budget summary'],
     newOrderUiOptimisationToggle: ['New Order UI', 'Applies the extension’s layout improvements to Prisma’s newer Orders interface.', 'Orders workspace'],
     seeCommentsOnLockedBuysToggle: ['Comments on locked Buys', 'Keeps comments visible when a Buy is locked.', 'Comments'],
@@ -1074,6 +1076,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupToggle('ordersShortcutToggle', 'ordersShortcutEnabled', 'Orders shortcut setting saved:', settings);
     setupToggle('actualiseShortcutToggle', 'actualiseShortcutEnabled', 'Actualise shortcut setting saved:', settings);
     setupToggle('approverWidgetPlacementToggle', 'approverWidgetPlacementEnabled', 'Approver Widget placement setting saved:', settings);
+    setupToggle('dstAssuranceToggle', 'dstAssuranceEnabled', 'DST Assurance setting saved:', settings);
     setupToggle('quickCampaignActionsToggle', 'quickCampaignActionsEnabled', 'Quick campaign actions setting saved:', settings);
     setupToggle('budgetWidgetOptimisedToggle', 'budgetWidgetOptimisedEnabled', 'Budget widget optimisation setting saved:', settings);
     setupToggle('campaignNameQuickCopyToggle', 'campaignNameQuickCopyEnabled', 'Campaign name quick copy setting saved:', settings);

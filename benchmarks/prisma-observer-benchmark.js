@@ -84,6 +84,7 @@ async function benchmarkCentralObserver() {
     window.helpGuidesLauncherFeature = { initialize: () => {}, ensureLauncher: () => work('ensureLauncher') };
     window.bannerUsernameFeature = { initialize: () => {} };
     window.placementCounterFeature = { initialize: () => {}, checkSelection: () => work('checkSelection') };
+    window.dstAssuranceFeature = { initialize: () => {}, apply: () => work('dstAssuranceApply') };
     window.swapAccountsFeature = { initialize: () => {} };
     window.autoCopyUrlFeature = { initialize: () => {}, handleAutoCopy: () => work('handleAutoCopy') };
     window.orderIdCopyFeature = { initialize: () => {}, checkAndAddCopyButtons: () => work('checkAndAddCopyButtons') };

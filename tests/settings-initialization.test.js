@@ -33,6 +33,7 @@ const EXPECTED_DEFAULTS = {
     ordersShortcutEnabled: true,
     actualiseShortcutEnabled: true,
     approverWidgetPlacementEnabled: true,
+    dstAssuranceEnabled: true,
     quickCampaignActionsEnabled: true,
     budgetWidgetOptimisedEnabled: true,
     campaignNameQuickCopyEnabled: true,

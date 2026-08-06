@@ -437,6 +437,133 @@ body.reminder-theme-black #confirmation-popup {
     max-width: 300px;
 }
 
+/* Keep the date card and its rear pencil tab in one predictable stacking
+   context across Prisma zoom levels. */
+.toolshed-campaign-date-edit-host {
+    position: relative;
+    display: inline-block;
+    overflow: visible;
+    z-index: 0;
+    isolation: isolate;
+    margin-right: 0.35em;
+    vertical-align: middle;
+}
+
+.mo-date-field-wrapper.toolshed-campaign-date-editable {
+    display: inline-block !important;
+    position: relative !important;
+    overflow: visible !important;
+    z-index: 1;
+    isolation: isolate;
+    box-sizing: border-box;
+    padding: 0.15em 0.5em;
+    background-color: #f3f4f6 !important;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.45em;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.toolshed-campaign-date-edit-marker {
+    position: absolute;
+    top: auto;
+    bottom: -0.9em;
+    right: -0.6em;
+    width: 1.4em;
+    height: 1.35em;
+    z-index: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    pointer-events: none;
+    box-sizing: border-box;
+    padding-inline: 0.2em;
+    padding-bottom: 0.15em;
+    background-color: #fff;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 0.45em;
+    color: #1e293b;
+}
+
+.toolshed-campaign-date-edit-marker-icon {
+    display: block;
+    flex: 0 0 1em;
+    width: 1em;
+    height: 1em;
+}
+
+/* Keep DST Assurance after GMI Chat on one intrinsic-width, visible row. */
+.workflow-widget-wrapper:has(> .toolshed-dst-assurance),
+.approver-widget-placement-enabled.gmi-chat-enabled .workflow-widget-wrapper:has(> .toolshed-dst-assurance) {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    width: max-content;
+    min-width: max-content;
+    max-width: none;
+    overflow: visible;
+    white-space: nowrap;
+}
+
+.toolshed-dst-assurance {
+    display: inline-flex;
+    align-items: center;
+    margin: 0 8px;
+    padding: 4px 8px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    cursor: default;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+    flex: 0 0 auto;
+    vertical-align: middle;
+}
+
+.toolshed-dst-assurance--correct {
+    background: #dcfce7;
+    border-color: #86efac;
+    color: #166534;
+}
+
+.toolshed-dst-assurance--incorrect {
+    background: #fef3c7;
+    border-color: #fcd34d;
+    color: #92400e;
+    cursor: pointer;
+}
+
+/* Render the assurance explanation outside Prisma's clipped header layers. */
+.toolshed-dst-assurance-tooltip {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 2147483647;
+    display: block;
+    width: max-content;
+    max-width: 360px;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 6px;
+    background: #1f2937;
+    color: #fff;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.28);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.35;
+    text-align: left;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    pointer-events: auto;
+}
+
+.toolshed-dst-assurance-tooltip[hidden] {
+    display: none;
+}
+
 /* Centre the workflow controls within Prisma's available header cell. */
 #campaignHeader .mo.pull-right.container-fluid.workflow-cell {
     display: flex;

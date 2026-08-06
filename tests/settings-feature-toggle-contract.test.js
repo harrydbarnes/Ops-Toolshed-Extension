@@ -33,6 +33,7 @@ const FEATURE_TOGGLE_KEYS = {
     automateFormFieldsToggle: 'automateFormFieldsEnabled',
     rememberAccountSwitchUrlToggle: 'rememberAccountSwitchUrlEnabled',
     approverWidgetPlacementToggle: 'approverWidgetPlacementEnabled',
+    dstAssuranceToggle: 'dstAssuranceEnabled',
     budgetWidgetOptimisedToggle: 'budgetWidgetOptimisedEnabled',
     newOrderUiOptimisationToggle: 'newOrderUiOptimisationEnabled',
     seeCommentsOnLockedBuysToggle: 'alwaysShowCommentsEnabled',

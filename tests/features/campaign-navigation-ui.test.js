@@ -10,6 +10,10 @@ const campaignDetailsFocusScript = fs.readFileSync(
     path.resolve(__dirname, '../../features/campaign-details-focus.js'),
     'utf8'
 );
+const contentStyles = fs.readFileSync(
+    path.resolve(__dirname, '../../content.css'),
+    'utf8'
+);
 
 function createPage(settings = {}, url = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-buy&campaign-id=CP3FMRK&route=online') {
     const dom = new JSDOM(`<!doctype html><html><head></head><body>
@@ -444,6 +448,128 @@ describe('campaign navigation UI optimisation', () => {
         );
         expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
             action: 'requestCampaignDetailsBasicFocus'
+        });
+        dom.window.close();
+    });
+
+    test('shows one bottom-right pencil cue when campaign date quick edit is enabled', () => {
+        const dom = createPage();
+        const { document } = dom.window;
+        const dates = document.querySelector('.mo-date-field-wrapper');
+
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+
+        const marker = document.querySelector('.toolshed-campaign-date-edit-marker');
+        const icon = marker?.querySelector('svg');
+        expect(marker).not.toBeNull();
+        expect(marker.textContent).toBe('');
+        expect(icon).not.toBeNull();
+        expect(icon.getAttribute('viewBox')).toBe('-0.5 0 24 24');
+        expect(icon.getAttribute('data-orientation')).toBe('tip-bottom-left');
+        expect(marker.getAttribute('aria-hidden')).toBe('true');
+        expect(dates.classList).toContain('toolshed-campaign-date-editable');
+        expect(document.querySelectorAll('.toolshed-campaign-date-edit-marker')).toHaveLength(1);
+        expect(dates.parentElement.classList).toContain('toolshed-campaign-date-edit-host');
+        expect(marker.parentElement).toBe(dates.parentElement);
+        dom.window.close();
+    });
+
+    test('does not add the campaign date pencil cue when quick edit is disabled', () => {
+        const dom = createPage({ campaignDateShortcutEnabled: false });
+        const { document } = dom.window;
+
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+
+        expect(document.querySelector('.toolshed-campaign-date-edit-marker')).toBeNull();
+        expect(document.querySelector('.toolshed-campaign-date-edit-host')).toBeNull();
+        expect(document.querySelector('.mo-date-field-wrapper').classList)
+            .not.toContain('toolshed-campaign-date-editable');
+        dom.window.close();
+    });
+
+    test('keeps the campaign date pencil tucked behind an opaque date card without blocking clicks', () => {
+        const dom = new JSDOM(`<!doctype html><style>${contentStyles}</style>`);
+        const rules = Array.from(dom.window.document.styleSheets[0].cssRules);
+        const hostRule = rules.find(rule =>
+            rule.selectorText?.includes('.toolshed-campaign-date-edit-host')
+        );
+        const dateRule = rules.find(rule =>
+            rule.selectorText?.includes('.mo-date-field-wrapper.toolshed-campaign-date-editable')
+        );
+        const markerRule = rules.find(rule =>
+            rule.selectorText?.includes('.toolshed-campaign-date-edit-marker')
+        );
+
+        expect(dateRule).toBeDefined();
+        expect(hostRule).toBeDefined();
+        expect(markerRule).toBeDefined();
+        expect({
+            display: hostRule.style.getPropertyValue('display'),
+            position: hostRule.style.getPropertyValue('position'),
+            overflow: hostRule.style.getPropertyValue('overflow'),
+            marginRight: hostRule.style.getPropertyValue('margin-right'),
+            zIndex: hostRule.style.getPropertyValue('z-index'),
+            isolation: hostRule.style.getPropertyValue('isolation')
+        }).toEqual({
+            display: 'inline-block',
+            position: 'relative',
+            overflow: 'visible',
+            marginRight: '0.35em',
+            zIndex: '0',
+            isolation: 'isolate'
+        });
+        expect({
+            display: dateRule.style.getPropertyValue('display'),
+            position: dateRule.style.getPropertyValue('position'),
+            overflow: dateRule.style.getPropertyValue('overflow'),
+            background: dateRule.style.getPropertyValue('background-color'),
+            border: dateRule.style.getPropertyValue('border'),
+            borderRadius: dateRule.style.getPropertyValue('border-radius'),
+            boxShadow: dateRule.style.getPropertyValue('box-shadow'),
+            padding: dateRule.style.getPropertyValue('padding'),
+            zIndex: dateRule.style.getPropertyValue('z-index'),
+            isolation: dateRule.style.getPropertyValue('isolation')
+        }).toEqual({
+            display: 'inline-block',
+            position: 'relative',
+            overflow: 'visible',
+            background: '#f3f4f6',
+            border: '1px solid #e5e7eb',
+            borderRadius: '0.45em',
+            boxShadow: '0 1px 2px rgba(15, 23, 42, 0.06)',
+            padding: '0.15em 0.5em',
+            zIndex: '1',
+            isolation: 'isolate'
+        });
+        expect({
+            position: markerRule.style.getPropertyValue('position'),
+            top: markerRule.style.getPropertyValue('top'),
+            bottom: markerRule.style.getPropertyValue('bottom'),
+            right: markerRule.style.getPropertyValue('right'),
+            width: markerRule.style.getPropertyValue('width'),
+            height: markerRule.style.getPropertyValue('height'),
+            boxSizing: markerRule.style.getPropertyValue('box-sizing'),
+            paddingInline: markerRule.style.getPropertyValue('padding-inline'),
+            paddingBottom: markerRule.style.getPropertyValue('padding-bottom'),
+            background: markerRule.style.getPropertyValue('background-color'),
+            borderRadius: markerRule.style.getPropertyValue('border-radius'),
+            zIndex: markerRule.style.getPropertyValue('z-index'),
+            pointerEvents: markerRule.style.getPropertyValue('pointer-events')
+        }).toEqual({
+            position: 'absolute',
+            top: 'auto',
+            bottom: '-0.9em',
+            right: '-0.6em',
+            width: '1.4em',
+            height: '1.35em',
+            boxSizing: 'border-box',
+            paddingInline: '0.2em',
+            background: '#fff',
+            borderRadius: '0.45em',
+            paddingBottom: '0.15em',
+            zIndex: '0',
+            pointerEvents: 'none'
         });
         dom.window.close();
     });

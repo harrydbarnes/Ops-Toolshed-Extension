@@ -22,6 +22,7 @@ const DIRTY_FEATURE_GROUPS = [
     'approvals',
     'chat',
     'placement',
+    'dstAssurance',
     'reminders',
     'autoCopy',
     'logo'
@@ -75,7 +76,7 @@ const DIRTY_FEATURE_HINTS = [
         selector: '#ptb-header mo-icon[name="print"], .mo-page-header mo-icon[name="print"], .buy-details-background, .buy-details-wrapper'
     },
     {
-        groups: ['campaign', 'approvals', 'chat', 'placement'],
+        groups: ['campaign', 'approvals', 'chat', 'placement', 'dstAssurance'],
         selector: '.workflow-widget-wrapper'
     },
     {
@@ -95,8 +96,8 @@ const DIRTY_FEATURE_HINTS = [
         selector: 'mo-side-panel, #vp-block, mo-spinner, .mo-spinner'
     },
     {
-        groups: ['placement'],
-        selector: '[data-placement-id], .placement-row'
+        groups: ['placement', 'dstAssurance'],
+        selector: '.ht_master .htCore, [data-placement-id], .placement-row'
     }
 ];
 
@@ -287,6 +288,7 @@ async function mainContentScriptInit() {
     // Placement, approvals, campaign chat, and campaign link controls only
     // need to listen while a campaign workspace is open.
     initializeFeature(window.placementCounterFeature, isPrismaLike && initialRoute.isCampaignWorkspace);
+    initializeFeature(window.dstAssuranceFeature, isPrismaLike && initialRoute.isCampaignWorkspace);
     initializeFeature(window.approverPastingFeature, isPrismaLike && initialRoute.isCampaignWorkspace);
     initializeFeature(window.autoCopyUrlFeature, (isPrismaLike || isAura) && initialRoute.isCampaignWorkspace);
     initializeFeature(window.liveChatEnhancements, isPrismaLike && initialRoute.isCampaignWorkspace);
@@ -375,6 +377,7 @@ async function mainContentScriptInit() {
                 initializeFeature(window.orderViewToggleFeature, true);
                 initializeFeature(window.actualiseShortcutFeature, true);
                 initializeFeature(window.placementCounterFeature, true);
+                initializeFeature(window.dstAssuranceFeature, true);
                 initializeFeature(window.approverPastingFeature, true);
                 initializeFeature(window.liveChatEnhancements, true);
                 initializeFeature(window.campaignTabTitleFeature, true);
@@ -434,6 +437,7 @@ async function mainContentScriptInit() {
 
         if (isPrismaLike && route.isCampaignWorkspace) {
             initializeFeature(window.placementCounterFeature, true);
+            initializeFeature(window.dstAssuranceFeature, true);
             initializeFeature(window.approverPastingFeature, true);
             initializeFeature(window.liveChatEnhancements, true);
             initializeFeature(window.campaignTabTitleFeature, true);
@@ -471,6 +475,9 @@ async function mainContentScriptInit() {
                 }
                 if (hasDirtyFeature('placement')) {
                     window.placementCounterFeature?.checkSelection();
+                }
+                if (hasDirtyFeature('dstAssurance')) {
+                    window.dstAssuranceFeature?.apply?.();
                 }
             }
 
