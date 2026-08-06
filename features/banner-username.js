@@ -165,9 +165,22 @@
             const eventPath = typeof event.composedPath === 'function'
                 ? event.composedPath()
                 : [];
-            if (eventPath.some(element => element?.matches?.('div.pid-options'))) {
+            if (!eventPath.some(element => element?.matches?.('div.pid-options'))) return;
+
+            const pidButton = eventPath.find(element => element?.matches?.('div.pid-options button'));
+            const selectedPid = parseUsernamePrefix(
+                pidButton?.getAttribute?.('data-full-text') || pidButton?.textContent
+            );
+            const selectedUsername = buildUsername(selectedPid, readActiveOrganisation());
+            if (!selectedUsername) {
                 clearRememberedUsername();
+                return;
             }
+
+            const { userMenu } = getBannerParts();
+            if (userMenu) attemptedMenus.add(userMenu);
+            rememberUsername(selectedUsername);
+            apply();
         }, true);
     }
 

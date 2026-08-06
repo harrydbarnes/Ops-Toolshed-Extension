@@ -15,6 +15,7 @@ describe('Prisma banner username feature', () => {
         nestedOverlayUsername = false,
         cachedUsername = null,
         includePidOptions = false,
+        pidOptionText = 'Alternative PID',
         initialAccountLabel = 'GROUPM UK (OWNER)'
     } = {}) {
         const dom = new JSDOM('<!doctype html><html><body></body></html>', {
@@ -91,7 +92,7 @@ describe('Prisma banner username feature', () => {
             const pidOptions = window.document.createElement('div');
             pidOptions.className = 'pid-options';
             pidOption = window.document.createElement('button');
-            pidOption.textContent = 'Alternative PID';
+            pidOption.textContent = pidOptionText;
             pidOptions.appendChild(pidOption);
             window.document.body.appendChild(pidOptions);
         }
@@ -123,6 +124,7 @@ describe('Prisma banner username feature', () => {
             window,
             listeners,
             accountLabel,
+            organisationLabel,
             attachBannerParts,
             menuTrigger,
             pidOption,
@@ -240,6 +242,27 @@ describe('Prisma banner username feature', () => {
 
         expect(page.localStorage.remove).toHaveBeenCalledWith('opsToolshed_bannerUsername');
         expect(page.window.bannerUsernameFeature.getResolvedUsername()).toBeNull();
+        page.dom.window.close();
+    });
+
+    test('uses the selected PID and organisation without reopening the account menu', async () => {
+        const page = createPage({ includePidOptions: true, pidOptionText: 'SECONDARYPID' });
+        const selectedPid = page.pidOption.textContent.trim();
+        const organisation = page.organisationLabel.textContent.trim();
+        const expectedUsername = `${selectedPid}@${organisation}`;
+
+        page.window.bannerUsernameFeature.initialize();
+        await settleDiscovery(page.window);
+        page.pidOption.click();
+        page.accountLabel.textContent = 'GROUPM UK (OWNER)';
+        await settleDiscovery(page.window);
+
+        expect(page.accountLabel.textContent).toBe(expectedUsername);
+        expect(page.window.bannerUsernameFeature.getResolvedUsername()).toBe(expectedUsername);
+        expect(page.localStorage.set).toHaveBeenLastCalledWith({
+            opsToolshed_bannerUsername: expectedUsername
+        });
+        expect(page.getTriggerClicks()).toBe(2);
         page.dom.window.close();
     });
 
