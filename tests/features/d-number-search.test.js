@@ -35,10 +35,17 @@ describe('D-Number Search Feature', () => {
         window.utils.waitForElementInShadow
             .mockResolvedValueOnce(mockSearchIcon) // 1. Icon
             .mockResolvedValueOnce(mockInput);     // 2. Input
+
+        jest.useFakeTimers();
+        window.setTimeout = global.setTimeout;
+        window.clearTimeout = global.clearTimeout;
+        window.Date = Date;
     });
 
     afterEach(() => {
+        jest.clearAllTimers();
         dom?.window.close();
+        jest.useRealTimers();
     });
 
     describe('when result link is found immediately', () => {
@@ -51,7 +58,10 @@ describe('D-Number Search Feature', () => {
         });
 
         test('should click search icon, input text, and find result link', async () => {
-            await window.dNumberSearchFeature.handleDNumberSearch(dNumber);
+            const search = window.dNumberSearchFeature.handleDNumberSearch(dNumber);
+            await jest.advanceTimersByTimeAsync(100);
+            await jest.advanceTimersByTimeAsync(1500);
+            await search;
 
             // Verification
             expect(mockSearchIcon.click).toHaveBeenCalled();
@@ -73,7 +83,11 @@ describe('D-Number Search Feature', () => {
         });
 
         test('should fallback to history toggle if immediate link not found', async () => {
-            await window.dNumberSearchFeature.handleDNumberSearch(dNumber);
+            const search = window.dNumberSearchFeature.handleDNumberSearch(dNumber);
+            await jest.advanceTimersByTimeAsync(100);
+            await jest.advanceTimersByTimeAsync(1500);
+            await jest.advanceTimersByTimeAsync(500);
+            await search;
 
             expect(mockSearchIcon.click).toHaveBeenCalled();
             expect(mockInput.value).toBe(dNumber);

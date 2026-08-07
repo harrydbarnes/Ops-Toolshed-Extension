@@ -71,9 +71,27 @@ describe('Manifest content-script order', () => {
         expect(mediaoceanRegistration.js).toContain('features/actualise-navbar.js');
         expect(mediaoceanRegistration.js).toContain('features/actualise-shortcut.js');
         expect(mediaoceanRegistration.js).toContain('features/actualise-export-all.js');
+        expect(mediaoceanRegistration.js).toContain('features/actualise-month-assurance.js');
         expect(mediaoceanRegistration.js).toContain('features/order-grid-scroll-sync.js');
         expect(mediaoceanRegistration.js).toContain('features/max-campaign-budget.js');
         expect(mediaoceanRegistration.js).toContain('features/onboarding-tour.js');
+    });
+
+    test('loads the Actualise month response bridge in the page world before the isolated content script', () => {
+        const bridgeRegistration = manifest.content_scripts.find(entry =>
+            entry.js?.includes('features/actualise-month-bridge.js')
+        );
+
+        expect(bridgeRegistration).toMatchObject({
+            run_at: 'document_start',
+            world: 'MAIN',
+            js: ['features/actualise-month-bridge.js']
+        });
+        const isolatedRegistration = manifest.content_scripts.find(entry =>
+            entry.js?.includes('content.js')
+        );
+        expect(manifest.content_scripts.indexOf(bridgeRegistration))
+            .toBeLessThan(manifest.content_scripts.indexOf(isolatedRegistration));
     });
 
     test('ships the first-run onboarding and guided side-panel pages', () => {

@@ -500,6 +500,18 @@ body.reminder-theme-black #confirmation-popup {
     white-space: nowrap;
 }
 
+.workflow-widget-wrapper:has(> .toolshed-actualise-month-assurance),
+.approver-widget-placement-enabled.gmi-chat-enabled .workflow-widget-wrapper:has(> .toolshed-actualise-month-assurance) {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    width: max-content;
+    min-width: max-content;
+    max-width: none;
+    overflow: visible;
+    white-space: nowrap;
+}
+
 .toolshed-dst-assurance {
     display: inline-flex;
     align-items: center;
@@ -528,6 +540,35 @@ body.reminder-theme-black #confirmation-popup {
     border-color: #fcd34d;
     color: #92400e;
     cursor: pointer;
+}
+
+.toolshed-actualise-month-assurance {
+    display: inline-flex;
+    align-items: center;
+    margin: 0 8px;
+    padding: 4px 8px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    cursor: default;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+    flex: 0 0 auto;
+    vertical-align: middle;
+}
+
+.toolshed-actualise-month-assurance--correct {
+    background: #dcfce7;
+    border-color: #86efac;
+    color: #166534;
+}
+
+.toolshed-actualise-month-assurance--incorrect {
+    background: #fef3c7;
+    border-color: #fcd34d;
+    color: #92400e;
 }
 
 /* Point directly to the Fee supplier or authoritative cost that needs review. */

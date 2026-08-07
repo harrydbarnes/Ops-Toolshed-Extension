@@ -1,0 +1,174 @@
+const fs = require('fs');
+const path = require('path');
+const { JSDOM } = require('jsdom');
+
+const featureCode = fs.readFileSync(
+    path.resolve(__dirname, '../../features/actualise-month-assurance.js'),
+    'utf8'
+);
+
+describe('Actualise month assurance', () => {
+    const monthKeys = {
+        'Oct 25': '2025-10',
+        'Nov 25': '2025-11',
+        'Dec 25': '2025-12'
+    };
+
+    function emitNativeEvidence(window, responseMonths, requestMonth = '2025-11') {
+        window.dispatchEvent(new window.MessageEvent('message', {
+            source: window,
+            origin: window.location.origin,
+            data: {
+                source: 'ops-toolshed-actualise-month-bridge',
+                type: 'ops-toolshed-actualise-month-data',
+                detail: {
+                    campaignId: 'CP123',
+                    requestMonth,
+                    responseMonths,
+                    rowCount: responseMonths.length ? 1 : 0
+                }
+            }
+        }));
+    }
+
+    function createFeature({
+        activeMonth = 'Nov 25',
+        urlMonth = '2025-11',
+        responseMonths = ['2025-11'],
+        responseByMonth = {},
+        months = Object.keys(monthKeys)
+    } = {}) {
+        const monthItems = months.map(month =>
+            `<li class="${month === activeMonth ? 'active' : ''}"><a>${month}</a></li>`
+        ).join('');
+        const dom = new JSDOM(`<!doctype html><html><head></head><body>
+            <div class="workflow-widget-wrapper">
+                <button class="gmi-chat-button">GMI Chat</button>
+            </div>
+            <div id="month-filter-toolbar">
+                <div id="mos-paginator"><ul>${monthItems}</ul></div>
+                <div class="mo-caption mo-text-bold">${activeMonth}:</div>
+            </div>
+            <div id="grid-container_hot">
+                <div class="ht_master"><table class="htCore">
+                    <thead><tr><th>Name</th><th>Start date</th><th>End date</th></tr></thead>
+                    <tbody><tr><td>Booking</td><td>14/10/2025</td><td>14/11/2025</td></tr></tbody>
+                </table></div>
+            </div>
+        </body></html>`, {
+            runScripts: 'dangerously',
+            url: `https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=buy&ptb-ctx=actualize&route=actualize&mos=${urlMonth}-01`
+        });
+
+        dom.window.__OPS_TOOLSHED_ACTUALISE_MONTH_TEST_TIMING__ = {
+            recoveryTimeoutMs: 250,
+            pollMs: 1,
+            readyStableMs: 1
+        };
+
+        const clickedMonths = [];
+        const responseQueues = new Map(Object.entries(responseByMonth));
+        Array.from(dom.window.document.querySelectorAll('#mos-paginator a')).forEach(link => {
+            link.addEventListener('click', event => {
+                event.preventDefault();
+                const label = link.textContent.trim();
+                const month = monthKeys[label];
+                clickedMonths.push(label);
+                dom.window.document.querySelectorAll('#mos-paginator li').forEach(item => {
+                    item.classList.toggle('active', item.querySelector('a') === link);
+                });
+                dom.window.document.querySelector('.mo-caption').textContent = `${label}:`;
+                dom.window.history.replaceState(
+                    {},
+                    '',
+                    `#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=buy&ptb-ctx=actualize&route=actualize&mos=${month}-01`
+                );
+                const gridCell = dom.window.document.querySelector('#grid-container_hot tbody td');
+                gridCell.textContent = `Booking ${month}`;
+                const queue = responseQueues.get(month) || [responseMonths];
+                const nextEvidence = queue.length > 1 ? queue.shift() : queue[0];
+                emitNativeEvidence(dom.window, nextEvidence, month);
+            });
+        });
+
+        dom.window.eval(featureCode);
+        return {
+            dom,
+            window: dom.window,
+            clickedMonths,
+            emitEvidence: (months, requestMonth = urlMonth) =>
+                emitNativeEvidence(dom.window, months, requestMonth)
+        };
+    }
+
+    test('shows a green Correct Month badge only when URL, paginator, grid and native response agree', async () => {
+        const feature = createFeature();
+
+        feature.window.actualiseMonthAssuranceFeature.initialize();
+        feature.emitEvidence(['2025-11']);
+        await new Promise(resolve => feature.window.setTimeout(resolve, 0));
+
+        const badge = feature.window.document.querySelector('.toolshed-actualise-month-assurance');
+        expect(feature.window.actualiseMonthAssuranceFeature.assessActualiseMonth()).toMatchObject({
+            status: 'correct',
+            expectedMonth: '2025-11',
+            activeMonth: '2025-11',
+            responseMonths: ['2025-11']
+        });
+        expect(badge.textContent).toBe('Correct Month');
+        expect(badge.classList).toContain('toolshed-actualise-month-assurance--correct');
+        expect(badge.getAttribute('role')).toBe('status');
+
+        feature.dom.window.close();
+    });
+
+    test('marks a native response month mismatch yellow and cycles another month before returning', async () => {
+        const feature = createFeature({
+            responseByMonth: {
+                '2025-10': [['2025-10']],
+                '2025-11': [['2025-11']]
+            }
+        });
+
+        feature.window.actualiseMonthAssuranceFeature.initialize();
+        feature.emitEvidence(['2025-10']);
+        await new Promise(resolve => feature.window.setTimeout(resolve, 25));
+
+        expect(feature.clickedMonths).toEqual(['Oct 25', 'Nov 25']);
+        expect(feature.window.actualiseMonthAssuranceFeature.assessActualiseMonth()).toMatchObject({
+            status: 'correct',
+            expectedMonth: '2025-11',
+            activeMonth: '2025-11',
+            responseMonths: ['2025-11']
+        });
+        const badge = feature.window.document.querySelector('.toolshed-actualise-month-assurance');
+        expect(badge.textContent).toBe('Correct Month');
+        expect(badge.classList).toContain('toolshed-actualise-month-assurance--correct');
+
+        feature.dom.window.close();
+    });
+
+    test('keeps the badge yellow when the URL and selected month disagree', () => {
+        const feature = createFeature({
+            activeMonth: 'Oct 25',
+            urlMonth: '2025-11',
+            months: ['Oct 25']
+        });
+
+        feature.window.actualiseMonthAssuranceFeature.initialize();
+        feature.emitEvidence(['2025-11']);
+        feature.window.actualiseMonthAssuranceFeature.apply();
+
+        const assessment = feature.window.actualiseMonthAssuranceFeature.assessActualiseMonth();
+        const badge = feature.window.document.querySelector('.toolshed-actualise-month-assurance');
+        expect(assessment).toMatchObject({
+            status: 'incorrect',
+            expectedMonth: '2025-11',
+            activeMonth: '2025-10'
+        });
+        expect(badge.textContent).toBe('Check Month');
+        expect(badge.classList).toContain('toolshed-actualise-month-assurance--incorrect');
+
+        feature.dom.window.close();
+    });
+});

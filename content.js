@@ -307,6 +307,7 @@ async function mainContentScriptInit() {
     initializeFeature(window.actualiseNavbarFeature, isPrismaLike && initialRoute.isActualise);
     initializeFeature(window.actualiseShortcutFeature, isPrismaLike && initialRoute.isCampaignWorkspace);
     initializeFeature(window.actualiseExportAllFeature, isPrismaLike && initialRoute.isActualise);
+    initializeFeature(window.actualiseMonthAssuranceFeature, isPrismaLike && initialRoute.isActualise);
     initializeFeature(window.maxCampaignBudgetFeature, isPrismaLike && initialRoute.isCampaignWorkspace);
 
     // Initialize Loading Facts Feature
@@ -390,6 +391,7 @@ async function mainContentScriptInit() {
                 initializeFeature(window.actualiseScrollRestoreFeature, true);
                 initializeFeature(window.actualiseNavbarFeature, true);
                 initializeFeature(window.actualiseExportAllFeature, true);
+                initializeFeature(window.actualiseMonthAssuranceFeature, true);
             }
             if (route.isCampaignWorkspace) {
                 initializeFeature(window.maxCampaignBudgetFeature, true);
@@ -416,6 +418,9 @@ async function mainContentScriptInit() {
             }
             if (hasDirtyFeature('actualise') && route.isActualise && window.actualiseExportAllFeature) {
                 window.actualiseExportAllFeature.apply();
+            }
+            if (hasDirtyFeature('actualise') && route.isActualise && window.actualiseMonthAssuranceFeature) {
+                window.actualiseMonthAssuranceFeature.apply();
             }
             if (hasDirtyFeature('campaign') && route.isCampaignWorkspace) {
                 window.campaignFeature?.syncPrintNavigationSections?.();
@@ -478,6 +483,9 @@ async function mainContentScriptInit() {
                 }
                 if (hasDirtyFeature('dstAssurance')) {
                     window.dstAssuranceFeature?.apply?.();
+                }
+                if (route.isActualise && hasDirtyFeature('actualise')) {
+                    window.actualiseMonthAssuranceFeature?.apply?.();
                 }
             }
 

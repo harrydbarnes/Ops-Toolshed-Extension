@@ -13,6 +13,7 @@ const scriptsToLoad = [
     'features/approver-pasting.js',
     'features/max-campaign-budget.js',
     'features/dst-assurance.js',
+    'features/actualise-month-assurance.js',
     'content.js'
 ].map(scriptPath => fs.readFileSync(path.resolve(__dirname, `../${scriptPath}`), 'utf8'));
 
@@ -170,6 +171,7 @@ describe('Content Script Main Logic', () => {
             'actualiseNavbarFeature',
             'actualiseShortcutFeature',
             'actualiseExportAllFeature',
+            'actualiseMonthAssuranceFeature',
             'maxCampaignBudgetFeature',
             'campaignTabTitleFeature',
             'loadingFactsFeature',
@@ -216,6 +218,7 @@ describe('Content Script Main Logic', () => {
         expect(dashboardMocks.orderGridScrollSyncFeature.initialize).not.toHaveBeenCalled();
         expect(dashboardMocks.actualiseNavbarFeature.initialize).not.toHaveBeenCalled();
         expect(dashboardMocks.actualiseShortcutFeature.initialize).not.toHaveBeenCalled();
+        expect(dashboardMocks.actualiseMonthAssuranceFeature.initialize).not.toHaveBeenCalled();
 
         dashboard.window.history.replaceState(
             {},
@@ -251,6 +254,7 @@ describe('Content Script Main Logic', () => {
         expect(campaignMocks.actualiseShortcutFeature.initialize).toHaveBeenCalledTimes(1);
         expect(campaignMocks.actualiseNavbarFeature.initialize).not.toHaveBeenCalled();
         expect(campaignMocks.actualiseExportAllFeature.initialize).not.toHaveBeenCalled();
+        expect(campaignMocks.actualiseMonthAssuranceFeature.initialize).not.toHaveBeenCalled();
         expect(campaignMocks.orderGridScrollSyncFeature.initialize).not.toHaveBeenCalled();
         campaign.window.close();
 
@@ -266,6 +270,7 @@ describe('Content Script Main Logic', () => {
         expect(actualiseMocks.actualiseScrollRestoreFeature.initialize).toHaveBeenCalledTimes(1);
         expect(actualiseMocks.actualiseNavbarFeature.initialize).toHaveBeenCalledTimes(1);
         expect(actualiseMocks.actualiseExportAllFeature.initialize).toHaveBeenCalledTimes(1);
+        expect(actualiseMocks.actualiseMonthAssuranceFeature.initialize).toHaveBeenCalledTimes(1);
         expect(actualiseMocks.actualiseShortcutFeature.initialize).toHaveBeenCalledTimes(1);
         expect(actualiseMocks.dstAssuranceFeature.initialize).toHaveBeenCalledTimes(1);
         expect(actualiseMocks.orderIdCopyFeature.initialize).toHaveBeenCalledTimes(1);

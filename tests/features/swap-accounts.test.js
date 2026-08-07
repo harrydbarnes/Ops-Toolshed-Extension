@@ -37,6 +37,11 @@ describe('Switch Accounts feature', () => {
 
         window = dom.window;
         document = window.document;
+        window.setTimeout = global.setTimeout;
+        window.clearTimeout = global.clearTimeout;
+        window.setInterval = global.setInterval;
+        window.clearInterval = global.clearInterval;
+        window.Date = Date;
 
         const userMenu = document.querySelector('mo-banner-user-menu');
         const shadowRoot = userMenu.attachShadow({ mode: 'open' });
@@ -93,10 +98,12 @@ describe('Switch Accounts feature', () => {
     }
 
     beforeEach(async () => {
+        jest.useFakeTimers();
         await createPage();
     });
 
     afterEach(() => {
+        jest.clearAllTimers();
         dom.window.close();
         jest.useRealTimers();
     });
@@ -106,8 +113,7 @@ describe('Switch Accounts feature', () => {
         expect(swapButton).not.toBeNull();
 
         swapButton.click();
-        await new Promise(resolve => window.setTimeout(resolve, 450));
-        await Promise.resolve();
+        await jest.advanceTimersByTimeAsync(450);
 
         expect(waitForElementToDisappear).toHaveBeenCalledWith('#userRegistrationDialog', 15000);
     });
@@ -134,16 +140,16 @@ describe('Switch Accounts feature', () => {
         });
         await window.swapAccountsFeature.restorePendingUrl();
 
-        await new Promise(resolve => window.setTimeout(resolve, 1400));
+        await jest.advanceTimersByTimeAsync(1400);
         expect(window.location.href).toBe(target);
         expect(pendingReturnUrl).toBe(target);
 
         window.location.hash = '#osAppId=prsm-cm-spa&osPspId=prsm-cm-home';
-        await new Promise(resolve => window.setTimeout(resolve, 300));
+        await jest.advanceTimersByTimeAsync(300);
 
         expect(window.location.href).toBe(target);
 
-        await new Promise(resolve => window.setTimeout(resolve, 5200));
+        await jest.advanceTimersByTimeAsync(5500);
         expect(pendingReturnUrl).toBeNull();
     }, 15000);
 
@@ -153,11 +159,11 @@ describe('Switch Accounts feature', () => {
         await createPage({ url: target, pendingUrl: target });
         await window.swapAccountsFeature.restorePendingUrl();
 
-        await new Promise(resolve => window.setTimeout(resolve, 5200));
+        await jest.advanceTimersByTimeAsync(5200);
         expect(pendingReturnUrl).toBe(target);
 
         window.location.hash = '#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns';
-        await new Promise(resolve => window.setTimeout(resolve, 1400));
+        await jest.advanceTimersByTimeAsync(1400);
 
         expect(window.location.href).toBe(target);
     }, 10000);

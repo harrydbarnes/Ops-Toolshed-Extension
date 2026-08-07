@@ -72,6 +72,12 @@
       "world": "MAIN"
     },
     {
+      "matches": ["https://*.mediaocean.com/*"],
+      "js": ["features/actualise-month-bridge.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
       "matches": ["https://*.mediaocean.com/idesk/prisma-campaign-details/*"],
       "js": ["features/campaign-details-focus.js"],
       "all_frames": true
@@ -93,6 +99,7 @@
         "features/stats-collector.js",
         "features/placement-counter.js",
         "features/dst-assurance.js",
+        "features/actualise-month-assurance.js",
         "features/banner-username.js",
         "features/swap-accounts.js",
         "features/auto-copy-url.js",

@@ -7,6 +7,7 @@ Ops Toolshed is a Chrome extension that streamlines day-to-day campaign manageme
 ## What's new in 1.7
 
 - Faster Prisma campaign handling: repeated DOM updates are coalesced into one route-aware refresh, Actualise restores only the active grid, and child frames receive only their required lightweight enhancement.
+- Actualise now checks the URL, selected month, rendered grid, and native response month together, showing Correct Month when they agree and automatically refreshing a mismatch through another month.
 - Settings are organised by purpose, searchable, and can restore feature defaults without changing reminders or saved reminder data.
 - Approver Sidebar Enhancements, Actualise bulk export, and Max Campaign Budget now have their own independent Settings controls.
 - Order Summary now highlights Orders, keeps horizontal headers aligned, avoids redundant legacy work on the new Orders UI, and supports direct sidebar Order ID copying there.
