@@ -10,7 +10,7 @@
     const MONTH_SELECTOR = '#mos-paginator li > a';
     const ACTIVE_MONTH_SELECTOR = '#mos-paginator li.active > a';
     const CAPTION_SELECTOR = '#month-filter-toolbar .mo-caption';
-    const GRID_SELECTOR = '#grid-container_hot .ht_master .htCore, #grid-container_hot .htCore';
+    const GRID_SELECTOR = '#grid-container_hot .htCore';
     const MONTH_NAMES = Object.freeze({
         jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
         jul: '07', aug: '08', sep: '09', sept: '09', oct: '10', nov: '11', dec: '12'
@@ -83,13 +83,21 @@
     }
 
     function getGridEvidence() {
-        const table = document.querySelector(GRID_SELECTOR);
-        if (!table) return { ready: false, signature: '' };
+        const tables = Array.from(document.querySelectorAll(GRID_SELECTOR));
+        if (!tables.length) return { ready: false, signature: '' };
 
-        const headers = Array.from(table.querySelectorAll('thead th'))
-            .map(cell => normalizeText(cell.textContent).toLowerCase());
+        // Handsontable keeps frozen columns in a separate clone while the
+        // main table is horizontally scrolled. Combine the header evidence
+        // from all table instances so horizontal scrolling does not look like
+        // an unfinished month load.
+        const headers = Array.from(new Set(tables.flatMap(table =>
+            Array.from(table.querySelectorAll('thead th'))
+                .map(cell => normalizeText(cell.textContent).toLowerCase())
+        )));
         const hasActualiseHeaders = headers.includes('name') &&
             headers.includes('start date') && headers.includes('end date');
+        const table = document.querySelector('#grid-container_hot .ht_master .htCore') ||
+            tables.find(candidate => candidate.querySelector('tbody tr')) || tables[0];
         const rows = Array.from(table.querySelectorAll('tbody tr'));
         const signature = rows.map(row => Array.from(row.children)
             .map(cell => normalizeText(cell.textContent))

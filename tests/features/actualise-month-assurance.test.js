@@ -122,6 +122,39 @@ describe('Actualise month assurance', () => {
         feature.dom.window.close();
     });
 
+    test('stays green when horizontal scrolling splits frozen columns across Handsontable tables', async () => {
+        const feature = createFeature();
+
+        feature.window.actualiseMonthAssuranceFeature.initialize();
+        feature.emitEvidence(['2025-11']);
+
+        const grid = feature.window.document.querySelector('#grid-container_hot');
+        const mainTable = grid.querySelector('.ht_master .htCore');
+        mainTable.querySelector('thead th').remove();
+
+        const frozenTable = feature.window.document.createElement('table');
+        frozenTable.className = 'htCore';
+        frozenTable.innerHTML = '<thead><tr><th>Name</th><th>Placement ID</th></tr></thead>' +
+            '<tbody><tr><td>Booking</td><td>P3993TB</td></tr></tbody>';
+        const frozenHolder = feature.window.document.createElement('div');
+        frozenHolder.className = 'ht_clone_left';
+        frozenHolder.appendChild(frozenTable);
+        grid.appendChild(frozenHolder);
+
+        feature.window.actualiseMonthAssuranceFeature.apply();
+        const assessment = feature.window.actualiseMonthAssuranceFeature.assessActualiseMonth();
+        const badgeText = feature.window.document.querySelector('.toolshed-actualise-month-assurance').textContent;
+        feature.dom.window.close();
+
+        expect(assessment).toMatchObject({
+            status: 'correct',
+            expectedMonth: '2025-11',
+            activeMonth: '2025-11',
+            responseMonths: ['2025-11']
+        });
+        expect(badgeText).toBe('Correct Month');
+    });
+
     test('marks a native response month mismatch yellow and cycles another month before returning', async () => {
         const feature = createFeature({
             responseByMonth: {
