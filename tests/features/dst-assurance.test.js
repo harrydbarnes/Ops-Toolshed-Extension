@@ -28,11 +28,13 @@ function createPage({
     mediaCost = '£32,320.60',
     feeSupplier = 'META DIGITAL SERVICE CHARGE (GBP):Meta Digital Service Charge',
     feeCost = '£646.41',
+    feeDetailName = 'Meta Digital Service Charge_Meta 2% DST GBP_Fee',
+    feeDetailCost = feeCost,
     includeFee = true
 } = {}) {
     const feeRows = includeFee
         ? `${createRow({ name: feeSupplier, groupLevel: 1, hierarchyLevel: 0, cost: feeCost })}
-           ${createRow({ name: 'Meta Digital Service Charge_Meta 2% DST GBP_Fee', cost: feeCost })}`
+           ${createRow({ name: feeDetailName, cost: feeDetailCost })}`
         : '';
     const dom = new JSDOM(`<!doctype html><html><body>
         <div class="workflow-widget-wrapper">
@@ -74,6 +76,27 @@ describe('DST Assurance', () => {
         dom.window.close();
     });
 
+    test('uses the Meta DST supplier row even when the child booking name differs', () => {
+        const dom = createPage({
+            feeDetailName: 'Meta Location Fee 2%',
+            feeDetailCost: '£0.00'
+        });
+        const assessment = dom.window.dstAssuranceFeature.assessDstAssurance();
+
+        expect(assessment).toMatchObject({
+            status: 'correct',
+            feeBooked: 646.41,
+            supplierCorrect: true,
+            amountCorrect: true
+        });
+        dom.window.dstAssuranceFeature.apply();
+        const feeRow = Array.from(dom.window.document.querySelectorAll('.htCore tr'))
+            .find(row => row.children[3]?.textContent.includes('Meta Location Fee 2%'));
+        expect(feeRow.children[3].classList).not.toContain('toolshed-dst-assurance-warning-cell');
+        expect(feeRow.children[8].classList).not.toContain('toolshed-dst-assurance-warning-cell');
+        dom.window.close();
+    });
+
     test('does not create a tooltip when the correct badge has no explanation', () => {
         const dom = createPage();
         const feature = dom.window.dstAssuranceFeature;
@@ -103,6 +126,79 @@ describe('DST Assurance', () => {
         expect(assessment.tooltip).toBe(
             'Check Meta Location Fee is booked to the correct supplier, and not the standard Facebook media supplier'
         );
+        dom.window.dstAssuranceFeature.apply();
+        const feeRow = Array.from(dom.window.document.querySelectorAll('.htCore tr'))
+            .find(row => row.children[3]?.textContent.includes('FACEBOOK:Meta Digital Service Charge'));
+        expect(feeRow.children[3].classList).toContain('toolshed-dst-assurance-warning-cell');
+        expect(feeRow.children[3].getAttribute('data-toolshed-dst-assurance-warning')).toBe('true');
+        expect(feeRow.children[8].classList).not.toContain('toolshed-dst-assurance-warning-cell');
+        dom.window.close();
+    });
+
+    test('mirrors the supplier highlight onto Prisma fixed-column clones', () => {
+        const dom = createPage({
+            mediaCost: '£1,000.00',
+            feeSupplier: 'FACEBOOK:Meta Digital Service Charge',
+            feeCost: '£20.00'
+        });
+        const feeRow = Array.from(dom.window.document.querySelectorAll('.ht_master .htCore tr'))
+            .find(row => row.children[3]?.textContent.includes('FACEBOOK:Meta Digital Service Charge'));
+        feeRow.children[3].setAttribute('data-row', '6');
+        feeRow.children[3].setAttribute('data-col', '3');
+
+        const clone = dom.window.document.createElement('div');
+        clone.className = 'ht_clone_left';
+        clone.innerHTML = '<table class="htCore"><tbody>' +
+            '<tr><td data-row="6" data-col="3">FACEBOOK:Meta Digital Service Charge</td></tr>' +
+            '</tbody></table>';
+        dom.window.document.querySelector('#grid-container_hot').appendChild(clone);
+
+        dom.window.dstAssuranceFeature.apply();
+
+        expect(clone.querySelector('td').classList)
+            .toContain('toolshed-dst-assurance-warning-cell');
+        dom.window.close();
+    });
+
+    test('does not remove an existing warning during a repeated reconciliation', () => {
+        const dom = createPage({
+            mediaCost: '£1,000.00',
+            feeSupplier: 'FACEBOOK:Meta Digital Service Charge',
+            feeCost: '£20.00'
+        });
+        const feature = dom.window.dstAssuranceFeature;
+
+        feature.apply();
+        const feeRow = Array.from(dom.window.document.querySelectorAll('.htCore tr'))
+            .find(row => row.children[3]?.textContent.includes('FACEBOOK:Meta Digital Service Charge'));
+        const firstWarningClassName = feeRow.children[3].className;
+
+        feature.apply();
+
+        expect(feeRow.children[3].className).toBe(firstWarningClassName);
+        expect(feeRow.children[3].getAttribute('data-toolshed-dst-assurance-warning')).toBe('true');
+        dom.window.close();
+    });
+
+    test('keeps a warning while Prisma is temporarily rebuilding the fee rows', () => {
+        const dom = createPage({
+            mediaCost: '£1,000.00',
+            feeSupplier: 'FACEBOOK:Meta Digital Service Charge',
+            feeCost: '£20.00'
+        });
+        const feature = dom.window.dstAssuranceFeature;
+
+        feature.apply();
+        const feeRow = Array.from(dom.window.document.querySelectorAll('.htCore tr'))
+            .find(row => row.children[3]?.textContent.includes('FACEBOOK:Meta Digital Service Charge'));
+        feeRow.children[3].classList.remove('group-cell', 'hierarchical-level-group-1');
+
+        expect(feature.assessDstAssurance().dstFeeRows).toHaveLength(0);
+        feature.apply();
+
+        expect(feeRow.children[3].classList)
+            .toContain('toolshed-dst-assurance-warning-cell');
+        expect(feeRow.children[3].getAttribute('data-toolshed-dst-assurance-warning')).toBe('true');
         dom.window.close();
     });
 
@@ -115,6 +211,11 @@ describe('DST Assurance', () => {
         expect(assessment.amountCorrect).toBe(false);
         expect(assessment.expectedFee).toBe(20);
         expect(assessment.tooltip).toContain('2% of Facebook media booked');
+        dom.window.dstAssuranceFeature.apply();
+        const feeRow = Array.from(dom.window.document.querySelectorAll('.htCore tr'))
+            .find(row => row.children[3]?.textContent.includes('META DIGITAL SERVICE CHARGE'));
+        expect(feeRow.children[3].classList).not.toContain('toolshed-dst-assurance-warning-cell');
+        expect(feeRow.children[8].classList).toContain('toolshed-dst-assurance-warning-cell');
         dom.window.close();
     });
 
@@ -304,6 +405,33 @@ describe('DST Assurance', () => {
             pointerEvents: 'auto'
         });
         expect(hiddenRule.style.getPropertyValue('display')).toBe('none');
+        dom.window.close();
+    });
+
+    test('uses the same pale-yellow background as the incorrect DST badge', () => {
+        const dom = new JSDOM(`<!doctype html><style>${contentStyles}</style>`);
+        const rules = Array.from(dom.window.document.styleSheets[0].cssRules);
+        const badgeRule = rules.find(rule =>
+            rule.selectorText === '.toolshed-dst-assurance--incorrect'
+        );
+        const warningRule = rules.find(rule =>
+            rule.selectorText?.includes('.toolshed-dst-assurance-warning-cell') &&
+            rule.selectorText.includes('[data-toolshed-dst-assurance-warning]')
+        );
+        const groupCellOverrideRule = rules.find(rule =>
+            rule.selectorText?.includes('#grid-container_hot .htCore td.toolshed-dst-assurance-warning-cell') &&
+            rule.selectorText.includes('#grid-container_hot .htCore td[data-toolshed-dst-assurance-warning]')
+        );
+
+        expect(warningRule.style.getPropertyValue('background-color'))
+            .toBe(badgeRule.style.getPropertyValue('background'));
+        expect(warningRule.style.getPropertyValue('background-color')).toBe('#fef3c7');
+        expect(warningRule.style.getPropertyValue('box-shadow'))
+            .toBe('inset 0 0 0 1px #fcd34d');
+        expect(warningRule.style.getPropertyValue('color')).toBe('#111827');
+        expect(groupCellOverrideRule.style.getPropertyValue('background'))
+            .toBe(badgeRule.style.getPropertyValue('background'));
+        expect(groupCellOverrideRule.style.getPropertyValue('background-color')).toBe('#fef3c7');
         dom.window.close();
     });
 });

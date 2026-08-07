@@ -4,7 +4,9 @@
     const BADGE_CLASS = 'toolshed-dst-assurance';
     const CORRECT_BADGE_CLASS = `${BADGE_CLASS}--correct`;
     const INCORRECT_BADGE_CLASS = `${BADGE_CLASS}--incorrect`;
-    const DST_FEE_PATTERN = /\bmeta\s+digital\s+service\s+charge(?:\b|_)/i;
+    const WARNING_CELL_CLASS = `${BADGE_CLASS}-warning-cell`;
+    const WARNING_CELL_ATTRIBUTE = 'data-toolshed-dst-assurance-warning';
+    const DST_FEE_PATTERN = /(?:^|:)\s*meta\s+digital\s+service\s+charge(?:\b|_)/i;
     const FACEBOOK_SUPPLIER_PATTERN = /^facebook(?:\s|[(:]|$)/i;
     const EXPECTED_DST_SUPPLIER_PATTERN = /^meta\s+digital\s+service\s+charge(?:\s|[(:]|$)/i;
     const DST_RATE = 0.02;
@@ -89,6 +91,8 @@
                 index,
                 name,
                 amount: parseAmount(row.children[costIndex]?.textContent),
+                nameCell,
+                costCell: row.children[costIndex] || null,
                 groupLevel,
                 hierarchyLevel,
                 isGroup
@@ -176,22 +180,18 @@
         const expectedFee = roundToPence(mediaBooked * DST_RATE);
         const feeRange = getSectionRange(rows, 'fee');
         const dstFeeRows = [];
-        let activeFeeSupplier = null;
 
         if (feeRange) {
             rows.slice(feeRange.start + 1, feeRange.end).forEach(row => {
-                if (row.isGroup && row.groupLevel === 1) {
-                    activeFeeSupplier = row.name;
-                    return;
-                }
-
-                if (row.isGroup && row.groupLevel !== null && row.groupLevel <= 0) {
-                    activeFeeSupplier = null;
-                    return;
-                }
-
-                if (!row.isGroup && DST_FEE_PATTERN.test(row.name)) {
-                    dstFeeRows.push({ ...row, supplier: activeFeeSupplier });
+                // The fee supplier/group row carries the authoritative DST
+                // description and cost. The child booking name can vary
+                // (for example, "Meta Location Fee 2%") and is irrelevant.
+                if (row.isGroup && row.groupLevel === 1 && DST_FEE_PATTERN.test(row.name)) {
+                    dstFeeRows.push({
+                        ...row,
+                        supplier: row.name,
+                        supplierCorrect: isExpectedDstSupplier(row.name)
+                    });
                 }
             });
         }
@@ -201,9 +201,7 @@
         const feeBooked = feeAmountsReadable
             ? roundToPence(feeAmounts.reduce((total, amount) => total + amount, 0))
             : null;
-        const supplierCorrect = dstFeeRows.length > 0 && dstFeeRows.every(row =>
-            isExpectedDstSupplier(row.supplier)
-        );
+        const supplierCorrect = dstFeeRows.length > 0 && dstFeeRows.every(row => row.supplierCorrect);
         const amountCorrect = dstFeeRows.length > 0 && feeAmountsReadable &&
             Math.abs(feeBooked - expectedFee) <= AMOUNT_TOLERANCE + Number.EPSILON;
 
@@ -228,6 +226,7 @@
             expectedFee,
             supplierCorrect,
             amountCorrect,
+            dstFeeRows,
             tooltip: tooltipParts.join(' ')
         };
     }
@@ -415,6 +414,74 @@
         root.querySelectorAll(`.${BADGE_CLASS}`).forEach(removeBadge);
     }
 
+    function getEquivalentGridCells(cell, root) {
+        if (!cell) return [];
+
+        const grid = cell.closest('#grid-container_hot');
+        const rowIndex = cell.getAttribute('data-row');
+        const columnIndex = cell.getAttribute('data-col');
+        if (!grid || rowIndex === null || columnIndex === null) return [cell];
+
+        const escapeSelectorValue = value => String(value)
+            .replace(/\\/g, '\\\\')
+            .replace(/"/g, '\\"');
+        const selector = `td[data-row="${escapeSelectorValue(rowIndex)}"]` +
+            `[data-col="${escapeSelectorValue(columnIndex)}"]`;
+
+        try {
+            const copies = Array.from(grid.querySelectorAll(selector));
+            return copies.length ? copies : [cell];
+        } catch (error) {
+            return [cell];
+        }
+    }
+
+    function getDstWarningTargets(assessment, root) {
+        const targets = new Set();
+        if (!assessment?.eligible) return targets;
+
+        assessment.dstFeeRows?.forEach(row => {
+            if (!row.supplierCorrect) {
+                getEquivalentGridCells(row.nameCell, root).forEach(cell => targets.add(cell));
+            }
+            if (!assessment.amountCorrect) {
+                getEquivalentGridCells(row.costCell, root).forEach(cell => targets.add(cell));
+            }
+        });
+
+        return targets;
+    }
+
+    function markDstWarningCell(cell) {
+        cell.classList.add(WARNING_CELL_CLASS);
+        cell.setAttribute(WARNING_CELL_ATTRIBUTE, 'true');
+    }
+
+    function clearDstWarningCell(cell) {
+        cell.classList.remove(WARNING_CELL_CLASS);
+        cell.removeAttribute(WARNING_CELL_ATTRIBUTE);
+    }
+
+    function renderDstCellHighlights(assessment, root = document) {
+        const targets = getDstWarningTargets(assessment, root);
+        const hasExistingWarnings = root.querySelector(
+            `.${WARNING_CELL_CLASS}, [${WARNING_CELL_ATTRIBUTE}]`
+        );
+        const hasAuthoritativeDstRows = assessment?.eligible &&
+            Array.isArray(assessment.dstFeeRows) && assessment.dstFeeRows.length > 0;
+
+        // Prisma can briefly expose the Facebook rows before the Fee rows are
+        // authoritative. Keep a visible warning through that intermediate
+        // pass; the next complete assessment will either retarget or clear it.
+        if (assessment?.eligible && !hasAuthoritativeDstRows && hasExistingWarnings) return;
+
+        root.querySelectorAll(`.${WARNING_CELL_CLASS}, [${WARNING_CELL_ATTRIBUTE}]`).forEach(cell => {
+            if (!targets.has(cell)) clearDstWarningCell(cell);
+        });
+
+        targets.forEach(markDstWarningCell);
+    }
+
     function renderDstAssurance(assessment, root = document) {
         const workflowWidget = root.querySelector('.workflow-widget-wrapper');
         if (!enabled || !workflowWidget || !assessment?.eligible) {
@@ -462,6 +529,7 @@
 
     function apply() {
         const assessment = assessDstAssurance();
+        renderDstCellHighlights(assessment);
         renderDstAssurance(assessment);
         return assessment;
     }

@@ -538,6 +538,26 @@ body.reminder-theme-black #confirmation-popup {
     cursor: pointer;
 }
 
+/* Point directly to the Fee supplier or authoritative cost that needs review. */
+.toolshed-dst-assurance-warning-cell,
+[data-toolshed-dst-assurance-warning] {
+    background-color: #fef3c7 !important;
+    box-shadow: inset 0 0 0 1px #fcd34d;
+    color: #111827 !important;
+}
+
+.toolshed-dst-assurance-warning-cell *,
+[data-toolshed-dst-assurance-warning] * {
+    color: #111827 !important;
+}
+
+/* Prisma applies a more-specific background to hierarchical group cells. */
+#grid-container_hot .htCore td.toolshed-dst-assurance-warning-cell,
+#grid-container_hot .htCore td[data-toolshed-dst-assurance-warning] {
+    background: #fef3c7 !important;
+    background-color: #fef3c7 !important;
+}
+
 /* Render the assurance explanation outside Prisma's clipped header layers. */
 .toolshed-dst-assurance-tooltip {
     position: fixed;
