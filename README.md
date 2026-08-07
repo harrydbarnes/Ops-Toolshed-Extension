@@ -1,18 +1,14 @@
 # Ops Toolshed Chrome Extension 🛠️
 
-**Current version: 1.7**
+**Current version: 1.8**
 
 Ops Toolshed is a Chrome extension that streamlines day-to-day campaign management in Prisma and provides quick access to common Operations tools.
 
-## What's new in 1.7
+## What's new in 1.8
 
-- Faster Prisma campaign handling: repeated DOM updates are coalesced into one route-aware refresh, Actualise restores only the active grid, and child frames receive only their required lightweight enhancement.
-- Actualise now checks the URL, selected month, rendered grid, and native response month together, showing Correct Month when they agree, remaining stable while frozen columns are horizontally scrolled, and automatically refreshing a mismatch through another month.
-- Settings are organised by purpose, searchable, and can restore feature defaults without changing reminders or saved reminder data.
-- Approver Sidebar Enhancements, Actualise bulk export, and Max Campaign Budget now have their own independent Settings controls.
-- Order Summary now highlights Orders, keeps horizontal headers aligned, avoids redundant legacy work on the new Orders UI, and supports direct sidebar Order ID copying there.
-- Campaign/header copy actions, Help Guides, the Approver Widget, and new-order controls remain stable across Prisma route changes.
-- Direct Moe opens its chat window after Connect with Moe while observing only the relevant UI roots.
+- Prisma enhancements now share one route-aware lifecycle registry, keeping existing campaign, Actualise, and Orders controls stable after in-app navigation.
+- The Prisma observer benchmark now completes reliably and records coalesced fast and deferred reconciliation work.
+- Development now includes a quick JavaScript syntax check alongside the focused Prisma validation commands.
 
 ## Features
 
@@ -77,12 +73,28 @@ Stats collection can be disabled or reset at any time. Feedback can be submitted
 
 Open the extension options page to configure UI and reminder themes, optimised campaign-navigation features, individual Prisma enhancements, chat tools, reminders, stats collection, loading facts, and custom reminders. Settings are stored through Chrome extension storage.
 
+## Architecture and validation
+
+Ops Toolshed is a Manifest V3 extension. `manifest.json` controls injection order; shared utilities load before feature scripts, and `content.js` coordinates route-aware Prisma reconciliation. Features should remain independently controllable from Settings and idempotent because Prisma replaces DOM regions during navigation.
+
+For Prisma lifecycle changes, run the focused contract gate and observer benchmark before the full suite:
+
+```bash
+npm run test:feature-contracts
+npm run benchmark:prisma-observer
+npm run check:syntax
+npm test
+```
+
+Feature-specific financial and Meta API decisions are documented in [`docs/`](docs/).
+
 ## Development
 
 This is a Manifest V3 extension.
 
 ```bash
 npm install
+npm run check:syntax
 npm test
 ```
 

@@ -1,17 +1,31 @@
 const fs = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
+const { findPackedRef } = require('../update-build-info');
 
 const root = path.resolve(__dirname, '..');
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8'));
 const expectedRelease = `r${manifest.version}`;
 
 describe('release metadata', () => {
+    test('finds a branch commit in packed Git references', () => {
+        const packedRefs = [
+            '# pack-refs with: peeled fully-peeled sorted',
+            'a30d8d900000000000000000000000000000000 refs/heads/r1.8'
+        ].join('\n');
+
+        expect(findPackedRef(packedRefs, 'refs/heads/r1.8'))
+            .toBe('a30d8d900000000000000000000000000000000');
+    });
+
     test('keeps the manifest and README version aligned', () => {
         const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
+        const packageMetadata = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 
         expect(readme).toContain(`**Current version: ${manifest.version}**`);
         expect(readme).toContain(`## What's new in ${manifest.version}`);
+        expect(packageMetadata.name).toBe('ops-toolshed-extension');
+        expect(packageMetadata.version).toBe(`${manifest.version}.0`);
     });
 
     test('lists the manifest version first in the release history', () => {

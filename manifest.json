@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "minimum_chrome_version": "116",
   "name": "Ops Toolshed",
-  "version": "1.7",
+  "version": "1.8",
   "description": "Enhances Prisma functionality and provides quick access to various tools. Built by Harry Barnes.",
   "permissions": [
     "activeTab",

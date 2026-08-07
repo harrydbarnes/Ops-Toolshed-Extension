@@ -271,47 +271,41 @@ async function mainContentScriptInit() {
         feature.initialize();
     }
 
-    // Initialize global shell features only on Mediaocean pages.  Campaign,
-    // Actualise, and Orders features are started lazily for their matching
-    // route so dashboard/home tabs do not carry their listeners and observers.
-    if (isMediaoceanPage) {
-        window.statsCollector?.initialize?.();
-        initializeFeature(window.appLearnFeature, true);
-        initializeFeature(window.helpGuidesLauncherFeature, true);
-        window.statsCollector?.trackCampaignId?.(); // Initial call on page load
+    // Keep route ownership in one registry. Both initial load and later SPA
+    // navigations use it, so a feature cannot accidentally be initialized on
+    // one path but omitted from the other.
+    const featureInitializers = [
+        { getFeature: () => window.statsCollector, when: () => isMediaoceanPage },
+        { getFeature: () => window.appLearnFeature, when: () => isMediaoceanPage },
+        { getFeature: () => window.helpGuidesLauncherFeature, when: () => isMediaoceanPage },
+        { getFeature: () => window.bannerUsernameFeature, when: () => isPrismaLike },
+        { getFeature: () => window.placementCounterFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
+        { getFeature: () => window.dstAssuranceFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
+        { getFeature: () => window.approverPastingFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
+        { getFeature: () => window.autoCopyUrlFeature, when: route => (isPrismaLike || isAura) && route.isCampaignWorkspace },
+        { getFeature: () => window.liveChatEnhancements, when: route => isPrismaLike && route.isCampaignWorkspace },
+        { getFeature: () => window.campaignTabTitleFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
+        { getFeature: () => window.swapAccountsFeature, when: () => isPrismaLike || isAura },
+        { getFeature: () => window.orderIdCopyFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
+        { getFeature: () => window.orderViewToggleFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
+        { getFeature: () => window.orderGridScrollSyncFeature, when: route => isPrismaLike && route.isOrderSummary },
+        { getFeature: () => window.actualiseScrollRestoreFeature, when: route => isPrismaLike && route.isActualise },
+        { getFeature: () => window.actualiseNavbarFeature, when: route => isPrismaLike && route.isActualise },
+        { getFeature: () => window.actualiseShortcutFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
+        { getFeature: () => window.actualiseExportAllFeature, when: route => isPrismaLike && route.isActualise },
+        { getFeature: () => window.actualiseMonthAssuranceFeature, when: route => isPrismaLike && route.isActualise },
+        { getFeature: () => window.maxCampaignBudgetFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
+        { getFeature: () => window.loadingFactsFeature, when: () => isPrismaLike }
+    ];
+
+    function initializeEligibleFeatures(route) {
+        featureInitializers.forEach(({ getFeature, when }) => {
+            initializeFeature(getFeature(), when(route));
+        });
     }
 
-    if (isPrismaLike && window.bannerUsernameFeature) {
-        initializeFeature(window.bannerUsernameFeature, true);
-    }
-
-    // Placement, approvals, campaign chat, and campaign link controls only
-    // need to listen while a campaign workspace is open.
-    initializeFeature(window.placementCounterFeature, isPrismaLike && initialRoute.isCampaignWorkspace);
-    initializeFeature(window.dstAssuranceFeature, isPrismaLike && initialRoute.isCampaignWorkspace);
-    initializeFeature(window.approverPastingFeature, isPrismaLike && initialRoute.isCampaignWorkspace);
-    initializeFeature(window.autoCopyUrlFeature, (isPrismaLike || isAura) && initialRoute.isCampaignWorkspace);
-    initializeFeature(window.liveChatEnhancements, isPrismaLike && initialRoute.isCampaignWorkspace);
-    initializeFeature(window.campaignTabTitleFeature, isPrismaLike && initialRoute.isCampaignWorkspace);
-
-    // Switch accounts is allowed on Prisma + Aura (gated by its own setting)
-    initializeFeature(window.swapAccountsFeature, isPrismaLike || isAura);
-
-    // The Orders sidebar is visible from the campaign Buy tab as well as
-    // Order Summary, so these two controls follow the whole campaign route.
-    initializeFeature(window.orderIdCopyFeature, isPrismaLike && initialRoute.isCampaignWorkspace);
-    initializeFeature(window.orderViewToggleFeature, isPrismaLike && initialRoute.isCampaignWorkspace);
-    initializeFeature(window.orderGridScrollSyncFeature, isPrismaLike && initialRoute.isOrderSummary);
-
-    initializeFeature(window.actualiseScrollRestoreFeature, isPrismaLike && initialRoute.isActualise);
-    initializeFeature(window.actualiseNavbarFeature, isPrismaLike && initialRoute.isActualise);
-    initializeFeature(window.actualiseShortcutFeature, isPrismaLike && initialRoute.isCampaignWorkspace);
-    initializeFeature(window.actualiseExportAllFeature, isPrismaLike && initialRoute.isActualise);
-    initializeFeature(window.actualiseMonthAssuranceFeature, isPrismaLike && initialRoute.isActualise);
-    initializeFeature(window.maxCampaignBudgetFeature, isPrismaLike && initialRoute.isCampaignWorkspace);
-
-    // Initialize Loading Facts Feature
-    initializeFeature(window.loadingFactsFeature, isPrismaLike);
+    initializeEligibleFeatures(initialRoute);
+    if (isMediaoceanPage) window.statsCollector?.trackCampaignId?.();
 
     // Prisma: full enhancement set
     if (isPrismaLike && window.logoFeature.shouldReplaceLogoOnThisPage()) {
@@ -373,29 +367,7 @@ async function mainContentScriptInit() {
         const route = getDynamicRouteContext();
 
         if (isPrismaLike) {
-            if (route.isCampaignWorkspace) {
-                initializeFeature(window.orderIdCopyFeature, true);
-                initializeFeature(window.orderViewToggleFeature, true);
-                initializeFeature(window.actualiseShortcutFeature, true);
-                initializeFeature(window.placementCounterFeature, true);
-                initializeFeature(window.dstAssuranceFeature, true);
-                initializeFeature(window.approverPastingFeature, true);
-                initializeFeature(window.liveChatEnhancements, true);
-                initializeFeature(window.campaignTabTitleFeature, true);
-                initializeFeature(window.autoCopyUrlFeature, true);
-            }
-            if (route.isOrderSummary) {
-                initializeFeature(window.orderGridScrollSyncFeature, true);
-            }
-            if (route.isActualise) {
-                initializeFeature(window.actualiseScrollRestoreFeature, true);
-                initializeFeature(window.actualiseNavbarFeature, true);
-                initializeFeature(window.actualiseExportAllFeature, true);
-                initializeFeature(window.actualiseMonthAssuranceFeature, true);
-            }
-            if (route.isCampaignWorkspace) {
-                initializeFeature(window.maxCampaignBudgetFeature, true);
-            }
+            initializeEligibleFeatures(route);
 
             if (hasDirtyFeature('orders') && (route.isBuy || route.isOrderSummary) && window.orderViewToggleFeature) {
                 const hasNewOrderUi = window.orderViewToggleFeature.isNewOrderUi?.() === true;
@@ -440,19 +412,7 @@ async function mainContentScriptInit() {
         const route = getDynamicRouteContext();
         const reconciliationRevision = dirtyRevision;
 
-        if (isPrismaLike && route.isCampaignWorkspace) {
-            initializeFeature(window.placementCounterFeature, true);
-            initializeFeature(window.dstAssuranceFeature, true);
-            initializeFeature(window.approverPastingFeature, true);
-            initializeFeature(window.liveChatEnhancements, true);
-            initializeFeature(window.campaignTabTitleFeature, true);
-            initializeFeature(window.autoCopyUrlFeature, true);
-            initializeFeature(window.orderIdCopyFeature, true);
-            initializeFeature(window.orderViewToggleFeature, true);
-        }
-        if (isPrismaLike && route.isOrderSummary) {
-            initializeFeature(window.orderGridScrollSyncFeature, true);
-        }
+        initializeEligibleFeatures(route);
 
         if (isPrismaLike && window.logoFeature.shouldReplaceLogoOnThisPage()) {
             if (hasDirtyFeature('logo')) {
