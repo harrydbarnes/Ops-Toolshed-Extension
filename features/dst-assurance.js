@@ -9,6 +9,17 @@
     const DST_FEE_PATTERN = /(?:^|:)\s*meta\s+digital\s+service\s+charge(?:\b|_)/i;
     const FACEBOOK_SUPPLIER_PATTERN = /^facebook(?:\s|[(:]|$)/i;
     const EXPECTED_DST_SUPPLIER_PATTERN = /^meta\s+digital\s+service\s+charge(?:\s|[(:]|$)/i;
+    const GOOGLE_DST_MAPPINGS = Object.freeze([
+        { mediaSupplier: 'GOOGLE ADS (EUR)', feeSupplier: 'GOOGLE DIGITAL SERVICE CHARGE (EUR)' },
+        { mediaSupplier: 'DV360 (EUR)', feeSupplier: 'DV360 DIGITAL SERVICE CHARGE (EUR)' },
+        { mediaSupplier: 'GOOGLE ADS (GBP)', feeSupplier: 'GOOGLE DIGITAL SERVICE CHARGE (GBP)' },
+        { mediaSupplier: 'GOOGLE ADS-YOU TUBE (GBP)', feeSupplier: 'GOOGLE DIGITAL SERVICE CHARGE (GBP)' },
+        { mediaSupplier: 'SEARCH ADS 360 (GBP)', feeSupplier: 'GOOGLE DIGITAL SERVICE CHARGE (GBP)' },
+        { mediaSupplier: 'YOUTUBE GOOGLE PREFERRED', feeSupplier: 'GOOGLE DIGITAL SERVICE CHARGE (GBP)' },
+        { mediaSupplier: 'DV360 (GBP)', feeSupplier: 'DV360 DIGITAL SERVICE CHARGE (GBP)' },
+        { mediaSupplier: 'GOOGLE ADS (USD)', feeSupplier: 'GOOGLE DIGITAL SERVICE CHARGE (USD)' },
+        { mediaSupplier: 'DV360 (USD)', feeSupplier: 'DV360 DIGITAL SERVICE CHARGE (USD)' }
+    ]);
     const DST_RATE = 0.02;
     const AMOUNT_TOLERANCE = 0.01;
     const TOOLTIP_CLASS = `${BADGE_CLASS}-tooltip`;
@@ -128,35 +139,43 @@
         return EXPECTED_DST_SUPPLIER_PATTERN.test(normalizeText(name));
     }
 
-    function assessDstAssurance(root = document) {
-        const table = getCanonicalTable(root);
-        if (!table) {
-            return {
-                eligible: false,
-                status: 'hidden',
-                mediaBooked: null,
-                feeBooked: null,
-                expectedFee: null,
-                supplierCorrect: false,
-                amountCorrect: false,
-                tooltip: ''
-            };
-        }
+    function createHiddenAssessment() {
+        return {
+            eligible: false,
+            status: 'hidden',
+            mediaBooked: null,
+            feeBooked: null,
+            expectedFee: null,
+            supplierCorrect: false,
+            amountCorrect: false,
+            dstFeeRows: [],
+            tooltip: '',
+            checks: []
+        };
+    }
 
-        const rows = getRows(table);
-        const displayRange = getSectionRange(rows, 'display');
-        if (!displayRange) {
-            return {
-                eligible: false,
-                status: 'hidden',
-                mediaBooked: null,
-                feeBooked: null,
-                expectedFee: null,
-                supplierCorrect: false,
-                amountCorrect: false,
-                tooltip: ''
-            };
-        }
+    function escapeRegExp(value) {
+        return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function matchesSupplierPrefix(name, supplier) {
+        const pattern = new RegExp(
+            `^${escapeRegExp(normalizeText(supplier))}(?:\\s|:|_|$)`,
+            'i'
+        );
+        return pattern.test(normalizeText(name));
+    }
+
+    function containsSupplierDescription(name, supplier) {
+        const pattern = new RegExp(
+            `(?:^|:)\\s*${escapeRegExp(normalizeText(supplier))}(?:\\s|:|_|$)`,
+            'i'
+        );
+        return pattern.test(normalizeText(name));
+    }
+
+    function assessMetaDst(rows, displayRange, feeRange) {
+        if (!displayRange) return createHiddenAssessment();
 
         const facebookSupplierRows = rows
             .slice(displayRange.start + 1, displayRange.end)
@@ -164,21 +183,11 @@
 
         const mediaAmounts = facebookSupplierRows.map(row => row.amount);
         if (!facebookSupplierRows.length || mediaAmounts.some(amount => !Number.isFinite(amount))) {
-            return {
-                eligible: false,
-                status: 'hidden',
-                mediaBooked: null,
-                feeBooked: null,
-                expectedFee: null,
-                supplierCorrect: false,
-                amountCorrect: false,
-                tooltip: ''
-            };
+            return createHiddenAssessment();
         }
 
         const mediaBooked = roundToPence(mediaAmounts.reduce((total, amount) => total + amount, 0));
         const expectedFee = roundToPence(mediaBooked * DST_RATE);
-        const feeRange = getSectionRange(rows, 'fee');
         const dstFeeRows = [];
 
         if (feeRange) {
@@ -219,6 +228,7 @@
         }
 
         return {
+            kind: 'meta',
             eligible: true,
             status: supplierCorrect && amountCorrect ? 'correct' : 'incorrect',
             mediaBooked,
@@ -226,9 +236,127 @@
             expectedFee,
             supplierCorrect,
             amountCorrect,
-            dstFeeRows,
+            dstFeeRows: dstFeeRows.map(row => ({
+                ...row,
+                kind: 'meta',
+                amountCheck: true,
+                amountCorrect
+            })),
             tooltip: tooltipParts.join(' ')
         };
+    }
+
+    function assessGoogleDst(rows, feeRange) {
+        const mediaEnd = feeRange?.start ?? rows.length;
+        const googleMediaRows = rows
+            .slice(0, mediaEnd)
+            .filter(row => row.isGroup && row.groupLevel === 1);
+        const bookedMappings = [];
+
+        googleMediaRows.forEach(row => {
+            const mapping = GOOGLE_DST_MAPPINGS.find(candidate =>
+                matchesSupplierPrefix(row.name, candidate.mediaSupplier)
+            );
+            if (mapping && !bookedMappings.includes(mapping)) bookedMappings.push(mapping);
+        });
+
+        if (!bookedMappings.length) return createHiddenAssessment();
+
+        const expectedFeeSuppliers = Array.from(new Set(
+            bookedMappings.map(mapping => mapping.feeSupplier)
+        ));
+        const feeSupplierRows = feeRange
+            ? rows.slice(feeRange.start + 1, feeRange.end)
+                .filter(row => row.isGroup && row.groupLevel === 1)
+            : [];
+        const feeChecks = expectedFeeSuppliers.map(expectedSupplier => {
+            const matchingRows = feeSupplierRows.filter(row =>
+                containsSupplierDescription(row.name, expectedSupplier)
+            );
+            return {
+                expectedSupplier,
+                matchingRows,
+                supplierCorrect: matchingRows.length > 0 && matchingRows.every(row =>
+                    matchesSupplierPrefix(row.name, expectedSupplier)
+                )
+            };
+        });
+        const dstFeeRows = feeChecks.flatMap(check => check.matchingRows.map(row => ({
+            ...row,
+            kind: 'google',
+            supplier: row.name,
+            expectedSupplier: check.expectedSupplier,
+            supplierCorrect: check.supplierCorrect,
+            amountCheck: false,
+            amountCorrect: true
+        })));
+        const supplierCorrect = feeChecks.every(check => check.supplierCorrect);
+        const tooltipParts = [];
+
+        feeChecks.forEach(check => {
+            if (!check.matchingRows.length) {
+                tooltipParts.push(
+                    `${check.expectedSupplier} has not been booked for the related Google media supplier.`
+                );
+            } else if (!check.supplierCorrect) {
+                tooltipParts.push(
+                    `Check ${check.expectedSupplier} is booked to the correct supplier for the related Google media booking.`
+                );
+            }
+        });
+
+        return {
+            kind: 'google',
+            eligible: true,
+            status: supplierCorrect ? 'correct' : 'incorrect',
+            mediaBooked: null,
+            feeBooked: null,
+            expectedFee: null,
+            supplierCorrect,
+            amountCorrect: true,
+            dstFeeRows,
+            tooltip: tooltipParts.join(' '),
+            googleMediaRows,
+            expectedFeeSuppliers
+        };
+    }
+
+    function combineAssessments(checks) {
+        const eligibleChecks = checks.filter(check => check?.eligible);
+        if (!eligibleChecks.length) return createHiddenAssessment();
+
+        const metaCheck = eligibleChecks.find(check => check.kind === 'meta');
+        const supplierCorrect = eligibleChecks.every(check => check.supplierCorrect);
+        const amountCorrect = eligibleChecks.every(check => check.amountCorrect);
+
+        return {
+            eligible: true,
+            status: supplierCorrect && amountCorrect ? 'correct' : 'incorrect',
+            mediaBooked: metaCheck?.mediaBooked ?? null,
+            feeBooked: metaCheck?.feeBooked ?? null,
+            expectedFee: metaCheck?.expectedFee ?? null,
+            supplierCorrect,
+            amountCorrect,
+            dstFeeRows: eligibleChecks.flatMap(check => check.dstFeeRows || []),
+            tooltip: eligibleChecks
+                .map(check => check.tooltip)
+                .filter(Boolean)
+                .join(' '),
+            checks: eligibleChecks
+        };
+    }
+
+    function assessDstAssurance(root = document) {
+        const table = getCanonicalTable(root);
+        if (!table) return createHiddenAssessment();
+
+        const rows = getRows(table);
+        const displayRange = getSectionRange(rows, 'display');
+        const feeRange = getSectionRange(rows, 'fee');
+        return combineAssessments([
+            assessMetaDst(rows, displayRange, feeRange),
+            assessGoogleDst(rows, feeRange)
+        ]);
     }
 
     function positionDstTooltip(badge, tooltip) {
@@ -444,7 +572,7 @@
             if (!row.supplierCorrect) {
                 getEquivalentGridCells(row.nameCell, root).forEach(cell => targets.add(cell));
             }
-            if (!assessment.amountCorrect) {
+            if (row.amountCheck && !row.amountCorrect) {
                 getEquivalentGridCells(row.costCell, root).forEach(cell => targets.add(cell));
             }
         });

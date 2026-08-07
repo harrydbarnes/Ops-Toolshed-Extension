@@ -24,6 +24,7 @@ function createRow({ name, cost = '', groupLevel = null, hierarchyLevel = 1 }) {
 }
 
 function createPage({
+    mediaSection = 'Display',
     mediaSupplier = 'FACEBOOK(Facebook Mediacom)',
     mediaCost = '£32,320.60',
     feeSupplier = 'META DIGITAL SERVICE CHARGE (GBP):Meta Digital Service Charge',
@@ -45,7 +46,7 @@ function createPage({
         <div id="grid-container_hot"><div class="ht_master"><table class="htCore"><tbody>
             <tr role="row"><td></td><td></td><td></td><td>Name</td><td></td><td></td><td></td><td></td><td>Cost</td></tr>
             ${createRow({ name: 'Media total', groupLevel: 0, hierarchyLevel: 0, cost: mediaCost })}
-            ${createRow({ name: 'Display', groupLevel: 0, hierarchyLevel: 0, cost: mediaCost })}
+            ${createRow({ name: mediaSection, groupLevel: 0, hierarchyLevel: 0, cost: mediaCost })}
             ${createRow({ name: mediaSupplier, groupLevel: 1, hierarchyLevel: 0, cost: mediaCost })}
             ${createRow({ name: 'FACEBOOK_Liz Earle package', cost: mediaCost })}
             ${createRow({ name: 'Fee', groupLevel: 0, hierarchyLevel: 0, cost: feeCost })}
@@ -60,6 +61,101 @@ function createPage({
 }
 
 describe('DST Assurance', () => {
+    test('recognises Google Ads GBP when the related service-charge supplier is correct without checking cost', () => {
+        const dom = createPage({
+            mediaSection: 'Search',
+            mediaSupplier: 'GOOGLE ADS (GBP):SEARCH',
+            mediaCost: '£1,000.00',
+            feeSupplier: 'GOOGLE DIGITAL SERVICE CHARGE (GBP):Google Digital Service Charge',
+            feeCost: '£0.00'
+        });
+
+        expect(dom.window.dstAssuranceFeature.assessDstAssurance()).toMatchObject({
+            eligible: true,
+            status: 'correct',
+            supplierCorrect: true,
+            amountCorrect: true
+        });
+        dom.window.close();
+    });
+
+    test.each([
+        ['GOOGLE ADS (EUR)', 'GOOGLE DIGITAL SERVICE CHARGE (EUR)'],
+        ['DV360 (EUR)', 'DV360 DIGITAL SERVICE CHARGE (EUR)'],
+        ['GOOGLE ADS (GBP)', 'GOOGLE DIGITAL SERVICE CHARGE (GBP)'],
+        ['GOOGLE ADS-YOU TUBE (GBP)', 'GOOGLE DIGITAL SERVICE CHARGE (GBP)'],
+        ['SEARCH ADS 360 (GBP)', 'GOOGLE DIGITAL SERVICE CHARGE (GBP)'],
+        ['YOUTUBE GOOGLE PREFERRED', 'GOOGLE DIGITAL SERVICE CHARGE (GBP)'],
+        ['DV360 (GBP)', 'DV360 DIGITAL SERVICE CHARGE (GBP)'],
+        ['GOOGLE ADS (USD)', 'GOOGLE DIGITAL SERVICE CHARGE (USD)'],
+        ['DV360 (USD)', 'DV360 DIGITAL SERVICE CHARGE (USD)']
+    ])('recognises the Google DST mapping %s -> %s', (mediaSupplier, feeSupplier) => {
+        const dom = createPage({
+            mediaSupplier: `${mediaSupplier}:Campaign`,
+            mediaCost: '£1,000.00',
+            feeSupplier: `${feeSupplier}:Service Charge`,
+            feeCost: '£0.00'
+        });
+
+        expect(dom.window.dstAssuranceFeature.assessDstAssurance()).toMatchObject({
+            eligible: true,
+            status: 'correct',
+            supplierCorrect: true,
+            amountCorrect: true
+        });
+        dom.window.close();
+    });
+
+    test('marks a Google service charge booked to the wrong supplier and highlights only its supplier cell', () => {
+        const dom = createPage({
+            mediaSupplier: 'DV360 (GBP):Campaign',
+            mediaCost: '£1,000.00',
+            feeSupplier: 'FACEBOOK:DV360 DIGITAL SERVICE CHARGE (GBP)',
+            feeCost: '£0.00'
+        });
+        const feature = dom.window.dstAssuranceFeature;
+
+        expect(feature.assessDstAssurance()).toMatchObject({
+            eligible: true,
+            status: 'incorrect',
+            supplierCorrect: false,
+            amountCorrect: true
+        });
+        expect(feature.assessDstAssurance().tooltip)
+            .toContain('DV360 DIGITAL SERVICE CHARGE (GBP)');
+
+        feature.apply();
+        const feeRow = Array.from(dom.window.document.querySelectorAll('.htCore tr'))
+            .find(row => row.children[3]?.textContent.includes('FACEBOOK:DV360 DIGITAL SERVICE CHARGE'));
+        expect(feeRow.children[3].classList).toContain('toolshed-dst-assurance-warning-cell');
+        expect(feeRow.children[8].classList).not.toContain('toolshed-dst-assurance-warning-cell');
+        dom.window.close();
+    });
+
+    test('marks a Google media booking with no related service charge as incorrect without inventing a cell highlight', () => {
+        const dom = createPage({
+            mediaSupplier: 'GOOGLE ADS (EUR):Campaign',
+            includeFee: false
+        });
+        const feature = dom.window.dstAssuranceFeature;
+
+        expect(feature.assessDstAssurance()).toMatchObject({
+            eligible: true,
+            status: 'incorrect',
+            supplierCorrect: false,
+            amountCorrect: true
+        });
+        expect(feature.assessDstAssurance().tooltip)
+            .toContain('GOOGLE DIGITAL SERVICE CHARGE (EUR)');
+
+        feature.apply();
+        expect(dom.window.document.querySelector('.toolshed-dst-assurance--incorrect'))
+            .not.toBeNull();
+        expect(dom.window.document.querySelectorAll('.toolshed-dst-assurance-warning-cell'))
+            .toHaveLength(0);
+        dom.window.close();
+    });
+
     test('recognises a correctly supplied Meta DST at 2% of Facebook media', () => {
         const dom = createPage();
         const assessment = dom.window.dstAssuranceFeature.assessDstAssurance();

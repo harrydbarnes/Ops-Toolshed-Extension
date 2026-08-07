@@ -257,8 +257,6 @@
     const CAMPAIGN_LOADING_END_DELAY_MS = 2500;
     const HOVER_EXIT_DELAY_MS = 2000;
     const RECENT_FACT_HISTORY_LIMIT = 60;
-    const CAMPAIGN_SEARCH_TOAST_CLASS = 'loading-fact-toast--campaign-search';
-    const CAMPAIGN_SEARCH_TOAST_GAP_PX = 16;
 
     function getStorageArea(area) {
         if (typeof chrome === 'undefined') return null;
@@ -316,10 +314,6 @@
             this.hoverExitTimer = null;
             this.isToastHovered = false;
             this.pendingToastHide = false;
-            this.campaignSearchResizeObserver = null;
-            this.campaignSearchHostMutationObserver = null;
-            this.observedCampaignSearchOverlay = null;
-            this.campaignSearchPositionFrameScheduled = false;
 
             // State for managing async settings load
             this.settingsLoaded = false;
@@ -475,75 +469,6 @@
             }, CAMPAIGN_LOADING_END_DELAY_MS);
         }
 
-        disconnectCampaignSearchResizeObserver() {
-            this.campaignSearchResizeObserver?.disconnect?.();
-            this.campaignSearchResizeObserver = null;
-            this.observedCampaignSearchOverlay = null;
-            this.campaignSearchPositionFrameScheduled = false;
-        }
-
-        disconnectCampaignSearchObservers() {
-            this.disconnectCampaignSearchResizeObserver();
-            this.campaignSearchHostMutationObserver?.disconnect?.();
-            this.campaignSearchHostMutationObserver = null;
-        }
-
-        scheduleCampaignSearchPositionUpdate(spinner) {
-            if (this.campaignSearchPositionFrameScheduled) return;
-            this.campaignSearchPositionFrameScheduled = true;
-            const update = () => {
-                this.campaignSearchPositionFrameScheduled = false;
-                if (!this.isVisible || spinner !== this.observedSpinner) return;
-                this.updateToastPosition(spinner);
-            };
-
-            if (typeof window.requestAnimationFrame === 'function') {
-                window.requestAnimationFrame(update);
-            } else {
-                window.setTimeout(update, 0);
-            }
-        }
-
-        ensureCampaignSearchResizeObserver(spinner) {
-            const overlay = this.getCampaignSearchOverlay(spinner);
-            if (!overlay) return null;
-
-            this.ensureCampaignSearchHostMutationObserver(spinner);
-
-            if (this.observedCampaignSearchOverlay === overlay && this.campaignSearchResizeObserver) {
-                return overlay;
-            }
-
-            this.disconnectCampaignSearchResizeObserver();
-            const ResizeObserverConstructor = window.ResizeObserver;
-            if (typeof ResizeObserverConstructor !== 'function') return overlay;
-
-            this.observedCampaignSearchOverlay = overlay;
-            this.campaignSearchResizeObserver = new ResizeObserverConstructor(() => {
-                if (!this.isVisible || spinner !== this.observedSpinner) return;
-                this.scheduleCampaignSearchPositionUpdate(spinner);
-            });
-            this.campaignSearchResizeObserver.observe(overlay);
-            return overlay;
-        }
-
-        ensureCampaignSearchHostMutationObserver(spinner) {
-            if (this.campaignSearchHostMutationObserver ||
-                typeof window.MutationObserver !== 'function' ||
-                !document.body) {
-                return;
-            }
-
-            this.campaignSearchHostMutationObserver = new window.MutationObserver(records => {
-                if (!this.isVisible || spinner !== this.observedSpinner) return;
-                if (!records.some(record => record.type === 'childList')) return;
-                this.scheduleCampaignSearchPositionUpdate(spinner);
-            });
-            this.campaignSearchHostMutationObserver.observe(document.body, {
-                childList: true
-            });
-        }
-
         findAncestor(element, selector) {
             let current = element;
             while (current) {
@@ -554,29 +479,10 @@
             return null;
         }
 
-        getCampaignSearchOverlay(spinner) {
-            const overlay = this.findAncestor(spinner, 'mo-overlay[role="menu"]');
-            if (overlay?.querySelector?.('mo-banner-recent-menu-content')) return overlay;
-
-            // Prisma can replace the search input/spinner subtree when results
-            // arrive. In that case the old spinner no longer has the overlay as
-            // an ancestor, so recover the active campaign-search host directly.
-            const overlays = Array.from(document.querySelectorAll('mo-overlay[role="menu"]'))
-                .filter(candidate => candidate.querySelector?.('mo-banner-recent-menu-content'));
-            const visibleOverlay = overlays.find(candidate => {
-                const rect = candidate.getBoundingClientRect?.();
-                return rect && rect.width > 0 && rect.height > 0;
-            });
-            if (visibleOverlay) return visibleOverlay;
-            if (overlays[0]) return overlays[0];
-
-            // Keep tracking a known search host while Prisma briefly replaces
-            // its content during backspace/search transitions.
-            const observedOverlay = this.observedCampaignSearchOverlay;
-            return observedOverlay?.isConnected &&
-                observedOverlay.matches?.('mo-overlay[role="menu"]')
-                ? observedOverlay
-                : null;
+        isCampaignSearchSpinner(spinner) {
+            const searchContent = this.findAncestor(spinner, 'mo-banner-recent-menu-content');
+            return Boolean(searchContent &&
+                this.findAncestor(searchContent, 'mo-overlay[role="menu"]'));
         }
 
         getSpinnerTarget(spinner) {
@@ -590,38 +496,6 @@
         updateToastPosition(spinner) {
             const toast = document.getElementById(this.toastId);
             if (!toast || !spinner) return false;
-
-            const campaignSearchOverlay = this.getCampaignSearchOverlay(spinner);
-            if (campaignSearchOverlay) {
-                this.ensureCampaignSearchResizeObserver(spinner);
-                const overlayRect = campaignSearchOverlay.getBoundingClientRect();
-                if (!Number.isFinite(overlayRect.left) ||
-                    !Number.isFinite(overlayRect.bottom) ||
-                    overlayRect.width <= 0 ||
-                    overlayRect.height <= 0) {
-                    return false;
-                }
-
-                const toastHeight = toast.offsetHeight;
-                const viewportHeight = Number(window.innerHeight) || 0;
-                const preferredTop = overlayRect.bottom + CAMPAIGN_SEARCH_TOAST_GAP_PX;
-                const maxTop = viewportHeight > 0 && toastHeight > 0
-                    ? Math.max(20, viewportHeight - toastHeight - 20)
-                    : null;
-                const top = maxTop === null ? preferredTop : Math.min(preferredTop, maxTop);
-
-                toast.classList.add(CAMPAIGN_SEARCH_TOAST_CLASS);
-                toast.style.left = `${overlayRect.left + (overlayRect.width / 2)}px`;
-                toast.style.top = `${top}px`;
-                toast.style.bottom = 'auto';
-                toast.style.width = `${overlayRect.width}px`;
-                toast.style.minWidth = `${overlayRect.width}px`;
-                toast.style.maxWidth = `${overlayRect.width}px`;
-                toast.style.boxSizing = 'border-box';
-                return true;
-            }
-
-            toast.classList.remove(CAMPAIGN_SEARCH_TOAST_CLASS);
             toast.style.top = '';
             toast.style.bottom = '';
             toast.style.width = '';
@@ -674,6 +548,17 @@
                 const hasSidePanelSpinner = state
                     ? state.sidePanelVisibleSpinners.length > 0
                     : visibleSpinners.some(candidate => this.isInsideSidePanel(candidate));
+
+                // Campaign search has its own compact native loading state;
+                // keep Loading Facts out of that search panel entirely.
+                if (spinner && this.isCampaignSearchSpinner(spinner)) {
+                    this.cancelCampaignEndTimer();
+                    this.intersectionObserver?.disconnect?.();
+                    this.observedSpinner = null;
+                    this.isIntersecting = false;
+                    this.hideToast({ force: true });
+                    return;
+                }
 
                 // Side-panel work (for example submitting a campaign for approval)
                 // is intentionally excluded from loading facts.
@@ -779,7 +664,7 @@
         }
 
         async showToast(spinner) {
-            if (this.isLoadingFactSuppressed()) {
+            if (this.isLoadingFactSuppressed() || this.isCampaignSearchSpinner(spinner)) {
                 this.hideToast({ force: true });
                 return;
             }
@@ -795,6 +680,7 @@
                 !this.isIntersecting ||
                 spinner !== this.observedSpinner ||
                 this.isLoadingFactSuppressed() ||
+                this.isCampaignSearchSpinner(spinner) ||
                 this.isInsideSidePanel(spinner) ||
                 !spinner.isConnected ||
                 !this.isElementVisible(spinner) ||
@@ -885,7 +771,6 @@
             // Append to document.body to ensure it floats above all other content
             document.body.appendChild(toast);
             const revealToast = () => {
-                this.ensureCampaignSearchResizeObserver(spinner);
                 this.updateToastPosition(spinner);
                 toast.style.visibility = 'visible';
             };
@@ -921,7 +806,6 @@
                 window.removeEventListener('resize', this.resizeHandler);
                 this.resizeHandler = null;
             }
-            this.disconnectCampaignSearchObservers();
 
             // Replace slide-up class with slide-down for exit animation
             toast.classList.remove('slide-up');

@@ -23,23 +23,14 @@ describe('Loading Facts behaviour', () => {
         expect(contentCss).toContain('--toast-bottom-position: clamp(20px, 4.762vh, 55px);');
     });
 
-    test('aligns the loading fact with the campaign search overlay', async () => {
+    test('does not show a loading fact for campaign search activity', async () => {
         const dom = new JSDOM('<!doctype html><html><body><mo-overlay role="menu"><mo-banner-recent-menu-content><mo-search-box><span class="search-spinner"></span></mo-search-box></mo-banner-recent-menu-content></mo-overlay></body></html>', {
             url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns',
             runScripts: 'outside-only'
         });
         const { window } = dom;
         const { document } = window;
-        const overlay = document.querySelector('mo-overlay');
         const spinner = document.querySelector('.search-spinner');
-        overlay.getBoundingClientRect = () => ({
-            left: 50,
-            top: 40,
-            width: 560,
-            height: 195,
-            right: 610,
-            bottom: 235
-        });
         spinner.getBoundingClientRect = () => ({
             left: 570,
             top: 80,
@@ -73,288 +64,82 @@ describe('Loading Facts behaviour', () => {
 
         await feature.showToast(spinner);
 
+        const toast = document.getElementById('ops-toolshed-loading-toast');
+        if (toast) feature.hideToast({ force: true });
+        expect(toast).toBeNull();
+        dom.window.close();
+    });
+
+    test('dismisses an existing loading fact when campaign search starts', async () => {
+        const dom = new JSDOM('<!doctype html><html><body><div class="mo-spinner"></div></body></html>', {
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=online',
+            runScripts: 'outside-only'
+        });
+        const { window } = dom;
+        const { document } = window;
+        const normalSpinner = document.querySelector('.mo-spinner');
+        const scheduledTimers = [];
+        let nextTimerId = 1;
+        normalSpinner.getBoundingClientRect = () => ({
+            left: 100,
+            top: 200,
+            width: 40,
+            height: 40,
+            right: 140,
+            bottom: 240
+        });
+        window.setTimeout = (callback, delay) => {
+            scheduledTimers.push({ callback, delay });
+            return nextTimerId++;
+        };
+        window.clearTimeout = jest.fn();
+        window.requestAnimationFrame = callback => callback();
+        window.IntersectionObserver = jest.fn(() => ({ observe: jest.fn(), disconnect: jest.fn() }));
+        window.utils = {
+            queryShadowDom: jest.fn(() => null),
+            isElementVisible: jest.fn(() => true),
+            findVisibleLoadingSpinners: jest.fn(() => [normalSpinner])
+        };
+        window.chrome = {
+            storage: {
+                local: {
+                    get: jest.fn((_keys, callback) => callback({})),
+                    set: jest.fn()
+                },
+                onChanged: { addListener: jest.fn() }
+            }
+        };
+
+        window.eval(loadingFactsScript);
+        const feature = window.loadingFactsFeature;
+        feature.isEnabled = true;
+        feature.isIntersecting = true;
+        feature.observedSpinner = normalSpinner;
+
+        await feature.showToast(normalSpinner);
         const toast = document.getElementById('ops-toolshed-loading-toast');
         expect(toast).not.toBeNull();
-        expect(toast.classList).toContain('loading-fact-toast--campaign-search');
-        expect(toast.style.left).toBe('330px');
-        expect(toast.style.top).toBe('251px');
-        expect(toast.style.width).toBe('560px');
-        expect(toast.style.minWidth).toBe('560px');
-        expect(toast.style.maxWidth).toBe('560px');
-        expect(toast.style.boxSizing).toBe('border-box');
-        feature.hideToast({ force: true });
-        dom.window.close();
-    });
 
-    test('follows an expanding campaign search overlay while the fact is visible', async () => {
-        const dom = new JSDOM('<!doctype html><html><body><mo-overlay role="menu"><mo-banner-recent-menu-content><mo-search-box><span class="search-spinner"></span></mo-search-box></mo-banner-recent-menu-content></mo-overlay></body></html>', {
-            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns',
-            runScripts: 'outside-only'
+        const overlay = document.createElement('mo-overlay');
+        overlay.setAttribute('role', 'menu');
+        const searchContent = document.createElement('mo-banner-recent-menu-content');
+        const searchSpinner = document.createElement('span');
+        searchSpinner.className = 'search-spinner';
+        searchContent.appendChild(searchSpinner);
+        overlay.appendChild(searchContent);
+        document.body.appendChild(overlay);
+
+        feature.settingsLoaded = true;
+        feature.checkForLoading({
+            visibleSpinners: [searchSpinner],
+            pageVisibleSpinners: [searchSpinner],
+            sidePanelVisibleSpinners: []
         });
-        const { window } = dom;
-        const { document } = window;
-        const overlay = document.querySelector('mo-overlay');
-        const spinner = document.querySelector('.search-spinner');
-        let overlayRect = {
-            left: 50,
-            top: 40,
-            width: 560,
-            height: 195,
-            right: 610,
-            bottom: 235
-        };
-        overlay.getBoundingClientRect = () => overlayRect;
-        spinner.getBoundingClientRect = () => ({
-            left: 570,
-            top: 80,
-            width: 20,
-            height: 20,
-            right: 590,
-            bottom: 100
-        });
-        window.requestAnimationFrame = callback => callback();
-        let resizeCallback;
-        const resizeObserver = {
-            observe: jest.fn(),
-            disconnect: jest.fn()
-        };
-        window.ResizeObserver = jest.fn(callback => {
-            resizeCallback = callback;
-            return resizeObserver;
-        });
-        window.IntersectionObserver = jest.fn(() => ({ observe: jest.fn(), disconnect: jest.fn() }));
-        window.utils = {
-            queryShadowDom: jest.fn(() => null),
-            isElementVisible: jest.fn(() => true),
-            findVisibleLoadingSpinners: jest.fn(() => [spinner])
-        };
-        window.chrome = {
-            storage: {
-                local: {
-                    get: jest.fn((_keys, callback) => callback({})),
-                    set: jest.fn()
-                },
-                onChanged: { addListener: jest.fn() }
-            }
-        };
+        runScheduledTimer(scheduledTimers, 200);
 
-        window.eval(loadingFactsScript);
-        const feature = window.loadingFactsFeature;
-        feature.isEnabled = true;
-        feature.isIntersecting = true;
-        feature.observedSpinner = spinner;
-
-        await feature.showToast(spinner);
-
-        const toast = document.getElementById('ops-toolshed-loading-toast');
-        expect(toast.style.top).toBe('251px');
-        expect(toast.style.width).toBe('560px');
-        expect(resizeObserver.observe).toHaveBeenCalledWith(overlay);
-
-        overlayRect = {
-            left: 50,
-            top: 40,
-            width: 575,
-            height: 300,
-            right: 625,
-            bottom: 340
-        };
-        resizeCallback([{ target: overlay }]);
-
-        expect(toast.style.top).toBe('356px');
-        expect(toast.style.width).toBe('575px');
-        expect(toast.style.minWidth).toBe('575px');
-        expect(toast.style.maxWidth).toBe('575px');
-        expect(contentCss).toContain('transition: top 180ms ease-out, left 180ms ease-out, width 180ms ease-out;');
-
-        feature.hideToast({ force: true });
-        expect(resizeObserver.disconnect).toHaveBeenCalled();
-        dom.window.close();
-    });
-
-    test('keeps the fact below the search overlay when results replace its spinner', async () => {
-        const dom = new JSDOM('<!doctype html><html><body><mo-overlay role="menu"><mo-banner-recent-menu-content><mo-search-box><span class="search-spinner"></span></mo-search-box></mo-banner-recent-menu-content></mo-overlay></body></html>', {
-            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns',
-            runScripts: 'outside-only'
-        });
-        const { window } = dom;
-        const { document } = window;
-        const overlay = document.querySelector('mo-overlay');
-        const spinner = document.querySelector('.search-spinner');
-        overlay.getBoundingClientRect = () => ({
-            left: 110,
-            top: 44,
-            width: 720,
-            height: 664,
-            right: 830,
-            bottom: 708
-        });
-        spinner.getBoundingClientRect = () => ({
-            left: 760,
-            top: 90,
-            width: 20,
-            height: 20,
-            right: 780,
-            bottom: 110
-        });
-        window.requestAnimationFrame = callback => callback();
-        let resizeCallback;
-        const resizeObserver = {
-            observe: jest.fn(),
-            disconnect: jest.fn()
-        };
-        window.ResizeObserver = jest.fn(callback => {
-            resizeCallback = callback;
-            return resizeObserver;
-        });
-        window.IntersectionObserver = jest.fn(() => ({ observe: jest.fn(), disconnect: jest.fn() }));
-        window.utils = {
-            queryShadowDom: jest.fn(() => null),
-            isElementVisible: jest.fn(() => true),
-            findVisibleLoadingSpinners: jest.fn(() => [spinner])
-        };
-        window.chrome = {
-            storage: {
-                local: {
-                    get: jest.fn((_keys, callback) => callback({})),
-                    set: jest.fn()
-                },
-                onChanged: { addListener: jest.fn() }
-            }
-        };
-
-        window.eval(loadingFactsScript);
-        const feature = window.loadingFactsFeature;
-        feature.isEnabled = true;
-        feature.isIntersecting = true;
-        feature.observedSpinner = spinner;
-
-        await feature.showToast(spinner);
-        const toast = document.getElementById('ops-toolshed-loading-toast');
-        expect(toast.style.top).toBe('724px');
-        expect(toast.style.width).toBe('720px');
-
-        // Prisma can replace the input/spinner subtree once results are rendered.
-        spinner.remove();
-        resizeCallback([{ target: overlay }]);
-
-        expect(toast.classList).toContain('loading-fact-toast--campaign-search');
-        expect(toast.style.top).toBe('724px');
-        expect(toast.style.width).toBe('720px');
-
-        feature.hideToast({ force: true });
-        dom.window.close();
-    });
-
-    test('re-aligns after backspace replaces the search overlay and results expand again', async () => {
-        const dom = new JSDOM('<!doctype html><html><body><mo-overlay role="menu"><mo-banner-recent-menu-content><mo-search-box><span class="search-spinner"></span></mo-search-box></mo-banner-recent-menu-content></mo-overlay></body></html>', {
-            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns',
-            runScripts: 'outside-only'
-        });
-        const { window } = dom;
-        const { document } = window;
-        const firstOverlay = document.querySelector('mo-overlay');
-        const spinner = document.querySelector('.search-spinner');
-        let firstOverlayRect = {
-            left: 50,
-            top: 40,
-            width: 560,
-            height: 300,
-            right: 610,
-            bottom: 340
-        };
-        firstOverlay.getBoundingClientRect = () => firstOverlayRect;
-        spinner.getBoundingClientRect = () => ({
-            left: 570,
-            top: 80,
-            width: 20,
-            height: 20,
-            right: 590,
-            bottom: 100
-        });
-        window.requestAnimationFrame = callback => callback();
-        const resizeCallbacks = [];
-        const resizeObserver = {
-            observe: jest.fn(),
-            disconnect: jest.fn()
-        };
-        window.ResizeObserver = jest.fn(callback => {
-            resizeCallbacks.push(callback);
-            return resizeObserver;
-        });
-        let mutationCallback;
-        const mutationObserver = {
-            observe: jest.fn(),
-            disconnect: jest.fn()
-        };
-        window.MutationObserver = jest.fn(callback => {
-            mutationCallback = callback;
-            return mutationObserver;
-        });
-        window.IntersectionObserver = jest.fn(() => ({ observe: jest.fn(), disconnect: jest.fn() }));
-        window.utils = {
-            queryShadowDom: jest.fn(() => null),
-            isElementVisible: jest.fn(() => true),
-            findVisibleLoadingSpinners: jest.fn(() => [spinner])
-        };
-        window.chrome = {
-            storage: {
-                local: {
-                    get: jest.fn((_keys, callback) => callback({})),
-                    set: jest.fn()
-                },
-                onChanged: { addListener: jest.fn() }
-            }
-        };
-
-        window.eval(loadingFactsScript);
-        const feature = window.loadingFactsFeature;
-        feature.isEnabled = true;
-        feature.isIntersecting = true;
-        feature.observedSpinner = spinner;
-
-        await feature.showToast(spinner);
-        const toast = document.getElementById('ops-toolshed-loading-toast');
-        expect(toast.style.top).toBe('356px');
-
-        // Backspace returns the current search overlay to its compact state.
-        firstOverlayRect = {
-            left: 50,
-            top: 40,
-            width: 560,
-            height: 195,
-            right: 610,
-            bottom: 235
-        };
-        resizeCallbacks[0]([{ target: firstOverlay }]);
-        expect(toast.style.top).toBe('251px');
-
-        // Results then replace the overlay host and expand it again. The same
-        // spinner is moved into the replacement, so the loading monitor has no
-        // new spinner identity to trigger another position update.
-        const secondOverlay = document.createElement('mo-overlay');
-        secondOverlay.setAttribute('role', 'menu');
-        const secondContent = document.createElement('mo-banner-recent-menu-content');
-        secondOverlay.appendChild(secondContent);
-        secondOverlay.getBoundingClientRect = () => ({
-            left: 50,
-            top: 40,
-            width: 575,
-            height: 300,
-            right: 625,
-            bottom: 340
-        });
-        document.body.replaceChild(secondOverlay, firstOverlay);
-        secondContent.appendChild(spinner);
-
-        expect(typeof mutationCallback).toBe('function');
-        mutationCallback([{ type: 'childList', target: document.body, addedNodes: [secondOverlay] }]);
-
-        expect(toast.style.top).toBe('356px');
-        expect(toast.style.width).toBe('575px');
-        expect(resizeObserver.observe).toHaveBeenCalledWith(secondOverlay);
-
-        feature.hideToast({ force: true });
+        expect(toast.classList).toContain('slide-down');
+        runScheduledTimer(scheduledTimers, 500);
+        expect(document.getElementById('ops-toolshed-loading-toast')).toBeNull();
         dom.window.close();
     });
 
