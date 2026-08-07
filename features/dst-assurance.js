@@ -20,6 +20,15 @@
         { mediaSupplier: 'GOOGLE ADS (USD)', feeSupplier: 'GOOGLE DIGITAL SERVICE CHARGE (USD)' },
         { mediaSupplier: 'DV360 (USD)', feeSupplier: 'DV360 DIGITAL SERVICE CHARGE (USD)' }
     ]);
+    const AMAZON_DST_MAPPINGS = Object.freeze([
+        { mediaSupplier: 'AMAZON (EUR)', feeSupplier: 'AMAZON REG. ADVERTISING FEE (EUR)' },
+        { mediaSupplier: 'AMAZON DSP (EUR)', feeSupplier: 'AMAZON REG. ADVERTISING FEE (EUR)' },
+        { mediaSupplier: 'AMAZON (GBP)', feeSupplier: 'AMAZON REG. ADVERTISING FEE (GBP)' },
+        { mediaSupplier: 'AMAZON DSP (GBP)', feeSupplier: 'AMAZON REG. ADVERTISING FEE (GBP)' },
+        { mediaSupplier: 'AMAZON - TWITCH (GBP)', feeSupplier: 'AMAZON REG. ADVERTISING FEE (GBP)' },
+        { mediaSupplier: 'IMDB', feeSupplier: 'AMAZON REG. ADVERTISING FEE (GBP)' },
+        { mediaSupplier: 'AMAZON (USD)', feeSupplier: 'AMAZON REG. ADVERTISING FEE (USD)' }
+    ]);
     const DST_RATE = 0.02;
     const AMOUNT_TOLERANCE = 0.01;
     const TOOLTIP_CLASS = `${BADGE_CLASS}-tooltip`;
@@ -28,6 +37,10 @@
     const PINNED_TOOLTIP_DISMISS_DELAY_MS = 2000;
     const WRONG_SUPPLIER_TOOLTIP =
         'Check Meta Location Fee is booked to the correct supplier, and not the standard Facebook media supplier';
+    const GOOGLE_COST_ADVISORY_TOOLTIP =
+        'Please verify Google DST cost is correct, as that is not checked currently';
+    const AMAZON_COST_ADVISORY_TOOLTIP =
+        'Please verify Amazon DST cost is correct, as that is not checked currently';
 
     let enabled = true;
     let initialized = false;
@@ -149,6 +162,7 @@
             supplierCorrect: false,
             amountCorrect: false,
             dstFeeRows: [],
+            dstCount: 0,
             tooltip: '',
             checks: []
         };
@@ -246,15 +260,20 @@
         };
     }
 
-    function assessGoogleDst(rows, feeRange) {
+    function assessMappedSupplierDst(rows, feeRange, {
+        kind,
+        mappings,
+        platformName,
+        costAdvisoryTooltip
+    }) {
         const mediaEnd = feeRange?.start ?? rows.length;
-        const googleMediaRows = rows
+        const mediaRows = rows
             .slice(0, mediaEnd)
             .filter(row => row.isGroup && row.groupLevel === 1);
         const bookedMappings = [];
 
-        googleMediaRows.forEach(row => {
-            const mapping = GOOGLE_DST_MAPPINGS.find(candidate =>
+        mediaRows.forEach(row => {
+            const mapping = mappings.find(candidate =>
                 matchesSupplierPrefix(row.name, candidate.mediaSupplier)
             );
             if (mapping && !bookedMappings.includes(mapping)) bookedMappings.push(mapping);
@@ -283,10 +302,10 @@
         });
         const dstFeeRows = feeChecks.flatMap(check => check.matchingRows.map(row => ({
             ...row,
-            kind: 'google',
+            kind,
             supplier: row.name,
             expectedSupplier: check.expectedSupplier,
-            supplierCorrect: check.supplierCorrect,
+            supplierCorrect: matchesSupplierPrefix(row.name, check.expectedSupplier),
             amountCheck: false,
             amountCorrect: true
         })));
@@ -296,17 +315,18 @@
         feeChecks.forEach(check => {
             if (!check.matchingRows.length) {
                 tooltipParts.push(
-                    `${check.expectedSupplier} has not been booked for the related Google media supplier.`
+                    `${check.expectedSupplier} has not been booked for the related ${platformName} media supplier.`
                 );
             } else if (!check.supplierCorrect) {
                 tooltipParts.push(
-                    `Check ${check.expectedSupplier} is booked to the correct supplier for the related Google media booking.`
+                    `Check ${check.expectedSupplier} is booked to the correct supplier for the related ${platformName} media booking.`
                 );
             }
         });
+        tooltipParts.push(costAdvisoryTooltip);
 
         return {
-            kind: 'google',
+            kind,
             eligible: true,
             status: supplierCorrect ? 'correct' : 'incorrect',
             mediaBooked: null,
@@ -316,9 +336,27 @@
             amountCorrect: true,
             dstFeeRows,
             tooltip: tooltipParts.join(' '),
-            googleMediaRows,
+            mediaRows,
             expectedFeeSuppliers
         };
+    }
+
+    function assessGoogleDst(rows, feeRange) {
+        return assessMappedSupplierDst(rows, feeRange, {
+            kind: 'google',
+            mappings: GOOGLE_DST_MAPPINGS,
+            platformName: 'Google',
+            costAdvisoryTooltip: GOOGLE_COST_ADVISORY_TOOLTIP
+        });
+    }
+
+    function assessAmazonDst(rows, feeRange) {
+        return assessMappedSupplierDst(rows, feeRange, {
+            kind: 'amazon',
+            mappings: AMAZON_DST_MAPPINGS,
+            platformName: 'Amazon',
+            costAdvisoryTooltip: AMAZON_COST_ADVISORY_TOOLTIP
+        });
     }
 
     function combineAssessments(checks) {
@@ -329,6 +367,8 @@
         const supplierCorrect = eligibleChecks.every(check => check.supplierCorrect);
         const amountCorrect = eligibleChecks.every(check => check.amountCorrect);
 
+        const dstFeeRows = eligibleChecks.flatMap(check => check.dstFeeRows || []);
+
         return {
             eligible: true,
             status: supplierCorrect && amountCorrect ? 'correct' : 'incorrect',
@@ -337,7 +377,8 @@
             expectedFee: metaCheck?.expectedFee ?? null,
             supplierCorrect,
             amountCorrect,
-            dstFeeRows: eligibleChecks.flatMap(check => check.dstFeeRows || []),
+            dstFeeRows,
+            dstCount: dstFeeRows.length,
             tooltip: eligibleChecks
                 .map(check => check.tooltip)
                 .filter(Boolean)
@@ -355,7 +396,8 @@
         const feeRange = getSectionRange(rows, 'fee');
         return combineAssessments([
             assessMetaDst(rows, displayRange, feeRange),
-            assessGoogleDst(rows, feeRange)
+            assessGoogleDst(rows, feeRange),
+            assessAmazonDst(rows, feeRange)
         ]);
     }
 
@@ -624,10 +666,13 @@
             if (existingBadge !== badge) removeBadge(existingBadge);
         });
 
+        const badgeText = Number(assessment.dstCount) > 1
+            ? 'DSTs Booked'
+            : 'DST Booked';
         badge.className = `${BADGE_CLASS} ${assessment.status === 'correct'
             ? CORRECT_BADGE_CLASS
             : INCORRECT_BADGE_CLASS}`;
-        badge.textContent = 'DST Booked';
+        badge.textContent = badgeText;
         badge.removeAttribute('title');
         badge.dataset.toolshedDstAssurance = assessment.status;
 
@@ -636,12 +681,12 @@
         if (hasTooltip) {
             badge.setAttribute('role', 'button');
             badge.setAttribute('tabindex', '0');
-            badge.setAttribute('aria-label', 'DST Booked: check; click for details');
+            badge.setAttribute('aria-label', `${badgeText}: check; click for details`);
             ensureDstTooltip(badge, tooltipText);
         } else {
             badge.setAttribute('role', 'status');
             badge.removeAttribute('tabindex');
-            badge.setAttribute('aria-label', 'DST Booked: correct');
+            badge.setAttribute('aria-label', badgeText);
             removeDstTooltip(badge);
         }
 

@@ -61,6 +61,40 @@ function createPage({
 }
 
 describe('DST Assurance', () => {
+    test('labels a campaign with more than one booked DST as DSTs Booked', () => {
+        const dom = createPage();
+        const tableBody = dom.window.document.querySelector('.ht_master .htCore tbody');
+        const feeSectionRow = Array.from(tableBody.querySelectorAll('tr'))
+            .find(row => row.children[3]?.textContent.trim() === 'Fee');
+
+        feeSectionRow.insertAdjacentHTML(
+            'beforebegin',
+            createRow({
+                name: 'GOOGLE ADS (GBP):Campaign',
+                groupLevel: 1,
+                hierarchyLevel: 0,
+                cost: '£1,000.00'
+            })
+        );
+        feeSectionRow.insertAdjacentHTML(
+            'afterend',
+            createRow({
+                name: 'GOOGLE DIGITAL SERVICE CHARGE (GBP):Google Digital Service Charge',
+                groupLevel: 1,
+                hierarchyLevel: 0,
+                cost: '£0.00'
+            })
+        );
+
+        dom.window.dstAssuranceFeature.apply();
+
+        expect(dom.window.document.querySelector('.toolshed-dst-assurance').textContent)
+            .toBe('DSTs Booked');
+        expect(dom.window.document.querySelector('.toolshed-dst-assurance-tooltip').textContent)
+            .toBe('Please verify Google DST cost is correct, as that is not checked currently');
+        dom.window.close();
+    });
+
     test('recognises Google Ads GBP when the related service-charge supplier is correct without checking cost', () => {
         const dom = createPage({
             mediaSection: 'Search',
@@ -70,12 +104,18 @@ describe('DST Assurance', () => {
             feeCost: '£0.00'
         });
 
-        expect(dom.window.dstAssuranceFeature.assessDstAssurance()).toMatchObject({
+        const feature = dom.window.dstAssuranceFeature;
+        expect(feature.assessDstAssurance()).toMatchObject({
             eligible: true,
             status: 'correct',
             supplierCorrect: true,
             amountCorrect: true
         });
+        feature.apply();
+        expect(dom.window.document.querySelector('.toolshed-dst-assurance').textContent)
+            .toBe('DST Booked');
+        expect(dom.window.document.querySelector('.toolshed-dst-assurance-tooltip').textContent)
+            .toBe('Please verify Google DST cost is correct, as that is not checked currently');
         dom.window.close();
     });
 
@@ -103,6 +143,78 @@ describe('DST Assurance', () => {
             supplierCorrect: true,
             amountCorrect: true
         });
+        dom.window.close();
+    });
+
+    test('recognises an Amazon DST supplier without checking cost and explains that limitation', () => {
+        const dom = createPage({
+            mediaSupplier: 'AMAZON (EUR):Campaign',
+            mediaCost: 'Â£1,000.00',
+            feeSupplier: 'AMAZON REG. ADVERTISING FEE (EUR):Amazon Advertising Fee',
+            feeCost: 'Â£0.00'
+        });
+        const feature = dom.window.dstAssuranceFeature;
+
+        expect(feature.assessDstAssurance()).toMatchObject({
+            eligible: true,
+            status: 'correct',
+            supplierCorrect: true,
+            amountCorrect: true
+        });
+        feature.apply();
+        expect(dom.window.document.querySelector('.toolshed-dst-assurance-tooltip').textContent)
+            .toBe('Please verify Amazon DST cost is correct, as that is not checked currently');
+        dom.window.close();
+    });
+
+    test.each([
+        ['AMAZON (EUR)', 'AMAZON REG. ADVERTISING FEE (EUR)'],
+        ['AMAZON DSP (EUR)', 'AMAZON REG. ADVERTISING FEE (EUR)'],
+        ['AMAZON (GBP)', 'AMAZON REG. ADVERTISING FEE (GBP)'],
+        ['AMAZON DSP (GBP)', 'AMAZON REG. ADVERTISING FEE (GBP)'],
+        ['AMAZON - TWITCH (GBP)', 'AMAZON REG. ADVERTISING FEE (GBP)'],
+        ['IMDB', 'AMAZON REG. ADVERTISING FEE (GBP)'],
+        ['AMAZON (USD)', 'AMAZON REG. ADVERTISING FEE (USD)']
+    ])('recognises the Amazon DST mapping %s -> %s', (mediaSupplier, feeSupplier) => {
+        const dom = createPage({
+            mediaSupplier: `${mediaSupplier}:Campaign`,
+            mediaCost: 'Â£1,000.00',
+            feeSupplier: `${feeSupplier}:Service Charge`,
+            feeCost: 'Â£0.00'
+        });
+
+        expect(dom.window.dstAssuranceFeature.assessDstAssurance()).toMatchObject({
+            eligible: true,
+            status: 'correct',
+            supplierCorrect: true,
+            amountCorrect: true
+        });
+        dom.window.close();
+    });
+
+    test('marks an Amazon service charge booked to the wrong supplier and highlights only its supplier cell', () => {
+        const dom = createPage({
+            mediaSupplier: 'AMAZON DSP (GBP):Campaign',
+            mediaCost: 'Â£1,000.00',
+            feeSupplier: 'FACEBOOK:AMAZON REG. ADVERTISING FEE (GBP)',
+            feeCost: 'Â£0.00'
+        });
+        const feature = dom.window.dstAssuranceFeature;
+
+        expect(feature.assessDstAssurance()).toMatchObject({
+            eligible: true,
+            status: 'incorrect',
+            supplierCorrect: false,
+            amountCorrect: true
+        });
+        expect(feature.assessDstAssurance().tooltip)
+            .toContain('AMAZON REG. ADVERTISING FEE (GBP)');
+
+        feature.apply();
+        const feeRow = Array.from(dom.window.document.querySelectorAll('.htCore tr'))
+            .find(row => row.children[3]?.textContent.includes('FACEBOOK:AMAZON REG. ADVERTISING FEE'));
+        expect(feeRow.children[3].classList).toContain('toolshed-dst-assurance-warning-cell');
+        expect(feeRow.children[8].classList).not.toContain('toolshed-dst-assurance-warning-cell');
         dom.window.close();
     });
 
