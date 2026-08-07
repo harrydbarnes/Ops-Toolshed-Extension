@@ -20,6 +20,7 @@ const FEATURE_TOGGLE_KEYS = {
     ordersShortcutToggle: 'ordersShortcutEnabled',
     actualiseShortcutToggle: 'actualiseShortcutEnabled',
     actualiseNavbarToggle: 'actualiseNavbarEnabled',
+    actualiseMonthAssuranceToggle: 'actualiseMonthAssuranceEnabled',
     quickCampaignActionsToggle: 'quickCampaignActionsEnabled',
     campaignNameQuickCopyToggle: 'campaignNameQuickCopyEnabled',
     campaignHeaderQuickCopyToggle: 'campaignHeaderQuickCopyEnabled',

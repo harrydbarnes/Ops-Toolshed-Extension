@@ -31,7 +31,8 @@ function createPage({
     feeCost = '£646.41',
     feeDetailName = 'Meta Digital Service Charge_Meta 2% DST GBP_Fee',
     feeDetailCost = feeCost,
-    includeFee = true
+    includeFee = true,
+    dstAssuranceEnabled = true
 } = {}) {
     const feeRows = includeFee
         ? `${createRow({ name: feeSupplier, groupLevel: 1, hierarchyLevel: 0, cost: feeCost })}
@@ -56,11 +57,34 @@ function createPage({
         url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP123&ptb-mod=buy&ptb-ctx=digital',
         runScripts: 'outside-only'
     });
+    const settingListeners = [];
+    dom.window.chrome = {
+        storage: {
+            sync: { get: (_key, callback) => callback({ dstAssuranceEnabled }) },
+            onChanged: { addListener: listener => settingListeners.push(listener) }
+        }
+    };
     dom.window.eval(dstAssuranceScript);
+    dom.window.setDstAssuranceEnabled = value => settingListeners.forEach(listener => listener({
+        dstAssuranceEnabled: { newValue: value }
+    }, 'sync'));
     return dom;
 }
 
 describe('DST Assurance', () => {
+    test('removes its badge and warning highlights immediately when disabled from Settings', () => {
+        const dom = createPage();
+        dom.window.dstAssuranceFeature.initialize();
+        const cell = dom.window.document.querySelector('#grid-container_hot td');
+        cell.classList.add('toolshed-dst-assurance-warning-cell');
+        cell.setAttribute('data-toolshed-dst-assurance-warning', 'true');
+        dom.window.setDstAssuranceEnabled(false);
+
+        expect(dom.window.document.querySelector('.toolshed-dst-assurance')).toBeNull();
+        expect(dom.window.document.querySelector('.toolshed-dst-assurance-warning-cell')).toBeNull();
+        dom.window.close();
+    });
+
     test('labels a campaign with more than one booked DST as DSTs Booked', () => {
         const dom = createPage();
         const tableBody = dom.window.document.querySelector('.ht_master .htCore tbody');

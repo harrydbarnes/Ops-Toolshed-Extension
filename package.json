@@ -4,10 +4,10 @@
   "description": "Enhances Prisma functionality and provides quick access to various tools.",
   "main": "background.js",
   "scripts": {
-    "test": "jest",
+    "test": "node node_modules/jest/bin/jest.js --runInBand --coverage=false --silent",
     "test:serial": "node node_modules/jest/bin/jest.js --runInBand --coverage=false --silent",
     "test:diagnose": "node node_modules/jest/bin/jest.js --runInBand --coverage=false --detectOpenHandles --silent=false",
-    "test:coverage": "jest --coverage",
+    "test:coverage": "node node_modules/jest/bin/jest.js --runInBand --coverage",
     "test:feature-contracts": "jest --runTestsByPath tests/settings-feature-toggle-contract.test.js tests/content.test.js tests/features/campaign-navigation-ui.test.js tests/features/help-guides-launcher.test.js tests/features/order-id-copy.test.js tests/features/order-view-toggle.test.js tests/features/approver-pasting.test.js tests/features/actualise-export-all.test.js tests/features/max-campaign-budget.test.js tests/background.test.js tests/manifest-script-order.test.js tests/frame-execution.test.js --runInBand --coverage=false",
     "benchmark:prisma-observer": "node benchmarks/prisma-observer-benchmark.js",
     "verify:prisma-refactor": "npm run test:feature-contracts && npm run benchmark:prisma-observer",
@@ -29,15 +29,10 @@
   "devDependencies": {
     "@babel/core": "^7.28.4",
     "@babel/preset-env": "^7.28.5",
-    "@testing-library/dom": "^10.4.1",
     "babel-jest": "^30.4.1",
     "husky": "^8.0.0",
     "jest": "^30.4.2",
     "jest-environment-jsdom": "^30.4.1",
-    "jsdom": "^26.1.0",
-    "playwright": "^1.57.0"
-  },
-  "dependencies": {
-    "pdfjs-dist": "^6.1.200"
+    "jsdom": "^26.1.0"
   }
 }

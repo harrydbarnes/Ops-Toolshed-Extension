@@ -7,6 +7,7 @@
     const SOURCE = 'ops-toolshed-actualise-month-bridge';
     const EVENT_TYPE = 'ops-toolshed-actualise-month-data';
     const REQUEST_TYPE = 'ops-toolshed-actualise-month-request-latest';
+    const SETTING_KEY = 'actualiseMonthAssuranceEnabled';
     const MONTH_SELECTOR = '#mos-paginator li > a';
     const ACTIVE_MONTH_SELECTOR = '#mos-paginator li.active > a';
     const CAPTION_SELECTOR = '#month-filter-toolbar .mo-caption';
@@ -23,6 +24,8 @@
     const READY_STABLE_MS = timing.readyStableMs || 250;
 
     let initialized = false;
+    let settingsLoaded = false;
+    let featureEnabled = true;
     let latestNativeEvidence = null;
     let recoveryPromise = null;
     let recoveryTargetKey = null;
@@ -347,6 +350,10 @@
     }
 
     function apply() {
+        if (!settingsLoaded || !featureEnabled) {
+            removeBadges();
+            return { status: 'hidden' };
+        }
         const assessment = assessActualiseMonth();
         renderActualiseMonth(assessment);
         scheduleRecovery(assessment);
@@ -361,7 +368,22 @@
         window.addEventListener('popstate', handleNavigation);
         window.addEventListener('pageshow', apply);
         lastObservedMonthKey = getExpectedMonth();
-        apply();
+        const storage = globalThis.chrome?.storage;
+        if (!storage?.sync?.get) {
+            settingsLoaded = true;
+            apply();
+        } else {
+            storage.sync.get({ [SETTING_KEY]: true }, data => {
+                featureEnabled = data?.[SETTING_KEY] !== false;
+                settingsLoaded = true;
+                apply();
+            });
+            storage.onChanged?.addListener((changes, areaName) => {
+                if (areaName !== 'sync' || !changes[SETTING_KEY]) return;
+                featureEnabled = changes[SETTING_KEY].newValue !== false;
+                apply();
+            });
+        }
         // The page-world bridge can receive the native request before this
         // isolated content script is ready. Ask it to replay its latest
         // response so a valid first render is not lost.

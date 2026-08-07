@@ -702,6 +702,11 @@
 
     function apply() {
         const assessment = assessDstAssurance();
+        if (!enabled) {
+            renderDstCellHighlights({ eligible: false });
+            renderDstAssurance(assessment);
+            return assessment;
+        }
         renderDstCellHighlights(assessment);
         renderDstAssurance(assessment);
         return assessment;

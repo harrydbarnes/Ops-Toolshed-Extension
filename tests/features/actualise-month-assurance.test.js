@@ -36,7 +36,8 @@ describe('Actualise month assurance', () => {
         urlMonth = '2025-11',
         responseMonths = ['2025-11'],
         responseByMonth = {},
-        months = Object.keys(monthKeys)
+        months = Object.keys(monthKeys),
+        enabled = true
     } = {}) {
         const monthItems = months.map(month =>
             `<li class="${month === activeMonth ? 'active' : ''}"><a>${month}</a></li>`
@@ -64,6 +65,15 @@ describe('Actualise month assurance', () => {
             recoveryTimeoutMs: 250,
             pollMs: 1,
             readyStableMs: 1
+        };
+        const settingListeners = [];
+        dom.window.chrome = {
+            storage: {
+                sync: {
+                    get: (_defaults, callback) => callback({ actualiseMonthAssuranceEnabled: enabled })
+                },
+                onChanged: { addListener: listener => settingListeners.push(listener) }
+            }
         };
 
         const clickedMonths = [];
@@ -96,6 +106,9 @@ describe('Actualise month assurance', () => {
             dom,
             window: dom.window,
             clickedMonths,
+            setEnabled: value => settingListeners.forEach(listener => listener({
+                actualiseMonthAssuranceEnabled: { newValue: value }
+            }, 'sync')),
             emitEvidence: (months, requestMonth = urlMonth) =>
                 emitNativeEvidence(dom.window, months, requestMonth)
         };
@@ -202,6 +215,21 @@ describe('Actualise month assurance', () => {
         expect(badge.textContent).toBe('Check Month');
         expect(badge.classList).toContain('toolshed-actualise-month-assurance--incorrect');
 
+        feature.dom.window.close();
+    });
+
+    test('removes the badge immediately when disabled from Settings and restores it when re-enabled', async () => {
+        const feature = createFeature();
+        feature.window.actualiseMonthAssuranceFeature.initialize();
+        feature.emitEvidence(['2025-11']);
+        await new Promise(resolve => feature.window.setTimeout(resolve, 0));
+
+        feature.setEnabled(false);
+        expect(feature.window.document.querySelector('.toolshed-actualise-month-assurance')).toBeNull();
+
+        feature.setEnabled(true);
+        expect(feature.window.document.querySelector('.toolshed-actualise-month-assurance')?.textContent)
+            .toBe('Correct Month');
         feature.dom.window.close();
     });
 });
