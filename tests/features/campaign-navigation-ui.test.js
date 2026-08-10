@@ -262,6 +262,58 @@ describe('campaign navigation UI optimisation', () => {
         dom.window.close();
     });
 
+    test('collapses the refreshed Actualise header and restores the legacy close controls', () => {
+        const dom = createPage({}, 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP3FMRK&ptb-mod=buy&ptb-ctx=actualize&route=actualize&mos=2026-08-01');
+        const { document } = dom.window;
+        const actualiseToolbar = document.createElement('div');
+        actualiseToolbar.id = 'actualize-toolbar';
+        actualiseToolbar.innerHTML = `
+            <div class="actual-header">
+                <mo-toolbar class="actualize-header">
+                    <mo-breadcrumb>Actualisation</mo-breadcrumb>
+                    <mo-button slot="right" icon-name="close"></mo-button>
+                </mo-toolbar>
+            </div>
+            <div slot="center" class="actual-months-group">
+                <mo-button-group>
+                    <mo-button-group-item>Aug 26</mo-button-group-item>
+                    <mo-button-group-item>Sep 26</mo-button-group-item>
+                </mo-button-group>
+            </div>
+        `;
+        document.body.appendChild(actualiseToolbar);
+
+        const nativeClose = actualiseToolbar.querySelector('mo-button[icon-name="close"]');
+        const nativeCloseHandler = jest.fn();
+        nativeClose.addEventListener('click', nativeCloseHandler);
+
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+
+        const header = actualiseToolbar.querySelector('.actual-header');
+        const monthsGroup = actualiseToolbar.querySelector('.actual-months-group');
+        const legacyClose = monthsGroup.querySelector('.toolshed-actualise-close-button');
+
+        expect(header.classList).toContain('toolshed-actualise-header-hidden');
+        expect(monthsGroup.classList).toContain('toolshed-actualise-months-group');
+        expect(monthsGroup.contains(nativeClose)).toBe(true);
+        expect(nativeClose.classList).toContain('toolshed-actualise-native-close');
+        expect(legacyClose).not.toBeNull();
+        expect(legacyClose.textContent).toBe('× Close');
+        expect(legacyClose.hasAttribute('title')).toBe(false);
+
+        legacyClose.click();
+        expect(nativeCloseHandler).toHaveBeenCalledTimes(1);
+
+        dom.window.history.replaceState({}, '', '#campaign-id=CP3FMRK&ptb-mod=buy&ptb-ctx=digital&route=online');
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+
+        expect(actualiseToolbar.querySelector('.toolshed-actualise-close-button')).toBeNull();
+        expect(header.classList).not.toContain('toolshed-actualise-header-hidden');
+        expect(header.querySelector('mo-button[icon-name="close"]')).toBe(nativeClose);
+        expect(nativeClose.getAttribute('slot')).toBe('right');
+        dom.window.close();
+    });
+
     test('moves the replacement workflow slot after Orders empties the previously relocated slot', () => {
         const dom = createPage();
         const { document } = dom.window;

@@ -8,8 +8,10 @@
     const EVENT_TYPE = 'ops-toolshed-actualise-month-data';
     const REQUEST_TYPE = 'ops-toolshed-actualise-month-request-latest';
     const SETTING_KEY = 'actualiseMonthAssuranceEnabled';
-    const MONTH_SELECTOR = '#mos-paginator li > a';
-    const ACTIVE_MONTH_SELECTOR = '#mos-paginator li.active > a';
+    const MONTH_SELECTOR = '#mos-paginator li > a, .actual-months-group mo-button-group-item';
+    const ACTIVE_MONTH_SELECTOR = '#mos-paginator li.active > a, ' +
+        '.actual-months-group mo-button-group-item[aria-pressed="true"], ' +
+        '.actual-months-group mo-button-group-item[selected="true"]';
     const CAPTION_SELECTOR = '#month-filter-toolbar .mo-caption';
     const GRID_SELECTOR = '#grid-container_hot .htCore';
     const MONTH_NAMES = Object.freeze({

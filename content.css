@@ -662,6 +662,49 @@ body.reminder-theme-black #confirmation-popup {
     transform: translateY(-50%);
 }
 
+/* Prisma's refreshed Actualise shell adds a title row above the month
+   selector. Keep the compact legacy controls on one row while retaining the
+   native close action for the right-side icon. */
+.toolshed-actualise-header-hidden {
+    display: none !important;
+}
+
+.actual-months-group.toolshed-actualise-months-group {
+    position: relative !important;
+    pointer-events: auto;
+}
+
+.actual-months-group.toolshed-actualise-months-group > .toolshed-actualise-close-button,
+.actual-months-group.toolshed-actualise-months-group > .toolshed-actualise-native-close {
+    position: absolute !important;
+    top: 50% !important;
+    z-index: 2;
+    transform: translateY(-50%);
+}
+
+.actual-months-group.toolshed-actualise-months-group > .toolshed-actualise-close-button {
+    left: -8px;
+    min-height: 28px;
+    padding: 3px 10px;
+    border: 1px solid #0875ca;
+    border-radius: 3px;
+    background: #fff;
+    color: #0875ca;
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    line-height: 18px;
+}
+
+.actual-months-group.toolshed-actualise-months-group > .toolshed-actualise-close-button:hover,
+.actual-months-group.toolshed-actualise-months-group > .toolshed-actualise-close-button:focus {
+    background: #eef6ff;
+}
+
+.actual-months-group.toolshed-actualise-months-group > .toolshed-actualise-native-close {
+    right: 8px;
+}
+
 #toolshed-max-budget-panel {
     position: fixed;
     z-index: 2147483644;

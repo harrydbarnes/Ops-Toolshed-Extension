@@ -37,7 +37,8 @@ describe('Actualise month assurance', () => {
         responseMonths = ['2025-11'],
         responseByMonth = {},
         months = Object.keys(monthKeys),
-        enabled = true
+        enabled = true,
+        monthControl = 'legacy'
     } = {}) {
         const monthItems = months.map(month =>
             `<li class="${month === activeMonth ? 'active' : ''}"><a>${month}</a></li>`
@@ -101,6 +102,38 @@ describe('Actualise month assurance', () => {
             });
         });
 
+        if (monthControl === 'button-group') {
+            dom.window.document.querySelector('#month-filter-toolbar').remove();
+            const monthGroup = dom.window.document.createElement('div');
+            monthGroup.className = 'actual-months-group';
+            monthGroup.innerHTML = `<mo-button-group class="month-button-group" role="group">${months.map(month =>
+                `<mo-button-group-item role="button" aria-pressed="${month === activeMonth}">${month}</mo-button-group-item>`
+            ).join('')}</mo-button-group>`;
+            dom.window.document.body.insertBefore(monthGroup, dom.window.document.querySelector('#grid-container_hot'));
+
+            Array.from(monthGroup.querySelectorAll('mo-button-group-item')).forEach(button => {
+                button.addEventListener('click', event => {
+                    event.preventDefault();
+                    const label = button.textContent.trim();
+                    const month = monthKeys[label];
+                    clickedMonths.push(label);
+                    monthGroup.querySelectorAll('mo-button-group-item').forEach(item => {
+                        item.setAttribute('aria-pressed', String(item === button));
+                    });
+                    dom.window.history.replaceState(
+                        {},
+                        '',
+                        `#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=buy&ptb-ctx=actualize&route=actualize&mos=${month}-01`
+                    );
+                    const gridCell = dom.window.document.querySelector('#grid-container_hot tbody td');
+                    gridCell.textContent = `Booking ${month}`;
+                    const queue = responseQueues.get(month) || [responseMonths];
+                    const nextEvidence = queue.length > 1 ? queue.shift() : queue[0];
+                    emitNativeEvidence(dom.window, nextEvidence, month);
+                });
+            });
+        }
+
         dom.window.eval(featureCode);
         return {
             dom,
@@ -159,6 +192,34 @@ describe('Actualise month assurance', () => {
         const badgeText = feature.window.document.querySelector('.toolshed-actualise-month-assurance').textContent;
         feature.dom.window.close();
 
+        expect(assessment).toMatchObject({
+            status: 'correct',
+            expectedMonth: '2025-11',
+            activeMonth: '2025-11',
+            responseMonths: ['2025-11']
+        });
+        expect(badgeText).toBe('Correct Month');
+    });
+
+    test('supports the native Actualise month button group', async () => {
+        const feature = createFeature({
+            monthControl: 'button-group',
+            responseByMonth: {
+                '2025-10': [['2025-10']],
+                '2025-11': [['2025-11']]
+            }
+        });
+
+        feature.window.actualiseMonthAssuranceFeature.initialize();
+        feature.emitEvidence(['2025-10']);
+        await new Promise(resolve => feature.window.setTimeout(resolve, 25));
+
+        const clickedMonths = [...feature.clickedMonths];
+        const assessment = feature.window.actualiseMonthAssuranceFeature.assessActualiseMonth();
+        const badgeText = feature.window.document.querySelector('.toolshed-actualise-month-assurance')?.textContent;
+        feature.dom.window.close();
+
+        expect(clickedMonths).toEqual(['Oct 25', 'Nov 25']);
         expect(assessment).toMatchObject({
             status: 'correct',
             expectedMonth: '2025-11',

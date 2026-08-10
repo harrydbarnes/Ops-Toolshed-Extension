@@ -69,7 +69,7 @@ const DIRTY_FEATURE_HINTS = [
     },
     {
         groups: ['campaign', 'actualise'],
-        selector: '.p2b-navbar-wrapper, #month-filter-toolbar'
+        selector: '.p2b-navbar-wrapper, #month-filter-toolbar, #actualize-toolbar, .actual-header, .actual-months-group'
     },
     {
         groups: ['campaign', 'actualise'],

@@ -36,6 +36,11 @@
     const ACTUALISE_MONTH_ROW_CLASS = 'toolshed-actualise-month-row';
     const APPROVER_WIDGET_PLACEMENT_CLASS = 'approver-widget-placement-enabled';
     const ACTUALISE_NAVBAR_WRAPPER_ID = 'toolshed-actualise-navbar-wrapper';
+    const ACTUALISE_HEADER_HIDDEN_CLASS = 'toolshed-actualise-header-hidden';
+    const ACTUALISE_MONTHS_GROUP_CLASS = 'toolshed-actualise-months-group';
+    const ACTUALISE_NATIVE_CLOSE_CLASS = 'toolshed-actualise-native-close';
+    const ACTUALISE_CLOSE_BUTTON_CLASS = 'toolshed-actualise-close-button';
+    const ACTUALISE_NATIVE_CLOSE_SLOT_ATTRIBUTE = 'data-toolshed-actualise-original-slot';
     const CAMPAIGN_DATE_EDITABLE_CLASS = 'toolshed-campaign-date-editable';
     const CAMPAIGN_DATE_EDIT_HOST_CLASS = 'toolshed-campaign-date-edit-host';
     const CAMPAIGN_DATE_EDIT_MARKER_CLASS = 'toolshed-campaign-date-edit-marker';
@@ -273,6 +278,93 @@
         return null;
     }
 
+    function getActualiseToolbar() {
+        return document.getElementById('actualize-toolbar');
+    }
+
+    function getActualiseMonthsGroup(toolbar = getActualiseToolbar()) {
+        return toolbar?.querySelector(':scope > .actual-months-group') ||
+            toolbar?.querySelector('.actual-months-group') ||
+            document.querySelector('.actual-months-group');
+    }
+
+    function getActualiseNativeCloseButton(header, monthsGroup) {
+        const closeSelector = 'mo-button[icon-name="close"], mo-button[iconname="close"]';
+        return header?.querySelector(closeSelector) ||
+            monthsGroup?.querySelector(`.${ACTUALISE_NATIVE_CLOSE_CLASS}`) ||
+            null;
+    }
+
+    function restoreActualiseHeaderLayout() {
+        document.querySelectorAll(`.${ACTUALISE_CLOSE_BUTTON_CLASS}`).forEach(button => button.remove());
+        document.querySelectorAll(`.${ACTUALISE_MONTHS_GROUP_CLASS}`).forEach(group => {
+            group.classList.remove(ACTUALISE_MONTHS_GROUP_CLASS);
+        });
+        document.querySelectorAll(`.${ACTUALISE_HEADER_HIDDEN_CLASS}`).forEach(header => {
+            header.classList.remove(ACTUALISE_HEADER_HIDDEN_CLASS);
+        });
+
+        document.querySelectorAll(`.${ACTUALISE_NATIVE_CLOSE_CLASS}`).forEach(closeButton => {
+            const toolbar = closeButton.closest('#actualize-toolbar');
+            const headerToolbar = toolbar?.querySelector('.actual-header .actualize-header');
+            if (headerToolbar && closeButton.parentElement !== headerToolbar) {
+                const originalSlot = closeButton.getAttribute(ACTUALISE_NATIVE_CLOSE_SLOT_ATTRIBUTE);
+                if (originalSlot) closeButton.setAttribute('slot', originalSlot);
+                else closeButton.removeAttribute('slot');
+                headerToolbar.appendChild(closeButton);
+            }
+            closeButton.classList.remove(ACTUALISE_NATIVE_CLOSE_CLASS);
+            closeButton.removeAttribute(ACTUALISE_NATIVE_CLOSE_SLOT_ATTRIBUTE);
+        });
+    }
+
+    function handleActualiseHeaderLayout(isActualise) {
+        if (!isActualise) {
+            restoreActualiseHeaderLayout();
+            return;
+        }
+
+        const toolbar = getActualiseToolbar();
+        const header = toolbar?.querySelector('.actual-header');
+        const monthsGroup = getActualiseMonthsGroup(toolbar);
+        if (!header || !monthsGroup) return;
+
+        const nativeClose = getActualiseNativeCloseButton(header, monthsGroup);
+        if (!nativeClose) return;
+
+        header.classList.add(ACTUALISE_HEADER_HIDDEN_CLASS);
+        monthsGroup.classList.add(ACTUALISE_MONTHS_GROUP_CLASS);
+
+        if (nativeClose.parentElement !== monthsGroup) {
+            if (!nativeClose.hasAttribute(ACTUALISE_NATIVE_CLOSE_SLOT_ATTRIBUTE)) {
+                nativeClose.setAttribute(
+                    ACTUALISE_NATIVE_CLOSE_SLOT_ATTRIBUTE,
+                    nativeClose.getAttribute('slot') || ''
+                );
+            }
+            nativeClose.removeAttribute('slot');
+            monthsGroup.appendChild(nativeClose);
+        }
+        nativeClose.classList.add(ACTUALISE_NATIVE_CLOSE_CLASS);
+
+        let closeButton = monthsGroup.querySelector(`.${ACTUALISE_CLOSE_BUTTON_CLASS}`);
+        if (!closeButton) {
+            closeButton = document.createElement('button');
+            closeButton.type = 'button';
+            closeButton.className = ACTUALISE_CLOSE_BUTTON_CLASS;
+            closeButton.textContent = '× Close';
+            closeButton.setAttribute('aria-label', 'Close Actualisation');
+            closeButton.addEventListener('click', () => {
+                getActualiseNativeCloseButton(
+                    toolbar.querySelector('.actual-header'),
+                    getActualiseMonthsGroup(toolbar)
+                )?.click();
+            });
+            monthsGroup.appendChild(closeButton);
+        }
+        closeButton.removeAttribute('title');
+    }
+
     function handleAlwaysShowComments() {
         const href = window.location.href;
         // Check for specific URL components
@@ -364,6 +456,8 @@
         const previewLinkContainer = navbarWrapper ? navbarWrapper.querySelector('.omni-navigation-preview-link-container') : null;
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const isActualise = hashParams.get('ptb-ctx') === 'actualize' || hashParams.get('route') === 'actualize';
+
+        handleActualiseHeaderLayout(isActualise);
 
         if (approverWidgetPlacementEnabled && navbarWrapper && rightSlotDiv) {
             rightSlotDiv.classList.remove(ACTUALISE_WORKFLOW_CLASS);
