@@ -1,4 +1,4 @@
-const { parseCsv, aggregateMeta, aggregatePrisma, extractMetaReferenceData, extractPrismaReferenceData, compare, reportToCsv, nameSimilarity, findCandidates } = require('../social-finance-engine');
+const { parseCsv, aggregateMeta, aggregatePrisma, extractMetaReferenceData, extractPrismaReferenceData, buildMetaAccountCrossReference, compare, summarizeRows, reportToCsv, nameSimilarity, findCandidates } = require('../social-finance-engine');
 
 const metaCsv = `Account name,Account ID,Campaign name,Campaign ID,Month,Amount spent (GBP),Campaign budget,Campaign budget type,Delivery,Ad set start,Ad set end\nBoots,999,Matched campaign,120000000000000001,2026-06-01,100,100,Lifetime,Active,2026-06-01,2026-06-30\nBoots,999,Missing campaign,120000000000000002,2026-06-01,50,75,Lifetime,Active,2026-06-01,2026-06-30\nBoots,999,Wrong month,120000000000000003,2026-06-01,20,20,Lifetime,Active,2026-06-01,2026-06-30\nBoots,999,Spend exposure,120000000000000004,2026-06-01,100,120,Lifetime,Active,2026-06-01,2026-06-30\nBoots,999,Date exposure,120000000000000005,2026-06-01,60,60,Lifetime,Active,2026-05-29,2026-07-02\nBoots,999,Named unlinked campaign,120000000000000006,2026-06-01,40,40,Lifetime,Active,2026-06-01,2026-06-30`;
 
@@ -9,6 +9,22 @@ describe('social finance comparison engine', () => {
         const parsed = parseCsv('Campaign ID,Campaign name\n120000000000000001,"Boots, Summer"');
         expect(parsed.rows[0]['Campaign ID']).toBe('120000000000000001');
         expect(parsed.rows[0]['Campaign name']).toBe('Boots, Summer');
+    });
+
+    test('builds the two-way client/product and Meta-account cross-reference from exact account and campaign IDs', () => {
+        const mapping = buildMetaAccountCrossReference(
+            parseCsv('Account name,Account ID,Campaign ID,Month,Amount spent\nBoots Meta,111,9,2026-06,10\nNo7 Meta,222,10,2026-06,20'),
+            parseCsv('Client name,Client code,Product name,Product code,Partner account id,Partner line id,Period,PLANNED_AMOUNT\nBoots,B97,Opticians,5,111,9,Jun 2026,10\nBoots,B97,Opticians,5,222,10,Jun 2026,20\nBoots,B97,Unmatched,99,111,99,Jun 2026,10')
+        );
+
+        expect(mapping.errors).toEqual([]);
+        expect(mapping.byClientProduct).toEqual(expect.arrayContaining([
+            expect.objectContaining({ client: 'Boots', clientCode: 'B97', product: 'Opticians', productCode: '5', metaAccounts: [{ name: 'Boots Meta', id: '111' }, { name: 'No7 Meta', id: '222' }], campaignIds: ['10', '9'], matchStatus: 'Matched' }),
+            expect.objectContaining({ product: 'Unmatched', productCode: '99', metaAccounts: [], campaignIds: [], matchStatus: 'No exact Meta account and campaign match' })
+        ]));
+        expect(mapping.byMetaAccount).toEqual(expect.arrayContaining([
+            expect.objectContaining({ account: 'Boots Meta', accountId: '111', clientProducts: [{ client: 'Boots', clientCode: 'B97', product: 'Opticians', productCode: '5' }], campaignIds: ['9'] })
+        ]));
     });
 
     test('aggregates duplicate Meta rows without converting IDs to numbers', () => {
@@ -108,6 +124,44 @@ describe('social finance comparison engine', () => {
         expect(report.rows[0].issues.join(' ')).not.toContain('21750.02');
     });
 
+    test('separates matched reconciliation totals from unmatched Meta spend', () => {
+        const summary = summarizeRows([
+            {
+                accountId: '111', campaignId: '1', metaKey: '111|1|2026-06-01', prismaKey: '111|1|2026-06-01',
+                currency: 'GBP', metaSpend: 100, prismaPlanned: 99.5, variance: 0.5, metaBudget: 1000,
+                evidence: 'Matched'
+            },
+            {
+                accountId: '111', campaignId: '2', metaKey: '111|2|2026-06-01', prismaKey: '',
+                currency: 'GBP', metaSpend: 50, prismaPlanned: null, variance: 50, metaBudget: 500,
+                evidence: 'Missing/unlinked', candidates: []
+            },
+            {
+                accountId: '111', campaignId: '3', metaKey: '', prismaKey: '111|3|2026-06-01',
+                currency: 'GBP', metaSpend: null, prismaPlanned: 20, variance: -20, metaBudget: null,
+                evidence: 'Investigate'
+            }
+        ]);
+
+        expect(summary).toEqual(expect.objectContaining({
+            metaSpend: 150,
+            matchedMetaSpend: 100,
+            matchedPrismaPlanned: 99.5,
+            matchedVariance: 0.5,
+            unmatchedMetaSpend: 50
+        }));
+        expect(summary.currencyTotals).toEqual([
+            expect.objectContaining({
+                currency: 'GBP',
+                metaSpend: 150,
+                matchedMetaSpend: 100,
+                matchedPrismaPlanned: 99.5,
+                matchedVariance: 0.5,
+                unmatchedMetaSpend: 50
+            })
+        ]);
+    });
+
     test('uses a local manual match to reconcile an otherwise unmatched campaign', () => {
         const report = compare(
             parseCsv('Account name,Account ID,Campaign name,Campaign ID,Month,Amount spent (GBP)\nExample,999,Meta campaign,1,2026-06-01,10'),
@@ -205,6 +259,20 @@ describe('social finance comparison engine', () => {
         expect(report.rows[0]).toEqual(expect.objectContaining({ evidence: 'Investigate', classification: 'Prisma workflow review needed' }));
         expect(report.rows[0].prismaWorkflowIssues).toEqual(expect.arrayContaining(['Prisma order status: NeedsRevision', 'Prisma integration status: Not Integrated']));
         expect(report.rows[0].prismaWorkflowIssues.join(' ')).toContain('does not mean the campaign had no delivery in Meta');
+    });
+
+    test('raises Buyer action when a matched Prisma booking has no order status', () => {
+        const report = compare(
+            parseCsv('Account ID,Campaign ID,Month,Amount spent\n111,1,2026-06,10'),
+            parseCsv('Partner account id,Partner line id,Period,PLANNED_AMOUNT,Order current status,Integrated status,Delivery status\n111,1,Jun 2026,10,,Integrated,Received'),
+            { asOfDate: '2026-07-20', populationConfirmed: true }
+        );
+
+        expect(report.rows[0]).toEqual(expect.objectContaining({
+            evidence: 'Investigate',
+            classification: 'Prisma workflow review needed'
+        }));
+        expect(report.rows[0].prismaWorkflowIssues).toContain('Buyer action required in Prisma: Order current status is blank.');
     });
 
     test('restricts the comparison to selected Meta accounts', () => {

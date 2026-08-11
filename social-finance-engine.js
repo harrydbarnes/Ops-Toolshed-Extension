@@ -58,7 +58,9 @@
         buyNumber: ['buy number', 'buy no', 'd number'],
         currency: ['currency code', 'currency'],
         client: ['client name', 'client'],
+        clientCode: ['client code'],
         product: ['product name', 'product'],
+        productCode: ['product code'],
         partner: ['partner'],
         orderStatus: ['order current status', 'order status'],
         integratedStatus: ['integrated status'],
@@ -136,6 +138,9 @@
         const order = String(row.orderStatus || '').trim().toLowerCase();
         const integrated = String(row.integratedStatus || '').trim().toLowerCase();
         const delivery = String(row.deliveryStatus || '').trim().toLowerCase();
+        if (row.orderStatusAvailable && !order) {
+            issues.push('Buyer action required in Prisma: Order current status is blank.');
+        }
         if (order.includes('needsrevision') || order.includes('needs revision')) issues.push(`Prisma order status: ${row.orderStatus}`);
         if (integrated.includes('not integrated')) issues.push(`Prisma integration status: ${row.integratedStatus}`);
         if (delivery.includes('not received')) {
@@ -489,8 +494,11 @@
                 buyNumber: columns.buyNumber ? cleanId(row[columns.buyNumber]) : '',
                 currency: columns.currency ? String(row[columns.currency] || '').trim().toUpperCase() : '',
                 client: columns.client ? String(row[columns.client] || '').trim() : '',
+                clientCode: columns.clientCode ? String(row[columns.clientCode] || '').trim() : '',
                 product: columns.product ? String(row[columns.product] || '').trim() : '',
+                productCode: columns.productCode ? String(row[columns.productCode] || '').trim() : '',
                 orderStatus: columns.orderStatus ? String(row[columns.orderStatus] || '').trim() : '',
+                orderStatusAvailable: Boolean(columns.orderStatus),
                 integratedStatus: columns.integratedStatus ? String(row[columns.integratedStatus] || '').trim() : '',
                 deliveryStatus: columns.deliveryStatus ? String(row[columns.deliveryStatus] || '').trim() : '',
                 flightStatus: columns.flightStatus ? String(row[columns.flightStatus] || '').trim() : '',
@@ -516,7 +524,7 @@
             const bookingIdentifier = normalized.placementNumber || normalized.buyNumber;
             const bookingKey = bookingIdentifier ? `${normalized.placementNumber ? 'placement' : 'buy'}:${bookingIdentifier}|${toIsoDate(month).slice(0, 7)}` : '';
             const existing = groups.get(key) || {
-                key, accountId, campaignId, month, planned: 0, campaignName: '', placementNames: [], client: '', product: '', orderStatus: '', integratedStatus: '', deliveryStatus: '', flightStatus: '', periodStatus: '',
+                key, accountId, campaignId, month, planned: 0, campaignName: '', placementNames: [], client: '', clientCode: '', product: '', productCode: '', orderStatus: '', orderStatusAvailable: Boolean(columns.orderStatus), integratedStatus: '', deliveryStatus: '', flightStatus: '', periodStatus: '',
                 placementNumbers: [], buyNumbers: [], bookingKeys: [], bookingKeySet: new Set(), currency: '', currencies: [], owner: '', partner: '', start: null, end: null, updatedTime: '', rows: 0, sourceRows: []
             };
             const isDuplicateBooking = Boolean(bookingKey && existing.bookingKeySet.has(bookingKey));
@@ -532,7 +540,9 @@
             if (normalized.currency && !existing.currencies.includes(normalized.currency)) existing.currencies.push(normalized.currency);
             existing.currency ||= normalized.currency;
             existing.client ||= normalized.client;
+            existing.clientCode ||= normalized.clientCode;
             existing.product ||= normalized.product;
+            existing.productCode ||= normalized.productCode;
             existing.orderStatus ||= normalized.orderStatus;
             existing.integratedStatus ||= normalized.integratedStatus;
             existing.deliveryStatus ||= normalized.deliveryStatus;
@@ -552,6 +562,63 @@
             records: [...groups.values()].map(record => ({ ...record, bookingKeySet: undefined, currency: record.currencies.length === 1 ? record.currencies[0] : record.currency })),
             allRows,
             unintegratedRows,
+            errors
+        };
+    }
+
+    function buildMetaAccountCrossReference(metaParsed, prismaParsed) {
+        const meta = aggregateMeta(metaParsed);
+        const prisma = aggregatePrisma(prismaParsed);
+        const errors = [...meta.errors, ...prisma.errors];
+        if (errors.length) return { byClientProduct: [], byMetaAccount: [], errors };
+
+        const metaByAccountCampaign = new Map();
+        meta.records.forEach(record => {
+            const key = `${record.accountId}\u0000${record.campaignId}`;
+            const accounts = metaByAccountCampaign.get(key) || [];
+            if (!accounts.some(account => account.id === record.accountId)) accounts.push({ id: record.accountId, name: record.account || record.accountId });
+            metaByAccountCampaign.set(key, accounts);
+        });
+        const byClientProduct = new Map();
+        prisma.allRows.forEach(row => {
+            if (!row.client && !row.clientCode && !row.product && !row.productCode) return;
+            const key = [row.client, row.clientCode, row.product, row.productCode].join('\u0000');
+            const mapping = byClientProduct.get(key) || {
+                client: row.client, clientCode: row.clientCode, product: row.product, productCode: row.productCode,
+                accounts: new Map(), accountCampaignIds: new Map(), campaignIds: new Set(), placementRows: 0
+            };
+            mapping.placementRows++;
+            const exactAccounts = metaByAccountCampaign.get(`${row.accountId}\u0000${row.campaignId}`) || [];
+            exactAccounts.forEach(account => {
+                mapping.accounts.set(account.id, account);
+                const accountCampaignIds = mapping.accountCampaignIds.get(account.id) || new Set();
+                accountCampaignIds.add(row.campaignId);
+                mapping.accountCampaignIds.set(account.id, accountCampaignIds);
+                mapping.campaignIds.add(row.campaignId);
+            });
+            byClientProduct.set(key, mapping);
+        });
+        const clientProducts = [...byClientProduct.values()].map(mapping => ({
+            client: mapping.client, clientCode: mapping.clientCode, product: mapping.product, productCode: mapping.productCode,
+            metaAccounts: [...mapping.accounts.values()].sort((left, right) => `${left.name}|${left.id}`.localeCompare(`${right.name}|${right.id}`)),
+            accountCampaignIds: mapping.accountCampaignIds, campaignIds: [...mapping.campaignIds].sort(), placementRows: mapping.placementRows,
+            matchStatus: mapping.accounts.size ? 'Matched' : 'No exact Meta account and campaign match'
+        })).sort((left, right) => `${left.client}|${left.clientCode}|${left.product}|${left.productCode}`.localeCompare(`${right.client}|${right.clientCode}|${right.product}|${right.productCode}`));
+        const byMetaAccount = new Map();
+        clientProducts.forEach(product => product.metaAccounts.forEach(account => {
+            const mapping = byMetaAccount.get(account.id) || { account: account.name, accountId: account.id, clientProducts: new Map(), campaignIds: new Set() };
+            const productKey = [product.client, product.clientCode, product.product, product.productCode].join('\u0000');
+            mapping.clientProducts.set(productKey, { client: product.client, clientCode: product.clientCode, product: product.product, productCode: product.productCode });
+            (product.accountCampaignIds.get(account.id) || []).forEach(campaignId => mapping.campaignIds.add(campaignId));
+            byMetaAccount.set(account.id, mapping);
+        }));
+        return {
+            byClientProduct: clientProducts.map(({ accountCampaignIds, ...product }) => product),
+            byMetaAccount: [...byMetaAccount.values()].map(mapping => ({
+                account: mapping.account, accountId: mapping.accountId,
+                clientProducts: [...mapping.clientProducts.values()].sort((left, right) => `${left.client}|${left.product}`.localeCompare(`${right.client}|${right.product}`)),
+                campaignIds: [...mapping.campaignIds].sort()
+            })).sort((left, right) => `${left.account}|${left.accountId}`.localeCompare(`${right.account}|${right.accountId}`)),
             errors
         };
     }
@@ -669,10 +736,24 @@
                 return;
             }
             const currency = row.currency || '';
-            if (!currencyTotals.has(currency)) currencyTotals.set(currency, { currency, metaBudget: 0, metaSpend: 0, prismaPlanned: 0 });
+            if (!currencyTotals.has(currency)) currencyTotals.set(currency, {
+                currency,
+                metaBudget: 0,
+                metaSpend: 0,
+                prismaPlanned: 0,
+                matchedMetaSpend: 0,
+                matchedPrismaPlanned: 0,
+                unmatchedMetaSpend: 0
+            });
             const currencyTotal = currencyTotals.get(currency);
             currencyTotal.metaSpend += row.metaSpend || 0;
             currencyTotal.prismaPlanned += row.prismaPlanned || 0;
+            if (row.metaKey && row.prismaKey) {
+                currencyTotal.matchedMetaSpend += row.metaSpend || 0;
+                currencyTotal.matchedPrismaPlanned += row.prismaPlanned || 0;
+            } else if (row.metaKey && !row.prismaKey) {
+                currencyTotal.unmatchedMetaSpend += row.metaSpend || 0;
+            }
             if (row.metaBudget === null || row.metaBudget === undefined || row.metaBudget === '') return;
             const key = `${row.accountId || ''}|${row.campaignId || ''}`;
             const budget = Number(row.metaBudget);
@@ -685,10 +766,17 @@
         });
         currencyTotals.forEach((total, currency) => {
             total.metaBudget = [...(currencyBudgets.get(currency)?.values() || [])].reduce((sum, budget) => sum + budget, 0);
+            total.matchedVariance = total.matchedMetaSpend - total.matchedPrismaPlanned;
         });
         const comparableRows = reportRows.filter(row => !row.currencyMismatch);
+        const matchedRows = comparableRows.filter(row => row.metaKey && row.prismaKey);
         const metaSpend = comparableRows.reduce((sum, row) => sum + (row.metaSpend || 0), 0);
         const prismaPlanned = comparableRows.reduce((sum, row) => sum + (row.prismaPlanned || 0), 0);
+        const matchedMetaSpend = matchedRows.reduce((sum, row) => sum + (row.metaSpend || 0), 0);
+        const matchedPrismaPlanned = matchedRows.reduce((sum, row) => sum + (row.prismaPlanned || 0), 0);
+        const unmatchedMetaSpend = comparableRows
+            .filter(row => row.metaKey && !row.prismaKey)
+            .reduce((sum, row) => sum + (row.metaSpend || 0), 0);
         const currencies = [...currencyTotals.keys()].filter(Boolean);
         return {
             total: reportRows.length,
@@ -703,6 +791,10 @@
             metaSpend,
             prismaPlanned,
             variance: metaSpend - prismaPlanned,
+            matchedMetaSpend,
+            matchedPrismaPlanned,
+            matchedVariance: matchedMetaSpend - matchedPrismaPlanned,
+            unmatchedMetaSpend,
             currency: currencies.length === 1 ? currencies[0] : '',
             currencies,
             mixedCurrencies: currencies.length > 1 || (currencyTotals.has('') && currencyTotals.size > 1),
@@ -1053,6 +1145,8 @@
         if (currencyMismatches.length) warnings.push(`${currencyMismatches.length} linked campaign-month row${currencyMismatches.length === 1 ? '' : 's'} use different Meta and Prisma currencies. Their amounts are kept separate and need a currency check before booking action.`);
         if (meta.columns.updatedTime && !prisma.columns.updatedTime) warnings.push('Meta updated time is available, but the Prisma report has no booking updated time. The checker can show when Meta changed, but cannot confirm whether that change happened after the booking.');
         if (!coverage.isComplete) warnings.push(`Prisma report coverage is incomplete for ${coverageGaps.length} selected Meta account-month${coverageGaps.length === 1 ? '' : 's'}; missing findings in those account-months remain provisional until the export scope is corrected.`);
+        const prismaOnlyMonths = coverage.prismaMonths.filter(month => !metaMonths.has(month));
+        if (prismaOnlyMonths.length) warnings.push(`Prisma also includes ${prismaOnlyMonths.join(', ')}. These months are kept outside reconciliation totals and actions because the Meta report does not cover them.`);
         if (prisma.unintegratedRows.length) warnings.push(`${prisma.unintegratedRows.length} Prisma row${prisma.unintegratedRows.length === 1 ? '' : 's'} have no usable Partner account ID or Partner line ID. They are retained as unintegrated booking evidence but cannot be linked automatically.`);
         const sourceAccounts = [...new Map(meta.records.map(record => [record.accountId, { id: record.accountId, name: record.account || record.accountId }])).values()]
             .sort((left, right) => left.name.localeCompare(right.name));
@@ -1101,5 +1195,5 @@
         return [headers.join(','), ...rows.map(row => fields.map(field => escapeCsv(valueFor(row, field))).join(','))].join('\r\n');
     }
 
-    return { parseCsv, resolveColumns, aggregateMeta, extractMetaReferenceData, extractPrismaReferenceData, aggregatePrisma, compare, summarizeRows, reportToCsv, nameSimilarity, findCandidates, parseDate, parseMoney };
+    return { parseCsv, resolveColumns, aggregateMeta, extractMetaReferenceData, extractPrismaReferenceData, aggregatePrisma, buildMetaAccountCrossReference, compare, summarizeRows, reportToCsv, nameSimilarity, findCandidates, parseDate, parseMoney };
 });

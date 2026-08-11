@@ -45,6 +45,11 @@ describe('Social Booking Checker report uploads', () => {
             parseDate: jest.fn(value => value ? new Date(`${value}T00:00:00Z`) : null),
             aggregateMeta: jest.fn(() => ({ records: [], errors: [] })),
             aggregatePrisma: jest.fn(() => ({ records: [], errors: [] })),
+            buildMetaAccountCrossReference: jest.fn(() => ({
+                byClientProduct: [{ client: 'Boots', clientCode: 'B97', product: 'Opticians', productCode: '5', metaAccounts: [{ name: 'Boots Meta', id: '111' }], campaignIds: ['9'], placementRows: 1, matchStatus: 'Matched' }],
+                byMetaAccount: [{ account: 'Boots Meta', accountId: '111', clientProducts: [{ client: 'Boots', clientCode: 'B97', product: 'Opticians', productCode: '5' }], campaignIds: ['9'] }],
+                errors: []
+            })),
             extractMetaReferenceData: jest.fn(() => ({
                 accounts: [{ id: '111', name: 'Boots', lastSynced: '' }],
                 campaigns: [{ id: '9', name: 'Summer', accountId: '111' }],
@@ -200,7 +205,45 @@ describe('Social Booking Checker report uploads', () => {
         });
     });
 
-    test('filters the analysis and summary to a selected month range', async () => {
+    test('downloads the client/product and Meta-account mapping as a two-sheet Excel workbook', async () => {
+        const createObjectURL = jest.fn(() => 'blob:mapping');
+        dom.window.URL.createObjectURL = createObjectURL;
+        dom.window.URL.revokeObjectURL = jest.fn();
+        const click = jest.spyOn(dom.window.HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+        const meta = { name: 'meta.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('meta') };
+        const prisma = { name: 'prisma.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('prisma') };
+
+        dropFile(dom.window, document.querySelector('#metaDropZone'), meta);
+        dropFile(dom.window, document.querySelector('#prismaDropZone'), prisma);
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        document.querySelector('#downloadAccountMapping').click();
+
+        expect(dom.window.socialFinanceEngine.buildMetaAccountCrossReference).toHaveBeenCalled();
+        expect(createObjectURL).toHaveBeenCalledWith(expect.any(dom.window.Blob));
+        expect(click).toHaveBeenCalled();
+        expect(document.querySelector('#downloadAccountMapping').textContent).toContain('Download Excel mapping');
+    });
+
+    test('persists a user-selected mapping dropdown value', async () => {
+        const meta = { name: 'meta.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('meta') };
+        const prisma = { name: 'prisma.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('prisma') };
+        dropFile(dom.window, document.querySelector('#metaDropZone'), meta);
+        dropFile(dom.window, document.querySelector('#prismaDropZone'), prisma);
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+
+        const mapping = document.querySelector('select[data-mapping-account-id="111"]');
+        mapping.value = '';
+        mapping.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        expect(dom.window.__storedExtensionData.socialBookingMetaPrismaMappings['111']).toBeUndefined();
+
+        mapping.value = mapping.options[1].value;
+        mapping.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        expect(dom.window.__storedExtensionData.socialBookingMetaPrismaMappings['111']).toEqual({ client: 'Boots', product: 'Opticians' });
+    });
+
+    test('locks the analysis and summary to months shared by Meta and Prisma', async () => {
         const rows = [
             { accountId: '111', campaignId: '1', month: '2026-05', account: 'Boots', campaignName: 'May campaign', evidence: 'Needs update', classification: 'Spend update needed', metaSpend: 10, prismaPlanned: 5, variance: 5, issues: [], owner: '' },
             { accountId: '111', campaignId: '2', month: '2026-06', account: 'Boots', campaignName: 'June campaign', evidence: 'Missing/unlinked', classification: 'Missing from Prisma: spending', metaSpend: 20, prismaPlanned: null, variance: 20, issues: [], owner: '' }
@@ -224,6 +267,8 @@ describe('Social Booking Checker report uploads', () => {
         const scrollIntoView = jest.fn();
         document.querySelector('#results').scrollIntoView = scrollIntoView;
         document.querySelector('#runComparison').click();
+        expect([...document.querySelectorAll('#monthFromFilter option')].map(option => option.value)).toEqual(['2026-06']);
+        expect([...document.querySelectorAll('#monthToFilter option')].map(option => option.value)).toEqual(['2026-06']);
         expect(document.querySelector('#monthFromFilter').value).toBe('2026-06');
         expect(document.querySelector('#monthToFilter').value).toBe('2026-06');
         expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
@@ -232,10 +277,10 @@ describe('Social Booking Checker report uploads', () => {
 
         document.querySelector('#monthFromFilter').value = '2026-05';
         document.querySelector('#monthFromFilter').dispatchEvent(new dom.window.Event('change', { bubbles: true }));
-        expect(document.querySelector('.action-headline-copy strong').textContent).toBe('Review 2 items before sharing');
+        expect(document.querySelector('.action-headline-copy strong').textContent).toBe('Review 1 item before sharing');
         expect(document.querySelector('#reportBody').textContent).toContain('June campaign');
-        expect(document.querySelector('#reportBody').textContent).toContain('May campaign');
-        expect([...document.querySelectorAll('#reportHeader th')].map(cell => cell.textContent)).toContain('Month');
+        expect(document.querySelector('#reportBody').textContent).not.toContain('May campaign');
+        expect([...document.querySelectorAll('#reportHeader th')].map(cell => cell.textContent)).not.toContain('Month');
     });
 
     test('masks a saved API token in place and removes it from the field control', async () => {
@@ -450,7 +495,10 @@ describe('Social Booking Checker report uploads', () => {
                 accountId: '111', account: 'Boots', campaignId: 'meta-3', prismaCampaignId: 'prisma-3', campaignName: 'Saved different ID', month: '2026-06',
                 metaKey: '111|meta-3|2026-06-01', prismaKey: '111|prisma-3|2026-06-01', metaSpend: 10, prismaPlanned: 10,
                 evidence: 'Investigate', classification: 'Prisma workflow review needed', issues: [],
-                prismaWorkflowIssues: ['Prisma has not recorded receiving platform delivery data for this placement (Delivery status: Not Received). This does not mean the campaign had no delivery in Meta.']
+                prismaWorkflowIssues: [
+                    'Buyer action required in Prisma: Order current status is blank.',
+                    'Prisma has not recorded receiving platform delivery data for this placement (Delivery status: Not Received). This does not mean the campaign had no delivery in Meta.'
+                ]
             }
         ];
         dom.window.socialFinanceEngine.compare = jest.fn(() => ({
@@ -479,6 +527,7 @@ describe('Social Booking Checker report uploads', () => {
         expect(comparisonCards[3].textContent).toContain('2');
         expect(document.querySelector('#socialActionBody').textContent).toContain('different date range');
         expect(document.querySelector('#socialActionBody').textContent).toContain('Not needed until report coverage is corrected');
+        expect(document.querySelector('#socialActionBody').textContent).toContain('Buyer action required in Prisma');
         expect(document.querySelector('#socialActionBody').textContent).toContain('does not mean the campaign had no delivery in Meta');
         expect(document.querySelector('#socialActionBody').textContent).not.toContain('Not required for this action');
     });
@@ -494,7 +543,10 @@ describe('Social Booking Checker report uploads', () => {
             metaBudget: filtered.reduce((sum, row) => sum + row.metaBudget, 0),
             metaSpend: filtered.reduce((sum, row) => sum + row.metaSpend, 0),
             prismaPlanned: filtered.reduce((sum, row) => sum + row.prismaPlanned, 0),
-            variance: filtered.reduce((sum, row) => sum + row.variance, 0)
+            variance: filtered.reduce((sum, row) => sum + row.variance, 0),
+            matchedPrismaPlanned: filtered.reduce((sum, row) => sum + row.prismaPlanned, 0),
+            matchedVariance: filtered.reduce((sum, row) => sum + row.variance, 0),
+            unmatchedMetaSpend: 0
         }));
         const meta = { name: 'meta.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('meta') };
         const prisma = { name: 'prisma.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('prisma') };
@@ -509,6 +561,11 @@ describe('Social Booking Checker report uploads', () => {
 
         expect(document.querySelector('#accountFilterOptions').textContent).toContain('Boots');
         expect(document.querySelector('#accountFilterOptions').textContent).toContain('No7');
+        expect(document.querySelector('#financialHeadline').textContent).toContain('Total Meta spend');
+        expect(document.querySelector('#financialHeadline').textContent).toContain('Matched Prisma booked');
+        expect(document.querySelector('#financialHeadline').textContent).toContain('Matched variance');
+        expect(document.querySelector('#financialHeadline').textContent).toContain('Unmatched Meta spend');
+        expect(document.querySelector('#financialHeadline').textContent).not.toContain('Meta budget');
         expect(document.querySelector('#financialHeadline').textContent).toContain('40.00');
         expect(document.querySelector('#clientBreakdownBody').textContent).toContain('Boots');
         expect(document.querySelector('#clientBreakdownBody').textContent).toContain('Opticians');

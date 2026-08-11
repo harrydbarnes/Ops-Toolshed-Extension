@@ -519,6 +519,47 @@
         if (state.report) renderReport();
     }
 
+    function xmlEscape(value) {
+        return String(value ?? '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&apos;', '"': '&quot;' }[char]));
+    }
+
+    function excelCell(value) {
+        return `<Cell ss:StyleID="text"><Data ss:Type="String">${xmlEscape(value)}</Data></Cell>`;
+    }
+
+    function excelWorksheet(name, headers, rows) {
+        return `<Worksheet ss:Name="${xmlEscape(name)}"><Table><Row>${headers.map(excelCell).join('')}</Row>${rows.map(row => `<Row>${row.map(excelCell).join('')}</Row>`).join('')}</Table></Worksheet>`;
+    }
+
+    function accountMappingWorkbookXml(mapping) {
+        const byClientProduct = mapping.byClientProduct.map(row => [
+            row.client, row.clientCode, row.product, row.productCode,
+            row.metaAccounts.map(account => account.name).join('\n'), row.metaAccounts.map(account => account.id).join('\n'),
+            row.campaignIds.join('\n'), row.campaignIds.length, row.placementRows, row.matchStatus
+        ]);
+        const byMetaAccount = mapping.byMetaAccount.map(row => [
+            row.account, row.accountId, row.clientProducts.length,
+            row.clientProducts.map(product => `${product.client} — ${product.product}`).join('\n'),
+            [...new Set(row.clientProducts.map(product => product.clientCode).filter(Boolean))].sort().join('\n'),
+            [...new Set(row.clientProducts.map(product => product.productCode).filter(Boolean))].sort().join('\n'), row.campaignIds.join('\n')
+        ]);
+        return `<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Styles><Style ss:ID="text"><Alignment ss:Vertical="Top" ss:WrapText="1"/><Font ss:FontName="Arial" ss:Size="10"/></Style></Styles>${excelWorksheet('By Client & Product', ['Client name', 'Client code', 'Product name', 'Product code', 'Meta ad account(s)', 'Meta account ID(s)', 'Matched Meta campaign ID(s)', 'Matched campaigns', 'Placement rows', 'Match status'], byClientProduct)}${excelWorksheet('By Meta Account', ['Meta ad account', 'Meta account ID', 'Client / product combinations', 'Client & product names', 'Client code(s)', 'Product code(s)', 'Matched Meta campaign ID(s)'], byMetaAccount)}</Workbook>`;
+    }
+
+    function downloadAccountMapping() {
+        const mapping = engine.buildMetaAccountCrossReference(engine.parseCsv(state.metaText), engine.parseCsv(state.prismaText));
+        if (mapping.errors?.length) {
+            setStatus(elements.prismaScopeStatus, mapping.errors.join(' '), 'error');
+            return;
+        }
+        const url = URL.createObjectURL(new Blob([accountMappingWorkbookXml(mapping)], { type: 'application/vnd.ms-excel;charset=utf-8' }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `social_booking_meta_account_mapping_${elements.asOfDate.value || 'report'}.xls`;
+        link.click();
+        URL.revokeObjectURL(url);
+    }
+
     function applyUniqueAccountMappingSuggestions() {
         const scopes = state.prismaReference?.clientProducts || [];
         let changed = false;
@@ -920,16 +961,22 @@
     }
 
     function renderSummary(summary) {
-        const varianceClass = summary.variance > 0 ? 'is-positive' : summary.variance < 0 ? 'is-negative' : '';
+        const varianceClass = summary.matchedVariance > 0 ? 'is-positive' : summary.matchedVariance < 0 ? 'is-negative' : '';
         const totals = Array.isArray(summary.currencyTotals) && summary.currencyTotals.length
             ? summary.currencyTotals
-            : [{ currency: summary.currency || '', metaBudget: summary.metaBudget, metaSpend: summary.metaSpend, prismaPlanned: summary.prismaPlanned, variance: summary.variance }];
+            : [{
+                currency: summary.currency || '',
+                metaSpend: summary.metaSpend,
+                matchedPrismaPlanned: summary.matchedPrismaPlanned,
+                matchedVariance: summary.matchedVariance,
+                unmatchedMetaSpend: summary.unmatchedMetaSpend
+            }];
         const financialValue = key => totals.map(total => currency(total[key], total.currency)).join(' · ');
         elements.financialHeadline.innerHTML = [
-            ['Meta budget', financialValue('metaBudget')],
-            ['Meta spend', financialValue('metaSpend')],
-            ['Prisma booked', financialValue('prismaPlanned')],
-            ['Variance', financialValue('variance'), `variance ${summary.mixedCurrencies ? '' : varianceClass}`]
+            ['Total Meta spend', financialValue('metaSpend')],
+            ['Matched Prisma booked', financialValue('matchedPrismaPlanned')],
+            ['Matched variance', financialValue('matchedVariance'), `variance ${summary.mixedCurrencies ? '' : varianceClass}`],
+            ['Unmatched Meta spend', financialValue('unmatchedMetaSpend')]
         ].map(([label, value, className = '']) => `<article class="financial-total ${className}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`).join('');
         const actionCount = summary.missingOrUnlinked + summary.needsUpdate + summary.investigate;
         const headline = actionCount
@@ -956,11 +1003,18 @@
         });
     }
 
+    function sharedMonthRows(rows = state.report?.rows || []) {
+        const sharedMonths = state.report?.coverage?.sharedMonths;
+        if (!Array.isArray(sharedMonths)) return rows;
+        const allowedMonths = new Set(sharedMonths);
+        return rows.filter(row => allowedMonths.has(row.month));
+    }
+
     function monthFilteredRows() {
         if (!state.report) return [];
         const from = elements.monthFromFilter.value;
         const to = elements.monthToFilter.value;
-        return state.report.rows.filter(row => (!from || row.month >= from) && (!to || row.month <= to));
+        return sharedMonthRows().filter(row => (!from || row.month >= from) && (!to || row.month <= to));
     }
 
     function selectedFilterValues(container) {
@@ -1025,13 +1079,12 @@
     }
 
     function populateMonthFilters(rows) {
-        const months = [...new Set(rows.map(row => row.month).filter(Boolean))].sort();
+        const months = [...new Set(sharedMonthRows(rows).map(row => row.month).filter(Boolean))].sort();
         const options = months.map(month => `<option value="${escapeHtml(month)}">${escapeHtml(month)}</option>`).join('');
         elements.monthFromFilter.innerHTML = options;
         elements.monthToFilter.innerHTML = options;
-        const sharedMonths = (state.report?.coverage?.sharedMonths || []).filter(month => months.includes(month));
-        elements.monthFromFilter.value = sharedMonths[0] || months[0] || '';
-        elements.monthToFilter.value = sharedMonths[sharedMonths.length - 1] || months[months.length - 1] || '';
+        elements.monthFromFilter.value = months[0] || '';
+        elements.monthToFilter.value = months[months.length - 1] || '';
     }
 
     function renderPopulationCoverage() {
@@ -1248,8 +1301,11 @@
             let reason = row.classification;
             if (row.prismaWorkflowIssues?.length) {
                 const bookingAlsoNeedsUpdate = row.evidence === 'Needs update';
+                const buyerActionRequired = row.prismaWorkflowIssues.some(issue => /buyer action required in prisma/i.test(issue));
                 actionKey = bookingAlsoNeedsUpdate ? 'update' : 'workflow';
-                action = bookingAlsoNeedsUpdate ? 'Resolve Prisma workflow and update booking' : 'Resolve Prisma workflow';
+                action = buyerActionRequired
+                    ? (bookingAlsoNeedsUpdate ? 'Buyer action required and update Prisma booking' : 'Buyer action required in Prisma')
+                    : (bookingAlsoNeedsUpdate ? 'Resolve Prisma workflow and update booking' : 'Resolve Prisma workflow');
                 reason = row.prismaWorkflowIssues.join('; ');
             } else if (row.evidence === 'Missing/unlinked') {
                 if (reportCoverageGap(row)) {
@@ -1652,7 +1708,7 @@
             ? `Using live Meta API data for ${state.apiSync.accountCount} selected account${state.apiSync.accountCount === 1 ? '' : 's'}, ${state.apiSync.startDate} to ${state.apiSync.endDate}.`
             : 'Using the uploaded Meta Ads Report. Refresh selected Meta accounts to add account currency and timezone, ad-set schedules, statuses and budgets, daily spend, update times, impressions, reach, and current monthly spend.';
         populateMonthFilters(report.rows);
-        populateAccountFilter(report.rows);
+        populateAccountFilter(sharedMonthRows(report.rows));
         elements.coverageWarnings.innerHTML = report.warnings.map(warning => `<span class="coverage-warning">${escapeHtml(warning)}</span>`).join('');
         elements.results.classList.remove('hidden');
         renderReport();
@@ -1723,7 +1779,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        ['validationMessages', 'results', 'uploadStage', 'scopeStage', 'continueToScope', 'uploadStageStatus', 'backToUploads', 'backToScope', 'dataConfidenceLink', 'metaDataSource', 'financialHeadline', 'summaryCards', 'coverageWarnings', 'populationCoverage', 'linkComparison', 'linkComparisonMetrics', 'socialActionList', 'socialActionHeader', 'socialActionBody', 'socialActionFilter', 'socialActionSearch', 'socialActionCount', 'socialActionStatus', 'copySocialActions', 'downloadSocialActions', 'clientBreakdown', 'clientBreakdownHeader', 'clientBreakdownBody', 'campaignBreakdown', 'campaignColumnGroup', 'reportSearch', 'monthFromFilter', 'monthToFilter', 'visibleCount', 'reportHeader', 'reportBody', 'asOfDate', 'tolerance', 'closedWorkingDay', 'accountScopePanel', 'accountOptions', 'prismaScopePanel', 'prismaScopeStatus', 'prismaScopeComparison', 'matchedScopeAccounts', 'accountMappingOptions', 'metaApiPanel', 'metaAccessToken', 'saveMetaCredentials', 'metaCredentialStatus', 'removeMetaToken', 'metaApiDatePreset', 'metaApiStartDate', 'metaApiEndDate', 'metaApiStatus', 'apiAccountActions', 'pullMetaData', 'clearMetaApiData', 'metaReferenceStatus', 'removeMetaReference', 'evidenceFilterOptions', 'evidenceFilterCount', 'accountFilterOptions', 'accountFilterCount', 'manualMatchModal', 'manualMatchStatus', 'manualMatchBody', 'closeManualMatch', 'cancelManualMatch', 'applyManualMatches', 'clearManualMatches', 'dataDiagnostics', 'dataDiagnosticsBadge', 'dataDiagnosticsContent', 'metaColumnCheck', 'prismaColumnCheck', 'metaAdsReportingLink'].forEach(id => { elements[id] = byId(id); });
+        ['validationMessages', 'results', 'uploadStage', 'scopeStage', 'continueToScope', 'uploadStageStatus', 'backToUploads', 'backToScope', 'dataConfidenceLink', 'metaDataSource', 'financialHeadline', 'summaryCards', 'coverageWarnings', 'populationCoverage', 'linkComparison', 'linkComparisonMetrics', 'socialActionList', 'socialActionHeader', 'socialActionBody', 'socialActionFilter', 'socialActionSearch', 'socialActionCount', 'socialActionStatus', 'copySocialActions', 'downloadSocialActions', 'clientBreakdown', 'clientBreakdownHeader', 'clientBreakdownBody', 'campaignBreakdown', 'campaignColumnGroup', 'reportSearch', 'monthFromFilter', 'monthToFilter', 'visibleCount', 'reportHeader', 'reportBody', 'asOfDate', 'tolerance', 'closedWorkingDay', 'accountScopePanel', 'accountOptions', 'prismaScopePanel', 'prismaScopeStatus', 'prismaScopeComparison', 'matchedScopeAccounts', 'accountMappingOptions', 'downloadAccountMapping', 'metaApiPanel', 'metaAccessToken', 'saveMetaCredentials', 'metaCredentialStatus', 'removeMetaToken', 'metaApiDatePreset', 'metaApiStartDate', 'metaApiEndDate', 'metaApiStatus', 'apiAccountActions', 'pullMetaData', 'clearMetaApiData', 'metaReferenceStatus', 'removeMetaReference', 'evidenceFilterOptions', 'evidenceFilterCount', 'accountFilterOptions', 'accountFilterCount', 'manualMatchModal', 'manualMatchStatus', 'manualMatchBody', 'closeManualMatch', 'cancelManualMatch', 'applyManualMatches', 'clearManualMatches', 'dataDiagnostics', 'dataDiagnosticsBadge', 'dataDiagnosticsContent', 'metaColumnCheck', 'prismaColumnCheck', 'metaAdsReportingLink'].forEach(id => { elements[id] = byId(id); });
         elements.asOfDate.value = new Date().toISOString().slice(0, 10);
         applyDatePreset();
         setupFileUpload('metaFile', 'metaDropZone', 'removeMetaFile', 'metaText', 'metaFileName');
@@ -1746,6 +1802,7 @@
         elements.clearMetaApiData.addEventListener('click', clearMetaApiData);
         byId('runComparison').addEventListener('click', runComparison);
         byId('downloadReport').addEventListener('click', downloadReport);
+        elements.downloadAccountMapping.addEventListener('click', downloadAccountMapping);
         elements.results.addEventListener('click', event => {
             if (event.target.closest('#downloadDataDiagnostics')) {
                 downloadDataDiagnostics();

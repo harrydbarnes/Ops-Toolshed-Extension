@@ -346,6 +346,8 @@ h1 {
 .source-panel-heading { display: grid; gap: 5px; }
 .source-panel-heading b { color: var(--ink); font-size: 14px; }
 .source-panel-heading span { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.account-mapping .source-panel-heading { grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+.account-mapping .source-panel-heading > div { display: grid; gap: 5px; }
 .credential-grid, .api-range { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
 .credential-grid label, .api-range label { color: var(--ink); }
 .credential-grid input, .api-range input { width: 100%; }

@@ -222,8 +222,9 @@
                 <div id="matchedScopeAccounts" class="matched-scope-accounts hidden"></div>
                 <section class="account-mapping" aria-labelledby="account-mapping-heading">
                     <div class="source-panel-heading">
-                        <b id="account-mapping-heading">Meta to Prisma mapping</b>
-                        <span>Map each Meta account to the Prisma client and product. Use Show campaigns to check the imported Meta campaigns before choosing. Saved locally in this Chrome profile.</span>
+                        <div><b id="account-mapping-heading">Meta to Prisma mapping</b>
+                        <span>Map each Meta account to the Prisma client and product. Use Show campaigns to check the imported Meta campaigns before choosing. Saved locally in this Chrome profile.</span></div>
+                        <button id="downloadAccountMapping" class="secondary-action" type="button">Download Excel mapping</button>
                     </div>
                     <div id="accountMappingOptions" class="account-mapping-options"></div>
                 </section>
@@ -321,7 +322,7 @@
                 <div class="breakdown-actions"><button type="button" data-download-breakdown="campaign">Download CSV</button><button type="button" data-expand-breakdown="campaign">Expand</button><button type="button" data-open-breakdown="campaign">Open in new tab</button></div>
             </div>
             <div class="report-toolbar">
-                <div class="month-range" role="group" aria-label="Reporting month range">
+                <div class="month-range" role="group" aria-label="Reporting months shared by Meta and Prisma">
                     <label>From month<select id="monthFromFilter"></select></label>
                     <span aria-hidden="true">to</span>
                     <label>To month<select id="monthToFilter"></select></label>
