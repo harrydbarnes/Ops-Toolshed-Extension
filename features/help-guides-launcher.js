@@ -45,7 +45,6 @@
     let storageListenerBound = false;
     let runtimeListenerBound = false;
     let preferredPosition = null;
-
     function openHelpGuides(event) {
         event?.preventDefault();
         event?.stopPropagation();
@@ -304,12 +303,17 @@
         return Array.from(candidates).filter(element => isVisibleCornerControl(element, button));
     }
 
+    function isFloatingCornerControl(element) {
+        const position = window.getComputedStyle?.(element)?.position;
+        return ['fixed', 'absolute', 'sticky'].includes(position);
+    }
+
     function reconcileLauncherPosition(button = document.getElementById(BUTTON_ID)) {
         if (!button || !preferredPosition || button.classList.contains('is-dragging')) return;
         const basePosition = resolvePositionPreference(button);
         const obstacleElements = new Set([
             ...document.querySelectorAll(COLLISION_SELECTOR),
-            ...findUnderlyingCornerControls(basePosition, button)
+            ...findUnderlyingCornerControls(basePosition, button).filter(isFloatingCornerControl)
         ]);
         const obstacles = Array.from(obstacleElements)
             .filter(element => isVisibleCornerControl(element, button))
@@ -492,11 +496,7 @@
             if (!dragState.moved && dragState.edgeHeld && distance < EDGE_RELEASE_DISTANCE) {
                 dragState.nudged = distance >= 2;
                 button.classList.add('is-resisting');
-                placeButton(
-                    button,
-                    dragState.left + deltaX * EDGE_RESISTANCE,
-                    dragState.top + deltaY * EDGE_RESISTANCE
-                );
+                placeButton(button, dragState.left + deltaX * EDGE_RESISTANCE, dragState.top + deltaY * EDGE_RESISTANCE);
                 return;
             }
             if (!dragState.moved && distance < DRAG_THRESHOLD) return;

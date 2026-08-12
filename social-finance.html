@@ -129,20 +129,27 @@
                         <li data-required-column="campaignId"><b>Partner line id</b></li>
                         <li data-required-column="month"><b>Period</b></li>
                         <li data-required-column="planned"><b>PLANNED_AMOUNT</b> or <b>Gross Amount</b></li>
+                        <li data-required-column="currency"><b>Currency code</b></li>
+                        <li data-required-column="placementNumber"><b>Placement number</b></li>
+                        <li data-required-column="buyNumber"><b>Buy number</b></li>
+                        <li data-required-column="client"><b>Client name</b></li>
+                        <li data-required-column="product"><b>Product name</b></li>
+                        <li data-required-column="placementName"><b>Placement name</b></li>
+                        <li data-required-column="owner"><b>Placement creator</b></li>
+                        <li data-required-column="orderStatus"><b>Order current status</b></li>
+                        <li data-required-column="integratedStatus"><b>Integrated status</b></li>
+                        <li data-required-column="deliveryStatus"><b>Delivery status</b></li>
+                        <li data-required-column="flightStatus"><b>Flight status</b></li>
+                        <li data-required-column="periodStatus"><b>Period status</b></li>
+                        <li data-required-column="end"><b>Years in Flight end date</b></li>
                     </ul>
                     <details class="optional-columns">
-                        <summary>Optional reference columns <span>8</span></summary>
+                        <summary>Optional reference columns <span>2</span></summary>
                         <ul class="report-requirements optional-requirements">
                             <li><b>Campaign, Plan or Order name</b></li>
-                            <li><b>Client name</b></li>
-                            <li><b>Product name</b></li>
                             <li><b>Days in Flight start date</b></li>
-                            <li><b>Days in Flight end date</b></li>
-                            <li><b>Currency code</b></li>
-                            <li><b>Buy number or Placement number</b></li>
-                            <li><b>Placement creator or Owner</b></li>
                         </ul>
-                        <span class="helpful-fields">These add currency checks, stable monthly booking references, likely matches, client context, date checks, and an owner to contact.</span>
+                        <span class="helpful-fields">These improve name and exact flight-date matching.</span>
                     </details>
                     <span id="prismaUploadScope" class="scope-note"><b>Scope:</b> use the same client/accounts and reporting months as the Meta report.</span>
                 </article>
@@ -270,6 +277,7 @@
                 </div>
                 <div class="result-actions">
                     <button id="backToScope" class="text-action" type="button">Review scope</button>
+                    <label>Report export<select id="campaignExportScope"><option value="filtered">Current filtered view</option><option value="full">Full comparison audit</option></select></label>
                     <button id="downloadReport" class="secondary-action" type="button">Download report CSV</button>
                 </div>
             </div>
@@ -288,7 +296,7 @@
             </section>
             <section id="socialActionList" class="social-action-list breakdown-section" aria-labelledby="social-action-heading">
                 <div class="breakdown-heading">
-                    <div><strong id="social-action-heading">Social action list</strong><span>Campaigns Social teams need to review. A Wrike reference is required before creating or updating a Prisma booking, but not just to correct report scope, check a status, or confirm a possible match. References entered here are saved locally in this Chrome profile.</span></div>
+                    <div><strong id="social-action-heading">Social action list</strong><span>One action per Meta campaign. A Wrike reference is required before creating a missing Prisma booking. For an existing booking change, the Buyer confirms it first and a Wrike update is needed only when the booking is incorrect. References entered here are saved locally in this Chrome profile.</span></div>
                     <div class="breakdown-actions"><button id="copySocialActions" type="button">Copy list</button><button id="downloadSocialActions" type="button">Download CSV</button></div>
                 </div>
                 <div class="social-action-toolbar">
@@ -301,6 +309,18 @@
                     <table>
                         <thead id="socialActionHeader"><tr><th>Client / product</th><th>Account</th><th>Campaign</th><th>Month</th><th class="number">Meta spend</th><th>Wrike reference</th><th>Recommended action</th><th>Possible Prisma match</th></tr></thead>
                         <tbody id="socialActionBody"></tbody>
+                    </table>
+                </div>
+            </section>
+            <section id="unintegratedBookings" class="client-breakdown breakdown-section" aria-labelledby="unintegrated-bookings-heading">
+                <div class="breakdown-heading">
+                    <div><strong id="unintegrated-bookings-heading">Unintegrated Prisma bookings</strong><span>Booked value without usable Meta partner IDs. Confirm the client/product integration rule, then reconcile these bookings against unmatched Meta campaigns.</span></div>
+                    <div class="breakdown-actions"><button id="downloadUnintegratedBookings" type="button">Download CSV</button></div>
+                </div>
+                <div class="table-frame">
+                    <table>
+                        <thead><tr><th>Client / product</th><th>Campaign / placement</th><th>Month</th><th class="number">Prisma booked</th><th>Workflow status</th><th>Recommended action</th></tr></thead>
+                        <tbody id="unintegratedBookingBody"></tbody>
                     </table>
                 </div>
             </section>

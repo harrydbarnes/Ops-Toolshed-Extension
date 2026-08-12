@@ -110,6 +110,22 @@ describe('Social Booking Checker report uploads', () => {
         expect(document.querySelector('#prismaColumnCheck').classList.contains('is-error')).toBe(true);
     });
 
+    test('validates Prisma uploads against the confirmed v9 mandatory-column contract', async () => {
+        dom.window.socialFinanceEngine.parseCsv.mockReturnValue({ headers: ['Partner account id'], rows: [{}] });
+        dom.window.socialFinanceEngine.aggregatePrisma.mockReturnValue({ records: [], errors: [] });
+        const prisma = { name: 'prisma.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('prisma') };
+
+        dropFile(dom.window, document.querySelector('#prismaDropZone'), prisma);
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+
+        expect(dom.window.socialFinanceEngine.aggregatePrisma).toHaveBeenCalledWith(
+            expect.objectContaining({ headers: ['Partner account id'] }),
+            { requireStandardTemplate: true }
+        );
+        const labels = [...document.querySelectorAll('#prismaDropZone ~ .column-check + .requirement-label + .report-requirements [data-required-column]')].map(item => item.textContent.trim());
+        expect(labels).toEqual(expect.arrayContaining(['Currency code', 'Placement number', 'Buy number', 'Years in Flight end date', 'Order current status', 'Integrated status', 'Delivery status']));
+    });
+
     test('reveals scope, live refresh, and comparison settings only after both reports are ready', async () => {
         dom.window.socialFinanceEngine.parseCsv.mockReturnValue({ headers: ['Account ID'], rows: [{}] });
         dom.window.socialFinanceEngine.aggregateMeta.mockReturnValue({ records: [{}], errors: [] });
@@ -202,6 +218,17 @@ describe('Social Booking Checker report uploads', () => {
         expect(dom.window.__storedExtensionData.socialBookingMetaPrismaMappings).toEqual({
             '111': { client: 'Boots', product: 'Opticians' },
             '222': { client: 'No7', product: 'Skincare' }
+        });
+
+        const integrationUse = document.querySelector('select[data-integration-account-id="111"]');
+        expect([...integrationUse.options].map(option => option.textContent)).toEqual([
+            'Confirm integration use', 'Uses Meta integration', 'Does not use Meta integration / finance-only'
+        ]);
+        integrationUse.value = 'false';
+        integrationUse.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        expect(dom.window.__storedExtensionData.socialBookingMetaPrismaMappings['111']).toEqual({
+            client: 'Boots', product: 'Opticians', integrationExpected: false
         });
     });
 
@@ -473,6 +500,43 @@ describe('Social Booking Checker report uploads', () => {
         expect(dom.window.navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('https://wrike.example/task/123'));
     });
 
+    test('shows one Social action per Meta campaign across months and makes update Wrike conditional', async () => {
+        const rows = [
+            { accountId: '111', account: 'Boots', campaignId: 'meta-1', campaignName: 'Campaign', month: '2026-05', monthClosed: true, metaKey: '111|meta-1|2026-05-01', prismaKey: '111|meta-1|2026-05-01', metaSpend: 40, prismaPlanned: 30, variance: 10, evidence: 'Needs update', classification: 'Spend update needed', candidates: [], issues: [], prismaWorkflowIssues: [] },
+            { accountId: '111', account: 'Boots', campaignId: 'meta-1', campaignName: 'Campaign', month: '2026-06', monthClosed: true, metaKey: '111|meta-1|2026-06-01', prismaKey: '111|meta-1|2026-06-01', metaSpend: 60, prismaPlanned: 50, variance: 10, evidence: 'Needs update', classification: 'Spend update needed', candidates: [], issues: [], prismaWorkflowIssues: [] }
+        ];
+        dom.window.socialFinanceEngine.compare = jest.fn(() => ({ rows, summary: {}, warnings: [], validationErrors: [], coverage: { isComplete: true, metaMonths: ['2026-05', '2026-06'], prismaMonths: ['2026-05', '2026-06'], sharedMonths: ['2026-05', '2026-06'], gaps: [] } }));
+        dom.window.socialFinanceEngine.summarizeRows = jest.fn(() => ({ total: 2, missingOrUnlinked: 0, needsUpdate: 2, monitor: 0, investigate: 0, outsideScope: 0, unmatchedSpend: 0, metaSpend: 100, matchedPrismaPlanned: 80, matchedVariance: 20, unmatchedMetaSpend: 0, currencyTotals: [] }));
+        const meta = { name: 'meta.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('meta') };
+        const prisma = { name: 'prisma.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('prisma') };
+        dropFile(dom.window, document.querySelector('#metaDropZone'), meta);
+        dropFile(dom.window, document.querySelector('#prismaDropZone'), prisma);
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        document.querySelector('#runComparison').click();
+
+        expect(document.querySelectorAll('#socialActionBody tr')).toHaveLength(1);
+        expect(document.querySelector('#socialActionBody').textContent).toContain('2026-05, 2026-06');
+        expect(document.querySelector('#socialActionBody').textContent).toContain('Buyer to confirm the booking; add a Wrike update only if it is incorrect.');
+    });
+
+    test('shows unintegrated Prisma booked value in its own actionable section', async () => {
+        const group = { key: 'unintegrated|B97|5|Campaign|2026-06-01', month: new Date('2026-06-01T00:00:00Z'), planned: 75, currency: 'GBP', client: 'Boots', product: 'Opticians', campaignName: 'Campaign', placementNames: ['Placement'], placementNumbers: ['P1'], buyNumbers: [], integratedStatus: 'Not Integrated', workflowIssues: ['Check if campaign needs approval.'] };
+        dom.window.socialFinanceEngine.compare = jest.fn(() => ({ rows: [], summary: { unintegratedPrismaPlanned: 75, unintegratedCurrencyTotals: [{ currency: 'GBP', planned: 75 }] }, warnings: [], validationErrors: [], prismaUnintegratedGroups: [group], coverage: { isComplete: true, metaMonths: ['2026-06'], prismaMonths: ['2026-06'], sharedMonths: ['2026-06'], gaps: [] } }));
+        dom.window.socialFinanceEngine.summarizeRows = jest.fn(() => ({ total: 0, missingOrUnlinked: 0, needsUpdate: 0, monitor: 0, investigate: 0, outsideScope: 0, unmatchedSpend: 0, metaSpend: 0, matchedPrismaPlanned: 0, matchedVariance: 0, unmatchedMetaSpend: 0, currencyTotals: [], unintegratedPrismaPlanned: 75, unintegratedCurrencyTotals: [{ currency: 'GBP', planned: 75 }] }));
+        const meta = { name: 'meta.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('meta') };
+        const prisma = { name: 'prisma.csv', size: 10, type: 'text/csv', text: jest.fn().mockResolvedValue('prisma') };
+        dropFile(dom.window, document.querySelector('#metaDropZone'), meta);
+        dropFile(dom.window, document.querySelector('#prismaDropZone'), prisma);
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        document.querySelector('#runComparison').click();
+
+        expect(document.querySelector('#financialHeadline').textContent).toContain('Unintegrated Prisma booked');
+        expect(document.querySelector('#unintegratedBookingBody').textContent).toContain('75.00');
+        expect(document.querySelector('#unintegratedBookingBody').textContent).toContain('Check if campaign needs approval.');
+        expect(document.querySelector('#clientBreakdownBody').textContent).toContain('Unintegrated Prisma');
+        expect(document.querySelector('#downloadUnintegratedBookings')).not.toBeNull();
+    });
+
     test('explains row-specific coverage, Wrike requirements, delivery receipt status, and unlinked IDs', async () => {
         const rows = [
             {
@@ -496,8 +560,8 @@ describe('Social Booking Checker report uploads', () => {
                 metaKey: '111|meta-3|2026-06-01', prismaKey: '111|prisma-3|2026-06-01', metaSpend: 10, prismaPlanned: 10,
                 evidence: 'Investigate', classification: 'Prisma workflow review needed', issues: [],
                 prismaWorkflowIssues: [
-                    'Buyer action required in Prisma: Order current status is blank.',
-                    'Prisma has not recorded receiving platform delivery data for this placement (Delivery status: Not Received). This does not mean the campaign had no delivery in Meta.'
+                    'Buyer to self-accept the IO and traffic the campaign to Meta.',
+                    'Check for unordered placements on the campaign before resolving Delivery status: Not Received.'
                 ]
             }
         ];
@@ -527,8 +591,8 @@ describe('Social Booking Checker report uploads', () => {
         expect(comparisonCards[3].textContent).toContain('2');
         expect(document.querySelector('#socialActionBody').textContent).toContain('different date range');
         expect(document.querySelector('#socialActionBody').textContent).toContain('Not needed until report coverage is corrected');
-        expect(document.querySelector('#socialActionBody').textContent).toContain('Buyer action required in Prisma');
-        expect(document.querySelector('#socialActionBody').textContent).toContain('does not mean the campaign had no delivery in Meta');
+        expect(document.querySelector('#socialActionBody').textContent).toContain('Buyer to self-accept IO and traffic campaign to Meta');
+        expect(document.querySelector('#socialActionBody').textContent).toContain('unordered placements');
         expect(document.querySelector('#socialActionBody').textContent).not.toContain('Not required for this action');
     });
 

@@ -1,7 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap');
-
 body {
-    font-family: 'Montserrat', sans-serif;
+    font-family: "Segoe UI", Arial, sans-serif;
     margin: 0;
     padding: 20px;
     width: 320px; /* Increased from 300px */
@@ -110,6 +108,16 @@ body::-webkit-scrollbar-thumb:hover {
 .features-kill-switch:disabled {
     cursor: wait;
     opacity: 0.65;
+}
+
+.kill-switch-icon {
+    width: 12px;
+    height: 12px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -561,6 +569,11 @@ a.settings-page-link:active {
     transform: none;
 }
 
+.popup-page #menu-feedback img.menu-icon {
+    width: 13px;
+    height: 13px;
+}
+
 /* Position chevron absolutely so it doesn't affect centering */
 #menu-feedback .menu-chevron {
     position: absolute;
@@ -588,6 +601,17 @@ a.settings-page-link:active {
     text-align: center;
 }
 
+.popup-page svg.menu-icon,
+.popup-page img.menu-icon {
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex: 0 0 auto;
+}
+
 .menu-label {
     color: #111827;
     font-weight: 500;
@@ -597,6 +621,16 @@ a.settings-page-link:active {
 .menu-chevron {
     font-size: 14px;
     color: #ec4899;
+}
+
+.popup-page svg.menu-chevron {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 /* --- Split Menu Styles --- */
@@ -650,6 +684,12 @@ a.settings-page-link:active {
 .split-menu-item .menu-icon {
     font-size: 13px;
     width: auto;
+}
+
+.popup-page .split-menu-item svg.menu-icon,
+.popup-page .split-menu-item img.menu-icon {
+    width: 13px;
+    height: 13px;
 }
 
 .menu-separator {

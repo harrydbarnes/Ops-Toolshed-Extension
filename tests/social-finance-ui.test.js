@@ -97,7 +97,7 @@ describe('Social Booking Checker upload guidance', () => {
         expect(text).toContain('Client name');
         expect(text).toContain('Product name');
         expect(text).toContain('Days in Flight start date');
-        expect(text).toContain('Days in Flight end date');
+        expect(text).toContain('Years in Flight end date');
         expect(text).toContain('Placement creator');
         const input = card.querySelector('#prismaFile');
         expect(input.getAttribute('aria-label')).toBe('Choose Prisma booking CSV');

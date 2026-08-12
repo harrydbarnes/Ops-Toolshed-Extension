@@ -5,6 +5,17 @@ const metaCsv = `Account name,Account ID,Campaign name,Campaign ID,Month,Amount 
 const prismaCsv = `Client name,Partner account id,Partner line id,Period,PLANNED_AMOUNT,Campaign name,Partner,Integrated status,Placement creator,Days in Flight start date,Days in Flight end date\nBoots,999,120000000000000001,Jun 2026,100,Matched campaign,Facebook,Integrated,Alice,1/6/26,30/6/26\nBoots,999,120000000000000003,May 2026,20,Wrong month,Facebook,Integrated,Bob,1/5/26,31/5/26\nBoots,999,120000000000000004,Jun 2026,90,Spend exposure,Facebook,Integrated,Chris,1/6/26,30/6/26\nBoots,999,120000000000000005,Jun 2026,60,Date exposure,Facebook,Integrated,Dana,1/6/26,30/6/26\nBoots,999,,Jun 2026,40,Named unlinked campaign,Facebook,Not integrated,Erin,1/6/26,30/6/26`;
 
 describe('social finance comparison engine', () => {
+    test('requires the confirmed v9 Prisma booking and workflow columns in strict upload validation', () => {
+        const result = aggregatePrisma(parseCsv('Partner account id,Partner line id,Period,PLANNED_AMOUNT\n111,1,Jun 2026,10'), { requireStandardTemplate: true });
+
+        expect(result.errors).toEqual(expect.arrayContaining([
+            'Prisma export is missing Currency code.',
+            'Prisma export is missing Placement number.',
+            'Prisma export is missing Buy number.',
+            'Prisma export is missing Years in Flight end date.',
+            'Prisma export is missing Order current status.'
+        ]));
+    });
     test('preserves quoted fields and 18-digit identifiers as text', () => {
         const parsed = parseCsv('Campaign ID,Campaign name\n120000000000000001,"Boots, Summer"');
         expect(parsed.rows[0]['Campaign ID']).toBe('120000000000000001');
@@ -105,7 +116,7 @@ describe('social finance comparison engine', () => {
         const report = compare(parseCsv(metaCsv), parseCsv(prismaCsv), { asOfDate: '2026-07-13', tolerance: 1, closedWorkingDay: 5, populationConfirmed: true });
         const byId = id => report.rows.find(row => row.campaignId === id);
         expect(byId('120000000000000001').classification).toBe('Matched: booking evidence valid');
-        expect(byId('120000000000000002').classification).toBe('Missing from Prisma: delivered or spending');
+        expect(byId('120000000000000002').classification).toBe('No exact Prisma campaign ID match: delivered or spending');
         expect(byId('120000000000000003').classification).toBe('Month update needed: Campaign ID is booked in another month');
         expect(byId('120000000000000004').classification).toBe('Spend update needed: Meta spend exceeds Prisma booking');
         expect(byId('120000000000000005').classification).toBe('Date update needed: Meta extends outside Prisma');
@@ -122,6 +133,22 @@ describe('social finance comparison engine', () => {
         );
         expect(report.rows[0].classification).toBe('Matched: booking evidence valid');
         expect(report.rows[0].issues.join(' ')).not.toContain('21750.02');
+    });
+
+    test('uses a bounded current-flight Meta budget but closed-month spend as the Prisma comparison basis', () => {
+        const current = compare(
+            parseCsv('Account ID,Campaign ID,Month,Amount spent,Campaign budget,Campaign start,Campaign end\n111,1,2026-08,40,100,2026-08-01,2026-08-31'),
+            parseCsv('Partner account id,Partner line id,Period,PLANNED_AMOUNT,Days in Flight start date,Years in Flight end date\n111,1,Aug 2026,90,01/08/2026,31/08/2026'),
+            { asOfDate: '2026-08-11', populationConfirmed: true }
+        );
+        const closed = compare(
+            parseCsv('Account ID,Campaign ID,Month,Amount spent,Campaign budget,Campaign start,Campaign end\n111,1,2026-06,80,100,2026-06-01,2026-06-30'),
+            parseCsv('Partner account id,Partner line id,Period,PLANNED_AMOUNT,Days in Flight start date,Years in Flight end date\n111,1,Jun 2026,90,01/06/2026,30/06/2026'),
+            { asOfDate: '2026-08-11', populationConfirmed: true }
+        );
+
+        expect(current.rows[0]).toEqual(expect.objectContaining({ comparisonBasis: 'Meta budget', comparisonValue: 100, variance: 10 }));
+        expect(closed.rows[0]).toEqual(expect.objectContaining({ comparisonBasis: 'Meta spend', comparisonValue: 80, variance: -10 }));
     });
 
     test('separates matched reconciliation totals from unmatched Meta spend', () => {
@@ -245,7 +272,7 @@ describe('social finance comparison engine', () => {
             { populationConfirmed: true }
         );
         expect(report.coverage).toEqual(expect.objectContaining({ isComplete: false, gaps: [{ accountId: '222', month: '2026-06' }] }));
-        expect(report.rows.find(row => row.campaignId === '1').classification).toBe('Missing from Prisma: delivered or spending');
+        expect(report.rows.find(row => row.campaignId === '1').classification).toBe('No exact Prisma campaign ID match: delivered or spending');
         expect(report.rows.find(row => row.campaignId === '2').classification).toBe('No linked Prisma booking found: delivered or spending');
         expect(report.warnings.join(' ')).toContain('missing findings in those account-months remain provisional');
     });
@@ -257,8 +284,11 @@ describe('social finance comparison engine', () => {
             { populationConfirmed: true }
         );
         expect(report.rows[0]).toEqual(expect.objectContaining({ evidence: 'Investigate', classification: 'Prisma workflow review needed' }));
-        expect(report.rows[0].prismaWorkflowIssues).toEqual(expect.arrayContaining(['Prisma order status: NeedsRevision', 'Prisma integration status: Not Integrated']));
-        expect(report.rows[0].prismaWorkflowIssues.join(' ')).toContain('does not mean the campaign had no delivery in Meta');
+        expect(report.rows[0].prismaWorkflowIssues).toEqual(expect.arrayContaining([
+            'Check whether the IO needs accepting, then traffic the campaign to Meta. If this is blocked, resolve the blocker.',
+            'Confirm this Prisma campaign matches the Meta campaign that ran or is running.'
+        ]));
+        expect(report.rows[0].prismaWorkflowIssues.join(' ')).not.toContain('Not Received');
     });
 
     test('raises Buyer action when a matched Prisma booking has no order status', () => {
@@ -272,7 +302,22 @@ describe('social finance comparison engine', () => {
             evidence: 'Investigate',
             classification: 'Prisma workflow review needed'
         }));
-        expect(report.rows[0].prismaWorkflowIssues).toContain('Buyer action required in Prisma: Order current status is blank.');
+        expect(report.rows[0].prismaWorkflowIssues).toContain('Check if campaign needs approval.');
+    });
+
+    test('turns blank and blocked Prisma workflow states into the agreed operational actions', () => {
+        const meta = parseCsv('Account ID,Campaign ID,Month,Amount spent\n111,1,2026-06,10\n111,2,2026-06,10\n111,3,2026-06,10\n111,4,2026-09,0');
+        const prisma = parseCsv('Partner account id,Partner line id,Period,PLANNED_AMOUNT,Buy number,Order current status,Integrated status,Delivery status,Days in Flight start date\n111,1,Jun 2026,10,,,,Received,01/06/2026\n111,2,Jun 2026,10,D123,,,Received,01/06/2026\n111,3,Jun 2026,10,D124,NeedsRevision,Integrated,Not Received,01/06/2026\n111,4,Sep 2026,10,D125,NeedsRevision,Integrated,Not Received,01/09/2026');
+        const report = compare(meta, prisma, { asOfDate: '2026-08-11', populationConfirmed: true });
+        const byCampaign = new Map(report.rows.filter(row => row.metaKey).map(row => [row.campaignId, row.prismaWorkflowIssues]));
+
+        expect(byCampaign.get('1')).toContain('Check if campaign needs approval.');
+        expect(byCampaign.get('2')).toContain('Buyer to self-accept the IO and traffic the campaign to Meta.');
+        expect(byCampaign.get('3')).toEqual(expect.arrayContaining([
+            'Check whether the IO needs accepting, then traffic the campaign to Meta. If this is blocked, resolve the blocker.',
+            'Check for unordered placements on the campaign before resolving Delivery status: Not Received.'
+        ]));
+        expect(byCampaign.get('4')).not.toEqual(expect.arrayContaining([expect.stringMatching(/Not Received/i)]));
     });
 
     test('restricts the comparison to selected Meta accounts', () => {
@@ -308,9 +353,60 @@ describe('social finance comparison engine', () => {
         expect(csv).toContain('Meta placement A');
     });
 
+    test('keeps the confirmed Prisma amount breakdowns as exported context', () => {
+        const report = compare(
+            parseCsv('Account ID,Campaign ID,Month,Amount spent\n111,1,2026-06,90'),
+            parseCsv('Partner account id,Partner line id,Period,PLANNED_AMOUNT,ORDER_AMOUNT,INTEGRATED_SPEND,NON_INTEGRATED_SPEND,OPPORTUNITY\n111,1,Jun 2026,100,95,80,15,5'),
+            { asOfDate: '2026-08-11', populationConfirmed: true }
+        );
+        const row = report.rows[0];
+
+        expect(row).toEqual(expect.objectContaining({ prismaPlanned: 100, prismaOrderAmount: 95, prismaIntegratedSpend: 80, prismaNonIntegratedSpend: 15, prismaOpportunity: 5 }));
+        expect(reportToCsv([row])).toContain('Prisma order amount,Prisma integrated spend,Prisma non-integrated spend,Prisma opportunity');
+    });
+
     test('uses token overlap for investigation candidates', () => {
         expect(nameSimilarity('Boots Summer Advantage+ Conversions', 'Boots Summer Conversions')).toBeGreaterThan(0.7);
         expect(nameSimilarity('Boots Summer', 'Unrelated Winter')).toBeLessThan(0.3);
+    });
+
+    test('uses a confirmed client/product rule to match and total unintegrated Prisma bookings', () => {
+        const report = compare(
+            parseCsv('Account ID,Account name,Campaign ID,Campaign name,Month,Amount spent\n111,Boots Meta,meta-1,O-D329IL8 Summer Social,2026-06,90'),
+            parseCsv('Partner account id,Partner line id,Period,PLANNED_AMOUNT,Campaign name,Placement name,Client name,Product name,Currency code\nNone,None,Jun 2026,90,O-D329IL8 Summer,Meta social placement,Boots,Opticians,GBP'),
+            {
+                asOfDate: '2026-08-11', populationConfirmed: true,
+                accountMappings: { 111: { client: 'Boots', product: 'Opticians', integrationExpected: false } }
+            }
+        );
+
+        expect(report.rows[0]).toEqual(expect.objectContaining({ evidence: 'Investigate', classification: 'Likely booked but unlinked: add Partner line ID' }));
+        expect(report.rows[0].candidates[0]).toEqual(expect.objectContaining({ level: 'Strong candidate', planned: 90 }));
+        expect(report.summary).toEqual(expect.objectContaining({ unintegratedPrismaPlanned: 90, prismaBookedIncludingUnintegrated: 90 }));
+        expect(report.prismaUnintegratedGroups).toHaveLength(1);
+        expect(report.coverage).toEqual(expect.objectContaining({ isComplete: true, gaps: [] }));
+    });
+
+    test('asks Buyers to confirm a PO booking when no Prisma candidate can be matched', () => {
+        const report = compare(
+            parseCsv('Account ID,Campaign ID,Campaign name,Month,Amount spent\n111,meta-1,MF-12345 Summer Social,2026-06,50'),
+            parseCsv('Partner account id,Partner line id,Period,PLANNED_AMOUNT\n222,other,Jun 2026,50'),
+            { asOfDate: '2026-08-11', populationConfirmed: true }
+        );
+
+        expect(report.rows[0]).toEqual(expect.objectContaining({ classification: 'PO reference needs booking confirmation', evidence: 'Investigate' }));
+        expect(report.rows[0].issues).toContain('Buyer to confirm whether a Prisma booking exists against PO reference mf-12345.');
+    });
+
+    test('flags an exact ID match as low evidence when Meta and Prisma PO references conflict', () => {
+        const report = compare(
+            parseCsv('Account ID,Campaign ID,Campaign name,Month,Amount spent\n111,1,MF-12345 Summer,2026-06,50'),
+            parseCsv('Partner account id,Partner line id,Period,PLANNED_AMOUNT,Campaign name\n111,1,Jun 2026,50,MF-99999 Summer'),
+            { asOfDate: '2026-08-11', populationConfirmed: true }
+        );
+
+        expect(report.rows[0]).toEqual(expect.objectContaining({ evidence: 'Investigate', classification: 'Exact link has conflicting PO references: verify booking' }));
+        expect(report.rows[0].issues.join(' ')).toContain('verify whether Prisma is correct or the wrong PO was used in the Meta campaign name');
     });
 
     test('ranks explainable candidates and reduces amount influence for an open month', () => {
@@ -372,8 +468,8 @@ describe('social finance comparison engine', () => {
             metaUpdatedTime: '2026-07-20T13:00:00+0000',
             prismaUpdatedTime: '2026-07-10T10:00:00Z'
         }));
-        expect(row.issues.join(' ')).toContain('Daily Meta pace');
-        expect(row.issues.join(' ')).toContain('Meta changed after the Prisma booking');
+        expect(row).toEqual(expect.objectContaining({ comparisonBasis: 'Meta budget', comparisonValue: 100, evidence: 'Matched' }));
+        expect(row.issues.join(' ')).not.toContain('Daily Meta pace');
         expect(report.summary).toEqual(expect.objectContaining({ currency: 'USD', mixedCurrencies: false }));
         expect(report.warnings.join(' ')).not.toContain('Meta schedule dates are unavailable');
     });

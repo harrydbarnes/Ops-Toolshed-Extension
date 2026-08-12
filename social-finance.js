@@ -268,7 +268,7 @@
 
     function validateUploadColumns(key, text) {
         const parsed = engine.parseCsv(text);
-        const aggregate = key === 'metaText' ? engine.aggregateMeta(parsed) : engine.aggregatePrisma(parsed);
+        const aggregate = key === 'metaText' ? engine.aggregateMeta(parsed) : engine.aggregatePrisma(parsed, { requireStandardTemplate: true });
         const sourceLabel = key === 'metaText' ? 'Meta export' : 'Prisma export';
         const errors = [...(aggregate.errors || [])];
         if (!parsed.rows.length) errors.push(`${sourceLabel} has no data rows.`);
@@ -289,10 +289,13 @@
             markMissing('spend', 'missing Amount spent');
             markMissing('month', 'missing Month or Reporting starts');
         } else {
-            markMissing('accountId', 'missing Partner account id');
-            markMissing('campaignId', 'missing Partner line id');
-            markMissing('month', 'missing Period');
-            markMissing('planned', 'missing PLANNED_AMOUNT/Gross Amount');
+            const required = {
+                accountId: 'missing Partner account id', campaignId: 'missing Partner line id', month: 'missing Period', planned: 'missing PLANNED_AMOUNT/Gross Amount',
+                currency: 'missing Currency code', placementNumber: 'missing Placement number', buyNumber: 'missing Buy number', client: 'missing Client name',
+                product: 'missing Product name', placementName: 'missing Placement name', owner: 'missing Placement creator', orderStatus: 'missing Order current status',
+                integratedStatus: 'missing Integrated status', deliveryStatus: 'missing Delivery status', flightStatus: 'missing Flight status', periodStatus: 'missing Period status', end: 'missing Years in Flight end date'
+            };
+            Object.entries(required).forEach(([column, message]) => markMissing(column, message));
         }
         card.querySelectorAll('[data-required-column]').forEach(chip => {
             const found = hasFile && !missingColumns.has(chip.dataset.requiredColumn);
@@ -449,16 +452,20 @@
     }
 
     function mappingValue(mapping) {
-        return `${encodeURIComponent(mapping.client || '')}|${encodeURIComponent(mapping.product || '')}`;
+        return [mapping.client, mapping.product, mapping.clientCode, mapping.productCode].map(value => encodeURIComponent(value || '')).join('|');
     }
 
     function mappingFromValue(value) {
-        const [client = '', product = ''] = String(value || '').split('|');
-        return { client: decodeURIComponent(client), product: decodeURIComponent(product) };
+        const [client = '', product = '', clientCode = '', productCode = ''] = String(value || '').split('|');
+        const mapping = { client: decodeURIComponent(client), product: decodeURIComponent(product) };
+        if (clientCode) mapping.clientCode = decodeURIComponent(clientCode);
+        if (productCode) mapping.productCode = decodeURIComponent(productCode);
+        return mapping;
     }
 
     function mappingLabel(mapping) {
-        return `${mapping.client || 'Client name not supplied'} / ${mapping.product || 'Product name not supplied'}`;
+        const codes = [mapping.clientCode, mapping.productCode].filter(Boolean).join('/');
+        return `${mapping.client || 'Client name not supplied'} / ${mapping.product || 'Product name not supplied'}${codes ? ` (${codes})` : ''}`;
     }
 
     function accountMappingMarkup(account, matched = false) {
@@ -493,7 +500,8 @@
         const campaignList = showCampaigns
             ? `<div class="mapping-campaigns"><strong>Imported Meta campaigns (${campaigns.length})</strong>${campaigns.length ? `<ul>${campaigns.map(campaign => `<li>${escapeHtml(campaign.name || 'Campaign name not supplied')}<small>Campaign ID ${escapeHtml(campaign.id)}</small></li>`).join('')}</ul>` : '<span>No campaigns were found for this Meta account in the imported report.</span>'}</div>`
             : '';
-        return `<div class="account-mapping-wrap${matched ? ' is-matched' : ''}"><label class="account-mapping-row"><span>${escapeHtml(account.name)}<small>Meta Account ID ${escapeHtml(account.id)}</small></span><button type="button" class="mapping-campaign-toggle" data-show-mapping-campaigns="${escapeHtml(account.id)}" aria-expanded="${showCampaigns}">${showCampaigns ? 'Hide campaigns' : 'Show campaigns'}</button><select data-mapping-account-id="${escapeHtml(account.id)}"><option value="">Not mapped</option>${savedOption}${scopeOptions}</select></label>${campaignList}</div>`;
+        const integrationValue = typeof saved?.integrationExpected === 'boolean' ? String(saved.integrationExpected) : '';
+        return `<div class="account-mapping-wrap${matched ? ' is-matched' : ''}"><label class="account-mapping-row"><span>${escapeHtml(account.name)}<small>Meta Account ID ${escapeHtml(account.id)}</small></span><button type="button" class="mapping-campaign-toggle" data-show-mapping-campaigns="${escapeHtml(account.id)}" aria-expanded="${showCampaigns}">${showCampaigns ? 'Hide campaigns' : 'Show campaigns'}</button><select data-mapping-account-id="${escapeHtml(account.id)}"><option value="">Not mapped</option>${savedOption}${scopeOptions}</select><select data-integration-account-id="${escapeHtml(account.id)}" aria-label="Meta integration use for ${escapeHtml(account.name)}"><option value="" ${integrationValue === '' ? 'selected' : ''}>Confirm integration use</option><option value="true" ${integrationValue === 'true' ? 'selected' : ''}>Uses Meta integration</option><option value="false" ${integrationValue === 'false' ? 'selected' : ''}>Does not use Meta integration / finance-only</option></select></label>${campaignList}</div>`;
     }
 
     function renderAccountMappings(excludedAccountIds = new Set()) {
@@ -568,6 +576,8 @@
             const choices = scopes.filter(scope => scope.accountIds?.includes(account.id));
             if (choices.length !== 1) return;
             state.accountMappings[account.id] = { client: choices[0].client || '', product: choices[0].product || '' };
+            if (choices[0].clientCode) state.accountMappings[account.id].clientCode = choices[0].clientCode;
+            if (choices[0].productCode) state.accountMappings[account.id].productCode = choices[0].productCode;
             changed = true;
         });
         if (changed) writeLocalStorage({ [ACCOUNT_MAPPING_STORAGE_KEY]: state.accountMappings }).catch(error => setStatus(elements.prismaScopeStatus, error.message, 'error'));
@@ -972,12 +982,18 @@
                 unmatchedMetaSpend: summary.unmatchedMetaSpend
             }];
         const financialValue = key => totals.map(total => currency(total[key], total.currency)).join(' · ');
-        elements.financialHeadline.innerHTML = [
+        const headlineItems = [
             ['Total Meta spend', financialValue('metaSpend')],
             ['Matched Prisma booked', financialValue('matchedPrismaPlanned')],
             ['Matched variance', financialValue('matchedVariance'), `variance ${summary.mixedCurrencies ? '' : varianceClass}`],
             ['Unmatched Meta spend', financialValue('unmatchedMetaSpend')]
-        ].map(([label, value, className = '']) => `<article class="financial-total ${className}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`).join('');
+        ];
+        const unintegratedTotals = visibleUnintegratedGroups().reduce((totals, row) => {
+            totals.set(row.currency || '', (totals.get(row.currency || '') || 0) + (Number(row.planned) || 0));
+            return totals;
+        }, new Map());
+        if (unintegratedTotals.size) headlineItems.push(['Unintegrated Prisma booked', [...unintegratedTotals].map(([code, value]) => currency(value, code)).join(' · ')]);
+        elements.financialHeadline.innerHTML = headlineItems.map(([label, value, className = '']) => `<article class="financial-total ${className}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`).join('');
         const actionCount = summary.missingOrUnlinked + summary.needsUpdate + summary.investigate;
         const headline = actionCount
             ? `Review ${actionCount} item${actionCount === 1 ? '' : 's'} before sharing`
@@ -1091,15 +1107,15 @@
         if (!elements.populationCoverage) return;
         const coverage = state.report?.coverage;
         if (!coverage) {
-            elements.populationCoverage.innerHTML = '<strong>Report coverage will be checked automatically.</strong><span>Missing bookings are only confirmed when Prisma includes every selected Meta account and reporting month.</span>';
+            elements.populationCoverage.innerHTML = '<strong>Report coverage will be checked automatically.</strong><span>Coverage means every selected Meta account and month has either linked Prisma rows or unintegrated booking evidence for a confirmed client/product mapping.</span>';
             return;
         }
         if (coverage.isComplete) {
-            elements.populationCoverage.innerHTML = `<strong>Coverage confirmed.</strong><span>Prisma includes every selected Meta account and reporting month (${escapeHtml(coverage.metaMonths.join(', '))}). Missing campaigns can be treated as missing from Prisma.</span>`;
+            elements.populationCoverage.innerHTML = `<strong>Account/month coverage confirmed.</strong><span>Every selected Meta account and month (${escapeHtml(coverage.metaMonths.join(', '))}) has linked Prisma rows or confirmed client/product unintegrated evidence. Individual campaigns still require exact or fuzzy booking matching.</span>`;
             return;
         }
         const gapLabel = coverage.gaps.slice(0, 4).map(gap => `${gap.accountId} / ${gap.month}`).join(', ');
-        elements.populationCoverage.innerHTML = `<strong>Coverage incomplete.</strong><span>${coverage.gaps.length} selected Meta account-month${coverage.gaps.length === 1 ? '' : 's'} are not represented in Prisma${gapLabel ? `: ${escapeHtml(gapLabel)}${coverage.gaps.length > 4 ? '…' : ''}` : ''}. These rows need report coverage resolved before they are shared as missing bookings.</span>`;
+        elements.populationCoverage.innerHTML = `<strong>Account/month coverage incomplete.</strong><span>${coverage.gaps.length} selected Meta account-month${coverage.gaps.length === 1 ? '' : 's'} have neither linked Prisma rows nor confirmed client/product unintegrated evidence${gapLabel ? `: ${escapeHtml(gapLabel)}${coverage.gaps.length > 4 ? '…' : ''}` : ''}. Check the export scope or integration setup before declaring campaigns unbooked.</span>`;
     }
 
     function linkComparisonMetrics() {
@@ -1153,8 +1169,8 @@
         if (!elements.linkComparisonMetrics) return;
         const metrics = linkComparisonMetrics();
         elements.linkComparisonMetrics.innerHTML = `
-            <div><span>Unlinked in Meta</span><strong>${metrics.meta}</strong><small>Meta Campaign IDs without an exact same-account, same-month Partner line ID match in Prisma.</small></div>
-            <div><span>Unlinked in Prisma</span><strong>${metrics.prisma}</strong><small>Prisma Partner line IDs without an exact Meta match${metrics.unintegratedPrisma ? `, including ${metrics.unintegratedPrisma} row${metrics.unintegratedPrisma === 1 ? '' : 's'} with no usable Meta ID` : ''}.</small></div>
+            <div><span>Meta campaigns without an exact Prisma link</span><strong>${metrics.meta}</strong><small>Meta Campaign IDs without the same Account ID, month, and Partner line ID in Prisma. Fuzzy matching is then used to find likely bookings.</small></div>
+            <div><span>Prisma bookings without an exact Meta link</span><strong>${metrics.prisma}</strong><small>Prisma Partner line IDs not found in the uploaded Meta campaigns${metrics.unintegratedPrisma ? `, including ${metrics.unintegratedPrisma} row${metrics.unintegratedPrisma === 1 ? '' : 's'} with no usable Meta ID` : ''}.</small></div>
             <div><span>Total unlinked</span><strong>${metrics.total}</strong><small>The Meta and Prisma unlinked counts added together. Different-ID suggestions remain in both until confirmed.</small></div>
             <div class="different-id"><span>Different IDs to review</span><strong>${metrics.differentIds}</strong><small>Likely or saved links where the Meta Campaign ID and Prisma Partner line ID are different.</small></div>`;
     }
@@ -1163,8 +1179,67 @@
         renderSummary(engine.summarizeRows(accountFilteredRows()));
         renderLinkComparison();
         renderSocialActionList();
+        renderUnintegratedBookings();
         renderClientBreakdown();
         renderRows();
+    }
+
+    function visibleUnintegratedGroups() {
+        const from = elements.monthFromFilter?.value || '';
+        const to = elements.monthToFilter?.value || '';
+        const sharedMonths = state.report?.coverage?.sharedMonths;
+        const allowedMonths = Array.isArray(sharedMonths) ? new Set(sharedMonths) : null;
+        return (state.report?.prismaUnintegratedGroups || []).filter(row => {
+            const month = monthLabel(row.month);
+            return (!allowedMonths || allowedMonths.has(month)) && (!from || month >= from) && (!to || month <= to);
+        });
+    }
+
+    function monthLabel(value) {
+        if (value && typeof value.toISOString === 'function' && typeof value.getTime === 'function' && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 7);
+        return String(value || '').slice(0, 7);
+    }
+
+    function integrationMappingFor(row) {
+        const normalize = value => String(value || '').trim().toLowerCase();
+        return Object.values(state.accountMappings).find(mapping => {
+            const clientMatches = mapping.clientCode && row.clientCode
+                ? normalize(mapping.clientCode) === normalize(row.clientCode)
+                : normalize(mapping.client) === normalize(row.client);
+            const productMatches = mapping.productCode && row.productCode
+                ? normalize(mapping.productCode) === normalize(row.productCode)
+                : normalize(mapping.product) === normalize(row.product);
+            return clientMatches && productMatches;
+        }) || null;
+    }
+
+    function unintegratedAction(row) {
+        const mapping = integrationMappingFor(row);
+        if (row.workflowIssues?.length) return row.workflowIssues.join('; ');
+        if (!mapping || typeof mapping.integrationExpected !== 'boolean') return 'Confirm in setup whether this client/product combination uses Meta integration.';
+        if (mapping.integrationExpected === false) return 'Reconcile this approved non-integrated or finance-only booking against unmatched Meta campaigns using names, dates and references.';
+        return 'Confirm which Meta campaign this booking represents, then add the partner IDs and traffic it to Meta.';
+    }
+
+    function renderUnintegratedBookings() {
+        if (!elements.unintegratedBookingBody) return;
+        const rows = visibleUnintegratedGroups();
+        elements.unintegratedBookingBody.innerHTML = rows.length ? rows.map(row => {
+            const month = monthLabel(row.month);
+            const name = row.campaignName || row.placementNames?.join('; ') || 'Name not supplied';
+            const status = [row.orderStatus, row.integratedStatus, row.deliveryStatus].filter(Boolean).join(' · ') || 'Status not supplied';
+            return `<tr><td>${escapeHtml(row.client || 'Client not supplied')}<span class="minor">${escapeHtml(row.product || 'Product not supplied')}</span></td><td>${escapeHtml(name)}<span class="minor">${escapeHtml((row.placementNumbers || []).join('; ') || 'No Placement number')}</span></td><td>${escapeHtml(month)}</td><td class="number">${escapeHtml(currency(row.planned, row.currency))}</td><td>${escapeHtml(status)}</td><td>${escapeHtml(unintegratedAction(row))}</td></tr>`;
+        }).join('') : '<tr><td colspan="6">No unintegrated Prisma bookings are in the selected months.</td></tr>';
+    }
+
+    function downloadUnintegratedBookings() {
+        const headers = ['Client', 'Product', 'Campaign', 'Placement names', 'Placement numbers', 'Buy numbers', 'Month', 'Currency', 'Prisma booked', 'Order amount', 'Integrated spend', 'Non-integrated spend', 'Opportunity', 'Order status', 'Integrated status', 'Delivery status', 'Recommended action'];
+        const rows = visibleUnintegratedGroups().map(row => [
+            row.client, row.product, row.campaignName, (row.placementNames || []).join('; '), (row.placementNumbers || []).join('; '), (row.buyNumbers || []).join('; '),
+            monthLabel(row.month), row.currency, row.planned, row.orderAmount, row.integratedSpend, row.nonIntegratedSpend, row.opportunity,
+            row.orderStatus, row.integratedStatus, row.deliveryStatus, unintegratedAction(row)
+        ]);
+        downloadCsv(`social_booking_checker_unintegrated_prisma_${elements.asOfDate.value || 'report'}.csv`, [headers.join(','), ...rows.map(row => row.map(csvEscape).join(','))].join('\r\n'));
     }
 
     function renderClientBreakdown() {
@@ -1188,6 +1263,11 @@
                 const group = ensureGroup(row.prismaClient || mapping.client, row.prismaProduct || mapping.product, row.currency);
                 group.prismaPlanned += Number(row.prismaPlanned) || 0;
             }
+        });
+        visibleUnintegratedGroups().forEach(row => {
+            const group = ensureGroup(row.client, row.product, row.currency);
+            group.accounts.add('Unintegrated Prisma');
+            group.prismaPlanned += Number(row.planned) || 0;
         });
         const groupsSorted = [...groups.values()].sort((left, right) => `${left.client}|${left.product}`.localeCompare(`${right.client}|${right.product}`));
         state.clientBreakdownRows = sortTableRows(groupsSorted.map(group => ({ ...group, accounts: [...group.accounts].join(', ') || 'None', variance: group.metaSpend - group.prismaPlanned })), state.clientSort);
@@ -1257,6 +1337,14 @@
         ].filter(Boolean).join(' · ');
         if (references) groups.Prisma.push(references);
         (row.prismaPlacementNames || []).forEach(name => groups.Prisma.push(name));
+        [
+            ['Prisma order amount', row.prismaOrderAmount],
+            ['Prisma integrated spend', row.prismaIntegratedSpend],
+            ['Prisma non-integrated spend', row.prismaNonIntegratedSpend],
+            ['Prisma opportunity', row.prismaOpportunity]
+        ].forEach(([label, value]) => {
+            if (value !== null && value !== undefined) groups.Prisma.push(`${label}: ${currency(value, prismaCurrencyFor(row))}`);
+        });
 
         return Object.entries(groups)
             .map(([label, items]) => ({ label, items: [...new Set(items.filter(Boolean))] }))
@@ -1285,7 +1373,7 @@
 
     function wrikeRequirementFor(row) {
         if (row.actionKey === 'wrike' || row.actionKey === 'book') return 'Required before creating the Prisma booking';
-        if (row.actionKey === 'update') return 'Required before updating the Prisma booking';
+        if (row.actionKey === 'update') return 'Buyer to confirm the booking; add a Wrike update only if it is incorrect.';
         if (row.actionKey === 'coverage') return 'Not needed until report coverage is corrected';
         if (row.actionKey === 'workflow') return 'Not needed to check this Prisma status';
         if (row.actionKey === 'confirm') return 'Add if the review leads to a booking change';
@@ -1293,19 +1381,23 @@
     }
 
     function socialActionRows() {
-        return accountFilteredRows().filter(row => row.metaKey && row.metaSpend !== null && !['Matched', 'Monitor', 'Outside scope'].includes(row.evidence)).map(row => {
+        const rows = accountFilteredRows().filter(row => row.metaKey && row.metaSpend !== null && !['Matched', 'Monitor', 'Outside scope'].includes(row.evidence)).map(row => {
             const mapping = state.accountMappings[row.accountId] || {};
-            const wrike = state.wrikeReferences[row.metaKey] || '';
+            const wrikeKey = `${row.accountId}|${row.campaignId}`;
+            const wrike = state.wrikeReferences[wrikeKey] || state.wrikeReferences[row.metaKey] || '';
             let actionKey = 'investigate';
             let action = 'Investigate booking evidence';
             let reason = row.classification;
             if (row.prismaWorkflowIssues?.length) {
                 const bookingAlsoNeedsUpdate = row.evidence === 'Needs update';
-                const buyerActionRequired = row.prismaWorkflowIssues.some(issue => /buyer action required in prisma/i.test(issue));
+                const approvalCheck = row.prismaWorkflowIssues.some(issue => /check if campaign needs approval/i.test(issue));
+                const selfAccept = row.prismaWorkflowIssues.some(issue => /self-accept the IO/i.test(issue));
+                const acceptAndTraffic = row.prismaWorkflowIssues.some(issue => /IO needs accepting/i.test(issue));
                 actionKey = bookingAlsoNeedsUpdate ? 'update' : 'workflow';
-                action = buyerActionRequired
-                    ? (bookingAlsoNeedsUpdate ? 'Buyer action required and update Prisma booking' : 'Buyer action required in Prisma')
-                    : (bookingAlsoNeedsUpdate ? 'Resolve Prisma workflow and update booking' : 'Resolve Prisma workflow');
+                action = approvalCheck ? 'Check if campaign needs approval'
+                    : selfAccept ? 'Buyer to self-accept IO and traffic campaign to Meta'
+                        : acceptAndTraffic ? 'Check IO acceptance, traffic campaign, or resolve blocker'
+                            : (bookingAlsoNeedsUpdate ? 'Buyer to confirm booking and resolve Prisma workflow' : 'Resolve Prisma workflow');
                 reason = row.prismaWorkflowIssues.join('; ');
             } else if (row.evidence === 'Missing/unlinked') {
                 if (reportCoverageGap(row)) {
@@ -1334,6 +1426,7 @@
                 client: mapping.client || row.prismaClient || 'Client not mapped',
                 product: mapping.product || row.prismaProduct || 'Product not mapped',
                 wrike,
+                wrikeKey,
                 actionKey,
                 action,
                 actionReason: reason,
@@ -1342,6 +1435,34 @@
             actionRow.wrikeRequirement = wrikeRequirementFor(actionRow);
             return actionRow;
         });
+        const priority = { coverage: 7, wrike: 6, book: 6, update: 5, workflow: 5, confirm: 4, investigate: 3 };
+        const grouped = new Map();
+        rows.forEach(row => {
+            const key = `${row.accountId}|${row.campaignId}`;
+            if (!grouped.has(key)) {
+                grouped.set(key, { ...row, months: [row.month], actionReasons: [row.actionReason], metaSpend: Number(row.metaSpend) || 0, prismaPlanned: Number(row.prismaPlanned) || 0 });
+                return;
+            }
+            const existing = grouped.get(key);
+            if (!existing.months.includes(row.month)) existing.months.push(row.month);
+            if (row.actionReason && !existing.actionReasons.includes(row.actionReason)) existing.actionReasons.push(row.actionReason);
+            existing.metaSpend += Number(row.metaSpend) || 0;
+            existing.prismaPlanned += Number(row.prismaPlanned) || 0;
+            if ((priority[row.actionKey] || 0) > (priority[existing.actionKey] || 0)) {
+                existing.actionKey = row.actionKey;
+                existing.action = row.action;
+                existing.wrikeRequirement = row.wrikeRequirement;
+            }
+            if ((row.candidateScore || row.candidates?.[0]?.score || 0) > (existing.candidateScore || existing.candidates?.[0]?.score || 0)) {
+                existing.candidates = row.candidates;
+                existing.candidateSummary = row.candidateSummary;
+            }
+        });
+        return [...grouped.values()].map(row => ({
+            ...row,
+            month: row.months.sort().join(', '),
+            actionReason: row.actionReasons.join('; ')
+        }));
     }
 
     function filteredSocialActionRows() {
@@ -1366,7 +1487,7 @@
         elements.socialActionBody.innerHTML = rows.length ? rows.map(row => {
             const needsWrike = ['wrike', 'book', 'update'].includes(row.actionKey);
             const wrikeCell = needsWrike
-                ? `<input class="wrike-input" type="text" value="${escapeHtml(row.wrike)}" data-wrike-meta-key="${escapeHtml(row.metaKey)}" placeholder="Wrike link or reference" aria-label="Wrike reference for ${escapeHtml(row.campaignName || row.campaignId)}">${row.wrike ? '' : `<span class="minor wrike-needed">${escapeHtml(row.wrikeRequirement)}</span>`}`
+                ? `<input class="wrike-input" type="text" value="${escapeHtml(row.wrike)}" data-wrike-meta-key="${escapeHtml(row.wrikeKey || row.metaKey)}" placeholder="Wrike link or reference" aria-label="Wrike reference for ${escapeHtml(row.campaignName || row.campaignId)}">${row.wrike ? '' : `<span class="minor wrike-needed">${escapeHtml(row.wrikeRequirement)}</span>`}`
                 : `<span class="wrike-status">${escapeHtml(row.wrike || row.wrikeRequirement)}</span>`;
             return `<tr><td>${escapeHtml(row.client)}<span class="minor">${escapeHtml(row.product)}</span></td><td>${escapeHtml(row.account)}<span class="minor">ID ${escapeHtml(row.accountId)}</span></td><td>${escapeHtml(row.campaignName || 'Name not supplied')}<span class="minor campaign-id">${escapeHtml(row.campaignId)}</span></td><td>${escapeHtml(row.month)}</td><td class="number">${escapeHtml(currency(row.metaSpend, row.currency))}</td><td>${wrikeCell}</td><td><span class="action-label">${escapeHtml(row.action)}</span><span class="action-reason">${escapeHtml(row.actionReason)}</span></td><td>${escapeHtml(row.candidateSummary)}</td></tr>`;
         }).join('') : '<tr><td class="action-empty" colspan="8">No Social actions match the current month, account, and action filters.</td></tr>';
@@ -1719,8 +1840,9 @@
 
     function downloadReport() {
         if (!state.report) return;
-        const csv = engine.reportToCsv(filteredRows());
-        downloadCsv(`social_booking_checker_campaign_breakdown_${elements.asOfDate.value || 'report'}.csv`, csv);
+        const full = elements.campaignExportScope?.value === 'full';
+        const csv = engine.reportToCsv(full ? state.report.rows : filteredRows());
+        downloadCsv(`social_booking_checker_campaign_breakdown_${full ? 'full_audit' : 'filtered'}_${elements.asOfDate.value || 'report'}.csv`, csv);
     }
 
     function csvEscape(value) {
@@ -1779,7 +1901,8 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        ['validationMessages', 'results', 'uploadStage', 'scopeStage', 'continueToScope', 'uploadStageStatus', 'backToUploads', 'backToScope', 'dataConfidenceLink', 'metaDataSource', 'financialHeadline', 'summaryCards', 'coverageWarnings', 'populationCoverage', 'linkComparison', 'linkComparisonMetrics', 'socialActionList', 'socialActionHeader', 'socialActionBody', 'socialActionFilter', 'socialActionSearch', 'socialActionCount', 'socialActionStatus', 'copySocialActions', 'downloadSocialActions', 'clientBreakdown', 'clientBreakdownHeader', 'clientBreakdownBody', 'campaignBreakdown', 'campaignColumnGroup', 'reportSearch', 'monthFromFilter', 'monthToFilter', 'visibleCount', 'reportHeader', 'reportBody', 'asOfDate', 'tolerance', 'closedWorkingDay', 'accountScopePanel', 'accountOptions', 'prismaScopePanel', 'prismaScopeStatus', 'prismaScopeComparison', 'matchedScopeAccounts', 'accountMappingOptions', 'downloadAccountMapping', 'metaApiPanel', 'metaAccessToken', 'saveMetaCredentials', 'metaCredentialStatus', 'removeMetaToken', 'metaApiDatePreset', 'metaApiStartDate', 'metaApiEndDate', 'metaApiStatus', 'apiAccountActions', 'pullMetaData', 'clearMetaApiData', 'metaReferenceStatus', 'removeMetaReference', 'evidenceFilterOptions', 'evidenceFilterCount', 'accountFilterOptions', 'accountFilterCount', 'manualMatchModal', 'manualMatchStatus', 'manualMatchBody', 'closeManualMatch', 'cancelManualMatch', 'applyManualMatches', 'clearManualMatches', 'dataDiagnostics', 'dataDiagnosticsBadge', 'dataDiagnosticsContent', 'metaColumnCheck', 'prismaColumnCheck', 'metaAdsReportingLink'].forEach(id => { elements[id] = byId(id); });
+        ['validationMessages', 'results', 'uploadStage', 'scopeStage', 'continueToScope', 'uploadStageStatus', 'backToUploads', 'backToScope', 'dataConfidenceLink', 'metaDataSource', 'financialHeadline', 'summaryCards', 'coverageWarnings', 'populationCoverage', 'linkComparison', 'linkComparisonMetrics', 'socialActionList', 'socialActionHeader', 'socialActionBody', 'socialActionFilter', 'socialActionSearch', 'socialActionCount', 'socialActionStatus', 'copySocialActions', 'downloadSocialActions', 'unintegratedBookings', 'unintegratedBookingBody', 'downloadUnintegratedBookings', 'clientBreakdown', 'clientBreakdownHeader', 'clientBreakdownBody', 'campaignBreakdown', 'campaignColumnGroup', 'reportSearch', 'monthFromFilter', 'monthToFilter', 'visibleCount', 'reportHeader', 'reportBody', 'asOfDate', 'tolerance', 'closedWorkingDay', 'accountScopePanel', 'accountOptions', 'prismaScopePanel', 'prismaScopeStatus', 'prismaScopeComparison', 'matchedScopeAccounts', 'accountMappingOptions', 'downloadAccountMapping', 'metaApiPanel', 'metaAccessToken', 'saveMetaCredentials', 'metaCredentialStatus', 'removeMetaToken', 'metaApiDatePreset', 'metaApiStartDate', 'metaApiEndDate', 'metaApiStatus', 'apiAccountActions', 'pullMetaData', 'clearMetaApiData', 'metaReferenceStatus', 'removeMetaReference', 'evidenceFilterOptions', 'evidenceFilterCount', 'accountFilterOptions', 'accountFilterCount', 'manualMatchModal', 'manualMatchStatus', 'manualMatchBody', 'closeManualMatch', 'cancelManualMatch', 'applyManualMatches', 'clearManualMatches', 'dataDiagnostics', 'dataDiagnosticsBadge', 'dataDiagnosticsContent', 'metaColumnCheck', 'prismaColumnCheck', 'metaAdsReportingLink'].forEach(id => { elements[id] = byId(id); });
+        elements.campaignExportScope = byId('campaignExportScope');
         elements.asOfDate.value = new Date().toISOString().slice(0, 10);
         applyDatePreset();
         setupFileUpload('metaFile', 'metaDropZone', 'removeMetaFile', 'metaText', 'metaFileName');
@@ -1823,7 +1946,25 @@
             const select = event.target.closest('select[data-mapping-account-id]');
             if (select) {
                 const accountId = select.dataset.mappingAccountId;
-                saveAccountMapping(accountId, mappingFromValue(select.value)).catch(error => setStatus(elements.prismaScopeStatus, error.message, 'error'));
+                const mapping = mappingFromValue(select.value);
+                const saved = state.accountMappings[accountId];
+                if (typeof saved?.integrationExpected === 'boolean') mapping.integrationExpected = saved.integrationExpected;
+                saveAccountMapping(accountId, mapping).catch(error => setStatus(elements.prismaScopeStatus, error.message, 'error'));
+                return;
+            }
+            const integrationSelect = event.target.closest('select[data-integration-account-id]');
+            if (integrationSelect) {
+                const accountId = integrationSelect.dataset.integrationAccountId;
+                const mappingSelect = [...elements.accountMappingOptions.querySelectorAll('select[data-mapping-account-id]')]
+                    .find(item => item.dataset.mappingAccountId === accountId);
+                const mapping = mappingFromValue(mappingSelect?.value || '');
+                if (!mapping.client && !mapping.product) {
+                    setStatus(elements.prismaScopeStatus, 'Choose the client/product combination before confirming integration use.', 'error');
+                    integrationSelect.value = '';
+                    return;
+                }
+                if (integrationSelect.value !== '') mapping.integrationExpected = integrationSelect.value === 'true';
+                saveAccountMapping(accountId, mapping).catch(error => setStatus(elements.prismaScopeStatus, error.message, 'error'));
             }
         };
         const handleMappingCampaigns = event => {
@@ -1887,6 +2028,7 @@
         });
         elements.copySocialActions.addEventListener('click', () => copySocialActions().catch(error => setStatus(elements.socialActionStatus, error.message, 'error')));
         elements.downloadSocialActions.addEventListener('click', downloadSocialActions);
+        elements.downloadUnintegratedBookings.addEventListener('click', downloadUnintegratedBookings);
         elements.manualMatchModal.addEventListener('click', event => { if (event.target.closest('[data-close-manual-match]')) closeManualMatch(); });
         document.addEventListener('keydown', event => { if (event.key === 'Escape' && !elements.manualMatchModal.classList.contains('hidden')) closeManualMatch(); });
         elements.monthFromFilter.addEventListener('change', () => {

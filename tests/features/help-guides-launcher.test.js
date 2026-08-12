@@ -417,6 +417,36 @@ describe('Help Guides page launcher', () => {
         dom.window.close();
     });
 
+    test('does not mistake an interactive table cell for a floating corner control', () => {
+        const { dom } = createFeature({ position: { left: 840, top: 638 } });
+        const { window } = dom;
+        Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1000 });
+        Object.defineProperty(window, 'innerHeight', { configurable: true, value: 700 });
+        Object.defineProperty(window.HTMLElement.prototype, 'offsetWidth', {
+            configurable: true,
+            get() { return this.id === 'toolshed-help-guides-launcher' ? 140 : 0; }
+        });
+        Object.defineProperty(window.HTMLElement.prototype, 'offsetHeight', {
+            configurable: true,
+            get() { return this.id === 'toolshed-help-guides-launcher' ? 44 : 0; }
+        });
+        window.helpGuidesLauncherFeature.initialize();
+        const launcher = window.document.getElementById('toolshed-help-guides-launcher');
+        const tableControl = window.document.createElement('button');
+        tableControl.style.cursor = 'pointer';
+        tableControl.getBoundingClientRect = () => ({
+            left: 850, top: 620, right: 918, bottom: 688, width: 68, height: 68
+        });
+        window.document.body.appendChild(tableControl);
+        window.document.elementsFromPoint = () => [tableControl];
+
+        window.helpGuidesLauncherFeature.reconcileLauncherPosition(launcher);
+
+        expect(launcher.style.left).toBe('840px');
+        expect(launcher.classList).not.toContain('is-avoiding-control');
+        dom.window.close();
+    });
+
     test('only snaps when released near an edge, allowing a middle-page resting position', () => {
         const { dom } = createFeature();
         const { window } = dom;
