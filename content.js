@@ -217,7 +217,6 @@ function handleUrlChange() {
     window.remindersFeature.resetReminderDismissalFlags();
     window.campaignFeature.resetCampaignFlags();
     window.campaignFeature.handleCampaignNavigationOptimisation();
-    window.statsCollector.trackCampaignId(); // Centralized call
     currentUrlForDismissFlags = window.location.href;
     markAllFeaturesDirty();
     scheduleDynamicUiReconciliationCallback?.();
@@ -279,6 +278,7 @@ async function mainContentScriptInit() {
         { getFeature: () => window.appLearnFeature, when: () => isMediaoceanPage },
         { getFeature: () => window.helpGuidesLauncherFeature, when: () => isMediaoceanPage },
         { getFeature: () => window.bannerUsernameFeature, when: () => isPrismaLike },
+        { getFeature: () => window.productCodeLimitWarningFeature, when: route => isPrismaLike && (route.isCampaignWorkspace || route.isAddCampaign) },
         { getFeature: () => window.placementCounterFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
         { getFeature: () => window.dstAssuranceFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
         { getFeature: () => window.approverPastingFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
@@ -305,7 +305,6 @@ async function mainContentScriptInit() {
     }
 
     initializeEligibleFeatures(initialRoute);
-    if (isMediaoceanPage) window.statsCollector?.trackCampaignId?.();
 
     // Prisma: full enhancement set
     if (isPrismaLike && window.logoFeature.shouldReplaceLogoOnThisPage()) {
@@ -344,6 +343,7 @@ async function mainContentScriptInit() {
         const href = window.location.href;
         const isDashboard = pspId === 'cm-dashboard' || href.includes('cm-dashboard');
         const hasCampaign = Boolean(params.get('campaign-id'));
+        const isAddCampaign = params.get('osModalId') === 'prsm-cm-cmpadd';
         const isCampaignWorkspace = !isDashboard && (
             hasCampaign || pspId.startsWith('prsm-cm-')
         );
@@ -356,6 +356,7 @@ async function mainContentScriptInit() {
         );
 
         return {
+            isAddCampaign,
             isActualise,
             isBuy,
             isCampaignWorkspace,
@@ -538,6 +539,22 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
             window.remindersFeature.forceShowMetaReminder();
             sendResponse({status: "Meta reminder shown by content script"});
             return false;
+        }
+
+        if (action === "resetProductCodeLimitWarningIgnores") {
+            const resetIgnoredProductCodes = window.productCodeLimitWarningFeature?.resetIgnoredProductCodes;
+            if (typeof resetIgnoredProductCodes !== 'function') {
+                sendResponse({ status: 'Product Code Limit Warning is unavailable' });
+                return false;
+            }
+
+            Promise.resolve(resetIgnoredProductCodes())
+                .then(() => sendResponse({ status: 'Product Code Limit Warning ignores reset' }))
+                .catch(error => sendResponse({
+                    status: 'error',
+                    message: error?.message || 'Product Code Limit Warning reset failed.'
+                }));
+            return true;
         }
 
         if (action === "customRemindersUpdated") {

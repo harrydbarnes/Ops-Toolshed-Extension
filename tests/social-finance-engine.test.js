@@ -151,6 +151,18 @@ describe('social finance comparison engine', () => {
         expect(closed.rows[0]).toEqual(expect.objectContaining({ comparisonBasis: 'Meta spend', comparisonValue: 80, variance: -10 }));
     });
 
+    test('monitors an open-month £0 campaign unless a bounded one-month budget shows a missing booking risk', () => {
+        const report = compare(
+            parseCsv('Account ID,Campaign ID,Campaign name,Month,Amount spent,Campaign budget,Campaign start,Campaign end,Delivery\n111,1,Zero spend ongoing,2026-08,0,100,2026-01-01,2026-12-31,ACTIVE\n111,2,One month funded,2026-08,0,100,2026-08-01,2026-08-31,ACTIVE'),
+            parseCsv('Partner account id,Partner line id,Period,PLANNED_AMOUNT\n222,other,Aug 2026,10'),
+            { asOfDate: '2026-08-12', populationConfirmed: true, tolerance: 1 }
+        );
+        const byId = id => report.rows.find(row => row.campaignId === id);
+
+        expect(byId('1')).toEqual(expect.objectContaining({ evidence: 'Monitor', classification: 'Open-month £0 campaign: monitor for booking activity' }));
+        expect(byId('2')).toEqual(expect.objectContaining({ evidence: 'Missing/unlinked', classification: 'No linked Prisma booking found: fixed-flight Meta budget is unbooked' }));
+    });
+
     test('separates matched reconciliation totals from unmatched Meta spend', () => {
         const summary = summarizeRows([
             {
@@ -200,6 +212,60 @@ describe('social finance comparison engine', () => {
         expect(report.rows[0].classification).toBe('Matched manually: booking evidence valid');
         expect(report.rows[0].prismaKey).toBe('999|2|2026-06-01');
         expect(report.rows[0].issues).toContain('Manual match to Prisma Partner line ID 2');
+    });
+
+    test('revalidates a saved manual match when its PO reference changes', () => {
+        const report = compare(
+            parseCsv('Account name,Account ID,Campaign name,Campaign ID,Month,Amount spent (GBP)\nExample,999,Meta campaign MF-22222,1,2026-06-01,10'),
+            parseCsv('Client name,Partner account id,Partner line id,Period,PLANNED_AMOUNT,Campaign name\nExample,999,2,Jun 2026,10,Prisma campaign MF-11111'),
+            { asOfDate: '2026-07-20', populationConfirmed: true, manualMatches: { '999|1|2026-06-01': { prismaKey: '999|2|2026-06-01', metaCampaignName: 'Meta campaign MF-11111', prismaCampaignName: 'Prisma campaign MF-11111' } } }
+        );
+
+        expect(report.rows.find(row => row.metaKey)).toEqual(expect.objectContaining({
+            evidence: 'Investigate',
+            classification: 'PO reference needs booking confirmation'
+        }));
+        expect(report.rows.find(row => row.metaKey).issues).toContain('Saved manual match needs reconfirmation because an O, PO, or MF reference changed.');
+    });
+
+    test('keeps Prisma-only bookings for clients absent from Meta outside the main analysis', () => {
+        const report = compare(
+            parseCsv('Account name,Account ID,Campaign name,Campaign ID,Month,Amount spent (GBP)\nBoots,111,Boots campaign,1,2026-07-01,10'),
+            parseCsv('Client name,Partner account id,Partner line id,Period,PLANNED_AMOUNT,Campaign name\nTESCO STORES,222,2,Jul 26,50,Tesco campaign\nBOOTS,111,3,Jul 26,25,Other Boots campaign'),
+            { asOfDate: '2026-08-12', populationConfirmed: true }
+        );
+
+        expect(report.rows.some(row => row.prismaClient === 'TESCO STORES')).toBe(false);
+        expect(report.rows.some(row => row.prismaClient === 'BOOTS' && !row.metaKey)).toBe(true);
+        expect(report.excludedPrismaClients).toEqual([{ client: 'TESCO STORES', rows: 1 }]);
+    });
+
+    test('suggests user confirmation when one Meta and one Prisma campaign share a unique PO', () => {
+        const report = compare(
+            parseCsv('Account name,Account ID,Campaign name,Campaign ID,Month,Amount spent (GBP)\nBoots,111,Boots Heat PO:4203947339,meta-1,2026-07-01,21690.44'),
+            parseCsv('Client name,Partner account id,Partner line id,Period,PLANNED_AMOUNT,Campaign name\nBOOTS,111,prisma-1,Jul 26,21690.44,FY26 Boots Heat_PO 4203947339'),
+            { asOfDate: '2026-08-12', populationConfirmed: true }
+        );
+        const metaRow = report.rows.find(row => row.metaKey);
+
+        expect(metaRow).toEqual(expect.objectContaining({
+            evidence: 'Investigate',
+            classification: 'Strong PO match: confirm campaign link',
+            candidateScore: expect.any(Number)
+        }));
+        expect(metaRow.issues.join(' ')).toContain('PO 4203947339 appears once in Meta and once in Prisma');
+    });
+
+    test('warns about cancel/rebook when a PO has more Prisma bookings than Meta campaigns', () => {
+        const report = compare(
+            parseCsv('Account name,Account ID,Campaign name,Campaign ID,Month,Amount spent (GBP)\nBoots,111,Boots Heat PO:4203947339,meta-1,2026-07-01,21690.44'),
+            parseCsv('Client name,Partner account id,Partner line id,Period,PLANNED_AMOUNT,Campaign name\nBOOTS,111,prisma-1,Jul 26,21690.44,FY26 Boots Heat_PO 4203947339\nBOOTS,111,prisma-2,Jul 26,100,FY26 Boots Heat rebook_PO 4203947339'),
+            { asOfDate: '2026-08-12', populationConfirmed: true }
+        );
+        const metaRow = report.rows.find(row => row.metaKey);
+
+        expect(metaRow).toEqual(expect.objectContaining({ evidence: 'Investigate', classification: 'Possible PO match: check for cancel/rebook' }));
+        expect(metaRow.issues.join(' ')).toContain('1 Meta campaign to 2 Prisma bookings');
     });
 
     test('maps account IDs and parses Prisma Days in Flight dates as UK day-first', () => {

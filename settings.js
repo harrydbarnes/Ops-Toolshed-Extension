@@ -48,6 +48,7 @@ const SETTINGS_DEFAULTS = Object.freeze({
     approverWidgetPlacementEnabled: true,
     dstAssuranceEnabled: true,
     actualiseMonthAssuranceEnabled: true,
+    productCodeLimitWarningEnabled: true,
     quickCampaignActionsEnabled: true,
     budgetWidgetOptimisedEnabled: true,
     campaignNameQuickCopyEnabled: true,
@@ -336,6 +337,7 @@ const FEATURE_SETTING_PREVIEWS = {
     approverWidgetPlacementToggle: ['Approver Widget placement', 'Places the Approver Widget in the clearest campaign-page position.', 'Approver Widget'],
     dstAssuranceToggle: ['DST Assurance', 'Checks Facebook media for a correctly supplied Meta Location Fee at 2% of booked media.', 'DST Booked'],
     actualiseMonthAssuranceToggle: ['Actualise month assurance', 'Confirms that the Actualise URL, selected month, rendered grid and native response all agree.', 'Correct Month'],
+    productCodeLimitWarningToggle: ['Product Code Limit Warning', 'Warns when a client/product code is approaching Prisma’s 254-campaign limit.', 'Near code limit'],
     budgetWidgetOptimisedToggle: ['Budget widget', 'Improves the placement and visibility of the campaign budget widget.', 'Budget summary'],
     newOrderUiOptimisationToggle: ['New Order UI', 'Applies the extension’s layout improvements to Prisma’s newer Orders interface.', 'Orders workspace'],
     seeCommentsOnLockedBuysToggle: ['Comments on locked Buys', 'Keeps comments visible when a Buy is locked.', 'Comments'],
@@ -1080,6 +1082,71 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupToggle('approverWidgetPlacementToggle', 'approverWidgetPlacementEnabled', 'Approver Widget placement setting saved:', settings);
     setupToggle('dstAssuranceToggle', 'dstAssuranceEnabled', 'DST Assurance setting saved:', settings);
     setupToggle('actualiseMonthAssuranceToggle', 'actualiseMonthAssuranceEnabled', 'Actualise month assurance setting saved:', settings);
+    setupToggle('productCodeLimitWarningToggle', 'productCodeLimitWarningEnabled', 'Product Code Limit Warning setting saved:', settings);
+
+    const PRODUCT_CODE_WARNING_IGNORE_STORAGE_KEY = 'productCodeLimitWarningIgnored';
+    const resetProductCodeWarningIgnoredButton = document.getElementById('resetProductCodeWarningIgnoredButton');
+    const productCodeWarningIgnoredStatus = document.getElementById('productCodeWarningIgnoredStatus');
+
+    const updateProductCodeWarningIgnoredStatus = () => {
+        if (!resetProductCodeWarningIgnoredButton || !productCodeWarningIgnoredStatus) return;
+
+        chrome.storage.local.get(PRODUCT_CODE_WARNING_IGNORE_STORAGE_KEY, data => {
+            if (chrome.runtime.lastError) {
+                resetProductCodeWarningIgnoredButton.disabled = true;
+                productCodeWarningIgnoredStatus.textContent = 'Ignored-warning status is unavailable.';
+                return;
+            }
+
+            const ignored = Array.isArray(data?.[PRODUCT_CODE_WARNING_IGNORE_STORAGE_KEY])
+                ? data[PRODUCT_CODE_WARNING_IGNORE_STORAGE_KEY]
+                : [];
+            const count = ignored.length;
+            resetProductCodeWarningIgnoredButton.disabled = count === 0;
+            productCodeWarningIgnoredStatus.textContent = count === 0
+                ? 'No ignored warnings saved.'
+                : `${count} ignored warning${count === 1 ? '' : 's'} saved.`;
+        });
+    };
+
+    const refreshOpenProductCodeWarningTabs = () => {
+        chrome.tabs.query({ url: ['https://*.mediaocean.com/*'] }, tabs => {
+            (tabs || []).forEach(tab => {
+                if (!Number.isInteger(tab?.id)) return;
+                try {
+                    const result = chrome.tabs.sendMessage(tab.id, {
+                        action: 'resetProductCodeLimitWarningIgnores'
+                    });
+                    result?.catch?.(() => {});
+                } catch (error) {
+                    // Tabs without the content script can be ignored.
+                }
+            });
+        });
+    };
+
+    resetProductCodeWarningIgnoredButton?.addEventListener('click', () => {
+        showConfirmationPopup({
+            title: 'Reset ignored warnings?',
+            message: 'This will show Product Code Limit Warning again for every product code you previously ignored. It does not change the feature toggle.',
+            confirmText: 'Reset warnings',
+            cancelText: 'Keep ignored',
+            onConfirm: () => {
+                chrome.storage.local.remove(PRODUCT_CODE_WARNING_IGNORE_STORAGE_KEY, () => {
+                    if (chrome.runtime.lastError) {
+                        showToast('Could not reset ignored product-code warnings.');
+                        return;
+                    }
+
+                    refreshOpenProductCodeWarningTabs();
+                    updateProductCodeWarningIgnoredStatus();
+                    showToast('Ignored product-code warnings reset.');
+                });
+            }
+        });
+    });
+    updateProductCodeWarningIgnoredStatus();
+
     setupToggle('quickCampaignActionsToggle', 'quickCampaignActionsEnabled', 'Quick campaign actions setting saved:', settings);
     setupToggle('budgetWidgetOptimisedToggle', 'budgetWidgetOptimisedEnabled', 'Budget widget optimisation setting saved:', settings);
     setupToggle('campaignNameQuickCopyToggle', 'campaignNameQuickCopyEnabled', 'Campaign name quick copy setting saved:', settings);

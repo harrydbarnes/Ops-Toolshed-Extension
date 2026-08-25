@@ -130,4 +130,29 @@ describe('shared Prisma loading monitor', () => {
         expect(state.sidePanelVisibleSpinners).toEqual([spinner]);
         dom.window.close();
     });
+
+    test('ignores large unrelated campaign render batches', async () => {
+        const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+            runScripts: 'outside-only',
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/'
+        });
+        const { window } = dom;
+        window.requestAnimationFrame = callback => callback();
+        window.eval(utilsCode);
+        window.eval(monitorCode);
+        window.loadingMonitor.initialize();
+
+        const campaignGrid = window.document.createElement('div');
+        const querySpy = jest.spyOn(campaignGrid, 'querySelectorAll');
+        window.document.body.appendChild(campaignGrid);
+        for (let index = 0; index < 250; index += 1) {
+            campaignGrid.appendChild(window.document.createElement('div'));
+        }
+
+        await Promise.resolve();
+        window.loadingMonitor.refreshNow();
+
+        expect(querySpy).not.toHaveBeenCalled();
+        dom.window.close();
+    });
 });

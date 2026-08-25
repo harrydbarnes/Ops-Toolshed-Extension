@@ -273,7 +273,7 @@ describe('Social Booking Checker report uploads', () => {
     test('locks the analysis and summary to months shared by Meta and Prisma', async () => {
         const rows = [
             { accountId: '111', campaignId: '1', month: '2026-05', account: 'Boots', campaignName: 'May campaign', evidence: 'Needs update', classification: 'Spend update needed', metaSpend: 10, prismaPlanned: 5, variance: 5, issues: [], owner: '' },
-            { accountId: '111', campaignId: '2', month: '2026-06', account: 'Boots', campaignName: 'June campaign', evidence: 'Missing/unlinked', classification: 'Missing from Prisma: spending', metaSpend: 20, prismaPlanned: null, variance: 20, issues: [], owner: '' }
+            { accountId: '111', campaignId: '2', month: '2026-06', account: 'Boots', campaignName: 'June campaign', metaKey: '111|2|2026-06-01', evidence: 'Missing/unlinked', classification: 'Missing from Prisma: spending', metaSpend: 20, prismaPlanned: null, variance: 20, candidates: [], issues: [], owner: '' }
         ];
         dom.window.socialFinanceEngine.compare = jest.fn(() => ({ rows, summary: {}, warnings: [], validationErrors: [], coverage: { isComplete: true, metaMonths: ['2026-06'], prismaMonths: ['2026-06'], sharedMonths: ['2026-06'], gaps: [] } }));
         dom.window.socialFinanceEngine.summarizeRows = jest.fn(filtered => ({
@@ -300,6 +300,8 @@ describe('Social Booking Checker report uploads', () => {
         expect(document.querySelector('#monthToFilter').value).toBe('2026-06');
         expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
         expect(document.querySelector('.action-headline-copy strong').textContent).toBe('Review 1 item before sharing');
+        const actionTotals = [...document.querySelectorAll('.action-category-totals > span')].map(item => item.textContent);
+        expect(actionTotals).toEqual(['0Approval / trafficking', '0Buyer booking confirmation', '1Wrike creation / update', '0General investigation']);
         expect([...document.querySelectorAll('#reportHeader th')].map(cell => cell.textContent)).not.toContain('Month');
 
         document.querySelector('#monthFromFilter').value = '2026-05';
@@ -473,7 +475,13 @@ describe('Social Booking Checker report uploads', () => {
         document.querySelector('#applyManualMatches').click();
         await new Promise(resolve => dom.window.setTimeout(resolve, 0));
 
-        expect(dom.window.socialFinanceEngine.compare.mock.calls.at(-1)[2].manualMatches).toEqual({ '111|meta-1|2026-06-01': '111|prisma-2|2026-06-01' });
+        expect(dom.window.socialFinanceEngine.compare.mock.calls.at(-1)[2].manualMatches).toEqual({
+            '111|meta-1|2026-06-01': expect.objectContaining({
+                prismaKey: '111|prisma-2|2026-06-01',
+                metaCampaignName: 'Meta campaign',
+                prismaCampaignName: 'Alternative Prisma campaign'
+            })
+        });
     });
 
     test('requires and remembers a Wrike reference before recommending Prisma booking', async () => {

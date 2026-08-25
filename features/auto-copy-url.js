@@ -37,6 +37,7 @@
     chrome.storage.onChanged.addListener((changes, area) => {
         if (area === 'sync' && changes.autoCopyUrlEnabled) {
             isEnabled = changes.autoCopyUrlEnabled.newValue !== false;
+            if (isEnabled) startLinkIconCueTracking();
             applyKnownLinkIconCues();
         }
         if (area === 'sync' && changes.autoCopyUrlMode) {
@@ -229,19 +230,36 @@
         schedule(flushCueRoots);
     }
 
+    function isKnownCueHost(root) {
+        return root?.nodeType === Node.ELEMENT_NODE &&
+            root.matches?.(KNOWN_CUE_HOST_SELECTOR);
+    }
+
     function handleCueMutations(records) {
         records.forEach(record => {
             if (record.type === 'attributes') {
-                record.target.classList?.remove('auto-copy-icon');
-                pendingCueRoots.add(record.target);
+                if (record.target?.tagName === 'MO-ICON') {
+                    record.target.classList?.remove('auto-copy-icon');
+                    pendingCueRoots.add(record.target);
+                }
             }
             record.addedNodes?.forEach(node => {
-                if (node.nodeType === Node.ELEMENT_NODE || node.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+                if (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
+                    return;
+                }
+
+                // The document-level observer only discovers newly mounted
+                // link hosts. Once a known host is observed, its small
+                // subtree can be refreshed safely. Do not queue arbitrary
+                // Prisma render nodes: a large campaign can add thousands in
+                // one batch, turning each animation frame into a page scan.
+                if (isKnownCueHost(node) ||
+                    (isKnownCueHost(record.target) || record.target instanceof ShadowRoot)) {
                     pendingCueRoots.add(node);
                 }
             });
         });
-        scheduleCueRefresh();
+        if (pendingCueRoots.size > 0) scheduleCueRefresh();
     }
 
     function observeCueRoot(root) {
@@ -439,7 +457,7 @@
         chrome.storage.sync.get(['autoCopyUrlEnabled', 'autoCopyUrlMode'], (data) => {
             isEnabled = data.autoCopyUrlEnabled !== false;
             urlMode = data.autoCopyUrlMode === 'full' ? 'full' : 'short';
-            startLinkIconCueTracking();
+            if (isEnabled) startLinkIconCueTracking();
             handleAutoCopy();
         });
     }

@@ -5,6 +5,11 @@
     const PRISMA_TITLE_PREFIX = 'Prisma Media - ';
     const CAMPAIGN_HOST = 'groupmuk-prisma.mediaocean.com';
     const CAMPAIGN_PATH = '/campaign-management';
+    // Prisma's header reacts poorly when a long campaign value is read and
+    // written back as the document title during its initial render. Keep this
+    // deliberately compact so normal tabs retain the feature while verbose
+    // booking names stay on Prisma's native title.
+    const MAX_CAMPAIGN_TAB_TITLE_LENGTH = 80;
 
     let enabled = true;
     let initialized = false;
@@ -12,6 +17,8 @@
     let originalCampaignTitle = '';
     let appliedCampaignTitle = '';
     let campaignNameObserver = null;
+    let titleObserver = null;
+    let observedTitleElement = null;
 
     function getCampaignId() {
         if (window.location.hostname !== CAMPAIGN_HOST) return '';
@@ -29,14 +36,21 @@
 
     function getCampaignTitle(title) {
         if (!title.startsWith(PRISMA_TITLE_PREFIX)) return title;
-        return title.substring(PRISMA_TITLE_PREFIX.length).trim() || title;
+        const campaignTitle = title.substring(PRISMA_TITLE_PREFIX.length).trim() || title;
+        return campaignTitle.length <= MAX_CAMPAIGN_TAB_TITLE_LENGTH ? campaignTitle : '';
     }
 
     function getHeaderCampaignName(campaignId) {
-        const nameElement = document.querySelector('.mo-page-header .mo-campaign-name-wrapper');
+        const pageDocument = window.document;
+        if (!pageDocument?.querySelector) return '';
+        const nameElement = pageDocument.querySelector('.mo-page-header .mo-campaign-name-wrapper');
         const pageHeader = nameElement?.closest('.mo-page-header');
         if (!nameElement || !pageHeader || !pageHeader.textContent.includes(campaignId)) return '';
-        return nameElement.textContent.trim();
+        const campaignName = nameElement.textContent.trim();
+        // Very long names can be repeatedly re-rendered by Prisma while the
+        // header is settling. Do not turn that volatile UI value into a tab
+        // title; leave Prisma's native title untouched for that campaign.
+        return campaignName.length <= MAX_CAMPAIGN_TAB_TITLE_LENGTH ? campaignName : null;
     }
 
     function stopCampaignNameObserver() {
@@ -74,6 +88,10 @@
 
         const currentTitle = document.title;
         const headerCampaignName = getHeaderCampaignName(campaignId);
+        if (headerCampaignName === null) {
+            stopCampaignNameObserver();
+            return;
+        }
         const prefixedCampaignTitle = getCampaignTitle(currentTitle);
         const campaignTitle = headerCampaignName ||
             (prefixedCampaignTitle !== currentTitle ? prefixedCampaignTitle : '');
@@ -118,6 +136,16 @@
         appliedCampaignTitle = '';
     }
 
+    function observeTitleElement() {
+        const titleElement = document.querySelector('title');
+        if (!titleElement || titleElement === observedTitleElement) return;
+
+        titleObserver?.disconnect();
+        observedTitleElement = titleElement;
+        titleObserver = new MutationObserver(refreshTitle);
+        titleObserver.observe(titleElement, { childList: true, subtree: true, characterData: true });
+    }
+
     function initialize() {
         if (initialized) return;
         initialized = true;
@@ -127,8 +155,29 @@
             refreshTitle();
         });
 
-        const observer = new MutationObserver(refreshTitle);
-        observer.observe(document.head, { childList: true, subtree: true, characterData: true });
+        // Prisma frequently adds styles and metadata to <head> while a
+        // campaign loads. Watching the whole head made every one of those
+        // unrelated mutations re-read and rewrite a campaign title. Observe
+        // the title node itself, and only reconnect if Prisma replaces it.
+        observeTitleElement();
+        const headObserver = new MutationObserver(mutations => {
+            const titleWasReplaced = mutations.some(mutation =>
+                Array.from(mutation.addedNodes).some(node => node.nodeName === 'TITLE') ||
+                Array.from(mutation.removedNodes).some(node => node.nodeName === 'TITLE')
+            );
+            if (!titleWasReplaced) return;
+            observedTitleElement = null;
+            observeTitleElement();
+            refreshTitle();
+        });
+        headObserver.observe(document.head, { childList: true });
+        window.addEventListener('pagehide', () => {
+            titleObserver?.disconnect();
+            titleObserver = null;
+            observedTitleElement = null;
+            stopCampaignNameObserver();
+            headObserver.disconnect();
+        }, { once: true });
         window.addEventListener('hashchange', refreshTitle);
         window.addEventListener('popstate', refreshTitle);
 

@@ -207,6 +207,17 @@
                     <label class="toggle"><input type="checkbox" id="actualiseMonthAssuranceToggle"><span class="slider"></span></label>
                 </div>
                 <div class="toggle-container">
+                    <span>Product Code Limit Warning:</span>
+                    <label class="toggle"><input type="checkbox" id="productCodeLimitWarningToggle"><span class="slider"></span></label>
+                </div>
+                <div class="product-code-warning-maintenance" role="group" aria-labelledby="productCodeWarningMaintenanceTitle">
+                    <div class="product-code-warning-maintenance-copy">
+                        <strong id="productCodeWarningMaintenanceTitle">Dismissed warnings</strong>
+                        <p id="productCodeWarningIgnoredStatus" aria-live="polite">Checking ignored warnings...</p>
+                    </div>
+                    <button id="resetProductCodeWarningIgnoredButton" class="settings-button settings-button-secondary" type="button" disabled>Reset ignored warnings</button>
+                </div>
+                <div class="toggle-container">
                     <span>Budget widget optimised:</span>
                     <label class="toggle"><input type="checkbox" id="budgetWidgetOptimisedToggle"><span class="slider"></span></label>
                 </div>

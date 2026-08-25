@@ -58,6 +58,10 @@
             : content;
     }
 
+    function infoTooltip(label, explanation) {
+        return `<span class="evidence-tooltip" tabindex="0" data-tooltip="${escapeHtml(explanation)}" aria-label="${escapeHtml(`${label}. ${explanation}`)}">${escapeHtml(label)}<span class="tooltip-icon" aria-hidden="true">i</span></span>`;
+    }
+
     function localExtensionStorage() {
         return window.chrome && window.chrome.storage && window.chrome.storage.local;
     }
@@ -994,7 +998,15 @@
         }, new Map());
         if (unintegratedTotals.size) headlineItems.push(['Unintegrated Prisma booked', [...unintegratedTotals].map(([code, value]) => currency(value, code)).join(' · ')]);
         elements.financialHeadline.innerHTML = headlineItems.map(([label, value, className = '']) => `<article class="financial-total ${className}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`).join('');
-        const actionCount = summary.missingOrUnlinked + summary.needsUpdate + summary.investigate;
+        const actions = socialActionRows();
+        const actionCount = actions.length;
+        const actionTotals = actions.reduce((counts, row) => {
+            if (row.actionKey === 'workflow') counts.approval += 1;
+            else if (['update', 'confirm'].includes(row.actionKey)) counts.buyer += 1;
+            else if (['wrike', 'book'].includes(row.actionKey)) counts.wrike += 1;
+            else counts.investigation += 1;
+            return counts;
+        }, { approval: 0, buyer: 0, wrike: 0, investigation: 0 });
         const headline = actionCount
             ? `Review ${actionCount} item${actionCount === 1 ? '' : 's'} before sharing`
             : 'No actions need review';
@@ -1005,7 +1017,13 @@
         const actionButton = hasUnmatchedSpend
             ? '<button type="button" data-open-manual-match="true" aria-haspopup="dialog">Match unmatched spend</button>'
             : `<button type="button" data-scroll-actions="true">${actionCount ? 'Open action queue' : 'View action queue'}</button>`;
-        elements.summaryCards.innerHTML = `<div class="action-headline-copy"><strong>${escapeHtml(headline)}</strong><span>${escapeHtml(supporting)}</span></div>${actionButton}`;
+        const totalItems = [
+            ['Approval / trafficking', actionTotals.approval],
+            ['Buyer booking confirmation', actionTotals.buyer],
+            ['Wrike creation / update', actionTotals.wrike],
+            ['General investigation', actionTotals.investigation]
+        ].map(([label, value]) => `<span><strong>${value}</strong>${escapeHtml(label)}</span>`).join('');
+        elements.summaryCards.innerHTML = `<div class="action-headline-copy"><strong>${escapeHtml(headline)}</strong><span>${escapeHtml(supporting)}</span><div class="action-category-totals" aria-label="Actions by owner and next step">${totalItems}</div></div>${actionButton}`;
         const counts = {
             'Missing/unlinked': summary.missingOrUnlinked,
             'Needs update': summary.needsUpdate,
@@ -1106,16 +1124,17 @@
     function renderPopulationCoverage() {
         if (!elements.populationCoverage) return;
         const coverage = state.report?.coverage;
+        const coverageLabel = status => infoTooltip(status, 'Coverage is complete when every selected Meta account and reporting month has linked Prisma rows or unintegrated evidence for a confirmed client/product combination. Campaign counts are not compared because POs can create more or fewer Prisma campaigns.');
         if (!coverage) {
-            elements.populationCoverage.innerHTML = '<strong>Report coverage will be checked automatically.</strong><span>Coverage means every selected Meta account and month has either linked Prisma rows or unintegrated booking evidence for a confirmed client/product mapping.</span>';
+            elements.populationCoverage.innerHTML = `<strong>${coverageLabel('Report coverage will be checked automatically.')}</strong><span>Coverage means every selected Meta account and month has either linked Prisma rows or unintegrated booking evidence for a confirmed client/product mapping.</span>`;
             return;
         }
         if (coverage.isComplete) {
-            elements.populationCoverage.innerHTML = `<strong>Account/month coverage confirmed.</strong><span>Every selected Meta account and month (${escapeHtml(coverage.metaMonths.join(', '))}) has linked Prisma rows or confirmed client/product unintegrated evidence. Individual campaigns still require exact or fuzzy booking matching.</span>`;
+            elements.populationCoverage.innerHTML = `<strong>${coverageLabel('Account/month coverage confirmed.')}</strong><span>Every selected Meta account and month (${escapeHtml(coverage.metaMonths.join(', '))}) has linked Prisma rows or confirmed client/product unintegrated evidence. Individual campaigns still require exact or fuzzy booking matching.</span>`;
             return;
         }
         const gapLabel = coverage.gaps.slice(0, 4).map(gap => `${gap.accountId} / ${gap.month}`).join(', ');
-        elements.populationCoverage.innerHTML = `<strong>Account/month coverage incomplete.</strong><span>${coverage.gaps.length} selected Meta account-month${coverage.gaps.length === 1 ? '' : 's'} have neither linked Prisma rows nor confirmed client/product unintegrated evidence${gapLabel ? `: ${escapeHtml(gapLabel)}${coverage.gaps.length > 4 ? '…' : ''}` : ''}. Check the export scope or integration setup before declaring campaigns unbooked.</span>`;
+        elements.populationCoverage.innerHTML = `<strong>${coverageLabel('Account/month coverage incomplete.')}</strong><span>${coverage.gaps.length} selected Meta account-month${coverage.gaps.length === 1 ? '' : 's'} have neither linked Prisma rows nor confirmed client/product unintegrated evidence${gapLabel ? `: ${escapeHtml(gapLabel)}${coverage.gaps.length > 4 ? '…' : ''}` : ''}. Check the export scope or integration setup before declaring campaigns unbooked.</span>`;
     }
 
     function linkComparisonMetrics() {
@@ -1578,7 +1597,8 @@
                 const placementNames = candidate.placementNames || [];
                 const details = [candidate.campaignId ? `Partner line ID ${candidate.campaignId}` : 'Partner line ID missing', placementNames.length ? `Placement: ${placementNames.join(' | ')}` : '', candidate.placementNumbers?.length ? `Placement number: ${candidate.placementNumbers.join(' | ')}` : '', candidate.buyNumbers?.length ? `Buy number: ${candidate.buyNumbers.join(' | ')}` : '', `${currency(candidate.planned, candidate.currency || prismaCurrencyFor(row))} booked`, ...(candidate.reasons || [])].filter(Boolean).join('; ');
                 const searchText = `${candidate.campaignName || ''} ${placementNames.join(' ')} ${candidate.campaignId || ''} ${candidate.client || ''} ${candidate.product || ''} ${candidate.planned || ''}`.toLowerCase();
-                return `<div class="candidate-choice" data-candidate-choice data-candidate-default-hidden="${candidateIndex > 2}" data-candidate-search-text="${escapeHtml(searchText)}"${candidateIndex > 2 ? ' hidden' : ''}><input type="radio" name="match-${rowIndex}" value="${escapeHtml(candidate.prismaKey)}" data-manual-meta-key="${escapeHtml(row.metaKey)}" ${candidate.prismaKey ? '' : 'disabled'} aria-label="Confirm ${escapeHtml(candidate.campaignName || 'Prisma candidate')}"><div><strong>${escapeHtml(candidate.campaignName || 'Campaign name not supplied')}</strong><small>${escapeHtml(details)}</small><label class="candidate-reject"><input type="checkbox" data-reject-meta-key="${escapeHtml(row.metaKey)}" data-reject-candidate-key="${escapeHtml(candidate.key)}" ${rejected ? 'checked' : ''}>Not the same campaign</label></div><span class="candidate-score">${candidate.score === null ? escapeHtml(candidate.level) : `${escapeHtml(candidate.score)}%`}</span></div>`;
+                const prismaReferenceName = [candidate.campaignName, ...placementNames].filter(Boolean).join(' ');
+                return `<div class="candidate-choice" data-candidate-choice data-candidate-default-hidden="${candidateIndex > 2}" data-candidate-search-text="${escapeHtml(searchText)}"${candidateIndex > 2 ? ' hidden' : ''}><input type="radio" name="match-${rowIndex}" value="${escapeHtml(candidate.prismaKey)}" data-manual-meta-key="${escapeHtml(row.metaKey)}" data-manual-meta-name="${escapeHtml(row.campaignName || '')}" data-manual-prisma-name="${escapeHtml(prismaReferenceName)}" ${candidate.prismaKey ? '' : 'disabled'} aria-label="Confirm ${escapeHtml(candidate.campaignName || 'Prisma candidate')}"><div><strong>${escapeHtml(candidate.campaignName || 'Campaign name not supplied')}</strong><small>${escapeHtml(details)}</small><label class="candidate-reject"><input type="checkbox" data-reject-meta-key="${escapeHtml(row.metaKey)}" data-reject-candidate-key="${escapeHtml(candidate.key)}" ${rejected ? 'checked' : ''}>Not the same campaign</label></div><span class="candidate-score">${candidate.score === null ? escapeHtml(candidate.level) : `${escapeHtml(candidate.score)}%`}</span></div>`;
             }).join('');
             const candidateLabel = `${candidates.length} eligible unlinked Prisma campaign${candidates.length === 1 ? '' : 's'} in this Meta account and month`;
             const noCandidates = '<span class="candidate-none candidate-empty">No eligible unlinked Prisma campaign is available for this Meta account and month. Existing Prisma campaigns are already linked, or this report has no other booking in scope. Client/product mapping only improves ranking; it does not hide candidates.</span>';
@@ -1608,7 +1628,12 @@
         }
         const next = { ...state.manualMatches };
         selections.forEach(select => {
-            if (select.value) next[select.dataset.manualMetaKey] = select.value;
+            if (select.value) next[select.dataset.manualMetaKey] = {
+                prismaKey: select.value,
+                metaCampaignName: select.dataset.manualMetaName || '',
+                prismaCampaignName: select.dataset.manualPrismaName || '',
+                confirmedAt: new Date().toISOString()
+            };
             else delete next[select.dataset.manualMetaKey];
         });
         const nextRejections = { ...state.candidateRejections };

@@ -1242,7 +1242,7 @@
         if (originalOverlay) originalOverlay.style.display = 'none';
 
         // Keep an existing extracted toolbar anchored to a newly rendered native
-        // cog when Prisma rebuilds the campaign header.
+        // campaign-name popover when Prisma rebuilds the campaign header.
         const existingToolbar = document.getElementById('mo-extracted-actions-toolbar');
         if (existingToolbar) {
             if (campaignNamePopover && existingToolbar.previousElementSibling !== campaignNamePopover) {

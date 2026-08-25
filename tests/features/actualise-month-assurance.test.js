@@ -164,6 +164,18 @@ describe('Actualise month assurance', () => {
         expect(badge.textContent).toBe('Correct Month');
         expect(badge.classList).toContain('toolshed-actualise-month-assurance--correct');
         expect(badge.getAttribute('role')).toBe('status');
+        expect(badge.hasAttribute('title')).toBe(false);
+
+        badge.getBoundingClientRect = () => ({ left: 40, width: 90, bottom: 70 });
+        badge.dispatchEvent(new feature.window.MouseEvent('mouseenter'));
+        const tooltip = feature.window.document.querySelector('.toolshed-actualise-month-assurance-tooltip');
+        expect(tooltip.parentElement).toBe(feature.window.document.body);
+        expect(tooltip.getAttribute('role')).toBe('tooltip');
+        expect(tooltip.textContent).toContain('native response all confirm Nov 25');
+        expect(tooltip.hidden).toBe(false);
+        expect(badge.getAttribute('aria-describedby')).toBe(tooltip.id);
+        badge.dispatchEvent(new feature.window.MouseEvent('mouseleave'));
+        expect(tooltip.hidden).toBe(true);
 
         feature.dom.window.close();
     });

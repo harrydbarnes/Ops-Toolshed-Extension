@@ -105,4 +105,32 @@ describe('Actualise month bridge', () => {
         expect(messages).toHaveLength(0);
         dom.window.close();
     });
+
+    test('does not parse a non-Actualise request body', async () => {
+        const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+            runScripts: 'dangerously',
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/'
+        });
+        const send = jest.fn();
+        dom.window.XMLHttpRequest = class {
+            open() {}
+            send(...args) { send(...args); }
+        };
+        dom.window.fetch = jest.fn().mockResolvedValue({});
+        const parseSpy = jest.spyOn(dom.window.JSON, 'parse');
+        dom.window.eval(bridgeCode);
+
+        const payload = JSON.stringify({ placements: Array.from({ length: 1000 }, (_, id) => ({ id })) });
+        const xhr = new dom.window.XMLHttpRequest();
+        xhr.open('POST', 'https://groupmuk-prisma.mediaocean.com/campaign-service/secure/campaign/1/buy');
+        xhr.send(payload);
+        await dom.window.fetch('https://groupmuk-prisma.mediaocean.com/campaign-service/secure/campaign/1/buy', {
+            method: 'POST',
+            body: payload
+        });
+
+        expect(send).toHaveBeenCalledWith(payload);
+        expect(parseSpy).not.toHaveBeenCalled();
+        dom.window.close();
+    });
 });

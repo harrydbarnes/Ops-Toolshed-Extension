@@ -11,32 +11,70 @@ const contentStyles = fs.readFileSync(
     'utf8'
 );
 
-function createRow({ name, cost = '', groupLevel = null, hierarchyLevel = 1 }) {
+const DEFAULT_FLIGHTING_MONTHS = ['Jul 26'];
+
+function createRow({
+    name,
+    cost = '',
+    groupLevel = null,
+    hierarchyLevel = 1,
+    startDate = '',
+    endDate = '',
+    months = DEFAULT_FLIGHTING_MONTHS,
+    monthCosts = null
+}) {
     const groupClasses = groupLevel === null
         ? ''
         : ` group-cell hierarchical-level-group-${groupLevel}`;
     const nameClasses = `${groupClasses} indent hierarchical-name hierarchical-level-${hierarchyLevel}`.trim();
+    const monthlyCells = months.map(month => {
+        const value = monthCosts && Object.prototype.hasOwnProperty.call(monthCosts, month)
+            ? monthCosts[month]
+            : cost;
+        return `<td>${value ?? ''}</td><td></td><td></td><td></td>`;
+    }).join('');
     return `<tr role="row">
         <td></td><td></td><td class="${groupClasses.trim()}"></td>
         <td class="${nameClasses}">${name}</td>
-        <td></td><td></td><td></td><td></td><td>${cost}</td>
+        <td></td><td>${startDate}</td><td>${endDate}</td><td></td><td>${cost}</td>
+        <td></td><td></td><td></td><td></td>${monthlyCells}
     </tr>`;
 }
 
 function createPage({
+    layout = 'flighting',
+    months = DEFAULT_FLIGHTING_MONTHS,
+    mediaMonthCosts = null,
+    feeMonthCosts = null,
     mediaSection = 'Display',
     mediaSupplier = 'FACEBOOK(Facebook Mediacom)',
     mediaCost = '£32,320.60',
+    mediaStartDate = '01/07/2026',
+    mediaEndDate = '31/10/2026',
     feeSupplier = 'META DIGITAL SERVICE CHARGE (GBP):Meta Digital Service Charge',
     feeCost = '£646.41',
+    feeStartDate = mediaStartDate,
+    feeEndDate = mediaEndDate,
     feeDetailName = 'Meta Digital Service Charge_Meta 2% DST GBP_Fee',
     feeDetailCost = feeCost,
     includeFee = true,
     dstAssuranceEnabled = true
 } = {}) {
+    const gridMonths = layout === 'flighting' ? months : [];
+    const header = layout === 'flighting'
+        ? `<tr role="row">
+            ${Array.from({ length: 13 }, () => '<td></td>').join('')}
+            ${gridMonths.map(month => `<td colspan="4">${month} - Payable</td><td class="hiddenHeader"></td><td class="hiddenHeader"></td><td class="hiddenHeader"></td>`).join('')}
+        </tr>
+        <tr role="row">
+            <td></td><td></td><td></td><td>Name</td><td>Ad size</td><td>Start date</td><td>End date</td>
+            <td>Cost method</td><td>Cost</td><td>Rate</td><td>Units</td><td>Payable rate</td><td>Gross payable</td>
+            ${gridMonths.map(() => '<td>Planned Cost</td><td>Planned Rate</td><td>Planned Units</td><td>Planned Units %</td>').join('')}
+        </tr>`
+        : '<tr role="row"><td></td><td></td><td></td><td>Name</td><td></td><td></td><td></td><td></td><td>Cost</td></tr>';
     const feeRows = includeFee
-        ? `${createRow({ name: feeSupplier, groupLevel: 1, hierarchyLevel: 0, cost: feeCost })}
-           ${createRow({ name: feeDetailName, cost: feeDetailCost })}`
+        ? `${createRow({ name: feeSupplier, groupLevel: 1, hierarchyLevel: 0, startDate: feeStartDate, endDate: feeEndDate, cost: feeCost, months: gridMonths, monthCosts: feeMonthCosts })}
+           ${createRow({ name: feeDetailName, startDate: feeStartDate, endDate: feeEndDate, cost: feeDetailCost, months: gridMonths, monthCosts: feeMonthCosts })}`
         : '';
     const dom = new JSDOM(`<!doctype html><html><body>
         <div class="workflow-widget-wrapper">
@@ -45,12 +83,12 @@ function createPage({
             <button class="gmi-chat-button">GMI Chat</button>
         </div>
         <div id="grid-container_hot"><div class="ht_master"><table class="htCore"><tbody>
-            <tr role="row"><td></td><td></td><td></td><td>Name</td><td></td><td></td><td></td><td></td><td>Cost</td></tr>
-            ${createRow({ name: 'Media total', groupLevel: 0, hierarchyLevel: 0, cost: mediaCost })}
-            ${createRow({ name: mediaSection, groupLevel: 0, hierarchyLevel: 0, cost: mediaCost })}
-            ${createRow({ name: mediaSupplier, groupLevel: 1, hierarchyLevel: 0, cost: mediaCost })}
-            ${createRow({ name: 'FACEBOOK_Liz Earle package', cost: mediaCost })}
-            ${createRow({ name: 'Fee', groupLevel: 0, hierarchyLevel: 0, cost: feeCost })}
+            ${header}
+            ${createRow({ name: 'Media total', groupLevel: 0, hierarchyLevel: 0, startDate: mediaStartDate, endDate: mediaEndDate, cost: mediaCost, months: gridMonths, monthCosts: mediaMonthCosts })}
+            ${createRow({ name: mediaSection, groupLevel: 0, hierarchyLevel: 0, startDate: mediaStartDate, endDate: mediaEndDate, cost: mediaCost, months: gridMonths, monthCosts: mediaMonthCosts })}
+            ${createRow({ name: mediaSupplier, groupLevel: 1, hierarchyLevel: 0, startDate: mediaStartDate, endDate: mediaEndDate, cost: mediaCost, months: gridMonths, monthCosts: mediaMonthCosts })}
+            ${createRow({ name: 'FACEBOOK_Liz Earle package', startDate: mediaStartDate, endDate: mediaEndDate, cost: mediaCost, months: gridMonths, monthCosts: mediaMonthCosts })}
+            ${createRow({ name: 'Fee', groupLevel: 0, hierarchyLevel: 0, startDate: feeStartDate, endDate: feeEndDate, cost: feeCost, months: gridMonths, monthCosts: feeMonthCosts })}
             ${feeRows}
         </tbody></table></div></div>
     </body></html>`, {
@@ -72,6 +110,308 @@ function createPage({
 }
 
 describe('DST Assurance', () => {
+    test('does not activate for a campaign whose flighting ends before July 2026', () => {
+        const dom = createPage({
+            months: ['Jun 26'],
+            mediaStartDate: '01/06/2026',
+            mediaEndDate: '30/06/2026',
+            feeStartDate: '01/06/2026',
+            feeEndDate: '30/06/2026'
+        });
+        const feature = dom.window.dstAssuranceFeature;
+
+        expect(feature.assessDstAssurance()).toMatchObject({
+            eligible: false,
+            status: 'hidden'
+        });
+        feature.apply();
+        expect(dom.window.document.querySelector('.toolshed-dst-assurance')).toBeNull();
+        dom.window.close();
+    });
+
+    test.each([
+        [
+            'Google',
+            'GOOGLE ADS (GBP):Campaign',
+            'GOOGLE DIGITAL SERVICE CHARGE (GBP):Service Charge'
+        ],
+        [
+            'Amazon',
+            'AMAZON (GBP):Campaign',
+            'AMAZON REG. ADVERTISING FEE (GBP):Service Charge'
+        ]
+    ])('keeps %s DST checks active for pre-July flighting', (
+        _platform,
+        mediaSupplier,
+        feeSupplier
+    ) => {
+        const dom = createPage({
+            months: ['Jun 26'],
+            mediaSupplier,
+            mediaCost: '£1,000.00',
+            feeSupplier,
+            feeCost: '£0.00'
+        });
+
+        expect(dom.window.dstAssuranceFeature.assessDstAssurance()).toMatchObject({
+            eligible: true,
+            status: 'correct',
+            supplierCorrect: true,
+            amountCorrect: true
+        });
+        dom.window.close();
+    });
+
+    test.each([
+        [
+            'Google',
+            'GOOGLE ADS (GBP):Campaign',
+            'GOOGLE DIGITAL SERVICE CHARGE (GBP):Service Charge'
+        ],
+        [
+            'Amazon',
+            'AMAZON (GBP):Campaign',
+            'AMAZON REG. ADVERTISING FEE (GBP):Service Charge'
+        ]
+    ])('preserves %s DST checks outside Flighting Layout', (
+        _platform,
+        mediaSupplier,
+        feeSupplier
+    ) => {
+        const dom = createPage({
+            layout: 'default',
+            mediaSupplier,
+            mediaCost: '£1,000.00',
+            feeSupplier,
+            feeCost: '£0.00'
+        });
+
+        expect(dom.window.dstAssuranceFeature.assessDstAssurance()).toMatchObject({
+            eligible: true,
+            status: 'correct',
+            supplierCorrect: true,
+            amountCorrect: true
+        });
+        dom.window.close();
+    });
+
+    test('does not activate outside Flighting Layout even when the total fee is correct', () => {
+        const dom = createPage({
+            layout: 'default',
+            mediaStartDate: '01/06/2026',
+            mediaEndDate: '30/06/2026',
+            feeStartDate: '01/06/2026',
+            feeEndDate: '30/06/2026'
+        });
+        const feature = dom.window.dstAssuranceFeature;
+
+        expect(feature.assessDstAssurance()).toMatchObject({
+            eligible: false,
+            status: 'hidden'
+        });
+        feature.apply();
+        expect(dom.window.document.querySelector('.toolshed-dst-assurance')).toBeNull();
+        dom.window.close();
+    });
+
+    test('checks a Meta campaign in standard layout when all Facebook placements start from July 2026', () => {
+        const dom = createPage({
+            layout: 'default',
+            mediaCost: '£1,000.00',
+            mediaStartDate: '01/07/2026',
+            mediaEndDate: '31/10/2026',
+            feeCost: '£20.00',
+            feeStartDate: '01/07/2026',
+            feeEndDate: '31/10/2026'
+        });
+        const feature = dom.window.dstAssuranceFeature;
+
+        expect(feature.assessDstAssurance()).toMatchObject({
+            eligible: true,
+            status: 'correct',
+            mediaBooked: 1000,
+            feeBooked: 20,
+            expectedFee: 20,
+            supplierCorrect: true,
+            amountCorrect: true
+        });
+        feature.apply();
+
+        expect(dom.window.document.querySelector('.toolshed-dst-assurance').classList)
+            .toContain('toolshed-dst-assurance--correct');
+        dom.window.close();
+    });
+
+    test('uses Facebook placement dates when the supplier aggregate has no dates', () => {
+        const dom = createPage({
+            layout: 'default',
+            mediaCost: '£1,000.00',
+            mediaStartDate: '01/07/2026',
+            mediaEndDate: '31/10/2026',
+            feeCost: '£20.00',
+            feeStartDate: '01/07/2026',
+            feeEndDate: '31/10/2026'
+        });
+        const mediaSupplierRow = Array.from(dom.window.document.querySelectorAll('.htCore tr'))
+            .find(row => row.children[3]?.textContent.includes('FACEBOOK(Facebook'));
+        mediaSupplierRow.children[5].textContent = '';
+        mediaSupplierRow.children[6].textContent = '';
+
+        expect(dom.window.dstAssuranceFeature.assessDstAssurance()).toMatchObject({
+            eligible: true,
+            status: 'correct',
+            mediaBooked: 1000,
+            feeBooked: 20,
+            expectedFee: 20
+        });
+        dom.window.close();
+    });
+
+    test('accepts the displayed aggregate Meta cost when rounding differs by one penny', () => {
+        const dom = createPage({
+            layout: 'default',
+            mediaCost: '£119,825.78',
+            mediaStartDate: '01/07/2026',
+            mediaEndDate: '31/10/2026',
+            feeCost: '£2,396.51',
+            feeStartDate: '01/07/2026',
+            feeEndDate: '31/10/2026'
+        });
+
+        expect(dom.window.dstAssuranceFeature.assessDstAssurance()).toMatchObject({
+            eligible: true,
+            status: 'correct',
+            mediaBooked: 119825.78,
+            feeBooked: 2396.51,
+            expectedFee: 2396.52,
+            amountCorrect: true
+        });
+        dom.window.close();
+    });
+
+    test('shows a review badge in standard layout when Facebook placements straddle July 2026', () => {
+        const dom = createPage({
+            layout: 'default',
+            mediaCost: '£1,000.00',
+            mediaStartDate: '01/06/2026',
+            mediaEndDate: '31/10/2026',
+            feeCost: '£20.00',
+            feeStartDate: '01/06/2026',
+            feeEndDate: '31/10/2026'
+        });
+        const feature = dom.window.dstAssuranceFeature;
+
+        expect(feature.assessDstAssurance()).toMatchObject({
+            eligible: true,
+            status: 'incorrect',
+            amountCorrect: false
+        });
+        expect(feature.assessDstAssurance().tooltip)
+            .toContain('straddles the Meta DST introduction period');
+        feature.apply();
+
+        const badge = dom.window.document.querySelector('.toolshed-dst-assurance');
+        expect(badge.classList).toContain('toolshed-dst-assurance--incorrect');
+        expect(dom.window.document.querySelector('.toolshed-dst-assurance-tooltip').textContent)
+            .toContain('Please verify the Meta Location Fee is booked correctly in Flighting Layout');
+        dom.window.close();
+    });
+
+    test('checks only July 2026 onwards when a placement straddles the DST start month', () => {
+        const dom = createPage({
+            months: ['Jun 26', 'Jul 26', 'Aug 26'],
+            mediaCost: '£1,000.00',
+            mediaMonthCosts: {
+                'Jun 26': '£900.00',
+                'Jul 26': '£100.00',
+                'Aug 26': '£50.00'
+            },
+            mediaStartDate: '01/06/2026',
+            mediaEndDate: '31/08/2026',
+            feeCost: '£20.00',
+            feeMonthCosts: {
+                'Jun 26': '£18.00',
+                'Jul 26': '£3.00',
+                'Aug 26': '£0.00'
+            },
+            feeStartDate: '01/06/2026',
+            feeEndDate: '31/08/2026'
+        });
+        const assessment = dom.window.dstAssuranceFeature.assessDstAssurance();
+
+        expect(assessment).toMatchObject({
+            eligible: true,
+            status: 'correct',
+            mediaBooked: 150,
+            feeBooked: 3,
+            expectedFee: 3,
+            supplierCorrect: true,
+            amountCorrect: true
+        });
+        dom.window.close();
+    });
+
+    test('keeps Google DST checks on pre-July fee bookings', () => {
+        const dom = createPage({
+            months: ['Jun 26', 'Jul 26'],
+            mediaSupplier: 'GOOGLE ADS (GBP):Campaign',
+            mediaCost: '£1,000.00',
+            mediaMonthCosts: {
+                'Jun 26': '£0.00',
+                'Jul 26': '£1,000.00'
+            },
+            feeSupplier: 'GOOGLE DIGITAL SERVICE CHARGE (GBP):Service Charge',
+            feeCost: '£0.00',
+            feeMonthCosts: {
+                'Jun 26': '£20.00',
+                'Jul 26': ''
+            }
+        });
+        const assessment = dom.window.dstAssuranceFeature.assessDstAssurance();
+
+        expect(assessment).toMatchObject({
+            eligible: true,
+            status: 'correct',
+            supplierCorrect: true,
+            amountCorrect: true
+        });
+        expect(assessment.tooltip)
+            .toBe('Please verify Google DST cost is correct, as that is not checked currently');
+        dom.window.close();
+    });
+
+    test('highlights the applicable month cost when the July-plus Meta fee is wrong', () => {
+        const dom = createPage({
+            months: ['Jun 26', 'Jul 26'],
+            mediaCost: '£1,000.00',
+            mediaMonthCosts: {
+                'Jun 26': '£900.00',
+                'Jul 26': '£100.00'
+            },
+            feeCost: '£19.00',
+            feeMonthCosts: {
+                'Jun 26': '£18.00',
+                'Jul 26': '£1.00'
+            }
+        });
+        const feature = dom.window.dstAssuranceFeature;
+
+        expect(feature.assessDstAssurance()).toMatchObject({
+            status: 'incorrect',
+            expectedFee: 2,
+            feeBooked: 1,
+            amountCorrect: false
+        });
+        feature.apply();
+
+        const feeRow = Array.from(dom.window.document.querySelectorAll('.htCore tr'))
+            .find(row => row.children[3]?.textContent.includes('META DIGITAL SERVICE CHARGE'));
+        expect(feeRow.children[17].classList).toContain('toolshed-dst-assurance-warning-cell');
+        expect(feeRow.children[13].classList).not.toContain('toolshed-dst-assurance-warning-cell');
+        expect(feeRow.children[8].classList).not.toContain('toolshed-dst-assurance-warning-cell');
+        dom.window.close();
+    });
+
     test('removes its badge and warning highlights immediately when disabled from Settings', () => {
         const dom = createPage();
         dom.window.dstAssuranceFeature.initialize();
@@ -82,6 +422,18 @@ describe('DST Assurance', () => {
 
         expect(dom.window.document.querySelector('.toolshed-dst-assurance')).toBeNull();
         expect(dom.window.document.querySelector('.toolshed-dst-assurance-warning-cell')).toBeNull();
+        dom.window.close();
+    });
+
+    test('does not scan the campaign grid when disabled before initialization', () => {
+        const dom = createPage({ dstAssuranceEnabled: false });
+        const table = dom.window.document.querySelector('.htCore');
+        const scan = jest.spyOn(table, 'querySelectorAll');
+
+        dom.window.dstAssuranceFeature.initialize();
+
+        expect(scan).not.toHaveBeenCalled();
+        expect(dom.window.document.querySelector('.toolshed-dst-assurance')).toBeNull();
         dom.window.close();
     });
 
@@ -447,7 +799,8 @@ describe('DST Assurance', () => {
         const feeRow = Array.from(dom.window.document.querySelectorAll('.htCore tr'))
             .find(row => row.children[3]?.textContent.includes('META DIGITAL SERVICE CHARGE'));
         expect(feeRow.children[3].classList).not.toContain('toolshed-dst-assurance-warning-cell');
-        expect(feeRow.children[8].classList).toContain('toolshed-dst-assurance-warning-cell');
+        expect(feeRow.children[13].classList).toContain('toolshed-dst-assurance-warning-cell');
+        expect(feeRow.children[8].classList).not.toContain('toolshed-dst-assurance-warning-cell');
         dom.window.close();
     });
 

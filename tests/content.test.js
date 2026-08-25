@@ -7,6 +7,7 @@ const scriptsToLoad = [
     'features/logo.js',
     'features/reminders.js',
     'features/campaign.js',
+    'features/product-code-limit-warning.js',
     'features/d-number-search.js',
     'features/gmi-chat.js',
     'features/live-chat-enhancements.js',
@@ -159,6 +160,7 @@ describe('Content Script Main Logic', () => {
             'appLearnFeature',
             'helpGuidesLauncherFeature',
             'bannerUsernameFeature',
+            'productCodeLimitWarningFeature',
             'placementCounterFeature',
             'dstAssuranceFeature',
             'approverPastingFeature',
@@ -208,6 +210,7 @@ describe('Content Script Main Logic', () => {
         expect(dashboardMocks.helpGuidesLauncherFeature.initialize).toHaveBeenCalledTimes(1);
         expect(dashboardMocks.loadingFactsFeature.initialize).toHaveBeenCalledTimes(1);
         expect(dashboardMocks.bannerUsernameFeature.initialize).toHaveBeenCalledTimes(1);
+        expect(dashboardMocks.productCodeLimitWarningFeature.initialize).not.toHaveBeenCalled();
         expect(dashboardMocks.placementCounterFeature.initialize).not.toHaveBeenCalled();
         expect(dashboardMocks.dstAssuranceFeature.initialize).not.toHaveBeenCalled();
         expect(dashboardMocks.approverPastingFeature.initialize).not.toHaveBeenCalled();
@@ -219,6 +222,21 @@ describe('Content Script Main Logic', () => {
         expect(dashboardMocks.actualiseNavbarFeature.initialize).not.toHaveBeenCalled();
         expect(dashboardMocks.actualiseShortcutFeature.initialize).not.toHaveBeenCalled();
         expect(dashboardMocks.actualiseMonthAssuranceFeature.initialize).not.toHaveBeenCalled();
+
+        const addCampaignMocks = makeMocks();
+        addCampaignMocks.logoFeature = logoMock;
+        const addCampaign = setupJSDOM(
+            'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns&osModalId=prsm-cm-cmpadd',
+            [],
+            { synchronousStorage: true, featureMocks: addCampaignMocks }
+        );
+        await Promise.resolve();
+
+        expect(addCampaignMocks.productCodeLimitWarningFeature.initialize).toHaveBeenCalledTimes(1);
+        expect(addCampaignMocks.placementCounterFeature.initialize).not.toHaveBeenCalled();
+        expect(addCampaignMocks.dstAssuranceFeature.initialize).not.toHaveBeenCalled();
+        expect(addCampaignMocks.orderViewToggleFeature.initialize).not.toHaveBeenCalled();
+        addCampaign.window.close();
 
         dashboard.window.history.replaceState(
             {},
@@ -233,6 +251,7 @@ describe('Content Script Main Logic', () => {
         expect(dashboardMocks.orderViewToggleFeature.initialize).toHaveBeenCalledTimes(1);
         expect(dashboardMocks.approverPastingFeature.initialize).toHaveBeenCalledTimes(1);
         expect(dashboardMocks.autoCopyUrlFeature.initialize).toHaveBeenCalledTimes(1);
+        expect(dashboardMocks.productCodeLimitWarningFeature.initialize).toHaveBeenCalledTimes(1);
         dashboard.window.close();
 
         const campaignMocks = makeMocks();
@@ -244,6 +263,7 @@ describe('Content Script Main Logic', () => {
         );
         await Promise.resolve();
 
+        expect(campaignMocks.productCodeLimitWarningFeature.initialize).toHaveBeenCalledTimes(1);
         expect(campaignMocks.placementCounterFeature.initialize).toHaveBeenCalledTimes(1);
         expect(campaignMocks.dstAssuranceFeature.initialize).toHaveBeenCalledTimes(1);
         expect(campaignMocks.approverPastingFeature.initialize).toHaveBeenCalledTimes(1);
@@ -272,6 +292,7 @@ describe('Content Script Main Logic', () => {
         expect(actualiseMocks.actualiseExportAllFeature.initialize).toHaveBeenCalledTimes(1);
         expect(actualiseMocks.actualiseMonthAssuranceFeature.initialize).toHaveBeenCalledTimes(1);
         expect(actualiseMocks.actualiseShortcutFeature.initialize).toHaveBeenCalledTimes(1);
+        expect(actualiseMocks.productCodeLimitWarningFeature.initialize).toHaveBeenCalledTimes(1);
         expect(actualiseMocks.dstAssuranceFeature.initialize).toHaveBeenCalledTimes(1);
         expect(actualiseMocks.orderIdCopyFeature.initialize).toHaveBeenCalledTimes(1);
         expect(actualiseMocks.orderViewToggleFeature.initialize).toHaveBeenCalledTimes(1);
@@ -617,6 +638,31 @@ describe('Content Script Main Logic', () => {
         expect(window.logoFeature.setLogoReplaceEnabled).toHaveBeenCalledWith(false);
         expect(sendResponse).toHaveBeenCalledWith({
             status: 'Logo check processed by content script'
+        });
+    });
+
+    test('refreshes Product Code Limit Warning dismissals from Settings', async () => {
+        const { window } = setupJSDOM(
+            'https://groupmuk-prisma.mediaocean.com/campaign-management/#osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=buy&ptb-ctx=digital',
+            false
+        );
+        jest.advanceTimersByTime(100);
+        window.productCodeLimitWarningFeature.resetIgnoredProductCodes = jest.fn(() => Promise.resolve());
+        const sendResponse = jest.fn();
+
+        const keepChannelOpen = chrome.runtime.onMessage.listener(
+            { action: 'resetProductCodeLimitWarningIgnores' },
+            {},
+            sendResponse
+        );
+        for (let index = 0; index < 10 && sendResponse.mock.calls.length === 0; index += 1) {
+            await Promise.resolve();
+        }
+
+        expect(keepChannelOpen).toBe(true);
+        expect(window.productCodeLimitWarningFeature.resetIgnoredProductCodes).toHaveBeenCalledTimes(1);
+        expect(sendResponse).toHaveBeenCalledWith({
+            status: 'Product Code Limit Warning ignores reset'
         });
     });
 

@@ -79,7 +79,10 @@
     },
     {
       "matches": ["https://*.mediaocean.com/idesk/prisma-campaign-details/*"],
-      "js": ["features/campaign-details-focus.js"],
+      "js": [
+        "features/campaign-details-focus.js",
+        "features/campaign-add-sections.js"
+      ],
       "all_frames": true
     },
     {
@@ -90,6 +93,7 @@
         "features/logo.js",
         "features/reminders.js",
         "features/campaign.js",
+        "features/product-code-limit-warning.js",
         "features/campaign-tab-title.js",
         "features/d-number-search.js",
         "features/gmi-chat.js",

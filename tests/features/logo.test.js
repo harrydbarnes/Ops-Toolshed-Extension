@@ -61,4 +61,10 @@ describe('Prisma logo replacement', () => {
         expect(shadowRoot.querySelector('.custom-prisma-logo')).toBeNull();
         expect(shadowRoot.querySelector('.current-prisma-brand svg')).not.toBeNull();
     });
+
+    test('uses a bounded shadow-root walk instead of the global recursive helper', () => {
+        expect(logoScript).toContain('MAX_SHADOW_ROOTS_TO_CHECK');
+        expect(logoScript).toContain('document.createTreeWalker');
+        expect(logoScript).not.toContain('window.utils.queryShadowDom');
+    });
 });

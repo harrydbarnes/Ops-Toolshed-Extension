@@ -2,6 +2,7 @@
     'use strict';
 
     const BADGE_CLASS = 'toolshed-actualise-month-assurance';
+    const TOOLTIP_CLASS = `${BADGE_CLASS}-tooltip`;
     const CORRECT_BADGE_CLASS = `${BADGE_CLASS}--correct`;
     const INCORRECT_BADGE_CLASS = `${BADGE_CLASS}--incorrect`;
     const SOURCE = 'ops-toolshed-actualise-month-bridge';
@@ -32,6 +33,7 @@
     let recoveryPromise = null;
     let recoveryTargetKey = null;
     let lastObservedMonthKey = null;
+    let tooltipSequence = 0;
 
     function normalizeText(value) {
         return String(value ?? '').replace(/\s+/g, ' ').trim();
@@ -199,8 +201,61 @@
         };
     }
 
+    function positionTooltip(badge, tooltip) {
+        const badgeRect = badge.getBoundingClientRect();
+        const viewportWidth = document.documentElement.clientWidth || window.innerWidth || 0;
+        const viewportMargin = 8;
+        tooltip.style.top = `${Math.round(badgeRect.bottom + 8)}px`;
+
+        const tooltipRect = tooltip.getBoundingClientRect();
+        let left = badgeRect.left + (badgeRect.width - tooltipRect.width) / 2;
+        if (viewportWidth > 0 && tooltipRect.width > 0) {
+            left = Math.min(
+                Math.max(viewportMargin, left),
+                Math.max(viewportMargin, viewportWidth - tooltipRect.width - viewportMargin)
+            );
+        }
+        tooltip.style.left = `${Math.round(left)}px`;
+    }
+
+    function removeTooltip(badge) {
+        badge._toolshedActualiseMonthTooltip?.remove?.();
+        delete badge._toolshedActualiseMonthTooltip;
+    }
+
+    function ensureTooltip(badge, text) {
+        let tooltip = badge._toolshedActualiseMonthTooltip;
+        if (!tooltip || !tooltip.isConnected) {
+            tooltip = badge.ownerDocument.createElement('div');
+            tooltip.className = TOOLTIP_CLASS;
+            tooltip.id = `${TOOLTIP_CLASS}-${++tooltipSequence}`;
+            tooltip.setAttribute('role', 'tooltip');
+            tooltip.hidden = true;
+            (badge.ownerDocument.body || badge.ownerDocument.documentElement).appendChild(tooltip);
+            badge._toolshedActualiseMonthTooltip = tooltip;
+
+            const show = () => {
+                tooltip.hidden = false;
+                positionTooltip(badge, tooltip);
+            };
+            const hide = () => { tooltip.hidden = true; };
+            badge.addEventListener('mouseenter', show);
+            badge.addEventListener('focus', show);
+            badge.addEventListener('mouseleave', hide);
+            badge.addEventListener('blur', hide);
+            window.addEventListener('resize', () => {
+                if (!tooltip.hidden) positionTooltip(badge, tooltip);
+            });
+        }
+        tooltip.textContent = text;
+        badge.setAttribute('aria-describedby', tooltip.id);
+    }
+
     function removeBadges(root = document) {
-        root.querySelectorAll(`.${BADGE_CLASS}`).forEach(badge => badge.remove());
+        root.querySelectorAll(`.${BADGE_CLASS}`).forEach(badge => {
+            removeTooltip(badge);
+            badge.remove();
+        });
     }
 
     function renderActualiseMonth(assessment, root = document) {
@@ -222,11 +277,13 @@
         badge.textContent = isCorrect
             ? 'Correct Month'
             : assessment.status === 'checking' ? 'Checking Month' : 'Check Month';
-        badge.title = assessment.reason || '';
+        badge.removeAttribute('title');
         badge.setAttribute('role', 'status');
         badge.setAttribute('aria-label', badge.textContent);
         badge.dataset.toolshedActualiseMonthStatus = assessment.status;
         if (assessment.expectedMonth) badge.dataset.toolshedActualiseMonth = assessment.expectedMonth;
+        if (assessment.reason) ensureTooltip(badge, assessment.reason);
+        else removeTooltip(badge);
 
         const dstBadge = workflowWidget.querySelector('.toolshed-dst-assurance');
         const gmiChatButton = workflowWidget.querySelector('.gmi-chat-button');

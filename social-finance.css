@@ -522,6 +522,9 @@ button:active { transform: translateY(1px); }
 }
 .action-headline-copy strong { display: block; font-size: clamp(18px, 2.2vw, 24px); }
 .action-headline-copy span { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.action-category-totals { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 13px; }
+.action-category-totals > span { display: inline-flex; align-items: baseline; gap: 5px; margin: 0; }
+.action-category-totals > span > strong { display: inline; color: var(--ink); font-size: 15px; font-variant-numeric: tabular-nums; }
 .action-headline button { flex: 0 0 auto; }
 .evidence-tooltip { position: relative; display: inline-flex; cursor: help; outline: none; }
 .evidence-tooltip:focus-visible { border-radius: 4px; box-shadow: 0 0 0 3px rgba(232, 47, 121, .24); }

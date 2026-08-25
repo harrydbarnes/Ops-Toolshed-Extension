@@ -36,6 +36,7 @@ const FEATURE_TOGGLE_KEYS = {
     approverWidgetPlacementToggle: 'approverWidgetPlacementEnabled',
     dstAssuranceToggle: 'dstAssuranceEnabled',
     budgetWidgetOptimisedToggle: 'budgetWidgetOptimisedEnabled',
+    productCodeLimitWarningToggle: 'productCodeLimitWarningEnabled',
     newOrderUiOptimisationToggle: 'newOrderUiOptimisationEnabled',
     seeCommentsOnLockedBuysToggle: 'alwaysShowCommentsEnabled',
     gmiChatShortcutToggle: 'gmiChatShortcutEnabled',
@@ -58,14 +59,16 @@ function readStorage(store, keys) {
     return { ...store };
 }
 
-async function createSettingsPage() {
+async function createSettingsPage(ignoredProductCodes = []) {
     const dom = new JSDOM(settingsHtml, {
         url: 'chrome-extension://test/settings.html#features',
         runScripts: 'outside-only'
     });
     const { window } = dom;
     const syncStore = { ...FEATURE_SETTINGS_DEFAULTS };
-    const localStore = {};
+    const localStore = ignoredProductCodes.length
+        ? { productCodeLimitWarningIgnored: [...ignoredProductCodes] }
+        : {};
 
     window.chrome = {
         runtime: {
@@ -99,7 +102,12 @@ async function createSettingsPage() {
                     callback?.();
                     return Promise.resolve();
                 }),
-                remove: jest.fn((_keys, callback) => callback?.())
+                remove: jest.fn((keys, callback) => {
+                    const keysToRemove = Array.isArray(keys) ? keys : [keys];
+                    keysToRemove.forEach(key => delete localStore[key]);
+                    callback?.();
+                    return Promise.resolve();
+                })
             },
             onChanged: { addListener: jest.fn() }
         },
@@ -119,7 +127,7 @@ async function createSettingsPage() {
     for (let index = 0; index < 10; index += 1) await Promise.resolve();
     window.chrome.storage.sync.set.mockClear();
 
-    return { dom, window };
+    return { dom, window, localStore };
 }
 
 describe('Settings feature toggle contract', () => {
@@ -147,6 +155,37 @@ describe('Settings feature toggle contract', () => {
         }
 
         for (let index = 0; index < 5; index += 1) await Promise.resolve();
+        dom.window.close();
+    });
+
+    test('resets ignored Product Code Limit Warning dismissals from its contextual action', async () => {
+        const { dom, window, localStore } = await createSettingsPage(['d|b97|81']);
+        window.chrome.tabs.query.mockImplementation((_query, callback) => callback([{ id: 42 }]));
+
+        const resetButton = window.document.getElementById('resetProductCodeWarningIgnoredButton');
+        const status = window.document.getElementById('productCodeWarningIgnoredStatus');
+        expect(resetButton).not.toBeNull();
+        expect(resetButton.disabled).toBe(false);
+        expect(status.textContent).toContain('1 ignored');
+
+        resetButton.click();
+        const confirmation = window.document.getElementById('confirmation-popup');
+        expect(confirmation.textContent).toContain('previously ignored');
+        confirmation.querySelector('#confirm-action-btn').click();
+        await Promise.resolve();
+
+        expect(window.chrome.storage.local.remove).toHaveBeenCalledWith(
+            'productCodeLimitWarningIgnored',
+            expect.any(Function)
+        );
+        expect(localStore.productCodeLimitWarningIgnored).toBeUndefined();
+        expect(window.chrome.tabs.sendMessage).toHaveBeenCalledWith(
+            42,
+            { action: 'resetProductCodeLimitWarningIgnores' }
+        );
+        expect(status.textContent).toContain('No ignored');
+        expect(window.document.getElementById('toast-notification').classList).toContain('show');
+
         dom.window.close();
     });
 });

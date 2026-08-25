@@ -133,8 +133,8 @@
         }, window.location.origin);
     });
 
-    function isActualiseRequest(url, body) {
-        return ACTUALISE_ENDPOINT_PATTERN.test(String(url || '')) && Boolean(getRequestMonth(body));
+    function isActualiseRequest(url) {
+        return ACTUALISE_ENDPOINT_PATTERN.test(String(url || ''));
     }
 
     function getXhrResponseText(xhr) {
@@ -159,8 +159,9 @@
 
         XHR.prototype.send = function(body) {
             const state = xhrStates.get(this);
-            const requestMonth = getRequestMonth(body);
-            if (state && isActualiseRequest(state.url, body)) {
+            if (state && isActualiseRequest(state.url)) {
+                const requestMonth = getRequestMonth(body);
+                if (!requestMonth) return originalSend.call(this, body);
                 this.addEventListener('load', () => {
                     if (this.status >= 200 && this.status < 300) {
                         publishEvidence(requestMonth, getXhrResponseText(this));
@@ -175,11 +176,11 @@
     if (typeof originalFetch === 'function') {
         window.fetch = function(input, init) {
             const url = typeof input === 'string' ? input : input?.url;
-            const body = init?.body;
-            const requestMonth = getRequestMonth(body);
-            const responsePromise = originalFetch.apply(this, arguments);
-            if (!isActualiseRequest(url, body)) return responsePromise;
+            if (!isActualiseRequest(url)) return originalFetch.apply(this, arguments);
 
+            const requestMonth = getRequestMonth(init?.body);
+            const responsePromise = originalFetch.apply(this, arguments);
+            if (!requestMonth) return responsePromise;
             return Promise.resolve(responsePromise).then(response => {
                 const responseClone = response?.clone?.();
                 if (responseClone?.text) {

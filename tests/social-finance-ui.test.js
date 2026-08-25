@@ -131,6 +131,7 @@ describe('Social Booking Checker upload guidance', () => {
         expect(settingsText).toContain('differences of 1 or less in the Meta account currency');
         expect(settingsText).toContain('Month closes after (working days)');
         expect(settingsText).toContain('working days from month-end');
+        expect(document.querySelector('#closedWorkingDay').closest('label').querySelector('[data-tooltip]').dataset.tooltip).toContain('A £0 campaign is monitored');
         expect(document.querySelector('#runComparison').textContent).toBe('Compare bookings');
     });
 
@@ -239,6 +240,8 @@ describe('Social Booking Checker upload guidance', () => {
         expect(css).toContain('.evidence-tooltip:hover::after');
         expect(css).toContain('.evidence-tooltip:focus-visible::after');
         expect(css).toContain('.tooltip-icon');
+        expect(script).toContain('Campaign counts are not compared because POs can create more or fewer Prisma campaigns');
+        expect(script).toContain('action-category-totals');
     });
 
     test('provides a large local-only workspace for matching unmatched Meta spend', () => {

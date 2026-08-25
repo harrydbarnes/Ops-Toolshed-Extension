@@ -31,12 +31,44 @@
     ]);
     const DST_RATE = 0.02;
     const AMOUNT_TOLERANCE = 0.01;
+    const DST_START_MONTH = '2026-07';
+    const DST_START_DATE = Date.UTC(2026, 6, 1);
+    const MONTH_NUMBERS = Object.freeze({
+        jan: 1,
+        january: 1,
+        feb: 2,
+        february: 2,
+        mar: 3,
+        march: 3,
+        apr: 4,
+        april: 4,
+        may: 5,
+        jun: 6,
+        june: 6,
+        jul: 7,
+        july: 7,
+        aug: 8,
+        august: 8,
+        sep: 9,
+        sept: 9,
+        september: 9,
+        oct: 10,
+        october: 10,
+        nov: 11,
+        november: 11,
+        dec: 12,
+        december: 12
+    });
+    const MONTH_HEADER_PATTERN = /\b(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\s+(\d{2}|\d{4})\b/i;
     const TOOLTIP_CLASS = `${BADGE_CLASS}-tooltip`;
     const TOOLTIP_GAP_PX = 8;
     const TOOLTIP_DISMISS_DELAY_MS = 800;
     const PINNED_TOOLTIP_DISMISS_DELAY_MS = 2000;
     const WRONG_SUPPLIER_TOOLTIP =
         'Check Meta Location Fee is booked to the correct supplier, and not the standard Facebook media supplier';
+    const STRADDLING_META_TOOLTIP =
+        'This booking straddles the Meta DST introduction period from July 2026. ' +
+        'Please verify the Meta Location Fee is booked correctly in Flighting Layout.';
     const GOOGLE_COST_ADVISORY_TOOLTIP =
         'Please verify Google DST cost is correct, as that is not checked currently';
     const AMAZON_COST_ADVISORY_TOOLTIP =
@@ -63,12 +95,90 @@
         return isParenthesized ? -amount : amount;
     }
 
+    function parseDateValue(value) {
+        const text = normalizeText(value);
+        if (!text) return null;
+
+        const match = text.match(/^(?:(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})|(\d{4})[\/.\-](\d{1,2})[\/.\-](\d{1,2}))(?:\b|$)/);
+        if (!match) return null;
+
+        const day = Number(match[1] || match[6]);
+        const month = Number(match[2] || match[5]);
+        const year = Number(match[3] || match[4]);
+        if (!Number.isInteger(day) || !Number.isInteger(month) || !Number.isInteger(year)) {
+            return null;
+        }
+
+        const timestamp = Date.UTC(year, month - 1, day);
+        const date = new Date(timestamp);
+        return date.getUTCFullYear() === year &&
+            date.getUTCMonth() === month - 1 &&
+            date.getUTCDate() === day
+            ? timestamp
+            : null;
+    }
+
     function roundToPence(amount) {
         return Math.round((amount + Number.EPSILON) * 100) / 100;
     }
 
     function formatAmount(amount) {
         return Number.isFinite(amount) ? `£${amount.toFixed(2)}` : 'an unreadable amount';
+    }
+
+    function parseMonthKey(value) {
+        const match = normalizeText(value).match(MONTH_HEADER_PATTERN);
+        if (!match) return null;
+
+        const monthNumber = MONTH_NUMBERS[match[1].toLowerCase()];
+        let year = Number(match[2]);
+        if (!monthNumber || !Number.isFinite(year)) return null;
+        if (year < 100) year += 2000;
+
+        return `${year}-${String(monthNumber).padStart(2, '0')}`;
+    }
+
+    function getFlightingMonthColumns(table, tableRows = null) {
+        const rows = tableRows || Array.from(table.querySelectorAll('tr'));
+        const monthHeaderRowIndex = rows.findIndex((row, rowIndex) => {
+            const followingRow = rows[rowIndex + 1];
+            if (!followingRow) return false;
+
+            return Array.from(row.children).some((cell, columnIndex) => {
+                const monthKey = parseMonthKey(cell.textContent);
+                const subHeader = followingRow.children[columnIndex];
+                return monthKey && normalizeText(subHeader?.textContent).toLowerCase() === 'planned cost';
+            });
+        });
+        if (monthHeaderRowIndex < 0) return [];
+
+        const monthHeaderRow = rows[monthHeaderRowIndex];
+        const plannedCostHeaderRow = rows[monthHeaderRowIndex + 1];
+
+        return Array.from(monthHeaderRow.children).map((cell, columnIndex) => {
+            const monthKey = parseMonthKey(cell.textContent);
+            const subHeader = plannedCostHeaderRow.children[columnIndex];
+            if (!monthKey || normalizeText(subHeader?.textContent).toLowerCase() !== 'planned cost') {
+                return null;
+            }
+
+            return { monthKey, columnIndex };
+        }).filter(Boolean);
+    }
+
+    function summarizePlannedCosts(monthCostCells, minimumMonthKey = null) {
+        const applicableCells = monthCostCells.filter(month =>
+            !minimumMonthKey || month.monthKey >= minimumMonthKey
+        );
+        const plannedAmountsReadable = applicableCells.every(month => Number.isFinite(month.amount));
+
+        return {
+            plannedAmount: plannedAmountsReadable && applicableCells.length > 0
+                ? roundToPence(applicableCells.reduce((total, month) => total + month.amount, 0))
+                : null,
+            hasPlannedValue: applicableCells.some(month => normalizeText(month.cell?.textContent)),
+            monthCostCells: applicableCells
+        };
     }
 
     function getCanonicalTable(root = document) {
@@ -83,11 +193,14 @@
         return matchingClass ? Number(matchingClass[1]) : null;
     }
 
-    function getColumnIndexes(table) {
-        const headerRow = Array.from(table.querySelectorAll('tr')).find(row =>
+    function getColumnIndexes(table, tableRows = null) {
+        const rows = tableRows || Array.from(table.querySelectorAll('tr'));
+        const headerRow = rows.find(row =>
             Array.from(row.children).some(cell => normalizeText(cell.textContent).toLowerCase() === 'cost')
         );
-        if (!headerRow) return { nameIndex: 3, costIndex: 8 };
+        if (!headerRow) {
+            return { nameIndex: 3, costIndex: 8, startDateIndex: 5, endDateIndex: 6 };
+        }
 
         const headerCells = Array.from(headerRow.children);
         const findHeaderIndex = headerName => headerCells.findIndex(cell =>
@@ -96,13 +209,16 @@
 
         return {
             nameIndex: findHeaderIndex('name') >= 0 ? findHeaderIndex('name') : 3,
-            costIndex: findHeaderIndex('cost') >= 0 ? findHeaderIndex('cost') : 8
+            costIndex: findHeaderIndex('cost') >= 0 ? findHeaderIndex('cost') : 8,
+            startDateIndex: findHeaderIndex('start date') >= 0 ? findHeaderIndex('start date') : 5,
+            endDateIndex: findHeaderIndex('end date') >= 0 ? findHeaderIndex('end date') : 6
         };
     }
 
-    function getRows(table) {
-        const { nameIndex, costIndex } = getColumnIndexes(table);
-        return Array.from(table.querySelectorAll('tr')).map((row, index) => {
+    function getRows(table, monthColumns = [], tableRows = null) {
+        const rows = tableRows || Array.from(table.querySelectorAll('tr'));
+        const { nameIndex, costIndex, startDateIndex, endDateIndex } = getColumnIndexes(table, rows);
+        return rows.map((row, index) => {
             const nameCell = row.children[nameIndex] || row.querySelector('.hierarchical-name');
             const name = normalizeText(nameCell?.textContent);
             const groupLevel = getNumericClassValue(nameCell, /^hierarchical-level-group-(\d+)$/);
@@ -110,11 +226,32 @@
             const isGroup = Boolean(
                 nameCell?.classList.contains('group-cell') || groupLevel !== null
             );
+            // Only supplier/group rows participate in the DST checks. Avoid
+            // reading every monthly cell for every placement row in a large
+            // Handsontable; the row names and hierarchy are still collected so
+            // section ranges remain correct.
+            const monthCostCells = groupLevel === 1
+                ? monthColumns.map(month => {
+                    const cell = row.children[month.columnIndex] || null;
+                    const text = normalizeText(cell?.textContent);
+                    return {
+                        monthKey: month.monthKey,
+                        cell,
+                        amount: text ? parseAmount(text) : 0
+                    };
+                })
+                : [];
+            const plannedCosts = monthCostCells.length
+                ? summarizePlannedCosts(monthCostCells)
+                : { plannedAmount: null, hasPlannedValue: false, monthCostCells };
 
             return {
                 index,
                 name,
                 amount: parseAmount(row.children[costIndex]?.textContent),
+                startDate: parseDateValue(row.children[startDateIndex]?.textContent),
+                endDate: parseDateValue(row.children[endDateIndex]?.textContent),
+                ...plannedCosts,
                 nameCell,
                 costCell: row.children[costIndex] || null,
                 groupLevel,
@@ -142,6 +279,59 @@
             start,
             end: nextTopLevelGroup >= 0 ? nextTopLevelGroup : rows.length
         };
+    }
+
+    function getDescendantRows(rows, groupRow, rangeEnd) {
+        const descendants = [groupRow];
+
+        for (let index = groupRow.index + 1; index < rangeEnd; index += 1) {
+            const row = rows[index];
+            if (row.isGroup && row.groupLevel !== null && row.groupLevel <= groupRow.groupLevel) {
+                break;
+            }
+            descendants.push(row);
+        }
+
+        return descendants;
+    }
+
+    function getFacebookDateCoverage(rows, facebookSupplierRows, displayRange) {
+        const starts = [];
+        const ends = [];
+
+        facebookSupplierRows.forEach(supplierRow => {
+            const descendants = getDescendantRows(rows, supplierRow, displayRange.end);
+            descendants.forEach(row => {
+                if (Number.isFinite(row.startDate)) starts.push(row.startDate);
+                if (Number.isFinite(row.endDate)) ends.push(row.endDate);
+            });
+        });
+
+        if (!starts.length || !ends.length) return null;
+
+        return {
+            start: Math.min(...starts),
+            end: Math.max(...ends)
+        };
+    }
+
+    function getMetaDateCoverageStatus(coverage) {
+        if (!coverage) return 'unknown';
+        if (coverage.end < DST_START_DATE) return 'pre-july';
+        if (coverage.start >= DST_START_DATE) return 'post-july';
+        return 'straddling';
+    }
+
+    function getMetaFeeRows(rows, feeRange) {
+        if (!feeRange) return [];
+
+        return rows.slice(feeRange.start + 1, feeRange.end)
+            .filter(row => row.isGroup && row.groupLevel === 1 && DST_FEE_PATTERN.test(row.name))
+            .map(row => ({
+                ...row,
+                supplier: row.name,
+                supplierCorrect: isExpectedDstSupplier(row.name)
+            }));
     }
 
     function isFacebookSupplier(name) {
@@ -188,38 +378,77 @@
         return pattern.test(normalizeText(name));
     }
 
-    function assessMetaDst(rows, displayRange, feeRange) {
+    function assessMetaDst(rows, displayRange, feeRange, monthColumns = []) {
         if (!displayRange) return createHiddenAssessment();
 
         const facebookSupplierRows = rows
             .slice(displayRange.start + 1, displayRange.end)
             .filter(row => row.isGroup && row.groupLevel === 1 && isFacebookSupplier(row.name));
+        if (!facebookSupplierRows.length) return createHiddenAssessment();
 
-        const mediaAmounts = facebookSupplierRows.map(row => row.amount);
-        if (!facebookSupplierRows.length || mediaAmounts.some(amount => !Number.isFinite(amount))) {
+        const dateCoverage = getFacebookDateCoverage(rows, facebookSupplierRows, displayRange);
+        const dateCoverageStatus = getMetaDateCoverageStatus(dateCoverage);
+        if (dateCoverageStatus === 'unknown' || dateCoverageStatus === 'pre-july') {
+            return createHiddenAssessment();
+        }
+
+        const baseDstFeeRows = getMetaFeeRows(rows, feeRange);
+        if (dateCoverageStatus === 'straddling' && monthColumns.length === 0) {
+            const supplierCorrect = baseDstFeeRows.length > 0 &&
+                baseDstFeeRows.every(row => row.supplierCorrect);
+            const tooltipParts = [];
+
+            if (!baseDstFeeRows.length) {
+                tooltipParts.push('Meta Location Fee has not been booked for the Facebook media supplier.');
+            } else if (!supplierCorrect) {
+                tooltipParts.push(WRONG_SUPPLIER_TOOLTIP);
+            }
+            tooltipParts.push(STRADDLING_META_TOOLTIP);
+
+            return {
+                kind: 'meta',
+                eligible: true,
+                status: 'incorrect',
+                mediaBooked: null,
+                feeBooked: null,
+                expectedFee: null,
+                supplierCorrect,
+                amountCorrect: false,
+                dstFeeRows: baseDstFeeRows.map(row => ({
+                    ...row,
+                    kind: 'meta',
+                    amountCheck: false,
+                    amountCorrect: false
+                })),
+                tooltip: tooltipParts.join(' ')
+            };
+        }
+
+        const mediaAmounts = monthColumns.length
+            ? facebookSupplierRows.map(row =>
+                summarizePlannedCosts(row.monthCostCells, DST_START_MONTH).plannedAmount
+            )
+            : facebookSupplierRows.map(row => row.amount);
+        if (mediaAmounts.some(amount => !Number.isFinite(amount)) ||
+            mediaAmounts.every(amount => amount <= 0)) {
             return createHiddenAssessment();
         }
 
         const mediaBooked = roundToPence(mediaAmounts.reduce((total, amount) => total + amount, 0));
         const expectedFee = roundToPence(mediaBooked * DST_RATE);
-        const dstFeeRows = [];
-
-        if (feeRange) {
-            rows.slice(feeRange.start + 1, feeRange.end).forEach(row => {
+        const dstFeeRows = monthColumns.length
+            ? baseDstFeeRows.flatMap(row => {
                 // The fee supplier/group row carries the authoritative DST
                 // description and cost. The child booking name can vary
                 // (for example, "Meta Location Fee 2%") and is irrelevant.
-                if (row.isGroup && row.groupLevel === 1 && DST_FEE_PATTERN.test(row.name)) {
-                    dstFeeRows.push({
-                        ...row,
-                        supplier: row.name,
-                        supplierCorrect: isExpectedDstSupplier(row.name)
-                    });
-                }
-            });
-        }
+                const metaPlannedCosts = summarizePlannedCosts(row.monthCostCells, DST_START_MONTH);
+                return metaPlannedCosts.hasPlannedValue
+                    ? [{ ...row, ...metaPlannedCosts }]
+                    : [];
+            })
+            : baseDstFeeRows;
 
-        const feeAmounts = dstFeeRows.map(row => row.amount);
+        const feeAmounts = dstFeeRows.map(row => monthColumns.length ? row.plannedAmount : row.amount);
         const feeAmountsReadable = feeAmounts.every(amount => Number.isFinite(amount));
         const feeBooked = feeAmountsReadable
             ? roundToPence(feeAmounts.reduce((total, amount) => total + amount, 0))
@@ -235,7 +464,7 @@
             if (!supplierCorrect) tooltipParts.push(WRONG_SUPPLIER_TOOLTIP);
             if (!amountCorrect) {
                 tooltipParts.push(
-                    `Check Meta Location Fee is 2% of Facebook media booked ` +
+                    `Check Meta Location Fee is 2% of Facebook media booked from July 2026 onwards ` +
                     `(${formatAmount(expectedFee)} expected; ${formatAmount(feeBooked)} booked).`
                 );
             }
@@ -391,11 +620,13 @@
         const table = getCanonicalTable(root);
         if (!table) return createHiddenAssessment();
 
-        const rows = getRows(table);
+        const tableRows = Array.from(table.querySelectorAll('tr'));
+        const monthColumns = getFlightingMonthColumns(table, tableRows);
+        const rows = getRows(table, monthColumns, tableRows);
         const displayRange = getSectionRange(rows, 'display');
         const feeRange = getSectionRange(rows, 'fee');
         return combineAssessments([
-            assessMetaDst(rows, displayRange, feeRange),
+            assessMetaDst(rows, displayRange, feeRange, monthColumns),
             assessGoogleDst(rows, feeRange),
             assessAmazonDst(rows, feeRange)
         ]);
@@ -581,7 +812,7 @@
     }
 
     function removeBadges(root = document) {
-        root.querySelectorAll(`.${BADGE_CLASS}`).forEach(removeBadge);
+        root.querySelectorAll(`.workflow-widget-wrapper .${BADGE_CLASS}`).forEach(removeBadge);
     }
 
     function getEquivalentGridCells(cell, root) {
@@ -615,7 +846,13 @@
                 getEquivalentGridCells(row.nameCell, root).forEach(cell => targets.add(cell));
             }
             if (row.amountCheck && !row.amountCorrect) {
-                getEquivalentGridCells(row.costCell, root).forEach(cell => targets.add(cell));
+                const monthlyCostCells = (row.monthCostCells || [])
+                    .map(month => month.cell)
+                    .filter(Boolean);
+                const costCells = monthlyCostCells.length ? monthlyCostCells : [row.costCell];
+                costCells.forEach(costCell => {
+                    getEquivalentGridCells(costCell, root).forEach(cell => targets.add(cell));
+                });
             }
         });
 
@@ -634,7 +871,12 @@
 
     function renderDstCellHighlights(assessment, root = document) {
         const targets = getDstWarningTargets(assessment, root);
-        const hasExistingWarnings = root.querySelector(
+        const gridRoot = root.matches?.('#grid-container_hot')
+            ? root
+            : root.querySelector?.('#grid-container_hot');
+        if (!gridRoot) return;
+
+        const hasExistingWarnings = gridRoot.querySelector(
             `.${WARNING_CELL_CLASS}, [${WARNING_CELL_ATTRIBUTE}]`
         );
         const hasAuthoritativeDstRows = assessment?.eligible &&
@@ -645,7 +887,7 @@
         // pass; the next complete assessment will either retarget or clear it.
         if (assessment?.eligible && !hasAuthoritativeDstRows && hasExistingWarnings) return;
 
-        root.querySelectorAll(`.${WARNING_CELL_CLASS}, [${WARNING_CELL_ATTRIBUTE}]`).forEach(cell => {
+        gridRoot.querySelectorAll(`.${WARNING_CELL_CLASS}, [${WARNING_CELL_ATTRIBUTE}]`).forEach(cell => {
             if (!targets.has(cell)) clearDstWarningCell(cell);
         });
 
@@ -653,13 +895,15 @@
     }
 
     function renderDstAssurance(assessment, root = document) {
-        const workflowWidget = root.querySelector('.workflow-widget-wrapper');
+        const workflowWidget = root.matches?.('.workflow-widget-wrapper')
+            ? root
+            : root.querySelector?.('.workflow-widget-wrapper');
         if (!enabled || !workflowWidget || !assessment?.eligible) {
             removeBadges(root);
             return null;
         }
 
-        const badges = Array.from(root.querySelectorAll(`.${BADGE_CLASS}`));
+        const badges = Array.from(workflowWidget.querySelectorAll(`.${BADGE_CLASS}`));
         const badge = workflowWidget.querySelector(`.${BADGE_CLASS}`) ||
             workflowWidget.ownerDocument.createElement('span');
         badges.forEach(existingBadge => {
@@ -701,12 +945,13 @@
     }
 
     function apply() {
-        const assessment = assessDstAssurance();
         if (!enabled) {
             renderDstCellHighlights({ eligible: false });
-            renderDstAssurance(assessment);
-            return assessment;
+            const hiddenAssessment = createHiddenAssessment();
+            renderDstAssurance(hiddenAssessment);
+            return hiddenAssessment;
         }
+        const assessment = assessDstAssurance();
         renderDstCellHighlights(assessment);
         renderDstAssurance(assessment);
         return assessment;
@@ -715,13 +960,17 @@
     function initialize() {
         if (initialized) return;
         initialized = true;
-        apply();
 
-        if (typeof chrome === 'undefined' || !chrome.storage?.sync?.get) return;
+        if (typeof chrome === 'undefined' || !chrome.storage?.sync?.get) {
+            apply();
+            return;
+        }
 
         try {
             chrome.storage.sync.get('dstAssuranceEnabled', data => {
                 enabled = data?.dstAssuranceEnabled !== false;
+                // Do not parse a potentially large Prisma grid until the
+                // setting has confirmed the feature is enabled.
                 apply();
             });
         } catch (error) {

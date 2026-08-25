@@ -11,6 +11,7 @@
     // using its native <mo-side-panel> host. Treat that region as side-panel
     // work so approval-only spinners do not look like page loading.
     const SIDE_PANEL_ANCESTOR_SELECTOR = 'mo-side-panel, .mo-side-panel, .workflow-widget-wrapper';
+    const SHADOW_HOST_SELECTOR = 'mo-side-panel, mo-spinner';
     const candidates = new Set();
     const listeners = new Set();
     const observedRoots = new WeakSet();
@@ -48,24 +49,40 @@
         if (!root.querySelectorAll) return;
 
         root.querySelectorAll(SPINNER_SELECTOR).forEach(registerCandidate);
-        root.querySelectorAll('*').forEach(element => {
+        root.querySelectorAll(SHADOW_HOST_SELECTOR).forEach(element => {
             if (element.shadowRoot) observeRoot(element.shadowRoot);
         });
         if (root.shadowRoot) observeRoot(root.shadowRoot);
     }
 
+    function isShadowHost(root) {
+        return root?.nodeType === Node.ELEMENT_NODE &&
+            root.matches?.(SHADOW_HOST_SELECTOR);
+    }
+
     function handleMutations(records) {
         records.forEach(record => {
             if (record.type === 'attributes') {
-                pendingRoots.add(record.target);
+                if (record.target?.matches?.(SPINNER_SELECTOR) || isShadowHost(record.target)) {
+                    pendingRoots.add(record.target);
+                }
             }
             record.addedNodes?.forEach(node => {
-                if (node.nodeType === Node.ELEMENT_NODE || node.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+                if (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
+                    return;
+                }
+
+                // The document observer sees every change to a campaign grid.
+                // Only spinner candidates and the small set of hosts that can
+                // contain a spinner Shadow DOM need re-indexing. Scanning all
+                // arbitrary added nodes makes large campaigns block Chrome.
+                if (node.matches?.(SPINNER_SELECTOR) || isShadowHost(node) ||
+                    isShadowHost(record.target) || record.target instanceof ShadowRoot) {
                     pendingRoots.add(node);
                 }
             });
         });
-        scheduleRefresh();
+        if (pendingRoots.size > 0) scheduleRefresh();
     }
 
     function observeRoot(root) {

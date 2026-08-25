@@ -62,6 +62,26 @@ describe('loading-time collection', () => {
         dom.window.close();
     });
 
+    test('records only one visit when Prisma rewrites the same campaign route', () => {
+        const sendMessage = jest.fn().mockResolvedValue({ status: 'success' });
+        const { dom, window } = createCollector(
+            'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP3BP6L&ptb-mod=buy',
+            sendMessage
+        );
+
+        window.statsCollector.trackCampaignId();
+        window.history.replaceState({}, '', '#campaign-id=CP3BP6L&ptb-mod=buy&route=online');
+        window.statsCollector.trackCampaignId();
+
+        expect(sendMessage).toHaveBeenCalledTimes(1);
+        expect(sendMessage).toHaveBeenCalledWith({
+            action: 'TRACK_STAT',
+            type: 'CAMPAIGN_VISIT',
+            value: 'CP3BP6L'
+        });
+        dom.window.close();
+    });
+
     test('keeps one continuous timer while visible spinner elements are replaced', () => {
         const { dom, window, setNow } = createCollector();
         const first = makeVisible(window.document.createElement('mo-spinner'));
@@ -163,6 +183,32 @@ describe('loading-time collection', () => {
             type: 'LOADING_TIME',
             value: { seconds: 1, area: 'plan' }
         });
+        dom.window.close();
+    });
+
+    test('does not add a second shared loading-monitor subscriber during startup', () => {
+        const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+            runScripts: 'dangerously',
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/'
+        });
+        const { window } = dom;
+        const subscribe = jest.fn();
+        window.chrome = {
+            runtime: { sendMessage: jest.fn() },
+            storage: {
+                sync: { get: jest.fn((_key, callback) => callback({ statsCollectorEnabled: true })) },
+                onChanged: { addListener: jest.fn() }
+            }
+        };
+        window.loadingMonitor = {
+            subscribe,
+            getState: jest.fn(() => ({ visibleSpinners: [] }))
+        };
+        window.eval(utilsCode);
+        window.eval(statsCode);
+        window.statsCollector.initialize();
+
+        expect(subscribe).not.toHaveBeenCalled();
         dom.window.close();
     });
 

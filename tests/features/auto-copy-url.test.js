@@ -159,6 +159,23 @@ describe('Auto Copy Campaign URL Feature', () => {
         expect(document.querySelector('mo-icon[name="link"]').classList).not.toContain('auto-copy-icon');
     });
 
+    test('starts cue tracking only when the disabled feature is enabled', async () => {
+        setupDom(false);
+        const storageListener = window.chrome.storage.onChanged.addListener.mock.calls[0][0];
+        storageListener({ autoCopyUrlEnabled: { newValue: true } }, 'sync');
+
+        const replacementPopover = document.createElement('mo-popover');
+        const replacementIcon = document.createElement('mo-icon');
+        replacementIcon.setAttribute('name', 'link');
+        replacementPopover.appendChild(replacementIcon);
+        document.querySelector('mo-banner').appendChild(replacementPopover);
+
+        await Promise.resolve();
+        jest.runOnlyPendingTimers();
+
+        expect(replacementIcon.classList).toContain('auto-copy-icon');
+    });
+
     test('does not rescan the page when the global content refresh calls it again', () => {
         setupDom(true);
         const pageScan = jest.spyOn(document.documentElement, 'querySelectorAll');
@@ -221,5 +238,21 @@ describe('Auto Copy Campaign URL Feature', () => {
         expect(nestedIcon.classList).toContain('auto-copy-icon');
         expect(unrelatedIcon.classList).not.toContain('auto-copy-icon');
         expect(pageScan).not.toHaveBeenCalledWith('*');
+    });
+
+    test('ignores large unrelated Prisma render batches', async () => {
+        setupDom(true);
+        const unrelatedRoot = document.createElement('div');
+        const querySpy = jest.spyOn(unrelatedRoot, 'querySelectorAll');
+        document.body.appendChild(unrelatedRoot);
+
+        for (let index = 0; index < 250; index += 1) {
+            unrelatedRoot.appendChild(document.createElement('div'));
+        }
+
+        await Promise.resolve();
+        jest.runOnlyPendingTimers();
+
+        expect(querySpy).not.toHaveBeenCalled();
     });
 });

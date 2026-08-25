@@ -35,6 +35,7 @@ const EXPECTED_DEFAULTS = {
     approverWidgetPlacementEnabled: true,
     dstAssuranceEnabled: true,
     actualiseMonthAssuranceEnabled: true,
+    productCodeLimitWarningEnabled: true,
     quickCampaignActionsEnabled: true,
     budgetWidgetOptimisedEnabled: true,
     campaignNameQuickCopyEnabled: true,

@@ -24,7 +24,10 @@ describe('Mediaocean frame execution boundary', () => {
         expect(registration).toMatchObject({
             matches: ['https://*.mediaocean.com/idesk/prisma-campaign-details/*'],
             all_frames: true,
-            js: ['features/campaign-details-focus.js']
+            js: [
+                'features/campaign-details-focus.js',
+                'features/campaign-add-sections.js'
+            ]
         });
         expect(campaignFeature).not.toContain("request?.action !== 'focusCampaignDetailsBasic'");
     });

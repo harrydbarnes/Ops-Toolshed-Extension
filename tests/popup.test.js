@@ -41,6 +41,17 @@ describe('buildDisabledFeatureState', () => {
         ]);
         expect(backup.customReminders).toEqual(currentSettings.customReminders);
     });
+
+    test('includes newer campaign features in the global kill switch', () => {
+        expect(FEATURE_SETTING_KEYS).toEqual(expect.arrayContaining([
+            'dstAssuranceEnabled',
+            'actualiseMonthAssuranceEnabled',
+            'maxCampaignBudgetEnabled',
+            'actualiseBulkExportEnabled',
+            'helpGuidesEnabled',
+            'directMoeChatEnabled'
+        ]));
+    });
 });
 
 describe('generateUrlFromData', () => {

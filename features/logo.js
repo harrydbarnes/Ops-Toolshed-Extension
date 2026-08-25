@@ -3,6 +3,39 @@
 
     // Local cache for settings
     let isLogoReplaceEnabled = true;
+    const MAX_SHADOW_ROOTS_TO_CHECK = 24;
+    const MAX_ELEMENTS_TO_WALK = 300;
+
+    // Prisma's campaign workspace can keep a very large, changing grid in the
+    // light DOM.  The old helper recursively called querySelectorAll('*') for
+    // every open shadow root, which made a small cosmetic logo check compete
+    // with that render work.  Walk a small, early portion of the component
+    // shell instead: the logo is part of the header and is encountered there.
+    function findInHeaderShadowRoots(selector) {
+        const directMatch = document.querySelector(selector);
+        if (directMatch) return directMatch;
+
+        const roots = [document];
+        let rootsChecked = 0;
+        let elementsWalked = 0;
+
+        while (roots.length && rootsChecked < MAX_SHADOW_ROOTS_TO_CHECK && elementsWalked < MAX_ELEMENTS_TO_WALK) {
+            const root = roots.shift();
+            rootsChecked += 1;
+
+            const directRootMatch = root === document ? null : root.querySelector?.(selector);
+            if (directRootMatch) return directRootMatch;
+
+            const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+            let element;
+            while ((element = walker.nextNode()) && elementsWalked < MAX_ELEMENTS_TO_WALK) {
+                elementsWalked += 1;
+                if (element.shadowRoot) roots.push(element.shadowRoot);
+            }
+        }
+
+        return null;
+    }
 
     // Initialize cache and listener
     if (chrome.runtime && chrome.runtime.id) {
@@ -37,8 +70,7 @@
             return;
         }
 
-        // Use the utility function from utils.js
-        const uniquePath = window.utils.queryShadowDom('path[d="M9.23616 0C4.13364 0 0 3.78471 0 8.455C0 13.1253 4.13364 16.91 9.23616 16.91"]');
+        const uniquePath = findInHeaderShadowRoots('path[d="M9.23616 0C4.13364 0 0 3.78471 0 8.455C0 13.1253 4.13364 16.91 9.23616 16.91"]');
         const specificSvg = uniquePath ? uniquePath.closest('svg') : null;
         const logoContainer = specificSvg ? specificSvg.parentElement : null;
 
@@ -67,7 +99,7 @@
     }
 
     function restoreOriginalLogo() {
-        const customLogoImg = window.utils.queryShadowDom('img.custom-prisma-logo');
+        const customLogoImg = findInHeaderShadowRoots('img.custom-prisma-logo');
         if (customLogoImg) {
             const logoContainer = customLogoImg.parentElement;
             if (logoContainer && logoContainer.dataset.originalSvgContent) {

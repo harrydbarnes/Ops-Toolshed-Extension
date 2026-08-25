@@ -37,7 +37,10 @@ describe('Manifest content-script order', () => {
             entry.js?.includes('features/campaign-details-focus.js')
         );
 
-        expect(frameRegistration.js).toEqual(['features/campaign-details-focus.js']);
+        expect(frameRegistration.js).toEqual([
+            'features/campaign-details-focus.js',
+            'features/campaign-add-sections.js'
+        ]);
         expect(frameRegistration.css).toBeUndefined();
         expect(frameRegistration.all_frames).toBe(true);
         expect(frameRegistration.matches).toEqual([

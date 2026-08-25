@@ -9,7 +9,7 @@
     "test:diagnose": "node node_modules/jest/bin/jest.js --runInBand --coverage=false --detectOpenHandles --silent=false",
     "test:coverage": "node node_modules/jest/bin/jest.js --runInBand --coverage",
     "check:syntax": "node scripts/check-syntax.js",
-    "test:feature-contracts": "jest --runTestsByPath tests/settings-feature-toggle-contract.test.js tests/content.test.js tests/features/campaign-navigation-ui.test.js tests/features/help-guides-launcher.test.js tests/features/order-id-copy.test.js tests/features/order-view-toggle.test.js tests/features/approver-pasting.test.js tests/features/actualise-export-all.test.js tests/features/max-campaign-budget.test.js tests/background.test.js tests/manifest-script-order.test.js tests/frame-execution.test.js --runInBand --coverage=false",
+    "test:feature-contracts": "jest --runTestsByPath tests/settings-feature-toggle-contract.test.js tests/content.test.js tests/features/campaign-navigation-ui.test.js tests/features/product-code-limit-warning.test.js tests/features/help-guides-launcher.test.js tests/features/order-id-copy.test.js tests/features/order-view-toggle.test.js tests/features/approver-pasting.test.js tests/features/actualise-export-all.test.js tests/features/max-campaign-budget.test.js tests/background.test.js tests/manifest-script-order.test.js tests/frame-execution.test.js --runInBand --coverage=false",
     "benchmark:prisma-observer": "node benchmarks/prisma-observer-benchmark.js",
     "verify:prisma-refactor": "npm run test:feature-contracts && npm run benchmark:prisma-observer",
     "update-build": "node update-build-info.js",

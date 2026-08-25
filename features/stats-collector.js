@@ -14,7 +14,6 @@
                 loadingSpinnerStartTime = null;
                 loadingSpinnerArea = '';
             }
-            else scheduleLoadingCheck();
         }
     });
 
@@ -48,18 +47,23 @@
     }
 
     // --- 1. Track Unique Campaign IDs ---
-    let lastUrl = '';
+    let lastTrackedCampaignId = '';
     function trackCampaignId() {
         if (!isEnabled) return;
-        if (window.location.href === lastUrl) return;
-        lastUrl = window.location.href;
-
-        const campaignIdMatch = lastUrl.match(/campaign-id=([^&]+)/);
-        if (campaignIdMatch && campaignIdMatch[1]) {
-            const campaignId = campaignIdMatch[1];
-            trackStat('CAMPAIGN_VISIT', campaignId);
-            console.log(`[Stats Collector] Campaign tracked: ${campaignId}`);
+        const campaignIdMatch = window.location.href.match(/campaign-id=([^&]+)/);
+        const campaignId = campaignIdMatch?.[1] ? decodeURIComponent(campaignIdMatch[1]) : '';
+        if (!campaignId) {
+            lastTrackedCampaignId = '';
+            return;
         }
+        // Prisma can rewrite route parameters repeatedly during an initial
+        // campaign render. A visit is a campaign-level event, not a URL-level
+        // event, so repeated route updates must not queue duplicate storage
+        // writes for the same campaign.
+        if (campaignId === lastTrackedCampaignId) return;
+        lastTrackedCampaignId = campaignId;
+        trackStat('CAMPAIGN_VISIT', campaignId);
+        console.log(`[Stats Collector] Campaign tracked: ${campaignId}`);
     }
 
     function observeLoadingSpinner() {
@@ -183,18 +187,9 @@
     function initializeStatsCollector() {
         if (isInitialized) return;
 
-        if (window.loadingMonitor?.subscribe) {
-            window.loadingMonitor.subscribe(checkLoadingState);
-        } else {
-            const observer = new MutationObserver(observeLoadingSpinner);
-            observer.observe(document.body, {
-                childList: true,
-                subtree: true,
-                attributes: true,
-                attributeFilter: ['class', 'style', 'hidden']
-            });
-            checkLoadingState();
-        }
+        // Loading Facts owns shared spinner observation. Stats must not add a
+        // second subscriber during Prisma's large initial campaign render;
+        // user-action counters remain active below.
 
         // Use event delegation for buttons
         document.body.addEventListener('click', handleClickEvents);

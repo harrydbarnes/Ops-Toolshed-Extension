@@ -346,10 +346,30 @@ describe('campaign navigation UI optimisation', () => {
 
         const actions = document.getElementById('mo-extracted-actions-toolbar');
         const campaignName = document.querySelector('.mo-campaign-name-popover');
+        const headerRight = document.querySelector('.mo-header-right-section');
         const nativeCog = document.getElementById('campaign-menu-icon');
         expect(campaignName.nextElementSibling).toBe(actions);
-        expect(actions.nextElementSibling).toBe(document.querySelector('.mo-header-right-section'));
+        expect(actions.nextElementSibling).toBe(headerRight);
         expect(nativeCog.style.display).toBe('none');
+        dom.window.close();
+    });
+
+    test('reanchors existing quick actions after Prisma replaces the campaign name', () => {
+        const dom = createPage();
+        const { document } = dom.window;
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+
+        const toolbar = document.getElementById('mo-extracted-actions-toolbar');
+        const headerRight = document.querySelector('.mo-header-right-section');
+        const campaignName = document.querySelector('.mo-campaign-name-popover');
+        headerRight.insertBefore(toolbar, headerRight.firstChild);
+
+        const replacementName = campaignName.cloneNode(true);
+        campaignName.replaceWith(replacementName);
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+
+        expect(replacementName.nextElementSibling).toBe(toolbar);
+        expect(toolbar.nextElementSibling).toBe(headerRight);
         dom.window.close();
     });
 
