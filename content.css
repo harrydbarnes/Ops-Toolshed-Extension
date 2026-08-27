@@ -366,6 +366,18 @@ body.reminder-theme-black #confirmation-popup {
     text-decoration: underline;
     outline: none;
 }
+
+.ops-toolshed-submitted-recipients {
+    display: inline-flex;
+    max-width: min(420px, 100%);
+    margin-left: 8px;
+    color: #52525b;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+    vertical-align: middle;
+}
 /* --- End Internal Approval recipient history controls --- */
 
 /* --- GMI Chat Button Styles --- */

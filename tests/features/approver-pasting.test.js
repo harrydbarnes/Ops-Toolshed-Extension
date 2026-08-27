@@ -12,20 +12,24 @@ describe('Internal Approval recipient history controls', () => {
     let window;
     let document;
     let storedRecipients;
+    let storedSubmissionRecipients;
 
     async function flushPromises() {
         await Promise.resolve();
         await Promise.resolve();
     }
 
-    function setupDom(initiallyRemoved = [], enabled = true, deferRemovedRecipients = false) {
+    function setupDom(initiallyRemoved = [], enabled = true, deferRemovedRecipients = false, options = {}) {
         storedRecipients = initiallyRemoved;
+        storedSubmissionRecipients = options.submittedRecipients || {};
         let storageListener;
         let resolveRemovedRecipients;
         dom = new JSDOM(`<!doctype html><html><body>
-            <div class="control-group">
-                <label>To</label>
-                <ul class="select2-choices"><li><input class="select2-input"></li></ul>
+            <div class="workflow-widget-wrapper">
+                <div class="control-group">
+                    <label>To</label>
+                    <ul class="select2-choices"><li><input class="select2-input"></li></ul>
+                </div>
             </div>
             <div class="select2-drop-active" style="display: block">
                 <ul class="select2-results">
@@ -33,7 +37,10 @@ describe('Internal Approval recipient history controls', () => {
                     <li class="select2-result-selectable"><div class="select2-result-label">second@example.com</div></li>
                 </ul>
             </div>
-        </body></html>`, { runScripts: 'dangerously' });
+        </body></html>`, {
+            url: options.url || 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP123',
+            runScripts: 'dangerously'
+        });
         window = dom.window;
         document = window.document;
         window.chrome = {
@@ -46,9 +53,19 @@ describe('Internal Approval recipient history controls', () => {
                         ? jest.fn(() => new Promise(resolve => {
                             resolveRemovedRecipients = () => resolve({ removedInternalApprovalRecipients: initiallyRemoved });
                         }))
-                        : jest.fn().mockResolvedValue({ removedInternalApprovalRecipients: initiallyRemoved }),
+                        : jest.fn(keys => {
+                            if (keys && Object.prototype.hasOwnProperty.call(keys, 'internalApprovalSubmittedRecipients')) {
+                                return Promise.resolve({ internalApprovalSubmittedRecipients: storedSubmissionRecipients });
+                            }
+                            return Promise.resolve({ removedInternalApprovalRecipients: initiallyRemoved });
+                        }),
                     set: jest.fn(items => {
-                        storedRecipients = items.removedInternalApprovalRecipients;
+                        if (Object.prototype.hasOwnProperty.call(items, 'removedInternalApprovalRecipients')) {
+                            storedRecipients = items.removedInternalApprovalRecipients;
+                        }
+                        if (Object.prototype.hasOwnProperty.call(items, 'internalApprovalSubmittedRecipients')) {
+                            storedSubmissionRecipients = items.internalApprovalSubmittedRecipients;
+                        }
                         return Promise.resolve();
                     })
                 },
@@ -291,5 +308,74 @@ describe('Internal Approval recipient history controls', () => {
         expect(document.execCommand).toHaveBeenCalledWith('paste');
         expect(pasteButton.disabled).toBe(false);
         expect(pasteButton.textContent).toBe('Paste Approvers');
+    });
+
+    test('captures selected approval recipients before submit and shows them beside Submitted', async () => {
+        setupDom();
+        const choices = document.querySelector('.select2-choices');
+        choices.insertAdjacentHTML('afterbegin', `
+            <li class="select2-search-choice"><div>robert.walker@wppmedia.com</div><a class="select2-search-choice-close"></a></li>
+            <li class="select2-search-choice"><div>jane.doe@example.com</div><a class="select2-search-choice-close"></a></li>
+        `);
+        const workflowRoot = document.querySelector('.workflow-widget-wrapper');
+        workflowRoot.insertAdjacentHTML('beforeend', `
+            <div class="approval-status"><span class="status-value">Pending</span></div>
+            <button type="button" class="submit-approval">Submit for approval</button>
+        `);
+        const status = workflowRoot.querySelector('.status-value');
+        workflowRoot.querySelector('.submit-approval').addEventListener('click', () => {
+            status.textContent = 'Submitted';
+        });
+
+        window.approverPastingFeature.handleSubmittedRecipientDisplay();
+        await flushPromises();
+        workflowRoot.querySelector('.submit-approval').click();
+        await window.approverPastingFeature.handleSubmittedRecipientDisplay();
+
+        const display = workflowRoot.querySelector('.ops-toolshed-submitted-recipients');
+        expect(display.textContent).toBe('to: robert.walker@wppmedia.com, jane.doe@example.com');
+        expect(display.getAttribute('aria-label'))
+            .toBe('Submitted to robert.walker@wppmedia.com, jane.doe@example.com');
+        expect(display.previousElementSibling).toBe(status);
+        expect(storedSubmissionRecipients.CP123.emails)
+            .toEqual(['robert.walker@wppmedia.com', 'jane.doe@example.com']);
+    });
+
+    test('restores the current campaign recipients from extension storage after the sidebar is rebuilt', async () => {
+        setupDom([], true, false, {
+            submittedRecipients: {
+                CP123: {
+                    emails: ['robert.walker@wppmedia.com'],
+                    capturedAt: 123
+                }
+            }
+        });
+        const workflowRoot = document.querySelector('.workflow-widget-wrapper');
+        workflowRoot.insertAdjacentHTML('beforeend', `
+            <div class="approval-status"><span class="status-value">Submitted</span></div>
+        `);
+
+        await window.approverPastingFeature.handleSubmittedRecipientDisplay();
+
+        const display = workflowRoot.querySelector('.ops-toolshed-submitted-recipients');
+        expect(display.textContent).toBe('to: robert.walker@wppmedia.com');
+        expect(display.dataset.source).toBe('captured');
+    });
+
+    test('uses selected To recipients when an existing Submitted campaign has no stored capture', async () => {
+        setupDom();
+        document.querySelector('.select2-choices').insertAdjacentHTML('afterbegin', `
+            <li class="select2-search-choice"><div>robert.walker@wppmedia.com</div></li>
+        `);
+        const workflowRoot = document.querySelector('.workflow-widget-wrapper');
+        workflowRoot.insertAdjacentHTML('beforeend', `
+            <div class="approval-status"><span class="status-value">Submitted</span></div>
+        `);
+
+        await window.approverPastingFeature.handleSubmittedRecipientDisplay();
+
+        const display = workflowRoot.querySelector('.ops-toolshed-submitted-recipients');
+        expect(display.textContent).toBe('to: robert.walker@wppmedia.com');
+        expect(display.dataset.source).toBe('current');
     });
 });

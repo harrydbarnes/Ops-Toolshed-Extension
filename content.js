@@ -435,6 +435,7 @@ async function mainContentScriptInit() {
                     window.approverPastingFeature?.handleApproverPasting?.();
                     window.approverPastingFeature?.handleManageFavouritesButton?.();
                     window.approverPastingFeature?.addRecipientHistoryControls?.();
+                    window.approverPastingFeature?.handleSubmittedRecipientDisplay?.();
                 }
                 if (hasDirtyFeature('chat')) {
                     window.gmiChatFeature?.handleGmiChatButton?.();

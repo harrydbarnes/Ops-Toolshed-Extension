@@ -189,6 +189,7 @@ describe('Content Script Main Logic', () => {
             handleApproverPasting: jest.fn(),
             handleManageFavouritesButton: jest.fn(),
             addRecipientHistoryControls: jest.fn(),
+            handleSubmittedRecipientDisplay: jest.fn(),
             handleAutoCopy: jest.fn(),
             checkSelection: jest.fn(),
             syncAll: jest.fn(),
@@ -568,6 +569,10 @@ describe('Content Script Main Logic', () => {
             window.campaignFeature,
             'handleCampaignNavigationOptimisation'
         ).mockClear();
+        const submittedRecipientDisplay = jest.spyOn(
+            window.approverPastingFeature,
+            'handleSubmittedRecipientDisplay'
+        ).mockImplementation(() => {});
         window.actualiseNavbarFeature = { apply: jest.fn() };
         window.actualiseShortcutFeature = { apply: jest.fn() };
         const observer = mutationObservers.find(instance =>
@@ -586,6 +591,7 @@ describe('Content Script Main Logic', () => {
         expect(navigation).toHaveBeenCalledTimes(1);
         expect(window.actualiseNavbarFeature.apply).not.toHaveBeenCalled();
         expect(window.actualiseShortcutFeature.apply).not.toHaveBeenCalled();
+        expect(submittedRecipientDisplay).toHaveBeenCalledTimes(1);
     });
 
     test('closes the message channel immediately for unknown actions', () => {

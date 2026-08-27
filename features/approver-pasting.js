@@ -3,14 +3,20 @@
 
     const SETTING_KEY = 'approverSidebarEnhancementsEnabled';
     const REMOVED_RECIPIENTS_STORAGE_KEY = 'removedInternalApprovalRecipients';
+    const SUBMITTED_RECIPIENTS_STORAGE_KEY = 'internalApprovalSubmittedRecipients';
     const RECIPIENT_TOOLTIP_CLASS = 'ops-toolshed-recipient-history-tooltip';
     const RECIPIENT_TOOLTIP_TEXT = 'Hide this recipient from history';
+    const SUBMITTED_RECIPIENTS_CLASS = 'ops-toolshed-submitted-recipients';
+    const EMAIL_PATTERN = /[^\s,;<>]+@[^\s,;<>]+\.[^\s,;<>]+/gi;
     let initialized = false;
     let featureEnabled = true;
     let removedRecipients = new Set();
     let removedRecipientsReady;
     let recipientTooltipSequence = 0;
     let recipientTooltip;
+    let submittedRecipientsByCampaign = {};
+    let submittedRecipientsReady;
+    let submissionTrackingInstalled = false;
 
     function getRemovedRecipients() {
         if (!removedRecipientsReady) {
@@ -36,6 +42,83 @@
         return String(email ?? '').trim().toLowerCase();
     }
 
+    function normalizeExtractedEmail(email) {
+        return normalizeRecipientEmail(email).replace(/[.,;:)\]}]+$/, '');
+    }
+
+    function uniqueRecipientEmails(emails) {
+        const seen = new Set();
+        return (emails || [])
+            .map(normalizeExtractedEmail)
+            .filter(email => {
+                if (!email || seen.has(email)) return false;
+                seen.add(email);
+                return true;
+            });
+    }
+
+    function extractRecipientEmails(text) {
+        return uniqueRecipientEmails(String(text ?? '').match(EMAIL_PATTERN) || []);
+    }
+
+    function getCampaignId() {
+        return new URLSearchParams(window.location.hash.replace(/^#/, '')).get('campaign-id') || '';
+    }
+
+    function normalizeSubmittedRecipientRecord(record) {
+        const emails = Array.isArray(record) ? record : record?.emails;
+        const normalizedEmails = uniqueRecipientEmails(emails);
+        if (normalizedEmails.length === 0) return null;
+
+        return {
+            emails: normalizedEmails,
+            capturedAt: Number(record?.capturedAt) || 0
+        };
+    }
+
+    function loadSubmittedRecipients() {
+        if (!submittedRecipientsReady) {
+            const storage = typeof chrome !== 'undefined' ? chrome.storage?.local : null;
+            if (!storage?.get) {
+                submittedRecipientsReady = Promise.resolve();
+            } else {
+                submittedRecipientsReady = Promise.resolve()
+                    .then(() => storage.get({ [SUBMITTED_RECIPIENTS_STORAGE_KEY]: {} }))
+                    .then(data => {
+                        const stored = data?.[SUBMITTED_RECIPIENTS_STORAGE_KEY];
+                        if (!stored || typeof stored !== 'object' || Array.isArray(stored)) return;
+
+                        const loadedRecipients = {};
+                        Object.entries(stored).forEach(([campaignId, record]) => {
+                            const normalizedRecord = normalizeSubmittedRecipientRecord(record);
+                            if (normalizedRecord) loadedRecipients[campaignId] = normalizedRecord;
+                        });
+                        // A submission can be captured while the initial storage
+                        // read is still pending. Keep that newer in-memory value.
+                        submittedRecipientsByCampaign = {
+                            ...loadedRecipients,
+                            ...submittedRecipientsByCampaign
+                        };
+                    })
+                    .catch(error => {
+                        console.warn('Could not load submitted internal-approval recipients:', error);
+                    });
+            }
+        }
+        return submittedRecipientsReady;
+    }
+
+    function saveSubmittedRecipients() {
+        const storage = typeof chrome !== 'undefined' ? chrome.storage?.local : null;
+        if (!storage?.set) return Promise.resolve();
+
+        return loadSubmittedRecipients()
+            .then(() => storage.set({
+                [SUBMITTED_RECIPIENTS_STORAGE_KEY]: submittedRecipientsByCampaign
+            }))
+            .catch(error => console.warn('Could not save submitted internal-approval recipients:', error));
+    }
+
     function findRemovedRecipient(email) {
         const normalizedEmail = normalizeRecipientEmail(email);
         if (!normalizedEmail) return undefined;
@@ -58,10 +141,50 @@
         return true;
     }
 
-    function getInternalApprovalRecipientInput() {
-        const toLabel = Array.from(document.querySelectorAll('label'))
+    function getInternalApprovalRecipientInput(root = document) {
+        const toLabel = Array.from(root.querySelectorAll?.('label') || [])
             .find(label => label.textContent.trim() === 'To');
         return toLabel?.parentElement?.querySelector('.select2-choices .select2-input');
+    }
+
+    function getWorkflowRoot(element) {
+        const workflowWidget = element?.closest?.('.workflow-widget-wrapper');
+        if (workflowWidget) return workflowWidget;
+
+        const sidePanel = element?.closest?.('mo-side-panel, .mo-side-panel');
+        if (sidePanel) return sidePanel;
+
+        return document.querySelector('.workflow-widget-wrapper, mo-side-panel, .mo-side-panel');
+    }
+
+    function getElementAttributeText(element) {
+        return [
+            element?.getAttribute?.('data-email'),
+            element?.getAttribute?.('data-recipient-email'),
+            element?.getAttribute?.('data-value'),
+            element?.getAttribute?.('aria-label'),
+            element?.getAttribute?.('title')
+        ].filter(Boolean).join(' ');
+    }
+
+    function getSelectedRecipientEmails(root = document) {
+        const toInput = getInternalApprovalRecipientInput(root);
+        const choices = toInput?.closest('.select2-choices');
+        if (!choices) return [];
+
+        const emails = [];
+        choices.querySelectorAll('.select2-search-choice, [data-select2-tag]').forEach(choice => {
+            emails.push(...extractRecipientEmails(getElementAttributeText(choice)));
+            emails.push(...extractRecipientEmails(choice.textContent));
+        });
+
+        if (emails.length === 0) {
+            choices.querySelectorAll('input[type="hidden"]').forEach(input => {
+                emails.push(...extractRecipientEmails(input.value || getElementAttributeText(input)));
+            });
+        }
+
+        return uniqueRecipientEmails(emails);
     }
 
     function getVisibleRecipientDropdown(toInput) {
@@ -86,6 +209,160 @@
             .map(result => ({ result, email: getRecipientEmail(result) }))
             .find(({ email }) => normalizeRecipientEmail(email) === typedEmail && isRemovedRecipient(email)) ||
             null;
+    }
+
+    function getSubmittedStatusElement(root) {
+        if (!root?.querySelectorAll) return null;
+
+        const candidates = [root, ...root.querySelectorAll('*')]
+            .filter(element => {
+                if (element.classList?.contains(SUBMITTED_RECIPIENTS_CLASS)) return false;
+                return element.textContent?.replace(/\s+/g, ' ').trim().toLowerCase() === 'submitted';
+            })
+            .sort((left, right) =>
+                (left.querySelectorAll?.('*').length || 0) -
+                (right.querySelectorAll?.('*').length || 0)
+            );
+
+        return candidates[0] || null;
+    }
+
+    function getNativeSubmittedRecipientEmails(statusElement) {
+        let current = statusElement;
+        for (let depth = 0; current && depth < 2; depth += 1) {
+            const emails = uniqueRecipientEmails([
+                ...extractRecipientEmails(getElementAttributeText(current)),
+                ...extractRecipientEmails(current.textContent)
+            ]);
+            if (emails.length > 0) return emails;
+            current = current.parentElement;
+        }
+        return [];
+    }
+
+    function renderSubmittedRecipientDisplay(root = getWorkflowRoot()) {
+        if (!featureEnabled) return;
+
+        const workflowRoot = root || getWorkflowRoot();
+        if (!workflowRoot) {
+            document.querySelectorAll(`.${SUBMITTED_RECIPIENTS_CLASS}`).forEach(display => display.remove());
+            return;
+        }
+
+        const existingDisplays = Array.from(
+            workflowRoot.querySelectorAll(`.${SUBMITTED_RECIPIENTS_CLASS}`)
+        );
+        const statusElement = getSubmittedStatusElement(workflowRoot);
+        if (!statusElement) {
+            existingDisplays.forEach(display => display.remove());
+            return;
+        }
+
+        const nativeEmails = getNativeSubmittedRecipientEmails(statusElement);
+        const campaignId = getCampaignId();
+        const storedEmails = submittedRecipientsByCampaign[campaignId]?.emails || [];
+        const selectedEmails = getSelectedRecipientEmails(workflowRoot);
+        const emails = nativeEmails.length > 0
+            ? nativeEmails
+            : storedEmails.length > 0
+                ? storedEmails
+                : selectedEmails;
+        if (emails.length === 0) {
+            existingDisplays.forEach(display => display.remove());
+            return;
+        }
+
+        const display = existingDisplays.shift() || document.createElement('span');
+        existingDisplays.forEach(otherDisplay => otherDisplay.remove());
+        display.className = SUBMITTED_RECIPIENTS_CLASS;
+        display.textContent = `to: ${emails.join(', ')}`;
+        display.setAttribute('aria-label', `Submitted to ${emails.join(', ')}`);
+        display.dataset.campaignId = campaignId;
+        display.dataset.source = nativeEmails.length > 0
+            ? 'native'
+            : storedEmails.length > 0
+                ? 'captured'
+                : 'current';
+
+        if (display.parentNode !== statusElement.parentNode ||
+            display.previousElementSibling !== statusElement) {
+            statusElement.parentNode?.insertBefore(display, statusElement.nextSibling);
+        }
+    }
+
+    function captureSubmittedRecipients(workflowRoot) {
+        if (!featureEnabled || !workflowRoot) return;
+
+        const campaignId = getCampaignId();
+        const emails = getSelectedRecipientEmails(workflowRoot);
+        if (!campaignId || emails.length === 0) return;
+
+        submittedRecipientsByCampaign[campaignId] = {
+            emails,
+            capturedAt: Date.now()
+        };
+        saveSubmittedRecipients();
+        renderSubmittedRecipientDisplay(workflowRoot);
+    }
+
+    function isApprovalSubmissionTrigger(element) {
+        if (!element) return false;
+
+        const label = [
+            element.textContent,
+            getElementAttributeText(element),
+            element.getAttribute?.('data-action'),
+            element.getAttribute?.('data-testid'),
+            typeof element.className === 'string' ? element.className : ''
+        ].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+
+        return /\bsubmit\b/i.test(label) ||
+            /\b(?:send|request)\b.*\bapproval\b/i.test(label);
+    }
+
+    function getWorkflowRootFromEventTarget(target) {
+        return target?.closest?.('.workflow-widget-wrapper, mo-side-panel, .mo-side-panel') || null;
+    }
+
+    function handleApprovalSubmissionClick(event) {
+        if (!featureEnabled) return;
+
+        const trigger = event.target?.closest?.(
+            'button, [role="button"], a, mo-button, [data-action], [data-testid], [class*="submit"]'
+        );
+        const workflowRoot = getWorkflowRootFromEventTarget(trigger || event.target);
+        if (!trigger || !workflowRoot || !isApprovalSubmissionTrigger(trigger)) return;
+
+        // This capture-phase listener runs before Prisma replaces the form with
+        // the submitted state, so the selected recipient chips are still read.
+        captureSubmittedRecipients(workflowRoot);
+    }
+
+    function handleApprovalFormSubmit(event) {
+        if (!featureEnabled) return;
+
+        const workflowRoot = getWorkflowRootFromEventTarget(event.target);
+        if (workflowRoot) captureSubmittedRecipients(workflowRoot);
+    }
+
+    function installSubmissionRecipientTracking() {
+        if (submissionTrackingInstalled) return;
+
+        document.addEventListener('click', handleApprovalSubmissionClick, true);
+        document.addEventListener('submit', handleApprovalFormSubmit, true);
+        submissionTrackingInstalled = true;
+    }
+
+    function removeSubmissionRecipientTracking() {
+        if (!submissionTrackingInstalled) return;
+
+        document.removeEventListener('click', handleApprovalSubmissionClick, true);
+        document.removeEventListener('submit', handleApprovalFormSubmit, true);
+        submissionTrackingInstalled = false;
+    }
+
+    function removeSubmittedRecipientDisplay() {
+        document.querySelectorAll(`.${SUBMITTED_RECIPIENTS_CLASS}`).forEach(display => display.remove());
     }
 
     function positionRecipientTooltip(button, tooltip) {
@@ -225,6 +502,8 @@
     }
 
     function removeEnhancements() {
+        removeSubmissionRecipientTracking();
+        removeSubmittedRecipientDisplay();
         document.querySelectorAll('.prisma-paste-button, .manage-favourites-button, .ops-toolshed-recipient-history-actions')
             .forEach(control => control.remove());
         document.querySelectorAll('.ops-toolshed-recipient-history-remove').forEach(button => {
@@ -250,6 +529,7 @@
         handleApproverPasting();
         handleManageFavouritesButton();
         addRecipientHistoryControls();
+        handleSubmittedRecipientDisplay();
     }
 
     function removeRecipientFromHistory(email, result) {
@@ -347,6 +627,24 @@
             clearItem.appendChild(clearButton);
             results.appendChild(clearItem);
             document.body.classList.remove('ops-toolshed-recipient-history-pending');
+        });
+    }
+
+    function handleSubmittedRecipientDisplay() {
+        if (!featureEnabled) {
+            removeEnhancements();
+            return;
+        }
+
+        installSubmissionRecipientTracking();
+        const workflowRoot = getWorkflowRoot();
+        if (!workflowRoot) {
+            removeSubmittedRecipientDisplay();
+            return;
+        }
+
+        return loadSubmittedRecipients().then(() => {
+            if (featureEnabled) renderSubmittedRecipientDisplay(workflowRoot);
         });
     }
 
@@ -507,6 +805,7 @@
         apply,
         handleApproverPasting,
         handleManageFavouritesButton,
-        addRecipientHistoryControls
+        addRecipientHistoryControls,
+        handleSubmittedRecipientDisplay
     };
 })();
