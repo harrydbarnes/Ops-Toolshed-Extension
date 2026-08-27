@@ -315,7 +315,7 @@ const FEATURE_SETTING_PREVIEWS = {
     loadingFactsToggle: ['Loading Facts', 'Shows a useful fact while Prisma is processing an Actualise action.', 'Did you know?'],
     helpGuidesToggle: ['Help Guides launcher', 'Adds a draggable launcher that opens searchable Prisma help guides.', 'Help Guides'],
     countPlacementsSelectedToggle: ['Count Placements Selected', 'Displays the number of selected placement rows beside Prisma’s selection tools.', '12 selected'],
-    approverSidebarEnhancementsToggle: ['Approver Sidebar Enhancements', 'Makes the Approver sidebar easier to scan and use during approval workflows.', 'Approvers'],
+    approverSidebarEnhancementsToggle: ['Approver Sidebar Enhancements', 'Makes the Approver sidebar easier to scan and use, including showing who a campaign was submitted to.', 'Approvers'],
     actualiseBulkExportToggle: ['Actualise bulk export', 'Exports each visible Actualise month and combines the results into one CSV-ready file.', 'Export all months'],
     campaignTabTitleToggle: ['Campaign tab title', 'Uses the active campaign name as the browser tab title.', 'Spring Launch | Prisma'],
     ordersShortcutToggle: ['Orders shortcut', 'Adds an Orders shortcut to the campaign navigation menu.', 'Orders'],

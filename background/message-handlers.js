@@ -31,7 +31,7 @@ function getVerifiedPrismaRequest(request, sender) {
 
     const isMediaoceanHost = senderUrl.hostname === 'mediaocean.com' ||
         senderUrl.hostname.endsWith('.mediaocean.com');
-    if (!tabId || senderUrl.protocol !== 'https:' || !isMediaoceanHost) return null;
+    if (tabId === undefined || tabId === null || senderUrl.protocol !== 'https:' || !isMediaoceanHost) return null;
     if (requestedUrl && requestedUrl.origin !== senderUrl.origin) return null;
     return { tabId, requestedUrl };
 }

@@ -9,7 +9,7 @@
     // written back as the document title during its initial render. Keep this
     // deliberately compact so normal tabs retain the feature while verbose
     // booking names stay on Prisma's native title.
-    const MAX_CAMPAIGN_TAB_TITLE_LENGTH = 80;
+    const MAX_CAMPAIGN_TAB_TITLE_LENGTH = 99;
 
     let enabled = true;
     let initialized = false;

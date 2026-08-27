@@ -144,6 +144,34 @@ describe('Internal Approval recipient history controls', () => {
         expect(document.querySelectorAll('.ops-toolshed-recipient-history-remove')).toHaveLength(2);
     });
 
+    test('removes submitted-recipient display and tracking when the setting is disabled', async () => {
+        const feature = setupDom([], false);
+        storedSubmissionRecipients = {
+            CP123: {
+                emails: ['robert.walker@wppmedia.com'],
+                capturedAt: 123
+            }
+        };
+        const workflowRoot = document.querySelector('.workflow-widget-wrapper');
+        workflowRoot.insertAdjacentHTML('beforeend', `
+            <div class="approval-status"><span class="status-value">Submitted</span></div>
+        `);
+
+        window.approverPastingFeature.initialize();
+        feature.setEnabled(true);
+        await window.approverPastingFeature.handleSubmittedRecipientDisplay();
+
+        expect(workflowRoot.querySelector('.ops-toolshed-submitted-recipients').textContent)
+            .toBe('to: robert.walker@wppmedia.com');
+
+        feature.setEnabled(false);
+        expect(workflowRoot.querySelector('.ops-toolshed-submitted-recipients')).toBeNull();
+
+        feature.setEnabled(true);
+        await flushPromises();
+        expect(workflowRoot.querySelectorAll('.ops-toolshed-submitted-recipients')).toHaveLength(1);
+    });
+
     test('does not add delayed recipient-history controls after the feature is disabled', async () => {
         const feature = setupDom([], true, true);
         window.approverPastingFeature.initialize();

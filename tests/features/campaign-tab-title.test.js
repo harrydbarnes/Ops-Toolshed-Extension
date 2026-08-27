@@ -77,11 +77,23 @@ describe('campaign tab title', () => {
         expect(dom.window.document.title).toBe('CRUK RFL Campaign');
     });
 
-    test('leaves Prisma title untouched when the campaign name is unusually long', async () => {
+    test('uses a campaign name that is exactly 99 characters long', async () => {
+        ({ dom } = setup({ title: 'prsm-cm-plan-to-buy' }));
+        const campaignName = 'A'.repeat(99);
+        const pageHeader = dom.window.document.createElement('div');
+        pageHeader.className = 'mo-page-header';
+        pageHeader.innerHTML = `<span class="mo-campaign-name-wrapper">${campaignName}</span><span>12345</span>`;
+        dom.window.document.body.appendChild(pageHeader);
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+
+        expect(dom.window.document.title).toBe(campaignName);
+    });
+
+    test('leaves Prisma title untouched when the campaign name exceeds 99 characters', async () => {
         ({ dom } = setup({ title: 'prsm-cm-plan-to-buy' }));
         const pageHeader = dom.window.document.createElement('div');
         pageHeader.className = 'mo-page-header';
-        pageHeader.innerHTML = `<span class="mo-campaign-name-wrapper">${'Very long campaign name '.repeat(5)}</span><span>12345</span>`;
+        pageHeader.innerHTML = `<span class="mo-campaign-name-wrapper">${'B'.repeat(100)}</span><span>12345</span>`;
         dom.window.document.body.appendChild(pageHeader);
         await new Promise(resolve => dom.window.setTimeout(resolve, 0));
 

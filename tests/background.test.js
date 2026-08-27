@@ -484,6 +484,31 @@ describe('Background message routing', () => {
         expect(sendResponse).toHaveBeenCalledWith({ status: 'success' });
     });
 
+    test('allows verified campaign header copies from tab id zero', async () => {
+        chrome.runtime.getContexts.mockResolvedValue([{}]);
+        chrome.runtime.sendMessage.mockResolvedValue({ status: 'success' });
+        const listener = loadMessageListener();
+        const sendResponse = jest.fn();
+
+        listener({
+            action: 'copyCampaignHeaderToClipboard',
+            text: 'CP123'
+        }, {
+            id: chrome.runtime.id,
+            tab: { id: 0 },
+            frameId: 0,
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP123'
+        }, sendResponse);
+        await waitForResponse(sendResponse);
+
+        expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+            target: 'offscreen',
+            action: 'copyToClipboard',
+            text: 'CP123'
+        });
+        expect(sendResponse).toHaveBeenCalledWith({ status: 'success' });
+    });
+
     test('relays a verified Order ID copy to the protected offscreen clipboard action', async () => {
         chrome.runtime.getContexts.mockResolvedValue([{}]);
         chrome.runtime.sendMessage.mockResolvedValue({ status: 'success' });

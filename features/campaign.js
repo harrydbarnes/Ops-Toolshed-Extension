@@ -535,10 +535,51 @@
         };
     }
 
+    function sendCampaignHeaderCopyMessage(value) {
+        return new Promise((resolve, reject) => {
+            let settled = false;
+            const settle = (callback, result) => {
+                if (settled) return;
+                settled = true;
+                callback(result);
+            };
+            const handleResponse = response => {
+                const runtimeError = chrome.runtime?.lastError;
+                if (runtimeError) {
+                    settle(reject, new Error(runtimeError.message || 'Campaign header copy message failed.'));
+                    return;
+                }
+                settle(resolve, response);
+            };
+
+            let messageResult;
+            try {
+                // Pass a callback for Chrome versions/API shims that do not
+                // return the Promise form of runtime.sendMessage. The Promise
+                // result is also consumed when the callback is not invoked by
+                // a test double or another compatible implementation.
+                messageResult = chrome.runtime.sendMessage(
+                    { action: 'copyCampaignHeaderToClipboard', text: value },
+                    handleResponse
+                );
+            } catch (error) {
+                settle(reject, error);
+                return;
+            }
+
+            if (messageResult && typeof messageResult.then === 'function') {
+                messageResult.then(
+                    response => settle(resolve, response),
+                    error => settle(reject, error)
+                );
+            }
+        });
+    }
+
     function copyHeaderValue(value, target, message) {
         if (!value) return;
 
-        chrome.runtime.sendMessage({ action: 'copyCampaignHeaderToClipboard', text: value })
+        sendCampaignHeaderCopyMessage(value)
             .then(response => {
                 if (response?.status !== 'success') {
                     throw new Error(response?.message || 'Clipboard service did not confirm the copy.');

@@ -386,7 +386,8 @@ describe('campaign navigation UI optimisation', () => {
         expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
             action: 'copyCampaignHeaderToClipboard',
             text: 'Test Campaign Name'
-        });
+        }, expect.any(Function));
+        await Promise.resolve();
         const toast = document.getElementById('campaign-name-copy-toast');
         expect(toast.textContent).toBe('Campaign Name Copied to Clipboard!');
         expect(toast.classList.contains('show')).toBe(true);
@@ -405,11 +406,35 @@ describe('campaign navigation UI optimisation', () => {
         );
         await Promise.resolve();
 
+        await Promise.resolve();
         expect(chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
         expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
             action: 'copyCampaignHeaderToClipboard',
             text: 'Test Campaign Name'
+        }, expect.any(Function));
+        dom.window.close();
+    });
+
+    test('supports callback-based runtime messaging for campaign name copy', async () => {
+        const dom = createPage();
+        const { document, chrome } = dom.window;
+        chrome.runtime.sendMessage.mockImplementation((_request, callback) => {
+            callback({ status: 'success' });
         });
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+
+        document.querySelector('.mo-campaign-name-wrapper').dispatchEvent(
+            new dom.window.MouseEvent('pointerdown', { bubbles: true, composed: true })
+        );
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+            action: 'copyCampaignHeaderToClipboard',
+            text: 'Test Campaign Name'
+        }, expect.any(Function));
+        expect(document.getElementById('campaign-name-copy-toast').textContent)
+            .toBe('Campaign Name Copied to Clipboard!');
         dom.window.close();
     });
 
@@ -429,7 +454,8 @@ describe('campaign navigation UI optimisation', () => {
         expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
             action: 'copyCampaignHeaderToClipboard',
             text: 'CP3FMRK'
-        });
+        }, expect.any(Function));
+        await Promise.resolve();
         const toast = document.getElementById('campaign-name-copy-toast');
         expect(toast.textContent).toBe('Campaign ID Copied to Clipboard!');
         expect(toast.style.left).toBe('140px');
@@ -448,10 +474,11 @@ describe('campaign navigation UI optimisation', () => {
         );
         await Promise.resolve();
 
+        await Promise.resolve();
         expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
             action: 'copyCampaignHeaderToClipboard',
             text: 'CP3FMRK'
-        });
+        }, expect.any(Function));
         dom.window.close();
     });
 
@@ -468,10 +495,12 @@ describe('campaign navigation UI optimisation', () => {
         );
         await Promise.resolve();
 
+        await Promise.resolve();
         expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
             action: 'copyCampaignHeaderToClipboard',
             text: 'LB9/2/245'
-        });
+        }, expect.any(Function));
+        await Promise.resolve();
         const toast = document.getElementById('campaign-name-copy-toast');
         expect(toast.textContent).toBe('CL/PR/CA Copied to Clipboard!');
         expect(toast.style.left).toBe('230px');
@@ -485,10 +514,11 @@ describe('campaign navigation UI optimisation', () => {
         );
         await Promise.resolve();
 
+        await Promise.resolve();
         expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
             action: 'copyCampaignHeaderToClipboard',
             text: 'LB9/2/245'
-        });
+        }, expect.any(Function));
         dom.window.close();
     });
 
