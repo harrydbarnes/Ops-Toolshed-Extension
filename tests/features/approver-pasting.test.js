@@ -118,6 +118,7 @@ describe('Internal Approval recipient history controls', () => {
         feature.setEnabled(false);
         expect(document.querySelector('.prisma-paste-button')).toBeNull();
         expect(document.querySelector('.ops-toolshed-recipient-history-remove')).toBeNull();
+        expect(document.querySelector('.ops-toolshed-recipient-history-tooltip')).toBeNull();
         expect(document.body.classList.contains('ops-toolshed-recipient-history-pending')).toBe(false);
 
         feature.setEnabled(true);
@@ -160,6 +161,73 @@ describe('Internal Approval recipient history controls', () => {
         expect(document.querySelector('.select2-results').textContent).not.toContain('first@example.com');
         expect(storedRecipients).toEqual(['first@example.com']);
         expect(selectRecipient).not.toHaveBeenCalled();
+    });
+
+    test('lets Enter select an exact previously removed email and restores it to history', async () => {
+        const previouslyRemovedEmail = 'robert.walker@wppmedia.com';
+        setupDom([previouslyRemovedEmail]);
+        const toInput = document.querySelector('.select2-input');
+        const firstResult = document.querySelector('.select2-result-selectable');
+        const selectRecipient = jest.fn();
+        firstResult.querySelector('.select2-result-label').textContent = previouslyRemovedEmail;
+        toInput.value = previouslyRemovedEmail;
+        toInput.addEventListener('keydown', event => {
+            if (event.key === 'Enter' && document.contains(firstResult)) selectRecipient();
+        });
+
+        window.approverPastingFeature.addRecipientHistoryControls();
+        await flushPromises();
+
+        expect(firstResult.isConnected).toBe(true);
+        expect(firstResult.querySelector('.ops-toolshed-recipient-history-remove')).not.toBeNull();
+        const enter = new window.KeyboardEvent('keydown', {
+            key: 'Enter',
+            bubbles: true,
+            cancelable: true
+        });
+        toInput.dispatchEvent(enter);
+        await flushPromises();
+
+        expect(selectRecipient).toHaveBeenCalledTimes(1);
+        expect(storedRecipients).toEqual([]);
+    });
+
+    test('provides an unclipped accessible tooltip instead of a native title popup', async () => {
+        setupDom();
+
+        window.approverPastingFeature.addRecipientHistoryControls();
+        await flushPromises();
+
+        const removeButton = document.querySelector('.ops-toolshed-recipient-history-remove');
+        const tooltip = document.getElementById(removeButton.getAttribute('aria-describedby'));
+        expect(removeButton.getAttribute('title')).toBeNull();
+        expect(tooltip.parentElement).toBe(document.body);
+        expect(tooltip.getAttribute('role')).toBe('tooltip');
+        expect(tooltip.textContent).toBe('Hide this recipient from history');
+        expect(tooltip.hidden).toBe(true);
+
+        removeButton.dispatchEvent(new window.MouseEvent('mouseenter'));
+        expect(tooltip.hidden).toBe(false);
+        removeButton.dispatchEvent(new window.MouseEvent('mouseleave'));
+        expect(tooltip.hidden).toBe(true);
+    });
+
+    test('keeps the tooltip connected when Select2 temporarily hides its dropdown', async () => {
+        setupDom();
+
+        window.approverPastingFeature.addRecipientHistoryControls();
+        await flushPromises();
+        const removeButton = document.querySelector('.ops-toolshed-recipient-history-remove');
+        const tooltipId = removeButton.getAttribute('aria-describedby');
+
+        const toInput = document.querySelector('.select2-input');
+        toInput.blur();
+        window.approverPastingFeature.addRecipientHistoryControls();
+        await flushPromises();
+
+        expect(document.getElementById(tooltipId)).not.toBeNull();
+        toInput.focus();
+        expect(removeButton.getAttribute('aria-describedby')).toBe(tooltipId);
     });
 
     test('keeps Prisma recipient history hidden until it has been filtered', async () => {

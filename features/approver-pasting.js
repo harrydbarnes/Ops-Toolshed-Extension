@@ -3,10 +3,14 @@
 
     const SETTING_KEY = 'approverSidebarEnhancementsEnabled';
     const REMOVED_RECIPIENTS_STORAGE_KEY = 'removedInternalApprovalRecipients';
+    const RECIPIENT_TOOLTIP_CLASS = 'ops-toolshed-recipient-history-tooltip';
+    const RECIPIENT_TOOLTIP_TEXT = 'Hide this recipient from history';
     let initialized = false;
     let featureEnabled = true;
     let removedRecipients = new Set();
     let removedRecipientsReady;
+    let recipientTooltipSequence = 0;
+    let recipientTooltip;
 
     function getRemovedRecipients() {
         if (!removedRecipientsReady) {
@@ -28,6 +32,32 @@
             .catch(error => console.warn('Could not save removed internal-approval recipients:', error));
     }
 
+    function normalizeRecipientEmail(email) {
+        return String(email ?? '').trim().toLowerCase();
+    }
+
+    function findRemovedRecipient(email) {
+        const normalizedEmail = normalizeRecipientEmail(email);
+        if (!normalizedEmail) return undefined;
+
+        return [...removedRecipients].find(removedEmail =>
+            normalizeRecipientEmail(removedEmail) === normalizedEmail
+        );
+    }
+
+    function isRemovedRecipient(email) {
+        return findRemovedRecipient(email) !== undefined;
+    }
+
+    function restoreRecipientFromHistory(email) {
+        const storedEmail = findRemovedRecipient(email);
+        if (storedEmail === undefined) return false;
+
+        removedRecipients.delete(storedEmail);
+        saveRemovedRecipients();
+        return true;
+    }
+
     function getInternalApprovalRecipientInput() {
         const toLabel = Array.from(document.querySelectorAll('label'))
             .find(label => label.textContent.trim() === 'To');
@@ -41,6 +71,143 @@
             .find(dropdown => dropdown.style.display !== 'none' && dropdown.querySelector('.select2-results'));
     }
 
+    function getRecipientEmail(result) {
+        const label = result?.querySelector('.select2-result-label');
+        return label?.querySelector('.ops-toolshed-recipient-history-email')?.textContent.trim() ||
+            label?.textContent.trim() ||
+            '';
+    }
+
+    function getExactRemovedRecipient(toInput, results) {
+        const typedEmail = normalizeRecipientEmail(toInput?.value);
+        if (!typedEmail) return null;
+
+        return Array.from(results?.querySelectorAll('.select2-result-selectable') || [])
+            .map(result => ({ result, email: getRecipientEmail(result) }))
+            .find(({ email }) => normalizeRecipientEmail(email) === typedEmail && isRemovedRecipient(email)) ||
+            null;
+    }
+
+    function positionRecipientTooltip(button, tooltip) {
+        const buttonRect = button.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        const ownerDocument = button.ownerDocument;
+        const view = ownerDocument.defaultView;
+        const viewportWidth = ownerDocument.documentElement.clientWidth || view?.innerWidth || 0;
+        const viewportHeight = ownerDocument.documentElement.clientHeight || view?.innerHeight || 0;
+        const margin = 8;
+
+        let left = buttonRect.left + (buttonRect.width - tooltipRect.width) / 2;
+        if (viewportWidth > 0 && tooltipRect.width > 0) {
+            left = Math.min(
+                Math.max(margin, left),
+                Math.max(margin, viewportWidth - tooltipRect.width - margin)
+            );
+        }
+
+        let top = buttonRect.bottom + margin;
+        if (viewportHeight > 0 && tooltipRect.height > 0 &&
+            top + tooltipRect.height > viewportHeight - margin) {
+            top = buttonRect.top - tooltipRect.height - margin;
+        }
+
+        tooltip.style.top = `${Math.round(Math.max(margin, top))}px`;
+        tooltip.style.left = `${Math.round(Math.max(margin, left))}px`;
+    }
+
+    function destroyRecipientTooltip(button) {
+        button?._opsToolshedRecipientHistoryTooltip?.destroy?.();
+        if (button) delete button._opsToolshedRecipientHistoryTooltip;
+    }
+
+    function hideRecipientTooltip() {
+        if (!recipientTooltip) return;
+        recipientTooltip.hidden = true;
+        delete recipientTooltip._opsToolshedRecipientHistoryTooltipOwner;
+    }
+
+    function installRecipientTooltip(button) {
+        const ownerDocument = button.ownerDocument;
+        const view = ownerDocument.defaultView;
+        if (recipientTooltip &&
+            (recipientTooltip.ownerDocument !== ownerDocument || !recipientTooltip.isConnected)) {
+            recipientTooltip.remove();
+            recipientTooltip = null;
+        }
+        if (!recipientTooltip) {
+            recipientTooltip = ownerDocument.createElement('div');
+            recipientTooltip.className = RECIPIENT_TOOLTIP_CLASS;
+            recipientTooltip.id = `${RECIPIENT_TOOLTIP_CLASS}-${++recipientTooltipSequence}`;
+            recipientTooltip.setAttribute('role', 'tooltip');
+            recipientTooltip.hidden = true;
+            recipientTooltip.textContent = RECIPIENT_TOOLTIP_TEXT;
+            (ownerDocument.body || ownerDocument.documentElement).appendChild(recipientTooltip);
+        }
+        const tooltip = recipientTooltip;
+
+        const show = () => {
+            tooltip._opsToolshedRecipientHistoryTooltipOwner = button;
+            tooltip.hidden = false;
+            positionRecipientTooltip(button, tooltip);
+        };
+        const hide = () => {
+            if (tooltip._opsToolshedRecipientHistoryTooltipOwner !== button) return;
+            tooltip.hidden = true;
+            delete tooltip._opsToolshedRecipientHistoryTooltipOwner;
+        };
+        const handleResize = () => {
+            if (!tooltip.hidden && tooltip._opsToolshedRecipientHistoryTooltipOwner === button) {
+                positionRecipientTooltip(button, tooltip);
+            }
+        };
+
+        button.setAttribute('aria-describedby', tooltip.id);
+        button.addEventListener('mouseenter', show);
+        button.addEventListener('mouseleave', hide);
+        button.addEventListener('focus', show);
+        button.addEventListener('blur', hide);
+        view?.addEventListener('resize', handleResize);
+
+        button._opsToolshedRecipientHistoryTooltip = {
+            destroy() {
+                button.removeEventListener('mouseenter', show);
+                button.removeEventListener('mouseleave', hide);
+                button.removeEventListener('focus', show);
+                button.removeEventListener('blur', hide);
+                view?.removeEventListener('resize', handleResize);
+                hide();
+                button.removeAttribute('aria-describedby');
+            }
+        };
+    }
+
+    function installRecipientSelectionRestorer(result, email) {
+        if (result._opsToolshedRecipientSelectionRestorer) return;
+
+        const restoreOnSelection = event => {
+            if (event.target.closest?.('.ops-toolshed-recipient-history-remove')) return;
+            restoreRecipientFromHistory(email);
+        };
+        result.addEventListener('mouseup', restoreOnSelection, true);
+        result.addEventListener('click', restoreOnSelection, true);
+        result._opsToolshedRecipientSelectionRestorer = true;
+    }
+
+    function handleRecipientEnter(event) {
+        if (!featureEnabled || (event.key !== 'Enter' && event.keyCode !== 13)) return;
+
+        const toInput = event.currentTarget;
+        const dropdown = getVisibleRecipientDropdown(toInput);
+        const results = dropdown?.querySelector('.select2-results');
+        const exactMatch = getExactRemovedRecipient(toInput, results);
+        if (!exactMatch) return;
+
+        // Capture phase runs before Select2's own keydown handler. The result
+        // can therefore be selected normally while the history exclusion is
+        // removed in time for this recipient to remain available later.
+        restoreRecipientFromHistory(exactMatch.email);
+    }
+
     function installRecipientHistoryVisibilityGuard() {
         const toInput = getInternalApprovalRecipientInput();
         if (!toInput || toInput.dataset.opsToolshedRecipientHistoryGuarded) return;
@@ -51,6 +218,7 @@
         };
         toInput.addEventListener('mousedown', hideUntilFiltered);
         toInput.addEventListener('focus', hideUntilFiltered);
+        toInput.addEventListener('keydown', handleRecipientEnter, true);
         toInput.addEventListener('blur', () => {
             document.body.classList.remove('ops-toolshed-recipient-history-pending');
         });
@@ -59,6 +227,12 @@
     function removeEnhancements() {
         document.querySelectorAll('.prisma-paste-button, .manage-favourites-button, .ops-toolshed-recipient-history-actions')
             .forEach(control => control.remove());
+        document.querySelectorAll('.ops-toolshed-recipient-history-remove').forEach(button => {
+            destroyRecipientTooltip(button);
+        });
+        recipientTooltip?.remove();
+        recipientTooltip = null;
+        document.querySelectorAll(`.${RECIPIENT_TOOLTIP_CLASS}`).forEach(tooltip => tooltip.remove());
         document.querySelectorAll('.select2-result-label[data-ops-toolshed-recipient-history-handled]')
             .forEach(label => {
                 const email = label.querySelector('.ops-toolshed-recipient-history-email')?.textContent || label.textContent;
@@ -80,6 +254,7 @@
 
     function removeRecipientFromHistory(email, result) {
         removedRecipients.add(email);
+        destroyRecipientTooltip(result.querySelector('.ops-toolshed-recipient-history-remove'));
         result.remove();
         saveRemovedRecipients();
     }
@@ -96,7 +271,10 @@
         getRemovedRecipients().then(() => {
             if (!featureEnabled) return;
             const dropdown = getVisibleRecipientDropdown(toInput);
-            if (!dropdown) return;
+            if (!dropdown) {
+                hideRecipientTooltip();
+                return;
+            }
 
             const results = dropdown.querySelector('.select2-results');
             const recipientResults = Array.from(results.querySelectorAll('.select2-result-selectable'));
@@ -110,7 +288,8 @@
                 if (!email) return;
 
                 label.dataset.opsToolshedRecipientHistoryHandled = 'true';
-                if (removedRecipients.has(email)) {
+                if (isRemovedRecipient(email) &&
+                    normalizeRecipientEmail(toInput.value) !== normalizeRecipientEmail(email)) {
                     result.remove();
                     return;
                 }
@@ -120,8 +299,8 @@
                 removeButton.type = 'button';
                 removeButton.className = 'ops-toolshed-recipient-history-remove';
                 removeButton.setAttribute('aria-label', `Remove ${email} from recipient history`);
-                removeButton.title = 'Remove from history';
                 removeButton.textContent = '×';
+                installRecipientTooltip(removeButton);
                 const preventSelect2Selection = event => {
                     event.preventDefault();
                     event.stopImmediatePropagation();
@@ -139,6 +318,10 @@
                 emailText.className = 'ops-toolshed-recipient-history-email';
                 emailText.textContent = email;
                 label.replaceChildren(emailText, removeButton);
+
+                if (isRemovedRecipient(email)) {
+                    installRecipientSelectionRestorer(result, email);
+                }
             });
 
             if (visibleEmails.length === 0 || results.querySelector('.ops-toolshed-recipient-history-clear')) {
