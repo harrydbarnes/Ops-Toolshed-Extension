@@ -1575,6 +1575,12 @@
         if (!isPrismaPage()) closeHistoryPanel({ animate: false });
     }
 
+    function handlePageShow() {
+        if (!settingsReady || !viewEnabled || !isPrismaPage()) return;
+        ensureNavigationObserver();
+        ensureNavigationLink();
+    }
+
     function apply() {
         if (!settingsReady || !isPrismaPage()) {
             removeNavigationLink();
@@ -1608,7 +1614,7 @@
         window.addEventListener('hashchange', handleRouteChange);
         window.addEventListener('popstate', handleRouteChange);
         window.addEventListener('pagehide', removeNavigationObserver);
-        window.addEventListener('unload', removeNavigationObserver);
+        window.addEventListener('pageshow', handlePageShow);
 
         readSettings().then(settings => {
             viewEnabled = settings[VIEW_SETTING_KEY] !== false;

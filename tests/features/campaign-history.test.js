@@ -130,6 +130,15 @@ describe('campaign history feature', () => {
             .toMatch(/background:\s*var\(--toolshed-history-highlight\)/i);
     });
 
+    test('uses page lifecycle events supported by Prisma permissions policy', () => {
+        expect(featureScript)
+            .toMatch(/window\.addEventListener\('pagehide',\s*removeNavigationObserver\)/);
+        expect(featureScript)
+            .toMatch(/window\.addEventListener\('pageshow',\s*handlePageShow\)/);
+        expect(featureScript)
+            .not.toMatch(/window\.addEventListener\('unload',/);
+    });
+
     test('adds a native-looking History navigation link and records searchable campaign metadata', async () => {
         const { dom, localStore } = createPage({
             fieldMarkup: '<div data-cy="client-name">The Coca-Cola Company</div><div data-cy="supplier">Meta</div>',
