@@ -22,6 +22,8 @@ describe('campaign navigation settings', () => {
         ['ordersShortcutToggle', 'ordersShortcutEnabled'],
         ['actualiseShortcutToggle', 'actualiseShortcutEnabled'],
         ['approverWidgetPlacementToggle', 'approverWidgetPlacementEnabled'],
+        ['campaignHistoryToggle', 'campaignHistoryEnabled'],
+        ['campaignHistoryLoggingToggle', 'campaignHistoryLoggingEnabled'],
         ['quickCampaignActionsToggle', 'quickCampaignActionsEnabled'],
         ['budgetWidgetOptimisedToggle', 'budgetWidgetOptimisedEnabled'],
         ['campaignNameQuickCopyToggle', 'campaignNameQuickCopyEnabled'],

@@ -23,6 +23,7 @@ const SETTINGS_DEFAULTS = Object.freeze({
     blockAppLearnPopupsEnabled: true,
     helpGuidesEnabled: true,
     approverSidebarEnhancementsEnabled: true,
+    approverSubmittedRecipientDisplayEnabled: true,
     actualiseBulkExportEnabled: true,
     prismaReminderFrequency: 'daily',
     prismaCountdownDuration: '5',
@@ -46,6 +47,8 @@ const SETTINGS_DEFAULTS = Object.freeze({
     ordersShortcutEnabled: true,
     actualiseShortcutEnabled: true,
     approverWidgetPlacementEnabled: true,
+    campaignHistoryEnabled: true,
+    campaignHistoryLoggingEnabled: true,
     dstAssuranceEnabled: true,
     actualiseMonthAssuranceEnabled: true,
     productCodeLimitWarningEnabled: true,
@@ -315,9 +318,12 @@ const FEATURE_SETTING_PREVIEWS = {
     loadingFactsToggle: ['Loading Facts', 'Shows a useful fact while Prisma is processing an Actualise action.', 'Did you know?'],
     helpGuidesToggle: ['Help Guides launcher', 'Adds a draggable launcher that opens searchable Prisma help guides.', 'Help Guides'],
     countPlacementsSelectedToggle: ['Count Placements Selected', 'Displays the number of selected placement rows beside Prisma’s selection tools.', '12 selected'],
-    approverSidebarEnhancementsToggle: ['Approver Sidebar Enhancements', 'Makes the Approver sidebar easier to scan and use, including showing who a campaign was submitted to.', 'Approvers'],
+    approverSidebarEnhancementsToggle: ['Approver Sidebar Enhancements', 'Makes the Approver sidebar easier to scan and use, including fast approver entry and recipient history controls.', 'Approvers'],
+    approverSubmittedRecipientDisplayToggle: ['Submitted approval recipients', 'Shows the email address(es) captured when the current user submits a campaign for approval.', 'Submitted to robert.walker@wppmedia.com'],
     actualiseBulkExportToggle: ['Actualise bulk export', 'Exports each visible Actualise month and combines the results into one CSV-ready file.', 'Export all months'],
     campaignTabTitleToggle: ['Campaign tab title', 'Uses the active campaign name as the browser tab title.', 'Spring Launch | Prisma'],
+    campaignHistoryToggle: ['Campaign History search', 'Adds a History link to Prisma campaign navigation and lets you search campaigns you have visited.', 'Search supplier'],
+    campaignHistoryLoggingToggle: ['Log campaigns visited', 'Records campaign names, references and supplier details locally so they can be found later in Campaign History.', 'Campaign recorded'],
     ordersShortcutToggle: ['Orders shortcut', 'Adds an Orders shortcut to the campaign navigation menu.', 'Orders'],
     actualiseShortcutToggle: ['Actualise shortcut', 'Adds a shortcut that opens the current Actualise month directly.', 'Actualise'],
     actualiseNavbarToggle: ['Actualise navigation bar', 'Keeps Prisma’s main Plan, Buy, Traffic, Analyse and Orders navigation visible in Actualise.', 'Plan  Buy  Orders'],
@@ -959,6 +965,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupToggle('blockAppLearnPopupsToggle', 'blockAppLearnPopupsEnabled', 'AppLearn popup blocking setting saved:', settings);
     setupToggle('helpGuidesToggle', 'helpGuidesEnabled', 'Help Guides setting saved:', settings);
     setupToggle('approverSidebarEnhancementsToggle', 'approverSidebarEnhancementsEnabled', 'Approver Sidebar Enhancements setting saved:', settings);
+    setupToggle('approverSubmittedRecipientDisplayToggle', 'approverSubmittedRecipientDisplayEnabled', 'Submitted approval recipients setting saved:', settings);
     setupToggle('actualiseBulkExportToggle', 'actualiseBulkExportEnabled', 'Actualise bulk export setting saved:', settings);
  
     // Prisma Reminders 
@@ -1080,6 +1087,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupToggle('ordersShortcutToggle', 'ordersShortcutEnabled', 'Orders shortcut setting saved:', settings);
     setupToggle('actualiseShortcutToggle', 'actualiseShortcutEnabled', 'Actualise shortcut setting saved:', settings);
     setupToggle('approverWidgetPlacementToggle', 'approverWidgetPlacementEnabled', 'Approver Widget placement setting saved:', settings);
+    setupToggle('campaignHistoryToggle', 'campaignHistoryEnabled', 'Campaign History setting saved:', settings);
+    setupToggle('campaignHistoryLoggingToggle', 'campaignHistoryLoggingEnabled', 'Campaign History logging setting saved:', settings);
     setupToggle('dstAssuranceToggle', 'dstAssuranceEnabled', 'DST Assurance setting saved:', settings);
     setupToggle('actualiseMonthAssuranceToggle', 'actualiseMonthAssuranceEnabled', 'Actualise month assurance setting saved:', settings);
     setupToggle('productCodeLimitWarningToggle', 'productCodeLimitWarningEnabled', 'Product Code Limit Warning setting saved:', settings);

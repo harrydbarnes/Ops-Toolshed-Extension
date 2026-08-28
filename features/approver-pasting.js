@@ -2,6 +2,7 @@
     'use strict';
 
     const SETTING_KEY = 'approverSidebarEnhancementsEnabled';
+    const SUBMITTED_RECIPIENT_DISPLAY_SETTING_KEY = 'approverSubmittedRecipientDisplayEnabled';
     const REMOVED_RECIPIENTS_STORAGE_KEY = 'removedInternalApprovalRecipients';
     const SUBMITTED_RECIPIENTS_STORAGE_KEY = 'internalApprovalSubmittedRecipients';
     const RECIPIENT_TOOLTIP_CLASS = 'ops-toolshed-recipient-history-tooltip';
@@ -10,6 +11,7 @@
     const EMAIL_PATTERN = /[^\s,;<>]+@[^\s,;<>]+\.[^\s,;<>]+/gi;
     let initialized = false;
     let featureEnabled = true;
+    let submittedRecipientDisplayEnabled = true;
     let removedRecipients = new Set();
     let removedRecipientsReady;
     let recipientTooltipSequence = 0;
@@ -17,6 +19,10 @@
     let submittedRecipientsByCampaign = {};
     let submittedRecipientsReady;
     let submissionTrackingInstalled = false;
+    let recipientCaptureObserver;
+    let recipientCaptureObserverRoot;
+    const pendingRecipientEmailsByCampaign = {};
+    const submittedWorkflowStateByCampaign = {};
 
     function getRemovedRecipients() {
         if (!removedRecipientsReady) {
@@ -143,8 +149,13 @@
 
     function getInternalApprovalRecipientInput(root = document) {
         const toLabel = Array.from(root.querySelectorAll?.('label') || [])
-            .find(label => label.textContent.trim() === 'To');
-        return toLabel?.parentElement?.querySelector('.select2-choices .select2-input');
+            .find(label => label.textContent.trim().replace(/:$/, '') === 'To');
+        if (!toLabel) return null;
+
+        return toLabel.parentElement?.querySelector('.select2-choices .select2-input') ||
+            toLabel.closest?.('.control-group, .form-group, .field, .row')
+                ?.querySelector?.('.select2-choices .select2-input') ||
+            root.querySelector?.('.select2-choices .select2-input');
     }
 
     function getWorkflowRoot(element) {
@@ -163,7 +174,19 @@
             element?.getAttribute?.('data-recipient-email'),
             element?.getAttribute?.('data-value'),
             element?.getAttribute?.('aria-label'),
-            element?.getAttribute?.('title')
+            element?.getAttribute?.('title'),
+            element?.getAttribute?.('name'),
+            element?.getAttribute?.('value')
+        ].filter(Boolean).join(' ');
+    }
+
+    function getRecipientChoiceText(choice) {
+        return [
+            getElementAttributeText(choice),
+            ...Array.from(choice?.querySelectorAll?.(
+                '[data-email], [data-recipient-email], [data-value], [aria-label], [title], [value]'
+            ) || []).map(getElementAttributeText),
+            choice?.textContent
         ].filter(Boolean).join(' ');
     }
 
@@ -174,8 +197,7 @@
 
         const emails = [];
         choices.querySelectorAll('.select2-search-choice, [data-select2-tag]').forEach(choice => {
-            emails.push(...extractRecipientEmails(getElementAttributeText(choice)));
-            emails.push(...extractRecipientEmails(choice.textContent));
+            emails.push(...extractRecipientEmails(getRecipientChoiceText(choice)));
         });
 
         if (emails.length === 0) {
@@ -185,6 +207,24 @@
         }
 
         return uniqueRecipientEmails(emails);
+    }
+
+    function areRecipientListsEqual(left, right) {
+        return left.length === right.length && left.every((email, index) => email === right[index]);
+    }
+
+    function rememberCurrentRecipientEmails(workflowRoot) {
+        if (!isSubmittedRecipientDisplayEnabled() || !workflowRoot) return [];
+
+        const campaignId = getCampaignId();
+        const emails = getSelectedRecipientEmails(workflowRoot);
+        if (!campaignId || emails.length === 0) return emails;
+
+        const previous = pendingRecipientEmailsByCampaign[campaignId] || [];
+        if (!areRecipientListsEqual(previous, emails)) {
+            pendingRecipientEmailsByCampaign[campaignId] = emails;
+        }
+        return emails;
     }
 
     function getVisibleRecipientDropdown(toInput) {
@@ -241,7 +281,10 @@
     }
 
     function renderSubmittedRecipientDisplay(root = getWorkflowRoot()) {
-        if (!featureEnabled) return;
+        if (!isSubmittedRecipientDisplayEnabled()) {
+            removeSubmittedRecipientDisplay();
+            return;
+        }
 
         const workflowRoot = root || getWorkflowRoot();
         if (!workflowRoot) {
@@ -291,10 +334,10 @@
     }
 
     function captureSubmittedRecipients(workflowRoot) {
-        if (!featureEnabled || !workflowRoot) return;
+        if (!isSubmittedRecipientDisplayEnabled() || !workflowRoot) return;
 
         const campaignId = getCampaignId();
-        const emails = getSelectedRecipientEmails(workflowRoot);
+        const emails = rememberCurrentRecipientEmails(workflowRoot);
         if (!campaignId || emails.length === 0) return;
 
         submittedRecipientsByCampaign[campaignId] = {
@@ -303,6 +346,36 @@
         };
         saveSubmittedRecipients();
         renderSubmittedRecipientDisplay(workflowRoot);
+    }
+
+    function isSubmittedRecipientDisplayEnabled() {
+        return featureEnabled && submittedRecipientDisplayEnabled;
+    }
+
+    function isSubmittedWorkflow(workflowRoot) {
+        return Boolean(getSubmittedStatusElement(workflowRoot));
+    }
+
+    function promotePendingRecipientCapture(workflowRoot) {
+        if (!isSubmittedRecipientDisplayEnabled() || !workflowRoot) return;
+
+        const campaignId = getCampaignId();
+        if (!campaignId) return;
+
+        const isSubmitted = isSubmittedWorkflow(workflowRoot);
+        const pendingEmails = pendingRecipientEmailsByCampaign[campaignId] || [];
+        const wasSubmitted = submittedWorkflowStateByCampaign[campaignId];
+        submittedWorkflowStateByCampaign[campaignId] = isSubmitted;
+        if (!isSubmitted || wasSubmitted !== false || pendingEmails.length === 0) return;
+
+        const previousRecord = submittedRecipientsByCampaign[campaignId];
+        if (previousRecord?.emails && areRecipientListsEqual(previousRecord.emails, pendingEmails)) return;
+
+        submittedRecipientsByCampaign[campaignId] = {
+            emails: pendingEmails,
+            capturedAt: Date.now()
+        };
+        saveSubmittedRecipients();
     }
 
     function isApprovalSubmissionTrigger(element) {
@@ -325,13 +398,23 @@
     }
 
     function handleApprovalSubmissionClick(event) {
-        if (!featureEnabled) return;
+        if (!isSubmittedRecipientDisplayEnabled()) return;
 
-        const trigger = event.target?.closest?.(
-            'button, [role="button"], a, mo-button, [data-action], [data-testid], [class*="submit"]'
-        );
-        const workflowRoot = getWorkflowRootFromEventTarget(trigger || event.target);
-        if (!trigger || !workflowRoot || !isApprovalSubmissionTrigger(trigger)) return;
+        const eventPath = event.composedPath?.() || [];
+        const interactiveElements = [event.target, ...eventPath]
+            .filter(element => element?.closest || element?.getAttribute);
+        const trigger = interactiveElements
+            .map(element => element?.closest?.(
+                'button, [role="button"], [role="menuitem"], a, mo-button, [data-action], [data-testid], [aria-label], [class*="submit"], [class*="approval"]'
+            ) || element)
+            .find(element => isApprovalSubmissionTrigger(element));
+        const workflowRoot = getWorkflowRootFromEventTarget(trigger || event.target) || getWorkflowRoot();
+        if (!workflowRoot) return;
+
+        // Keep a lightweight in-memory candidate even when Prisma's custom
+        // submit control does not expose a useful label to the document.
+        rememberCurrentRecipientEmails(workflowRoot);
+        if (!trigger || !isApprovalSubmissionTrigger(trigger)) return;
 
         // This capture-phase listener runs before Prisma replaces the form with
         // the submitted state, so the selected recipient chips are still read.
@@ -339,10 +422,33 @@
     }
 
     function handleApprovalFormSubmit(event) {
-        if (!featureEnabled) return;
+        if (!isSubmittedRecipientDisplayEnabled()) return;
 
-        const workflowRoot = getWorkflowRootFromEventTarget(event.target);
+        const workflowRoot = getWorkflowRootFromEventTarget(event.target) || getWorkflowRoot();
         if (workflowRoot) captureSubmittedRecipients(workflowRoot);
+    }
+
+    function handleRecipientSelectionChange(event) {
+        if (!isSubmittedRecipientDisplayEnabled()) return;
+
+        const workflowRoot = getWorkflowRootFromEventTarget(event.target) || getWorkflowRoot();
+        if (workflowRoot) rememberCurrentRecipientEmails(workflowRoot);
+    }
+
+    function installRecipientCaptureObserver(workflowRoot) {
+        if (!isSubmittedRecipientDisplayEnabled() || !workflowRoot) return;
+        if (recipientCaptureObserverRoot === workflowRoot && recipientCaptureObserver) return;
+
+        recipientCaptureObserver?.disconnect();
+        const Observer = workflowRoot.ownerDocument?.defaultView?.MutationObserver ||
+            (typeof MutationObserver !== 'undefined' ? MutationObserver : null);
+        if (!Observer) return;
+
+        recipientCaptureObserver = new Observer(() => {
+            rememberCurrentRecipientEmails(workflowRoot);
+        });
+        recipientCaptureObserver.observe(workflowRoot, { childList: true, subtree: true });
+        recipientCaptureObserverRoot = workflowRoot;
     }
 
     function installSubmissionRecipientTracking() {
@@ -350,6 +456,8 @@
 
         document.addEventListener('click', handleApprovalSubmissionClick, true);
         document.addEventListener('submit', handleApprovalFormSubmit, true);
+        document.addEventListener('change', handleRecipientSelectionChange, true);
+        document.addEventListener('input', handleRecipientSelectionChange, true);
         submissionTrackingInstalled = true;
     }
 
@@ -358,6 +466,8 @@
 
         document.removeEventListener('click', handleApprovalSubmissionClick, true);
         document.removeEventListener('submit', handleApprovalFormSubmit, true);
+        document.removeEventListener('change', handleRecipientSelectionChange, true);
+        document.removeEventListener('input', handleRecipientSelectionChange, true);
         submissionTrackingInstalled = false;
     }
 
@@ -503,6 +613,9 @@
 
     function removeEnhancements() {
         removeSubmissionRecipientTracking();
+        recipientCaptureObserver?.disconnect();
+        recipientCaptureObserver = null;
+        recipientCaptureObserverRoot = null;
         removeSubmittedRecipientDisplay();
         document.querySelectorAll('.prisma-paste-button, .manage-favourites-button, .ops-toolshed-recipient-history-actions')
             .forEach(control => control.remove());
@@ -529,7 +642,15 @@
         handleApproverPasting();
         handleManageFavouritesButton();
         addRecipientHistoryControls();
-        handleSubmittedRecipientDisplay();
+        if (isSubmittedRecipientDisplayEnabled()) {
+            handleSubmittedRecipientDisplay();
+        } else {
+            removeSubmissionRecipientTracking();
+            removeSubmittedRecipientDisplay();
+            recipientCaptureObserver?.disconnect();
+            recipientCaptureObserver = null;
+            recipientCaptureObserverRoot = null;
+        }
     }
 
     function removeRecipientFromHistory(email, result) {
@@ -635,6 +756,14 @@
             removeEnhancements();
             return;
         }
+        if (!submittedRecipientDisplayEnabled) {
+            removeSubmissionRecipientTracking();
+            removeSubmittedRecipientDisplay();
+            recipientCaptureObserver?.disconnect();
+            recipientCaptureObserver = null;
+            recipientCaptureObserverRoot = null;
+            return;
+        }
 
         installSubmissionRecipientTracking();
         const workflowRoot = getWorkflowRoot();
@@ -643,8 +772,14 @@
             return;
         }
 
+        installRecipientCaptureObserver(workflowRoot);
+        rememberCurrentRecipientEmails(workflowRoot);
+
         return loadSubmittedRecipients().then(() => {
-            if (featureEnabled) renderSubmittedRecipientDisplay(workflowRoot);
+            if (isSubmittedRecipientDisplayEnabled()) {
+                promotePendingRecipientCapture(workflowRoot);
+                renderSubmittedRecipientDisplay(workflowRoot);
+            }
         });
     }
 
@@ -789,13 +924,21 @@
             return;
         }
 
-        chrome.storage.sync.get({ [SETTING_KEY]: true }, data => {
+        chrome.storage.sync.get({
+            [SETTING_KEY]: true,
+            [SUBMITTED_RECIPIENT_DISPLAY_SETTING_KEY]: true
+        }, data => {
             featureEnabled = data[SETTING_KEY] !== false;
+            submittedRecipientDisplayEnabled = data[SUBMITTED_RECIPIENT_DISPLAY_SETTING_KEY] !== false;
             apply();
         });
         chrome.storage.onChanged?.addListener((changes, area) => {
-            if (area !== 'sync' || !changes[SETTING_KEY]) return;
-            featureEnabled = changes[SETTING_KEY].newValue !== false;
+            if (area !== 'sync') return;
+            if (changes[SETTING_KEY]) featureEnabled = changes[SETTING_KEY].newValue !== false;
+            if (changes[SUBMITTED_RECIPIENT_DISPLAY_SETTING_KEY]) {
+                submittedRecipientDisplayEnabled = changes[SUBMITTED_RECIPIENT_DISPLAY_SETTING_KEY].newValue !== false;
+            }
+            if (!changes[SETTING_KEY] && !changes[SUBMITTED_RECIPIENT_DISPLAY_SETTING_KEY]) return;
             apply();
         });
     }

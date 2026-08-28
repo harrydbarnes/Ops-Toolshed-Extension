@@ -1,6 +1,6 @@
 {
   "name": "ops-toolshed-extension",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "Enhances Prisma functionality and provides quick access to various tools.",
   "main": "background.js",
   "scripts": {

@@ -11,10 +11,10 @@ describe('release metadata', () => {
     test('finds a branch commit in packed Git references', () => {
         const packedRefs = [
             '# pack-refs with: peeled fully-peeled sorted',
-            'a30d8d900000000000000000000000000000000 refs/heads/r1.8'
+            'a30d8d900000000000000000000000000000000 refs/heads/r1.9'
         ].join('\n');
 
-        expect(findPackedRef(packedRefs, 'refs/heads/r1.8'))
+        expect(findPackedRef(packedRefs, 'refs/heads/r1.9'))
             .toBe('a30d8d900000000000000000000000000000000');
     });
 
@@ -38,6 +38,22 @@ describe('release metadata', () => {
 
             expect(releases[0]).toBe(expectedRelease);
             expect(new Set(releases).size).toBe(releases.length);
+        } finally {
+            dom.window.close();
+        }
+    });
+
+    test('keeps the current release focused on Campaign History', () => {
+        const toolshed = fs.readFileSync(path.join(root, 'toolshed.html'), 'utf8');
+        const dom = new JSDOM(toolshed);
+
+        try {
+            const currentRelease = dom.window.document.querySelector('#release-notes .release');
+            const items = Array.from(currentRelease.querySelectorAll('li'));
+
+            expect(items).toHaveLength(1);
+            expect(items[0].textContent).toContain('Campaign History');
+            expect(items[0].querySelector('.release-badge').dataset.releaseType).toBe('new');
         } finally {
             dom.window.close();
         }

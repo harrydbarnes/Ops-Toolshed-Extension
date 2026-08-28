@@ -216,6 +216,7 @@ function handleUrlChange() {
     console.log("[ContentScript Prisma] URL changed, reminder dismissal flags reset.");
     window.remindersFeature.resetReminderDismissalFlags();
     window.campaignFeature.resetCampaignFlags();
+    window.campaignHistoryFeature?.handleRouteChange?.();
     window.campaignFeature.handleCampaignNavigationOptimisation();
     currentUrlForDismissFlags = window.location.href;
     markAllFeaturesDirty();
@@ -285,6 +286,7 @@ async function mainContentScriptInit() {
         { getFeature: () => window.autoCopyUrlFeature, when: route => (isPrismaLike || isAura) && route.isCampaignWorkspace },
         { getFeature: () => window.liveChatEnhancements, when: route => isPrismaLike && route.isCampaignWorkspace },
         { getFeature: () => window.campaignTabTitleFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
+        { getFeature: () => window.campaignHistoryFeature, when: () => isPrismaLike },
         { getFeature: () => window.swapAccountsFeature, when: () => isPrismaLike || isAura },
         { getFeature: () => window.orderIdCopyFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
         { getFeature: () => window.orderViewToggleFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
@@ -449,6 +451,10 @@ async function mainContentScriptInit() {
                 if (route.isActualise && hasDirtyFeature('actualise')) {
                     window.actualiseMonthAssuranceFeature?.apply?.();
                 }
+            }
+
+            if (hasDirtyFeature('campaign')) {
+                window.campaignHistoryFeature?.apply?.();
             }
 
             if (hasDirtyFeature('orders') && route.isOrderSummary) {

@@ -1,14 +1,12 @@
 # Ops Toolshed Chrome Extension 🛠️
 
-**Current version: 1.8**
+**Current version: 1.9**
 
 Ops Toolshed is a Chrome extension that streamlines day-to-day campaign management in Prisma and provides quick access to common Operations tools.
 
-## What's new in 1.8
+## What's new in 1.9
 
-- Prisma enhancements now share one route-aware lifecycle registry, keeping existing campaign, Actualise, and Orders controls stable after in-app navigation.
-- The Prisma observer benchmark now completes reliably and records coalesced fast and deferred reconciliation work.
-- Development now includes a quick JavaScript syntax check alongside the focused Prisma validation commands.
+- Campaign History adds a global Prisma History search for visited campaigns by campaign name, client name, CP number, CL/PR/CA reference, or supplier, with separate settings for viewing and local visit logging.
 
 ## Features
 
@@ -31,7 +29,7 @@ All optional enhancements can be controlled from **Settings**.
 | Auto Copy Campaign URL | Copies either Prisma's short campaign link or the full current URL when the link-copy control is used. |
 | Add Campaign automation | Opens the full-details flow, hides unused sections, and can select Digital media mix and Total Cost budget type automatically. |
 | Placement Counter | Shows the number of selected placements in the Prisma grid. |
-| Approver Widget Optimise | Improves the approval widget layout, keeps it available in Actualise, and provides fast approver entry. |
+| Approver Widget Optimise | Improves the approval widget layout, keeps it available in Actualise, provides fast approver entry, and can show the captured submitted-to email address(es) beside Submitted. |
 | See Comments on Locked Buys | Makes comments accessible when a Buy is locked. |
 | GMI Chat and Live Chat tools | Adds a GMI Chat shortcut plus smaller-font, resizable-window, and scheduled-launch options for Live Chat. |
 | Switch Accounts | Adds a shortcut for changing account context. |
@@ -40,6 +38,7 @@ All optional enhancements can be controlled from **Settings**.
 | Translucent AppLearn Logo | Reduces obstruction from the AppLearn overlay, including Shadow DOM variants. |
 | Block broken AppLearn popups | Closes non-working AppLearn and associated Okta login popups opened from Prisma or Aura. |
 | Loading Facts | Displays rotating facts while Prisma loads and can include tracked waiting-time context. |
+| Campaign History | Keeps a local, searchable record of visited campaigns, including campaign, client, CP, CL/PR/CA, and supplier search. |
 
 ### Approver tools
 

@@ -7,6 +7,7 @@ const scriptsToLoad = [
     'features/logo.js',
     'features/reminders.js',
     'features/campaign.js',
+    'features/campaign-history.js',
     'features/product-code-limit-warning.js',
     'features/d-number-search.js',
     'features/gmi-chat.js',
@@ -177,7 +178,8 @@ describe('Content Script Main Logic', () => {
             'maxCampaignBudgetFeature',
             'campaignTabTitleFeature',
             'loadingFactsFeature',
-            'liveChatEnhancements'
+            'liveChatEnhancements',
+            'campaignHistoryFeature'
         ];
         const makeMocks = () => Object.fromEntries(featureNames.map(name => [name, {
             initialize: jest.fn(),
@@ -211,6 +213,7 @@ describe('Content Script Main Logic', () => {
         expect(dashboardMocks.helpGuidesLauncherFeature.initialize).toHaveBeenCalledTimes(1);
         expect(dashboardMocks.loadingFactsFeature.initialize).toHaveBeenCalledTimes(1);
         expect(dashboardMocks.bannerUsernameFeature.initialize).toHaveBeenCalledTimes(1);
+        expect(dashboardMocks.campaignHistoryFeature.initialize).toHaveBeenCalledTimes(1);
         expect(dashboardMocks.productCodeLimitWarningFeature.initialize).not.toHaveBeenCalled();
         expect(dashboardMocks.placementCounterFeature.initialize).not.toHaveBeenCalled();
         expect(dashboardMocks.dstAssuranceFeature.initialize).not.toHaveBeenCalled();

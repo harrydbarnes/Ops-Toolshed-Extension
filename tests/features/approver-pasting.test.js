@@ -22,6 +22,7 @@ describe('Internal Approval recipient history controls', () => {
     function setupDom(initiallyRemoved = [], enabled = true, deferRemovedRecipients = false, options = {}) {
         storedRecipients = initiallyRemoved;
         storedSubmissionRecipients = options.submittedRecipients || {};
+        const submittedRecipientDisplayEnabled = options.submittedRecipientDisplayEnabled !== false;
         let storageListener;
         let resolveRemovedRecipients;
         dom = new JSDOM(`<!doctype html><html><body>
@@ -46,7 +47,10 @@ describe('Internal Approval recipient history controls', () => {
         window.chrome = {
             storage: {
                 sync: {
-                    get: jest.fn((_keys, callback) => callback({ approverSidebarEnhancementsEnabled: enabled }))
+                    get: jest.fn((_keys, callback) => callback({
+                        approverSidebarEnhancementsEnabled: enabled,
+                        approverSubmittedRecipientDisplayEnabled: submittedRecipientDisplayEnabled
+                    }))
                 },
                 local: {
                     get: deferRemovedRecipients
@@ -91,6 +95,9 @@ describe('Internal Approval recipient history controls', () => {
         return {
             setEnabled(value) {
                 storageListener({ approverSidebarEnhancementsEnabled: { newValue: value } }, 'sync');
+            },
+            setSubmittedRecipientDisplayEnabled(value) {
+                storageListener({ approverSubmittedRecipientDisplayEnabled: { newValue: value } }, 'sync');
             },
             resolveRemovedRecipients: () => resolveRemovedRecipients?.()
         };
@@ -170,6 +177,33 @@ describe('Internal Approval recipient history controls', () => {
         feature.setEnabled(true);
         await flushPromises();
         expect(workflowRoot.querySelectorAll('.ops-toolshed-submitted-recipients')).toHaveLength(1);
+    });
+
+    test('allows submitted-recipient display to be toggled independently of the other approver enhancements', async () => {
+        const feature = setupDom([], true, false, { submittedRecipientDisplayEnabled: false });
+        const choices = document.querySelector('.select2-choices');
+        choices.insertAdjacentHTML('afterbegin', `
+            <li class="select2-search-choice"><div>robert.walker@wppmedia.com</div></li>
+        `);
+        const workflowRoot = document.querySelector('.workflow-widget-wrapper');
+        workflowRoot.insertAdjacentHTML('beforeend', `
+            <div class="approval-status"><span class="status-value">Submitted</span></div>
+        `);
+
+        window.approverPastingFeature.initialize();
+        await window.approverPastingFeature.handleSubmittedRecipientDisplay();
+
+        expect(workflowRoot.querySelector('.ops-toolshed-submitted-recipients')).toBeNull();
+        expect(document.querySelectorAll('.prisma-paste-button')).toHaveLength(2);
+
+        feature.setSubmittedRecipientDisplayEnabled(true);
+        await window.approverPastingFeature.handleSubmittedRecipientDisplay();
+        expect(workflowRoot.querySelector('.ops-toolshed-submitted-recipients').textContent)
+            .toBe('to: robert.walker@wppmedia.com');
+
+        feature.setSubmittedRecipientDisplayEnabled(false);
+        expect(workflowRoot.querySelector('.ops-toolshed-submitted-recipients')).toBeNull();
+        expect(document.querySelectorAll('.prisma-paste-button')).toHaveLength(2);
     });
 
     test('does not add delayed recipient-history controls after the feature is disabled', async () => {
@@ -367,6 +401,37 @@ describe('Internal Approval recipient history controls', () => {
         expect(display.previousElementSibling).toBe(status);
         expect(storedSubmissionRecipients.CP123.emails)
             .toEqual(['robert.walker@wppmedia.com', 'jane.doe@example.com']);
+    });
+
+    test('promotes a pending recipient capture when an unlabeled Prisma workflow action submits the campaign', async () => {
+        setupDom();
+        const choices = document.querySelector('.select2-choices');
+        choices.insertAdjacentHTML('afterbegin', `
+            <li class="select2-search-choice"><div>robert.walker@wppmedia.com</div></li>
+        `);
+        const workflowRoot = document.querySelector('.workflow-widget-wrapper');
+        workflowRoot.insertAdjacentHTML('beforeend', `
+            <div class="approval-status"><span class="status-value">Pending</span></div>
+            <button type="button" class="primary-action" aria-label="Continue">Continue</button>
+        `);
+        const status = workflowRoot.querySelector('.status-value');
+        const trigger = workflowRoot.querySelector('.primary-action');
+        trigger.addEventListener('click', () => {
+            status.textContent = 'Submitted';
+            choices.querySelector('.select2-search-choice').remove();
+        });
+
+        await window.approverPastingFeature.handleSubmittedRecipientDisplay();
+        await flushPromises();
+        trigger.click();
+        await flushPromises();
+        await window.approverPastingFeature.handleSubmittedRecipientDisplay();
+
+        const display = workflowRoot.querySelector('.ops-toolshed-submitted-recipients');
+        expect(display.textContent).toBe('to: robert.walker@wppmedia.com');
+        expect(display.dataset.source).toBe('captured');
+        expect(storedSubmissionRecipients.CP123.emails)
+            .toEqual(['robert.walker@wppmedia.com']);
     });
 
     test('restores the current campaign recipients from extension storage after the sidebar is rebuilt', async () => {

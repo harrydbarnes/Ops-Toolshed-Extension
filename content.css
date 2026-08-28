@@ -1305,3 +1305,429 @@ div[slot="right"].ai-style-change-1 {
   visibility: visible !important;
   opacity: 1 !important;
 }
+
+/* --- Campaign History --- */
+
+.toolshed-campaign-history-nav {
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    text-transform: none !important;
+    white-space: nowrap !important;
+}
+
+.toolshed-campaign-history-nav-content {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.toolshed-campaign-history-nav svg {
+    display: block;
+    width: 15px;
+    height: 15px;
+    flex: 0 0 15px;
+}
+
+.toolshed-campaign-history-nav:focus-visible {
+    outline: 2px solid #0875ca !important;
+    outline-offset: -2px;
+}
+
+#toolshed-campaign-history-panel {
+    --toolshed-history-motion-duration: 240ms;
+    --toolshed-history-ink: #243447;
+    --toolshed-history-muted: #667582;
+    --toolshed-history-border: #d9e1e8;
+    --toolshed-history-soft: #f5f8fb;
+    --toolshed-history-accent: #0875ca;
+    --toolshed-history-reminder-pink: #ff3d80;
+    position: fixed;
+    top: 62px;
+    right: 18px;
+    z-index: 2147483646;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    width: min(640px, calc(100vw - 36px));
+    max-height: calc(100vh - 80px);
+    overflow: hidden;
+    border: 1px solid var(--toolshed-history-border);
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 18px 50px rgba(29, 47, 66, 0.22), 0 2px 8px rgba(29, 47, 66, 0.12);
+    color: var(--toolshed-history-ink);
+    font-family: inherit;
+    opacity: 0;
+    text-align: left;
+    transform: translate3d(calc(100% + 24px), 0, 0);
+    transition:
+        transform var(--toolshed-history-motion-duration) cubic-bezier(0.22, 0.75, 0.2, 1),
+        opacity 180ms ease,
+        top var(--toolshed-history-motion-duration) cubic-bezier(0.22, 0.75, 0.2, 1),
+        right var(--toolshed-history-motion-duration) cubic-bezier(0.22, 0.75, 0.2, 1),
+        bottom var(--toolshed-history-motion-duration) cubic-bezier(0.22, 0.75, 0.2, 1),
+        left var(--toolshed-history-motion-duration) cubic-bezier(0.22, 0.75, 0.2, 1),
+        width var(--toolshed-history-motion-duration) cubic-bezier(0.22, 0.75, 0.2, 1),
+        height var(--toolshed-history-motion-duration) cubic-bezier(0.22, 0.75, 0.2, 1),
+        max-height var(--toolshed-history-motion-duration) cubic-bezier(0.22, 0.75, 0.2, 1);
+    will-change: transform, opacity, top, right, bottom, left, width, height, max-height;
+}
+
+#toolshed-campaign-history-panel[hidden] {
+    display: none !important;
+}
+
+#toolshed-campaign-history-panel.is-open {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+}
+
+#toolshed-campaign-history-panel.is-closing {
+    pointer-events: none;
+}
+
+#toolshed-campaign-history-panel::before {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 4px;
+    background: var(--toolshed-history-reminder-pink);
+    content: '';
+}
+
+#toolshed-campaign-history-panel.is-expanded {
+    top: max(56px, 5vh);
+    right: 5vw;
+    bottom: 5vh;
+    left: 5vw;
+    width: auto;
+    max-height: 90vh;
+}
+
+.toolshed-campaign-history-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 14px 18px 12px 22px;
+    border-bottom: 1px solid var(--toolshed-history-border);
+    background: linear-gradient(180deg, #fff, #fbfdff);
+}
+
+.toolshed-campaign-history-heading-group {
+    min-width: 0;
+}
+
+.toolshed-campaign-history-heading-group h2 {
+    margin: 0 0 3px;
+    color: var(--toolshed-history-ink);
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.15;
+}
+
+.toolshed-campaign-history-count {
+    display: block;
+    min-height: 15px;
+    color: var(--toolshed-history-muted);
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.toolshed-campaign-history-header-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 6px;
+}
+
+.toolshed-campaign-history-header-actions button,
+.toolshed-campaign-history-clear {
+    appearance: none;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--toolshed-history-muted);
+    cursor: pointer;
+    font: inherit;
+}
+
+.toolshed-campaign-history-expand {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 30px;
+    padding: 4px 8px;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+}
+
+.toolshed-campaign-history-expand:hover,
+.toolshed-campaign-history-expand:focus-visible {
+    border-color: var(--toolshed-history-border);
+    background: var(--toolshed-history-soft);
+    color: var(--toolshed-history-ink);
+}
+
+.toolshed-campaign-history-close {
+    display: inline-grid;
+    width: 30px;
+    height: 30px;
+    place-items: center;
+}
+
+.toolshed-campaign-history-close:hover,
+.toolshed-campaign-history-close:focus-visible {
+    border-color: var(--toolshed-history-border) !important;
+    background: var(--toolshed-history-soft) !important;
+    color: var(--toolshed-history-ink) !important;
+}
+
+.toolshed-campaign-history-header-actions button:focus-visible,
+.toolshed-campaign-history-clear:focus-visible,
+#toolshed-campaign-history-panel input:focus-visible,
+.toolshed-campaign-history-result button:focus-visible {
+    outline: 2px solid var(--toolshed-history-accent);
+    outline-offset: 2px;
+}
+
+#toolshed-campaign-history-panel button svg {
+    display: block;
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+}
+
+.toolshed-campaign-history-search {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: 16px 18px 0 22px;
+    padding: 0 10px;
+    border: 1px solid #b9c8d5;
+    border-radius: 5px;
+    background: #fff;
+    color: var(--toolshed-history-muted);
+}
+
+.toolshed-campaign-history-search:focus-within {
+    border-color: var(--toolshed-history-accent);
+    box-shadow: 0 0 0 2px rgba(8, 117, 202, 0.14);
+}
+
+.toolshed-campaign-history-search > svg {
+    display: block;
+    width: 17px;
+    height: 17px;
+    flex: 0 0 17px;
+}
+
+.toolshed-campaign-history-search input {
+    min-width: 0;
+    flex: 1 1 auto;
+    height: 38px;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--toolshed-history-ink);
+    font: inherit;
+    font-size: 13px !important;
+}
+
+.toolshed-campaign-history-search input::placeholder {
+    color: #7b8b98;
+    opacity: 1;
+}
+
+.toolshed-campaign-history-clear {
+    display: inline-grid;
+    width: 25px;
+    height: 25px;
+    place-items: center;
+    color: var(--toolshed-history-muted);
+}
+
+.toolshed-campaign-history-clear[hidden] {
+    display: none;
+}
+
+.toolshed-campaign-history-clear:hover {
+    background: var(--toolshed-history-soft);
+    color: var(--toolshed-history-ink);
+}
+
+.toolshed-campaign-history-helper {
+    margin: 8px 20px 10px 22px;
+    color: var(--toolshed-history-muted);
+    font-size: 11px;
+    line-height: 1.45;
+}
+
+.toolshed-campaign-history-status {
+    min-height: 17px;
+    margin: 0 20px 4px 22px;
+    color: var(--toolshed-history-muted);
+    font-size: 11px;
+    line-height: 1.45;
+}
+
+.toolshed-campaign-history-results {
+    min-height: 0;
+    overflow: auto;
+    padding: 0 12px 16px 22px;
+}
+
+.toolshed-campaign-history-result {
+    margin: 0;
+    border-bottom: 1px solid #e8edf2;
+}
+
+.toolshed-campaign-history-result:last-child {
+    border-bottom: 0;
+}
+
+.toolshed-campaign-history-result button {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    gap: 12px;
+    padding: 12px 8px 12px 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+}
+
+.toolshed-campaign-history-result button:hover {
+    background: #f7fafc;
+}
+
+.toolshed-campaign-history-result button > svg {
+    color: #7c8d9a;
+    transition: transform 120ms ease, color 120ms ease;
+}
+
+.toolshed-campaign-history-result button:hover > svg {
+    color: var(--toolshed-history-accent);
+    transform: translateX(2px);
+}
+
+.toolshed-campaign-history-result-copy {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.toolshed-campaign-history-result-title {
+    display: block;
+    overflow: hidden;
+    color: var(--toolshed-history-ink);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.toolshed-campaign-history-result-metadata {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px 10px;
+    margin-top: 6px;
+}
+
+.toolshed-campaign-history-metadata-item {
+    display: inline-flex;
+    min-width: 0;
+    max-width: 100%;
+    gap: 4px;
+    color: var(--toolshed-history-muted);
+    font-size: 10px;
+    line-height: 1.3;
+}
+
+.toolshed-campaign-history-metadata-label {
+    flex: 0 0 auto;
+    color: #8493a0;
+    font-weight: 700;
+}
+
+.toolshed-campaign-history-metadata-value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.toolshed-campaign-history-result-footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 7px;
+    color: #8795a1;
+    font-size: 10px;
+    line-height: 1.35;
+}
+
+.toolshed-campaign-history-visits {
+    color: var(--toolshed-history-accent);
+    font-weight: 600;
+}
+
+.toolshed-campaign-history-empty {
+    margin: 18px 8px 4px 0;
+    padding: 22px 18px;
+    border: 1px dashed #cbd7e0;
+    border-radius: 6px;
+    background: var(--toolshed-history-soft);
+    color: var(--toolshed-history-muted);
+    text-align: center;
+}
+
+.toolshed-campaign-history-empty strong {
+    display: block;
+    color: var(--toolshed-history-ink);
+    font-size: 13px;
+}
+
+.toolshed-campaign-history-empty p {
+    margin: 6px 0 0;
+    font-size: 11px;
+    line-height: 1.45;
+}
+
+@media (max-width: 640px) {
+    #toolshed-campaign-history-panel {
+        top: 8px;
+        right: 8px;
+        width: calc(100vw - 16px);
+        max-height: calc(100vh - 16px);
+    }
+
+    .toolshed-campaign-history-header {
+        padding-right: 12px;
+    }
+
+    .toolshed-campaign-history-expand {
+        width: 30px;
+        padding: 4px;
+        justify-content: center;
+    }
+
+    .toolshed-campaign-history-expand .toolshed-campaign-history-button-label {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #toolshed-campaign-history-panel {
+        transition: none;
+    }
+
+    .toolshed-campaign-history-result button > svg {
+        transition: none;
+    }
+}
