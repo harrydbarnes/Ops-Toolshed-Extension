@@ -159,6 +159,7 @@ describe('Toolshed Stats UI', () => {
         expect(roadmapItems).toContain('Timesheet Helper');
         expect(roadmapItems).toContain('Meta Spend Check');
         expect(roadmapItems).toContain('Recy Sheet Campaign List');
+        expect(roadmapItems).toContain('Campaign history with the ability to search visited campaigns by supplier');
     });
 
     test('keeps every tab at the same content width without scrollbar layout shifts', () => {
