@@ -8,6 +8,7 @@
     const RECIPIENT_TOOLTIP_CLASS = 'ops-toolshed-recipient-history-tooltip';
     const RECIPIENT_TOOLTIP_TEXT = 'Hide this recipient from history';
     const SUBMITTED_RECIPIENTS_CLASS = 'ops-toolshed-submitted-recipients';
+    const SUBMITTED_RECIPIENT_TOOLTIP_CLASS = 'ops-toolshed-submitted-recipient-tooltip';
     const EMAIL_PATTERN = /[^\s,;<>]+@[^\s,;<>]+\.[^\s,;<>]+/gi;
     let initialized = false;
     let featureEnabled = true;
@@ -16,6 +17,9 @@
     let removedRecipientsReady;
     let recipientTooltipSequence = 0;
     let recipientTooltip;
+    let submittedRecipientTooltipSequence = 0;
+    let submittedRecipientTooltip;
+    let submittedRecipientTooltipOwner;
     let submittedRecipientsByCampaign = {};
     let submittedRecipientsReady;
     let submissionTrackingInstalled = false;
@@ -168,6 +172,127 @@
         return document.querySelector('.workflow-widget-wrapper, mo-side-panel, .mo-side-panel');
     }
 
+    function getWorkflowParentElement(element) {
+        if (!element) return null;
+        return element.parentElement || element.getRootNode?.().host || null;
+    }
+
+    function getWorkflowElementsIncludingShadowDom(root = document, visited = new Set()) {
+        if (!root || visited.has(root)) return [];
+        visited.add(root);
+
+        const result = [];
+        if (root.nodeType === 1) {
+            result.push(root);
+            if (root.shadowRoot) {
+                result.push(...getWorkflowElementsIncludingShadowDom(root.shadowRoot, visited));
+            }
+        }
+
+        let elements = [];
+        try {
+            elements = root.querySelectorAll ? Array.from(root.querySelectorAll('*')) : [];
+        } catch (_error) {
+            elements = [];
+        }
+
+        elements.forEach(element => {
+            if (visited.has(element)) return;
+            visited.add(element);
+            result.push(element);
+            if (element.shadowRoot) {
+                result.push(...getWorkflowElementsIncludingShadowDom(element.shadowRoot, visited));
+            }
+        });
+
+        return result;
+    }
+
+    function isAvailableWorkflowSidebar(element) {
+        if (!element || element.matches?.('.workflow-widget-wrapper')) return false;
+        if (element.hidden || element.getAttribute?.('aria-hidden') === 'true') return false;
+
+        const view = element.ownerDocument?.defaultView;
+        const style = view?.getComputedStyle?.(element);
+        return style?.display !== 'none' && style?.visibility !== 'hidden';
+    }
+
+    function hasWorkflowSidebarMarkers(element) {
+        if (!element?.querySelectorAll) return false;
+
+        const text = getWorkflowElementsIncludingShadowDom(element)
+            .map(child => child.textContent || '')
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        const hasWorkflowHeading = /\bworkflow\b/i.test(text);
+        const hasWorkflowTabs = /\bcurrent\b/i.test(text) && /\bhistory\b/i.test(text);
+        return hasWorkflowHeading && (hasWorkflowTabs || Boolean(getSubmittedStatusElement(element)));
+    }
+
+    function looksLikeWorkflowSidebarElement(element) {
+        const tagName = String(element?.tagName || '').toLowerCase();
+        const signature = [
+            element?.id,
+            typeof element?.className === 'string' ? element.className : '',
+            element?.getAttribute?.('aria-label'),
+            element?.getAttribute?.('data-testid')
+        ].filter(Boolean).join(' ');
+
+        return tagName === 'mo-side-panel' ||
+            tagName === 'aside' ||
+            element?.getAttribute?.('role') === 'complementary' ||
+            /(?:side[ -]?panel|workflow[ -]?panel|workflow[ -]?sidebar)/i.test(signature);
+    }
+
+    function getWorkflowSidebarRoot() {
+        const candidates = new Set();
+        const selector = [
+            'mo-side-panel',
+            '.mo-side-panel',
+            'aside',
+            '[role="complementary"]',
+            '[aria-label*="workflow" i]',
+            '[data-testid*="workflow" i]',
+            '[id*="workflow" i]',
+            '[class*="workflow" i]'
+        ].join(', ');
+
+        getWorkflowElementsIncludingShadowDom()
+            .filter(element => element.matches?.(selector))
+            .forEach(element => candidates.add(element));
+
+        // Some Prisma versions do not expose a stable sidebar selector. Walk
+        // up from its visible WORKFLOW heading and retain only ancestors that
+        // look like a side-panel container, so the header workflow widget is
+        // never selected as the display target.
+        getWorkflowElementsIncludingShadowDom()
+            .filter(element => element.textContent?.replace(/\s+/g, ' ').trim().toLowerCase() === 'workflow')
+            .forEach(heading => {
+                let current = heading;
+                for (let depth = 0; current && depth < 8; depth += 1) {
+                    if (looksLikeWorkflowSidebarElement(current)) candidates.add(current);
+                    current = getWorkflowParentElement(current);
+                }
+            });
+
+        return [...candidates]
+            .filter(element => isAvailableWorkflowSidebar(element) && hasWorkflowSidebarMarkers(element))
+            .sort((left, right) => {
+                const score = element => {
+                    const tagName = String(element?.tagName || '').toLowerCase();
+                    const signature = [element?.id, element?.className].filter(Boolean).join(' ');
+                    if (tagName === 'mo-side-panel' || /side[ -]?panel/i.test(signature)) return 0;
+                    if (tagName === 'aside' || element?.getAttribute?.('role') === 'complementary') return 1;
+                    return 2;
+                };
+                const scoreDifference = score(left) - score(right);
+                if (scoreDifference !== 0) return scoreDifference;
+                return (left.querySelectorAll('*').length || 0) -
+                    (right.querySelectorAll('*').length || 0);
+            })[0] || null;
+    }
+
     function getElementAttributeText(element) {
         return [
             element?.getAttribute?.('data-email'),
@@ -251,10 +376,65 @@
             null;
     }
 
+    function getWorkflowTileSignature(tile) {
+        const signatures = [];
+        let current = tile;
+        for (let depth = 0; current && depth < 4; depth += 1) {
+            signatures.push([
+                current.id,
+                typeof current.className === 'string' ? current.className : '',
+                current.getAttribute?.('aria-label'),
+                current.getAttribute?.('data-testid'),
+                current.getAttribute?.('data-view')
+            ].filter(Boolean).join(' '));
+            current = getWorkflowParentElement(current);
+        }
+        return signatures.join(' ');
+    }
+
+    function isWorkflowTileAvailable(tile) {
+        if (!tile || tile.hidden || tile.getAttribute?.('aria-hidden') === 'true') return false;
+        const view = tile.ownerDocument?.defaultView;
+        const style = view?.getComputedStyle?.(tile);
+        if (style?.display === 'none' || style?.visibility === 'hidden') return false;
+
+        return !/(?:workflow[ -]?(?:history|completed)|history[ -]?tile|collapsed|previous|archived)/i
+            .test(getWorkflowTileSignature(tile));
+    }
+
+    function getSubmittedLabelFromWorkflowTile(tile) {
+        return getWorkflowElementsIncludingShadowDom(tile)
+            .filter(element => element.classList?.contains('mo-label'))
+            .filter(element => element.classList?.contains('label'))
+            .find(element =>
+                element.textContent?.replace(/\s+/g, ' ').trim().toLowerCase() === 'submitted'
+            ) || null;
+    }
+
+    function isExplicitlyActiveWorkflowTile(tile) {
+        return tile.matches?.(
+            '[active], [selected], [aria-current="true"], [aria-selected="true"], .active, .selected, .current, .is-active'
+        ) || false;
+    }
+
+    function getActiveWorkflowSubmittedLabel(root) {
+        const tiles = getWorkflowElementsIncludingShadowDom(root)
+            .filter(element => String(element.tagName || '').toLowerCase() === 'mo-side-panel-tile')
+            .filter(isWorkflowTileAvailable)
+            .map(tile => ({ tile, label: getSubmittedLabelFromWorkflowTile(tile) }))
+            .filter(entry => entry.label);
+        if (tiles.length === 0) return null;
+
+        return (tiles.find(({ tile }) => isExplicitlyActiveWorkflowTile(tile)) || tiles[0]).label;
+    }
+
     function getSubmittedStatusElement(root) {
         if (!root?.querySelectorAll) return null;
 
-        const candidates = [root, ...root.querySelectorAll('*')]
+        const activeTileLabel = getActiveWorkflowSubmittedLabel(root);
+        if (activeTileLabel) return activeTileLabel;
+
+        const candidates = [root, ...getWorkflowElementsIncludingShadowDom(root)]
             .filter(element => {
                 if (element.classList?.contains(SUBMITTED_RECIPIENTS_CLASS)) return false;
                 return element.textContent?.replace(/\s+/g, ' ').trim().toLowerCase() === 'submitted';
@@ -280,31 +460,47 @@
         return [];
     }
 
+    function getSubmittedRecipientDisplays(root = document) {
+        return getWorkflowElementsIncludingShadowDom(root)
+            .filter(element => element.classList?.contains(SUBMITTED_RECIPIENTS_CLASS));
+    }
+
+    function isWorkflowDescendant(root, element) {
+        let current = element;
+        for (let depth = 0; current && depth < 20; depth += 1) {
+            if (current === root) return true;
+            current = getWorkflowParentElement(current);
+        }
+        return false;
+    }
+
     function renderSubmittedRecipientDisplay(root = getWorkflowRoot()) {
         if (!isSubmittedRecipientDisplayEnabled()) {
             removeSubmittedRecipientDisplay();
             return;
         }
 
-        const workflowRoot = root || getWorkflowRoot();
+        const workflowRoot = getWorkflowSidebarRoot();
+        getSubmittedRecipientDisplays().forEach(display => {
+            if (!workflowRoot || !isWorkflowDescendant(workflowRoot, display)) display.remove();
+        });
         if (!workflowRoot) {
-            document.querySelectorAll(`.${SUBMITTED_RECIPIENTS_CLASS}`).forEach(display => display.remove());
+            removeSubmittedRecipientTooltip();
             return;
         }
 
-        const existingDisplays = Array.from(
-            workflowRoot.querySelectorAll(`.${SUBMITTED_RECIPIENTS_CLASS}`)
-        );
+        const existingDisplays = getSubmittedRecipientDisplays(workflowRoot);
         const statusElement = getSubmittedStatusElement(workflowRoot);
         if (!statusElement) {
             existingDisplays.forEach(display => display.remove());
+            removeSubmittedRecipientTooltip();
             return;
         }
 
         const nativeEmails = getNativeSubmittedRecipientEmails(statusElement);
         const campaignId = getCampaignId();
         const storedEmails = submittedRecipientsByCampaign[campaignId]?.emails || [];
-        const selectedEmails = getSelectedRecipientEmails(workflowRoot);
+        const selectedEmails = getSelectedRecipientEmails(root || getWorkflowRoot());
         const emails = nativeEmails.length > 0
             ? nativeEmails
             : storedEmails.length > 0
@@ -312,12 +508,26 @@
                 : selectedEmails;
         if (emails.length === 0) {
             existingDisplays.forEach(display => display.remove());
+            removeSubmittedRecipientTooltip();
             return;
         }
 
         const display = existingDisplays.shift() || document.createElement('span');
         existingDisplays.forEach(otherDisplay => otherDisplay.remove());
-        display.className = SUBMITTED_RECIPIENTS_CLASS;
+        display.className = `${SUBMITTED_RECIPIENTS_CLASS} ${SUBMITTED_RECIPIENTS_CLASS}--sidebar`;
+        Object.assign(display.style, {
+            display: 'inline-block',
+            maxWidth: 'calc(100% - 12px)',
+            marginLeft: '6px',
+            color: '#97A0B1',
+            fontFamily: 'Avenir, Arial, sans-serif',
+            fontSize: '11px',
+            fontWeight: '400',
+            lineHeight: '1.35',
+            overflowWrap: 'anywhere',
+            textTransform: 'none',
+            verticalAlign: 'middle'
+        });
         display.textContent = `to: ${emails.join(', ')}`;
         display.setAttribute('aria-label', `Submitted to ${emails.join(', ')}`);
         display.dataset.campaignId = campaignId;
@@ -326,6 +536,8 @@
             : storedEmails.length > 0
                 ? 'captured'
                 : 'current';
+
+        ensureSubmittedRecipientTooltip(statusElement, emails);
 
         if (display.parentNode !== statusElement.parentNode ||
             display.previousElementSibling !== statusElement) {
@@ -472,7 +684,8 @@
     }
 
     function removeSubmittedRecipientDisplay() {
-        document.querySelectorAll(`.${SUBMITTED_RECIPIENTS_CLASS}`).forEach(display => display.remove());
+        getSubmittedRecipientDisplays().forEach(display => display.remove());
+        removeSubmittedRecipientTooltip();
     }
 
     function positionRecipientTooltip(button, tooltip) {
@@ -500,6 +713,109 @@
 
         tooltip.style.top = `${Math.round(Math.max(margin, top))}px`;
         tooltip.style.left = `${Math.round(Math.max(margin, left))}px`;
+    }
+
+    function positionSubmittedRecipientTooltip(label, tooltip) {
+        const labelRect = label.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        const ownerDocument = label.ownerDocument;
+        const view = ownerDocument.defaultView;
+        const viewportWidth = ownerDocument.documentElement.clientWidth || view?.innerWidth || 0;
+        const viewportHeight = ownerDocument.documentElement.clientHeight || view?.innerHeight || 0;
+        const margin = 8;
+
+        let left = labelRect.left + (labelRect.width - tooltipRect.width) / 2;
+        if (viewportWidth > 0 && tooltipRect.width > 0) {
+            left = Math.min(
+                Math.max(margin, left),
+                Math.max(margin, viewportWidth - tooltipRect.width - margin)
+            );
+        }
+
+        let top = labelRect.bottom + margin;
+        if (viewportHeight > 0 && tooltipRect.height > 0 &&
+            top + tooltipRect.height > viewportHeight - margin) {
+            top = labelRect.top - tooltipRect.height - margin;
+        }
+
+        if (viewportHeight > 0 && tooltipRect.height > 0) {
+            top = Math.min(
+                Math.max(margin, top),
+                Math.max(margin, viewportHeight - tooltipRect.height - margin)
+            );
+        }
+
+        tooltip.style.top = `${Math.round(Math.max(margin, top))}px`;
+        tooltip.style.left = `${Math.round(Math.max(margin, left))}px`;
+    }
+
+    function removeSubmittedRecipientTooltip() {
+        const owner = submittedRecipientTooltipOwner;
+        owner?._opsToolshedSubmittedRecipientTooltip?.destroy?.();
+        if (owner) delete owner._opsToolshedSubmittedRecipientTooltip;
+        submittedRecipientTooltipOwner = null;
+        submittedRecipientTooltip?.remove();
+        submittedRecipientTooltip = null;
+        document.querySelectorAll(`.${SUBMITTED_RECIPIENT_TOOLTIP_CLASS}`).forEach(tooltip => tooltip.remove());
+    }
+
+    function ensureSubmittedRecipientTooltip(label, emails) {
+        if (!label || emails.length === 0) {
+            removeSubmittedRecipientTooltip();
+            return;
+        }
+
+        const ownerDocument = label.ownerDocument;
+        const view = ownerDocument.defaultView;
+        if (submittedRecipientTooltipOwner !== label ||
+            !submittedRecipientTooltip || !submittedRecipientTooltip.isConnected) {
+            removeSubmittedRecipientTooltip();
+            const tooltip = ownerDocument.createElement('div');
+            tooltip.className = SUBMITTED_RECIPIENT_TOOLTIP_CLASS;
+            tooltip.id = `${SUBMITTED_RECIPIENT_TOOLTIP_CLASS}-${++submittedRecipientTooltipSequence}`;
+            tooltip.setAttribute('role', 'tooltip');
+            tooltip.hidden = true;
+            (ownerDocument.body || ownerDocument.documentElement).appendChild(tooltip);
+            submittedRecipientTooltip = tooltip;
+            submittedRecipientTooltipOwner = label;
+
+            const originalTabIndex = label.getAttribute('tabindex');
+            if (originalTabIndex === null) label.setAttribute('tabindex', '0');
+
+            const show = () => {
+                tooltip.hidden = false;
+                positionSubmittedRecipientTooltip(label, tooltip);
+            };
+            const hide = () => {
+                tooltip.hidden = true;
+            };
+            const handleResize = () => {
+                if (!tooltip.hidden) positionSubmittedRecipientTooltip(label, tooltip);
+            };
+
+            label.addEventListener('mouseenter', show);
+            label.addEventListener('mouseleave', hide);
+            label.addEventListener('focus', show);
+            label.addEventListener('blur', hide);
+            view?.addEventListener('resize', handleResize);
+
+            label._opsToolshedSubmittedRecipientTooltip = {
+                destroy() {
+                    label.removeEventListener('mouseenter', show);
+                    label.removeEventListener('mouseleave', hide);
+                    label.removeEventListener('focus', show);
+                    label.removeEventListener('blur', hide);
+                    view?.removeEventListener('resize', handleResize);
+                    label.removeAttribute('aria-describedby');
+                    if (originalTabIndex === null) label.removeAttribute('tabindex');
+                    else label.setAttribute('tabindex', originalTabIndex);
+                    hide();
+                }
+            };
+        }
+
+        submittedRecipientTooltip.textContent = `Submitted to: ${emails.join(', ')}`;
+        label.setAttribute('aria-describedby', submittedRecipientTooltip.id);
     }
 
     function destroyRecipientTooltip(button) {

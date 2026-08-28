@@ -92,7 +92,7 @@ const DIRTY_FEATURE_HINTS = [
         selector: 'mo-banner, mo-banner-help-menu, mo-menu'
     },
     {
-        groups: ['shell'],
+        groups: ['shell', 'campaign', 'approvals'],
         selector: 'mo-side-panel, #vp-block, mo-spinner, .mo-spinner'
     },
     {

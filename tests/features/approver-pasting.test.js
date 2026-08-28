@@ -32,6 +32,13 @@ describe('Internal Approval recipient history controls', () => {
                     <ul class="select2-choices"><li><input class="select2-input"></li></ul>
                 </div>
             </div>
+            <mo-side-panel class="approver-workflow-sidebar">
+                <div class="workflow-sidebar-heading">WORKFLOW</div>
+                <div class="workflow-sidebar-tabs"><span>Current</span><span>History</span></div>
+                <mo-side-panel-tile class="workflow-sidebar-card mo-info active">
+                    <div class="mo-label label label-info">SUBMITTED</div>
+                </mo-side-panel-tile>
+            </mo-side-panel>
             <div class="select2-drop-active" style="display: block">
                 <ul class="select2-results">
                     <li class="select2-result-selectable"><div class="select2-result-label">first@example.com</div></li>
@@ -168,15 +175,37 @@ describe('Internal Approval recipient history controls', () => {
         feature.setEnabled(true);
         await window.approverPastingFeature.handleSubmittedRecipientDisplay();
 
-        expect(workflowRoot.querySelector('.ops-toolshed-submitted-recipients').textContent)
+        const sidebar = document.querySelector('.approver-workflow-sidebar');
+        expect(sidebar.querySelector('.ops-toolshed-submitted-recipients').textContent)
             .toBe('to: robert.walker@wppmedia.com');
+        expect(workflowRoot.querySelector('.ops-toolshed-submitted-recipients')).toBeNull();
 
         feature.setEnabled(false);
-        expect(workflowRoot.querySelector('.ops-toolshed-submitted-recipients')).toBeNull();
+        expect(sidebar.querySelector('.ops-toolshed-submitted-recipients')).toBeNull();
 
         feature.setEnabled(true);
         await flushPromises();
-        expect(workflowRoot.querySelectorAll('.ops-toolshed-submitted-recipients')).toHaveLength(1);
+        expect(sidebar.querySelectorAll('.ops-toolshed-submitted-recipients')).toHaveLength(1);
+    });
+
+    test('does not fall back to the approval widget when the Workflow sidebar is closed', async () => {
+        setupDom([], true, false, {
+            submittedRecipients: {
+                CP123: {
+                    emails: ['robert.walker@wppmedia.com'],
+                    capturedAt: 123
+                }
+            }
+        });
+        document.querySelector('.approver-workflow-sidebar').remove();
+        const workflowRoot = document.querySelector('.workflow-widget-wrapper');
+        workflowRoot.insertAdjacentHTML('beforeend', `
+            <div class="approval-status"><span class="status-value">Submitted</span></div>
+        `);
+
+        await window.approverPastingFeature.handleSubmittedRecipientDisplay();
+
+        expect(workflowRoot.querySelector('.ops-toolshed-submitted-recipients')).toBeNull();
     });
 
     test('allows submitted-recipient display to be toggled independently of the other approver enhancements', async () => {
@@ -193,16 +222,17 @@ describe('Internal Approval recipient history controls', () => {
         window.approverPastingFeature.initialize();
         await window.approverPastingFeature.handleSubmittedRecipientDisplay();
 
-        expect(workflowRoot.querySelector('.ops-toolshed-submitted-recipients')).toBeNull();
+        const sidebar = document.querySelector('.approver-workflow-sidebar');
+        expect(sidebar.querySelector('.ops-toolshed-submitted-recipients')).toBeNull();
         expect(document.querySelectorAll('.prisma-paste-button')).toHaveLength(2);
 
         feature.setSubmittedRecipientDisplayEnabled(true);
         await window.approverPastingFeature.handleSubmittedRecipientDisplay();
-        expect(workflowRoot.querySelector('.ops-toolshed-submitted-recipients').textContent)
+        expect(sidebar.querySelector('.ops-toolshed-submitted-recipients').textContent)
             .toBe('to: robert.walker@wppmedia.com');
 
         feature.setSubmittedRecipientDisplayEnabled(false);
-        expect(workflowRoot.querySelector('.ops-toolshed-submitted-recipients')).toBeNull();
+        expect(sidebar.querySelector('.ops-toolshed-submitted-recipients')).toBeNull();
         expect(document.querySelectorAll('.prisma-paste-button')).toHaveLength(2);
     });
 
@@ -289,6 +319,82 @@ describe('Internal Approval recipient history controls', () => {
         expect(tooltip.hidden).toBe(false);
         removeButton.dispatchEvent(new window.MouseEvent('mouseleave'));
         expect(tooltip.hidden).toBe(true);
+    });
+
+    test('places submitted recipients after the active Workflow tile label and shows an unclipped tooltip', async () => {
+        setupDom([], true, false, {
+            submittedRecipients: {
+                CP123: {
+                    emails: ['robert.walker@wppmedia.com'],
+                    capturedAt: 123
+                }
+            }
+        });
+        const sidebar = document.querySelector('.approver-workflow-sidebar');
+        const activeTile = sidebar.querySelector('mo-side-panel-tile');
+        const submittedLabel = activeTile.querySelector('.mo-label.label');
+        const historyTile = document.createElement('mo-side-panel-tile');
+        historyTile.className = 'workflow-history completed';
+        historyTile.innerHTML = '<div class="mo-label label">SUBMITTED</div>';
+        activeTile.after(historyTile);
+
+        await window.approverPastingFeature.handleSubmittedRecipientDisplay();
+
+        const display = activeTile.querySelector('.ops-toolshed-submitted-recipients');
+        expect(display).not.toBeNull();
+        expect(display.textContent).toBe('to: robert.walker@wppmedia.com');
+        expect(display.previousElementSibling).toBe(submittedLabel);
+        expect(display.style.fontFamily).toBe('Avenir, Arial, sans-serif');
+        expect(display.style.fontSize).toBe('11px');
+        expect(display.style.color).toBe('rgb(151, 160, 177)');
+        expect(display.style.fontWeight).toBe('400');
+        expect(display.style.marginLeft).toBe('6px');
+        expect(display.style.textTransform).toBe('none');
+        expect(historyTile.querySelector('.ops-toolshed-submitted-recipients')).toBeNull();
+
+        const tooltip = document.getElementById(submittedLabel.getAttribute('aria-describedby'));
+        expect(tooltip).not.toBeNull();
+        expect(tooltip.parentElement).toBe(document.body);
+        expect(tooltip.getAttribute('role')).toBe('tooltip');
+        expect(tooltip.textContent).toBe('Submitted to: robert.walker@wppmedia.com');
+        expect(tooltip.hidden).toBe(true);
+        expect(submittedLabel.getAttribute('tabindex')).toBe('0');
+
+        submittedLabel.dispatchEvent(new window.MouseEvent('mouseenter'));
+        expect(tooltip.hidden).toBe(false);
+        submittedLabel.dispatchEvent(new window.MouseEvent('mouseleave'));
+        expect(tooltip.hidden).toBe(true);
+    });
+
+    test('finds the active Submitted label when Prisma renders Workflow inside an open shadow root', async () => {
+        setupDom([], true, false, {
+            submittedRecipients: {
+                CP123: {
+                    emails: ['robert.walker@wppmedia.com'],
+                    capturedAt: 123
+                }
+            }
+        });
+        const sidebar = document.querySelector('.approver-workflow-sidebar');
+        sidebar.replaceChildren();
+        const shadowRoot = sidebar.attachShadow({ mode: 'open' });
+        shadowRoot.innerHTML = `
+            <div class="workflow-sidebar-heading">WORKFLOW</div>
+            <div class="workflow-sidebar-tabs"><span>Current</span><span>History</span></div>
+            <mo-side-panel-tile class="mo-info active">
+                <div class="mo-label label label-info">SUBMITTED</div>
+            </mo-side-panel-tile>
+        `;
+
+        await window.approverPastingFeature.handleSubmittedRecipientDisplay();
+
+        const submittedLabel = shadowRoot.querySelector('.mo-label.label');
+        const display = submittedLabel.nextElementSibling;
+        expect(display.classList.contains('ops-toolshed-submitted-recipients')).toBe(true);
+        expect(display.textContent).toBe('to: robert.walker@wppmedia.com');
+        expect(shadowRoot.querySelectorAll('.ops-toolshed-submitted-recipients')).toHaveLength(1);
+        expect(document.getElementById(submittedLabel.getAttribute('aria-describedby')))
+            .toBeTruthy();
     });
 
     test('keeps the tooltip connected when Select2 temporarily hides its dropdown', async () => {
@@ -394,11 +500,14 @@ describe('Internal Approval recipient history controls', () => {
         workflowRoot.querySelector('.submit-approval').click();
         await window.approverPastingFeature.handleSubmittedRecipientDisplay();
 
-        const display = workflowRoot.querySelector('.ops-toolshed-submitted-recipients');
+        const sidebar = document.querySelector('.approver-workflow-sidebar');
+        const sidebarStatus = sidebar.querySelector('.mo-label.label');
+        const display = sidebar.querySelector('.ops-toolshed-submitted-recipients');
         expect(display.textContent).toBe('to: robert.walker@wppmedia.com, jane.doe@example.com');
         expect(display.getAttribute('aria-label'))
             .toBe('Submitted to robert.walker@wppmedia.com, jane.doe@example.com');
-        expect(display.previousElementSibling).toBe(status);
+        expect(display.previousElementSibling).toBe(sidebarStatus);
+        expect(workflowRoot.querySelector('.ops-toolshed-submitted-recipients')).toBeNull();
         expect(storedSubmissionRecipients.CP123.emails)
             .toEqual(['robert.walker@wppmedia.com', 'jane.doe@example.com']);
     });
@@ -410,6 +519,8 @@ describe('Internal Approval recipient history controls', () => {
             <li class="select2-search-choice"><div>robert.walker@wppmedia.com</div></li>
         `);
         const workflowRoot = document.querySelector('.workflow-widget-wrapper');
+        const sidebar = document.querySelector('.approver-workflow-sidebar');
+        sidebar.querySelector('.mo-label.label').textContent = 'Pending';
         workflowRoot.insertAdjacentHTML('beforeend', `
             <div class="approval-status"><span class="status-value">Pending</span></div>
             <button type="button" class="primary-action" aria-label="Continue">Continue</button>
@@ -418,6 +529,7 @@ describe('Internal Approval recipient history controls', () => {
         const trigger = workflowRoot.querySelector('.primary-action');
         trigger.addEventListener('click', () => {
             status.textContent = 'Submitted';
+            sidebar.querySelector('.mo-label.label').textContent = 'Submitted';
             choices.querySelector('.select2-search-choice').remove();
         });
 
@@ -427,9 +539,10 @@ describe('Internal Approval recipient history controls', () => {
         await flushPromises();
         await window.approverPastingFeature.handleSubmittedRecipientDisplay();
 
-        const display = workflowRoot.querySelector('.ops-toolshed-submitted-recipients');
+        const display = sidebar.querySelector('.ops-toolshed-submitted-recipients');
         expect(display.textContent).toBe('to: robert.walker@wppmedia.com');
         expect(display.dataset.source).toBe('captured');
+        expect(workflowRoot.querySelector('.ops-toolshed-submitted-recipients')).toBeNull();
         expect(storedSubmissionRecipients.CP123.emails)
             .toEqual(['robert.walker@wppmedia.com']);
     });
@@ -450,7 +563,8 @@ describe('Internal Approval recipient history controls', () => {
 
         await window.approverPastingFeature.handleSubmittedRecipientDisplay();
 
-        const display = workflowRoot.querySelector('.ops-toolshed-submitted-recipients');
+        const sidebar = document.querySelector('.approver-workflow-sidebar');
+        const display = sidebar.querySelector('.ops-toolshed-submitted-recipients');
         expect(display.textContent).toBe('to: robert.walker@wppmedia.com');
         expect(display.dataset.source).toBe('captured');
     });
@@ -467,7 +581,8 @@ describe('Internal Approval recipient history controls', () => {
 
         await window.approverPastingFeature.handleSubmittedRecipientDisplay();
 
-        const display = workflowRoot.querySelector('.ops-toolshed-submitted-recipients');
+        const sidebar = document.querySelector('.approver-workflow-sidebar');
+        const display = sidebar.querySelector('.ops-toolshed-submitted-recipients');
         expect(display.textContent).toBe('to: robert.walker@wppmedia.com');
         expect(display.dataset.source).toBe('current');
     });

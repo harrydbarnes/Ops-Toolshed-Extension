@@ -597,6 +597,38 @@ describe('Content Script Main Logic', () => {
         expect(submittedRecipientDisplay).toHaveBeenCalledTimes(1);
     });
 
+    test('reconciles campaign history and approval recipients when the Workflow sidebar is mounted', async () => {
+        const { window, document, mutationObservers } = setupJSDOM(
+            'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=buy&route=online',
+            false,
+            [],
+            { synchronousStorage: true }
+        );
+        await Promise.resolve();
+        jest.runOnlyPendingTimers();
+
+        const historyApply = jest.spyOn(window.campaignHistoryFeature, 'apply').mockImplementation(() => {});
+        const submittedRecipientDisplay = jest.spyOn(
+            window.approverPastingFeature,
+            'handleSubmittedRecipientDisplay'
+        ).mockImplementation(() => {});
+        const observer = mutationObservers.find(instance =>
+            instance.__callback.toString().includes('markDirtyFeaturesFromMutations')
+        );
+        const workflowSidebar = document.createElement('mo-side-panel');
+        workflowSidebar.className = 'workflow-sidebar';
+
+        observer.__trigger([{
+            type: 'childList',
+            target: document.body,
+            addedNodes: [workflowSidebar]
+        }]);
+        jest.runOnlyPendingTimers();
+
+        expect(historyApply).toHaveBeenCalledTimes(1);
+        expect(submittedRecipientDisplay).toHaveBeenCalledTimes(1);
+    });
+
     test('closes the message channel immediately for unknown actions', () => {
         setupJSDOM('https://other.mediaocean.com/', false);
         jest.advanceTimersByTime(100);

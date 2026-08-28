@@ -6,6 +6,8 @@
     const STORAGE_KEY = 'campaignHistoryEntries';
     const MAX_HISTORY_ENTRIES = 2000;
     const NAVIGATION_ID = 'toolshed-campaign-history-nav';
+    const PRISMA_BANNER_MODULE_CONTAINER_ID = 'mo-banner-module-container';
+    const SHADOW_NAVIGATION_STYLE_ID = 'toolshed-campaign-history-shadow-styles';
     const PANEL_ID = 'toolshed-campaign-history-panel';
     const HISTORY_KEY_ATTRIBUTE = 'data-toolshed-history-key';
     const PANEL_TRANSITION_DURATION_MS = 240;
@@ -21,8 +23,10 @@
         'cpNumber',
         'clPrCa',
         'rawClPrCa',
-        'supplier'
+        'supplier',
+        'location'
     ];
+    const LOCATION_CODE_PATTERN = /^[A-Z][A-Z0-9._-]{3,31}$/i;
 
     let initialized = false;
     let settingsReady = false;
@@ -39,6 +43,9 @@
     let panelCloseTarget = null;
     let panelCloseTransitionHandler = null;
     let panelGeometryCleanupTimer = null;
+    let navigationObserver = null;
+    let navigationObservedRoots = new Set();
+    let navigationReconciliationQueued = false;
 
     function normalizeWhitespace(value) {
         return String(value || '').replace(/\s+/g, ' ').trim();
@@ -118,6 +125,15 @@
 
     function getCampaignId() {
         return normalizeWhitespace(getRouteParams().get('campaign-id') || '');
+    }
+
+    function buildHistoryKey(campaignId, url, location = '') {
+        const normalizedCampaignId = normalizeSearchText(campaignId);
+        const normalizedLocation = normalizeSearchText(location);
+        if (normalizedCampaignId) {
+            return `campaign:${normalizedCampaignId}${normalizedLocation ? `@${normalizedLocation}` : ''}`;
+        }
+        return `url:${normalizeSearchText(url)}`;
     }
 
     function isPrismaPage() {
@@ -210,6 +226,35 @@
         };
     }
 
+    function parseLocationCode(value, allowUsernameSuffix = false) {
+        const text = normalizeWhitespace(value);
+        if (!text) return '';
+
+        if (LOCATION_CODE_PATTERN.test(text)) return text.toUpperCase();
+        if (!allowUsernameSuffix) return '';
+
+        const suffix = text.match(/@([A-Z][A-Z0-9._-]{3,31})$/i)?.[1] || '';
+        return LOCATION_CODE_PATTERN.test(suffix) ? suffix.toUpperCase() : '';
+    }
+
+    function getActiveLocation() {
+        const contextLabels = getElementsIncludingShadowDom()
+            .filter(element => element.id === 'user-context-menu-label')
+            .map(element => getTextFromElement(element));
+        const contextLocation = contextLabels
+            .map(value => parseLocationCode(value))
+            .find(Boolean);
+        if (contextLocation) return contextLocation;
+
+        // banner-username may expose the active organisation as the suffix of
+        // the signed-in username when the context menu is not currently open.
+        return getElementsIncludingShadowDom()
+            .filter(element => element.classList?.contains('user-company-name'))
+            .map(element => getTextFromElement(element))
+            .map(value => parseLocationCode(value, true))
+            .find(Boolean) || '';
+    }
+
     function getInlineLabelValue(text, labels) {
         if (!text) return '';
         const labelPattern = labels.join('|');
@@ -262,11 +307,22 @@
         });
 
         const supplierValues = [];
+        const supplierCellSelectors = [
+            '.hierarchical-level-group-1.hierarchical-name',
+            '.group-cell.hierarchical-level-group-1.hierarchical-name',
+            '.hierarchical-level-group-1',
+            '[data-field="supplier"]',
+            '[data-column="supplier"]',
+            '[data-testid*="supplier" i]',
+            '[aria-label*="supplier" i]',
+            '.supplier-cell',
+            '.supplier-name'
+        ];
         tables.forEach(table => {
             Array.from(table.querySelectorAll('tbody tr, tr')).forEach(row => {
-                const supplierCell = row.querySelector('.hierarchical-level-group-1.hierarchical-name') ||
-                    row.querySelector('.group-cell.hierarchical-level-group-1.hierarchical-name') ||
-                    row.querySelector('.hierarchical-level-group-1');
+                const supplierCell = supplierCellSelectors
+                    .map(selector => row.querySelector(selector))
+                    .find(Boolean);
                 const value = normalizeWhitespace(getTextFromElement(supplierCell));
                 if (!value || value.length > 220 || /^supplier$/i.test(value)) return;
                 if (!supplierValues.includes(value)) supplierValues.push(value);
@@ -328,13 +384,36 @@
             .sort((a, b) => a.length - b.length)[0] || '';
     }
 
+    function combineSupplierValues(...values) {
+        const seen = new Set();
+        return values
+            .flatMap(value => normalizeWhitespace(value).split(/\s*\|\s*/))
+            .map(normalizeWhitespace)
+            .filter(value => {
+                const normalized = normalizeSearchText(value);
+                if (!value || !normalized || seen.has(normalized)) return false;
+                seen.add(normalized);
+                return true;
+            })
+            .join(' | ');
+    }
+
+    function getCampaignSupplierValue() {
+        return combineSupplierValues(
+            getRenderedSupplierValue(),
+            getMetadataValue(
+                [/^supplier$/i, /(?:^|[-_ ])supplier$/i],
+                ['supplier']
+            )
+        );
+    }
+
     function getCampaignSnapshot() {
         const references = getHeaderReferences();
         const campaignId = references.campaignId;
         const url = window.location.href;
-        const key = campaignId
-            ? `campaign:${normalizeSearchText(campaignId)}`
-            : `url:${normalizeSearchText(url)}`;
+        const location = getActiveLocation();
+        const key = buildHistoryKey(campaignId, url, location);
 
         return {
             key,
@@ -344,10 +423,8 @@
                 [/^client(?: name)?$/i, /^advertiser$/i, /(?:^|[-_ ])client(?:[-_ ]?name)?$/i],
                 ['client(?: name)?', 'advertiser']
             ),
-            supplier: getMetadataValue(
-                [/^supplier$/i, /(?:^|[-_ ])supplier$/i],
-                ['supplier']
-            ) || getRenderedSupplierValue(),
+            supplier: getCampaignSupplierValue(),
+            location,
             ...references
         };
     }
@@ -360,9 +437,12 @@
         if (!entry || typeof entry !== 'object') return null;
         const campaignId = normalizeWhitespace(entry.campaignId);
         const url = normalizeWhitespace(entry.url);
-        const key = normalizeWhitespace(entry.key) || (campaignId
-            ? `campaign:${normalizeSearchText(campaignId)}`
-            : url ? `url:${normalizeSearchText(url)}` : '');
+        const location = normalizeWhitespace(
+            entry.location || entry.accountLocation || entry.organisation || entry.organisationCode
+        );
+        const key = normalizeWhitespace(entry.key) || (campaignId || url
+            ? buildHistoryKey(campaignId, url, location)
+            : '');
         if (!key) return null;
 
         const firstVisitedAt = Number.isFinite(entry.firstVisitedAt)
@@ -378,6 +458,7 @@
             campaignName: normalizeWhitespace(entry.campaignName),
             clientName: normalizeWhitespace(entry.clientName),
             supplier: normalizeWhitespace(entry.supplier),
+            location,
             campaignId,
             cpNumber: normalizeWhitespace(entry.cpNumber || campaignId),
             clPrCa: normalizeWhitespace(entry.clPrCa),
@@ -421,11 +502,16 @@
     function mergeSnapshot(existing, snapshot, now, incrementVisit) {
         const next = {
             ...(existing || {}),
-            key: snapshot.key,
+            key: buildHistoryKey(
+                snapshot.campaignId || existing?.campaignId || '',
+                snapshot.url || existing?.url || '',
+                snapshot.location || existing?.location || ''
+            ),
             url: snapshot.url || existing?.url || '',
             campaignName: snapshot.campaignName || existing?.campaignName || '',
             clientName: snapshot.clientName || existing?.clientName || '',
             supplier: snapshot.supplier || existing?.supplier || '',
+            location: snapshot.location || existing?.location || '',
             campaignId: snapshot.campaignId || existing?.campaignId || '',
             cpNumber: snapshot.cpNumber || existing?.cpNumber || snapshot.campaignId || '',
             clPrCa: snapshot.clPrCa || existing?.clPrCa || '',
@@ -448,7 +534,14 @@
 
         enqueueHistoryWrite(async () => {
             const entries = await readHistoryEntries();
-            const existingIndex = entries.findIndex(entry => entry.key === snapshot.key);
+            const existingIndex = entries.findIndex(entry =>
+                entry.key === snapshot.key || (
+                    snapshot.campaignId &&
+                    entry.campaignId === snapshot.campaignId &&
+                    (!entry.location || !snapshot.location ||
+                        normalizeSearchText(entry.location) === normalizeSearchText(snapshot.location))
+                )
+            );
             const now = Date.now();
             const nextEntry = mergeSnapshot(
                 existingIndex >= 0 ? entries[existingIndex] : null,
@@ -566,51 +659,225 @@
         return tagName === 'nav' || role === 'navigation' || /(?:nav|navigation|menu)/i.test(signature);
     }
 
-    function findTopNavigationContainer() {
-        const header = document.querySelector('#ptb-header');
-        if (!header) return null;
+    function isTopShellNavigationElement(element) {
+        let current = element;
+        for (let depth = 0; current && depth < 12; depth += 1) {
+            const tagName = String(current?.tagName || '').toLowerCase();
+            const role = current?.getAttribute?.('role');
+            const signature = [
+                current?.id,
+                typeof current?.className === 'string' ? current.className : ''
+            ].filter(Boolean).join(' ');
 
-        const elements = getElementsIncludingShadowDom(header);
-        const reports = elements.filter(element => hasExactLabel(element, 'Reports'));
-        const containers = [];
-
-        reports.forEach(report => {
-            let current = report;
-            let distance = 0;
-            while (current && distance < 12) {
-                if (hasDistinctDirectNavigationLabels(current)) {
-                    containers.push({ element: current, distance });
-                    break;
-                }
-                current = getParentElement(current);
-                distance += 1;
+            if (tagName === 'header' || role === 'banner' || current?.id === 'ptb-header' ||
+                /(?:global|primary|top)[ -]?(?:nav|navigation|menu|header)/i.test(signature)) {
+                return true;
             }
-        });
-
-        if (containers.length > 0) {
-            containers.sort((a, b) => a.distance - b.distance);
-            return containers[0].element;
+            current = getParentElement(current);
         }
+        return false;
+    }
 
-        const structuralCandidates = [header, ...elements]
-            .filter(element => isNavigationContainer(element))
-            .filter(element => containsExactLabel(element, 'Campaigns') && containsExactLabel(element, 'Reports'))
-            .sort((a, b) => {
-                const aSize = getElementsIncludingShadowDom(a).length;
-                const bSize = getElementsIncludingShadowDom(b).length;
-                return aSize - bSize;
-            });
+    function getNavigationCandidateSize(element) {
+        return getElementsIncludingShadowDom(element).length;
+    }
 
-        return structuralCandidates[0] || null;
+    function findPrismaBannerModuleContainer(elements) {
+        return elements.find(element =>
+            element?.id === PRISMA_BANNER_MODULE_CONTAINER_ID &&
+            containsExactLabel(element, 'Campaigns') &&
+            containsExactLabel(element, 'Reports')
+        ) || null;
+    }
+
+    function findTopNavigationContainer() {
+        // Prisma has used both #ptb-header and shell/header implementations
+        // outside that element. Search the whole visible document, including
+        // open shadow roots, then rank the smallest top-level nav candidate.
+        const elements = getElementsIncludingShadowDom();
+        const bannerModuleContainer = findPrismaBannerModuleContainer(elements);
+        if (bannerModuleContainer) return bannerModuleContainer;
+
+        const candidates = elements
+            .filter(element =>
+                containsExactLabel(element, 'Campaigns') &&
+                containsExactLabel(element, 'Reports')
+            )
+            .filter(element =>
+                hasDistinctDirectNavigationLabels(element) || isNavigationContainer(element)
+            );
+
+        return candidates
+            .sort((left, right) => {
+                const leftInTopShell = isTopShellNavigationElement(left);
+                const rightInTopShell = isTopShellNavigationElement(right);
+                if (leftInTopShell !== rightInTopShell) return leftInTopShell ? -1 : 1;
+
+                const leftDirect = hasDistinctDirectNavigationLabels(left);
+                const rightDirect = hasDistinctDirectNavigationLabels(right);
+                if (leftDirect !== rightDirect) return leftDirect ? -1 : 1;
+
+                const leftStructural = isNavigationContainer(left);
+                const rightStructural = isNavigationContainer(right);
+                if (leftStructural !== rightStructural) return leftStructural ? -1 : 1;
+
+                return getNavigationCandidateSize(left) - getNavigationCandidateSize(right);
+            })[0] || null;
     }
 
     function findTopNavigationItem(container, label) {
-        return getDirectChildren(container)
-            .find(child => containsExactLabel(child, label)) || null;
+        const directItem = getDirectChildren(container)
+            .find(child => containsExactLabel(child, label));
+        if (directItem) return directItem;
+
+        const matchingElement = getElementsIncludingShadowDom(container)
+            .filter(element => hasExactLabel(element, label))
+            .sort((left, right) =>
+                getNavigationCandidateSize(left) - getNavigationCandidateSize(right)
+            )[0];
+        if (!matchingElement) return null;
+
+        let current = matchingElement;
+        while (current && getParentElement(current) !== container) {
+            current = getParentElement(current);
+        }
+        return current || matchingElement;
+    }
+
+    function findNavigationInsertionContainer(container, template) {
+        let current = getParentElement(template);
+        while (current && current !== container) {
+            if (hasDistinctDirectNavigationLabels(current)) return current;
+            current = getParentElement(current);
+        }
+        return container;
+    }
+
+    function shouldUseDirectAnchor(template, insertionContainer) {
+        const templateTagName = String(template?.tagName || '').toLowerCase();
+        const root = insertionContainer?.getRootNode?.();
+        const isShadowRoot = Boolean(root?.host);
+        return isShadowRoot ||
+            templateTagName === 'mo-banner-module' ||
+            templateTagName === 'mo-menu' ||
+            Boolean(template?.shadowRoot);
+    }
+
+    function ensureShadowNavigationStyles(insertionContainer) {
+        const root = insertionContainer?.getRootNode?.();
+        if (!root?.host || !root.querySelector) return;
+        if (root.querySelector(`#${SHADOW_NAVIGATION_STYLE_ID}`)) return;
+
+        const style = document.createElement('style');
+        style.id = SHADOW_NAVIGATION_STYLE_ID;
+        style.textContent = `
+            #${NAVIGATION_ID} {
+                align-items: center;
+                box-sizing: border-box;
+                color: inherit;
+                cursor: pointer;
+                display: inline-flex;
+                font: inherit;
+                gap: 6px;
+                height: 100%;
+                justify-content: center;
+                min-height: 40px;
+                padding: 0 12px;
+                text-decoration: none;
+                text-transform: none;
+                white-space: nowrap;
+            }
+            #${NAVIGATION_ID} .toolshed-campaign-history-nav-content {
+                align-items: center;
+                display: inline-flex;
+                gap: 6px;
+            }
+            #${NAVIGATION_ID} svg {
+                display: block;
+                flex: 0 0 15px;
+                height: 15px;
+                width: 15px;
+            }
+            #${NAVIGATION_ID}:hover {
+                background: rgba(8, 117, 202, 0.08);
+            }
+            #${NAVIGATION_ID}:focus-visible {
+                outline: 2px solid #0875ca;
+                outline-offset: -2px;
+            }
+        `;
+        root.appendChild(style);
+    }
+
+    function hasRelevantNavigationMutation(mutations) {
+        const isExtensionNode = node => node?.nodeType === 1 &&
+            (node.id === NAVIGATION_ID || node.id === SHADOW_NAVIGATION_STYLE_ID);
+
+        return mutations.some(mutation => {
+            const nodes = [
+                ...Array.from(mutation.addedNodes || []),
+                ...Array.from(mutation.removedNodes || [])
+            ];
+            const hasNativeChange = nodes.some(node =>
+                node?.nodeType !== 1 || !isExtensionNode(node)
+            );
+            if (hasNativeChange) return true;
+
+            // Ignore our own append/style mutations unless Prisma removed the
+            // History link and it is no longer discoverable.
+            return findNavigationLinks().length === 0;
+        });
+    }
+
+    function scheduleNavigationReconciliation() {
+        if (navigationReconciliationQueued) return;
+        navigationReconciliationQueued = true;
+        const schedule = window.queueMicrotask || (callback => Promise.resolve().then(callback));
+        schedule(() => {
+            navigationReconciliationQueued = false;
+            if (!window.document || !settingsReady || !viewEnabled || !isPrismaPage()) return;
+            ensureNavigationObserver();
+            ensureNavigationLink();
+        });
+    }
+
+    function ensureNavigationObserver() {
+        const Observer = window.MutationObserver ||
+            (typeof MutationObserver !== 'undefined' ? MutationObserver : null);
+        if (!Observer || !document.body) return;
+
+        if (!navigationObserver) {
+            navigationObserver = new Observer(mutations => {
+                if (hasRelevantNavigationMutation(mutations)) {
+                    scheduleNavigationReconciliation();
+                }
+            });
+        }
+
+        const roots = [document.body];
+        getElementsIncludingShadowDom().forEach(element => {
+            if (element.shadowRoot) roots.push(element.shadowRoot);
+        });
+        roots.forEach(root => {
+            if (navigationObservedRoots.has(root)) return;
+            navigationObserver.observe(root, { childList: true, subtree: true });
+            navigationObservedRoots.add(root);
+        });
+    }
+
+    function removeNavigationObserver() {
+        navigationObserver?.takeRecords?.();
+        navigationObserver?.disconnect();
+        navigationObserver = null;
+        navigationObservedRoots = new Set();
+        navigationReconciliationQueued = false;
     }
 
     function findNavigationLinks() {
-        const normalLink = document.getElementById(NAVIGATION_ID);
+        const currentDocument = typeof document === 'undefined' ? null : document;
+        if (!currentDocument) return [];
+
+        const normalLink = currentDocument.getElementById(NAVIGATION_ID);
         const shadowLinks = getElementsIncludingShadowDom()
             .filter(element => element.id === NAVIGATION_ID);
         return Array.from(new Set([normalLink, ...shadowLinks].filter(Boolean)));
@@ -623,14 +890,26 @@
             return null;
         }
 
-        const existing = findNavigationLinks()
-            .find(link => getParentElement(link) === container);
-        if (existing) return existing;
-        findNavigationLinks().forEach(link => link.remove());
-
         const template = findTopNavigationItem(container, 'Reports') ||
             findTopNavigationItem(container, 'Campaigns');
-        const link = template?.cloneNode(false) || document.createElement('a');
+        const insertionContainer = findNavigationInsertionContainer(container, template);
+        const existing = findNavigationLinks()
+            .find(link => getParentElement(link) === insertionContainer);
+        if (existing) {
+            // Re-append on every reconciliation so History remains the
+            // furthest-right option after Prisma or a user reorders native
+            // navigation items.
+            if (insertionContainer.lastElementChild !== existing) {
+                insertionContainer.appendChild(existing);
+            }
+            return existing;
+        }
+        findNavigationLinks().forEach(link => link.remove());
+
+        const link = shouldUseDirectAnchor(template, insertionContainer)
+            ? document.createElement('a')
+            : template?.cloneNode(false) || document.createElement('a');
+        ensureShadowNavigationStyles(insertionContainer);
         link.id = NAVIGATION_ID;
         link.classList.add('toolshed-campaign-history-nav');
         link.classList.remove('active', 'selected', 'is-active', 'disabled', 'mo-disabled');
@@ -662,12 +941,15 @@
 
         // Append after the current native options. This keeps History as the
         // furthest-right option even when a user rearranges Campaigns/Reports.
-        container.appendChild(link);
+        insertionContainer.appendChild(link);
         return link;
     }
 
     function removeNavigationLink() {
         findNavigationLinks().forEach(element => element.remove());
+        getElementsIncludingShadowDom()
+            .filter(element => element.id === SHADOW_NAVIGATION_STYLE_ID)
+            .forEach(element => element.remove());
     }
 
     function createButton(className, label, iconName) {
@@ -850,6 +1132,42 @@
         panel.style.maxHeight = 'none';
     }
 
+    function measureCollapsedPanelGeometry(panel, currentRect) {
+        const previousTransition = panel.style.getPropertyValue('transition');
+        const previousTransitionPriority = panel.style.getPropertyPriority('transition');
+        let targetRect;
+
+        // Removing the expanded class normally starts the CSS geometry
+        // transition immediately. Disable it while measuring so the target
+        // is the native right-anchored panel, rather than the first frame of
+        // the collapse animation (which leaves the expanded right inset).
+        panel.style.setProperty('transition', 'none');
+        try {
+            panel.classList.remove('is-expanded');
+            clearInlinePanelGeometry(panel);
+            void panel.offsetWidth;
+            targetRect = panel.getBoundingClientRect();
+
+            // Restore the current geometry while transitions are still off.
+            // This gives the browser a committed start point before the
+            // normal transition is restored and the measured target applied.
+            setInlinePanelGeometry(panel, currentRect);
+            void panel.offsetWidth;
+        } finally {
+            if (previousTransition) {
+                panel.style.setProperty(
+                    'transition',
+                    previousTransition,
+                    previousTransitionPriority
+                );
+            } else {
+                panel.style.removeProperty('transition');
+            }
+        }
+
+        return targetRect;
+    }
+
     function getExpandedPanelGeometry() {
         const viewportWidth = Math.max(window.innerWidth || document.documentElement?.clientWidth || 0, 0);
         const viewportHeight = Math.max(window.innerHeight || document.documentElement?.clientHeight || 0, 0);
@@ -876,10 +1194,7 @@
             panel.classList.add('is-expanded');
             targetRect = getExpandedPanelGeometry();
         } else {
-            panel.classList.remove('is-expanded');
-            clearInlinePanelGeometry(panel);
-            targetRect = panel.getBoundingClientRect();
-            setInlinePanelGeometry(panel, currentRect);
+            targetRect = measureCollapsedPanelGeometry(panel, currentRect);
         }
 
         // Force the current dimensions to be committed before applying the
@@ -895,7 +1210,13 @@
 
         panelGeometryCleanupTimer = window.setTimeout(() => {
             panelGeometryCleanupTimer = null;
-            if (!panel.hidden) clearInlinePanelGeometry(panel);
+            if (!panel.hidden && expanded) {
+                clearInlinePanelGeometry(panel);
+            }
+            // Keep the measured collapsed geometry in place. Removing the
+            // pixel-based left/width values here lets the CSS right anchor
+            // reflow after the transition, which causes a visible jump at the
+            // end of minimising.
         }, duration + 40);
     }
 
@@ -994,21 +1315,59 @@
         if (shouldRestoreSearchFocus) searchInput.focus();
     }
 
+    function getSearchTokens(query) {
+        return normalizeSearchText(query).split(' ').filter(Boolean);
+    }
+
+    function escapeRegExp(value) {
+        return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function appendHighlightedText(parent, value, query) {
+        const text = String(value || '');
+        if (!text) return;
+
+        const tokens = getSearchTokens(query)
+            .sort((left, right) => right.length - left.length)
+            .map(escapeRegExp);
+        if (tokens.length === 0) {
+            parent.appendChild(document.createTextNode(text));
+            return;
+        }
+
+        const matcher = new RegExp(tokens.join('|'), 'gi');
+        let cursor = 0;
+        let match;
+        while ((match = matcher.exec(text))) {
+            if (match.index > cursor) {
+                parent.appendChild(document.createTextNode(text.slice(cursor, match.index)));
+            }
+            const highlight = createTextElement('mark', 'toolshed-campaign-history-match', match[0]);
+            parent.appendChild(highlight);
+            cursor = matcher.lastIndex;
+        }
+
+        if (cursor < text.length) {
+            parent.appendChild(document.createTextNode(text.slice(cursor)));
+        }
+    }
+
+    function createHighlightedTextElement(tagName, className, value, query) {
+        const element = document.createElement(tagName);
+        if (className) element.className = className;
+        appendHighlightedText(element, value, query);
+        return element;
+    }
+
     function getSearchableEntryText(entry) {
         return normalizeSearchText([
-            entry.campaignName,
-            entry.clientName,
-            entry.campaignId,
-            entry.cpNumber,
-            entry.clPrCa,
-            entry.rawClPrCa,
-            entry.supplier,
-            'campaign client cp cl/pr/ca supplier'
+            ...searchableFields.map(field => entry[field]),
+            'campaign client cp cl/pr/ca supplier location'
         ].join(' '));
     }
 
     function filterHistoryEntries(query) {
-        const tokens = normalizeSearchText(query).split(' ').filter(Boolean);
+        const tokens = getSearchTokens(query);
         if (tokens.length === 0) return historyEntries;
         return historyEntries.filter(entry => {
             const searchableText = getSearchableEntryText(entry);
@@ -1031,16 +1390,30 @@
         }
     }
 
-    function appendMetadata(parent, label, value) {
+    function formatCampaignCount(count) {
+        return `${count} campaign${count === 1 ? '' : 's'} visited`;
+    }
+
+    function appendMetadata(parent, label, value, query) {
         if (!value) return;
         const item = document.createElement('span');
         item.className = 'toolshed-campaign-history-metadata-item';
-        item.appendChild(createTextElement('span', 'toolshed-campaign-history-metadata-label', label));
-        item.appendChild(createTextElement('span', 'toolshed-campaign-history-metadata-value', value));
+        item.appendChild(createHighlightedTextElement(
+            'span',
+            'toolshed-campaign-history-metadata-label',
+            label,
+            query
+        ));
+        item.appendChild(createHighlightedTextElement(
+            'span',
+            'toolshed-campaign-history-metadata-value',
+            value,
+            query
+        ));
         parent.appendChild(item);
     }
 
-    function createHistoryResult(entry) {
+    function createHistoryResult(entry, query = '') {
         const article = document.createElement('article');
         article.className = 'toolshed-campaign-history-result';
         article.setAttribute('role', 'listitem');
@@ -1053,14 +1426,20 @@
 
         const copy = document.createElement('span');
         copy.className = 'toolshed-campaign-history-result-copy';
-        copy.appendChild(createTextElement('strong', 'toolshed-campaign-history-result-title', displayName));
+        copy.appendChild(createHighlightedTextElement(
+            'strong',
+            'toolshed-campaign-history-result-title',
+            displayName,
+            query
+        ));
 
         const metadata = document.createElement('span');
         metadata.className = 'toolshed-campaign-history-result-metadata';
-        appendMetadata(metadata, 'Client', entry.clientName);
-        appendMetadata(metadata, 'Supplier', entry.supplier);
-        appendMetadata(metadata, 'CP', entry.cpNumber || entry.campaignId);
-        appendMetadata(metadata, 'CL/PR/CA', entry.clPrCa);
+        appendMetadata(metadata, 'Client', entry.clientName, query);
+        appendMetadata(metadata, 'Supplier', entry.supplier, query);
+        appendMetadata(metadata, 'Location', entry.location, query);
+        appendMetadata(metadata, 'CP', entry.cpNumber || entry.campaignId, query);
+        appendMetadata(metadata, 'CL/PR/CA', entry.clPrCa, query);
         copy.appendChild(metadata);
 
         const footer = document.createElement('span');
@@ -1105,9 +1484,7 @@
         }
 
         const filteredEntries = filterHistoryEntries(input.value);
-        count.textContent = historyEntries.length === 0
-            ? ''
-            : `${filteredEntries.length} of ${historyEntries.length}`;
+        count.textContent = formatCampaignCount(filteredEntries.length);
         status.textContent = '';
 
         if (historyEntries.length === 0) {
@@ -1130,7 +1507,7 @@
             return;
         }
 
-        filteredEntries.forEach(entry => resultList.appendChild(createHistoryResult(entry)));
+        filteredEntries.forEach(entry => resultList.appendChild(createHistoryResult(entry, input.value)));
     }
 
     async function loadHistory() {
@@ -1201,13 +1578,18 @@
     function apply() {
         if (!settingsReady || !isPrismaPage()) {
             removeNavigationLink();
+            removeNavigationObserver();
             if (!isPrismaPage()) closeHistoryPanel({ animate: false });
             return;
         }
 
-        if (viewEnabled) ensureNavigationLink();
+        if (viewEnabled) {
+            ensureNavigationObserver();
+            ensureNavigationLink();
+        }
         else {
             removeNavigationLink();
+            removeNavigationObserver();
             closeHistoryPanel({ animate: false });
         }
 
@@ -1225,6 +1607,8 @@
         document.addEventListener('keydown', handleDocumentKeydown);
         window.addEventListener('hashchange', handleRouteChange);
         window.addEventListener('popstate', handleRouteChange);
+        window.addEventListener('pagehide', removeNavigationObserver);
+        window.addEventListener('unload', removeNavigationObserver);
 
         readSettings().then(settings => {
             viewEnabled = settings[VIEW_SETTING_KEY] !== false;

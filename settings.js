@@ -323,7 +323,7 @@ const FEATURE_SETTING_PREVIEWS = {
     actualiseBulkExportToggle: ['Actualise bulk export', 'Exports each visible Actualise month and combines the results into one CSV-ready file.', 'Export all months'],
     campaignTabTitleToggle: ['Campaign tab title', 'Uses the active campaign name as the browser tab title.', 'Spring Launch | Prisma'],
     campaignHistoryToggle: ['Campaign History search', 'Adds a History link to Prisma campaign navigation and lets you search campaigns you have visited.', 'Search supplier'],
-    campaignHistoryLoggingToggle: ['Log campaigns visited', 'Records campaign names, references and supplier details locally so they can be found later in Campaign History.', 'Campaign recorded'],
+    campaignHistoryLoggingToggle: ['Log campaigns visited', 'Records campaign names, references, supplier details and active account locations locally so they can be found later in Campaign History.', 'Campaign recorded'],
     ordersShortcutToggle: ['Orders shortcut', 'Adds an Orders shortcut to the campaign navigation menu.', 'Orders'],
     actualiseShortcutToggle: ['Actualise shortcut', 'Adds a shortcut that opens the current Actualise month directly.', 'Actualise'],
     actualiseNavbarToggle: ['Actualise navigation bar', 'Keeps Prisma’s main Plan, Buy, Traffic, Analyse and Orders navigation visible in Actualise.', 'Plan  Buy  Orders'],
