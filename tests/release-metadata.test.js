@@ -43,7 +43,7 @@ describe('release metadata', () => {
         }
     });
 
-    test('keeps the current release focused on Campaign History', () => {
+    test('keeps the current release focused on Campaign History and current fixes', () => {
         const toolshed = fs.readFileSync(path.join(root, 'toolshed.html'), 'utf8');
         const dom = new JSDOM(toolshed);
 
@@ -51,9 +51,11 @@ describe('release metadata', () => {
             const currentRelease = dom.window.document.querySelector('#release-notes .release');
             const items = Array.from(currentRelease.querySelectorAll('li'));
 
-            expect(items).toHaveLength(1);
+            expect(items).toHaveLength(3);
             expect(items[0].textContent).toContain('Campaign History');
             expect(items[0].querySelector('.release-badge').dataset.releaseType).toBe('new');
+            expect(items[2].textContent).toContain('permanent Moe chat bubble');
+            expect(items[2].querySelector('.release-badge').dataset.releaseType).toBe('fixed');
         } finally {
             dom.window.close();
         }
