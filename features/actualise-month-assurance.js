@@ -89,6 +89,10 @@
             .filter(item => item.month);
     }
 
+    function getMonthLink(month) {
+        return getMonthLinks().find(item => item.month === month)?.link || null;
+    }
+
     function getGridEvidence() {
         const tables = Array.from(document.querySelectorAll(GRID_SELECTOR));
         if (!tables.length) return { ready: false, signature: '' };
@@ -303,6 +307,14 @@
             let stableSince = 0;
 
             const check = () => {
+                // A user can leave Actualise while Prisma is still loading a
+                // month (for example, by clicking Buy). That is a normal
+                // lifecycle cancellation, not a failed recovery.
+                if (!isActualiseRoute() || getCampaignId() !== campaignId || getExpectedMonth() !== month) {
+                    resolve(null);
+                    return;
+                }
+
                 const assessment = assessActualiseMonth();
                 const nativeEvidence = getNativeEvidenceAssessment(month);
                 const ready = isActualiseRoute() &&
@@ -348,10 +360,18 @@
 
         if (getActiveMonth() !== alternate.month) alternate.link.click();
         if (getActiveMonth() === alternate.month) {
-            await waitForMonthReady(alternate.month, campaignId);
+            const alternateReady = await waitForMonthReady(alternate.month, campaignId);
+            if (!alternateReady) return;
         }
 
-        if (getActiveMonth() !== expectedMonth) target.link.click();
+        if (!isActualiseRoute() || getCampaignId() !== campaignId) return;
+        if (getActiveMonth() !== expectedMonth) {
+            // Prisma may replace the month controls while the alternate
+            // month is loading. Re-query before clicking the target month.
+            const currentTarget = getMonthLink(expectedMonth);
+            if (!currentTarget) return;
+            currentTarget.click();
+        }
         await waitForMonthReady(expectedMonth, campaignId);
     }
 

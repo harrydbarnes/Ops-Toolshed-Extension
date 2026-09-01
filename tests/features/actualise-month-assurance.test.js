@@ -267,6 +267,85 @@ describe('Actualise month assurance', () => {
         feature.dom.window.close();
     });
 
+    test('cancels pending recovery quietly when the user leaves Actualise for Buy', async () => {
+        const feature = createFeature({
+            responseByMonth: {
+                '2025-10': [['2025-11']]
+            }
+        });
+        const warn = jest.spyOn(feature.window.console, 'warn').mockImplementation(() => {});
+
+        feature.window.actualiseMonthAssuranceFeature.initialize();
+        feature.emitEvidence(['2025-10']);
+        feature.window.history.replaceState(
+            {},
+            '',
+            '#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=buy&ptb-ctx=digital&route=online'
+        );
+        await new Promise(resolve => feature.window.setTimeout(resolve, 300));
+
+        expect(warn).not.toHaveBeenCalled();
+        expect(feature.window.actualiseMonthAssuranceFeature.assessActualiseMonth()).toMatchObject({
+            status: 'hidden'
+        });
+
+        warn.mockRestore();
+        feature.dom.window.close();
+    });
+
+    test('re-queries the target month control after Prisma replaces the controls', async () => {
+        const feature = createFeature({
+            responseByMonth: {
+                '2025-10': [['2025-10']],
+                '2025-11': [['2025-11']]
+            }
+        });
+        const originalAlternate = feature.window.document.querySelector('#mos-paginator li:not(.active) a');
+        const originalClick = originalAlternate.click.bind(originalAlternate);
+        let replacementClickCount = 0;
+        originalAlternate.click = () => {
+            originalClick();
+            const paginator = feature.window.document.querySelector('#mos-paginator');
+            const replacement = paginator.cloneNode(true);
+            paginator.replaceWith(replacement);
+            const replacementTarget = replacement.querySelector('li:not(.active) a');
+            replacementTarget.addEventListener('click', event => {
+                event.preventDefault();
+                const label = replacementTarget.textContent.trim();
+                const month = monthKeys[label];
+                replacement.querySelectorAll('li').forEach(item => {
+                    item.classList.toggle('active', item.querySelector('a') === replacementTarget);
+                });
+                feature.window.document.querySelector('.mo-caption').textContent = `${label}:`;
+                feature.window.history.replaceState(
+                    {},
+                    '',
+                    `#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=buy&ptb-ctx=actualize&route=actualize&mos=${month}-01`
+                );
+                feature.window.document.querySelector('#grid-container_hot tbody td').textContent = `Booking ${month}`;
+                feature.emitEvidence([month], month);
+            });
+            const replacementClick = replacementTarget.click.bind(replacementTarget);
+            replacementTarget.click = () => {
+                replacementClickCount += 1;
+                replacementClick();
+            };
+        };
+
+        feature.window.actualiseMonthAssuranceFeature.initialize();
+        feature.emitEvidence(['2025-10']);
+        await new Promise(resolve => feature.window.setTimeout(resolve, 25));
+
+        expect(replacementClickCount).toBe(1);
+        expect(feature.window.actualiseMonthAssuranceFeature.assessActualiseMonth()).toMatchObject({
+            status: 'correct',
+            expectedMonth: '2025-11',
+            activeMonth: '2025-11'
+        });
+
+        feature.dom.window.close();
+    });
+
     test('keeps the badge yellow when the URL and selected month disagree', () => {
         const feature = createFeature({
             activeMonth: 'Oct 25',
