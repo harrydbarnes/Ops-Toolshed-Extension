@@ -1596,24 +1596,25 @@ div[slot="right"].ai-style-change-1 {
 }
 
 .toolshed-campaign-history-helper {
-    margin: 8px 20px 10px 22px;
+    margin: 8px 20px 6px 22px;
     color: var(--toolshed-history-muted);
     font-size: 11px;
     line-height: 1.45;
 }
 
 .toolshed-campaign-history-status {
-    min-height: 17px;
-    margin: 0 20px 4px 22px;
+    min-height: 0;
+    margin: 0 20px 2px 22px;
     color: var(--toolshed-history-muted);
     font-size: 11px;
     line-height: 1.45;
 }
 
 .toolshed-campaign-history-results {
+    flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
-    padding: 0 12px 16px 22px;
+    padding: 0 12px 10px 22px;
 }
 
 .toolshed-campaign-history-result {
@@ -1637,6 +1638,7 @@ div[slot="right"].ai-style-change-1 {
     cursor: pointer;
     font: inherit;
     text-align: left;
+    text-indent: 0;
 }
 
 .toolshed-campaign-history-result button:hover {
@@ -1654,8 +1656,18 @@ div[slot="right"].ai-style-change-1 {
 }
 
 .toolshed-campaign-history-result-copy {
+    display: block;
     min-width: 0;
     flex: 1 1 auto;
+    padding-left: 0;
+    text-indent: 0;
+}
+
+.toolshed-campaign-history-result-title,
+.toolshed-campaign-history-result-metadata,
+.toolshed-campaign-history-result-footer {
+    padding-left: 0;
+    text-indent: 0;
 }
 
 .toolshed-campaign-history-result-title {
@@ -1743,6 +1755,100 @@ div[slot="right"].ai-style-change-1 {
     margin: 6px 0 0;
     font-size: 11px;
     line-height: 1.45;
+}
+
+.toolshed-campaign-history-pagination {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 0 12px 12px 22px;
+}
+
+.toolshed-campaign-history-pagination[hidden] {
+    display: none;
+}
+
+.toolshed-campaign-history-page-button {
+    appearance: none;
+    display: inline-grid;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    place-items: center;
+    border: 1px solid var(--toolshed-history-border);
+    border-radius: 5px;
+    background: #fff;
+    color: var(--toolshed-history-muted);
+    cursor: pointer;
+    font: 600 16px/1 inherit;
+    text-indent: 0;
+    transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.toolshed-campaign-history-page-button:hover:not(:disabled),
+.toolshed-campaign-history-page-button:focus-visible {
+    border-color: var(--toolshed-history-accent);
+    background: var(--toolshed-history-soft);
+    color: var(--toolshed-history-accent);
+}
+
+.toolshed-campaign-history-page-button:disabled {
+    cursor: default;
+    opacity: 0.38;
+}
+
+.toolshed-campaign-history-page-symbol {
+    display: block;
+    line-height: 1;
+    text-indent: 0;
+}
+
+.toolshed-campaign-history-page-indicator {
+    color: var(--toolshed-history-muted);
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+@keyframes toolshed-campaign-history-page-next {
+    from {
+        opacity: 0;
+        transform: translate3d(14px, 0, 0);
+    }
+
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+@keyframes toolshed-campaign-history-page-previous {
+    from {
+        opacity: 0;
+        transform: translate3d(-14px, 0, 0);
+    }
+
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+.toolshed-campaign-history-results.is-page-transitioning-next {
+    animation: toolshed-campaign-history-page-next 180ms cubic-bezier(0.22, 0.75, 0.2, 1) both;
+}
+
+.toolshed-campaign-history-results.is-page-transitioning-previous {
+    animation: toolshed-campaign-history-page-previous 180ms cubic-bezier(0.22, 0.75, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .toolshed-campaign-history-results.is-page-transitioning-next,
+    .toolshed-campaign-history-results.is-page-transitioning-previous {
+        animation: none;
+    }
 }
 
 @media (max-width: 640px) {

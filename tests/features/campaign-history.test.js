@@ -128,6 +128,20 @@ describe('campaign history feature', () => {
             .toMatch(/left:\s*5vw/i);
         expect(cssRule(contentCss, '.toolshed-campaign-history-match'))
             .toMatch(/background:\s*var\(--toolshed-history-highlight\)/i);
+        expect(cssRule(contentCss, '.toolshed-campaign-history-result button'))
+            .toMatch(/text-indent:\s*0/i);
+        expect(cssRule(contentCss, '.toolshed-campaign-history-result-copy'))
+            .toMatch(/padding-left:\s*0/i);
+        expect(cssRule(contentCss, '.toolshed-campaign-history-helper'))
+            .toMatch(/margin:\s*8px 20px 6px 22px/i);
+        expect(cssRule(contentCss, '.toolshed-campaign-history-status'))
+            .toMatch(/min-height:\s*0/i);
+        expect(contentCss)
+            .toMatch(/@keyframes\s+toolshed-campaign-history-page-next/);
+        expect(contentCss)
+            .toMatch(/@keyframes\s+toolshed-campaign-history-page-previous/);
+        expect(contentCss)
+            .toMatch(/prefers-reduced-motion:\s*reduce/);
     });
 
     test('uses page lifecycle events supported by Prisma permissions policy', () => {
@@ -178,6 +192,10 @@ describe('campaign history feature', () => {
             .toBe('1 campaign visited');
         expect(document.querySelector('.toolshed-campaign-history-result').textContent)
             .toContain('LocationNGMCLON');
+        const supplierLabel = Array.from(document.querySelectorAll('.toolshed-campaign-history-metadata-label'))
+            .find(label => label.textContent === 'Supplier');
+        expect(supplierLabel?.textContent)
+            .toBe('Supplier');
         const input = document.getElementById('toolshed-campaign-history-search-input');
         input.value = 'Meta';
         input.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
@@ -277,6 +295,74 @@ describe('campaign history feature', () => {
         input.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
         expect(document.querySelector('.toolshed-campaign-history-count').textContent)
             .toBe('1 campaign visited');
+        dom.window.close();
+    });
+
+    test('shows four campaigns per collapsed page and the full list when expanded', async () => {
+        const entries = Array.from({ length: 7 }, (_value, index) => ({
+            key: `campaign:${index + 1}`,
+            campaignId: `CP${index + 1}`,
+            campaignName: `Campaign ${index + 1}`,
+            firstVisitedAt: 7 - index,
+            lastVisitedAt: 7 - index,
+            visitCount: 1
+        }));
+        const { dom } = createPage({
+            settings: { campaignHistoryLoggingEnabled: false },
+            entries
+        });
+        const { document } = dom.window;
+
+        await flushPromises();
+        document.getElementById('toolshed-campaign-history-nav').click();
+        await flushPromises();
+
+        const panel = document.getElementById('toolshed-campaign-history-panel');
+        const resultList = document.getElementById('toolshed-campaign-history-results');
+        const pagination = document.getElementById('toolshed-campaign-history-pagination');
+        const previousButton = document.querySelector('.toolshed-campaign-history-page-previous');
+        const nextButton = document.querySelector('.toolshed-campaign-history-page-next');
+        const pageIndicator = document.getElementById('toolshed-campaign-history-page-indicator');
+        const getCampaignNames = () => Array.from(
+            document.querySelectorAll('.toolshed-campaign-history-result-title')
+        ).map(title => title.textContent);
+
+        expect(getCampaignNames()).toEqual([
+            'Campaign 1',
+            'Campaign 2',
+            'Campaign 3',
+            'Campaign 4'
+        ]);
+        expect(pagination.hidden).toBe(false);
+        expect(previousButton.disabled).toBe(true);
+        expect(nextButton.disabled).toBe(false);
+        expect(pageIndicator.textContent).toBe('1–4 of 7');
+
+        nextButton.click();
+        expect(getCampaignNames()).toEqual(['Campaign 5', 'Campaign 6', 'Campaign 7']);
+        expect(previousButton.disabled).toBe(false);
+        expect(nextButton.disabled).toBe(true);
+        expect(pageIndicator.textContent).toBe('5–7 of 7');
+        expect(resultList.classList).toContain('is-page-transitioning-next');
+
+        previousButton.click();
+        expect(getCampaignNames()).toEqual([
+            'Campaign 1',
+            'Campaign 2',
+            'Campaign 3',
+            'Campaign 4'
+        ]);
+        expect(resultList.classList).toContain('is-page-transitioning-previous');
+
+        panel.querySelector('.toolshed-campaign-history-expand').click();
+        expect(panel.classList).toContain('is-expanded');
+        expect(pagination.hidden).toBe(true);
+        expect(getCampaignNames()).toHaveLength(7);
+
+        panel.querySelector('.toolshed-campaign-history-expand').click();
+        expect(panel.classList).not.toContain('is-expanded');
+        expect(getCampaignNames()).toHaveLength(4);
+        expect(pagination.hidden).toBe(false);
         dom.window.close();
     });
 
@@ -423,6 +509,78 @@ describe('campaign history feature', () => {
             .toBe('WPP MS ADV DOOH (GBP) | Meta Digital Service Charge (GBP)');
         expect(dom.window.campaignHistoryFeature.filterHistoryEntries('WPP')).toHaveLength(1);
         expect(dom.window.campaignHistoryFeature.filterHistoryEntries('Meta Digital')).toHaveLength(1);
+        dom.window.close();
+    });
+
+    test('captures an Actualise supplier group without mistaking Redistribute for a supplier', async () => {
+        const { dom, localStore } = createPage({
+            fieldMarkup: `
+                <div id="grid-container_hot">
+                    <div class="ht_master">
+                        <table class="htCore"><tbody>
+                            <tr role="row">
+                                <td class="group-cell table-row-total hierarchical-name"></td>
+                                <td class="group-cell table-row-total hierarchical-name">Media total</td>
+                            </tr>
+                            <tr role="row">
+                                <td class="group-cell hierarchical-level-group-0 mo-row-expandcollapse"></td>
+                                <td class="group-cell hierarchical-level-group-0 hierarchical-name">GUARDIAN | 000010</td>
+                                <td class="hierarchical-level-group-1 redistribute-btn-col">
+                                    <button>Redistribute</button>
+                                </td>
+                            </tr>
+                            <tr role="row">
+                                <td class="hierarchical-name">Digital placement</td>
+                            </tr>
+                        </tbody></table>
+                    </div>
+                </div>`
+        });
+
+        await flushPromises();
+
+        expect(dom.window.campaignHistoryFeature.getCampaignSnapshot().supplier)
+            .toBe('GUARDIAN');
+        expect(localStore.campaignHistoryEntries).toHaveLength(1);
+        expect(localStore.campaignHistoryEntries[0].supplier).toBe('GUARDIAN');
+        expect(localStore.campaignHistoryEntries[0].supplier).not.toContain('Redistribute');
+        dom.window.close();
+    });
+
+    test('migrates legacy Redistribute supplier values and uses Suppliers for multiple values', async () => {
+        const { dom, localStore } = createPage({
+            settings: { campaignHistoryLoggingEnabled: false },
+            entries: [{
+                key: 'campaign:legacy',
+                campaignId: 'CPLEGACY',
+                campaignName: 'Legacy campaign',
+                supplier: 'Redistribute',
+                firstVisitedAt: 1,
+                lastVisitedAt: 1,
+                visitCount: 1
+            }, {
+                key: 'campaign:many',
+                campaignId: 'CPMANY',
+                campaignName: 'Many suppliers',
+                supplier: 'Meta | Reddit',
+                firstVisitedAt: 2,
+                lastVisitedAt: 2,
+                visitCount: 1
+            }]
+        });
+
+        await flushPromises();
+        dom.window.document.getElementById('toolshed-campaign-history-nav').click();
+        await flushPromises();
+
+        const results = Array.from(dom.window.document.querySelectorAll('.toolshed-campaign-history-result'));
+        const legacyResult = results.find(result => result.textContent.includes('Legacy campaign'));
+        const manyResult = results.find(result => result.textContent.includes('Many suppliers'));
+        expect(localStore.campaignHistoryEntries.find(entry => entry.campaignId === 'CPLEGACY').supplier)
+            .toBe('');
+        expect(legacyResult.textContent).not.toContain('Redistribute');
+        expect(manyResult.querySelector('.toolshed-campaign-history-metadata-label').textContent)
+            .toBe('Suppliers');
         dom.window.close();
     });
 

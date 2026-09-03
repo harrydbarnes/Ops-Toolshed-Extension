@@ -11,10 +11,16 @@
     const PANEL_ID = 'toolshed-campaign-history-panel';
     const HISTORY_KEY_ATTRIBUTE = 'data-toolshed-history-key';
     const PANEL_TRANSITION_DURATION_MS = 240;
+    const COLLAPSED_HISTORY_PAGE_SIZE = 4;
+    const HISTORY_PAGE_TRANSITION_CLASSES = Object.freeze([
+        'is-page-transitioning-next',
+        'is-page-transitioning-previous'
+    ]);
     const DEFAULT_SETTINGS = Object.freeze({
         [VIEW_SETTING_KEY]: true,
         [LOGGING_SETTING_KEY]: true
     });
+    const NON_SUPPLIER_VALUE_PATTERN = /^redistribute(?: all)?$/i;
 
     const searchableFields = [
         'campaignName',
@@ -36,6 +42,7 @@
     let historyLoadPromise = null;
     let historyLoadError = null;
     let historyEntries = [];
+    let historyPageIndex = 0;
     let historyWriteQueue = Promise.resolve();
     let activeVisitKey = '';
     let activeVisitFingerprint = '';
@@ -294,6 +301,34 @@
         return patterns.some(pattern => pattern.test(value));
     }
 
+    function isSupplierCell(element) {
+        if (!element) return false;
+        if (element.matches?.('.redistribute-btn-col, button, [role="button"]')) return false;
+        return !element.querySelector?.('button, [role="button"]');
+    }
+
+    function normalizeRenderedSupplierValue(value, element) {
+        const normalized = normalizeWhitespace(value);
+        if (!normalized) return '';
+
+        // Actualise appends the supplier id to its visible supplier group. Keep
+        // the name so it remains consistent with the Buy view's supplier row.
+        const row = element?.closest?.('tr');
+        if (element?.classList?.contains('hierarchical-level-group-0') &&
+            element.classList.contains('hierarchical-name') &&
+            row?.querySelector('.mo-row-expandcollapse')) {
+            return normalizeWhitespace(normalized.replace(/\s+\|\s+\d+$/, ''));
+        }
+        return normalized;
+    }
+
+    function getSupplierValueParts(value) {
+        return normalizeWhitespace(value)
+            .split(/\s*\|\s*/)
+            .map(normalizeWhitespace)
+            .filter(part => part && !NON_SUPPLIER_VALUE_PATTERN.test(part));
+    }
+
     function getRenderedSupplierValue() {
         const tables = [];
         [
@@ -320,11 +355,27 @@
         ];
         tables.forEach(table => {
             Array.from(table.querySelectorAll('tbody tr, tr')).forEach(row => {
-                const supplierCell = supplierCellSelectors
+                let supplierCell = supplierCellSelectors
                     .map(selector => row.querySelector(selector))
-                    .find(Boolean);
-                const value = normalizeWhitespace(getTextFromElement(supplierCell));
-                if (!value || value.length > 220 || /^supplier$/i.test(value)) return;
+                    .find(isSupplierCell);
+
+                // Actualise renders the supplier group at level 0 and reserves
+                // level 1 for the Redistribute control. Only use the level-0
+                // group when the row is the expandable supplier group, not the
+                // total row or an ordinary placement row.
+                if (!supplierCell && row.querySelector('.mo-row-expandcollapse')) {
+                    supplierCell = row.querySelector(
+                        '.group-cell.hierarchical-level-group-0.hierarchical-name:not(.table-row-total)'
+                    );
+                    if (!isSupplierCell(supplierCell)) supplierCell = null;
+                }
+
+                const value = normalizeRenderedSupplierValue(
+                    getTextFromElement(supplierCell),
+                    supplierCell
+                );
+                if (!value || value.length > 220 || /^supplier$/i.test(value) ||
+                    NON_SUPPLIER_VALUE_PATTERN.test(value)) return;
                 if (!supplierValues.includes(value)) supplierValues.push(value);
             });
         });
@@ -387,8 +438,7 @@
     function combineSupplierValues(...values) {
         const seen = new Set();
         return values
-            .flatMap(value => normalizeWhitespace(value).split(/\s*\|\s*/))
-            .map(normalizeWhitespace)
+            .flatMap(getSupplierValueParts)
             .filter(value => {
                 const normalized = normalizeSearchText(value);
                 if (!value || !normalized || seen.has(normalized)) return false;
@@ -457,7 +507,7 @@
             url,
             campaignName: normalizeWhitespace(entry.campaignName),
             clientName: normalizeWhitespace(entry.clientName),
-            supplier: normalizeWhitespace(entry.supplier),
+            supplier: combineSupplierValues(entry.supplier),
             location,
             campaignId,
             cpNumber: normalizeWhitespace(entry.cpNumber || campaignId),
@@ -483,7 +533,16 @@
             'get',
             { [STORAGE_KEY]: [] }
         );
-        return normalizeStoredEntries(result?.[STORAGE_KEY]);
+        const rawEntries = result?.[STORAGE_KEY];
+        const entries = normalizeStoredEntries(rawEntries);
+        if (Array.isArray(rawEntries) && JSON.stringify(rawEntries) !== JSON.stringify(entries)) {
+            try {
+                await writeHistoryEntries(entries);
+            } catch (error) {
+                console.warn('[Campaign History] Could not migrate stored campaign history.', error);
+            }
+        }
+        return entries;
     }
 
     async function writeHistoryEntries(entries) {
@@ -961,6 +1020,17 @@
         return button;
     }
 
+    function createHistoryPageButton(className, label, symbol, pageDelta) {
+        const button = createButton(className, label);
+        button.appendChild(createTextElement(
+            'span',
+            'toolshed-campaign-history-page-symbol',
+            symbol
+        ));
+        button.addEventListener('click', () => changeHistoryPage(pageDelta));
+        return button;
+    }
+
     function ensurePanel() {
         let panel = document.getElementById(PANEL_ID);
         if (panel) return panel;
@@ -1034,12 +1104,14 @@
         clearButton.addEventListener('click', () => {
             input.value = '';
             clearButton.hidden = true;
+            historyPageIndex = 0;
             renderHistoryResults();
             input.focus();
         });
         search.appendChild(clearButton);
         input.addEventListener('input', () => {
             clearButton.hidden = !input.value;
+            historyPageIndex = 0;
             renderHistoryResults();
         });
         input.addEventListener('keydown', event => {
@@ -1047,6 +1119,7 @@
             if (input.value) {
                 input.value = '';
                 clearButton.hidden = true;
+                historyPageIndex = 0;
                 renderHistoryResults();
                 event.preventDefault();
                 event.stopPropagation();
@@ -1084,6 +1157,33 @@
             if (entry.url !== window.location.href) window.location.href = entry.url;
         });
         panel.appendChild(resultList);
+
+        const pagination = document.createElement('nav');
+        pagination.id = 'toolshed-campaign-history-pagination';
+        pagination.className = 'toolshed-campaign-history-pagination';
+        pagination.setAttribute('aria-label', 'Campaign history pages');
+        pagination.hidden = true;
+        const previousButton = createHistoryPageButton(
+            'toolshed-campaign-history-page-button toolshed-campaign-history-page-previous',
+            'Previous campaign history page',
+            '<',
+            -1
+        );
+        const pageIndicator = createTextElement(
+            'span',
+            'toolshed-campaign-history-page-indicator',
+            ''
+        );
+        pageIndicator.id = 'toolshed-campaign-history-page-indicator';
+        pageIndicator.setAttribute('aria-live', 'polite');
+        const nextButton = createHistoryPageButton(
+            'toolshed-campaign-history-page-button toolshed-campaign-history-page-next',
+            'Next campaign history page',
+            '>',
+            1
+        );
+        pagination.append(previousButton, pageIndicator, nextButton);
+        panel.appendChild(pagination);
 
         document.body.appendChild(panel);
         return panel;
@@ -1132,7 +1232,7 @@
         panel.style.maxHeight = 'none';
     }
 
-    function measureCollapsedPanelGeometry(panel, currentRect) {
+    function measureCollapsedPanelGeometry(panel, currentRect, prepareCollapsedPanel) {
         const previousTransition = panel.style.getPropertyValue('transition');
         const previousTransitionPriority = panel.style.getPropertyPriority('transition');
         let targetRect;
@@ -1145,6 +1245,7 @@
         try {
             panel.classList.remove('is-expanded');
             clearInlinePanelGeometry(panel);
+            prepareCollapsedPanel?.();
             void panel.offsetWidth;
             targetRect = panel.getBoundingClientRect();
 
@@ -1184,7 +1285,7 @@
         };
     }
 
-    function animatePanelGeometry(panel, expanded) {
+    function animatePanelGeometry(panel, expanded, prepareCollapsedPanel) {
         clearPanelGeometryCleanup();
         const currentRect = panel.getBoundingClientRect();
         setInlinePanelGeometry(panel, currentRect);
@@ -1194,7 +1295,11 @@
             panel.classList.add('is-expanded');
             targetRect = getExpandedPanelGeometry();
         } else {
-            targetRect = measureCollapsedPanelGeometry(panel, currentRect);
+            targetRect = measureCollapsedPanelGeometry(
+                panel,
+                currentRect,
+                prepareCollapsedPanel
+            );
         }
 
         // Force the current dimensions to be committed before applying the
@@ -1289,11 +1394,11 @@
         }, duration + 40);
     }
 
-    function setExpanded(panel, expanded) {
+    function setExpanded(panel, expanded, prepareCollapsedPanel) {
         if (!panel) return;
         const expandButton = panel.querySelector('.toolshed-campaign-history-expand');
         const label = expandButton?.querySelector('.toolshed-campaign-history-button-label');
-        animatePanelGeometry(panel, expanded);
+        animatePanelGeometry(panel, expanded, prepareCollapsedPanel);
         panel.setAttribute('aria-modal', String(expanded));
         if (expandButton) {
             expandButton.dataset.expanded = String(expanded);
@@ -1309,9 +1414,12 @@
     }
 
     function toggleExpanded(panel) {
+        if (!panel) return;
         const searchInput = panel?.querySelector('#toolshed-campaign-history-search-input');
         const shouldRestoreSearchFocus = document.activeElement === searchInput;
-        setExpanded(panel, !panel.classList.contains('is-expanded'));
+        const expanded = !panel.classList.contains('is-expanded');
+        setExpanded(panel, expanded, expanded ? null : () => renderHistoryResults());
+        if (expanded) renderHistoryResults();
         if (shouldRestoreSearchFocus) searchInput.focus();
     }
 
@@ -1394,6 +1502,76 @@
         return `${count} campaign${count === 1 ? '' : 's'} visited`;
     }
 
+    function getHistoryPageCount(totalCount) {
+        return Math.max(1, Math.ceil(totalCount / COLLAPSED_HISTORY_PAGE_SIZE));
+    }
+
+    function updateHistoryPagination(panel, totalCount, hasResults) {
+        const pagination = panel.querySelector('#toolshed-campaign-history-pagination');
+        const previousButton = panel.querySelector('.toolshed-campaign-history-page-previous');
+        const nextButton = panel.querySelector('.toolshed-campaign-history-page-next');
+        const pageIndicator = panel.querySelector('#toolshed-campaign-history-page-indicator');
+        if (!pagination || !previousButton || !nextButton || !pageIndicator) return;
+
+        const shouldShow = !panel.classList.contains('is-expanded') &&
+            hasResults && totalCount > COLLAPSED_HISTORY_PAGE_SIZE;
+        const pageCount = getHistoryPageCount(totalCount);
+        historyPageIndex = Math.min(Math.max(historyPageIndex, 0), pageCount - 1);
+        const previousDisabled = !shouldShow || historyPageIndex === 0;
+        const nextDisabled = !shouldShow || historyPageIndex >= pageCount - 1;
+
+        pagination.hidden = !shouldShow;
+        previousButton.disabled = previousDisabled;
+        previousButton.setAttribute('aria-disabled', String(previousDisabled));
+        nextButton.disabled = nextDisabled;
+        nextButton.setAttribute('aria-disabled', String(nextDisabled));
+        pageIndicator.textContent = shouldShow
+            ? `${historyPageIndex * COLLAPSED_HISTORY_PAGE_SIZE + 1}–${Math.min(
+                (historyPageIndex + 1) * COLLAPSED_HISTORY_PAGE_SIZE,
+                totalCount
+            )} of ${totalCount}`
+            : '';
+    }
+
+    function getVisibleHistoryEntries(panel, filteredEntries) {
+        if (panel.classList.contains('is-expanded')) return filteredEntries;
+        const pageCount = getHistoryPageCount(filteredEntries.length);
+        historyPageIndex = Math.min(Math.max(historyPageIndex, 0), pageCount - 1);
+        const start = historyPageIndex * COLLAPSED_HISTORY_PAGE_SIZE;
+        return filteredEntries.slice(start, start + COLLAPSED_HISTORY_PAGE_SIZE);
+    }
+
+    function animateHistoryPage(resultList, direction) {
+        if (!resultList || getPanelTransitionDuration() === 0) return;
+        HISTORY_PAGE_TRANSITION_CLASSES.forEach(className => resultList.classList.remove(className));
+        void resultList.offsetWidth;
+        resultList.classList.add(direction === 'previous'
+            ? 'is-page-transitioning-previous'
+            : 'is-page-transitioning-next');
+    }
+
+    function changeHistoryPage(delta) {
+        if (!Number.isInteger(delta) || delta === 0 || typeof document === 'undefined') return;
+        const panel = document.getElementById(PANEL_ID);
+        const input = panel?.querySelector('#toolshed-campaign-history-search-input');
+        if (!panel || panel.hidden || panel.classList.contains('is-expanded') ||
+            !input || !historyLoaded || historyLoadError) return;
+
+        const filteredEntries = filterHistoryEntries(input.value);
+        const pageCount = getHistoryPageCount(filteredEntries.length);
+        const currentPageIndex = Math.min(Math.max(historyPageIndex, 0), pageCount - 1);
+        const nextPageIndex = Math.min(
+            Math.max(currentPageIndex + delta, 0),
+            pageCount - 1
+        );
+        if (nextPageIndex === currentPageIndex) return;
+
+        historyPageIndex = nextPageIndex;
+        renderHistoryResults({
+            pageTransitionDirection: delta > 0 ? 'next' : 'previous'
+        });
+    }
+
     function appendMetadata(parent, label, value, query) {
         if (!value) return;
         const item = document.createElement('span');
@@ -1436,7 +1614,10 @@
         const metadata = document.createElement('span');
         metadata.className = 'toolshed-campaign-history-result-metadata';
         appendMetadata(metadata, 'Client', entry.clientName, query);
-        appendMetadata(metadata, 'Supplier', entry.supplier, query);
+        const supplierLabel = getSupplierValueParts(entry.supplier).length > 1
+            ? 'Suppliers'
+            : 'Supplier';
+        appendMetadata(metadata, supplierLabel, entry.supplier, query);
         appendMetadata(metadata, 'Location', entry.location, query);
         appendMetadata(metadata, 'CP', entry.cpNumber || entry.campaignId, query);
         appendMetadata(metadata, 'CL/PR/CA', entry.clPrCa, query);
@@ -1459,7 +1640,8 @@
         return article;
     }
 
-    function renderHistoryResults() {
+    function renderHistoryResults({ pageTransitionDirection = '' } = {}) {
+        if (typeof document === 'undefined') return;
         const panel = document.getElementById(PANEL_ID);
         if (!panel) return;
 
@@ -1470,16 +1652,19 @@
         if (!status || !resultList || !count || !input) return;
 
         resultList.replaceChildren();
+        HISTORY_PAGE_TRANSITION_CLASSES.forEach(className => resultList.classList.remove(className));
 
         if (historyLoadError) {
             count.textContent = '';
             status.textContent = 'Campaign history is temporarily unavailable. Try again after reloading Prisma.';
+            updateHistoryPagination(panel, 0, false);
             return;
         }
 
         if (!historyLoaded) {
             count.textContent = '';
             status.textContent = 'Loading campaign history…';
+            updateHistoryPagination(panel, 0, false);
             return;
         }
 
@@ -1495,6 +1680,7 @@
                 ? 'Visit a campaign and it will appear here for later searching.'
                 : 'Campaign visit logging is turned off in Settings.'));
             resultList.appendChild(empty);
+            updateHistoryPagination(panel, 0, false);
             return;
         }
 
@@ -1504,10 +1690,16 @@
             empty.appendChild(createTextElement('strong', '', 'No matching campaigns'));
             empty.appendChild(createTextElement('p', '', 'Try a campaign name, client name, CP number, CL/PR/CA reference or supplier.'));
             resultList.appendChild(empty);
+            updateHistoryPagination(panel, 0, false);
             return;
         }
 
-        filteredEntries.forEach(entry => resultList.appendChild(createHistoryResult(entry, input.value)));
+        updateHistoryPagination(panel, filteredEntries.length, true);
+        getVisibleHistoryEntries(panel, filteredEntries)
+            .forEach(entry => resultList.appendChild(createHistoryResult(entry, input.value)));
+        if (pageTransitionDirection) {
+            animateHistoryPage(resultList, pageTransitionDirection);
+        }
     }
 
     async function loadHistory() {

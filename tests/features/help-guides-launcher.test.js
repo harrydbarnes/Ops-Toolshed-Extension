@@ -100,6 +100,8 @@ describe('Help Guides page launcher', () => {
         expect(launcherStyles).toContain('backdrop-filter: none');
         expect(launcherStyles).toContain('touch-action: none');
         expect(launcherStyles).toContain('transition: none');
+        expect(launcherStyles).toContain('right 180ms ease');
+        expect(launcherStyles).toContain('width 180ms ease');
         expect(launcherStyles).toContain('white-space: nowrap');
         expect(launcherStyles).not.toContain('#ff4087');
         expect(launcherStyles).toContain('"Outfit"');
@@ -414,6 +416,201 @@ describe('Help Guides page launcher', () => {
         window.helpGuidesLauncherFeature.reconcileLauncherPosition(launcher);
         expect(launcher.style.left).toBe('840px');
         expect(launcher.classList).not.toContain('is-avoiding-control');
+        dom.window.close();
+    });
+
+    test('stacks the persistent chat controls above a bottom-right Help Guides launcher', () => {
+        const { dom } = createFeature({ position: { left: 842, top: 638 } });
+        const { window } = dom;
+        Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1000 });
+        Object.defineProperty(window, 'innerHeight', { configurable: true, value: 700 });
+        Object.defineProperty(window.HTMLElement.prototype, 'offsetWidth', {
+            configurable: true,
+            get() { return this.id === 'toolshed-help-guides-launcher' ? 140 : 0; }
+        });
+        Object.defineProperty(window.HTMLElement.prototype, 'offsetHeight', {
+            configurable: true,
+            get() { return this.id === 'toolshed-help-guides-launcher' ? 44 : 0; }
+        });
+        window.helpGuidesLauncherFeature.initialize();
+        const launcher = window.document.getElementById('toolshed-help-guides-launcher');
+
+        const chatFrame = window.document.createElement('iframe');
+        chatFrame.id = 'launcher';
+        chatFrame.style.position = 'fixed';
+        chatFrame.style.inset = 'auto 40px 40px auto';
+        chatFrame.style.right = '40px';
+        chatFrame.style.bottom = '40px';
+        chatFrame.getBoundingClientRect = () => ({
+            left: 850, top: 620, right: 918, bottom: 688, width: 68, height: 68
+        });
+        window.document.body.appendChild(chatFrame);
+
+        const moeWrapper = window.document.createElement('div');
+        moeWrapper.id = 'moe-wrapper';
+        moeWrapper.getBoundingClientRect = () => ({
+            left: 880, top: 630, right: 916, bottom: 666, width: 36, height: 36
+        });
+        const moeRestore = window.document.createElement('button');
+        moeRestore.id = 'moe-restore';
+        moeRestore.setAttribute('aria-label', 'Open Moe');
+        moeRestore.getBoundingClientRect = () => ({
+            left: 866, top: 616, right: 902, bottom: 652, width: 36, height: 36
+        });
+        moeWrapper.appendChild(moeRestore);
+        window.document.body.appendChild(moeWrapper);
+
+        window.helpGuidesLauncherFeature.reconcileLauncherPosition(launcher);
+
+        expect(launcher.style.left).toBe('842px');
+        expect(launcher.style.top).toBe('638px');
+        expect(launcher.classList).not.toContain('is-avoiding-control');
+        expect(chatFrame.style.position).toBe('fixed');
+        expect(chatFrame.style.right).toBe('18px');
+        expect(chatFrame.style.bottom).toBe('76px');
+        expect(chatFrame.classList).toContain('toolshed-help-guides-stacked-chat');
+        expect(moeWrapper.style.position).toBe('fixed');
+        expect(moeWrapper.style.right).toBe('4px');
+        expect(moeWrapper.style.bottom).toBe('62px');
+        expect(moeWrapper.classList).toContain('toolshed-help-guides-stacked-chat');
+        dom.window.close();
+    });
+
+    test('keeps the chat right edge and gap aligned as Moe grows and shrinks', () => {
+        const { dom } = createFeature({ position: { left: 842, top: 638 } });
+        const { window } = dom;
+        Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1000 });
+        Object.defineProperty(window, 'innerHeight', { configurable: true, value: 700 });
+        Object.defineProperty(window.HTMLElement.prototype, 'offsetWidth', {
+            configurable: true,
+            get() { return this.id === 'toolshed-help-guides-launcher' ? 140 : 0; }
+        });
+        Object.defineProperty(window.HTMLElement.prototype, 'offsetHeight', {
+            configurable: true,
+            get() { return this.id === 'toolshed-help-guides-launcher' ? 44 : 0; }
+        });
+        window.helpGuidesLauncherFeature.initialize();
+        const launcher = window.document.getElementById('toolshed-help-guides-launcher');
+
+        const moeWrapper = window.document.createElement('div');
+        moeWrapper.id = 'moe-wrapper';
+        let wrapperRect = { left: 880, top: 630, right: 916, bottom: 666, width: 36, height: 36 };
+        moeWrapper.getBoundingClientRect = () => wrapperRect;
+        const moeControl = window.document.createElement('button');
+        moeControl.id = 'moe-restore';
+        moeControl.setAttribute('aria-label', 'Open Moe');
+        let controlRect = { left: 866, top: 616, right: 902, bottom: 652, width: 36, height: 36 };
+        moeControl.getBoundingClientRect = () => controlRect;
+        moeWrapper.appendChild(moeControl);
+        window.document.body.appendChild(moeWrapper);
+
+        window.helpGuidesLauncherFeature.reconcileLauncherPosition(launcher);
+        expect(moeWrapper.style.right).toBe('4px');
+        expect(moeWrapper.style.bottom).toBe('62px');
+
+        moeControl.id = 'launch-moe-btn';
+        moeControl.setAttribute('aria-label', 'Connect with Moe');
+        wrapperRect = { left: 850, top: 550, right: 914, bottom: 614, width: 64, height: 64 };
+        controlRect = { left: 853.2, top: 553.2, right: 910.8, bottom: 610.8, width: 57.6, height: 57.6 };
+        window.helpGuidesLauncherFeature.reconcileLauncherPosition(launcher);
+        expect(moeWrapper.style.right).toBe('14.8px');
+        expect(moeWrapper.style.bottom).toBe('72.8px');
+        expect(moeWrapper.classList).toContain('toolshed-help-guides-stacked-chat');
+
+        moeControl.id = 'moe-restore';
+        moeControl.setAttribute('aria-label', 'Open Moe');
+        wrapperRect = { left: 880, top: 630, right: 916, bottom: 666, width: 36, height: 36 };
+        controlRect = { left: 866, top: 616, right: 902, bottom: 652, width: 36, height: 36 };
+        window.helpGuidesLauncherFeature.reconcileLauncherPosition(launcher);
+        expect(moeWrapper.style.right).toBe('4px');
+        expect(moeWrapper.style.bottom).toBe('62px');
+        dom.window.close();
+    });
+
+    test('keeps chat stacked during transient reload visibility changes', () => {
+        const { dom } = createFeature({ position: { left: 842, top: 638 } });
+        const { window } = dom;
+        Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1000 });
+        Object.defineProperty(window, 'innerHeight', { configurable: true, value: 700 });
+        Object.defineProperty(window.HTMLElement.prototype, 'offsetWidth', {
+            configurable: true,
+            get() { return this.id === 'toolshed-help-guides-launcher' ? 140 : 0; }
+        });
+        Object.defineProperty(window.HTMLElement.prototype, 'offsetHeight', {
+            configurable: true,
+            get() { return this.id === 'toolshed-help-guides-launcher' ? 44 : 0; }
+        });
+        window.helpGuidesLauncherFeature.initialize();
+        const launcher = window.document.getElementById('toolshed-help-guides-launcher');
+        const chatFrame = window.document.createElement('iframe');
+        chatFrame.id = 'launcher';
+        chatFrame.style.position = 'fixed';
+        chatFrame.style.inset = 'auto 40px 40px auto';
+        chatFrame.style.right = '40px';
+        chatFrame.style.bottom = '40px';
+        chatFrame.getBoundingClientRect = () => ({
+            left: 850, top: 620, right: 918, bottom: 688, width: 68, height: 68
+        });
+        window.document.body.appendChild(chatFrame);
+
+        window.helpGuidesLauncherFeature.reconcileLauncherPosition(launcher);
+        expect(chatFrame.style.right).toBe('18px');
+        expect(chatFrame.style.bottom).toBe('76px');
+
+        chatFrame.style.opacity = '0';
+        window.helpGuidesLauncherFeature.reconcileLauncherPosition(launcher);
+
+        expect(chatFrame.style.position).toBe('fixed');
+        expect(chatFrame.style.inset).toBe('auto 18px 76px auto');
+        expect(chatFrame.style.right).toBe('18px');
+        expect(chatFrame.style.bottom).toBe('76px');
+        expect(chatFrame.classList).toContain('toolshed-help-guides-stacked-chat');
+
+        chatFrame.style.opacity = '1';
+        window.helpGuidesLauncherFeature.reconcileLauncherPosition(launcher);
+        expect(chatFrame.style.right).toBe('18px');
+        expect(chatFrame.style.bottom).toBe('76px');
+        dom.window.close();
+    });
+
+    test('restores native chat positioning when Help Guides leaves the bottom-right corner', () => {
+        const { dom } = createFeature({ position: { left: 842, top: 638 } });
+        const { window } = dom;
+        Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1000 });
+        Object.defineProperty(window, 'innerHeight', { configurable: true, value: 700 });
+        Object.defineProperty(window.HTMLElement.prototype, 'offsetWidth', {
+            configurable: true,
+            get() { return this.id === 'toolshed-help-guides-launcher' ? 140 : 0; }
+        });
+        Object.defineProperty(window.HTMLElement.prototype, 'offsetHeight', {
+            configurable: true,
+            get() { return this.id === 'toolshed-help-guides-launcher' ? 44 : 0; }
+        });
+        window.helpGuidesLauncherFeature.initialize();
+        const launcher = window.document.getElementById('toolshed-help-guides-launcher');
+        const chatFrame = window.document.createElement('iframe');
+        chatFrame.id = 'launcher';
+        chatFrame.style.position = 'fixed';
+        chatFrame.style.inset = 'auto 40px 40px auto';
+        chatFrame.style.right = '40px';
+        chatFrame.style.bottom = '40px';
+        chatFrame.getBoundingClientRect = () => ({
+            left: 850, top: 620, right: 918, bottom: 688, width: 68, height: 68
+        });
+        window.document.body.appendChild(chatFrame);
+
+        window.helpGuidesLauncherFeature.reconcileLauncherPosition(launcher);
+        expect(chatFrame.style.right).toBe('18px');
+
+        launcher.getBoundingClientRect = () => ({ left: 400, top: 300, width: 140, height: 44 });
+        window.helpGuidesLauncherFeature.snapToEdge(launcher);
+        window.helpGuidesLauncherFeature.reconcileLauncherPosition(launcher);
+
+        expect(chatFrame.style.position).toBe('fixed');
+        expect(chatFrame.style.inset).toBe('auto 40px 40px auto');
+        expect(chatFrame.style.right).toBe('40px');
+        expect(chatFrame.style.bottom).toBe('40px');
+        expect(chatFrame.classList).not.toContain('toolshed-help-guides-stacked-chat');
         dom.window.close();
     });
 

@@ -27,6 +27,19 @@
         '[role="button"][aria-label*="expand" i]',
         'mo-icon[name*="expand" i]'
     ].join(',');
+    const CHAT_STACK_ROOT_SELECTOR = [
+        'iframe#launcher',
+        '#moe-wrapper'
+    ].join(',');
+    const CHAT_STACK_LEAF_SELECTOR = [
+        '#moe-restore',
+        '#launch-moe-btn'
+    ].join(',');
+    const CHAT_STACK_CLASS = 'toolshed-help-guides-stacked-chat';
+    const CHAT_STACK_INITIAL_CLASS = 'toolshed-help-guides-chat-initial';
+    // Prisma keeps these chat controls mounted at the bottom-right, so stack their
+    // visible control above a protected bottom-right Help Guides launcher.
+    const POSITION_STYLE_PROPERTIES = ['position', 'inset', 'top', 'right', 'bottom', 'left'];
     let isEnabled = null;
     let isPanelOpen = false;
     let panelStateKnown = false;
@@ -38,6 +51,9 @@
     let bannerObserver = null;
     let collisionObserver = null;
     let collisionFrame = null;
+    let stackedChatControls = new Set();
+    const stackedChatControlStyles = new WeakMap();
+    const stackedChatControlReady = new WeakSet();
 
     function isLauncherExcluded() {
         return window.location.href.toLowerCase().includes('ideskos-viewport');
@@ -123,6 +139,18 @@
                 user-select: none;
                 transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease, opacity 180ms ease, left 220ms cubic-bezier(0.22, 1, 0.36, 1), top 220ms cubic-bezier(0.22, 1, 0.36, 1);
             }
+            #launcher.${CHAT_STACK_CLASS},
+            #moe-wrapper.${CHAT_STACK_CLASS},
+            #moe-restore.${CHAT_STACK_CLASS},
+            #launch-moe-btn.${CHAT_STACK_CLASS} {
+                transition: right 180ms ease, bottom 180ms ease, width 180ms ease, height 180ms ease;
+            }
+            #launcher.${CHAT_STACK_CLASS}.${CHAT_STACK_INITIAL_CLASS},
+            #moe-wrapper.${CHAT_STACK_CLASS}.${CHAT_STACK_INITIAL_CLASS},
+            #moe-restore.${CHAT_STACK_CLASS}.${CHAT_STACK_INITIAL_CLASS},
+            #launch-moe-btn.${CHAT_STACK_CLASS}.${CHAT_STACK_INITIAL_CLASS} {
+                transition: none !important;
+            }
             #${BUTTON_ID}:hover {
                 background: rgba(5, 6, 111, 0.88);
                 box-shadow: 0 6px 18px rgba(6, 8, 141, 0.28);
@@ -176,7 +204,13 @@
                 white-space: nowrap;
             }
             @media (prefers-reduced-motion: reduce) {
-                #${BUTTON_ID} { transition-duration: 0.01ms !important; }
+                #${BUTTON_ID},
+                #launcher.${CHAT_STACK_CLASS},
+                #moe-wrapper.${CHAT_STACK_CLASS},
+                #moe-restore.${CHAT_STACK_CLASS},
+                #launch-moe-btn.${CHAT_STACK_CLASS} {
+                    transition-duration: 0.01ms !important;
+                }
             }
         `;
         document.head.appendChild(style);
@@ -312,14 +346,176 @@
         return ['fixed', 'absolute', 'sticky'].includes(position);
     }
 
+    function isBottomRightPosition(position) {
+        if (!position) return false;
+        const horizontalAtRight = preferredPosition?.horizontalAnchor === 'right' ||
+            Math.abs(position.left - position.maxLeft) <= EDGE_ANCHOR_TOLERANCE;
+        const verticalAtBottom = preferredPosition?.verticalAnchor === 'bottom' ||
+            Math.abs(position.top - position.maxTop) <= EDGE_ANCHOR_TOLERANCE;
+        return horizontalAtRight && verticalAtBottom;
+    }
+
+    function isChatControlConnected(control) {
+        if (!control) return false;
+        if (typeof control.isConnected === 'boolean') return control.isConnected;
+        return Boolean(document.documentElement?.contains(control));
+    }
+
+    function captureChatControlStyles(control) {
+        if (stackedChatControlStyles.has(control)) return;
+        const snapshot = {};
+        POSITION_STYLE_PROPERTIES.forEach(property => {
+            snapshot[property] = {
+                value: control.style.getPropertyValue(property),
+                priority: control.style.getPropertyPriority(property)
+            };
+        });
+        stackedChatControlStyles.set(control, snapshot);
+    }
+
+    function scheduleChatStackReady(control) {
+        const nextFrame = window.requestAnimationFrame || (callback => window.setTimeout(callback, 0));
+        nextFrame(() => {
+            if (!stackedChatControlStyles.has(control) || !isChatControlConnected(control)) return;
+            control.classList.add(CHAT_STACK_CLASS);
+            control.classList.remove(CHAT_STACK_INITIAL_CLASS);
+            stackedChatControlReady.add(control);
+        });
+    }
+
+    function restoreChatControlStyles(control) {
+        const snapshot = stackedChatControlStyles.get(control);
+        if (!snapshot) return;
+        POSITION_STYLE_PROPERTIES.forEach(property => {
+            const original = snapshot[property];
+            if (original.value) control.style.setProperty(property, original.value, original.priority);
+            else control.style.removeProperty(property);
+        });
+        control.classList.remove(CHAT_STACK_CLASS);
+        control.classList.remove(CHAT_STACK_INITIAL_CLASS);
+        stackedChatControlReady.delete(control);
+        stackedChatControlStyles.delete(control);
+    }
+
+    function restoreStackedChatControls() {
+        stackedChatControls.forEach(restoreChatControlStyles);
+        stackedChatControls.clear();
+    }
+
+    function findStackableChatControls(button) {
+        const roots = Array.from(document.querySelectorAll(CHAT_STACK_ROOT_SELECTOR));
+        const visibleRoots = roots.filter(control => isVisibleCornerControl(control, button));
+        const leaves = Array.from(document.querySelectorAll(CHAT_STACK_LEAF_SELECTOR))
+            .filter(leaf => !visibleRoots.some(root => root.contains(leaf)))
+            .filter(leaf => isVisibleCornerControl(leaf, button));
+        return [...visibleRoots, ...leaves];
+    }
+
+    function findChatStackAnchor(control, button) {
+        const descendants = Array.from(control.querySelectorAll?.(CHAT_STACK_LEAF_SELECTOR) || [])
+            .filter(leaf => isVisibleCornerControl(leaf, button));
+        return descendants[0] || control;
+    }
+
+    function formatPixel(value) {
+        return `${Number(value.toFixed(3))}px`;
+    }
+
+    function calculateStackedChatPosition(control, button, buttonPosition) {
+        const controlRect = control.getBoundingClientRect();
+        const anchor = findChatStackAnchor(control, button);
+        const anchorRect = anchor.getBoundingClientRect();
+        const anchorWidth = Number.isFinite(anchorRect.width) ? anchorRect.width : anchorRect.right - anchorRect.left;
+        const anchorHeight = Number.isFinite(anchorRect.height) ? anchorRect.height : anchorRect.bottom - anchorRect.top;
+        const targetRight = buttonPosition.left + button.offsetWidth;
+        const targetAnchorTop = buttonPosition.top - CONTROL_GAP - anchorHeight;
+
+        if (!Number.isFinite(controlRect.width) || !Number.isFinite(controlRect.height) ||
+            !Number.isFinite(anchorWidth) || !Number.isFinite(anchorHeight) ||
+            targetAnchorTop < EDGE_GAP || targetRight - anchorWidth < EDGE_GAP ||
+            targetRight > window.innerWidth - EDGE_GAP) {
+            return null;
+        }
+
+        const controlRightOffset = anchorRect.right - controlRect.right;
+        const controlTopOffset = anchorRect.top - controlRect.top;
+        const targetControlRight = targetRight - controlRightOffset;
+        const targetControlTop = targetAnchorTop - controlTopOffset;
+        const right = window.innerWidth - targetControlRight;
+        const bottom = window.innerHeight - targetControlTop - controlRect.height;
+
+        if (!Number.isFinite(right) || !Number.isFinite(bottom) || targetControlTop < 0) return null;
+        return { right, bottom };
+    }
+
+    function applyStackedChatPosition(control, position) {
+        const canAnimate = stackedChatControlReady.has(control) &&
+            control.classList.contains(CHAT_STACK_CLASS);
+        captureChatControlStyles(control);
+        control.classList.add(CHAT_STACK_CLASS);
+        if (canAnimate) control.classList.remove(CHAT_STACK_INITIAL_CLASS);
+        else control.classList.add(CHAT_STACK_INITIAL_CLASS);
+        const right = formatPixel(position.right);
+        const bottom = formatPixel(position.bottom);
+        const values = {
+            position: 'fixed',
+            top: 'auto',
+            right,
+            bottom,
+            left: 'auto',
+            inset: `auto ${right} ${bottom} auto`
+        };
+        Object.entries(values).forEach(([property, value]) => {
+            if (control.style.getPropertyValue(property) !== value ||
+                control.style.getPropertyPriority(property) !== 'important') {
+                control.style.setProperty(property, value, 'important');
+            }
+        });
+        if (!canAnimate) scheduleChatStackReady(control);
+    }
+
+    function stackChatControls(button, buttonPosition) {
+        const controls = findStackableChatControls(button);
+        const retainedControls = new Set();
+        stackedChatControls.forEach(control => {
+            if (isChatControlConnected(control)) retainedControls.add(control);
+            else restoreChatControlStyles(control);
+        });
+        stackedChatControls = retainedControls;
+        const placements = controls.map(control => ({
+            control,
+            position: calculateStackedChatPosition(control, button, buttonPosition)
+        }));
+        if (placements.some(({ position }) => !position)) {
+            return retainedControls.size > 0 ? retainedControls : null;
+        }
+
+        const activeControls = new Set([...retainedControls, ...controls]);
+        placements.forEach(({ control, position }) => applyStackedChatPosition(control, position));
+        stackedChatControls = activeControls;
+        return activeControls;
+    }
+
+    function isStackedChatElement(element, controls) {
+        return Array.from(controls).some(control => control === element || control.contains?.(element));
+    }
+
     function reconcileLauncherPosition(button = document.getElementById(BUTTON_ID)) {
         if (!button || !preferredPosition || button.classList.contains('is-dragging')) return;
         const basePosition = resolvePositionPreference(button);
+        let activeStackedControls = null;
+        if (isBottomRightPosition(basePosition)) {
+            activeStackedControls = stackChatControls(button, basePosition);
+            if (activeStackedControls) placeButton(button, basePosition.left, basePosition.top);
+        } else {
+            restoreStackedChatControls();
+        }
         const obstacleElements = new Set([
             ...document.querySelectorAll(COLLISION_SELECTOR),
             ...findUnderlyingCornerControls(basePosition, button).filter(isFloatingCornerControl)
         ]);
         const obstacles = Array.from(obstacleElements)
+            .filter(element => !activeStackedControls || !isStackedChatElement(element, activeStackedControls))
             .filter(element => isVisibleCornerControl(element, button))
             .map(element => element.getBoundingClientRect())
             .filter(rect => overlapsWithGap(basePosition, button, rect));
@@ -560,6 +756,7 @@
     }
 
     function removeLauncher() {
+        restoreStackedChatControls();
         document.getElementById(BUTTON_ID)?.remove();
     }
 

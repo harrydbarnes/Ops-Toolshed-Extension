@@ -51,11 +51,15 @@ describe('release metadata', () => {
             const currentRelease = dom.window.document.querySelector('#release-notes .release');
             const items = Array.from(currentRelease.querySelectorAll('li'));
 
-            expect(items).toHaveLength(3);
+            expect(items).toHaveLength(5);
             expect(items[0].textContent).toContain('Campaign History');
             expect(items[0].querySelector('.release-badge').dataset.releaseType).toBe('new');
-            expect(items[2].textContent).toContain('permanent Moe chat bubble');
+            expect(items[1].textContent).toContain('four campaigns per page');
+            expect(items[1].querySelector('.release-badge').dataset.releaseType).toBe('improved');
+            expect(items[2].textContent).toContain('Redistribute action');
             expect(items[2].querySelector('.release-badge').dataset.releaseType).toBe('fixed');
+            expect(items[4].textContent).toContain('permanent Moe chat bubble');
+            expect(items[4].querySelector('.release-badge').dataset.releaseType).toBe('fixed');
         } finally {
             dom.window.close();
         }
