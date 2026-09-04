@@ -322,10 +322,33 @@
         return normalized;
     }
 
+    function normalizeSupplierPart(value) {
+        let normalized = normalizeWhitespace(value);
+        if (!normalized) return '';
+
+        // Adapted is the useful supplier name in Prisma's
+        // "ADAPTED CREATIVE LIMITED:Adapted" group label.
+        const adaptedMatch = normalized.match(/^ADAPTED CREATIVE LIMITED\s*:\s*(.+)$/i);
+        if (adaptedMatch) normalized = normalizeWhitespace(adaptedMatch[1]);
+
+        // Prisma appends agency descriptors and currency markers to several
+        // provider names. They are not useful search/display values here.
+        normalized = normalizeWhitespace(
+            normalized
+                .replace(/\s*\([^)]*\)/g, ' ')
+                .replace(/\s+(?:GBP|EUR|USD)$/i, '')
+        );
+
+        if (/^facebook$/i.test(normalized)) return 'Facebook';
+        if (/^goat(?:\s+solutions)?$/i.test(normalized)) return 'GOAT';
+        if (/^adapted(?:\s+creative\s+limited)?$/i.test(normalized)) return 'Adapted';
+        return normalized;
+    }
+
     function getSupplierValueParts(value) {
         return normalizeWhitespace(value)
             .split(/\s*\|\s*/)
-            .map(normalizeWhitespace)
+            .map(normalizeSupplierPart)
             .filter(part => part && !NON_SUPPLIER_VALUE_PATTERN.test(part));
     }
 
@@ -641,6 +664,15 @@
             const handle = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             handle.setAttribute('d', 'm16 16 4.5 4.5');
             svg.append(circle, handle);
+        } else if (name === 'history') {
+            const arc = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            arc.setAttribute('d', 'M4.4 10.4a8.5 8.5 0 1 1 2.3 7.2');
+            const arrowhead = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            arrowhead.dataset.historyArrowhead = 'true';
+            arrowhead.setAttribute('d', 'M2.3 8.8 4.4 12.6 6.7 8.8Z');
+            const hands = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            hands.setAttribute('d', 'M11.8 6.8v4.5l2.8 1.9');
+            svg.append(arc, arrowhead, hands);
         } else if (name === 'close') {
             const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             path.setAttribute('d', 'M6 6l12 12M18 6 6 18');
@@ -666,6 +698,11 @@
             shape.setAttribute('stroke-linecap', 'round');
             shape.setAttribute('stroke-linejoin', 'round');
         });
+        if (name === 'history') {
+            const arrowhead = svg.querySelector('[data-history-arrowhead]');
+            arrowhead?.setAttribute('fill', 'currentColor');
+            arrowhead?.setAttribute('stroke', 'none');
+        }
         return svg;
     }
 
@@ -983,8 +1020,8 @@
 
         const content = document.createElement('span');
         content.className = 'toolshed-campaign-history-nav-content';
-        content.appendChild(createSvgIcon('search'));
         content.appendChild(createTextElement('span', 'toolshed-campaign-history-nav-label', 'History'));
+        content.appendChild(createSvgIcon('history'));
         link.appendChild(content);
 
         link.addEventListener('click', event => {

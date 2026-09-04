@@ -136,6 +136,10 @@ describe('campaign history feature', () => {
             .toMatch(/margin:\s*8px 20px 6px 22px/i);
         expect(cssRule(contentCss, '.toolshed-campaign-history-status'))
             .toMatch(/min-height:\s*0/i);
+        expect(cssRule(contentCss, '.toolshed-campaign-history-page-button'))
+            .toMatch(/width:\s*52px/i);
+        expect(cssRule(contentCss, '.toolshed-campaign-history-page-button'))
+            .toMatch(/height:\s*32px/i);
         expect(contentCss)
             .toMatch(/@keyframes\s+toolshed-campaign-history-page-next/);
         expect(contentCss)
@@ -168,7 +172,13 @@ describe('campaign history feature', () => {
         expect(navLink.previousElementSibling.id).toBe('prisma-reports');
         expect(document.querySelector('.p2b-navbar-wrapper #toolshed-campaign-history-nav')).toBeNull();
         expect(navLink.textContent).toContain('History');
-        expect(navLink.querySelector('svg')).not.toBeNull();
+        const navContent = navLink.querySelector('.toolshed-campaign-history-nav-content');
+        expect(navContent.children[0].textContent).toBe('History');
+        const historyIcon = navContent.querySelector('.toolshed-campaign-history-icon-history');
+        expect(historyIcon).not.toBeNull();
+        expect(historyIcon.querySelector('circle')).toBeNull();
+        expect(historyIcon.querySelectorAll('path')).toHaveLength(3);
+        expect(historyIcon.querySelector('[data-history-arrowhead]')).not.toBeNull();
 
         expect(localStore.campaignHistoryEntries).toHaveLength(1);
         expect(localStore.campaignHistoryEntries[0]).toMatchObject({
@@ -503,12 +513,76 @@ describe('campaign history feature', () => {
         await flushPromises();
 
         expect(dom.window.campaignHistoryFeature.getCampaignSnapshot().supplier)
-            .toBe('WPP MS ADV DOOH (GBP) | Meta Digital Service Charge (GBP)');
+            .toBe('WPP MS ADV DOOH | Meta Digital Service Charge');
         expect(localStore.campaignHistoryEntries).toHaveLength(1);
         expect(localStore.campaignHistoryEntries[0].supplier)
-            .toBe('WPP MS ADV DOOH (GBP) | Meta Digital Service Charge (GBP)');
+            .toBe('WPP MS ADV DOOH | Meta Digital Service Charge');
         expect(dom.window.campaignHistoryFeature.filterHistoryEntries('WPP')).toHaveLength(1);
         expect(dom.window.campaignHistoryFeature.filterHistoryEntries('Meta Digital')).toHaveLength(1);
+        dom.window.close();
+    });
+
+    test('normalizes common supplier names before logging and migrating history', async () => {
+        const { dom, localStore } = createPage({
+            settings: { campaignHistoryLoggingEnabled: false },
+            fieldMarkup: `
+                <div id="grid-container_hot">
+                    <div class="ht_master">
+                        <table class="htCore"><tbody>
+                            <tr><td class="group-cell hierarchical-level-group-1 hierarchical-name">FACEBOOK(Facebook Mediacom)</td></tr>
+                            <tr><td class="group-cell hierarchical-level-group-1 hierarchical-name">GOAT SOLUTIONS (GROUPM) GBP</td></tr>
+                            <tr><td class="group-cell hierarchical-level-group-1 hierarchical-name">ADAPTED CREATIVE LIMITED:Adapted</td></tr>
+                        </tbody></table>
+                    </div>
+                </div>`,
+            entries: [
+                {
+                    key: 'campaign:facebook',
+                    campaignId: 'CPFACEBOOK',
+                    campaignName: 'Facebook campaign',
+                    supplier: 'FACEBOOK(Facebook Mediacom)',
+                    firstVisitedAt: 1,
+                    lastVisitedAt: 1,
+                    visitCount: 1
+                },
+                {
+                    key: 'campaign:goat',
+                    campaignId: 'CPGOAT',
+                    campaignName: 'GOAT campaign',
+                    supplier: 'GOAT SOLUTIONS (GROUPM) GBP',
+                    firstVisitedAt: 2,
+                    lastVisitedAt: 2,
+                    visitCount: 1
+                },
+                {
+                    key: 'campaign:adapted',
+                    campaignId: 'CPADAPTED',
+                    campaignName: 'Adapted campaign',
+                    supplier: 'ADAPTED CREATIVE LIMITED:Adapted',
+                    firstVisitedAt: 3,
+                    lastVisitedAt: 3,
+                    visitCount: 1
+                }
+            ]
+        });
+
+        await flushPromises();
+
+        expect(dom.window.campaignHistoryFeature.getCampaignSnapshot().supplier)
+            .toBe('Facebook | GOAT | Adapted');
+
+        dom.window.document.getElementById('toolshed-campaign-history-nav').click();
+        await flushPromises();
+
+        expect(localStore.campaignHistoryEntries.map(entry => entry.supplier))
+            .toEqual(['Adapted', 'GOAT', 'Facebook']);
+        const resultText = dom.window.document.querySelector('.toolshed-campaign-history-results').textContent;
+        expect(resultText).toContain('Facebook');
+        expect(resultText).toContain('GOAT');
+        expect(resultText).toContain('Adapted');
+        expect(resultText).not.toContain('Facebook(Facebook Mediacom)');
+        expect(resultText).not.toContain('GOAT SOLUTIONS (GROUPM) GBP');
+        expect(resultText).not.toContain('ADAPTED CREATIVE LIMITED:Adapted');
         dom.window.close();
     });
 

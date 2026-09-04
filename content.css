@@ -1364,6 +1364,12 @@ div[slot="right"].ai-style-change-1 {
     flex: 0 0 15px;
 }
 
+.toolshed-campaign-history-nav .toolshed-campaign-history-icon-history {
+    width: 16px;
+    height: 16px;
+    flex-basis: 16px;
+}
+
 .toolshed-campaign-history-nav:focus-visible {
     outline: 2px solid #0875ca !important;
     outline-offset: -2px;
@@ -1773,8 +1779,8 @@ div[slot="right"].ai-style-change-1 {
 .toolshed-campaign-history-page-button {
     appearance: none;
     display: inline-grid;
-    width: 28px;
-    height: 28px;
+    width: 52px;
+    height: 32px;
     padding: 0;
     place-items: center;
     border: 1px solid var(--toolshed-history-border);
