@@ -1,4 +1,11 @@
 import { approversData } from '../approvers-data.js';
+import {
+    clearDiagnosticEvents,
+    disableDiagnostics,
+    enableDiagnostics,
+    getDiagnosticReport,
+    recordDiagnosticEvent
+} from './diagnostics-manager.js';
 
 const openHelpGuideTabs = new Set();
 const OPEN_HELP_GUIDE_TABS_KEY = 'openHelpGuideTabIds';
@@ -417,6 +424,25 @@ async function handleTrackCampaignApproval(request, sender, sendResponse) {
     sendResponse(result);
 }
 
+async function handleSetDiagnosticsMode(request, sender, sendResponse) {
+    const state = request.enabled === true
+        ? await enableDiagnostics()
+        : await disableDiagnostics();
+    sendResponse({ status: 'success', ...state });
+}
+
+async function handleRecordDiagnosticEvent(request, sender, sendResponse) {
+    sendResponse(await recordDiagnosticEvent(request.event));
+}
+
+async function handleGetDiagnosticReport(request, sender, sendResponse) {
+    sendResponse({ status: 'success', report: await getDiagnosticReport() });
+}
+
+async function handleClearDiagnosticEvents(request, sender, sendResponse) {
+    sendResponse(await clearDiagnosticEvents());
+}
+
 async function handleDismissApprovedCampaign(request, sender, sendResponse) {
     const result = await dismissApprovedCampaign(request.campaignId);
     sendResponse(result);
@@ -464,5 +490,9 @@ export const messageHandlers = {
     dismissPendingCampaign: handleDismissPendingCampaign,
     clearAllApprovedCampaigns: handleClearAllApprovedCampaigns,
     checkApprovalStatusNow: handleCheckApprovalStatusNow,
-    TRACK_STAT: handleTrackStat
+    TRACK_STAT: handleTrackStat,
+    SET_DIAGNOSTICS_MODE: handleSetDiagnosticsMode,
+    RECORD_DIAGNOSTIC_EVENT: handleRecordDiagnosticEvent,
+    GET_DIAGNOSTIC_REPORT: handleGetDiagnosticReport,
+    CLEAR_DIAGNOSTIC_EVENTS: handleClearDiagnosticEvents
 };

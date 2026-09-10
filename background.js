@@ -1,6 +1,7 @@
 import { handleHelpGuidesPanelEvent, messageHandlers } from './background/message-handlers.js';
 import { migrateStats } from './background/stats-manager.js';
 import { setupApprovalAlarm, pollPendingApprovals, ALARM_NAME as APPROVAL_ALARM_NAME } from './background/approval-polling.js';
+import { expireDiagnosticsIfNeeded, recordDiagnosticEvent } from './background/diagnostics-manager.js';
 import {
   MASTER_FEATURE_KEY,
   featureModeReady,
@@ -23,12 +24,14 @@ featureModeReady.then(enabled => {
 });
 
 chrome.runtime.onStartup?.addListener(() => {
+  expireDiagnosticsIfNeeded().catch(error => console.error('Could not expire Diagnostics Mode:', error));
   refreshFeatureMode({ reloadTabs: true })
     .then(enabled => enabled ? restoreFeatureResources() : closeFeatureSurfaces())
     .catch(error => console.error('Could not restore feature mode on browser startup:', error));
 });
 
 chrome.runtime.onInstalled.addListener(async (details) => {
+  await expireDiagnosticsIfNeeded().catch(error => console.error('Could not expire Diagnostics Mode:', error));
   await featureModeReady;
   if (!isFeatureModeActive()) {
     await reconcileFeatureMode(true, { reloadTabs: true });
@@ -202,14 +205,38 @@ async function handleOffscreenClipboard(request, sendResponse) {
 }
 
 // --- Main Message Router ---
+const DIAGNOSTIC_CONTROL_ACTIONS = new Set([
+    'SET_DIAGNOSTICS_MODE',
+    'RECORD_DIAGNOSTIC_EVENT',
+    'GET_DIAGNOSTIC_REPORT',
+    'CLEAR_DIAGNOSTIC_EVENTS'
+]);
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request?.target === 'offscreen') return false;
 
     let hasResponded = false;
+    let diagnosticMessageEligible = false;
+    const messageStartedAt = Date.now();
     const respondOnce = (response) => {
         if (hasResponded) return false;
         hasResponded = true;
         sendResponse(response);
+        const action = request?.action;
+        if (
+            typeof action === 'string' &&
+            diagnosticMessageEligible &&
+            action !== 'TRACK_STAT' &&
+            action !== 'openHelpGuides' &&
+            !DIAGNOSTIC_CONTROL_ACTIONS.has(action)
+        ) {
+            recordDiagnosticEvent({
+                source: 'background-message',
+                operation: action,
+                outcome: response?.status === 'error' ? 'error' : 'success',
+                durationMs: Date.now() - messageStartedAt
+            });
+        }
         return true;
     };
 
@@ -222,7 +249,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
             const { action } = request;
             await featureModeReady;
-            if (!isFeatureModeActive() && !isPopupSender(sender)) {
+            if (!isFeatureModeActive() && !isPopupSender(sender) && !DIAGNOSTIC_CONTROL_ACTIONS.has(action)) {
                 respondOnce({ status: 'error', message: 'Ops Toolshed features are off.' });
                 return;
             }
@@ -234,6 +261,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 respondOnce({ status: 'error', message: `Unknown action: ${action}` });
                 return;
             }
+            diagnosticMessageEligible = true;
 
             const context = {
                 playAlarmSound,

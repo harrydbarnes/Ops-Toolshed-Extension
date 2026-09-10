@@ -268,8 +268,6 @@
                 <h2>Live Chat</h2>
                 <div class="toggle-container"><span>Smaller Chat Font:</span><label class="toggle"><input type="checkbox" id="fontSizeToggle"><span class="slider"></span></label></div>
                 <div class="toggle-container"><span>Resizable Chat Window:</span><label class="toggle"><input type="checkbox" id="resizableChatToggle"><span class="slider"></span></label></div>
-                <div class="toggle-container"><span>Scheduled Chat Launcher (10 AM - 12 PM):</span><label class="toggle"><input type="checkbox" id="scheduledChatToggle"><span class="slider"></span></label></div>
-                <div class="toggle-container"><span>Open AI Chat directly with Moe:</span><label class="toggle"><input type="checkbox" id="directMoeChatToggle"><span class="slider"></span></label></div>
             </section>
 
             <section id="fixes-settings">
@@ -282,8 +280,13 @@
             <section id="advanced-settings">
                 <h2>Advanced</h2>
                 <div class="toggle-container"><span>Stats Collector:</span><label class="toggle"><input type="checkbox" id="statsCollectorToggle"><span class="slider"></span></label></div>
+                <div class="toggle-container"><span>Diagnostics Mode (up to 24 hours):</span><label class="toggle"><input type="checkbox" id="diagnosticsModeToggle"><span class="slider"></span></label></div>
+                <p id="diagnosticsModeStatus" class="diagnostics-mode-status" role="status" aria-live="polite">Off. No diagnostic events are being recorded.</p>
+                <div class="diagnostics-mode-actions">
+                    <button id="exportDiagnosticsButton" class="settings-button" type="button">Export diagnostics</button>
+                    <button id="clearDiagnosticsButton" class="settings-button settings-button-secondary" type="button">Clear diagnostics</button>
+                </div>
                 <div class="onboarding-launch-actions">
-                    <button id="loadingFactsReviewButton" class="settings-button settings-button-secondary" type="button">Loading Fact Review</button>
                     <button id="launchOnboardingButton" class="settings-button" type="button">Launch user onboarding</button>
                     <button id="launchOnboardingTourV1Button" class="settings-button settings-button-secondary" type="button">Open side panel v1</button>
                     <button id="launchOnboardingTourV2Button" class="settings-button" type="button">Open side panel v2</button>

@@ -1,3 +1,5 @@
+import { recordDiagnosticEvent } from './diagnostics-manager.js';
+
 const PENDING_APPROVAL_KEY = 'pendingApprovalCampaigns';
 const APPROVED_CAMPAIGNS_KEY = 'approvedCampaigns';
 const ALARM_NAME = 'approvalStatusCheckAlarm';
@@ -110,12 +112,33 @@ async function isApprovalPollingEnabled() {
 }
 
 export async function pollPendingApprovals() {
+    const startedAt = Date.now();
+    let checkedCount = 0;
+    let failedCount = 0;
+    let approvedTransitions = 0;
     try {
-        if (!(await isApprovalPollingEnabled())) return;
+        if (!(await isApprovalPollingEnabled())) {
+            await recordDiagnosticEvent({
+                source: 'approval-tracking',
+                operation: 'scheduled-check',
+                outcome: 'skipped',
+                durationMs: Date.now() - startedAt
+            });
+            return;
+        }
 
         const pending = await getPendingApprovals();
         const campaignIds = Object.keys(pending);
-        if (campaignIds.length === 0) return;
+        if (campaignIds.length === 0) {
+            await recordDiagnosticEvent({
+                source: 'approval-tracking',
+                operation: 'scheduled-check',
+                outcome: 'success',
+                durationMs: Date.now() - startedAt,
+                details: { pendingCount: 0, checkedCount: 0, failedCount: 0, approvedTransitions: 0 }
+            });
+            return;
+        }
 
         let pendingChanged = false;
         let approvedChanged = false;
@@ -126,12 +149,14 @@ export async function pollPendingApprovals() {
             if (!entry) continue;
 
             try {
+                checkedCount += 1;
                 const response = await fetch(PRISMA_CAMPAIGN_API_BASE + encodeURIComponent(campaignId), {
                     credentials: 'include',
                     headers: { 'Accept': 'application/json' }
                 });
 
                 if (!response.ok) {
+                    failedCount += 1;
                     entry.lastChecked = Date.now();
                     pendingChanged = true;
                     continue;
@@ -157,6 +182,7 @@ export async function pollPendingApprovals() {
                     }
                     approvedList.unshift(approvedRecord);
                     approvedChanged = true;
+                    approvedTransitions += 1;
 
                     if (await isApprovalPollingEnabled()) {
                         await broadcastApprovalEvent(approvedRecord);
@@ -166,6 +192,7 @@ export async function pollPendingApprovals() {
                     pendingChanged = true;
                 }
             } catch (err) {
+                failedCount += 1;
                 console.warn('[Approval Polling] Error checking campaign ' + campaignId + ':', err);
             }
         }
@@ -177,8 +204,27 @@ export async function pollPendingApprovals() {
         if (approvedChanged) {
             await chrome.storage.local.set({ [APPROVED_CAMPAIGNS_KEY]: approvedList });
         }
+        await recordDiagnosticEvent({
+            source: 'approval-tracking',
+            operation: 'scheduled-check',
+            outcome: failedCount > 0 ? 'partial' : 'success',
+            durationMs: Date.now() - startedAt,
+            details: {
+                pendingCount: campaignIds.length,
+                checkedCount,
+                failedCount,
+                approvedTransitions
+            }
+        });
     } catch (error) {
         console.error('[Approval Polling] Error during poll cycle:', error);
+        await recordDiagnosticEvent({
+            source: 'approval-tracking',
+            operation: 'scheduled-check',
+            outcome: 'error',
+            durationMs: Date.now() - startedAt,
+            details: { checkedCount, failedCount: failedCount + 1, approvedTransitions }
+        });
     }
 }
 

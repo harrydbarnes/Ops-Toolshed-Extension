@@ -24,7 +24,7 @@
     "https://graph.facebook.com/*"
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; style-src 'self' https://cdnjs.cloudflare.com https://fonts.googleapis.com; object-src 'self'"
+    "extension_pages": "script-src 'self'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; object-src 'self'"
   },
   "background": {
     "service_worker": "background.js",
@@ -54,8 +54,7 @@
   },
   "web_accessible_resources": [{
     "resources": [
-      "icon.png",
-      "features/swap-accounts.css"
+      "icon.png"
     ],
     "matches": ["https://*.mediaocean.com/*"]
   }]

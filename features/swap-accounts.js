@@ -5,6 +5,46 @@
     const RESTORE_WINDOW_MS = 60 * 1000;
     const TARGET_STABLE_MS = 5000;
     const RESTORE_POLL_MS = 150;
+    // Keep this local to the injected banner's Shadow DOM. Loading a runtime CSS
+    // asset here can fail after Chrome invalidates or reloads an extension context.
+    const SWITCH_ACCOUNT_STYLES = `
+        .switch-account-button {
+            background-color: var(--color-nav-pill-bg, rgba(255, 255, 255, 0.1));
+            color: white;
+            border: none;
+            border-radius: 9999px;
+            padding: 4px 12px;
+            font-family: var(--font-primary, 'Inter', 'Roboto', sans-serif);
+            font-size: 13px;
+            font-weight: 400;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            transition: background-color 0.2s ease-in-out;
+            margin-right: 10px;
+            margin-top: 6px;
+            margin-bottom: 6px;
+        }
+
+        .switch-account-button:hover,
+        .switch-account-button:focus {
+            background-color: var(--color-nav-pill-bg-hover, rgba(255, 255, 255, 0.2));
+        }
+
+        .switch-account-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background-color: transparent;
+            margin-right: 8px;
+        }
+
+        .switch-account-icon svg {
+            width: 20px;
+            height: 20px;
+            fill: white;
+        }
+    `;
     let rememberReturnUrlEnabled = true;
     let accountSaveCaptureBound = false;
     let storageListenerBound = false;
@@ -315,19 +355,15 @@
             const parentContainer = userMenu.parentElement;
             if (!parentContainer) return;
 
-            // Inject styles for the button (crucial if inside a Shadow DOM)
+            // Inject styles directly because this container can sit in a Shadow DOM.
+            // A runtime fetch failure must not prevent the account-switch control
+            // from being available.
             const styleId = 'switch-account-styles';
             if (!parentContainer.querySelector(`#${styleId}`)) {
                 const style = document.createElement('style');
                 style.id = styleId;
-                const styleURL = chrome.runtime.getURL('features/swap-accounts.css');
-                const response = await fetch(styleURL);
-                if (response.ok) {
-                    style.textContent = await response.text();
-                    parentContainer.appendChild(style);
-                } else {
-                    throw new Error(`Failed to load switch account styles: ${response.status} ${response.statusText}`);
-                }
+                style.textContent = SWITCH_ACCOUNT_STYLES;
+                parentContainer.appendChild(style);
             }
 
             const swapButton = document.createElement('button');

@@ -50,12 +50,11 @@ const FEATURE_TOGGLE_KEYS = {
     gmiChatShortcutToggle: 'gmiChatShortcutEnabled',
     fontSizeToggle: 'fontSizeToggleEnabled',
     resizableChatToggle: 'resizableChatToggleEnabled',
-    scheduledChatToggle: 'scheduledChatToggleEnabled',
-    directMoeChatToggle: 'directMoeChatEnabled',
     blockAppLearnPopupsToggle: 'blockAppLearnPopupsEnabled',
     actualiseScrollRestoreToggle: 'actualiseScrollRestoreEnabled',
     orderGridScrollSyncToggle: 'orderGridScrollSyncEnabled',
-    statsCollectorToggle: 'statsCollectorEnabled'
+    statsCollectorToggle: 'statsCollectorEnabled',
+    diagnosticsModeToggle: 'diagnosticsModeEnabled'
 };
 
 function readStorage(store, keys) {
@@ -74,6 +73,7 @@ async function createSettingsPage(ignoredProductCodes = []) {
     });
     const { window } = dom;
     const syncStore = { ...FEATURE_SETTINGS_DEFAULTS };
+    let diagnosticsState = false;
     const localStore = ignoredProductCodes.length
         ? { productCodeLimitWarningIgnored: [...ignoredProductCodes] }
         : {};
@@ -84,7 +84,27 @@ async function createSettingsPage(ignoredProductCodes = []) {
             lastError: null,
             getURL: value => `chrome-extension://test/${value}`,
             onMessage: { addListener: jest.fn() },
-            sendMessage: jest.fn().mockResolvedValue({ status: 'success' })
+            sendMessage: jest.fn(async request => {
+                if (request?.action === 'GET_DIAGNOSTIC_REPORT') {
+                    return {
+                        status: 'success',
+                        report: {
+                            active: diagnosticsState,
+                            expiresAt: diagnosticsState ? '2026-09-11T10:00:00.000Z' : null,
+                            events: []
+                        }
+                    };
+                }
+                if (request?.action === 'SET_DIAGNOSTICS_MODE') {
+                    diagnosticsState = request.enabled === true;
+                    return {
+                        status: 'success',
+                        enabled: diagnosticsState,
+                        expiresAt: diagnosticsState ? '2026-09-11T10:00:00.000Z' : null
+                    };
+                }
+                return { status: 'success' };
+            })
         },
         storage: {
             sync: {
@@ -157,10 +177,17 @@ describe('Settings feature toggle contract', () => {
             toggle.checked = false;
             toggle.click();
 
-            expect(window.chrome.storage.sync.set).toHaveBeenCalledWith(
-                { [storageKey]: true },
-                expect.any(Function)
-            );
+            if (toggle.id === 'diagnosticsModeToggle') {
+                expect(window.chrome.runtime.sendMessage).toHaveBeenCalledWith({
+                    action: 'SET_DIAGNOSTICS_MODE',
+                    enabled: true
+                });
+            } else {
+                expect(window.chrome.storage.sync.set).toHaveBeenCalledWith(
+                    { [storageKey]: true },
+                    expect.any(Function)
+                );
+            }
         }
 
         for (let index = 0; index < 5; index += 1) await Promise.resolve();
@@ -195,6 +222,22 @@ describe('Settings feature toggle contract', () => {
         expect(status.textContent).toContain('No ignored');
         expect(window.document.getElementById('toast-notification').classList).toContain('show');
 
+        dom.window.close();
+    });
+
+    test('enables temporary Diagnostics Mode through the background lifecycle manager', async () => {
+        const { dom, window } = await createSettingsPage();
+        const toggle = window.document.getElementById('diagnosticsModeToggle');
+
+        toggle.click();
+        for (let index = 0; index < 20; index += 1) await Promise.resolve();
+
+        expect(window.chrome.runtime.sendMessage).toHaveBeenCalledWith({
+            action: 'SET_DIAGNOSTICS_MODE',
+            enabled: true
+        });
+        expect(toggle.checked).toBe(true);
+        expect(window.document.getElementById('diagnosticsModeStatus').textContent).toContain('Chrome restarts');
         dom.window.close();
     });
 });

@@ -42,6 +42,9 @@ describe('Manifest content-script order', () => {
         expect(mediaoceanRegistration.persistAcrossSessions).toBe(false);
 
         const loadingMonitorIndex = scripts.indexOf('features/loading-monitor.js');
+        const diagnosticsIndex = scripts.indexOf('features/diagnostics.js');
+        expect(diagnosticsIndex).toBeGreaterThan(utilsIndex);
+        expect(diagnosticsIndex).toBeLessThan(scripts.indexOf('content.js'));
         expect(loadingMonitorIndex).toBeGreaterThan(utilsIndex);
         expect(loadingMonitorIndex).toBeLessThan(scripts.indexOf('features/stats-collector.js'));
         expect(loadingMonitorIndex).toBeLessThan(scripts.indexOf('features/loading-facts.js'));
@@ -62,19 +65,6 @@ describe('Manifest content-script order', () => {
         expect(frameRegistration.matches).toEqual([
             'https://*.mediaocean.com/idesk/prisma-campaign-details/*'
         ]);
-    });
-
-    test('loads the lightweight Moe launcher bridge in the main page only', () => {
-        const registration = CONTENT_SCRIPT_DEFINITIONS.find(entry =>
-            entry.js?.includes('features/moe-launcher-bridge.js')
-        );
-
-        expect(registration).toMatchObject({
-            runAt: 'document_start',
-            world: 'MAIN'
-        });
-        expect(registration.allFrames).not.toBe(true);
-        expect(registration.js).toEqual(['features/moe-launcher-bridge.js']);
     });
 
     test('declares the Help Guides side panel and launcher wiring', () => {
@@ -138,5 +128,11 @@ describe('Manifest content-script order', () => {
         expect(appIndex).toBeGreaterThan(viewerIndex);
         expect(fs.existsSync(path.resolve(__dirname, '../vendor/pdfjs/pdf.min.mjs'))).toBe(true);
         expect(fs.existsSync(path.resolve(__dirname, '../vendor/pdfjs/pdf.worker.min.mjs'))).toBe(true);
+    });
+
+    test('permits unsafe-inline for style-src in extension_pages CSP to support gated pages', () => {
+        const policy = manifest.content_security_policy?.extension_pages || '';
+        expect(policy).toContain("style-src 'self' 'unsafe-inline'");
+        expect(policy).not.toContain("script-src 'self' 'unsafe-inline'");
     });
 });

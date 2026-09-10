@@ -120,6 +120,7 @@ View your personal productivity metrics in the **Release Notes, Roadmap + Stats*
 - Time spent waiting for Prisma to load across Home, Plan, Buy, Actualise, and Orders.
 - Activity heatmaps, streaks, and popups blocked.
 - *Note: Stats are stored 100% locally on your machine and can be disabled or reset at any time.*
+- **Diagnostics Mode:** Advanced Settings can temporarily record privacy-safe feature timings and outcomes for troubleshooting. It stays local, can be exported or cleared, and turns off after 24 hours or when Chrome restarts.
 
 ---
 

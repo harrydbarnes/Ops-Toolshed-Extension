@@ -20,8 +20,6 @@
         iasReminderEnabled: true,
         fontSizeToggleEnabled: true,
         resizableChatToggleEnabled: true,
-        scheduledChatToggleEnabled: true,
-        directMoeChatEnabled: true,
         addCampaignShortcutEnabled: true,
         hidingSectionsEnabled: true,
         automateFormFieldsEnabled: true,
@@ -55,6 +53,7 @@
         loadingFactsEnabled: true,
         orderGridScrollSyncEnabled: true,
         statsCollectorEnabled: true,
+        diagnosticsModeEnabled: false,
         timesheetReminderEnabled: true
     });
 

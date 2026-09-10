@@ -552,6 +552,23 @@ button:disabled, .settings-button:disabled {
     margin: 0;
 }
 
+.diagnostics-mode-status {
+    margin: -4px 0 10px;
+    color: var(--md-sys-color-on-surface-variant, #5f6368);
+    font-size: 0.9rem;
+}
+
+.diagnostics-mode-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.diagnostics-mode-actions .settings-button {
+    margin: 0;
+}
+
 .nested-toggle-group {
     margin: -4px 0 14px 20px;
     padding-left: 12px;

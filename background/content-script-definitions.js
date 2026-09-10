@@ -17,14 +17,6 @@ export const CONTENT_SCRIPT_DEFINITIONS = Object.freeze([
         persistAcrossSessions: false
     },
     {
-        id: 'ops-toolshed-moe-main',
-        matches: ['https://*.mediaocean.com/*'],
-        js: ['features/moe-launcher-bridge.js'],
-        runAt: 'document_start',
-        world: 'MAIN',
-        persistAcrossSessions: false
-    },
-    {
         id: 'ops-toolshed-actualise-main',
         matches: ['https://*.mediaocean.com/*'],
         js: ['features/actualise-month-bridge.js'],
@@ -49,6 +41,7 @@ export const CONTENT_SCRIPT_DEFINITIONS = Object.freeze([
         js: [
             'features/extension-state-controller.js',
             'utils.js',
+            'features/diagnostics.js',
             'features/feedback-modal.js',
             'features/logo.js',
             'features/reminders.js',

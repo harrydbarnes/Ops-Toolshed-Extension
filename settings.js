@@ -313,17 +313,16 @@ const FEATURE_SETTING_PREVIEWS = {
     gmiChatShortcutToggle: ['GMI Chat shortcut', 'Adds a direct shortcut to the GMI chat workflow.', 'Open GMI Chat'],
     fontSizeToggle: ['Smaller Chat Font', 'Uses a more compact font size in the live chat window.', 'Compact chat'],
     resizableChatToggle: ['Resizable Chat Window', 'Lets you resize the live chat window to suit the task.', 'Resize ↘'],
-    scheduledChatToggle: ['Scheduled Chat Launcher', 'Shows the chat launcher during its scheduled 10 AM to 12 PM window.', 'Chat available'],
-    directMoeChatToggle: ['Direct Moe Chat', 'Opens the AI chat directly with Moe from Prisma’s help flow.', 'Connect with Moe'],
     blockAppLearnPopupsToggle: ['Block AppLearn popups', 'Closes the broken blank AppLearn login popups without affecting normal exports.', 'Popup blocked'],
     actualiseScrollRestoreToggle: ['Actualise scroll restoration', 'Restores the active grid’s horizontal position after an Actualise save refresh.', 'Position restored'],
     orderGridScrollSyncToggle: ['Order Summary alignment', 'Keeps Order Summary headers aligned with the scrolling grid.', 'Headers aligned'],
-    statsCollectorToggle: ['Stats Collector', 'Records waiting-time and productivity signals for the local Toolshed statistics view.', 'Stats updated']
+    statsCollectorToggle: ['Stats Collector', 'Records waiting-time and productivity signals for the local Toolshed statistics view.', 'Stats updated'],
+    diagnosticsModeToggle: ['Diagnostics Mode', 'Temporarily records local, privacy-safe feature timings and outcomes until Chrome restarts or 24 hours pass.', 'Diagnostics active']
 };
 
 function getFeaturePreviewImage(controlId) {
     if (controlId === 'helpGuidesToggle') return 'assets/feature-previews/prisma-help-guides.png';
-    if (['gmiChatShortcutToggle', 'fontSizeToggle', 'resizableChatToggle', 'scheduledChatToggle', 'directMoeChatToggle'].includes(controlId)) {
+    if (['gmiChatShortcutToggle', 'fontSizeToggle', 'resizableChatToggle'].includes(controlId)) {
         return 'assets/feature-previews/prisma-ai-chat.png';
     }
     return 'assets/feature-previews/prisma-navigation.png';
@@ -1036,8 +1035,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Live Chat Enhancements 
     setupToggle('fontSizeToggle', 'fontSizeToggleEnabled', 'Font Size Toggle setting saved:', settings);
     setupToggle('resizableChatToggle', 'resizableChatToggleEnabled', 'Resizable Chat setting saved:', settings);
-    setupToggle('scheduledChatToggle', 'scheduledChatToggleEnabled', 'Scheduled Chat setting saved:', settings);
-    setupToggle('directMoeChatToggle', 'directMoeChatEnabled', 'Direct Moe chat setting saved:', settings);
  
     // Campaign Management Settings 
     setupToggle('addCampaignShortcutToggle', 'addCampaignShortcutEnabled', 'Add Campaign shortcut setting saved:', settings);
@@ -1213,9 +1210,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     loadingFactsStatsButton?.addEventListener('click', () => {
         document.getElementById('tab-loading-facts')?.click();
     });
-    document.getElementById('loadingFactsReviewButton')?.addEventListener('click', () => {
-        document.getElementById('tab-loading-facts')?.click();
-    });
     document.getElementById('tab-loading-facts')?.addEventListener('click', renderLoadingFactReview);
 
     exportLoadingFactRatings?.addEventListener('click', async () => {
@@ -1338,7 +1332,98 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         });
     });
- 
+
+    const diagnosticsModeToggle = document.getElementById('diagnosticsModeToggle');
+    const diagnosticsModeStatus = document.getElementById('diagnosticsModeStatus');
+    const exportDiagnosticsButton = document.getElementById('exportDiagnosticsButton');
+    const clearDiagnosticsButton = document.getElementById('clearDiagnosticsButton');
+
+    const updateDiagnosticsStatus = report => {
+        if (!diagnosticsModeStatus) return;
+        if (report?.active && report.expiresAt) {
+            const expiresAt = new Date(report.expiresAt);
+            diagnosticsModeStatus.textContent = `Active until ${expiresAt.toLocaleString()} or until Chrome restarts, whichever comes first.`;
+            return;
+        }
+        const eventCount = Array.isArray(report?.events) ? report.events.length : 0;
+        diagnosticsModeStatus.textContent = eventCount > 0
+            ? `Off. ${eventCount} saved diagnostic event${eventCount === 1 ? '' : 's'} available to export or clear.`
+            : 'Off. No diagnostic events are being recorded.';
+    };
+
+    const refreshDiagnosticsState = async () => {
+        try {
+            const response = await chrome.runtime.sendMessage({ action: 'GET_DIAGNOSTIC_REPORT' });
+            if (response?.status !== 'success' || !response.report) return;
+            diagnosticsModeToggle.checked = response.report.active === true;
+            settings.diagnosticsModeEnabled = response.report.active === true;
+            updateDiagnosticsStatus(response.report);
+        } catch (error) {
+            diagnosticsModeStatus.textContent = 'Diagnostics status is unavailable.';
+        }
+    };
+
+    if (diagnosticsModeToggle) {
+        syncedToggleInputs.set('diagnosticsModeEnabled', diagnosticsModeToggle);
+        diagnosticsModeToggle.checked = settings.diagnosticsModeEnabled === true;
+        diagnosticsModeToggle.addEventListener('change', async function() {
+            const requestedState = this.checked;
+            this.disabled = true;
+            try {
+                const response = await chrome.runtime.sendMessage({
+                    action: 'SET_DIAGNOSTICS_MODE',
+                    enabled: requestedState
+                });
+                if (response?.status !== 'success') throw new Error('Diagnostics update failed.');
+                settings.diagnosticsModeEnabled = response.enabled === true;
+                this.checked = response.enabled === true;
+                await refreshDiagnosticsState();
+                if (diagnosticsModeStatus?.isConnected) {
+                    showToast(this.checked ? 'Diagnostics Mode enabled.' : 'Diagnostics Mode disabled.');
+                }
+            } catch (error) {
+                this.checked = !requestedState;
+                if (diagnosticsModeStatus?.isConnected) showToast('Could not update Diagnostics Mode.');
+            } finally {
+                this.disabled = false;
+            }
+        });
+        refreshDiagnosticsState();
+    }
+
+    exportDiagnosticsButton?.addEventListener('click', async () => {
+        try {
+            const response = await chrome.runtime.sendMessage({ action: 'GET_DIAGNOSTIC_REPORT' });
+            if (response?.status !== 'success' || !response.report) throw new Error('Diagnostics export failed.');
+            const exportData = {
+                ...response.report,
+                extensionVersion: chrome.runtime.getManifest?.().version || 'unknown'
+            };
+            const url = URL.createObjectURL(new Blob([JSON.stringify(exportData, null, 2)], {
+                type: 'application/json'
+            }));
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `ops-toolshed-diagnostics-${new Date().toISOString().slice(0, 10)}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+            updateDiagnosticsStatus(response.report);
+        } catch (error) {
+            showToast('Could not export diagnostics.');
+        }
+    });
+
+    clearDiagnosticsButton?.addEventListener('click', async () => {
+        try {
+            const response = await chrome.runtime.sendMessage({ action: 'CLEAR_DIAGNOSTIC_EVENTS' });
+            if (response?.status !== 'success') throw new Error('Diagnostics clear failed.');
+            showToast('Diagnostic events cleared.');
+            await refreshDiagnosticsState();
+        } catch (error) {
+            showToast('Could not clear diagnostics.');
+        }
+    });
+
     // Stats Collector with Confirmation 
     const statsCollectorToggle = document.getElementById('statsCollectorToggle'); 
     if (statsCollectorToggle) { 

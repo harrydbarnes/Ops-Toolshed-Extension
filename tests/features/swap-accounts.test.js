@@ -118,6 +118,12 @@ describe('Switch Accounts feature', () => {
         expect(waitForElementToDisappear).toHaveBeenCalledWith('#userRegistrationDialog', 15000);
     });
 
+    test('adds the button without fetching a runtime stylesheet', () => {
+        expect(document.querySelector('.switch-account-button')).not.toBeNull();
+        expect(document.getElementById('switch-account-styles')?.textContent).toContain('.switch-account-button');
+        expect(window.fetch).not.toHaveBeenCalled();
+    });
+
     test('captures the current Prisma URL when the native User profile flow starts', async () => {
         window.history.replaceState({}, '', '/campaign-management/#osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&route=online');
 

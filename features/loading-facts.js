@@ -331,14 +331,6 @@
                     }
                 }
             });
-            document.addEventListener('toolshed-loading-fact-suppression', event => {
-                if (event.detail?.active !== true) return;
-                this.cancelCampaignEndTimer();
-                this.intersectionObserver?.disconnect?.();
-                this.observedSpinner = null;
-                this.isIntersecting = false;
-                this.hideToast({ force: true });
-            });
         }
 
         async initialize() {
@@ -398,10 +390,6 @@
                 current = current.parentElement || root?.host || null;
             }
             return false;
-        }
-
-        isLoadingFactSuppressed() {
-            return Boolean(document.body?.classList?.contains('toolshed-opening-moe'));
         }
 
         cancelCampaignEndTimer() {
@@ -525,18 +513,6 @@
                 // If feature is disabled, ensure toast is hidden and return
                 if (!this.isEnabled) {
                     if (this.isVisible) this.hideToast({ force: true });
-                    return;
-                }
-
-                // Direct Moe opens a native support surface that can expose a
-                // short-lived page spinner. It is not Prisma work, so do not
-                // show or retain a Loading Fact for that hand-off.
-                if (this.isLoadingFactSuppressed()) {
-                    this.cancelCampaignEndTimer();
-                    this.intersectionObserver.disconnect();
-                    this.observedSpinner = null;
-                    this.isIntersecting = false;
-                    this.hideToast({ force: true });
                     return;
                 }
 
@@ -664,7 +640,7 @@
         }
 
         async showToast(spinner) {
-            if (this.isLoadingFactSuppressed() || this.isCampaignSearchSpinner(spinner)) {
+            if (this.isCampaignSearchSpinner(spinner)) {
                 this.hideToast({ force: true });
                 return;
             }
@@ -679,7 +655,6 @@
                 !this.isEnabled ||
                 !this.isIntersecting ||
                 spinner !== this.observedSpinner ||
-                this.isLoadingFactSuppressed() ||
                 this.isCampaignSearchSpinner(spinner) ||
                 this.isInsideSidePanel(spinner) ||
                 !spinner.isConnected ||

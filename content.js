@@ -276,47 +276,74 @@ async function mainContentScriptInit() {
     const initialRoute = getDynamicRouteContext();
     const initializedFeatureInstances = new WeakSet();
 
-    function initializeFeature(feature, shouldInitialize) {
+    function initializeFeature(feature, shouldInitialize, featureName) {
         if (!shouldInitialize || !feature || typeof feature.initialize !== 'function') return;
         if (initializedFeatureInstances.has(feature)) return;
         initializedFeatureInstances.add(feature);
-        feature.initialize();
+        const startedAt = window.opsDiagnostics?.now?.() ?? Date.now();
+        try {
+            const result = feature.initialize();
+            const recordSuccess = () => window.opsDiagnostics?.record?.({
+                source: featureName,
+                operation: 'initialize',
+                outcome: 'success',
+                durationMs: (window.opsDiagnostics?.now?.() ?? Date.now()) - startedAt
+            });
+            if (result?.then) {
+                result.then(recordSuccess, () => window.opsDiagnostics?.record?.({
+                    source: featureName,
+                    operation: 'initialize',
+                    outcome: 'error',
+                    durationMs: (window.opsDiagnostics?.now?.() ?? Date.now()) - startedAt
+                }));
+            } else {
+                recordSuccess();
+            }
+        } catch (error) {
+            window.opsDiagnostics?.record?.({
+                source: featureName,
+                operation: 'initialize',
+                outcome: 'error',
+                durationMs: (window.opsDiagnostics?.now?.() ?? Date.now()) - startedAt
+            });
+            throw error;
+        }
     }
 
     // Keep route ownership in one registry. Both initial load and later SPA
     // navigations use it, so a feature cannot accidentally be initialized on
     // one path but omitted from the other.
     const featureInitializers = [
-        { getFeature: () => window.statsCollector, when: () => isMediaoceanPage },
-        { getFeature: () => window.appLearnFeature, when: () => isMediaoceanPage },
-        { getFeature: () => window.helpGuidesLauncherFeature, when: () => isMediaoceanPage },
-        { getFeature: () => window.bannerUsernameFeature, when: () => isPrismaLike },
-        { getFeature: () => window.productCodeLimitWarningFeature, when: route => isPrismaLike && (route.isCampaignWorkspace || route.isAddCampaign) },
-        { getFeature: () => window.placementCounterFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
-        { getFeature: () => window.dstAssuranceFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
-        { getFeature: () => window.approverPastingFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
-        { getFeature: () => window.autoCopyUrlFeature, when: route => (isPrismaLike || isAura) && route.isCampaignWorkspace },
-        { getFeature: () => window.liveChatEnhancements, when: route => isPrismaLike && route.isCampaignWorkspace },
-        { getFeature: () => window.campaignTabTitleFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
-        { getFeature: () => window.planToBuyRedirectFeature, when: () => isPrismaLike },
-        { getFeature: () => window.campaignHistoryFeature, when: () => isPrismaLike },
-        { getFeature: () => window.approvalTrackingFeature, when: () => isPrismaLike },
-        { getFeature: () => window.swapAccountsFeature, when: () => isPrismaLike || isAura },
-        { getFeature: () => window.orderIdCopyFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
-        { getFeature: () => window.orderViewToggleFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
-        { getFeature: () => window.orderGridScrollSyncFeature, when: route => isPrismaLike && route.isOrderSummary },
-        { getFeature: () => window.actualiseScrollRestoreFeature, when: route => isPrismaLike && route.isActualise },
-        { getFeature: () => window.actualiseNavbarFeature, when: route => isPrismaLike && route.isActualise },
-        { getFeature: () => window.actualiseShortcutFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
-        { getFeature: () => window.actualiseExportAllFeature, when: route => isPrismaLike && route.isActualise },
-        { getFeature: () => window.actualiseMonthAssuranceFeature, when: route => isPrismaLike && route.isActualise },
-        { getFeature: () => window.maxCampaignBudgetFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
-        { getFeature: () => window.loadingFactsFeature, when: () => isPrismaLike }
+        { name: 'stats-collector', getFeature: () => window.statsCollector, when: () => isMediaoceanPage },
+        { name: 'applearn', getFeature: () => window.appLearnFeature, when: () => isMediaoceanPage },
+        { name: 'help-guides', getFeature: () => window.helpGuidesLauncherFeature, when: () => isMediaoceanPage },
+        { name: 'banner-username', getFeature: () => window.bannerUsernameFeature, when: () => isPrismaLike },
+        { name: 'product-code-warning', getFeature: () => window.productCodeLimitWarningFeature, when: route => isPrismaLike && (route.isCampaignWorkspace || route.isAddCampaign) },
+        { name: 'placement-counter', getFeature: () => window.placementCounterFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
+        { name: 'dst-assurance', getFeature: () => window.dstAssuranceFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
+        { name: 'approver-tools', getFeature: () => window.approverPastingFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
+        { name: 'auto-copy-url', getFeature: () => window.autoCopyUrlFeature, when: route => (isPrismaLike || isAura) && route.isCampaignWorkspace },
+        { name: 'live-chat-layout', getFeature: () => window.liveChatEnhancements, when: route => isPrismaLike && route.isCampaignWorkspace },
+        { name: 'campaign-tab-title', getFeature: () => window.campaignTabTitleFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
+        { name: 'plan-to-buy', getFeature: () => window.planToBuyRedirectFeature, when: () => isPrismaLike },
+        { name: 'campaign-history', getFeature: () => window.campaignHistoryFeature, when: () => isPrismaLike },
+        { name: 'approval-tracking', getFeature: () => window.approvalTrackingFeature, when: () => isPrismaLike },
+        { name: 'switch-accounts', getFeature: () => window.swapAccountsFeature, when: () => isPrismaLike || isAura },
+        { name: 'order-id-copy', getFeature: () => window.orderIdCopyFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
+        { name: 'order-view-toggle', getFeature: () => window.orderViewToggleFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
+        { name: 'order-grid-scroll', getFeature: () => window.orderGridScrollSyncFeature, when: route => isPrismaLike && route.isOrderSummary },
+        { name: 'actualise-scroll', getFeature: () => window.actualiseScrollRestoreFeature, when: route => isPrismaLike && route.isActualise },
+        { name: 'actualise-navbar', getFeature: () => window.actualiseNavbarFeature, when: route => isPrismaLike && route.isActualise },
+        { name: 'actualise-shortcut', getFeature: () => window.actualiseShortcutFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
+        { name: 'actualise-export', getFeature: () => window.actualiseExportAllFeature, when: route => isPrismaLike && route.isActualise },
+        { name: 'actualise-month', getFeature: () => window.actualiseMonthAssuranceFeature, when: route => isPrismaLike && route.isActualise },
+        { name: 'max-campaign-budget', getFeature: () => window.maxCampaignBudgetFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
+        { name: 'loading-facts', getFeature: () => window.loadingFactsFeature, when: () => isPrismaLike }
     ];
 
     function initializeEligibleFeatures(route) {
-        featureInitializers.forEach(({ getFeature, when }) => {
-            initializeFeature(getFeature(), when(route));
+        featureInitializers.forEach(({ name, getFeature, when }) => {
+            initializeFeature(getFeature(), when(route), name);
         });
     }
 
@@ -382,6 +409,8 @@ async function mainContentScriptInit() {
 
     function runFastDynamicUiReconciliation() {
         if (!contentScriptActive) return;
+        const diagnosticsStartedAt = window.opsDiagnostics?.now?.() ?? Date.now();
+        const dirtyGroupCount = DIRTY_FEATURE_GROUPS.filter(hasDirtyFeature).length;
         const route = getDynamicRouteContext();
 
         if (isPrismaLike) {
@@ -425,10 +454,19 @@ async function mainContentScriptInit() {
             window.helpGuidesLauncherFeature?.ensureLauncher?.();
             window.approvalTrackingFeature?.injectBannerButton?.();
         }
+        window.opsDiagnostics?.recordRateLimited?.('reconcile-fast', {
+            source: 'content-lifecycle',
+            operation: 'reconcile-fast',
+            outcome: 'success',
+            durationMs: (window.opsDiagnostics?.now?.() ?? Date.now()) - diagnosticsStartedAt,
+            details: { dirtyGroupCount }
+        });
     }
 
     function runDeferredDynamicUiReconciliation() {
         if (!contentScriptActive) return;
+        const diagnosticsStartedAt = window.opsDiagnostics?.now?.() ?? Date.now();
+        const dirtyGroupCount = DIRTY_FEATURE_GROUPS.filter(hasDirtyFeature).length;
         const route = getDynamicRouteContext();
         const reconciliationRevision = dirtyRevision;
 
@@ -502,6 +540,13 @@ async function mainContentScriptInit() {
         }
 
         clearDirtyFeaturesIfUnchanged(reconciliationRevision);
+        window.opsDiagnostics?.recordRateLimited?.('reconcile-deferred', {
+            source: 'content-lifecycle',
+            operation: 'reconcile-deferred',
+            outcome: 'success',
+            durationMs: (window.opsDiagnostics?.now?.() ?? Date.now()) - diagnosticsStartedAt,
+            details: { dirtyGroupCount }
+        });
     }
 
     function scheduleDynamicUiReconciliation() {
