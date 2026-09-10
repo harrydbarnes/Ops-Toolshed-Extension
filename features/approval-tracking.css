@@ -51,6 +51,27 @@
     color: #38bdf8 !important;
 }
 
+.toolshed-approval-banner-button.is-none-tracked {
+    color: rgba(255, 255, 255, 0.75) !important;
+}
+.toolshed-approval-banner-button.is-none-tracked .toolshed-approval-banner-icon {
+    color: rgba(255, 255, 255, 0.6) !important;
+}
+.toolshed-approval-banner-button.is-none-tracked:hover,
+.toolshed-approval-banner-button.is-none-tracked:focus-visible {
+    background-color: rgba(255, 255, 255, 0.09) !important;
+    color: #ffffff !important;
+}
+.toolshed-approval-banner-button.is-none-tracked:hover .toolshed-approval-banner-icon,
+.toolshed-approval-banner-button.is-none-tracked:focus-visible .toolshed-approval-banner-icon {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.toolshed-approval-banner-button.is-hidden,
+.toolshed-approval-banner-button[hidden] {
+    display: none !important;
+}
+
 .toolshed-approval-banner-icon {
     display: inline-flex;
     align-items: center;

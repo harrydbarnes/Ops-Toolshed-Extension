@@ -328,7 +328,7 @@ describe('Approval Tracking Content Script UI', () => {
         expect(scriptCode).not.toMatch(/waitForElementInShadow\('mo-banner-user-menu'/);
     });
 
-    test('hides banner button when no tracked campaigns exist', async () => {
+    test('displays 0/0 Campaigns Approved when no tracked campaigns exist', async () => {
         localData[APPROVED_CAMPAIGNS_KEY] = [];
         localData[PENDING_APPROVAL_KEY] = {};
 
@@ -338,7 +338,18 @@ describe('Approval Tracking Content Script UI', () => {
 
         const btn = document.querySelector('.toolshed-approval-banner-button');
         expect(btn).not.toBeNull();
-        expect(btn.style.display).toBe('none');
+        expect(btn.textContent).toContain('0/0 Campaigns Approved');
+        expect(btn.classList.contains('is-none-tracked')).toBe(true);
+    });
+
+    test('does not inject banner button when approvalBannerIndicatorEnabled is false', async () => {
+        syncData.approvalBannerIndicatorEnabled = false;
+        window.approvalTrackingFeature.initialize();
+        await Promise.resolve();
+        await new Promise(r => setTimeout(r, 10));
+
+        const btn = document.querySelector('.toolshed-approval-banner-button');
+        expect(btn).toBeNull();
     });
 
     test('displays 0/1 Campaign Approved when one campaign is pending and zero approved', async () => {
@@ -484,6 +495,45 @@ describe('Approval Tracking Content Script UI', () => {
         expect(refreshedPanel.classList.contains('is-closing')).toBe(false);
         expect(refreshedPanel.querySelector('.toolshed-approval-header-btn').textContent)
             .toContain('Check now');
+    });
+
+    test('clearing all approved campaigns updates the banner button to 0/0 Campaigns Approved', async () => {
+        localData[APPROVED_CAMPAIGNS_KEY] = [
+            { campaignId: 'CP1', campaignName: 'Campaign 1', approvedAt: Date.now() },
+            { campaignId: 'CP2', campaignName: 'Campaign 2', approvedAt: Date.now() }
+        ];
+        localData[PENDING_APPROVAL_KEY] = {};
+
+        window.approvalTrackingFeature.initialize();
+        await new Promise(r => setTimeout(r, 15));
+
+        const btn = document.querySelector('.toolshed-approval-banner-button');
+        expect(btn.textContent).toContain('2/2 Campaigns Approved');
+
+        btn.click();
+        await new Promise(r => setTimeout(r, 15));
+
+        const panel = document.querySelector('.toolshed-approval-panel');
+        const clearAllBtn = panel.querySelector('.toolshed-approval-clear-all-btn');
+        expect(clearAllBtn).not.toBeNull();
+
+        window.chrome.runtime.sendMessage.mockImplementation(async msg => {
+            if (msg.action === 'clearAllApprovedCampaigns') {
+                localData[APPROVED_CAMPAIGNS_KEY] = [];
+                return { status: 'success' };
+            }
+            return { status: 'success' };
+        });
+
+        clearAllBtn.click();
+        await new Promise(r => setTimeout(r, 30));
+
+        expect(btn.textContent).toContain('0/0 Campaigns Approved');
+        expect(btn.classList.contains('is-none-tracked')).toBe(true);
+
+        const refreshedPanel = document.querySelector('.toolshed-approval-panel');
+        expect(refreshedPanel.textContent).toContain('0/0 Approved');
+        expect(refreshedPanel.textContent).toContain('No campaigns currently being tracked for approval.');
     });
 
     test('showApprovalToast creates interactive toast reusing ops-toolshed-toast', () => {

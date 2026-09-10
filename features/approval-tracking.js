@@ -249,6 +249,25 @@
         .toolshed-approval-banner-button.is-pending-only .toolshed-approval-banner-icon {
             color: #38bdf8 !important;
         }
+        .toolshed-approval-banner-button.is-none-tracked {
+            color: rgba(255, 255, 255, 0.75) !important;
+        }
+        .toolshed-approval-banner-button.is-none-tracked .toolshed-approval-banner-icon {
+            color: rgba(255, 255, 255, 0.6) !important;
+        }
+        .toolshed-approval-banner-button.is-none-tracked:hover,
+        .toolshed-approval-banner-button.is-none-tracked:focus-visible {
+            background-color: rgba(255, 255, 255, 0.09) !important;
+            color: #ffffff !important;
+        }
+        .toolshed-approval-banner-button.is-none-tracked:hover .toolshed-approval-banner-icon,
+        .toolshed-approval-banner-button.is-none-tracked:focus-visible .toolshed-approval-banner-icon {
+            color: rgba(255, 255, 255, 0.9) !important;
+        }
+        .toolshed-approval-banner-button.is-hidden,
+        .toolshed-approval-banner-button[hidden] {
+            display: none !important;
+        }
         .toolshed-approval-banner-icon {
             display: inline-flex;
             align-items: center;
@@ -658,10 +677,35 @@
     }
 
     // --- Banner Button Indicator ---
+    function findBannerButtons() {
+        const buttons = [];
+        for (const root of getBannerRoots()) {
+            if (root.nodeType === 1 && root.matches?.('.toolshed-approval-banner-button')) {
+                buttons.push(root);
+            }
+            root.querySelectorAll?.('.toolshed-approval-banner-button').forEach(btn => {
+                buttons.push(btn);
+            });
+        }
+        if (bannerButton && !buttons.includes(bannerButton)) {
+            buttons.push(bannerButton);
+        }
+        return Array.from(new Set(buttons.filter(btn => btn && btn.isConnected)));
+    }
+
     async function updateBannerIndicator() {
-        if (!bannerButton) return;
+        const buttons = findBannerButtons();
+        if (buttons.length === 0) return;
+        if (!bannerButton || !bannerButton.isConnected) {
+            bannerButton = buttons[0];
+        }
+
         if (!bannerEnabled) {
-            bannerButton.style.display = 'none';
+            buttons.forEach(btn => {
+                btn.style.setProperty('display', 'none', 'important');
+                btn.hidden = true;
+                btn.classList.add('is-hidden');
+            });
             return;
         }
 
@@ -675,38 +719,39 @@
         const pendingCount = Object.keys(pendingMap).length;
         const totalCount = approvedCount + pendingCount;
 
-        const iconSpan = bannerButton.querySelector('.toolshed-approval-banner-icon');
-        const textSpan = bannerButton.querySelector('.toolshed-approval-banner-text');
-
-        if (totalCount === 0) {
-            bannerButton.style.display = 'none';
-            bannerButton.classList.remove('is-all-approved', 'is-partially-approved', 'is-pending-only');
-            return;
-        }
-
-        bannerButton.style.display = 'inline-flex';
         const noun = totalCount === 1 ? 'Campaign' : 'Campaigns';
         const summaryText = `${approvedCount}/${totalCount} ${noun} Approved`;
 
-        if (textSpan) {
-            textSpan.textContent = summaryText;
-        }
+        buttons.forEach(btn => {
+            btn.style.removeProperty('display');
+            btn.hidden = false;
+            btn.classList.remove('is-hidden', 'is-all-approved', 'is-partially-approved', 'is-pending-only', 'is-none-tracked');
 
-        bannerButton.classList.remove('is-all-approved', 'is-partially-approved', 'is-pending-only');
+            const iconSpan = btn.querySelector('.toolshed-approval-banner-icon');
+            const textSpan = btn.querySelector('.toolshed-approval-banner-text');
 
-        if (approvedCount === totalCount) {
-            bannerButton.classList.add('is-all-approved');
-            bannerButton.title = `All tracked campaigns approved (${approvedCount}/${totalCount}) - Click to view`;
-            if (iconSpan) iconSpan.innerHTML = CHECKMARK_SVG;
-        } else if (approvedCount > 0) {
-            bannerButton.classList.add('is-partially-approved');
-            bannerButton.title = `${approvedCount} of ${totalCount} campaigns approved - Click to view`;
-            if (iconSpan) iconSpan.innerHTML = CHECKMARK_SVG;
-        } else {
-            bannerButton.classList.add('is-pending-only');
-            bannerButton.title = `Awaiting approval for ${pendingCount} ${noun.toLowerCase()} - Click to view`;
-            if (iconSpan) iconSpan.innerHTML = CLOCK_SVG;
-        }
+            if (textSpan) {
+                textSpan.textContent = summaryText;
+            }
+
+            if (totalCount === 0) {
+                btn.classList.add('is-none-tracked');
+                btn.title = 'No campaigns currently being tracked for approval - Click to view';
+                if (iconSpan) iconSpan.innerHTML = CLOCK_SVG;
+            } else if (approvedCount === totalCount) {
+                btn.classList.add('is-all-approved');
+                btn.title = `All tracked campaigns approved (${approvedCount}/${totalCount}) - Click to view`;
+                if (iconSpan) iconSpan.innerHTML = CHECKMARK_SVG;
+            } else if (approvedCount > 0) {
+                btn.classList.add('is-partially-approved');
+                btn.title = `${approvedCount} of ${totalCount} campaigns approved - Click to view`;
+                if (iconSpan) iconSpan.innerHTML = CHECKMARK_SVG;
+            } else {
+                btn.classList.add('is-pending-only');
+                btn.title = `Awaiting approval for ${pendingCount} ${noun.toLowerCase()} - Click to view`;
+                if (iconSpan) iconSpan.innerHTML = CLOCK_SVG;
+            }
+        });
     }
 
     function getBannerRoots() {
@@ -789,7 +834,8 @@
     function observeBannerRoots() {
         const Observer = window.MutationObserver ||
             (typeof MutationObserver !== 'undefined' ? MutationObserver : null);
-        if (!Observer || !document.body) return;
+        const currentDoc = typeof document !== 'undefined' ? document : null;
+        if (!Observer || !currentDoc?.body) return;
 
         if (!bannerLifecycleObserver) {
             bannerLifecycleObserver = new Observer(mutations => {
@@ -799,9 +845,9 @@
             });
         }
 
-        const roots = [document.body, ...getBannerRoots().filter(root => root !== document)];
+        const roots = [currentDoc.body, ...getBannerRoots().filter(root => root !== currentDoc && root)];
         roots.forEach(root => {
-            if (bannerObservedRoots.has(root)) return;
+            if (!root || bannerObservedRoots.has(root)) return;
             bannerLifecycleObserver.observe(root, { childList: true, subtree: true });
             bannerObservedRoots.add(root);
         });
@@ -827,7 +873,9 @@
 
     async function injectBannerButton() {
         if (!bannerEnabled) return;
-        if (bannerButton && bannerButton.isConnected) {
+        const existingButtons = findBannerButtons();
+        if (existingButtons.length > 0) {
+            bannerButton = existingButtons[0];
             await updateBannerIndicator();
             return;
         }
@@ -863,7 +911,6 @@
             btn.type = 'button';
             btn.className = 'toolshed-approval-banner-button';
             btn.title = 'View campaign approvals';
-            btn.style.display = 'none';
 
             const iconSpan = document.createElement('span');
             iconSpan.className = 'toolshed-approval-banner-icon';
