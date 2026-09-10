@@ -22,6 +22,53 @@
     let bannerLifecycleEventsBound = false;
     const shownToastCampaignIds = new Set();
 
+    function isExtensionContextValid() {
+        try {
+            return Boolean(chrome && chrome.runtime && chrome.runtime.id);
+        } catch (_error) {
+            return false;
+        }
+    }
+
+    async function safeStorageGet(area, defaults) {
+        if (!isExtensionContextValid()) return defaults;
+        try {
+            return await chrome.storage[area].get(defaults);
+        } catch (error) {
+            if (String(error?.message || error).includes('Extension context invalidated')) {
+                stopBannerLifecycle();
+                return defaults;
+            }
+            throw error;
+        }
+    }
+
+    async function safeStorageSet(area, items) {
+        if (!isExtensionContextValid()) return;
+        try {
+            await chrome.storage[area].set(items);
+        } catch (error) {
+            if (String(error?.message || error).includes('Extension context invalidated')) {
+                stopBannerLifecycle();
+                return;
+            }
+            throw error;
+        }
+    }
+
+    async function safeSendMessage(message) {
+        if (!isExtensionContextValid()) return null;
+        try {
+            return await chrome.runtime.sendMessage(message);
+        } catch (error) {
+            if (String(error?.message || error).includes('Extension context invalidated')) {
+                stopBannerLifecycle();
+                return null;
+            }
+            throw error;
+        }
+    }
+
     function truncateString(str, maxLength) {
         maxLength = maxLength || 28;
         if (!str) return '';
@@ -297,10 +344,12 @@
         const existingPanel = reuseCurrent ? currentPanel : null;
         if (!reuseCurrent) closeCurrentPanel({ immediate: true });
 
+        if (!isExtensionContextValid()) return null;
+
         const panel = document.createElement('div');
         panel.className = 'toolshed-approval-panel' + (skipEntrance ? ' is-open' : '');
 
-        const data = await chrome.storage.local.get({
+        const data = await safeStorageGet('local', {
             [PENDING_STORAGE_KEY]: {},
             [APPROVED_STORAGE_KEY]: []
         });
@@ -350,7 +399,7 @@
             if (label) label.textContent = 'Checking…';
 
             let requestError = null;
-            const request = chrome.runtime.sendMessage({ action: 'checkApprovalStatusNow' })
+            const request = safeSendMessage({ action: 'checkApprovalStatusNow' })
                 .catch(function(error) {
                     requestError = error;
                 });
@@ -426,7 +475,7 @@
                 clearBtn.textContent = 'Clear All';
                 clearBtn.addEventListener('click', async function(e) {
                     e.stopPropagation();
-                    await chrome.runtime.sendMessage({ action: 'clearAllApprovedCampaigns' });
+                    await safeSendMessage({ action: 'clearAllApprovedCampaigns' });
                     await updateBannerIndicator();
                     renderApprovalPanel(anchor);
                 });
@@ -492,12 +541,14 @@
                     dismissBtn.title = 'Remove from approved list';
                     dismissBtn.addEventListener('click', async function(e) {
                         e.stopPropagation();
-                        await chrome.runtime.sendMessage({
+                        await safeSendMessage({
                             action: 'dismissApprovedCampaign',
                             campaignId: item.campaignId
                         });
                         await updateBannerIndicator();
-                        renderApprovalPanel(anchor);
+                        if (isExtensionContextValid()) {
+                            renderApprovalPanel(anchor);
+                        }
                     });
                     statusCol.appendChild(dismissBtn);
 
@@ -576,12 +627,14 @@
                     dismissBtn.title = 'Stop tracking this campaign';
                     dismissBtn.addEventListener('click', async function(e) {
                         e.stopPropagation();
-                        await chrome.runtime.sendMessage({
+                        await safeSendMessage({
                             action: 'dismissPendingCampaign',
                             campaignId: item.campaignId
                         });
                         await updateBannerIndicator();
-                        renderApprovalPanel(anchor);
+                        if (isExtensionContextValid()) {
+                            renderApprovalPanel(anchor);
+                        }
                     });
                     statusCol.appendChild(dismissBtn);
 
@@ -614,7 +667,7 @@
                     e.stopPropagation();
                     trackBtn.disabled = true;
                     trackBtn.textContent = 'Adding to tracker...';
-                    await chrome.runtime.sendMessage({
+                    await safeSendMessage({
                         action: 'trackCampaignApproval',
                         campaign: {
                             campaignId: currentCampaignId,
@@ -624,7 +677,9 @@
                         }
                     });
                     await updateBannerIndicator();
-                    renderApprovalPanel(anchor);
+                    if (isExtensionContextValid()) {
+                        renderApprovalPanel(anchor);
+                    }
                 });
                 footer.appendChild(trackBtn);
             } else {
@@ -694,6 +749,10 @@
     }
 
     async function updateBannerIndicator() {
+        if (!isExtensionContextValid()) {
+            stopBannerLifecycle();
+            return;
+        }
         const buttons = findBannerButtons();
         if (buttons.length === 0) return;
         if (!bannerButton || !bannerButton.isConnected) {
@@ -709,10 +768,11 @@
             return;
         }
 
-        const data = await chrome.storage.local.get({
+        const data = await safeStorageGet('local', {
             [PENDING_STORAGE_KEY]: {},
             [APPROVED_STORAGE_KEY]: []
         });
+        if (!isExtensionContextValid()) return;
         const approvedList = data[APPROVED_STORAGE_KEY] || [];
         const pendingMap = data[PENDING_STORAGE_KEY] || {};
         const approvedCount = approvedList.length;
@@ -786,11 +846,19 @@
     }
 
     function scheduleBannerInjection() {
+        if (!isExtensionContextValid()) {
+            stopBannerLifecycle();
+            return;
+        }
         if (bannerInjectionQueued || !bannerEnabled) return;
         bannerInjectionQueued = true;
         const schedule = window.queueMicrotask || (callback => Promise.resolve().then(callback));
         schedule(() => {
             bannerInjectionQueued = false;
+            if (!isExtensionContextValid()) {
+                stopBannerLifecycle();
+                return;
+            }
             injectBannerButton();
         });
     }
@@ -832,6 +900,10 @@
     }
 
     function observeBannerRoots() {
+        if (!isExtensionContextValid()) {
+            stopBannerLifecycle();
+            return;
+        }
         const Observer = window.MutationObserver ||
             (typeof MutationObserver !== 'undefined' ? MutationObserver : null);
         const currentDoc = typeof document !== 'undefined' ? document : null;
@@ -839,6 +911,10 @@
 
         if (!bannerLifecycleObserver) {
             bannerLifecycleObserver = new Observer(mutations => {
+                if (!isExtensionContextValid()) {
+                    stopBannerLifecycle();
+                    return;
+                }
                 if (!mutations.some(mutationContainsBannerHost)) return;
                 observeBannerRoots();
                 scheduleBannerInjection();
@@ -854,7 +930,7 @@
     }
 
     function startBannerLifecycle() {
-        if (!bannerEnabled) return;
+        if (!isExtensionContextValid() || !bannerEnabled) return;
         observeBannerRoots();
         scheduleBannerInjection();
     }
@@ -956,7 +1032,7 @@
 
     // --- Live DOM Inspection for Submitted / Approved States ---
     function checkLiveWorkflowWidget() {
-        if (!trackingEnabled) return;
+        if (!trackingEnabled || !isExtensionContextValid()) return;
 
         const campaignId = getCampaignId();
         if (!campaignId) return;
@@ -967,70 +1043,97 @@
         const approvalState = detectWorkflowApprovalState(workflowWidget.textContent);
 
         if (approvalState === 'approved') {
-            chrome.storage.local.get({ [PENDING_STORAGE_KEY]: {}, [APPROVED_STORAGE_KEY]: [] }, function(data) {
-                const pending = data[PENDING_STORAGE_KEY] || {};
-                const approvedList = data[APPROVED_STORAGE_KEY] || [];
-                if (pending[campaignId]) {
-                    delete pending[campaignId];
-                    const record = {
-                        campaignId: campaignId,
-                        campaignName: getCampaignName() || campaignId,
-                        url: window.location.href,
-                        submittedAt: pending[campaignId].submittedAt || Date.now(),
-                        approvedAt: Date.now()
-                    };
-                    const existingIdx = approvedList.findIndex(function(item) { return item.campaignId === campaignId; });
-                    if (existingIdx >= 0) approvedList.splice(existingIdx, 1);
-                    approvedList.unshift(record);
+            try {
+                if (!isExtensionContextValid()) return;
+                chrome.storage.local.get({ [PENDING_STORAGE_KEY]: {}, [APPROVED_STORAGE_KEY]: [] }, function(data) {
+                    if (!isExtensionContextValid() || !data) return;
+                    const pending = data[PENDING_STORAGE_KEY] || {};
+                    const approvedList = data[APPROVED_STORAGE_KEY] || [];
+                    if (pending[campaignId]) {
+                        delete pending[campaignId];
+                        const record = {
+                            campaignId: campaignId,
+                            campaignName: getCampaignName() || campaignId,
+                            url: window.location.href,
+                            submittedAt: pending[campaignId].submittedAt || Date.now(),
+                            approvedAt: Date.now()
+                        };
+                        const existingIdx = approvedList.findIndex(function(item) { return item.campaignId === campaignId; });
+                        if (existingIdx >= 0) approvedList.splice(existingIdx, 1);
+                        approvedList.unshift(record);
 
-                    chrome.storage.local.set({
-                        [PENDING_STORAGE_KEY]: pending,
-                        [APPROVED_STORAGE_KEY]: approvedList
-                    }, function() {
-                        showApprovalToast(record);
-                        updateBannerIndicator();
-                    });
+                        chrome.storage.local.set({
+                            [PENDING_STORAGE_KEY]: pending,
+                            [APPROVED_STORAGE_KEY]: approvedList
+                        }, function() {
+                            if (!isExtensionContextValid()) return;
+                            showApprovalToast(record);
+                            updateBannerIndicator();
+                        });
+                    }
+                });
+            } catch (err) {
+                if (String(err?.message || err).includes('Extension context invalidated')) {
+                    stopBannerLifecycle();
                 }
-            });
+            }
         } else if (approvalState === 'submitted') {
             // Auto-detect submitted campaign and track if not already tracked
-            chrome.storage.local.get({ [PENDING_STORAGE_KEY]: {}, [APPROVED_STORAGE_KEY]: [] }, function(data) {
-                const pending = data[PENDING_STORAGE_KEY] || {};
-                const approvedList = data[APPROVED_STORAGE_KEY] || [];
-                const isApproved = approvedList.some(function(item) { return item.campaignId === campaignId; });
-                if (!pending[campaignId] && !isApproved) {
-                    pending[campaignId] = {
-                        campaignId: campaignId,
-                        campaignName: getCampaignName() || campaignId,
-                        url: window.location.href,
-                        submittedAt: Date.now(),
-                        lastChecked: Date.now()
-                    };
-                    chrome.storage.local.set({ [PENDING_STORAGE_KEY]: pending }, function() {
-                        updateBannerIndicator();
-                    });
+            try {
+                if (!isExtensionContextValid()) return;
+                chrome.storage.local.get({ [PENDING_STORAGE_KEY]: {}, [APPROVED_STORAGE_KEY]: [] }, function(data) {
+                    if (!isExtensionContextValid() || !data) return;
+                    const pending = data[PENDING_STORAGE_KEY] || {};
+                    const approvedList = data[APPROVED_STORAGE_KEY] || [];
+                    const isApproved = approvedList.some(function(item) { return item.campaignId === campaignId; });
+                    if (!pending[campaignId] && !isApproved) {
+                        pending[campaignId] = {
+                            campaignId: campaignId,
+                            campaignName: getCampaignName() || campaignId,
+                            url: window.location.href,
+                            submittedAt: Date.now(),
+                            lastChecked: Date.now()
+                        };
+                        chrome.storage.local.set({ [PENDING_STORAGE_KEY]: pending }, function() {
+                            if (!isExtensionContextValid()) return;
+                            updateBannerIndicator();
+                        });
+                    }
+                });
+            } catch (err) {
+                if (String(err?.message || err).includes('Extension context invalidated')) {
+                    stopBannerLifecycle();
                 }
-            });
+            }
         } else if (approvalState === 'not-submitted') {
             // Correct any stale false-positive entry created when the previous
             // substring check interpreted "NOT SUBMITTED" as "SUBMITTED".
-            chrome.storage.local.get({ [PENDING_STORAGE_KEY]: {} }, function(data) {
-                const pending = data[PENDING_STORAGE_KEY] || {};
-                if (!pending[campaignId]) return;
-                delete pending[campaignId];
-                chrome.storage.local.set({ [PENDING_STORAGE_KEY]: pending }, function() {
-                    updateBannerIndicator();
-                    if (currentPanel && bannerButton) {
-                        renderApprovalPanel(bannerButton, { reuseCurrent: true });
-                    }
+            try {
+                if (!isExtensionContextValid()) return;
+                chrome.storage.local.get({ [PENDING_STORAGE_KEY]: {} }, function(data) {
+                    if (!isExtensionContextValid() || !data) return;
+                    const pending = data[PENDING_STORAGE_KEY] || {};
+                    if (!pending[campaignId]) return;
+                    delete pending[campaignId];
+                    chrome.storage.local.set({ [PENDING_STORAGE_KEY]: pending }, function() {
+                        if (!isExtensionContextValid()) return;
+                        updateBannerIndicator();
+                        if (currentPanel && bannerButton) {
+                            renderApprovalPanel(bannerButton, { reuseCurrent: true });
+                        }
+                    });
                 });
-            });
+            } catch (err) {
+                if (String(err?.message || err).includes('Extension context invalidated')) {
+                    stopBannerLifecycle();
+                }
+            }
         }
     }
 
     function setupSubmissionCapture() {
         document.addEventListener('click', function(event) {
-            if (!trackingEnabled) return;
+            if (!trackingEnabled || !isExtensionContextValid()) return;
             const target = event.target;
             const trigger = target?.closest?.('button, [role="button"], a, mo-button, [data-action]');
             if (!trigger) return;
@@ -1049,8 +1152,9 @@
                 if (campaignId) {
                     const campaignName = getCampaignName() || campaignId;
                     const url = window.location.href;
-                    setTimeout(function() {
-                        chrome.runtime.sendMessage({
+                    setTimeout(async function() {
+                        if (!isExtensionContextValid()) return;
+                        await safeSendMessage({
                             action: 'trackCampaignApproval',
                             campaign: {
                                 campaignId: campaignId,
@@ -1058,9 +1162,8 @@
                                 url: url,
                                 submittedAt: Date.now()
                             }
-                        }).then(function() {
-                            updateBannerIndicator();
-                        }).catch(function() {});
+                        });
+                        await updateBannerIndicator();
                     }, 500);
                 }
             }
@@ -1069,7 +1172,9 @@
 
     // --- Message & Storage Listeners ---
     function bindListeners() {
+        if (!isExtensionContextValid()) return;
         chrome.runtime.onMessage.addListener(function(request) {
+            if (!isExtensionContextValid()) return;
             if (request.action === 'campaignApproved' && request.campaign) {
                 showApprovalToast(request.campaign);
                 updateBannerIndicator();
@@ -1077,6 +1182,7 @@
         });
 
         chrome.storage.onChanged.addListener(function(changes, area) {
+            if (!isExtensionContextValid()) return;
             if (area === 'local' && (changes[APPROVED_STORAGE_KEY] || changes[PENDING_STORAGE_KEY])) {
                 updateBannerIndicator();
             }
@@ -1108,11 +1214,13 @@
         }
         isInitialized = true;
 
+        if (!isExtensionContextValid()) return;
         chrome.storage.sync.get({
             [SETTINGS_KEY_TRACKING]: true,
             [SETTINGS_KEY_BANNER]: true,
             [SETTINGS_KEY_TOAST]: true
         }, function(settings) {
+            if (!isExtensionContextValid() || !settings) return;
             trackingEnabled = settings[SETTINGS_KEY_TRACKING] !== false;
             bannerEnabled = settings[SETTINGS_KEY_BANNER] !== false;
             toastEnabled = settings[SETTINGS_KEY_TOAST] !== false;

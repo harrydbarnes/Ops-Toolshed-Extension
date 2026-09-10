@@ -263,6 +263,7 @@ describe('Approval Tracking Content Script UI', () => {
                 }
             },
             runtime: {
+                id: 'test-extension-id',
                 onMessage: {
                     addListener: jest.fn()
                 },
@@ -553,4 +554,22 @@ describe('Approval Tracking Content Script UI', () => {
         toast.click();
         expect(window.open).toHaveBeenCalledWith('https://groupmuk-prisma.mediaocean.com/#campaign-id=CP999', '_blank');
     });
+
+    test('gracefully handles invalidated extension context without throwing unhandled exceptions', async () => {
+        window.approvalTrackingFeature.initialize();
+        await new Promise(r => setTimeout(r, 15));
+
+        // 1. Invalidation before calling
+        delete window.chrome.runtime.id;
+        await expect(window.approvalTrackingFeature.updateBannerIndicator()).resolves.toBeUndefined();
+        expect(() => window.approvalTrackingFeature.checkLiveWorkflowWidget()).not.toThrow();
+
+        // 2. Mid-flight context invalidation rejection
+        window.chrome.runtime.id = 'test-extension-id';
+        window.chrome.storage.local.get.mockImplementation(() => {
+            return Promise.reject(new Error('Extension context invalidated.'));
+        });
+        await expect(window.approvalTrackingFeature.updateBannerIndicator()).resolves.toBeUndefined();
+    });
 });
+
