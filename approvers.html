@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Prisma Approver Search</title>
+    <style>html { visibility: hidden; }</style>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap">
     <link rel="stylesheet" href="style.css">
@@ -129,10 +130,7 @@
             <div id="approver-training-toast" class="otf-toast success" role="status" aria-live="polite">Training link copied</div>
         </section>
     </div>
-    <script src="build-info.js" defer></script>
-    <script src="features/feedback-modal.js"></script>
-    <script src="features/approver-training-modal.js"></script>
-    <script type="module" src="approvers.js"></script>
+    <script src="extension-page-gate.js" data-scripts="build-info.js,features/feedback-modal.js,features/approver-training-modal.js,approvers.js" data-modules="approvers.js"></script>
     <div id="toast-notification" class="toast">
       <div class="toast-message">Approver emails copied to clipboard!</div>
     </div>

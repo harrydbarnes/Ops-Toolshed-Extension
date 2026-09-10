@@ -1,3 +1,12 @@
+jest.mock('../background/feature-mode', () => ({
+    MASTER_FEATURE_KEY: 'allFeaturesDisabled',
+    featureModeReady: Promise.resolve(true),
+    isFeatureModeActive: jest.fn(() => true),
+    isPopupSender: jest.fn(sender => sender?.url === 'mock-url/popup.html' && !sender?.tab),
+    reconcileFeatureMode: jest.fn().mockResolvedValue(true),
+    refreshFeatureMode: jest.fn().mockResolvedValue(true)
+}));
+
 describe('Background Extension Lifecycle', () => {
     // Helper function to robustly flush all timers and microtasks
     async function flushPromisesAndTimers() {
@@ -25,24 +34,24 @@ describe('Background Extension Lifecycle', () => {
         delete chrome.runtime.id;
     });
 
-    test('opens onboarding only for a fresh install', () => {
+    test('opens onboarding only for a fresh install', async () => {
         chrome.runtime.id = 'test-extension-id';
         jest.isolateModules(() => {
             require('../background');
         });
 
-        chrome.runtime.onInstalled.listener({ reason: 'install' });
+        await chrome.runtime.onInstalled.listener({ reason: 'install' });
 
         expect(chrome.tabs.create).toHaveBeenCalledWith({ url: 'mock-url/onboarding.html' });
     });
 
-    test('does not open onboarding when the extension updates', () => {
+    test('does not open onboarding when the extension updates', async () => {
         chrome.runtime.id = 'test-extension-id';
         jest.isolateModules(() => {
             require('../background');
         });
 
-        chrome.runtime.onInstalled.listener({ reason: 'update' });
+        await chrome.runtime.onInstalled.listener({ reason: 'update' });
 
         expect(chrome.tabs.create).not.toHaveBeenCalled();
     });

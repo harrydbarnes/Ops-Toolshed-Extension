@@ -5,6 +5,7 @@
     const EVENT_TYPE = 'ops-toolshed-actualise-month-data';
     const REQUEST_TYPE = 'ops-toolshed-actualise-month-request-latest';
     const INSTALL_FLAG = '__opsToolshedActualiseMonthBridgeInstalled';
+    const MASTER_EVENT = 'ops-toolshed:master-feature-state';
     const ACTUALISE_ENDPOINT_PATTERN =
         /\/campaign-service\/secure\/campaign\/[^/]+\/queryservice\/mediaplan\/hybrid\/actualize(?:$|[?])/i;
     const ISO_MONTH_PATTERN = /^(\d{4})-(0[1-9]|1[0-2])(?:-\d{2})?$/;
@@ -17,6 +18,12 @@
     if (window[INSTALL_FLAG]) return;
     window[INSTALL_FLAG] = true;
     let latestEvidence = null;
+    let featureModeActive = document.documentElement?.getAttribute('data-ops-toolshed-features-active') === 'true';
+
+    document.addEventListener(MASTER_EVENT, event => {
+        featureModeActive = event.detail === true;
+        if (!featureModeActive) latestEvidence = null;
+    });
 
     function normalizeMonth(value) {
         const text = String(value ?? '').trim();
@@ -125,7 +132,8 @@
 
     window.addEventListener('message', event => {
         if (event.source !== window || event.origin !== window.location.origin ||
-            event.data?.source !== SOURCE || event.data.type !== REQUEST_TYPE || !latestEvidence) return;
+            event.data?.source !== SOURCE || event.data.type !== REQUEST_TYPE ||
+            !featureModeActive || !latestEvidence) return;
         window.postMessage({
             source: SOURCE,
             type: EVENT_TYPE,
@@ -159,7 +167,7 @@
 
         XHR.prototype.send = function(body) {
             const state = xhrStates.get(this);
-            if (state && isActualiseRequest(state.url)) {
+            if (featureModeActive && state && isActualiseRequest(state.url)) {
                 const requestMonth = getRequestMonth(body);
                 if (!requestMonth) return originalSend.call(this, body);
                 this.addEventListener('load', () => {
@@ -176,7 +184,7 @@
     if (typeof originalFetch === 'function') {
         window.fetch = function(input, init) {
             const url = typeof input === 'string' ? input : input?.url;
-            if (!isActualiseRequest(url)) return originalFetch.apply(this, arguments);
+            if (!featureModeActive || !isActualiseRequest(url)) return originalFetch.apply(this, arguments);
 
             const requestMonth = getRequestMonth(init?.body);
             const responsePromise = originalFetch.apply(this, arguments);

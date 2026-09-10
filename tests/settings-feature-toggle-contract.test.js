@@ -6,6 +6,7 @@ const { FEATURE_SETTINGS_DEFAULTS } = require('../settings');
 const settingsHtml = fs.readFileSync(path.resolve(__dirname, '../settings.html'), 'utf8');
 const settingsScript = fs.readFileSync(path.resolve(__dirname, '../settings.js'), 'utf8');
 const utilsScript = fs.readFileSync(path.resolve(__dirname, '../utils.js'), 'utf8');
+const registryScript = fs.readFileSync(path.resolve(__dirname, '../feature-settings-registry.js'), 'utf8');
 
 const FEATURE_TOGGLE_KEYS = {
     logoToggle: 'logoReplaceEnabled',
@@ -128,6 +129,7 @@ async function createSettingsPage(ignoredProductCodes = []) {
     };
     window.alert = jest.fn();
     window.console.log = jest.fn();
+    window.eval(registryScript);
     window.eval(utilsScript);
     window.eval(settingsScript);
     window.document.dispatchEvent(new window.Event('DOMContentLoaded'));

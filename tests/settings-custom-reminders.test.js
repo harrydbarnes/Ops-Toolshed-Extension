@@ -5,6 +5,7 @@ const { JSDOM } = require('jsdom');
 const settingsHtml = fs.readFileSync(path.resolve(__dirname, '../settings.html'), 'utf8');
 const settingsScript = fs.readFileSync(path.resolve(__dirname, '../settings.js'), 'utf8');
 const utilsScript = fs.readFileSync(path.resolve(__dirname, '../utils.js'), 'utf8');
+const registryScript = fs.readFileSync(path.resolve(__dirname, '../feature-settings-registry.js'), 'utf8');
 let activeDom;
 
 async function setupSettings(customReminders = [], url = 'chrome-extension://test/settings.html') {
@@ -52,6 +53,7 @@ async function setupSettings(customReminders = [], url = 'chrome-extension://tes
         }
     };
     window.alert = jest.fn();
+    window.eval(registryScript);
     window.eval(utilsScript);
     window.eval(settingsScript);
     window.document.dispatchEvent(new window.Event('DOMContentLoaded'));

@@ -3,6 +3,7 @@ const path = require('path');
 
 const settingsHtml = fs.readFileSync(path.resolve(__dirname, '../settings.html'), 'utf8');
 const settingsScript = fs.readFileSync(path.resolve(__dirname, '../settings.js'), 'utf8');
+const featureSettingsRegistry = require('../feature-settings-registry');
 
 describe('AppLearn popup blocking setting', () => {
     test('exposes an enabled-by-default Settings toggle', () => {
@@ -16,7 +17,7 @@ describe('AppLearn popup blocking setting', () => {
     test('exposes the enabled-by-default Help Guides feature toggle', () => {
         expect(settingsHtml).toContain('id="helpGuidesToggle"');
         expect(settingsHtml).toContain('Help Guides launcher:');
-        expect(settingsScript).toContain('helpGuidesEnabled: true');
+        expect(featureSettingsRegistry.BOOLEAN_DEFAULTS.helpGuidesEnabled).toBe(true);
         expect(settingsScript).toContain(
             "setupToggle('helpGuidesToggle', 'helpGuidesEnabled'"
         );

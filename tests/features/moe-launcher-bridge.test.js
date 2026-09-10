@@ -16,6 +16,7 @@ describe('Moe launcher main-page bridge', () => {
             runScripts: 'outside-only',
             url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/'
         });
+        dom.window.document.documentElement.setAttribute('data-ops-toolshed-features-active', 'true');
     });
 
     afterEach(() => {

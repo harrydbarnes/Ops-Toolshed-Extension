@@ -1,6 +1,6 @@
 (() => {
     const SETTING_EVENT = 'ops-toolshed:applearn-popup-setting';
-    let enabled = true;
+    let enabled = false;
 
     function isBlockedUrl(rawUrl) {
         if (!rawUrl) return false;
@@ -44,4 +44,5 @@
     document.addEventListener(SETTING_EVENT, event => {
         enabled = event.detail !== false;
     });
+    enabled = document.documentElement?.getAttribute('data-ops-toolshed-applearn-popup-active') === 'true';
 })();

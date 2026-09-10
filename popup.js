@@ -1,68 +1,7 @@
-const FEATURE_SETTING_KEYS = [
-    'logoReplaceEnabled',
-    'statsCollectorEnabled',
-    'loadingFactsEnabled',
-    'appLearnReplaceEnabled',
-    'blockAppLearnPopupsEnabled',
-    'helpGuidesEnabled',
-    'approverSidebarEnhancementsEnabled',
-    'actualiseBulkExportEnabled',
-    'directMoeChatEnabled',
-    'ordersShortcutEnabled',
-    'actualiseShortcutEnabled',
-    'actualiseNavbarEnabled',
-    'bannerUsernameEnabled',
-    'approverWidgetPlacementEnabled',
-    'quickCampaignActionsEnabled',
-    'budgetWidgetOptimisedEnabled',
-    'campaignNameQuickCopyEnabled',
-    'campaignHeaderQuickCopyEnabled',
-    'campaignDateShortcutEnabled',
-    'actualiseScrollRestoreEnabled',
-    'orderGridScrollSyncEnabled',
-    'gmiChatShortcutEnabled',
-    'autoCopyUrlEnabled',
-    'orderIdCopyEnabled',
-    'newOrderUiOptimisationEnabled',
-    'addCampaignShortcutEnabled',
-    'hidingSectionsEnabled',
-    'automateFormFieldsEnabled',
-    'countPlacementsSelectedEnabled',
-    'swapAccountsEnabled',
-    'rememberAccountSwitchUrlEnabled',
-    'alwaysShowCommentsEnabled',
-    'maxCampaignBudgetEnabled',
-    'dstAssuranceEnabled',
-    'actualiseMonthAssuranceEnabled',
-    'campaignTabTitleEnabled',
-    'fontSizeToggleEnabled',
-    'resizableChatToggleEnabled',
-    'scheduledChatToggleEnabled',
-    'metaReminderEnabled',
-    'iasReminderEnabled',
-    'timesheetReminderEnabled'
-];
-
-function buildDisabledFeatureState(currentSettings) {
-    const backup = {};
-    const disabledSettings = {};
-
-    FEATURE_SETTING_KEYS.forEach(key => {
-        backup[key] = currentSettings[key] === undefined ? true : currentSettings[key];
-        disabledSettings[key] = false;
-    });
-
-    const customReminders = Array.isArray(currentSettings.customReminders)
-        ? currentSettings.customReminders
-        : [];
-    backup.customReminders = customReminders;
-    disabledSettings.customReminders = customReminders.map(reminder => ({
-        ...reminder,
-        enabled: false
-    }));
-
-    return { backup, disabledSettings };
-}
+const featureSettingsRegistry = typeof module !== 'undefined' && module.exports
+    ? require('./feature-settings-registry')
+    : globalThis.OpsToolshedFeatureSettings;
+const FEATURE_SETTING_KEYS = featureSettingsRegistry.KEYS;
 
 function setKillSwitchAppearance(button, featuresDisabled) {
     if (!button) return;
@@ -117,8 +56,17 @@ function initialiseFeaturesKillSwitch() {
     const button = document.getElementById('featuresKillSwitch');
     if (!button) return;
 
-    chrome.storage.sync.get('allFeaturesDisabled', data => {
-        setKillSwitchAppearance(button, data.allFeaturesDisabled === true);
+    chrome.storage.sync.get(['allFeaturesDisabled', 'featureKillSwitchBackup'], data => {
+        if (chrome.runtime.lastError) {
+            console.error('Could not read the Features switch:', chrome.runtime.lastError.message);
+            setKillSwitchAppearance(button, true);
+            return;
+        }
+        const disabled = data.allFeaturesDisabled === true;
+        setKillSwitchAppearance(button, disabled);
+        if (!disabled && data.featureKillSwitchBackup) {
+            chrome.storage.sync.remove?.('featureKillSwitchBackup');
+        }
     });
 
     button.addEventListener('click', () => {
@@ -132,18 +80,28 @@ function initialiseFeaturesKillSwitch() {
                     ...restoredSettings,
                     allFeaturesDisabled: false
                 }, () => {
+                    if (chrome.runtime.lastError) {
+                        console.error('Could not turn Features on:', chrome.runtime.lastError.message);
+                        button.disabled = false;
+                        setKillSwitchAppearance(button, true);
+                        return;
+                    }
+                    chrome.storage.sync.remove?.('featureKillSwitchBackup');
                     button.disabled = false;
                     setKillSwitchAppearance(button, false);
                 });
                 return;
             }
 
-            const { backup, disabledSettings } = buildDisabledFeatureState(currentSettings);
             chrome.storage.sync.set({
-                ...disabledSettings,
-                featureKillSwitchBackup: backup,
                 allFeaturesDisabled: true
             }, () => {
+                if (chrome.runtime.lastError) {
+                    console.error('Could not turn Features off:', chrome.runtime.lastError.message);
+                    button.disabled = false;
+                    setKillSwitchAppearance(button, false);
+                    return;
+                }
                 button.disabled = false;
                 setKillSwitchAppearance(button, true);
             });
@@ -502,7 +460,7 @@ function addClickListener(id, url) {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         FEATURE_SETTING_KEYS,
-        buildDisabledFeatureState,
+        initialiseFeaturesKillSwitch,
         handleGenerateUrl,
         generateUrlFromData,
         isValidDNumber,

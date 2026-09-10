@@ -44,7 +44,8 @@
     function apply() {
         const trackedSections = Array.from(document.querySelectorAll(`[${HIDDEN_MARKER}]`));
         const sections = [...new Set([...trackedSections, ...getSections()])];
-        const shouldHide = isAddCampaignFrame() && hidingSectionsEnabled !== false;
+        const featureModeActive = window.opsToolshedExtensionState?.isActive?.() !== false;
+        const shouldHide = featureModeActive && isAddCampaignFrame() && hidingSectionsEnabled !== false;
         sections.forEach(section => setSectionVisibility(section, shouldHide));
     }
 
@@ -79,7 +80,15 @@
             if (!chrome.runtime?.lastError && data.hidingSectionsEnabled !== undefined) {
                 hidingSectionsEnabled = data.hidingSectionsEnabled;
             }
-            startObserver();
+            const extensionState = window.opsToolshedExtensionState;
+            if (extensionState?.ready) {
+                Promise.resolve(extensionState.ready).then(active => {
+                    if (active) startObserver();
+                    else apply();
+                });
+            } else {
+                startObserver();
+            }
         });
     } else {
         startObserver();
@@ -88,6 +97,11 @@
     chrome.storage?.onChanged?.addListener((changes, namespace) => {
         if (namespace !== 'sync' || !changes.hidingSectionsEnabled) return;
         hidingSectionsEnabled = changes.hidingSectionsEnabled.newValue;
+        apply();
+    });
+
+    window.opsToolshedExtensionState?.subscribe?.(active => {
+        if (active) startObserver();
         apply();
     });
 

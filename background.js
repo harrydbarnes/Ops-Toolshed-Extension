@@ -1,17 +1,40 @@
 import { handleHelpGuidesPanelEvent, messageHandlers } from './background/message-handlers.js';
 import { migrateStats } from './background/stats-manager.js';
 import { setupApprovalAlarm, pollPendingApprovals, ALARM_NAME as APPROVAL_ALARM_NAME } from './background/approval-polling.js';
+import {
+  MASTER_FEATURE_KEY,
+  featureModeReady,
+  isFeatureModeActive,
+  isPopupSender,
+  reconcileFeatureMode,
+  refreshFeatureMode
+} from './background/feature-mode.js';
 
-chrome.sidePanel?.onOpened?.addListener(info => handleHelpGuidesPanelEvent(info, true)
+chrome.sidePanel?.onOpened?.addListener(info => isFeatureModeActive() && handleHelpGuidesPanelEvent(info, true)
   .catch(error => console.error('Failed to sync opened Help Guides panel:', error)));
-chrome.sidePanel?.onClosed?.addListener(info => handleHelpGuidesPanelEvent(info, false)
+chrome.sidePanel?.onClosed?.addListener(info => isFeatureModeActive() && handleHelpGuidesPanelEvent(info, false)
   .catch(error => console.error('Failed to sync closed Help Guides panel:', error)));
 
 // --- Alarms and Notifications ---
 
-setupApprovalAlarm();
+featureModeReady.then(enabled => {
+  if (enabled) setupApprovalAlarm();
+  else closeFeatureSurfaces();
+});
 
-chrome.runtime.onInstalled.addListener((details) => {
+chrome.runtime.onStartup?.addListener(() => {
+  refreshFeatureMode({ reloadTabs: true })
+    .then(enabled => enabled ? restoreFeatureResources() : closeFeatureSurfaces())
+    .catch(error => console.error('Could not restore feature mode on browser startup:', error));
+});
+
+chrome.runtime.onInstalled.addListener(async (details) => {
+  await featureModeReady;
+  if (!isFeatureModeActive()) {
+    await reconcileFeatureMode(true, { reloadTabs: true });
+    await closeFeatureSurfaces();
+    return;
+  }
   migrateStats();
   setupApprovalAlarm();
   if (!chrome.runtime || !chrome.runtime.id) return;
@@ -83,8 +106,11 @@ function getNextAlarmDate(day, time) {
 
 async function triggerTimesheetNotification() {
     if (!chrome.runtime || !chrome.runtime.id) return;
-    const data = await chrome.storage.sync.get('timesheetReminderEnabled');
-    if (data.timesheetReminderEnabled !== false) {
+    const data = await chrome.storage.sync.get({
+      timesheetReminderEnabled: true,
+      [MASTER_FEATURE_KEY]: false
+    });
+    if (data[MASTER_FEATURE_KEY] !== true && data.timesheetReminderEnabled !== false) {
         await playAlarmSound();
         chrome.notifications.create('timesheetReminder', {
             type: 'basic',
@@ -99,6 +125,8 @@ async function triggerTimesheetNotification() {
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   try {
+    await featureModeReady;
+    if (!isFeatureModeActive()) return;
     if (alarm.name === 'timesheetReminder') {
       await triggerTimesheetNotification();
     } else if (alarm.name === APPROVAL_ALARM_NAME) {
@@ -110,6 +138,8 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 });
 
 chrome.notifications.onButtonClicked.addListener(async (notificationId, buttonIndex) => {
+  await featureModeReady;
+  if (!isFeatureModeActive()) return;
   if (notificationId === 'timesheetReminder') {
     if (buttonIndex === 0) {
       chrome.tabs.create({ url: 'https://groupmuk-aura.mediaocean.com/viewport-home/#osAppId=rod-time&osPspId=rod-time&route=time/display/myTimesheets/ToDo' });
@@ -191,6 +221,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             }
 
             const { action } = request;
+            await featureModeReady;
+            if (!isFeatureModeActive() && !isPopupSender(sender)) {
+                respondOnce({ status: 'error', message: 'Ops Toolshed features are off.' });
+                return;
+            }
             const handler = Object.prototype.hasOwnProperty.call(messageHandlers, action)
                 ? messageHandlers[action]
                 : null;
@@ -361,6 +396,7 @@ async function maybeBlockAppLearnPopup(tabId, url, openerTabId) {
 }
 
 chrome.tabs.onCreated.addListener(tab => {
+    if (!isFeatureModeActive()) return;
     if (isMediaoceanUrl(tab.pendingUrl || tab.url)) {
         rememberLoadingMediaoceanTab(tab.id, tab.windowId);
     }
@@ -371,6 +407,7 @@ chrome.tabs.onCreated.addListener(tab => {
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    if (!isFeatureModeActive()) return;
     const currentUrl = changeInfo.url || tab.url;
     if (changeInfo.status === 'loading' && isMediaoceanUrl(currentUrl)) {
         rememberLoadingMediaoceanTab(tabId, tab.windowId);
@@ -406,6 +443,56 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 chrome.tabs.onRemoved.addListener(tabId => {
     loadingMediaoceanTabs.delete(tabId);
+});
+
+async function closeFeatureSurfaces() {
+  await Promise.allSettled([
+    chrome.alarms.clear('timesheetReminder'),
+    chrome.alarms.clear(APPROVAL_ALARM_NAME),
+    chrome.notifications.clear('timesheetReminder')
+  ]);
+
+  try {
+    const contexts = await chrome.runtime.getContexts?.({ contextTypes: ['SIDE_PANEL'] });
+    await Promise.allSettled((contexts || [])
+      .filter(context => Number.isInteger(context.tabId) && context.tabId >= 0)
+      .map(context => chrome.sidePanel?.close?.({ tabId: context.tabId })));
+  } catch (error) {
+    console.debug('Could not enumerate feature side panels:', error.message);
+  }
+
+  try {
+    await chrome.sidePanel?.setOptions?.({ enabled: false });
+  } catch (error) {
+    console.debug('Could not disable feature side panels:', error.message);
+  }
+
+  try {
+    await chrome.offscreen?.closeDocument?.();
+  } catch (error) {
+    console.debug('Could not close the offscreen feature document:', error.message);
+  }
+}
+
+async function restoreFeatureResources() {
+  await chrome.sidePanel?.setOptions?.({ path: 'help-guides.html', enabled: true });
+  await setupApprovalAlarm();
+  const settings = await chrome.storage.sync.get({
+    timesheetReminderEnabled: true,
+    reminderDay: 'Friday',
+    reminderTime: '14:30'
+  });
+  if (settings.timesheetReminderEnabled !== false) {
+    await createTimesheetAlarm(settings.reminderDay, settings.reminderTime);
+  }
+}
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== 'sync' || !changes[MASTER_FEATURE_KEY]) return;
+  const disabled = changes[MASTER_FEATURE_KEY].newValue === true;
+  reconcileFeatureMode(disabled, { reloadTabs: true })
+    .then(enabled => enabled ? restoreFeatureResources() : closeFeatureSurfaces())
+    .catch(error => console.error('Could not apply the global feature mode:', error));
 });
 
 // --- Exports for Testing ---

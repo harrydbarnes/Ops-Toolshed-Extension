@@ -1,5 +1,7 @@
-(function() {
+(async function() {
     'use strict';
+
+    if (window.opsToolshedPageGate && !(await window.opsToolshedPageGate.allow())) return;
 
     const PRISMA_HOME = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns';
     const defaults = { helpGuidesEnabled: true, bannerUsernameEnabled: true, quickCampaignActionsEnabled: true, campaignNameQuickCopyEnabled: true, campaignHeaderQuickCopyEnabled: true, campaignDateShortcutEnabled: true, budgetWidgetOptimisedEnabled: true, ordersShortcutEnabled: true, actualiseShortcutEnabled: true, actualiseNavbarEnabled: true, approverWidgetPlacementEnabled: true, gmiChatShortcutEnabled: true, addCampaignShortcutEnabled: true };

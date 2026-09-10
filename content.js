@@ -3,7 +3,18 @@
   // receives its own lightweight frame script for the Basic-field shortcut.
   if (window.top !== window.self) return;
 
-  initializeContentScript();
+  let contentScriptActive = false;
+  let contentScriptBooted = false;
+  const extensionState = window.opsToolshedExtensionState;
+  const setContentScriptActive = active => {
+    contentScriptActive = active === true;
+    if (contentScriptActive && !contentScriptBooted) {
+      contentScriptBooted = true;
+      initializeContentScript();
+    }
+  };
+  extensionState?.subscribe?.(setContentScriptActive);
+  Promise.resolve(extensionState?.ready ?? true).then(setContentScriptActive);
 
   function initializeContentScript() {
     console.log("[ContentScript Prisma] Script Injected on URL:", window.location.href, "at", new Date().toLocaleTimeString());
@@ -211,6 +222,7 @@ function markDirtyFeaturesFromMutations(mutations) {
 
 let currentUrlForDismissFlags = window.location.href;
 function handleUrlChange() {
+    if (!contentScriptActive) return false;
     if (currentUrlForDismissFlags === window.location.href) return false;
 
     console.log("[ContentScript Prisma] URL changed, reminder dismissal flags reset.");
@@ -369,6 +381,7 @@ async function mainContentScriptInit() {
     }
 
     function runFastDynamicUiReconciliation() {
+        if (!contentScriptActive) return;
         const route = getDynamicRouteContext();
 
         if (isPrismaLike) {
@@ -415,6 +428,7 @@ async function mainContentScriptInit() {
     }
 
     function runDeferredDynamicUiReconciliation() {
+        if (!contentScriptActive) return;
         const route = getDynamicRouteContext();
         const reconciliationRevision = dirtyRevision;
 
@@ -491,6 +505,7 @@ async function mainContentScriptInit() {
     }
 
     function scheduleDynamicUiReconciliation() {
+        if (!contentScriptActive) return;
         if (!hasAnyDirtyFeatures()) return;
 
         if (!fastReconciliationQueued) {
@@ -514,6 +529,7 @@ async function mainContentScriptInit() {
     scheduleDynamicUiReconciliationCallback = scheduleDynamicUiReconciliation;
 
     const observer = new MutationObserver(function(mutations) {
+        if (!contentScriptActive) return;
         const urlChanged = handleUrlChange();
         const nativeMutationNeedsReconciliation = markDirtyFeaturesFromMutations(mutations);
         if (urlChanged || nativeMutationNeedsReconciliation) {
@@ -528,6 +544,10 @@ async function mainContentScriptInit() {
 }
 
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+    if (!contentScriptActive) {
+        sendResponse({ status: 'error', message: 'Ops Toolshed features are off.' });
+        return false;
+    }
     console.log("[ContentScript Prisma] Message received in listener:", request);
 
     const action = request?.action;

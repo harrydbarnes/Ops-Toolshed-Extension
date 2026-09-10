@@ -86,7 +86,8 @@ export const clearApproverSearch = ({ searchInput, clearButton, filterApprovers 
     searchInput.focus();
 };
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    if (window.opsToolshedPageGate && !(await window.opsToolshedPageGate.allow())) return;
     const searchInput = document.getElementById('search-input');
     const clearSearchButton = document.getElementById('clear-search-button');
     const favoritesOnlyButton = document.getElementById('favorites-only-button');

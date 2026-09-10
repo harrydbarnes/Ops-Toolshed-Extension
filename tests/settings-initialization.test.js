@@ -102,7 +102,7 @@ describe('batched Settings initialization', () => {
 
         expect(storageArea.get).toHaveBeenCalledTimes(1);
         expect(storageArea.get).toHaveBeenCalledWith(
-            Object.keys(EXPECTED_DEFAULTS),
+            Object.keys(SETTINGS_DEFAULTS),
             expect.any(Function)
         );
         expect(storageArea.set).toHaveBeenCalledTimes(1);

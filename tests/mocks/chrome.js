@@ -74,6 +74,13 @@ const sessionStorage = createStorageAreaMock();
 
 global.chrome = {
   runtime: {
+    id: 'mock-extension-id',
+    onStartup: {
+      addListener: jest.fn((listener) => {
+        global.chrome.runtime.onStartup.listener = listener;
+      }),
+      listener: null,
+    },
     onInstalled: {
       addListener: jest.fn((listener) => {
         global.chrome.runtime.onInstalled.listener = listener;
@@ -103,6 +110,7 @@ global.chrome = {
   alarms: {
     create: jest.fn(),
     clear: jest.fn(),
+    get: jest.fn().mockResolvedValue(null),
     onAlarm: {
       addListener: jest.fn(),
     },
@@ -118,6 +126,7 @@ global.chrome = {
     create: jest.fn(),
     get: jest.fn(),
     query: jest.fn(),
+    reload: jest.fn(),
     remove: jest.fn(),
     sendMessage: jest.fn(),
     update: jest.fn(),
@@ -133,6 +142,12 @@ global.chrome = {
   },
   scripting: {
     executeScript: jest.fn(),
+    getRegisteredContentScripts: jest.fn().mockResolvedValue([]),
+    registerContentScripts: jest.fn().mockResolvedValue(undefined),
+    unregisterContentScripts: jest.fn().mockResolvedValue(undefined),
+  },
+  offscreen: {
+    closeDocument: jest.fn().mockResolvedValue(undefined),
   },
   sidePanel: {
     open: jest.fn(),
@@ -154,6 +169,8 @@ global.resetMocks = () => {
     // Reset all jest.fn() calls
     global.chrome.runtime.onInstalled.addListener.mockClear();
     global.chrome.runtime.onInstalled.listener = null;
+    global.chrome.runtime.onStartup.addListener.mockClear();
+    global.chrome.runtime.onStartup.listener = null;
     global.chrome.runtime.onMessage.addListener.mockClear();
     global.chrome.runtime.onMessage.listener = null;
     global.chrome.runtime.getURL.mockClear();
@@ -161,6 +178,7 @@ global.resetMocks = () => {
     global.chrome.runtime.sendMessage.mockReset();
     global.chrome.alarms.create.mockClear();
     global.chrome.alarms.clear.mockClear();
+    global.chrome.alarms.get.mockReset().mockResolvedValue(null);
     global.chrome.alarms.onAlarm.addListener.mockClear();
     global.chrome.notifications.create.mockClear();
     global.chrome.notifications.onButtonClicked.addListener.mockClear();
@@ -168,6 +186,7 @@ global.resetMocks = () => {
     global.chrome.tabs.create.mockClear();
     global.chrome.tabs.get.mockClear();
     global.chrome.tabs.query.mockClear();
+    global.chrome.tabs.reload.mockClear();
     global.chrome.tabs.remove.mockClear();
     global.chrome.tabs.sendMessage.mockReset();
     global.chrome.tabs.update.mockClear();
@@ -175,6 +194,10 @@ global.resetMocks = () => {
     global.chrome.tabs.onUpdated.addListener.mockClear();
     global.chrome.tabs.onRemoved.addListener.mockClear();
     global.chrome.scripting.executeScript.mockClear();
+    global.chrome.scripting.getRegisteredContentScripts.mockReset().mockResolvedValue([]);
+    global.chrome.scripting.registerContentScripts.mockReset().mockResolvedValue(undefined);
+    global.chrome.scripting.unregisterContentScripts.mockReset().mockResolvedValue(undefined);
+    global.chrome.offscreen.closeDocument.mockReset().mockResolvedValue(undefined);
     global.chrome.sidePanel.open.mockReset();
     global.chrome.sidePanel.setOptions.mockReset();
     global.chrome.sidePanel.close.mockReset();

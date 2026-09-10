@@ -1,4 +1,5 @@
-(function () {
+(async function () {
+    if (window.opsToolshedPageGate && !(await window.opsToolshedPageGate.allow())) return;
     const engine = window.socialFinanceEngine;
     const metaApi = window.metaReportApi;
     const state = { metaText: '', uploadedMetaText: '', metaTextSource: '', prismaText: '', report: null, metaAccounts: [], metaReference: null, prismaReference: null, accountMappings: {}, manualMatches: {}, candidateRejections: {}, wrikeReferences: {}, campaignColumnWidths: {}, manualMatchTrigger: null, showMatchedScopeAccounts: false, shownMappingCampaignsAccountId: '', apiSync: null, uploadValidity: { metaText: false, prismaText: false }, workflowStage: 'upload', sort: { key: '', direction: 'descending' }, socialActionSort: { key: '', direction: 'ascending' }, clientSort: { key: '', direction: 'ascending' } };

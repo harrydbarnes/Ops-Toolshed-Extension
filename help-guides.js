@@ -1,4 +1,5 @@
-(function() {
+(async function() {
+    if (window.opsToolshedPageGate && !(await window.opsToolshedPageGate.allow())) return;
     const guides = Array.isArray(window.HELP_GUIDES) ? window.HELP_GUIDES : [];
     const categories = ['All', 'Access', 'Approval', 'Booking', 'Reconcile', 'Supplier Integrations', 'Traffic'];
     const categoryColors = {

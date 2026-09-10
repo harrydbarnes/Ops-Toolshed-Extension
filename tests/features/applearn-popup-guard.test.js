@@ -7,17 +7,18 @@ const controllerPath = path.resolve(__dirname, '../../features/applearn-popup-gu
 const manifest = JSON.parse(
     fs.readFileSync(path.resolve(__dirname, '../../manifest.json'), 'utf8')
 );
+const { CONTENT_SCRIPT_DEFINITIONS } = require('../../background/content-script-definitions');
 
 describe('AppLearn popup guard', () => {
     test('runs in the page world at document_start on every Mediaocean frame', () => {
-        const registration = manifest.content_scripts.find(entry =>
+        const registration = CONTENT_SCRIPT_DEFINITIONS.find(entry =>
             entry.js?.includes('features/applearn-popup-guard.js')
         );
 
         expect(registration).toMatchObject({
             matches: ['https://*.mediaocean.com/*'],
-            run_at: 'document_start',
-            all_frames: true,
+            runAt: 'document_start',
+            allFrames: true,
             world: 'MAIN'
         });
         expect(fs.existsSync(controllerPath)).toBe(true);
@@ -29,6 +30,7 @@ describe('AppLearn popup guard', () => {
             url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/'
         });
         const { window } = dom;
+        window.document.documentElement.setAttribute('data-ops-toolshed-applearn-popup-active', 'true');
         const nativeOpen = jest.fn(() => ({ opened: true }));
         window.open = nativeOpen;
         window.eval(fs.readFileSync(guardPath, 'utf8'));
@@ -56,6 +58,7 @@ describe('AppLearn popup guard', () => {
             url: 'https://groupmuk-prisma.mediaocean.com/'
         });
         const { window } = dom;
+        window.document.documentElement.setAttribute('data-ops-toolshed-applearn-popup-active', 'true');
         const nativeOpen = jest.fn(() => ({ opened: true }));
         window.open = nativeOpen;
         window.eval(fs.readFileSync(guardPath, 'utf8'));

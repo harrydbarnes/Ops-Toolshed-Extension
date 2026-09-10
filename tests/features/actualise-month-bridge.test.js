@@ -39,6 +39,7 @@ describe('Actualise month bridge', () => {
 
         FakeXHR.prototype.ownerDocument = dom.window.document;
         dom.window.XMLHttpRequest = FakeXHR;
+        dom.window.document.documentElement.setAttribute('data-ops-toolshed-features-active', 'true');
         const messages = [];
         dom.window.addEventListener('message', event => messages.push(event.data));
         dom.window.eval(bridgeCode);

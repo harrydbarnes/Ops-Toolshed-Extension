@@ -1,13 +1,15 @@
 const fs = require('fs');
 const path = require('path');
+const { JSDOM } = require('jsdom');
 
 const {
     FEATURE_SETTING_KEYS,
-    buildDisabledFeatureState,
+    initialiseFeaturesKillSwitch,
     generateUrlFromData,
     isValidDNumber,
     isValidCampaignId
 } = require('../popup');
+const featureSettingsRegistry = require('../feature-settings-registry');
 
 describe('popup DOM initialization', () => {
     test('declares the campaign URL button before registering its listener', () => {
@@ -16,41 +18,114 @@ describe('popup DOM initialization', () => {
     });
 });
 
-describe('buildDisabledFeatureState', () => {
-    test('backs up existing choices and disables every feature', () => {
-        const currentSettings = {
-            logoReplaceEnabled: false,
-            statsCollectorEnabled: true,
-            customReminders: [
-                { id: 'one', enabled: true },
-                { id: 'two', enabled: false }
-            ]
-        };
+describe('Features master switch', () => {
+    let dom;
+    let originalDocument;
+    let originalWindow;
 
-        const { backup, disabledSettings } = buildDisabledFeatureState(currentSettings);
-
-        expect(backup.logoReplaceEnabled).toBe(false);
-        expect(backup.statsCollectorEnabled).toBe(true);
-        expect(backup.loadingFactsEnabled).toBe(true);
-        FEATURE_SETTING_KEYS.forEach(key => {
-            expect(disabledSettings[key]).toBe(false);
-        });
-        expect(disabledSettings.customReminders).toEqual([
-            { id: 'one', enabled: false },
-            { id: 'two', enabled: false }
-        ]);
-        expect(backup.customReminders).toEqual(currentSettings.customReminders);
+    beforeEach(() => {
+        originalDocument = global.document;
+        originalWindow = global.window;
+        dom = new JSDOM('<!doctype html><button id="featuresKillSwitch"><span></span></button>');
+        global.document = dom.window.document;
+        global.window = dom.window;
+        chrome.storage.sync.remove.mockClear();
     });
 
-    test('includes newer campaign features in the global kill switch', () => {
+    afterEach(() => {
+        dom.window.close();
+        global.document = originalDocument;
+        global.window = originalWindow;
+    });
+
+    test('uses the complete shared feature registry', () => {
+        expect(FEATURE_SETTING_KEYS).toEqual(featureSettingsRegistry.KEYS);
         expect(FEATURE_SETTING_KEYS).toEqual(expect.arrayContaining([
-            'dstAssuranceEnabled',
-            'actualiseMonthAssuranceEnabled',
-            'maxCampaignBudgetEnabled',
-            'actualiseBulkExportEnabled',
-            'helpGuidesEnabled',
-            'directMoeChatEnabled'
+            'approvalTrackingEnabled',
+            'campaignHistoryEnabled',
+            'campaignHistoryLoggingEnabled',
+            'productCodeLimitWarningEnabled',
+            'planToBuyRedirectEnabled',
+            'timesheetReminderEnabled'
         ]));
+    });
+
+    test('turning Features off changes only the master flag', () => {
+        const stored = {
+            allFeaturesDisabled: false,
+            campaignHistoryEnabled: false,
+            customReminders: [{ id: 'one', enabled: true }]
+        };
+        chrome.storage.sync.get.mockImplementation((_keys, callback) => callback({ ...stored }));
+        chrome.storage.sync.set.mockImplementation((values, callback) => callback?.());
+
+        initialiseFeaturesKillSwitch();
+        document.getElementById('featuresKillSwitch').click();
+
+        expect(chrome.storage.sync.set).toHaveBeenLastCalledWith(
+            { allFeaturesDisabled: true },
+            expect.any(Function)
+        );
+        expect(chrome.storage.sync.set.mock.calls.at(-1)[0]).not.toHaveProperty('campaignHistoryEnabled');
+        expect(chrome.storage.sync.set.mock.calls.at(-1)[0]).not.toHaveProperty('customReminders');
+    });
+
+    test('turning Features on migrates an old backup before removing it', () => {
+        const legacyBackup = { campaignHistoryEnabled: false, statsCollectorEnabled: true };
+        chrome.storage.sync.get.mockImplementation((_keys, callback) => callback({
+            allFeaturesDisabled: true,
+            featureKillSwitchBackup: legacyBackup
+        }));
+        chrome.storage.sync.set.mockImplementation((values, callback) => callback?.());
+
+        initialiseFeaturesKillSwitch();
+        document.getElementById('featuresKillSwitch').click();
+
+        expect(chrome.storage.sync.set).toHaveBeenLastCalledWith(
+            { ...legacyBackup, allFeaturesDisabled: false },
+            expect.any(Function)
+        );
+        expect(chrome.storage.sync.remove).toHaveBeenCalledWith('featureKillSwitchBackup');
+    });
+
+    test('keeps the switch On when the Off write fails', () => {
+        chrome.storage.sync.get.mockImplementation((_keys, callback) => callback({
+            allFeaturesDisabled: false,
+            campaignHistoryEnabled: true
+        }));
+        chrome.storage.sync.set.mockImplementation((_values, callback) => {
+            chrome.runtime.lastError = { message: 'sync failed' };
+            callback?.();
+            chrome.runtime.lastError = undefined;
+        });
+        const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+        initialiseFeaturesKillSwitch();
+        document.getElementById('featuresKillSwitch').click();
+
+        expect(document.querySelector('#featuresKillSwitch span').textContent).toBe('Features on');
+        expect(document.getElementById('featuresKillSwitch').disabled).toBe(false);
+        consoleSpy.mockRestore();
+    });
+
+    test('retains a legacy backup when restoring it fails', () => {
+        chrome.storage.sync.get.mockImplementation((_keys, callback) => callback({
+            allFeaturesDisabled: true,
+            featureKillSwitchBackup: { campaignHistoryEnabled: false }
+        }));
+        chrome.storage.sync.set.mockImplementation((_values, callback) => {
+            chrome.runtime.lastError = { message: 'sync failed' };
+            callback?.();
+            chrome.runtime.lastError = undefined;
+        });
+        const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+        initialiseFeaturesKillSwitch();
+        document.getElementById('featuresKillSwitch').click();
+
+        expect(chrome.storage.sync.remove).not.toHaveBeenCalledWith('featureKillSwitchBackup');
+        expect(document.querySelector('#featuresKillSwitch span').textContent).toBe('Features off');
+        consoleSpy.mockRestore();
     });
 });
 

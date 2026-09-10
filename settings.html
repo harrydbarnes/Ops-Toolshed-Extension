@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ops Toolshed Settings</title>
+    <style>html { visibility: hidden; }</style>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap">
     <link rel="stylesheet" href="style.css"> <!-- Added link to shared style.css -->
@@ -465,11 +466,7 @@
             <a href="#" id="open-feedback-modal">Have an idea? Let the chef know here!</a>
         </div>
     </div>
-    <script src="build-info.js"></script>
-    <script src="utils.js"></script>
-    <script src="features/feedback-modal.js"></script>
-    <script src="features/loading-facts.js"></script>
-    <script src="settings.js"></script>
+    <script src="extension-page-gate.js" data-scripts="feature-settings-registry.js,build-info.js,utils.js,features/feedback-modal.js,features/loading-facts.js,settings.js"></script>
 
     <div id="build-info" class="build-info"></div>
 

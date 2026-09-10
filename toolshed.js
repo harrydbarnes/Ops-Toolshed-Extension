@@ -1,4 +1,5 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    if (window.opsToolshedPageGate && !(await window.opsToolshedPageGate.allow())) return;
     // --- Feedback Modal Logic ---
     const feedbackLink = document.getElementById('open-feedback-modal');
     

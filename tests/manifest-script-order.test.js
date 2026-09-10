@@ -4,27 +4,42 @@ const path = require('path');
 const manifest = JSON.parse(
     fs.readFileSync(path.resolve(__dirname, '../manifest.json'), 'utf8')
 );
+const { CONTENT_SCRIPT_DEFINITIONS } = require('../background/content-script-definitions');
 const helpGuidesHtml = fs.readFileSync(path.resolve(__dirname, '../help-guides.html'), 'utf8');
 
 describe('Manifest content-script order', () => {
 
+    test('grants Chrome host permission for every dynamic Mediaocean registration', () => {
+        expect(manifest.host_permissions).toContain('https://*.mediaocean.com/*');
+        CONTENT_SCRIPT_DEFINITIONS.forEach(registration => {
+            registration.matches.forEach(match => {
+                expect(match).toMatch(/^https:\/\/\*\.mediaocean\.com\//);
+            });
+        });
+    });
+
     test('loads utils before feature scripts and content.js last', () => {
-        const mediaoceanRegistration = manifest.content_scripts.find(entry =>
+        const mediaoceanRegistration = CONTENT_SCRIPT_DEFINITIONS.find(entry =>
             entry.js?.includes('content.js')
         );
 
         expect(mediaoceanRegistration).toBeDefined();
         const scripts = mediaoceanRegistration.js;
         const utilsIndex = scripts.indexOf('utils.js');
-        const featureScripts = scripts.filter(script => script.startsWith('features/'));
+        const stateControllerIndex = scripts.indexOf('features/extension-state-controller.js');
+        const featureScripts = scripts.filter(script =>
+            script.startsWith('features/') && script !== 'features/extension-state-controller.js'
+        );
 
+        expect(stateControllerIndex).toBe(0);
         expect(utilsIndex).toBeGreaterThanOrEqual(0);
         expect(featureScripts.length).toBeGreaterThan(0);
         featureScripts.forEach(featureScript => {
             expect(scripts.indexOf(featureScript)).toBeGreaterThan(utilsIndex);
         });
         expect(scripts[scripts.length - 1]).toBe('content.js');
-        expect(mediaoceanRegistration.all_frames).not.toBe(true);
+        expect(mediaoceanRegistration.allFrames).not.toBe(true);
+        expect(mediaoceanRegistration.persistAcrossSessions).toBe(false);
 
         const loadingMonitorIndex = scripts.indexOf('features/loading-monitor.js');
         expect(loadingMonitorIndex).toBeGreaterThan(utilsIndex);
@@ -33,31 +48,32 @@ describe('Manifest content-script order', () => {
     });
 
     test('limits child-frame enhancement injection to Campaign Details focus', () => {
-        const frameRegistration = manifest.content_scripts.find(entry =>
+        const frameRegistration = CONTENT_SCRIPT_DEFINITIONS.find(entry =>
             entry.js?.includes('features/campaign-details-focus.js')
         );
 
         expect(frameRegistration.js).toEqual([
+            'features/extension-state-controller.js',
             'features/campaign-details-focus.js',
             'features/campaign-add-sections.js'
         ]);
         expect(frameRegistration.css).toBeUndefined();
-        expect(frameRegistration.all_frames).toBe(true);
+        expect(frameRegistration.allFrames).toBe(true);
         expect(frameRegistration.matches).toEqual([
             'https://*.mediaocean.com/idesk/prisma-campaign-details/*'
         ]);
     });
 
     test('loads the lightweight Moe launcher bridge in the main page only', () => {
-        const registration = manifest.content_scripts.find(entry =>
+        const registration = CONTENT_SCRIPT_DEFINITIONS.find(entry =>
             entry.js?.includes('features/moe-launcher-bridge.js')
         );
 
         expect(registration).toMatchObject({
-            run_at: 'document_start',
+            runAt: 'document_start',
             world: 'MAIN'
         });
-        expect(registration.all_frames).not.toBe(true);
+        expect(registration.allFrames).not.toBe(true);
         expect(registration.js).toEqual(['features/moe-launcher-bridge.js']);
     });
 
@@ -66,7 +82,7 @@ describe('Manifest content-script order', () => {
         expect(manifest.side_panel).toEqual({ default_path: 'help-guides.html' });
         expect(manifest.host_permissions).toContain('https://insidemedia.sharepoint.com/*');
 
-        const mediaoceanRegistration = manifest.content_scripts.find(entry =>
+        const mediaoceanRegistration = CONTENT_SCRIPT_DEFINITIONS.find(entry =>
             entry.js?.includes('content.js')
         );
         expect(mediaoceanRegistration.js).toContain('features/help-guides-launcher.js');
@@ -82,20 +98,20 @@ describe('Manifest content-script order', () => {
     });
 
     test('loads the Actualise month response bridge in the page world before the isolated content script', () => {
-        const bridgeRegistration = manifest.content_scripts.find(entry =>
+        const bridgeRegistration = CONTENT_SCRIPT_DEFINITIONS.find(entry =>
             entry.js?.includes('features/actualise-month-bridge.js')
         );
 
         expect(bridgeRegistration).toMatchObject({
-            run_at: 'document_start',
+            runAt: 'document_start',
             world: 'MAIN',
             js: ['features/actualise-month-bridge.js']
         });
-        const isolatedRegistration = manifest.content_scripts.find(entry =>
+        const isolatedRegistration = CONTENT_SCRIPT_DEFINITIONS.find(entry =>
             entry.js?.includes('content.js')
         );
-        expect(manifest.content_scripts.indexOf(bridgeRegistration))
-            .toBeLessThan(manifest.content_scripts.indexOf(isolatedRegistration));
+        expect(CONTENT_SCRIPT_DEFINITIONS.indexOf(bridgeRegistration))
+            .toBeLessThan(CONTENT_SCRIPT_DEFINITIONS.indexOf(isolatedRegistration));
     });
 
     test('ships the first-run onboarding and guided side-panel pages', () => {

@@ -75,6 +75,14 @@ describe('Content Script Main Logic', () => {
         window = dom.window;
         document = window.document;
         window.chrome = global.chrome;
+        window.opsToolshedExtensionState = {
+            ready: Promise.resolve(true),
+            isActive: () => true,
+            subscribe(listener) {
+                listener(true);
+                return () => {};
+            }
+        };
         Object.defineProperty(document.body, 'innerText', {
             configurable: true,
             get() {

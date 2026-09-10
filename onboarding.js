@@ -1,5 +1,7 @@
-(function() {
+(async function() {
     'use strict';
+
+    if (window.opsToolshedPageGate && !(await window.opsToolshedPageGate.allow())) return;
 
     const PRISMA_HOME = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns';
     const defaults = {

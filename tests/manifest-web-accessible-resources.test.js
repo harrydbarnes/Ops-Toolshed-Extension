@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const manifest = require('../manifest.json');
+const { CONTENT_SCRIPT_DEFINITIONS } = require('../background/content-script-definitions');
 const logoFeature = fs.readFileSync(path.resolve(__dirname, '../features/logo.js'), 'utf8');
 const swapAccountsFeature = fs.readFileSync(path.resolve(__dirname, '../features/swap-accounts.js'), 'utf8');
 
@@ -16,7 +17,7 @@ describe('web-accessible resource scope', () => {
     test('keeps every exposed asset tied to its current Mediaocean consumer', () => {
         expect(logoFeature).toContain("chrome.runtime.getURL('icon.png')");
         expect(swapAccountsFeature).toContain("chrome.runtime.getURL('features/swap-accounts.css')");
-        expect(manifest.content_scripts.every(registration =>
+        expect(CONTENT_SCRIPT_DEFINITIONS.every(registration =>
             registration.matches.every(match => match.startsWith('https://*.mediaocean.com/'))
         )).toBe(true);
     });

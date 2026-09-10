@@ -66,6 +66,10 @@
     if (!isCampaignDetailsFrame() || !chrome.runtime?.onMessage?.addListener) return;
     chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
         if (request?.action !== FOCUS_ACTION) return;
+        if (window.opsToolshedExtensionState?.isActive?.() === false) {
+            sendResponse({ status: 'disabled' });
+            return;
+        }
         sendResponse({ status: 'accepted' });
         startBasicFocus();
     });

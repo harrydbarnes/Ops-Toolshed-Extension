@@ -10,7 +10,7 @@ describe('Loading Facts review settings', () => {
         expect(settingsHtml).toContain('id="tab-loading-facts"');
         expect(settingsHtml).toContain('id="loadingFactReviewList"');
         expect(settingsHtml).toContain('id="exportLoadingFactRatings"');
-        expect(settingsHtml).toContain('<script src="features/loading-facts.js"></script>');
+        expect(settingsHtml).toContain('data-scripts="feature-settings-registry.js,build-info.js,utils.js,features/feedback-modal.js,features/loading-facts.js,settings.js"');
     });
 
     test('stores ratings locally and exports fact text with each rating', () => {

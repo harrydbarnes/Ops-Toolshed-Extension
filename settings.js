@@ -13,63 +13,18 @@ function isMissingContentScriptReceiverError(error) {
     return /could not establish connection|receiving end does not exist|message port closed before a response was received/i.test(message);
 }
 
+const featureSettingsRegistry = typeof module !== 'undefined' && module.exports
+    ? require('./feature-settings-registry')
+    : globalThis.OpsToolshedFeatureSettings;
+
 const SETTINGS_DEFAULTS = Object.freeze({
     uiTheme: 'pink',
     reminderTheme: 'pink',
     autoCopyUrlMode: 'short',
     metaFinanceToolMode: 'social',
-    logoReplaceEnabled: true,
-    appLearnReplaceEnabled: true,
-    blockAppLearnPopupsEnabled: true,
-    helpGuidesEnabled: true,
-    approverSidebarEnhancementsEnabled: true,
-    approverSubmittedRecipientDisplayEnabled: true,
-    approvalTrackingEnabled: true,
-    approvalBannerIndicatorEnabled: true,
-    approvalToastNotificationEnabled: true,
-    actualiseBulkExportEnabled: true,
+    ...featureSettingsRegistry.BOOLEAN_DEFAULTS,
     prismaReminderFrequency: 'daily',
     prismaCountdownDuration: '5',
-    metaReminderEnabled: true,
-    iasReminderEnabled: true,
-    fontSizeToggleEnabled: true,
-    resizableChatToggleEnabled: true,
-    scheduledChatToggleEnabled: true,
-    directMoeChatEnabled: true,
-    addCampaignShortcutEnabled: true,
-    hidingSectionsEnabled: true,
-    automateFormFieldsEnabled: true,
-    countPlacementsSelectedEnabled: true,
-    swapAccountsEnabled: true,
-    rememberAccountSwitchUrlEnabled: true,
-    bannerUsernameEnabled: true,
-    alwaysShowCommentsEnabled: true,
-    orderIdCopyEnabled: true,
-    maxCampaignBudgetEnabled: true,
-    newOrderUiOptimisationEnabled: true,
-    ordersShortcutEnabled: true,
-    actualiseShortcutEnabled: true,
-    approverWidgetPlacementEnabled: true,
-    campaignHistoryEnabled: true,
-    campaignHistoryLoggingEnabled: true,
-    dstAssuranceEnabled: true,
-    actualiseMonthAssuranceEnabled: true,
-    productCodeLimitWarningEnabled: true,
-    quickCampaignActionsEnabled: true,
-    budgetWidgetOptimisedEnabled: true,
-    campaignNameQuickCopyEnabled: true,
-    campaignHeaderQuickCopyEnabled: true,
-    campaignDateShortcutEnabled: true,
-    actualiseScrollRestoreEnabled: true,
-    actualiseNavbarEnabled: true,
-    campaignTabTitleEnabled: true,
-    planToBuyRedirectEnabled: true,
-    gmiChatShortcutEnabled: true,
-    autoCopyUrlEnabled: true,
-    loadingFactsEnabled: true,
-    orderGridScrollSyncEnabled: true,
-    statsCollectorEnabled: true,
-    timesheetReminderEnabled: true,
     reminderDay: 'Friday',
     reminderTime: '14:30',
     customReminders: Object.freeze([])
@@ -584,6 +539,7 @@ function setupToggle(toggleId, storageKey, logMessage, settings) {
  
  
 document.addEventListener('DOMContentLoaded', async function() {
+    if (window.opsToolshedPageGate && !(await window.opsToolshedPageGate.allow())) return;
     if (settingsPageInitialized) return;
     settingsPageInitialized = true;
 

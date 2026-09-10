@@ -101,10 +101,17 @@ async function broadcastApprovalEvent(campaign) {
     }
 }
 
+async function isApprovalPollingEnabled() {
+    const settings = await chrome.storage.sync.get({
+        approvalTrackingEnabled: true,
+        allFeaturesDisabled: false
+    });
+    return settings.allFeaturesDisabled !== true && settings.approvalTrackingEnabled !== false;
+}
+
 export async function pollPendingApprovals() {
     try {
-        const settings = await chrome.storage.sync.get({ approvalTrackingEnabled: true });
-        if (settings.approvalTrackingEnabled === false) return;
+        if (!(await isApprovalPollingEnabled())) return;
 
         const pending = await getPendingApprovals();
         const campaignIds = Object.keys(pending);
@@ -131,6 +138,7 @@ export async function pollPendingApprovals() {
                 }
 
                 const data = await response.json();
+                if (!(await isApprovalPollingEnabled())) return;
                 if (data && data.budgetApprovalStatus === 'APPROVED') {
                     delete pending[campaignId];
                     pendingChanged = true;
@@ -150,7 +158,9 @@ export async function pollPendingApprovals() {
                     approvedList.unshift(approvedRecord);
                     approvedChanged = true;
 
-                    await broadcastApprovalEvent(approvedRecord);
+                    if (await isApprovalPollingEnabled()) {
+                        await broadcastApprovalEvent(approvedRecord);
+                    }
                 } else {
                     entry.lastChecked = Date.now();
                     pendingChanged = true;
@@ -160,6 +170,7 @@ export async function pollPendingApprovals() {
             }
         }
 
+        if (!(await isApprovalPollingEnabled())) return;
         if (pendingChanged) {
             await chrome.storage.local.set({ [PENDING_APPROVAL_KEY]: pending });
         }
