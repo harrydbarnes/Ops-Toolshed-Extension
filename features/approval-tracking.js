@@ -374,7 +374,9 @@
 
         const badge = document.createElement('span');
         badge.className = 'toolshed-approval-panel-badge';
-        badge.textContent = `${approvedCount}/${totalCount} Approved`;
+        badge.textContent = totalCount === 0
+            ? 'Campaign Approvals'
+            : `${approvedCount}/${totalCount} Approved`;
         titleGroup.appendChild(badge);
         header.appendChild(titleGroup);
 
@@ -780,7 +782,9 @@
         const totalCount = approvedCount + pendingCount;
 
         const noun = totalCount === 1 ? 'Campaign' : 'Campaigns';
-        const summaryText = `${approvedCount}/${totalCount} ${noun} Approved`;
+        const summaryText = totalCount === 0
+            ? 'Campaign Approvals'
+            : `${approvedCount}/${totalCount} ${noun} Approved`;
 
         buttons.forEach(btn => {
             btn.style.removeProperty('display');

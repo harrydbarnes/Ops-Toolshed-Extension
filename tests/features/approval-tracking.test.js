@@ -329,7 +329,7 @@ describe('Approval Tracking Content Script UI', () => {
         expect(scriptCode).not.toMatch(/waitForElementInShadow\('mo-banner-user-menu'/);
     });
 
-    test('displays 0/0 Campaigns Approved when no tracked campaigns exist', async () => {
+    test('displays a clear resting state when no tracked campaigns exist', async () => {
         localData[APPROVED_CAMPAIGNS_KEY] = [];
         localData[PENDING_APPROVAL_KEY] = {};
 
@@ -339,7 +339,7 @@ describe('Approval Tracking Content Script UI', () => {
 
         const btn = document.querySelector('.toolshed-approval-banner-button');
         expect(btn).not.toBeNull();
-        expect(btn.textContent).toContain('0/0 Campaigns Approved');
+        expect(btn.textContent).toContain('Campaign Approvals');
         expect(btn.classList.contains('is-none-tracked')).toBe(true);
     });
 
@@ -498,7 +498,7 @@ describe('Approval Tracking Content Script UI', () => {
             .toContain('Check now');
     });
 
-    test('clearing all approved campaigns updates the banner button to 0/0 Campaigns Approved', async () => {
+    test('clearing all approved campaigns returns the banner to its resting state', async () => {
         localData[APPROVED_CAMPAIGNS_KEY] = [
             { campaignId: 'CP1', campaignName: 'Campaign 1', approvedAt: Date.now() },
             { campaignId: 'CP2', campaignName: 'Campaign 2', approvedAt: Date.now() }
@@ -529,11 +529,11 @@ describe('Approval Tracking Content Script UI', () => {
         clearAllBtn.click();
         await new Promise(r => setTimeout(r, 30));
 
-        expect(btn.textContent).toContain('0/0 Campaigns Approved');
+        expect(btn.textContent).toContain('Campaign Approvals');
         expect(btn.classList.contains('is-none-tracked')).toBe(true);
 
         const refreshedPanel = document.querySelector('.toolshed-approval-panel');
-        expect(refreshedPanel.textContent).toContain('0/0 Approved');
+        expect(refreshedPanel.textContent).toContain('Campaign Approvals');
         expect(refreshedPanel.textContent).toContain('No campaigns currently being tracked for approval.');
     });
 
@@ -572,4 +572,3 @@ describe('Approval Tracking Content Script UI', () => {
         await expect(window.approvalTrackingFeature.updateBannerIndicator()).resolves.toBeUndefined();
     });
 });
-

@@ -66,7 +66,7 @@ describe('release metadata', () => {
             expect(items[5].querySelector('.release-badge').dataset.releaseType).toBe('improved');
             expect(items[6].textContent).toContain('Not Submitted');
             expect(items[6].querySelector('.release-badge').dataset.releaseType).toBe('fixed');
-            expect(items[7].textContent).toContain('0/0 Campaigns Approved');
+            expect(items[7].textContent).toContain('clear idle state');
             expect(items[7].querySelector('.release-badge').dataset.releaseType).toBe('fixed');
             expect(items[8].textContent).toContain('Redistribute action');
             expect(items[8].querySelector('.release-badge').dataset.releaseType).toBe('fixed');

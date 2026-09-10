@@ -281,10 +281,14 @@
                 <h2>Advanced</h2>
                 <div class="toggle-container"><span>Stats Collector:</span><label class="toggle"><input type="checkbox" id="statsCollectorToggle"><span class="slider"></span></label></div>
                 <div class="toggle-container"><span>Diagnostics Mode (up to 24 hours):</span><label class="toggle"><input type="checkbox" id="diagnosticsModeToggle"><span class="slider"></span></label></div>
-                <p id="diagnosticsModeStatus" class="diagnostics-mode-status" role="status" aria-live="polite">Off. No diagnostic events are being recorded.</p>
-                <div class="diagnostics-mode-actions">
-                    <button id="exportDiagnosticsButton" class="settings-button" type="button">Export diagnostics</button>
-                    <button id="clearDiagnosticsButton" class="settings-button settings-button-secondary" type="button">Clear diagnostics</button>
+                <div class="diagnostics-mode-panel">
+                    <p id="diagnosticsModeStatus" class="diagnostics-mode-status" role="status" aria-live="polite">Off. No diagnostic events are being recorded.</p>
+                    <div class="diagnostics-mode-actions" aria-label="Diagnostics data actions">
+                        <button id="clearDiagnosticsButton" class="diagnostics-action diagnostics-action-clear" type="button" disabled>Clear</button>
+                        <button id="exportDiagnosticsButton" class="diagnostics-action diagnostics-action-icon" type="button" disabled aria-label="Export diagnostic data" title="Export diagnostic data">
+                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3v10m0-10 4 4m-4-4-4 4M5 14v4.5A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V14"/></svg>
+                        </button>
+                    </div>
                 </div>
                 <div class="onboarding-launch-actions">
                     <button id="launchOnboardingButton" class="settings-button" type="button">Launch user onboarding</button>

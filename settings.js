@@ -1340,12 +1340,19 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     const updateDiagnosticsStatus = report => {
         if (!diagnosticsModeStatus) return;
+        const eventCount = Array.isArray(report?.events) ? report.events.length : 0;
+        const hasSavedEvents = eventCount > 0;
+        if (exportDiagnosticsButton) exportDiagnosticsButton.disabled = !hasSavedEvents;
+        if (clearDiagnosticsButton) clearDiagnosticsButton.disabled = !hasSavedEvents;
         if (report?.active && report.expiresAt) {
             const expiresAt = new Date(report.expiresAt);
-            diagnosticsModeStatus.textContent = `Active until ${expiresAt.toLocaleString()} or until Chrome restarts, whichever comes first.`;
+            const expiryLabel = expiresAt.toLocaleString(undefined, {
+                dateStyle: 'medium',
+                timeStyle: 'short'
+            });
+            diagnosticsModeStatus.textContent = `Active until ${expiryLabel} or until Chrome restarts, whichever comes first.`;
             return;
         }
-        const eventCount = Array.isArray(report?.events) ? report.events.length : 0;
         diagnosticsModeStatus.textContent = eventCount > 0
             ? `Off. ${eventCount} saved diagnostic event${eventCount === 1 ? '' : 's'} available to export or clear.`
             : 'Off. No diagnostic events are being recorded.';

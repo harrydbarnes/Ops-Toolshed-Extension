@@ -237,7 +237,24 @@ describe('Settings feature toggle contract', () => {
             enabled: true
         });
         expect(toggle.checked).toBe(true);
-        expect(window.document.getElementById('diagnosticsModeStatus').textContent).toContain('Chrome restarts');
+        const statusText = window.document.getElementById('diagnosticsModeStatus').textContent;
+        expect(statusText).toContain('Chrome restarts');
+        expect(statusText).not.toMatch(/:\d{2}:\d{2}/);
+        dom.window.close();
+    });
+
+    test('keeps diagnostics data actions visually subordinate and disabled without saved events', async () => {
+        const { dom, window } = await createSettingsPage();
+        const panel = window.document.querySelector('.diagnostics-mode-panel');
+        const exportButton = window.document.getElementById('exportDiagnosticsButton');
+        const clearButton = window.document.getElementById('clearDiagnosticsButton');
+
+        expect(panel).not.toBeNull();
+        expect(panel.previousElementSibling?.querySelector('#diagnosticsModeToggle')).not.toBeNull();
+        expect(exportButton.getAttribute('aria-label')).toBe('Export diagnostic data');
+        expect(exportButton.disabled).toBe(true);
+        expect(clearButton.disabled).toBe(true);
+
         dom.window.close();
     });
 });

@@ -552,21 +552,88 @@ button:disabled, .settings-button:disabled {
     margin: 0;
 }
 
+.diagnostics-mode-panel {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0 0 16px 20px;
+    padding: 8px 0 8px 12px;
+    border-left: 1px solid #d8d8d8;
+}
+
 .diagnostics-mode-status {
-    margin: -4px 0 10px;
+    flex: 1 1 220px;
+    margin: 0;
     color: var(--md-sys-color-on-surface-variant, #5f6368);
     font-size: 0.9rem;
+    line-height: 1.35;
 }
 
 .diagnostics-mode-actions {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 16px;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 4px;
 }
 
-.diagnostics-mode-actions .settings-button {
+.diagnostics-action {
+    display: inline-flex;
+    min-height: 32px;
+    align-items: center;
+    justify-content: center;
     margin: 0;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--md-sys-color-primary, #6750a4);
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.diagnostics-action:hover:not(:disabled) {
+    background: rgba(103, 80, 164, 0.08);
+}
+
+.diagnostics-action:focus-visible {
+    outline: 2px solid var(--md-sys-color-primary, #6750a4);
+    outline-offset: 2px;
+}
+
+.diagnostics-action:disabled {
+    color: #9a999e;
+    cursor: not-allowed;
+}
+
+.diagnostics-action-clear {
+    padding: 0 8px;
+}
+
+.diagnostics-action-icon {
+    width: 32px;
+    padding: 0;
+}
+
+.diagnostics-action-icon svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+}
+
+@media (max-width: 540px) {
+    .diagnostics-mode-panel {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .diagnostics-mode-actions {
+        margin-left: auto;
+    }
 }
 
 .nested-toggle-group {
