@@ -287,13 +287,16 @@ async function mainContentScriptInit() {
                 source: featureName,
                 operation: 'initialize',
                 outcome: 'success',
+                trigger: 'startup',
                 durationMs: (window.opsDiagnostics?.now?.() ?? Date.now()) - startedAt
             });
             if (result?.then) {
-                result.then(recordSuccess, () => window.opsDiagnostics?.record?.({
+                result.then(recordSuccess, error => window.opsDiagnostics?.record?.({
                     source: featureName,
                     operation: 'initialize',
                     outcome: 'error',
+                    trigger: 'startup',
+                    failureKind: window.opsDiagnostics?.classifyFailure?.(error) || 'unexpected',
                     durationMs: (window.opsDiagnostics?.now?.() ?? Date.now()) - startedAt
                 }));
             } else {
@@ -304,6 +307,8 @@ async function mainContentScriptInit() {
                 source: featureName,
                 operation: 'initialize',
                 outcome: 'error',
+                trigger: 'startup',
+                failureKind: window.opsDiagnostics?.classifyFailure?.(error) || 'unexpected',
                 durationMs: (window.opsDiagnostics?.now?.() ?? Date.now()) - startedAt
             });
             throw error;
@@ -324,6 +329,7 @@ async function mainContentScriptInit() {
         { name: 'approver-tools', getFeature: () => window.approverPastingFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
         { name: 'auto-copy-url', getFeature: () => window.autoCopyUrlFeature, when: route => (isPrismaLike || isAura) && route.isCampaignWorkspace },
         { name: 'live-chat-layout', getFeature: () => window.liveChatEnhancements, when: route => isPrismaLike && route.isCampaignWorkspace },
+        { name: 'moe-chat-media-auto-select', getFeature: () => window.moeChatMediaAutoSelectFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
         { name: 'campaign-tab-title', getFeature: () => window.campaignTabTitleFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
         { name: 'plan-to-buy', getFeature: () => window.planToBuyRedirectFeature, when: () => isPrismaLike },
         { name: 'campaign-history', getFeature: () => window.campaignHistoryFeature, when: () => isPrismaLike },
@@ -407,7 +413,7 @@ async function mainContentScriptInit() {
         };
     }
 
-    function runFastDynamicUiReconciliation() {
+    function runFastDynamicUiReconciliation(trigger) {
         if (!contentScriptActive) return;
         const diagnosticsStartedAt = window.opsDiagnostics?.now?.() ?? Date.now();
         const dirtyGroupCount = DIRTY_FEATURE_GROUPS.filter(hasDirtyFeature).length;
@@ -458,12 +464,13 @@ async function mainContentScriptInit() {
             source: 'content-lifecycle',
             operation: 'reconcile-fast',
             outcome: 'success',
+            trigger,
             durationMs: (window.opsDiagnostics?.now?.() ?? Date.now()) - diagnosticsStartedAt,
             details: { dirtyGroupCount }
         });
     }
 
-    function runDeferredDynamicUiReconciliation() {
+    function runDeferredDynamicUiReconciliation(trigger) {
         if (!contentScriptActive) return;
         const diagnosticsStartedAt = window.opsDiagnostics?.now?.() ?? Date.now();
         const dirtyGroupCount = DIRTY_FEATURE_GROUPS.filter(hasDirtyFeature).length;
@@ -544,20 +551,26 @@ async function mainContentScriptInit() {
             source: 'content-lifecycle',
             operation: 'reconcile-deferred',
             outcome: 'success',
+            trigger,
             durationMs: (window.opsDiagnostics?.now?.() ?? Date.now()) - diagnosticsStartedAt,
             details: { dirtyGroupCount }
         });
     }
 
-    function scheduleDynamicUiReconciliation() {
+    let pendingReconciliationTrigger = 'startup';
+
+    function scheduleDynamicUiReconciliation(trigger = 'mutation') {
         if (!contentScriptActive) return;
         if (!hasAnyDirtyFeatures()) return;
+        if (trigger === 'route-change' || pendingReconciliationTrigger !== 'route-change') {
+            pendingReconciliationTrigger = trigger;
+        }
 
         if (!fastReconciliationQueued) {
             fastReconciliationQueued = true;
             scheduleFrame(() => {
                 fastReconciliationQueued = false;
-                runFastDynamicUiReconciliation();
+                runFastDynamicUiReconciliation(pendingReconciliationTrigger);
             });
         }
 
@@ -566,7 +579,7 @@ async function mainContentScriptInit() {
         if (deferredReconciliationTimer === null) {
             deferredReconciliationTimer = window.setTimeout(() => {
                 deferredReconciliationTimer = null;
-                runDeferredDynamicUiReconciliation();
+                runDeferredDynamicUiReconciliation(pendingReconciliationTrigger);
             }, 300);
         }
     }
@@ -578,14 +591,14 @@ async function mainContentScriptInit() {
         const urlChanged = handleUrlChange();
         const nativeMutationNeedsReconciliation = markDirtyFeaturesFromMutations(mutations);
         if (urlChanged || nativeMutationNeedsReconciliation) {
-            scheduleDynamicUiReconciliation();
+            scheduleDynamicUiReconciliation(urlChanged ? 'route-change' : 'mutation');
         }
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
     // Run one initial pass so the dirty state is cleared before the observer
     // begins filtering extension-owned DOM churn.
-    scheduleDynamicUiReconciliation();
+    scheduleDynamicUiReconciliation('startup');
 }
 
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {

@@ -51,12 +51,37 @@
         }
     }
 
+    function getCampaignId() {
+        try {
+            const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+            const campaignId = String(params.get('campaign-id') || '').trim();
+            return /^[a-zA-Z0-9_-]{1,64}$/.test(campaignId) ? campaignId : undefined;
+        } catch {
+            return undefined;
+        }
+    }
+
+    function classifyFailure(error) {
+        const message = String(error?.message || error || '').toLowerCase();
+        if (message.includes('timeout')) return 'timeout';
+        if (message.includes('failed to fetch') || message.includes('network') || message.includes('net::')) return 'network';
+        if (message.includes('extension context invalidated')) return 'stale-extension-context';
+        if (message.includes('not found') || message.includes('missing')) return 'missing-dom';
+        if (message.includes('permission') || message.includes('not allowed') || message.includes('unauthorized') || message.includes('forbidden')) return 'permission';
+        return 'unexpected';
+    }
+
     function record(event) {
         if (!enabled) return;
         try {
+            const campaignId = event?.campaignId || getCampaignId();
             Promise.resolve(chrome.runtime.sendMessage({
                 action: 'RECORD_DIAGNOSTIC_EVENT',
-                event: { ...event, area: event?.area || getArea() }
+                event: {
+                    ...event,
+                    area: event?.area || getArea(),
+                    ...(campaignId ? { campaignId } : {})
+                }
             })).catch(() => {});
         } catch {
             // Diagnostics must never affect the feature being measured.
@@ -75,12 +100,14 @@
         if (!enabled || !event.target?.closest) return;
         const action = FEATURE_ACTIONS.find(([selector]) => event.target.closest(selector));
         if (!action) return;
-        record({ source: action[1], operation: action[2], outcome: 'invoked' });
+        record({ source: action[1], operation: action[2], outcome: 'invoked', trigger: 'user-action' });
     }, true);
 
     window.opsDiagnostics = {
         isEnabled: () => enabled,
         now: () => window.performance?.now?.() ?? Date.now(),
+        getCampaignId,
+        classifyFailure,
         record,
         recordRateLimited
     };

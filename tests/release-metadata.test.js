@@ -51,7 +51,7 @@ describe('release metadata', () => {
             const currentRelease = dom.window.document.querySelector('#release-notes .release');
             const items = Array.from(currentRelease.querySelectorAll('li'));
 
-            expect(items).toHaveLength(12);
+            expect(items).toHaveLength(13);
             expect(items[0].textContent).toContain('Campaign Approval Tracking');
             expect(items[0].querySelector('.release-badge').dataset.releaseType).toBe('new');
             expect(items[1].textContent).toContain('Campaign History');
@@ -62,18 +62,20 @@ describe('release metadata', () => {
             expect(items[3].querySelector('.release-badge').dataset.releaseType).toBe('improved');
             expect(items[4].textContent).toContain('Campaign Approval Tracking');
             expect(items[4].querySelector('.release-badge').dataset.releaseType).toBe('improved');
-            expect(items[5].textContent).toContain('Features Off');
+            expect(items[5].textContent).toContain('Moe Chat');
             expect(items[5].querySelector('.release-badge').dataset.releaseType).toBe('improved');
-            expect(items[6].textContent).toContain('Not Submitted');
-            expect(items[6].querySelector('.release-badge').dataset.releaseType).toBe('fixed');
-            expect(items[7].textContent).toContain('clear idle state');
+            expect(items[6].textContent).toContain('Features Off');
+            expect(items[6].querySelector('.release-badge').dataset.releaseType).toBe('improved');
+            expect(items[7].textContent).toContain('Not Submitted');
             expect(items[7].querySelector('.release-badge').dataset.releaseType).toBe('fixed');
-            expect(items[8].textContent).toContain('Redistribute action');
+            expect(items[8].textContent).toContain('clear idle state');
             expect(items[8].querySelector('.release-badge').dataset.releaseType).toBe('fixed');
-            expect(items[10].textContent).toContain('permanent Moe chat bubble');
-            expect(items[10].querySelector('.release-badge').dataset.releaseType).toBe('fixed');
-            expect(items[11].textContent).toContain('retired Loading Fact Review');
+            expect(items[9].textContent).toContain('Redistribute action');
+            expect(items[9].querySelector('.release-badge').dataset.releaseType).toBe('fixed');
+            expect(items[11].textContent).toContain('permanent Moe chat bubble');
             expect(items[11].querySelector('.release-badge').dataset.releaseType).toBe('fixed');
+            expect(items[12].textContent).toContain('retired Loading Fact Review');
+            expect(items[12].querySelector('.release-badge').dataset.releaseType).toBe('fixed');
         } finally {
             dom.window.close();
         }

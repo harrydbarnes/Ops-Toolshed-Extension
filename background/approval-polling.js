@@ -122,6 +122,8 @@ export async function pollPendingApprovals() {
                 source: 'approval-tracking',
                 operation: 'scheduled-check',
                 outcome: 'skipped',
+                trigger: 'scheduled',
+                reason: 'approval-tracking-disabled',
                 durationMs: Date.now() - startedAt
             });
             return;
@@ -134,6 +136,8 @@ export async function pollPendingApprovals() {
                 source: 'approval-tracking',
                 operation: 'scheduled-check',
                 outcome: 'success',
+                trigger: 'scheduled',
+                reason: 'no-pending-campaigns',
                 durationMs: Date.now() - startedAt,
                 details: { pendingCount: 0, checkedCount: 0, failedCount: 0, approvedTransitions: 0 }
             });
@@ -208,6 +212,7 @@ export async function pollPendingApprovals() {
             source: 'approval-tracking',
             operation: 'scheduled-check',
             outcome: failedCount > 0 ? 'partial' : 'success',
+            trigger: 'scheduled',
             durationMs: Date.now() - startedAt,
             details: {
                 pendingCount: campaignIds.length,
@@ -222,6 +227,8 @@ export async function pollPendingApprovals() {
             source: 'approval-tracking',
             operation: 'scheduled-check',
             outcome: 'error',
+            trigger: 'scheduled',
+            failureKind: 'unexpected',
             durationMs: Date.now() - startedAt,
             details: { checkedCount, failedCount: failedCount + 1, approvedTransitions }
         });

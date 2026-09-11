@@ -70,7 +70,7 @@ describe('Diagnostics manager', () => {
         expect(sessionStore.diagnosticsModeSessionActive).toBeUndefined();
     });
 
-    test('stores only allow-listed, non-identifying diagnostic fields', async () => {
+    test('stores only allow-listed diagnostics fields, including a valid campaign ID', async () => {
         const now = Date.parse('2026-09-10T10:00:00Z');
         await diagnostics.enableDiagnostics(now);
 
@@ -79,6 +79,9 @@ describe('Diagnostics manager', () => {
             operation: 'Scheduled Check',
             outcome: 'Success',
             area: 'actualise',
+            campaignId: 'CP_12345',
+            trigger: 'scheduled',
+            failureKind: 'network',
             durationMs: 123.6,
             details: {
                 checkedCount: 3,
@@ -95,6 +98,9 @@ describe('Diagnostics manager', () => {
             operation: 'scheduled-check',
             outcome: 'success',
             area: 'actualise',
+            campaignId: 'CP_12345',
+            trigger: 'scheduled',
+            failureKind: 'network',
             durationMs: 124,
             details: { checkedCount: 3, approvedTransitions: 1 }
         }]);
@@ -115,6 +121,28 @@ describe('Diagnostics manager', () => {
 
         expect(localStore.diagnosticEvents).toHaveLength(diagnostics.MAX_EVENTS);
         expect(localStore.diagnosticEvents.at(-1).operation).toBe('latest');
+    });
+
+    test('aggregates routine reconciliation events while retaining their count and slowest duration', async () => {
+        const now = Date.parse('2026-09-10T10:00:00Z');
+        await diagnostics.enableDiagnostics(now);
+
+        await diagnostics.recordDiagnosticEvent({
+            source: 'content-lifecycle', operation: 'reconcile-fast', outcome: 'success',
+            area: 'buy', campaignId: 'CP123', trigger: 'mutation', durationMs: 4,
+            details: { dirtyGroupCount: 3 }
+        }, now + 1000);
+        await diagnostics.recordDiagnosticEvent({
+            source: 'content-lifecycle', operation: 'reconcile-fast', outcome: 'success',
+            area: 'buy', campaignId: 'CP123', trigger: 'mutation', durationMs: 9,
+            details: { dirtyGroupCount: 5 }
+        }, now + 2000);
+
+        expect(localStore.diagnosticEvents).toHaveLength(1);
+        expect(localStore.diagnosticEvents[0]).toMatchObject({
+            durationMs: 9,
+            details: { dirtyGroupCount: 5, sampleCount: 2, totalDurationMs: 13, maxDurationMs: 9 }
+        });
     });
 
     test('caches the disabled state so normal feature use adds no repeated storage work', async () => {

@@ -34,7 +34,7 @@ describe('Diagnostics content bridge', () => {
         page.dom.window.close();
     });
 
-    test('sends only the event and coarse Prisma area when enabled', () => {
+    test('sends the event, coarse Prisma area, and the current campaign ID when enabled', () => {
         const page = setup(true);
 
         page.window.opsDiagnostics.record({ source: 'test', operation: 'run', outcome: 'success' });
@@ -45,10 +45,10 @@ describe('Diagnostics content bridge', () => {
                 source: 'test',
                 operation: 'run',
                 outcome: 'success',
-                area: 'buy'
+                area: 'buy',
+                campaignId: 'private-id'
             }
         });
-        expect(JSON.stringify(page.window.chrome.runtime.sendMessage.mock.calls)).not.toContain('private-id');
         page.dom.window.close();
     });
 
@@ -83,7 +83,9 @@ describe('Diagnostics content bridge', () => {
             source: 'order-id-copy',
             operation: 'copy',
             outcome: 'invoked',
-            area: 'buy'
+            area: 'buy',
+            campaignId: 'private-id',
+            trigger: 'user-action'
         });
         expect(JSON.stringify(diagnosticMessage)).not.toContain('Sensitive order reference');
         page.dom.window.close();

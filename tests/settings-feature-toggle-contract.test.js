@@ -50,6 +50,7 @@ const FEATURE_TOGGLE_KEYS = {
     gmiChatShortcutToggle: 'gmiChatShortcutEnabled',
     fontSizeToggle: 'fontSizeToggleEnabled',
     resizableChatToggle: 'resizableChatToggleEnabled',
+    moeChatMediaAutoSelectToggle: 'moeChatMediaAutoSelectEnabled',
     blockAppLearnPopupsToggle: 'blockAppLearnPopupsEnabled',
     actualiseScrollRestoreToggle: 'actualiseScrollRestoreEnabled',
     orderGridScrollSyncToggle: 'orderGridScrollSyncEnabled',

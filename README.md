@@ -7,6 +7,7 @@ Ops Toolshed is a Google Chrome extension that supercharges Mediaocean Prisma an
 ## What's new in 1.9
 - **Campaign Approval Tracking:** Monitors submitted campaigns in the background every 5 minutes, notifies users with an in-page toast alert when marked as Approved, displays an `x/y Campaign Approved` status notice with dropdown list next to Switch Accounts, and enables one-click navigation to open approved campaigns in a new tab.
 - **Campaign History:** Adds global search for visited campaigns by name, client, CP number, CL/PR/CA reference, or supplier with local logging and paginated browsing.
+- **Moe media auto-select:** When Moe asks for a media, automatically selects the current campaign media and sends the first prompt when the matching option is available. The behaviour can be disabled under Settings → Features → Live Chat.
 
 ---
 
@@ -120,7 +121,7 @@ View your personal productivity metrics in the **Release Notes, Roadmap + Stats*
 - Time spent waiting for Prisma to load across Home, Plan, Buy, Actualise, and Orders.
 - Activity heatmaps, streaks, and popups blocked.
 - *Note: Stats are stored 100% locally on your machine and can be disabled or reset at any time.*
-- **Diagnostics Mode:** Advanced Settings can temporarily record privacy-safe feature timings and outcomes for troubleshooting. It stays local, can be exported or cleared, and turns off after 24 hours or when Chrome restarts.
+- **Diagnostics Mode:** Advanced Settings can temporarily record local feature timings, lifecycle outcomes, coarse Prisma page area, and the current campaign ID when one is present. It stays local, can be exported or cleared, and turns off after 24 hours or when Chrome restarts; campaign IDs are included only in the user-exported file, so share it appropriately.
 
 ---
 

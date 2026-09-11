@@ -313,6 +313,7 @@ const FEATURE_SETTING_PREVIEWS = {
     gmiChatShortcutToggle: ['GMI Chat shortcut', 'Adds a direct shortcut to the GMI chat workflow.', 'Open GMI Chat'],
     fontSizeToggle: ['Smaller Chat Font', 'Uses a more compact font size in the live chat window.', 'Compact chat'],
     resizableChatToggle: ['Resizable Chat Window', 'Lets you resize the live chat window to suit the task.', 'Resize ↘'],
+    moeChatMediaAutoSelectToggle: ['Auto-select Moe media', 'Selects the campaign media in Moe and sends the first prompt when a matching option is available.', 'Digital selected'],
     blockAppLearnPopupsToggle: ['Block AppLearn popups', 'Closes the broken blank AppLearn login popups without affecting normal exports.', 'Popup blocked'],
     actualiseScrollRestoreToggle: ['Actualise scroll restoration', 'Restores the active grid’s horizontal position after an Actualise save refresh.', 'Position restored'],
     orderGridScrollSyncToggle: ['Order Summary alignment', 'Keeps Order Summary headers aligned with the scrolling grid.', 'Headers aligned'],
@@ -322,7 +323,7 @@ const FEATURE_SETTING_PREVIEWS = {
 
 function getFeaturePreviewImage(controlId) {
     if (controlId === 'helpGuidesToggle') return 'assets/feature-previews/prisma-help-guides.png';
-    if (['gmiChatShortcutToggle', 'fontSizeToggle', 'resizableChatToggle'].includes(controlId)) {
+    if (['gmiChatShortcutToggle', 'fontSizeToggle', 'resizableChatToggle', 'moeChatMediaAutoSelectToggle'].includes(controlId)) {
         return 'assets/feature-previews/prisma-ai-chat.png';
     }
     return 'assets/feature-previews/prisma-navigation.png';
@@ -1035,6 +1036,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Live Chat Enhancements 
     setupToggle('fontSizeToggle', 'fontSizeToggleEnabled', 'Font Size Toggle setting saved:', settings);
     setupToggle('resizableChatToggle', 'resizableChatToggleEnabled', 'Resizable Chat setting saved:', settings);
+    setupToggle('moeChatMediaAutoSelectToggle', 'moeChatMediaAutoSelectEnabled', 'Moe media auto-select setting saved:', settings);
  
     // Campaign Management Settings 
     setupToggle('addCampaignShortcutToggle', 'addCampaignShortcutEnabled', 'Add Campaign shortcut setting saved:', settings);

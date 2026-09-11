@@ -12,6 +12,7 @@ const scriptsToLoad = [
     'features/d-number-search.js',
     'features/gmi-chat.js',
     'features/live-chat-enhancements.js',
+    'features/moe-chat-media-auto-select.js',
     'features/approver-pasting.js',
     'features/max-campaign-budget.js',
     'features/dst-assurance.js',
@@ -188,6 +189,7 @@ describe('Content Script Main Logic', () => {
             'campaignTabTitleFeature',
             'loadingFactsFeature',
             'liveChatEnhancements',
+            'moeChatMediaAutoSelectFeature',
             'campaignHistoryFeature'
         ];
         const makeMocks = () => Object.fromEntries(featureNames.map(name => [name, {
@@ -232,6 +234,7 @@ describe('Content Script Main Logic', () => {
         expect(dashboardMocks.approverPastingFeature.initialize).not.toHaveBeenCalled();
         expect(dashboardMocks.autoCopyUrlFeature.initialize).not.toHaveBeenCalled();
         expect(dashboardMocks.liveChatEnhancements.initialize).not.toHaveBeenCalled();
+        expect(dashboardMocks.moeChatMediaAutoSelectFeature.initialize).not.toHaveBeenCalled();
         expect(dashboardMocks.orderIdCopyFeature.initialize).not.toHaveBeenCalled();
         expect(dashboardMocks.orderViewToggleFeature.initialize).not.toHaveBeenCalled();
         expect(dashboardMocks.orderGridScrollSyncFeature.initialize).not.toHaveBeenCalled();
@@ -285,6 +288,7 @@ describe('Content Script Main Logic', () => {
         expect(campaignMocks.approverPastingFeature.initialize).toHaveBeenCalledTimes(1);
         expect(campaignMocks.autoCopyUrlFeature.initialize).toHaveBeenCalledTimes(1);
         expect(campaignMocks.liveChatEnhancements.initialize).toHaveBeenCalledTimes(1);
+        expect(campaignMocks.moeChatMediaAutoSelectFeature.initialize).toHaveBeenCalledTimes(1);
         expect(campaignMocks.orderIdCopyFeature.initialize).toHaveBeenCalledTimes(1);
         expect(campaignMocks.orderViewToggleFeature.initialize).toHaveBeenCalledTimes(1);
         expect(campaignMocks.actualiseShortcutFeature.initialize).toHaveBeenCalledTimes(1);

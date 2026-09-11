@@ -20,6 +20,7 @@
         iasReminderEnabled: true,
         fontSizeToggleEnabled: true,
         resizableChatToggleEnabled: true,
+        moeChatMediaAutoSelectEnabled: true,
         addCampaignShortcutEnabled: true,
         hidingSectionsEnabled: true,
         automateFormFieldsEnabled: true,

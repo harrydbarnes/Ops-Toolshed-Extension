@@ -53,6 +53,7 @@ export const CONTENT_SCRIPT_DEFINITIONS = Object.freeze([
             'features/d-number-search.js',
             'features/gmi-chat.js',
             'features/live-chat-enhancements.js',
+            'features/moe-chat-media-auto-select.js',
             'features/approver-pasting.js',
             'features/loading-monitor.js',
             'features/stats-collector.js',
