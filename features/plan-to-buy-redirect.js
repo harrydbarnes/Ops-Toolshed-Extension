@@ -18,7 +18,8 @@
         }
 
         const isPrismaHost = url.hostname.includes('prisma.mediaocean.com') ||
-            url.hostname.includes('go.demo.mediaocean.com');
+            url.hostname === 'go.demo.mediaocean.com' ||
+            url.hostname === 'go.mediaocean.com';
         if (!isPrismaHost || url.pathname.replace(/\/+$/, '') !== CAMPAIGN_PATH) return '';
 
         const params = new URLSearchParams(url.hash.replace(/^#/, ''));
@@ -40,13 +41,20 @@
     function redirectIfNeeded(navigate = target => window.location.replace(target)) {
         if (!settingsLoaded || !enabled) return false;
         const target = buildBuyUrl(window.location.href);
-        if (!target || target === window.location.href) return false;
+        if (!target || target === window.location.href) {
+            // The deliberate Plan visit has ended. A later direct Plan URL
+            // should be treated as a fresh navigation.
+            manualPlanCampaignId = '';
+            manualPlanNavigationUntil = 0;
+            return false;
+        }
 
         const currentParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
         const campaignId = currentParams.get('campaign-id') || '';
         if (campaignId === manualPlanCampaignId && Date.now() <= manualPlanNavigationUntil) {
-            manualPlanCampaignId = '';
-            manualPlanNavigationUntil = 0;
+            // Chrome can report both popstate and hashchange for one navigation.
+            // Keep this exception until leaving Plan so the second event cannot
+            // undo a deliberate click.
             return false;
         }
 

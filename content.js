@@ -270,7 +270,8 @@ async function mainContentScriptInit() {
     const hostname = window.location.hostname || new URL(window.location.href).hostname;
     const isPrismaLike =
         hostname.includes('prisma.mediaocean.com') ||
-        hostname.includes('go.demo.mediaocean.com');
+        hostname === 'go.demo.mediaocean.com' ||
+        hostname === 'go.mediaocean.com';
     const isAura = hostname.includes('aura.mediaocean.com');
     const isMediaoceanPage = hostname.includes('mediaocean.com');
     const initialRoute = getDynamicRouteContext();

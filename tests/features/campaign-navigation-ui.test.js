@@ -415,6 +415,31 @@ describe('campaign navigation UI optimisation', () => {
         dom.window.close();
     });
 
+    test('copies the full name when Prisma renders a non-editable title without its popover', async () => {
+        const dom = createPage();
+        const { document, chrome } = dom.window;
+        const popover = document.querySelector('.mo-campaign-name-popover');
+        const nameElement = popover.querySelector('.mo-campaign-name-wrapper');
+        nameElement.removeAttribute('contenteditable');
+        nameElement.setAttribute('data-full-text', 'Complete Campaign Name');
+        nameElement.textContent = 'Complete Campaign…';
+        popover.replaceWith(nameElement);
+
+        nameElement.dispatchEvent(
+            new dom.window.MouseEvent('pointerdown', { bubbles: true, composed: true })
+        );
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+            action: 'copyCampaignHeaderToClipboard',
+            text: 'Complete Campaign Name'
+        }, expect.any(Function));
+        expect(document.getElementById('campaign-name-copy-toast').textContent)
+            .toBe('Campaign Name Copied to Clipboard!');
+        dom.window.close();
+    });
+
     test('supports callback-based runtime messaging for campaign name copy', async () => {
         const dom = createPage();
         const { document, chrome } = dom.window;

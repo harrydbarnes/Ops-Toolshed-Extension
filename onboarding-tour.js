@@ -3,7 +3,7 @@
 
     if (window.opsToolshedPageGate && !(await window.opsToolshedPageGate.allow())) return;
 
-    const PRISMA_HOME = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns';
+    const PRISMA_HOME = 'https://go.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns';
     const RETRY_DELAY = 900;
     const settingsDefaults = {
         helpGuidesEnabled: true,

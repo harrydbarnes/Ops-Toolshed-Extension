@@ -1341,6 +1341,29 @@ div[slot="right"].ai-style-change-1 {
   opacity: 1 !important;
 }
 
+/* Keep the Actualise title and workflow controls in separate flex items.
+   When their intrinsic widths no longer fit, give the controls their own row. */
+.toolshed-actualise-navbar-wrapper {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 12px;
+    height: auto !important;
+}
+
+.toolshed-actualise-navbar-wrapper > #p2b-navbar {
+    flex: 0 0 auto;
+    width: auto;
+}
+
+.toolshed-actualise-navbar-wrapper > .ai-style-change-1 {
+    position: static;
+    width: auto;
+    flex: 1 0 max-content;
+    justify-content: flex-end;
+    transform: none;
+}
+
 /* --- Campaign History --- */
 
 .toolshed-campaign-history-nav {

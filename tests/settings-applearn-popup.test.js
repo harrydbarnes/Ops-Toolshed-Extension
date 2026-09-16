@@ -34,6 +34,6 @@ describe('AppLearn popup blocking setting', () => {
         expect(settingsScript).toContain("openOnboardingSidePanel('onboarding-tour.html')");
         expect(settingsScript).toContain("openOnboardingSidePanel('onboarding-tour-v2.html')");
         expect(settingsScript).toContain("chrome.tabs.create({ url: ONBOARDING_PRISMA_HOME })");
-        expect(settingsScript).toContain("const ONBOARDING_PRISMA_HOME = 'https://groupmuk-prisma.mediaocean.com/campaign-management/");
+        expect(settingsScript).toContain("const ONBOARDING_PRISMA_HOME = 'https://go.mediaocean.com/campaign-management/");
     });
 });

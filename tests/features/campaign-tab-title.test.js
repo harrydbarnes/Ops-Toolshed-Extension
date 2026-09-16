@@ -77,6 +77,11 @@ describe('campaign tab title', () => {
         expect(dom.window.document.title).toBe('CRUK RFL Campaign');
     });
 
+    test('uses the campaign name on the new Prisma host', () => {
+        ({ dom } = setup({ url: campaignUrl.replace('groupmuk-prisma.mediaocean.com/campaign-management/', 'go.mediaocean.com/campaign-management/?_ctx=session') }));
+        expect(dom.window.document.title).toBe('CRUK RFL');
+    });
+
     test('uses a campaign name that is exactly 99 characters long', async () => {
         ({ dom } = setup({ title: 'prsm-cm-plan-to-buy' }));
         const campaignName = 'A'.repeat(99);

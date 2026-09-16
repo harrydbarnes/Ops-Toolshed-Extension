@@ -91,7 +91,7 @@ describe('First-run onboarding', () => {
         expect(chrome.sidePanel.setOptions).toHaveBeenCalledWith({ path: 'onboarding-tour-v2.html', enabled: true });
         expect(chrome.sidePanel.open).toHaveBeenCalledWith({ windowId: -2 });
         expect(chrome.tabs.update).toHaveBeenCalledWith(expect.objectContaining({
-            url: expect.stringContaining('groupmuk-prisma.mediaocean.com')
+            url: expect.stringContaining('go.mediaocean.com')
         }));
         expect(local.store).toEqual(expect.objectContaining({ onboardingCompleted: true, onboardingTourActive: true, onboardingTourVersion: 'v2' }));
         dom.window.close();

@@ -147,7 +147,8 @@
     function isPrismaPage() {
         const hostname = window.location.hostname || '';
         return hostname.includes('prisma.mediaocean.com') ||
-            hostname.includes('go.demo.mediaocean.com');
+            hostname === 'go.demo.mediaocean.com' ||
+            hostname === 'go.mediaocean.com';
     }
 
     function isCampaignRoute() {

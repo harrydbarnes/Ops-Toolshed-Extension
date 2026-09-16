@@ -97,16 +97,15 @@
         const tables = Array.from(document.querySelectorAll(GRID_SELECTOR));
         if (!tables.length) return { ready: false, signature: '' };
 
-        // Handsontable keeps frozen columns in a separate clone while the
-        // main table is horizontally scrolled. Combine the header evidence
-        // from all table instances so horizontal scrolling does not look like
-        // an unfinished month load.
+        // Handsontable only renders columns near the horizontal viewport.
+        // The native response confirms the month below; grid readiness only
+        // needs a rendered header, not particular off-screen column names.
         const headers = Array.from(new Set(tables.flatMap(table =>
             Array.from(table.querySelectorAll('thead th'))
                 .map(cell => normalizeText(cell.textContent).toLowerCase())
+                .filter(Boolean)
         )));
-        const hasActualiseHeaders = headers.includes('name') &&
-            headers.includes('start date') && headers.includes('end date');
+        const hasActualiseHeaders = headers.length > 0;
         const table = document.querySelector('#grid-container_hot .ht_master .htCore') ||
             tables.find(candidate => candidate.querySelector('tbody tr')) || tables[0];
         const rows = Array.from(table.querySelectorAll('tbody tr'));

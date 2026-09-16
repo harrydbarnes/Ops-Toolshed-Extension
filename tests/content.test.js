@@ -165,6 +165,20 @@ describe('Content Script Main Logic', () => {
         expect(window.statsCollector).toBeDefined();
     });
 
+    test('starts Prisma campaign features on go.mediaocean.com with context query', async () => {
+        const campaignHistoryFeature = { initialize: jest.fn() };
+        const approverPastingFeature = { initialize: jest.fn() };
+        const { window } = setupJSDOM(
+            'https://go.mediaocean.com/campaign-management/?_ctx=session#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP3JFCF&ptb-mod=buy&ptb-ctx=digital&route=online',
+            [],
+            { synchronousStorage: true, featureMocks: { campaignHistoryFeature, approverPastingFeature } }
+        );
+        await Promise.resolve();
+        expect(campaignHistoryFeature.initialize).toHaveBeenCalledTimes(1);
+        expect(approverPastingFeature.initialize).toHaveBeenCalledTimes(1);
+        expect(window.logoFeature.shouldReplaceLogoOnThisPage()).toBe(true);
+    });
+
     test('starts campaign features only on campaign routes and keeps Actualise/Orders route gates narrow', async () => {
         const featureNames = [
             'appLearnFeature',

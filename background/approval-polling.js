@@ -4,7 +4,7 @@ const PENDING_APPROVAL_KEY = 'pendingApprovalCampaigns';
 const APPROVED_CAMPAIGNS_KEY = 'approvedCampaigns';
 const ALARM_NAME = 'approvalStatusCheckAlarm';
 const ALARM_PERIOD_MINUTES = 5;
-const PRISMA_CAMPAIGN_API_BASE = 'https://groupmuk-prisma.mediaocean.com/campaign-service/secure/campaign/publicforui/';
+const PRISMA_CAMPAIGN_API_BASE = 'https://go.mediaocean.com/campaign-service/secure/campaign/publicforui/';
 
 export async function getPendingApprovals() {
     try {

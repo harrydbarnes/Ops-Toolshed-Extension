@@ -2,6 +2,7 @@ import { handleHelpGuidesPanelEvent, messageHandlers } from './background/messag
 import { migrateStats } from './background/stats-manager.js';
 import { setupApprovalAlarm, pollPendingApprovals, ALARM_NAME as APPROVAL_ALARM_NAME } from './background/approval-polling.js';
 import { expireDiagnosticsIfNeeded, recordDiagnosticEvent } from './background/diagnostics-manager.js';
+import { getLegacyPrismaRedirect } from './background/prisma-url.js';
 import {
   MASTER_FEATURE_KEY,
   featureModeReady,
@@ -248,6 +249,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             }
 
             const { action } = request;
+            // A side panel opened from a content-script click needs the original
+            // user gesture. Even awaiting an already-resolved promise loses it.
+            if (action === 'openHelpGuides') {
+                if (!isFeatureModeActive()) {
+                    respondOnce({ status: 'error', message: 'Ops Toolshed features are off or still starting.' });
+                    return;
+                }
+                diagnosticMessageEligible = true;
+                await messageHandlers.openHelpGuides(request, sender, respondOnce);
+                return;
+            }
+
             await featureModeReady;
             if (!isFeatureModeActive() && !isPopupSender(sender) && !DIAGNOSTIC_CONTROL_ACTIONS.has(action)) {
                 respondOnce({ status: 'error', message: 'Ops Toolshed features are off.' });
@@ -269,13 +282,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 handleOffscreenClipboard,
                 triggerTimesheetNotification
             };
-
-            // chrome.sidePanel.open() must be the first asynchronous operation
-            // after the page click or Chrome discards the user gesture.
-            if (action === 'openHelpGuides') {
-                await handler(request, sender, respondOnce, context);
-                return;
-            }
 
             await handler(request, sender, respondOnce, context);
         } catch (error) {
@@ -437,6 +443,11 @@ chrome.tabs.onCreated.addListener(tab => {
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (!isFeatureModeActive()) return;
     const currentUrl = changeInfo.url || tab.url;
+    const prismaRedirect = changeInfo.url && getLegacyPrismaRedirect(changeInfo.url);
+    if (prismaRedirect) {
+        chrome.tabs.update(tabId, { url: prismaRedirect });
+        return;
+    }
     if (changeInfo.status === 'loading' && isMediaoceanUrl(currentUrl)) {
         rememberLoadingMediaoceanTab(tabId, tab.windowId);
     } else if (changeInfo.status === 'complete' || (changeInfo.url && !isMediaoceanUrl(currentUrl))) {

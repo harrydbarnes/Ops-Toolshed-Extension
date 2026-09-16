@@ -369,7 +369,8 @@
         const href = window.location.href;
         // Check for specific URL components
         const params = new URLSearchParams(window.location.hash.substring(1));
-        if (!href.includes('groupmuk-prisma.mediaocean.com/campaign-management/') ||
+        if (!['groupmuk-prisma.mediaocean.com', 'go.mediaocean.com'].includes(window.location.hostname) ||
+            window.location.pathname.replace(/\/+$/, '') !== '/campaign-management' ||
             params.get('osAppId') !== 'prsm-cm-spa' ||
             params.get('osPspId') !== 'prsm-cm-buy' ||
             params.get('route') !== 'actualize') {
@@ -1053,13 +1054,11 @@
             const eventPath = event.composedPath();
             const nameElement = eventPath.find(node =>
                 node instanceof Element &&
-                node.matches('.mo-campaign-name-wrapper[contenteditable="true"]')
-            ) || eventPath.find(node =>
-                node instanceof Element && node.matches('.mo-campaign-name-popover')
-            )?.querySelector('.mo-campaign-name-wrapper');
+                node.matches('.mo-campaign-name-wrapper')
+            );
             if (!nameElement) return;
 
-            const campaignName = nameElement.textContent.trim();
+            const campaignName = (nameElement.getAttribute('data-full-text') || nameElement.textContent).trim();
             if (!campaignName) return;
 
             copyHeaderValue(campaignName, nameElement, 'Campaign Name Copied to Clipboard!');

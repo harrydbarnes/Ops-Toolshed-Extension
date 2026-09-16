@@ -3,7 +3,7 @@
 
     if (window.opsToolshedPageGate && !(await window.opsToolshedPageGate.allow())) return;
 
-    const PRISMA_HOME = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns';
+    const PRISMA_HOME = 'https://go.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns';
     const defaults = { helpGuidesEnabled: true, bannerUsernameEnabled: true, quickCampaignActionsEnabled: true, campaignNameQuickCopyEnabled: true, campaignHeaderQuickCopyEnabled: true, campaignDateShortcutEnabled: true, budgetWidgetOptimisedEnabled: true, ordersShortcutEnabled: true, actualiseShortcutEnabled: true, actualiseNavbarEnabled: true, approverWidgetPlacementEnabled: true, gmiChatShortcutEnabled: true, addCampaignShortcutEnabled: true };
     const elements = { count: document.getElementById('tour-count'), title: document.getElementById('tour-title'), description: document.getElementById('tour-description'), features: document.getElementById('tour-features'), status: document.getElementById('tour-status'), progress: document.getElementById('tour-progress-fill'), content: document.querySelector('.tour-content'), back: document.getElementById('tour-back'), next: document.getElementById('tour-next'), skip: document.getElementById('skip-tour') };
     let settings = { ...defaults };

@@ -3,7 +3,7 @@
 
     const SETTING_KEY = 'campaignTabTitleEnabled';
     const PRISMA_TITLE_PREFIX = 'Prisma Media - ';
-    const CAMPAIGN_HOST = 'groupmuk-prisma.mediaocean.com';
+    const CAMPAIGN_HOSTS = new Set(['groupmuk-prisma.mediaocean.com', 'go.mediaocean.com']);
     const CAMPAIGN_PATH = '/campaign-management';
     // Prisma's header reacts poorly when a long campaign value is read and
     // written back as the document title during its initial render. Keep this
@@ -21,7 +21,7 @@
     let observedTitleElement = null;
 
     function getCampaignId() {
-        if (window.location.hostname !== CAMPAIGN_HOST) return '';
+        if (!CAMPAIGN_HOSTS.has(window.location.hostname)) return '';
         if (window.location.pathname.replace(/\/+$/, '') !== CAMPAIGN_PATH) return '';
 
         const params = new URLSearchParams(window.location.hash.substring(1));

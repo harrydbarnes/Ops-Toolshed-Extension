@@ -79,6 +79,20 @@ describe('workflow widget alignment', () => {
         dom.window.close();
     });
 
+    test('allows Actualise workflow controls to wrap below the title when space is tight', () => {
+        const dom = new JSDOM(`<!doctype html><style>${contentStyles}</style>`);
+        const rules = Array.from(dom.window.document.styleSheets[0].cssRules);
+        const wrapperRule = rules.find(rule => rule.selectorText === '.toolshed-actualise-navbar-wrapper');
+        const navbarRule = rules.find(rule => rule.selectorText === '.toolshed-actualise-navbar-wrapper > #p2b-navbar');
+        const slotRule = rules.find(rule => rule.selectorText === '.toolshed-actualise-navbar-wrapper > .ai-style-change-1');
+
+        expect(wrapperRule.style.getPropertyValue('flex-wrap')).toBe('wrap');
+        expect(wrapperRule.style.getPropertyValue('height')).toBe('auto');
+        expect(navbarRule.style.getPropertyValue('flex')).toBe('0 0 auto');
+        expect(slotRule.style.getPropertyValue('flex')).toBe('1 0 max-content');
+        dom.window.close();
+    });
+
     test('keeps the Prisma page header above native modal layers', () => {
         const dom = new JSDOM(`<!doctype html>
             <html>

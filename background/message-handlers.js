@@ -13,6 +13,7 @@ const ACCOUNT_SWITCH_RETURN_URLS_KEY = 'accountSwitchReturnUrlsByTab';
 const ACCOUNT_SWITCH_RETURN_TTL_MS = 2 * 60 * 1000;
 import { scrapeAndDownloadCsv } from './meta-billing-scraper.js';
 import { handleTrackStat } from './stats-manager.js';
+import { PRISMA_DASHBOARD_URL } from './prisma-url.js';
 import {
     trackCampaignApproval,
     dismissApprovedCampaign,
@@ -21,7 +22,6 @@ import {
     pollPendingApprovals
 } from './approval-polling.js';
 
-const PRISMA_DASHBOARD_URL = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns';
 const MAX_RETRIES = 10;
 const RETRY_DELAY_MS = 500;
 

@@ -53,7 +53,7 @@ describe('Social Booking Checker upload guidance', () => {
         expect(css).toContain('--radius: 14px');
         expect(css).toContain('font-family: "Outfit", "Segoe UI", sans-serif');
         expect(document.querySelector('.population-check span').textContent).toBe('Missing bookings are only confirmed when Prisma includes every selected Meta account and reporting month.');
-        expect(toolshedHtml).toContain('The Social Booking Checker now supports removable drag-and-drop uploads');
+        expect(toolshedHtml).toContain('Social Booking Reports');
     });
 
     test('lists the required Meta report columns and scope', () => {
@@ -103,7 +103,7 @@ describe('Social Booking Checker upload guidance', () => {
         expect(input.getAttribute('aria-label')).toBe('Choose Prisma booking CSV');
         expect(input.getAttribute('aria-describedby')).toBe('prismaUploadScope');
         expect(card.querySelector('.export-source').textContent).toContain('In Prisma Reporting, pull the latest report you require, for example the Meta Integration Tracker.');
-        expect(document.querySelector('.file-card:nth-of-type(2) .export-source a').href).toBe('https://groupmuk-prisma.mediaocean.com/viewport-home/#osAppId=prsm-cvr&osPspId=prsm-cvr');
+        expect(document.querySelector('.file-card:nth-of-type(2) .export-source a').href).toBe('https://go.mediaocean.com/viewport-home/#osAppId=prsm-cvr&osPspId=prsm-cvr');
     });
 
     test('aligns upload cards and places imported-account removal at the scope footer', () => {

@@ -148,7 +148,7 @@ describe('generateUrlFromData', () => {
     });
 
     test('should generate a URL with the current month if date string is empty', () => {
-        const expectedUrl = `https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-buy&campaign-id=${campaignId}&route=actualize&mos=2024-07-01`;
+        const expectedUrl = `https://go.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-buy&campaign-id=${campaignId}&route=actualize&mos=2024-07-01`;
         expect(generateUrlFromData(campaignId, '')).toBe(expectedUrl);
     });
 
@@ -169,14 +169,14 @@ describe('generateUrlFromData', () => {
 
     testCases.forEach(({ input, expected }) => {
         test(`should correctly parse date format "${input}"`, () => {
-            const expectedUrl = `https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-buy&campaign-id=${campaignId}&route=actualize&mos=${expected}`;
+            const expectedUrl = `https://go.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-buy&campaign-id=${campaignId}&route=actualize&mos=${expected}`;
             expect(generateUrlFromData(campaignId, input)).toBe(expectedUrl);
         });
     });
 
     test('should handle different campaign IDs correctly', () => {
         const newCampaignId = 'ANOTHER-ID-123';
-        const expectedUrl = `https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-buy&campaign-id=${encodeURIComponent(newCampaignId)}&route=actualize&mos=2024-07-01`;
+        const expectedUrl = `https://go.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-buy&campaign-id=${encodeURIComponent(newCampaignId)}&route=actualize&mos=2024-07-01`;
         expect(generateUrlFromData(newCampaignId, '')).toBe(expectedUrl);
     });
 });

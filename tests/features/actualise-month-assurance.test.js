@@ -213,6 +213,23 @@ describe('Actualise month assurance', () => {
         expect(badgeText).toBe('Correct Month');
     });
 
+    test('stays green when horizontal scrolling virtualizes all identifying columns', () => {
+        const feature = createFeature();
+        feature.window.actualiseMonthAssuranceFeature.initialize();
+        feature.emitEvidence(['2025-11']);
+
+        const headers = feature.window.document.querySelectorAll('#grid-container_hot thead th');
+        ['Supplier', 'Spend', 'Actuals'].forEach((label, index) => {
+            headers[index].textContent = label;
+        });
+
+        feature.window.actualiseMonthAssuranceFeature.apply();
+        expect(feature.window.actualiseMonthAssuranceFeature.assessActualiseMonth().status).toBe('correct');
+        expect(feature.window.document.querySelector('.toolshed-actualise-month-assurance').textContent)
+            .toBe('Correct Month');
+        feature.dom.window.close();
+    });
+
     test('supports the native Actualise month button group', async () => {
         const feature = createFeature({
             monthControl: 'button-group',

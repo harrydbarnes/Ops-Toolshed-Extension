@@ -37,6 +37,13 @@ describe('Plan to Buy redirect', () => {
         dom.window.close();
     });
 
+    test('retains Prisma context on the new host when moving Plan to Buy', () => {
+        const { dom, feature } = setup(planUrl);
+        const newPlanUrl = planUrl.replace('https://groupmuk-prisma.mediaocean.com/campaign-management/', 'https://go.mediaocean.com/campaign-management/?_ctx=session');
+        expect(feature.buildBuyUrl(newPlanUrl)).toBe(buyUrl.replace('https://groupmuk-prisma.mediaocean.com/campaign-management/', 'https://go.mediaocean.com/campaign-management/?_ctx=session'));
+        dom.window.close();
+    });
+
     test.each([
         buyUrl,
         'https://groupmuk-prisma.mediaocean.com/campaign-management/#osPspId=prsm-cm-plan-to-buy&ptb-mod=plan&ptb-ctx=rfpSummary',
@@ -74,6 +81,10 @@ describe('Plan to Buy redirect', () => {
 
         expect(feature.redirectIfNeeded(navigate)).toBe(false);
         expect(dom.window.location.hash).toContain('ptb-mod=plan');
+        expect(feature.redirectIfNeeded(navigate)).toBe(false);
+        dom.window.history.replaceState({}, '', buyUrl);
+        expect(feature.redirectIfNeeded(navigate)).toBe(false);
+        dom.window.history.replaceState({}, '', planLink);
         expect(feature.redirectIfNeeded(navigate)).toBe(true);
         expect(navigate).toHaveBeenCalledWith(buyUrl);
         dom.window.close();

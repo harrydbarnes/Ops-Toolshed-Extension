@@ -211,7 +211,8 @@
     function checkForMetaConditions() {
         if (metaReminderDismissed || metaCheckInProgress) return;
         const currentUrl = window.location.href;
-        if (!currentUrl.includes('groupmuk-prisma.mediaocean.com/') || !currentUrl.includes('actualize')) return;
+        if (!['groupmuk-prisma.mediaocean.com', 'go.mediaocean.com'].includes(window.location.hostname) ||
+            !currentUrl.includes('actualize')) return;
 
         // Use cached settings
         if (!metaReminderEnabled) return;

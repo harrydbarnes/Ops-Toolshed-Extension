@@ -569,7 +569,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 
-    const ONBOARDING_PRISMA_HOME = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns';
+    const ONBOARDING_PRISMA_HOME = 'https://go.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns';
 
     function openOnboardingSidePanel(path) {
         try {

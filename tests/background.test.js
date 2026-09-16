@@ -292,6 +292,23 @@ describe('AppLearn popup blocking', () => {
     });
 });
 
+describe('legacy Prisma tab redirect', () => {
+    beforeEach(() => {
+        resetMocks();
+        jest.resetModules();
+        require('../background');
+    });
+
+    test('moves an old campaign link to go.mediaocean.com in the same tab', () => {
+        const listener = chrome.tabs.onUpdated.addListener.mock.calls[0][0];
+        const url = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP3JFCF&ptb-mod=buy';
+        listener(12, { url }, { id: 12, url, windowId: 7 });
+        expect(chrome.tabs.update).toHaveBeenCalledWith(12, {
+            url: 'https://go.mediaocean.com/campaign-management/#campaign-id=CP3JFCF&ptb-mod=buy'
+        });
+    });
+});
+
 describe('Background message routing', () => {
     const waitForResponse = async (sendResponse) => {
         for (let attempt = 0; attempt < 20 && sendResponse.mock.calls.length === 0; attempt++) {
@@ -643,18 +660,35 @@ describe('Background message routing', () => {
         expect(sendResponse).not.toHaveBeenCalled();
     });
 
-    test('opens Help Guides before any asynchronous storage gate can consume the user gesture', async () => {
+    test('opens Help Guides synchronously before the feature-mode promise consumes the user gesture', async () => {
         chrome.sidePanel.open.mockResolvedValue(undefined);
         chrome.sidePanel.setOptions.mockResolvedValue(undefined);
         const listener = loadMessageListener();
         const sendResponse = jest.fn();
 
         listener({ action: 'openHelpGuides' }, { tab: { id: 42 } }, sendResponse);
+        // This assertion must run before a microtask: Chrome rejects a later open().
+        expect(chrome.sidePanel.open).toHaveBeenCalledWith({ tabId: 42 });
         await waitForResponse(sendResponse);
 
         expect(chrome.storage.local.get).not.toHaveBeenCalled();
-        expect(chrome.sidePanel.open).toHaveBeenCalledWith({ tabId: 42 });
         expect(sendResponse).toHaveBeenCalledWith({ status: 'success', panelState: 'open' });
+    });
+
+    test('does not open Help Guides while features are off', async () => {
+        const listener = loadMessageListener();
+        const featureMode = require('../background/feature-mode');
+        featureMode.isFeatureModeActive.mockReturnValue(false);
+        const sendResponse = jest.fn();
+
+        listener({ action: 'openHelpGuides' }, { tab: { id: 42 } }, sendResponse);
+
+        expect(chrome.sidePanel.open).not.toHaveBeenCalled();
+        expect(sendResponse).toHaveBeenCalledWith({
+            status: 'error',
+            message: 'Ops Toolshed features are off or still starting.'
+        });
+        featureMode.isFeatureModeActive.mockReturnValue(true);
     });
 });
 

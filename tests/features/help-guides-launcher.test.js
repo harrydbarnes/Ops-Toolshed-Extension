@@ -201,7 +201,7 @@ describe('Help Guides page launcher', () => {
         dom.window.close();
     });
 
-    test('does not expose a stale open action while the initial panel state is pending', async () => {
+    test('reconciles a click made before the initial panel state arrives', async () => {
         const { dom } = createFeature({ panelInitiallyOpen: true });
         const { window } = dom;
         window.helpGuidesLauncherFeature.initialize();
@@ -210,7 +210,7 @@ describe('Help Guides page launcher', () => {
         launcher.click();
         await Promise.resolve();
 
-        expect(window.chrome.runtime.sendMessage).toHaveBeenLastCalledWith({ action: 'getHelpGuidesPanelState' });
+        expect(window.chrome.runtime.sendMessage).toHaveBeenLastCalledWith({ action: 'openHelpGuides' });
         launcher.click();
         expect(window.chrome.runtime.sendMessage).toHaveBeenLastCalledWith({ action: 'closeHelpGuidesFromLauncher' });
         dom.window.close();
@@ -416,6 +416,22 @@ describe('Help Guides page launcher', () => {
         window.helpGuidesLauncherFeature.reconcileLauncherPosition(launcher);
         expect(launcher.style.left).toBe('840px');
         expect(launcher.classList).not.toContain('is-avoiding-control');
+        dom.window.close();
+    });
+
+    test('honours the first click while initial panel state is still loading', async () => {
+        const { dom } = createFeature();
+        const { window } = dom;
+        const sendMessage = window.chrome.runtime.sendMessage;
+        sendMessage.mockImplementation(({ action }) => action === 'getHelpGuidesPanelState'
+            ? new Promise(() => {})
+            : Promise.resolve({ status: 'success', panelState: 'open' }));
+
+        window.helpGuidesLauncherFeature.initialize();
+        sendMessage.mockClear();
+        window.document.getElementById('toolshed-help-guides-launcher').click();
+
+        expect(sendMessage).toHaveBeenCalledWith({ action: 'openHelpGuides' });
         dom.window.close();
     });
 

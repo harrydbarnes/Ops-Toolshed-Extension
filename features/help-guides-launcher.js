@@ -69,7 +69,7 @@
         event?.preventDefault();
         event?.stopPropagation();
         if (event?.detail > 0) event.currentTarget?.blur?.();
-        if (isEnabled !== true || !panelStateKnown || panelToggleInFlight) return;
+        if (isEnabled !== true || panelToggleInFlight) return;
 
         const previousPanelState = isPanelOpen;
         const action = isPanelOpen ? 'closeHelpGuidesFromLauncher' : 'openHelpGuides';
