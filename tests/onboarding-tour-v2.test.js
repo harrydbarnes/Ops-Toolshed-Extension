@@ -5,11 +5,11 @@ const { JSDOM } = require('jsdom');
 const html = fs.readFileSync(path.resolve(__dirname, '../onboarding-tour-v2.html'), 'utf8');
 const script = fs.readFileSync(path.resolve(__dirname, '../onboarding-tour-v2.js'), 'utf8');
 
-function setup(settings = {}, startingUrl = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#route=campaigns') {
+function setup(settings = {}, startingUrl = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#route=campaigns', progress = {}) {
     const dom = new JSDOM(html, { runScripts: 'outside-only', url: 'chrome-extension://test/onboarding-tour-v2.html' });
     let activeUrl = startingUrl;
     const chrome = {
-        storage: { sync: { get: jest.fn((defaults, callback) => callback({ ...defaults, ...settings })) }, local: { set: jest.fn() } },
+        storage: { sync: { get: jest.fn((defaults, callback) => callback({ ...defaults, ...settings })) }, local: { get: jest.fn((defaults, callback) => callback({ ...defaults, ...progress })), set: jest.fn() } },
         tabs: {
             query: jest.fn(async () => [{ id: 12, url: activeUrl }]),
             sendMessage: jest.fn(async (tabId, message) => ({ status: 'success', found: message.action === 'showOnboardingHighlight' })),
@@ -68,13 +68,13 @@ describe('Onboarding side-panel v2', () => {
         jest.useRealTimers();
     });
 
-    test('finishing returns Prisma home and records the v2 tour', async () => {
+    test('finishing preserves the campaign and records the v2 tour', async () => {
         const campaignUrl = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP3GH64&route=online';
         const { dom, chrome } = setup({}, campaignUrl);
         await Promise.resolve();
         await dom.window.onboardingTourPanelV2.finishTour(false);
 
-        expect(chrome.tabs.update).toHaveBeenCalledWith(12, expect.objectContaining({ url: expect.stringContaining('route=campaigns') }));
+        expect(chrome.tabs.update).not.toHaveBeenCalled();
         expect(chrome.sidePanel.close).toHaveBeenCalledWith({ tabId: 12 });
         expect(chrome.storage.local.set).toHaveBeenCalledWith(expect.objectContaining({ onboardingTourVersion: 'v2', onboardingTourCompleted: true }));
         dom.window.close();
@@ -90,4 +90,15 @@ describe('Onboarding side-panel v2', () => {
         expect(chrome.storage.local.set).toHaveBeenCalledWith(expect.objectContaining({ onboardingTourSkipped: true, onboardingTourCompleted: false }));
         dom.window.close();
     });
+});
+
+
+test('resumes an unfinished chapter and lets a user skip waiting for a campaign', async () => {
+    const { dom } = setup({}, undefined, { onboardingTourVersion: 'v2', onboardingTourChapter: 1 });
+    await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+    expect(dom.window.document.getElementById('tour-count').textContent).toBe('Chapter 2 of 5');
+    dom.window.document.getElementById('skip-chapter').click();
+    expect(dom.window.document.getElementById('tour-count').textContent).toBe('Chapter 3 of 5');
+    expect(dom.window.document.activeElement.id).toBe('tour-title');
+    dom.window.close();
 });

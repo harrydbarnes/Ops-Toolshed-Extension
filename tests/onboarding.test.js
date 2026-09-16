@@ -97,3 +97,20 @@ describe('First-run onboarding', () => {
         dom.window.close();
     });
 });
+
+
+test('keeps optional preferences collapsed and moves focus to each new heading', async () => {
+    const { dom } = setup();
+    await Promise.resolve();
+    const doc = dom.window.document;
+    doc.getElementById('next-step').click();
+    expect(doc.querySelector('.optional-preferences').open).toBe(false);
+    expect(doc.querySelector('.pid-choice').closest('details')).toBeNull();
+    expect(doc.querySelector('.reminder-frequency').closest('details')).toBeNull();
+    expect(doc.querySelector('[data-setting="loadingFactsEnabled"]').closest('details')).not.toBeNull();
+    expect(doc.activeElement.id).toBe('stage-title');
+    doc.getElementById('next-step').click();
+    expect(doc.activeElement.id).toBe('stage-title');
+    expect(doc.querySelector('a[href="feature-explorer.html"]')).not.toBeNull();
+    dom.window.close();
+});

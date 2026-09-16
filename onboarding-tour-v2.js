@@ -11,13 +11,14 @@
     let activeChapter = 0;
     let retryTimer = null;
     let renderToken = 0;
+    let finished = false;
 
-    function storageGet(area, values) { return new Promise(resolve => { try { const result = area?.get?.(values, value => resolve({ ...values, ...(value || {}) })); result?.then?.(value => resolve({ ...values, ...(value || {}) }), () => resolve({ ...values })); } catch { resolve({ ...values }); } }); }
-    function storageSet(values) { try { chrome.storage?.local?.set?.(values); } catch { /* The tour remains usable without persistence. */ } }
+    function storageGet(area, values) { return new Promise(resolve => { try { if (!area?.get) return resolve({ ...values }); const result = area.get(values, value => resolve({ ...values, ...(value || {}) })); result?.then?.(value => resolve({ ...values, ...(value || {}) }), () => resolve({ ...values })); } catch { resolve({ ...values }); } }); }
+    function storageSet(values) { try { chrome.storage?.local?.set?.(values)?.catch?.(() => {}); } catch { /* The tour remains usable without persistence. */ } }
     function isEnabled(key) { return settings[key] !== false; }
     function isPrismaUrl(url = '') { return url.includes('mediaocean.com/campaign-management/'); }
     function isCampaignUrl(url = '') { return url.includes('mediaocean.com/campaign-management/') && /(?:#|&)campaign-id=[^&]+/i.test(url); }
-    function getActiveTab() { return chrome.tabs.query({ active: true, currentWindow: true }).then(tabs => tabs?.[0] || null); }
+    function getActiveTab() { return chrome.tabs.query({ active: true, currentWindow: true }).then(tabs => tabs?.[0] || null).catch(() => null); }
     async function sendToTab(tabId, message) { if (!tabId) return { found: false }; try { return await chrome.tabs.sendMessage(tabId, message); } catch { return { found: false }; } }
     function enabledFeatures(items) { return items.filter(([key]) => isEnabled(key)).map(([, label]) => label); }
 
@@ -35,19 +36,20 @@
             { id: 'open-campaign', title: 'Open any campaign when you are ready.', description: 'Choose a campaign from the home screen. This tour will move on automatically once its workspace is open.', features: ['Nothing in the campaign will be changed by this walkthrough'], target: 'campaignList', mode: 'waitForCampaign' },
             { id: 'workspace', title: 'The campaign workspace keeps repeat work close.', description: 'This chapter brings the most useful navigation and header shortcuts together instead of walking you through each control one by one.', features: workspaceFeatures, target: 'campaignNavigation', fallbackTarget: 'campaignHeader', missingStatus: 'Waiting for the campaign workspace to finish loading…' },
             { id: 'support', title: 'Approvals and support stay in context.', description: 'Campaign-aware tools are kept near the work so you can move from a question to an action without losing your place.', features: supportFeatures, target: isEnabled('approverWidgetPlacementEnabled') || isEnabled('gmiChatShortcutEnabled') ? 'approverWidget' : 'campaignWorkspace', fallbackTarget: 'campaignWorkspace', missingStatus: 'Waiting for the support tools to finish loading…' },
-            { id: 'complete', title: 'You are ready to work in Prisma.', description: 'You can revisit Settings whenever your workflow changes. Finishing this tour returns you to the Prisma home screen.', features: [] }
+            { id: 'complete', title: 'You are ready to work in Prisma.', description: 'You can revisit Settings whenever your workflow changes. Finishing keeps your current campaign open. Explore all features whenever you want to discover more.', features: [] }
         ];
     }
 
     function updateStatus(message, state = '') { elements.status.className = `tour-status${state ? ` is-${state}` : ''}`; elements.status.textContent = message || ''; }
     function clearHighlight() { return getActiveTab().then(tab => sendToTab(tab?.id, { action: 'hideOnboardingHighlight' })); }
-    function scheduleRetry(token) { clearTimeout(retryTimer); retryTimer = setTimeout(() => { if (token === renderToken) void updateLiveChapter(token); }, 900); }
+    function scheduleRetry(token) { clearTimeout(retryTimer); retryTimer = setTimeout(() => { if (!finished && token === renderToken) void updateLiveChapter(token); }, 900); }
     async function updateLiveChapter(token) {
         const chapter = chapters[activeChapter];
         const tab = await getActiveTab();
-        if (token !== renderToken || !chapter) return;
+        if (finished || token !== renderToken || !chapter) return;
         if (!isPrismaUrl(tab?.url)) {
             await clearHighlight();
+            if (finished || token !== renderToken) return;
             updateStatus('Opening Prisma for the tour…', 'waiting');
             scheduleRetry(token);
             return;
@@ -55,14 +57,17 @@
         if (chapter.mode === 'waitForCampaign') {
             if (isCampaignUrl(tab?.url)) { renderChapter(activeChapter + 1); return; }
             const found = await sendToTab(tab?.id, { action: 'showOnboardingHighlight', target: chapter.target, blockInteraction: false });
+            if (finished || token !== renderToken) return;
             updateStatus(found?.found ? 'Choose a highlighted campaign to continue.' : 'Waiting for the campaign list to load…', found?.found ? 'found' : 'waiting');
             scheduleRetry(token);
             return;
         }
         if (!chapter.target) { await clearHighlight(); updateStatus(''); return; }
         const found = await sendToTab(tab?.id, { action: 'showOnboardingHighlight', target: chapter.target, blockInteraction: chapter.blockInteraction === true });
+        if (finished || token !== renderToken) return;
         if (!found?.found && chapter.fallbackTarget) {
             const fallback = await sendToTab(tab?.id, { action: 'showOnboardingHighlight', target: chapter.fallbackTarget, blockInteraction: false });
+            if (finished || token !== renderToken) return;
             updateStatus(fallback?.found ? 'Highlighted on the Prisma page' : chapter.missingStatus, fallback?.found ? 'found' : 'waiting');
             if (!fallback?.found) scheduleRetry(token);
             return;
@@ -71,7 +76,8 @@
         if (!found?.found) scheduleRetry(token);
     }
 
-    function renderChapter(index) {
+    function renderChapter(index, moveFocus = true) {
+        if (finished) return;
         clearTimeout(retryTimer);
         activeChapter = Math.max(0, Math.min(chapters.length - 1, index));
         renderToken += 1;
@@ -80,22 +86,42 @@
         elements.content.classList.remove('is-changing'); void elements.content.offsetWidth; elements.content.classList.add('is-changing');
         elements.count.textContent = `Chapter ${activeChapter + 1} of ${chapters.length}`;
         elements.title.textContent = chapter.title;
+        if (moveFocus) elements.title.focus();
+        document.getElementById('skip-chapter').hidden = !chapter.target;
         elements.description.textContent = chapter.description;
         elements.features.replaceChildren(...chapter.features.map(feature => { const item = document.createElement('li'); item.textContent = feature; return item; }));
         elements.progress.style.width = `${((activeChapter + 1) / chapters.length) * 100}%`;
         elements.back.hidden = activeChapter === 0;
         elements.next.disabled = chapter.mode === 'waitForCampaign';
         elements.next.textContent = activeChapter === chapters.length - 1 ? 'Finish tour' : chapter.mode === 'waitForCampaign' ? 'Waiting for campaign…' : 'Next chapter';
-        storageSet({ onboardingTourActive: true, onboardingTourVersion: 'v2', onboardingTourChapter: activeChapter, onboardingTourChapterId: chapter.id });
+        storageSet({ onboardingTourActive: true, onboardingTourCompleted: false, onboardingTourVersion: 'v2', onboardingTourChapter: activeChapter, onboardingTourChapterId: chapter.id });
         void updateLiveChapter(token);
     }
 
-    async function finishTour(skipped = false) { clearTimeout(retryTimer); const tab = await getActiveTab(); await sendToTab(tab?.id, { action: 'hideOnboardingHighlight' }); storageSet({ onboardingTourActive: false, onboardingTourCompleted: !skipped, onboardingTourSkipped: skipped, onboardingTourVersion: 'v2', onboardingTourCompletedAt: Date.now() }); if (!skipped && tab?.id && !/route=campaigns(?:&|$)/.test(tab.url || '')) { try { await chrome.tabs.update(tab.id, { url: PRISMA_HOME }); } catch { /* Completion still takes priority. */ } } try { await chrome.sidePanel?.close?.({ tabId: tab?.id }); } catch { /* State is already saved. */ } }
+    async function finishTour(skipped = false) {
+        finished = true;
+        renderToken += 1;
+        clearTimeout(retryTimer);
+        const tab = await getActiveTab();
+        await sendToTab(tab?.id, { action: 'hideOnboardingHighlight' });
+        storageSet({ onboardingTourActive: false, onboardingTourCompleted: !skipped, onboardingTourSkipped: skipped, onboardingTourVersion: 'v2', onboardingTourCompletedAt: Date.now(), onboardingTourChapter: activeChapter });
+        try { await chrome.sidePanel?.close?.({ tabId: tab?.id }); } catch { /* Progress remains saved. */ }
+    }
+    document.getElementById('skip-chapter').addEventListener('click', () => renderChapter(activeChapter + 1));
 
     elements.back.addEventListener('click', () => renderChapter(activeChapter - 1));
     elements.next.addEventListener('click', () => { if (activeChapter === chapters.length - 1) void finishTour(false); else renderChapter(activeChapter + 1); });
     elements.skip.addEventListener('click', () => void finishTour(true));
-    window.addEventListener('pagehide', () => { clearTimeout(retryTimer); void clearHighlight(); }, { once: true });
-    storageGet(chrome.storage?.sync, defaults).then(value => { settings = value; chapters = buildChapters(); renderChapter(0); });
+    window.addEventListener('pagehide', () => { finished = true; renderToken += 1; clearTimeout(retryTimer); void clearHighlight(); }, { once: true });
+    Promise.all([
+        storageGet(chrome.storage?.sync, defaults),
+        storageGet(chrome.storage?.local, { onboardingTourVersion: '', onboardingTourCompleted: false, onboardingTourChapter: 0 })
+    ]).then(([value, progress]) => {
+        settings = value;
+        chapters = buildChapters();
+        const resume = progress.onboardingTourVersion === 'v2' && !progress.onboardingTourCompleted
+            && Number.isInteger(progress.onboardingTourChapter) ? progress.onboardingTourChapter : 0;
+        renderChapter(resume, false);
+    });
     window.onboardingTourPanelV2 = { buildChapters, finishTour, isCampaignUrl, isPrismaUrl };
 })();

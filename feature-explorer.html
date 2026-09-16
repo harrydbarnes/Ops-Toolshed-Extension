@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Explore Ops Toolshed</title>
+    <style>html { visibility: hidden; }</style>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="onboarding.css">
+    <link rel="stylesheet" href="feature-explorer.css">
+</head>
+<body>
+    <main class="onboarding-shell explorer-shell">
+        <header class="onboarding-header"><a class="brand" href="onboarding.html"><img src="icon.png" alt=""><span>Ops Toolshed</span></a><a href="settings.html">Settings</a></header>
+        <section class="onboarding-stage" aria-labelledby="explorer-title">
+            <div class="stage-copy"><h1 id="explorer-title">Find your next useful shortcut.</h1><p class="stage-description">Explore every feature by workflow. Open a feature for details and its setting, whenever you need it.</p></div>
+            <label class="explorer-search">Find a feature<input id="feature-search" type="search" placeholder="Try approvals, export or reminders"></label>
+            <div id="feature-groups" class="explorer-groups" role="group" aria-label="Filter by workflow"></div>
+            <p id="explorer-count" role="status" aria-live="polite"></p>
+            <div id="feature-list" class="explorer-list"></div>
+            <p id="explorer-empty" hidden>No matching features. Try a different word or choose All features.</p>
+        </section>
+        <footer class="onboarding-footer"><a href="onboarding.html">Back to setup</a><span>Explore at your own pace. Settings stay unchanged until you edit them.</span></footer>
+    </main>
+    <script src="extension-page-gate.js" data-scripts="feature-settings-registry.js,feature-explorer.js"></script>
+</body>
+</html>

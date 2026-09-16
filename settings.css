@@ -1326,3 +1326,9 @@ body::after {
 .feedback a:hover {
     text-decoration: underline;
 }
+
+button.feature-tooltip-indicator { border: 0; cursor: pointer; width: 24px; height: 24px; padding: 0; }
+button.feature-tooltip-indicator:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.feature-rich-tooltip-image { width: auto; max-width: 100%; height: auto; max-height: 220px; object-fit: contain; justify-self: start; }
+.feature-rich-tooltip-image[hidden], .feature-preview-note[hidden] { display: none; }
+.feature-preview-note { margin: 0; font-style: italic; }

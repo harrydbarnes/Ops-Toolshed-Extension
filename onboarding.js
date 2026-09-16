@@ -115,10 +115,10 @@
     function updateSummary() {
         const toggleKeys = Object.keys(defaults).filter(key => typeof defaults[key] === 'boolean');
         const enabled = toggleKeys.filter(key => currentSettings[key] !== false).length;
-        elements.summary.textContent = `${enabled} recommended features enabled. You can change every choice later in Settings.`;
+        elements.summary.textContent = `${enabled} setup features enabled. Other tools keep their existing defaults. Explore all features to see what is on.`;
     }
 
-    function renderStep(index, focusTab = false) {
+    function renderStep(index, moveFocus = false) {
         activeStep = Math.max(0, Math.min(stepCopy.length - 1, index));
         const [label, title, description] = stepCopy[activeStep];
         elements.progressCount.textContent = `${activeStep + 1} of ${stepCopy.length}`;
@@ -136,6 +136,7 @@
         elements.next.textContent = activeStep === stepCopy.length - 2 ? 'Review setup' : 'Continue';
         elements.start.hidden = activeStep !== stepCopy.length - 1;
         if (activeStep === stepCopy.length - 1) updateSummary();
+        if (moveFocus) elements.title.focus();
     }
 
     async function markComplete(values = {}) {
@@ -148,7 +149,7 @@
 
     function startGuidedTour() {
         elements.error.hidden = true;
-        void markComplete({ onboardingTourActive: true, onboardingTourStep: 0, onboardingTourVersion: 'v2' });
+        void markComplete({ onboardingTourActive: true, onboardingTourVersion: 'v2' }).catch(() => { elements.status.textContent = 'Tour progress could not be saved'; });
         try {
             const optionsResult = chrome.sidePanel?.setOptions?.({ path: 'onboarding-tour-v2.html', enabled: true });
             optionsResult?.catch?.(() => {
@@ -204,8 +205,8 @@
         });
     });
 
-    elements.previous.addEventListener('click', () => renderStep(activeStep - 1));
-    elements.next.addEventListener('click', () => renderStep(activeStep + 1));
+    elements.previous.addEventListener('click', () => renderStep(activeStep - 1, true));
+    elements.next.addEventListener('click', () => renderStep(activeStep + 1, true));
     elements.start.addEventListener('click', startGuidedTour);
     elements.skip.addEventListener('click', () => {
         void markComplete({ onboardingTourActive: false, onboardingSkipped: true });

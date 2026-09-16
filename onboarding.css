@@ -205,3 +205,10 @@ button:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+.optional-preferences { border-top: 1px solid var(--line); padding-top: 16px; }
+.optional-preferences summary { cursor: pointer; color: var(--accent-dark); padding: 10px 0; font-weight: 600; }
+.optional-preferences[open] summary { margin-bottom: 12px; }
+.onboarding-feature-image { width: 180px; max-width: 100%; height: auto; align-self: flex-start; }
+.explorer-link { display: inline-block; margin-top: 20px; color: var(--accent-dark); font-weight: 600; }
+[hidden] { display: none !important; }

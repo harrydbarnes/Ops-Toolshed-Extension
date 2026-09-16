@@ -51,27 +51,29 @@ describe('release metadata', () => {
             const currentRelease = dom.window.document.querySelector('#release-notes .release');
             const items = Array.from(currentRelease.querySelectorAll('li'));
 
-            expect(items).toHaveLength(19);
+            expect(items).toHaveLength(21);
             expect(items[0].textContent).toContain('Campaign Approval Tracking');
             expect(items[1].textContent).toContain('Campaign History');
             expect(items[2].textContent).toContain('Diagnostics Mode');
             expect(items[3].textContent).toContain('Prisma Link Migration');
             expect(items[3].querySelector('.release-badge').dataset.releaseType).toBe('new');
-            expect(items[4].textContent).toContain('New Prisma Address');
-            expect(items[4].querySelector('.release-badge').dataset.releaseType).toBe('improved');
-            expect(items[5].textContent).toContain('four campaigns per page');
-            expect(items[6].textContent).toContain('Campaign Approval Tracking');
-            expect(items[7].textContent).toContain('Moe Chat');
-            expect(items[8].textContent).toContain('Features Off');
-            expect(items[9].textContent).toContain('Help Guides');
-            expect(items[10].textContent).toContain('Campaign Name Copy');
-            expect(items[11].textContent).toContain('Plan Navigation');
-            expect(items[12].textContent).toContain('Not Submitted');
-            expect(items[13].textContent).toContain('already-approved campaign');
-            expect(items[14].textContent).toContain('clear idle state');
-            expect(items[15].textContent).toContain('Redistribute action');
-            expect(items[17].textContent).toContain('permanent Moe chat bubble');
-            expect(items[18].textContent).toContain('retired Loading Fact Review');
+            expect(items[6].textContent).toContain('New Prisma Address');
+            expect(items[6].querySelector('.release-badge').dataset.releaseType).toBe('improved');
+            expect(items[7].textContent).toContain('four campaigns per page');
+            expect(items[8].textContent).toContain('Campaign Approval Tracking');
+            expect(items[9].textContent).toContain('Moe Chat');
+            expect(items[10].textContent).toContain('Features Off');
+            expect(items[11].textContent).toContain('Help Guides');
+            expect(items[12].textContent).toContain('Campaign Name Copy');
+            expect(items[13].textContent).toContain('Plan Navigation');
+            expect(items[14].textContent).toContain('Not Submitted');
+            expect(items[15].textContent).toContain('already-approved campaign');
+            expect(items[16].textContent).toContain('clear idle state');
+            expect(items[17].textContent).toContain('Redistribute action');
+            expect(items[19].textContent).toContain('permanent Moe chat bubble');
+            expect(items[20].textContent).toContain('retired Loading Fact Review');
+            expect(items[4].textContent).toContain('Getting Started');
+            expect(items[5].textContent).toContain('Feature Previews');
         } finally {
             dom.window.close();
         }

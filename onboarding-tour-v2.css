@@ -15,3 +15,7 @@ button { font:inherit; }
 .tour-footer { min-height:74px; padding:14px 18px; display:flex; justify-content:space-between; gap:10px; border-top:1px solid var(--line); background:#fbfbfc; }.tour-footer button { min-height:44px; padding:0 18px; border-radius:10px; font-weight:600; cursor:pointer; }.tour-secondary{border:1px solid #d9d9df;background:#fff;color:var(--ink)}.tour-primary{margin-left:auto;border:0;background:var(--accent);color:#fff}.tour-primary:hover{background:var(--accent-dark)}.tour-primary:disabled{cursor:progress;opacity:.62}.tour-footer button:active{transform:translateY(1px)}button:focus-visible{outline:3px solid rgba(232,47,121,.28);outline-offset:3px}
 @keyframes chapter-in { from{opacity:.35;transform:translateX(8px)}to{opacity:1;transform:translateX(0)} }
 @media (prefers-reduced-motion:reduce) { .tour-progress span { transition:none; }.tour-content.is-changing > * { animation:none; } }
+
+.chapter-skip { margin-top: 16px; border: 0; background: transparent; color: var(--accent-dark); padding: 8px 0; cursor: pointer; }
+.tour-content a { color: var(--accent-dark); }
+[hidden] { display: none !important; }

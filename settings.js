@@ -267,66 +267,13 @@ const syncedToggleInputs = new Map();
 let settingsPageInitialized = false;
 
 // Kept with the setting identifiers so the copy remains accurate when a setting is renamed.
-// The preview is a compact, illustrative Prisma window rather than a captured user campaign.
-const FEATURE_SETTING_PREVIEWS = {
-    uiThemeSegmented: ['Popup UI theme', 'Choose the pink or black presentation used by the extension popup.', 'Popup'],
-    logoToggle: ['Replace Prisma Logo', 'Swaps the standard Prisma mark for the selected Toolshed logo treatment.', 'Prisma header'],
-    appLearnReplaceToggle: ['Translucent AppLearn Logo', 'Makes the AppLearn logo less visually dominant while keeping it recognisable.', 'AppLearn'],
-    bannerUsernameToggle: ['Prisma banner username', 'Shows the signed-in Mediaocean username in the Prisma banner.', 'Hello, Alex'],
-    metaFinanceToolSegmented: ['Meta finance tool', 'Selects whether the popup opens Booking Checker or the legacy Billing Check workflow.', 'Booking Checker'],
-    loadingFactsToggle: ['Loading Facts', 'Shows a useful fact while Prisma is processing an Actualise action.', 'Did you know?'],
-    helpGuidesToggle: ['Help Guides launcher', 'Adds a draggable launcher that opens searchable Prisma help guides.', 'Help Guides'],
-    countPlacementsSelectedToggle: ['Count Placements Selected', 'Displays the number of selected placement rows beside Prisma’s selection tools.', '12 selected'],
-    approverSidebarEnhancementsToggle: ['Approver Sidebar Enhancements', 'Makes the Approver sidebar easier to scan and use, including fast approver entry and recipient history controls.', 'Approvers'],
-    approverSubmittedRecipientDisplayToggle: ['Submitted approval recipients', 'Shows the email address(es) captured when the current user submits a campaign for approval.', 'Submitted to robert.walker@wppmedia.com'],
-    approvalTrackingToggle: ['Track campaign approvals', 'Monitors submitted campaigns in the background every 5 minutes to see when they are approved.', 'Approval tracking'],
-    approvalBannerIndicatorToggle: ['Show approved campaigns in banner', 'Displays an approved campaigns counter and dropdown list next to Switch Accounts.', 'Approved list'],
-    approvalToastNotificationToggle: ['Toast notification on campaign approval', 'Shows an interactive notification when a campaign is approved with a shortcut to open it.', 'Campaign approved'],
-    actualiseBulkExportToggle: ['Actualise bulk export', 'Exports each visible Actualise month and combines the results into one CSV-ready file.', 'Export all months'],
-    campaignTabTitleToggle: ['Campaign tab title', 'Uses the active campaign name as the browser tab title.', 'Spring Launch | Prisma'],
-    planToBuyRedirectToggle: ['Open Plan campaign links in Buy', 'Opens Buy when a campaign Plan URL is loaded directly. Clicking Prisma’s Plan tab still opens Plan.', 'Plan link → Buy'],
-    campaignHistoryToggle: ['Campaign History search', 'Adds a History link to Prisma campaign navigation and lets you search campaigns you have visited.', 'Search supplier'],
-    campaignHistoryLoggingToggle: ['Log campaigns visited', 'Records campaign names, references, supplier details and active account locations locally so they can be found later in Campaign History.', 'Campaign recorded'],
-    ordersShortcutToggle: ['Orders shortcut', 'Adds an Orders shortcut to the campaign navigation menu.', 'Orders'],
-    actualiseShortcutToggle: ['Actualise shortcut', 'Adds a shortcut that opens the current Actualise month directly.', 'Actualise'],
-    actualiseNavbarToggle: ['Actualise navigation bar', 'Keeps Prisma’s main Plan, Buy, Traffic, Analyse and Orders navigation visible in Actualise.', 'Plan  Buy  Orders'],
-    quickCampaignActionsToggle: ['Quick campaign actions', 'Adds quick details, copy campaign and history actions to campaign pages.', 'Copy campaign'],
-    campaignNameQuickCopyToggle: ['Campaign name copy', 'Adds a one-click copy action for the campaign name.', 'Campaign name copied'],
-    campaignHeaderQuickCopyToggle: ['Campaign header copy', 'Adds copy actions for the campaign ID and CL, PR and CA references.', 'ID copied'],
-    campaignDateShortcutToggle: ['Campaign dates shortcut', 'Adds a direct shortcut for editing campaign dates.', 'Edit dates'],
-    orderIdCopyToggle: ['Order ID copy', 'Lets you click an Order ID in the new Orders sidebar to copy it.', 'Order ID copied'],
-    maxCampaignBudgetToggle: ['Max Campaign Budget', 'Calculates a safe maximum campaign budget from the live billable response or a validated projection.', 'Max budget'],
-    swapAccountsToggle: ['Switch Accounts', 'Adds a faster account-switch action where it is useful in Prisma.', 'Switch account'],
-    autoCopyUrlToggle: ['Auto Copy Campaign URL', 'Copies the current campaign URL when you open a campaign.', 'URL copied'],
-    autoCopyUrlModeSegmented: ['URL format', 'Choose a short shareable campaign URL or the full address.', 'Short URL'],
-    addCampaignShortcutToggle: ['Add Campaign shortcut', 'Automatically opens Enter Full Details after choosing Add Campaign.', 'Enter Full Details'],
-    hidingSectionsToggle: ['Hide unused Add Campaign sections', 'Reduces visual noise by hiding sections that are not needed when adding a campaign.', 'Focused form'],
-    automateFormFieldsToggle: ['Automate form fields', 'Preselects the Budget type and Media mix fields during campaign creation.', 'Fields selected'],
-    rememberAccountSwitchUrlToggle: ['Restore page after account switch', 'Returns you to the Prisma page you were viewing after a new account has loaded.', 'Back to campaign'],
-    approverWidgetPlacementToggle: ['Approver Widget placement', 'Places the Approver Widget in the clearest campaign-page position.', 'Approver Widget'],
-    dstAssuranceToggle: ['DST Assurance', 'Checks Facebook media for a correctly supplied Meta Location Fee at 2% of booked media.', 'DST Booked'],
-    actualiseMonthAssuranceToggle: ['Actualise month assurance', 'Confirms that the Actualise URL, selected month, rendered grid and native response all agree.', 'Correct Month'],
-    productCodeLimitWarningToggle: ['Product Code Limit Warning', 'Warns when a client/product code is approaching Prisma’s 254-campaign limit.', 'Near code limit'],
-    budgetWidgetOptimisedToggle: ['Budget widget', 'Improves the placement and visibility of the campaign budget widget.', 'Budget summary'],
-    newOrderUiOptimisationToggle: ['New Order UI', 'Applies the extension’s layout improvements to Prisma’s newer Orders interface.', 'Orders workspace'],
-    seeCommentsOnLockedBuysToggle: ['Comments on locked Buys', 'Keeps comments visible when a Buy is locked.', 'Comments'],
-    gmiChatShortcutToggle: ['GMI Chat shortcut', 'Adds a direct shortcut to the GMI chat workflow.', 'Open GMI Chat'],
-    fontSizeToggle: ['Smaller Chat Font', 'Uses a more compact font size in the live chat window.', 'Compact chat'],
-    resizableChatToggle: ['Resizable Chat Window', 'Lets you resize the live chat window to suit the task.', 'Resize ↘'],
-    moeChatMediaAutoSelectToggle: ['Auto-select Moe media', 'Selects the campaign media in Moe and sends the first prompt when a matching option is available.', 'Digital selected'],
-    blockAppLearnPopupsToggle: ['Block AppLearn popups', 'Closes the broken blank AppLearn login popups without affecting normal exports.', 'Popup blocked'],
-    actualiseScrollRestoreToggle: ['Actualise scroll restoration', 'Restores the active grid’s horizontal position after an Actualise save refresh.', 'Position restored'],
-    orderGridScrollSyncToggle: ['Order Summary alignment', 'Keeps Order Summary headers aligned with the scrolling grid.', 'Headers aligned'],
-    statsCollectorToggle: ['Stats Collector', 'Records waiting-time and productivity signals for the local Toolshed statistics view.', 'Stats updated'],
-    diagnosticsModeToggle: ['Diagnostics Mode', 'Temporarily records local, privacy-safe feature timings and outcomes until Chrome restarts or 24 hours pass.', 'Diagnostics active']
-};
+// Catalogue metadata is shared with the optional onboarding feature explorer.
+const FEATURE_SETTING_PREVIEWS = Object.fromEntries(featureSettingsRegistry.FEATURE_CATALOGUE
+    .filter(feature => feature.href.endsWith('#features'))
+    .map(feature => [feature.id, [feature.title, feature.description, feature.title]]));
 
 function getFeaturePreviewImage(controlId) {
-    if (controlId === 'helpGuidesToggle') return 'assets/feature-previews/prisma-help-guides.png';
-    if (['gmiChatShortcutToggle', 'fontSizeToggle', 'resizableChatToggle', 'moeChatMediaAutoSelectToggle'].includes(controlId)) {
-        return 'assets/feature-previews/prisma-ai-chat.png';
-    }
-    return 'assets/feature-previews/prisma-navigation.png';
+    return featureSettingsRegistry.FEATURE_CATALOGUE.find(feature => feature.id === controlId)?.image || null;
 }
 
 function ensureFeaturePreviewTooltip(root = document) {
@@ -349,7 +296,10 @@ function ensureFeaturePreviewTooltip(root = document) {
     const paragraph = root.createElement('p');
     paragraph.id = 'feature-settings-tooltip-description';
     copy.append(heading, paragraph);
-    tooltip.append(image, copy);
+    const note = root.createElement('p');
+    note.className = 'feature-preview-note';
+    tooltip.append(image, copy, note);
+    image.addEventListener('error', () => { image.hidden = true; note.textContent = 'Screenshot unavailable. Use the description above.'; note.hidden = false; });
     root.body.append(tooltip);
     return tooltip;
 }
@@ -365,9 +315,11 @@ function addFeatureSettingPreviews(root = document) {
         if (label && !container.querySelector('.feature-tooltip-indicator')) {
             const labelGroup = root.createElement('span');
             labelGroup.className = 'feature-setting-label';
-            const indicator = root.createElement('span');
+            const indicator = root.createElement('button');
             indicator.className = 'feature-tooltip-indicator';
-            indicator.setAttribute('aria-hidden', 'true');
+            indicator.type = 'button';
+            indicator.setAttribute('aria-label', `Preview ${preview[0]}`);
+            indicator.setAttribute('aria-describedby', 'feature-settings-tooltip-description');
             indicator.textContent = 'i';
             label.before(labelGroup);
             labelGroup.append(label, indicator);
@@ -400,8 +352,31 @@ function setupFeaturePreviewInteractions(root = document, delay = 500) {
         }, dismissDelay);
     };
 
+    const positionPreview = () => {
+        if (!tooltip.classList.contains('is-preview-open')) return;
+        const container = root.getElementById(tooltip.dataset.controlId)?.closest('.toggle-container');
+        if (!container) { closeTooltip(); return; }
+        const bounds = container.getBoundingClientRect();
+        const tooltipBounds = tooltip.getBoundingClientRect();
+        const viewport = root.defaultView || window;
+        const horizontalPadding = 12;
+        const left = Math.max(horizontalPadding, Math.min(bounds.left, viewport.innerWidth - tooltipBounds.width - horizontalPadding));
+        const below = bounds.bottom + 8;
+        const placeBelow = below + tooltipBounds.height <= viewport.innerHeight;
+        const top = placeBelow
+            ? below
+            : Math.max(horizontalPadding, bounds.top - tooltipBounds.height - 8);
+        tooltip.style.left = `${left}px`;
+        tooltip.style.top = `${top}px`;
+        tooltip.dataset.placement = placeBelow ? 'below' : 'above';
+    };
+
     if (!tooltip.dataset.dismissalReady) {
         tooltip.dataset.dismissalReady = 'true';
+        root.addEventListener('scroll', positionPreview, true);
+        root.defaultView?.addEventListener('resize', positionPreview);
+        tooltip.querySelector('img').addEventListener('load', positionPreview);
+        tooltip.querySelector('img').addEventListener('error', positionPreview);
         tooltip.addEventListener('pointerenter', cancelTooltipDismissal);
         tooltip.addEventListener('pointerleave', () => scheduleTooltipDismissal(tooltipLeaveDelay));
     }
@@ -423,53 +398,55 @@ function setupFeaturePreviewInteractions(root = document, delay = 500) {
             scheduleTooltipDismissal(dismissDelay);
         };
         const showPreview = () => {
-            const [title, description, action] = preview;
+            const [title, description] = preview;
             const image = tooltip.querySelector('img');
-            image.src = getFeaturePreviewImage(controlId);
-            image.alt = `Prisma example: ${action}`;
+            const asset = getFeaturePreviewImage(controlId);
+            image.hidden = !asset;
+            if (asset) { image.src = asset.src; image.alt = asset.alt; }
+            else { image.removeAttribute('src'); image.alt = ''; }
+            const note = tooltip.querySelector('.feature-preview-note');
+            note.hidden = !!asset;
+            note.textContent = 'Screenshot not yet available.';
+            tooltip.dataset.controlId = controlId;
             tooltip.querySelector('strong').textContent = title;
             tooltip.querySelector('p').textContent = description;
             tooltip.classList.add('is-preview-open');
             tooltip.setAttribute('aria-hidden', 'false');
 
-            const bounds = container.getBoundingClientRect();
-            const tooltipBounds = tooltip.getBoundingClientRect();
-            const viewport = root.defaultView || window;
-            const horizontalPadding = 12;
-            const left = Math.max(horizontalPadding, Math.min(bounds.left, viewport.innerWidth - tooltipBounds.width - horizontalPadding));
-            const below = bounds.bottom + 8;
-            const placeBelow = below + tooltipBounds.height <= viewport.innerHeight;
-            const top = placeBelow
-                ? below
-                : Math.max(horizontalPadding, bounds.top - tooltipBounds.height - 8);
-            tooltip.style.left = `${left}px`;
-            tooltip.style.top = `${top}px`;
-            tooltip.dataset.placement = placeBelow ? 'below' : 'above';
+            positionPreview();
         };
         const scheduleReveal = () => {
             cancelTooltipDismissal();
-            if (tooltip.classList.contains('is-preview-open') || revealTimer) return;
+            if ((tooltip.classList.contains('is-preview-open') && tooltip.dataset.controlId === controlId) || revealTimer) return;
             revealTimer = setTimeout(() => {
                 showPreview();
                 revealTimer = undefined;
             }, delay);
         };
 
-        container.addEventListener('pointermove', event => {
-            const bounds = container.getBoundingClientRect();
-            // The left third is an intentional discovery area. Once open, the tooltip
-            // remains stable while the pointer travels anywhere across its source row.
-            if (tooltip.classList.contains('is-preview-open')) {
-                cancelTooltipDismissal();
-                return;
-            }
-            if (event.clientX <= bounds.left + (bounds.width / 3)) scheduleReveal();
-            else cancelReveal();
-        });
-        container.addEventListener('pointerleave', closePreview);
+        let dismissed = false;
+        const indicator = container.querySelector('.feature-tooltip-indicator');
+        container.addEventListener('pointermove', () => { if (!dismissed) scheduleReveal(); });
+        container.addEventListener('pointerleave', () => { dismissed = false; closePreview(); });
         container.addEventListener('focusin', () => {
+            dismissed = false;
             cancelReveal();
+            cancelTooltipDismissal();
             showPreview();
+        });
+        indicator?.addEventListener('click', event => {
+            event.preventDefault();
+            cancelReveal();
+            cancelTooltipDismissal();
+            dismissed = false;
+            showPreview();
+        });
+        root.addEventListener('keydown', event => {
+            if (event.key !== 'Escape') return;
+            dismissed = true;
+            cancelReveal();
+            cancelTooltipDismissal();
+            closeTooltip();
         });
         container.addEventListener('focusout', event => {
             if (!container.contains(event.relatedTarget)) closePreview(0);
@@ -669,6 +646,15 @@ document.addEventListener('DOMContentLoaded', async function() {
         window.addEventListener('popstate', syncTabFromUrl);
         window.addEventListener('hashchange', syncTabFromUrl);
         syncTabFromUrl();
+        const requestedFeature = new URLSearchParams(window.location.search).get('feature');
+        const catalogueFeature = featureSettingsRegistry.FEATURE_CATALOGUE.find(item => item.id === requestedFeature);
+        const requestedControl = catalogueFeature && document.getElementById(catalogueFeature.id);
+        if (requestedControl && catalogueFeature.href.endsWith('#features')) {
+            activateTab('features');
+            requestedControl.tabIndex = 0;
+            requestedControl.scrollIntoView?.({ block: 'center' });
+            requestedControl.focus();
+        }
     }
 
     console.log('Settings page loaded'); 

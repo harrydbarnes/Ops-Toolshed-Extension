@@ -28,7 +28,8 @@ describe('Settings feature previews', () => {
             expect(control.getAttribute('aria-describedby')).toBe('feature-settings-tooltip-description');
             const indicator = control.closest('.toggle-container').querySelector('.feature-tooltip-indicator');
             expect(indicator).not.toBeNull();
-            expect(indicator.getAttribute('aria-hidden')).toBe('true');
+            expect(indicator.tagName).toBe('BUTTON');
+            expect(indicator.getAttribute('aria-label')).toMatch(/^Preview /);
         });
         expect(document.querySelectorAll('#feature-settings-tooltip')).toHaveLength(1);
         expect(document.querySelector('#feature-settings-tooltip img')).not.toBeNull();
@@ -38,7 +39,33 @@ describe('Settings feature previews', () => {
 });
 
 describe('Settings feature preview interactions', () => {
-    test('delays mouse previews from the left third and keeps a hovered tooltip open for one second after leaving it', () => {
+    test('click and keyboard focus show the relevant asset; Escape cancels pending reveals', () => {
+        jest.useFakeTimers();
+        const dom = new JSDOM(settingsHtml);
+        const { document } = dom.window;
+        global.document = document;
+        addFeatureSettingPreviews(document);
+        setupFeaturePreviewInteractions(document, 300);
+        const help = document.getElementById('helpGuidesToggle').closest('.toggle-container');
+        const loading = document.getElementById('loadingFactsToggle').closest('.toggle-container');
+        help.querySelector('button.feature-tooltip-indicator').click();
+        const tooltip = ensureFeaturePreviewTooltip(document);
+        expect(tooltip.querySelector('img').hidden).toBe(false);
+        expect(tooltip.querySelector('img').getAttribute('src')).toContain('prisma-help-guides.png');
+        loading.dispatchEvent(new dom.window.MouseEvent('pointermove', { bubbles: true }));
+        document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape' }));
+        jest.advanceTimersByTime(400);
+        expect(tooltip.getAttribute('aria-hidden')).toBe('true');
+        document.getElementById('loadingFactsToggle').focus();
+        expect(tooltip.querySelector('strong').textContent).toBe('Loading Facts');
+        expect(tooltip.querySelector('img').hidden).toBe(true);
+        expect(document.getElementById('loadingFactsToggle').checked).toBe(false);
+        dom.window.close();
+        delete global.document;
+        jest.useRealTimers();
+    });
+
+    test('delays previews across the whole row and retains them while moving into the tooltip', () => {
         jest.useFakeTimers();
         const dom = new JSDOM(settingsHtml);
         const { document, MouseEvent } = dom.window;
@@ -51,16 +78,21 @@ describe('Settings feature preview interactions', () => {
         container.getBoundingClientRect = () => ({ left: 100, width: 300, top: 100, bottom: 140 });
 
         container.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 250 }));
-        jest.advanceTimersByTime(350);
-        expect(tooltip.classList).not.toContain('is-preview-open');
-
-        container.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 150 }));
         jest.advanceTimersByTime(299);
         expect(tooltip.classList).not.toContain('is-preview-open');
         jest.advanceTimersByTime(1);
         expect(tooltip.classList).toContain('is-preview-open');
-        expect(tooltip.querySelector('img').getAttribute('src')).toContain('prisma-navigation.png');
+        expect(tooltip.querySelector('img').hidden).toBe(true);
+        expect(tooltip.querySelector('img').hasAttribute('src')).toBe(false);
+        expect(tooltip.textContent).toContain('Screenshot not yet available.');
         expect(tooltip.dataset.placement).toBe('below');
+        expect(tooltip.style.top).toBe('148px');
+        container.getBoundingClientRect = () => ({ left: 100, width: 300, top: 300, bottom: 340 });
+        document.dispatchEvent(new dom.window.Event('scroll'));
+        expect(tooltip.style.top).toBe('348px');
+        container.getBoundingClientRect = () => ({ left: 100, width: 300, top: 400, bottom: 440 });
+        tooltip.querySelector('img').dispatchEvent(new dom.window.Event('load'));
+        expect(tooltip.style.top).toBe('448px');
 
         container.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 350 }));
         jest.advanceTimersByTime(900);
