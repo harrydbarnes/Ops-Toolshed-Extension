@@ -39,6 +39,15 @@ function getWorkflowSlotStyles(bodyClass = '') {
 }
 
 describe('workflow widget alignment', () => {
+    test('keeps GMI Chat clear of the workflow icon', () => {
+        const dom = new JSDOM(`<!doctype html><style>${contentStyles}</style>`);
+        const rules = Array.from(dom.window.document.styleSheets[0].cssRules);
+        const gmiRule = rules.find(rule => rule.selectorText === '.gmi-chat-button');
+
+        expect(gmiRule.style.getPropertyValue('margin-left')).toBe('6px');
+        dom.window.close();
+    });
+
     test.each([
         { bodyClass: '', state: 'features are disabled' },
         {

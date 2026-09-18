@@ -436,6 +436,9 @@ body.reminder-theme-black #confirmation-popup {
     /* 1. Force margin to zero */
     margin-bottom: 0 !important;
 
+    /* Keep the chat action clear of Prisma's workflow icon. */
+    margin-left: 6px !important;
+
     /* 2. Fix "Ghost" spacing caused by baseline alignment */
     vertical-align: middle !important;
 
@@ -2099,13 +2102,13 @@ div[slot="right"].ai-style-change-1 {
     min-width: 0;
     max-width: calc(100vw - 32px);
     min-height: 0;
-    padding: 12px 44px 12px 14px;
-    border: 1px solid #e0e3e8;
-    border-radius: 6px;
-    background: #f8f9fb;
-    color: #444b55;
+    padding: 10px 42px 10px 12px;
+    border: 1px solid #b8cad6;
+    border-radius: 4px;
+    background: #f8fafc;
+    color: #15364d;
     box-shadow: none;
-    font: 13px/1.5 Avenir, Arial, sans-serif;
+    font: 12px/1.45 Avenir, Arial, sans-serif;
 }
 .loading-fact-toast--new .loading-fact-icon,
 .loading-fact-toast--new .loading-fact-content strong { display: none; }
@@ -2113,12 +2116,12 @@ div[slot="right"].ai-style-change-1 {
 .loading-fact-menu { position: absolute; right: 5px; top: 7px; }
 .loading-fact-menu summary { display: grid; place-items: center; width: 32px; height: 32px; cursor: pointer; list-style: none; border-radius: 4px; }
 .loading-fact-menu summary::-webkit-details-marker { display: none; }
-.loading-fact-menu summary:hover { background: #e9edf2; }
+.loading-fact-menu summary:hover { background: #e9f0f5; }
 .loading-fact-menu summary:focus-visible,
-.loading-fact-toast--new .loading-fact-action:focus-visible { outline: 2px solid #2870eb; outline-offset: 2px; }
-.loading-fact-toast--new .loading-fact-actions { bottom: 36px; top: auto; right: 0; transform: none; width: 210px; padding: 5px; flex-direction: column; border: 1px solid #e0e3e8; border-radius: 6px; background: white; box-shadow: 0 3px 10px #00000014; }
-.loading-fact-toast--new .loading-fact-action { width: 100%; height: auto; min-height: 32px; padding: 7px; border: 0; border-radius: 3px; background: white; color: #444b55; font: 12px/1.5 Avenir, Arial, sans-serif; text-align: left; }
-.loading-fact-toast--new .loading-fact-action:hover:not(:disabled) { background: #eef1f6; outline: none; }
+.loading-fact-toast--new .loading-fact-action:focus-visible { outline: 2px solid #3e6dd1; outline-offset: 2px; }
+.loading-fact-toast--new .loading-fact-actions { bottom: 36px; top: auto; right: 0; transform: none; width: 210px; padding: 5px; flex-direction: column; border: 1px solid #b8cad6; border-radius: 4px; background: #f8fafc; box-shadow: 0 3px 10px #102d431a; }
+.loading-fact-toast--new .loading-fact-action { width: 100%; height: auto; min-height: 32px; padding: 7px; border: 0; border-radius: 3px; background: #f8fafc; color: #15364d; font: 12px/1.45 Avenir, Arial, sans-serif; text-align: left; }
+.loading-fact-toast--new .loading-fact-action:hover:not(:disabled) { background: #e9f0f5; outline: none; }
 .loading-fact-toast--new.slide-up { animation: loadingFactFadeIn 160ms ease-out forwards; }
 .loading-fact-toast--new.slide-down { animation: loadingFactFadeOut 160ms ease-out forwards; pointer-events: none; }
 @keyframes loadingFactFadeIn { from { opacity: 0; } to { opacity: 1; } }

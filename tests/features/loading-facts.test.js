@@ -23,6 +23,14 @@ describe('Loading Facts behaviour', () => {
         expect(contentCss).toContain('--toast-bottom-position: clamp(20px, 4.762vh, 55px);');
     });
 
+    test('uses the native Prisma toast palette for the new loading facts UI', () => {
+        expect(contentCss).toContain('.loading-fact-toast--new {');
+        expect(contentCss).toContain('border: 1px solid #b8cad6;');
+        expect(contentCss).toContain('border-radius: 4px;');
+        expect(contentCss).toContain('background: #f8fafc;');
+        expect(contentCss).toContain('color: #15364d;');
+    });
+
     test('does not show a loading fact for campaign search activity', async () => {
         const dom = new JSDOM('<!doctype html><html><body><mo-overlay role="menu"><mo-banner-recent-menu-content><mo-search-box><span class="search-spinner"></span></mo-search-box></mo-banner-recent-menu-content></mo-overlay></body></html>', {
             url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns',
