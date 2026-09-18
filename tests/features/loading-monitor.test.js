@@ -156,3 +156,33 @@ describe('shared Prisma loading monitor', () => {
         dom.window.close();
     });
 });
+
+test('detects wrapped loaders, skeleton handoff and removal without manual refresh', async () => {
+    const dom = new JSDOM('<body></body>', {runScripts:'outside-only'});
+    const w = dom.window;
+    try {
+        w.requestAnimationFrame = fn => fn();
+        w.utils = {isElementVisible:e => !e.hidden && !e.closest('[hidden]')};
+        w.eval(monitorCode);
+        const listener = jest.fn();
+        w.loadingMonitor.subscribe(listener);
+        const wrapper = w.document.createElement('section');
+        wrapper.innerHTML = '<div><mo-spinner></mo-spinner></div>';
+        w.document.body.append(wrapper);
+        await Promise.resolve();
+        expect(w.loadingMonitor.getState().pageVisibleSpinners).toHaveLength(1);
+        wrapper.innerHTML = '<div><mo-skeleton class="mo-grid-skeleton"><mo-skeleton-bone></mo-skeleton-bone></mo-skeleton></div>';
+        await Promise.resolve();
+        expect(w.loadingMonitor.getState().pageVisibleSpinners).toHaveLength(0);
+        expect(w.loadingMonitor.getState().pageVisibleSkeletons).toHaveLength(1);
+        wrapper.hidden = true;
+        await Promise.resolve();
+        expect(w.loadingMonitor.getState().pageVisibleSkeletons).toHaveLength(0);
+        wrapper.hidden = false;
+        await Promise.resolve();
+        expect(w.loadingMonitor.getState().pageVisibleSkeletons).toHaveLength(1);
+        wrapper.remove();
+        await Promise.resolve();
+        expect(w.loadingMonitor.getState().pageVisibleSkeletons).toHaveLength(0);
+    } finally {w.close();}
+});

@@ -14,6 +14,7 @@ const FEATURE_TOGGLE_KEYS = {
     bannerUsernameToggle: 'bannerUsernameEnabled',
     loadingFactsToggle: 'loadingFactsEnabled',
     helpGuidesToggle: 'helpGuidesEnabled',
+    prismaLoginAssistantToggle: 'prismaLoginAssistantEnabled',
     countPlacementsSelectedToggle: 'countPlacementsSelectedEnabled',
     approverSidebarEnhancementsToggle: 'approverSidebarEnhancementsEnabled',
     approverSubmittedRecipientDisplayToggle: 'approverSubmittedRecipientDisplayEnabled',
@@ -67,17 +68,18 @@ function readStorage(store, keys) {
     return { ...store };
 }
 
-async function createSettingsPage(ignoredProductCodes = []) {
+async function createSettingsPage(ignoredProductCodes = [], initialSyncSettings = {}, initialLocalSettings = {}) {
     const dom = new JSDOM(settingsHtml, {
         url: 'chrome-extension://test/settings.html#features',
         runScripts: 'outside-only'
     });
     const { window } = dom;
-    const syncStore = { ...FEATURE_SETTINGS_DEFAULTS };
+    const syncStore = { ...FEATURE_SETTINGS_DEFAULTS, ...initialSyncSettings };
     let diagnosticsState = false;
-    const localStore = ignoredProductCodes.length
-        ? { productCodeLimitWarningIgnored: [...ignoredProductCodes] }
-        : {};
+    const localStore = {
+        ...(ignoredProductCodes.length ? { productCodeLimitWarningIgnored: [...ignoredProductCodes] } : {}),
+        ...initialLocalSettings
+    };
 
     window.chrome = {
         runtime: {
@@ -157,7 +159,7 @@ async function createSettingsPage(ignoredProductCodes = []) {
     for (let index = 0; index < 10; index += 1) await Promise.resolve();
     window.chrome.storage.sync.set.mockClear();
 
-    return { dom, window, localStore };
+    return { dom, window, localStore, syncStore };
 }
 
 describe('Settings feature toggle contract', () => {
@@ -226,6 +228,41 @@ describe('Settings feature toggle contract', () => {
         dom.window.close();
     });
 
+    test('keeps Prisma sign-in details in local browser storage and reveals them only when enabled', async () => {
+        const { dom, window, localStore } = await createSettingsPage();
+        const toggle = window.document.getElementById('prismaLoginAssistantToggle');
+        const options = window.document.getElementById('prisma-login-assistant-options');
+        const email = window.document.getElementById('prismaLoginAssistantEmail');
+        const organisation = window.document.getElementById('prismaLoginAssistantOrganisation');
+
+        expect(options.hidden).toBe(true);
+        toggle.click();
+        expect(options.hidden).toBe(false);
+
+        email.value = 'person@example.com';
+        organisation.value = 'Example Organisation';
+        email.dispatchEvent(new window.Event('change'));
+
+        expect(localStore).toMatchObject({
+            prismaLoginAssistantEnabledLocal: true,
+            prismaLoginAssistantEmail: 'person@example.com',
+            prismaLoginAssistantOrganisation: 'Example Organisation'
+        });
+        dom.window.close();
+    });
+
+    test('restores the Prisma sign-in assistant enabled state after Settings reload', async () => {
+        const { dom, window } = await createSettingsPage([], { prismaLoginAssistantEnabled: true }, {
+            prismaLoginAssistantEnabledLocal: true
+        });
+        const toggle = window.document.getElementById('prismaLoginAssistantToggle');
+        const options = window.document.getElementById('prisma-login-assistant-options');
+
+        expect(toggle.checked).toBe(true);
+        expect(options.hidden).toBe(false);
+        dom.window.close();
+    });
+
     test('enables temporary Diagnostics Mode through the background lifecycle manager', async () => {
         const { dom, window } = await createSettingsPage();
         const toggle = window.document.getElementById('diagnosticsModeToggle');
@@ -258,4 +295,17 @@ describe('Settings feature toggle contract', () => {
 
         dom.window.close();
     });
+});
+
+test('loading facts appearance defaults to New UI and persists both choices', async () => {
+    const {dom,window,syncStore} = await createSettingsPage();
+    try {
+        const select = window.document.getElementById('loadingFactsUI');
+        expect(select.value).toBe('new');
+        for (const value of ['old','new']) {
+            select.value = value;
+            select.dispatchEvent(new window.Event('change',{bubbles:true}));
+            expect(syncStore.loadingFactsUI).toBe(value);
+        }
+    } finally { dom.window.close(); }
 });

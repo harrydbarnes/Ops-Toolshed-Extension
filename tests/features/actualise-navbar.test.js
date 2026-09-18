@@ -346,4 +346,109 @@ describe('Actualise navigation bar', () => {
         expect(window.document.querySelectorAll('#toolshed-actualise-navbar-wrapper')).toHaveLength(1);
         dom.window.close();
     });
+
+    test('derives an inclusive month range from the campaign dates', () => {
+        const { dom, window } = createFeature();
+
+        expect(window.actualiseNavbarFeature.getCampaignMonthRange(
+            '(AUG 1, 2025 - JUL 30, 2026)'
+        ).map(month => month.key)).toEqual([
+            '2025-08', '2025-09', '2025-10', '2025-11', '2025-12', '2026-01',
+            '2026-02', '2026-03', '2026-04', '2026-05', '2026-06', '2026-07'
+        ]);
+        expect(window.actualiseNavbarFeature.getCampaignMonthRange(
+            '(JUN 23 - JUL 20, 2026)'
+        ).map(month => month.key)).toEqual(['2026-06', '2026-07']);
+        dom.window.close();
+    });
+
+    test('renders all campaign months alongside the native Actualise pager', () => {
+        const { dom, window } = createFeature();
+        const dateField = window.document.createElement('div');
+        dateField.className = 'mo-date-field-wrapper';
+        dateField.textContent = '(AUG 1, 2025 - JUL 30, 2026)';
+        window.document.body.appendChild(dateField);
+
+        const toolbar = window.document.createElement('div');
+        toolbar.id = 'actualize-toolbar';
+        const monthGroup = window.document.createElement('div');
+        monthGroup.className = 'actual-months-group';
+        const nativeGroup = window.document.createElement('mo-button-group');
+        nativeGroup.className = 'month-button-group';
+        monthGroup.appendChild(nativeGroup);
+        ['Aug 25', 'Sep 25', 'Oct 25', 'Nov 25', 'Dec 25', 'Jan 26'].forEach(label => {
+            const item = window.document.createElement('mo-button-group-item');
+            item.textContent = label;
+            item.setAttribute('aria-pressed', label === 'Dec 25' ? 'true' : 'false');
+            nativeGroup.appendChild(item);
+        });
+        const next = window.document.createElement('mo-button-group-item');
+        next.setAttribute('value', 'Next');
+        nativeGroup.appendChild(next);
+        toolbar.appendChild(monthGroup);
+        window.document.body.appendChild(toolbar);
+
+        window.actualiseNavbarFeature.initialize();
+        window.actualiseNavbarFeature.apply();
+
+        const selector = window.document.getElementById('toolshed-actualise-month-selector');
+        expect(selector).not.toBeNull();
+        expect(selector.getAttribute('aria-label')).toBe('Actualise months');
+        expect(Array.from(selector.querySelectorAll('button')).map(button => button.textContent)).toEqual([
+            'Aug 25', 'Sep 25', 'Oct 25', 'Nov 25', 'Dec 25', 'Jan 26',
+            'Feb 26', 'Mar 26', 'Apr 26', 'May 26', 'Jun 26', 'Jul 26'
+        ]);
+        expect(nativeGroup.getAttribute('data-toolshed-actualise-native-month-group')).toBe('true');
+        expect(selector.querySelector('[aria-pressed="true"]').textContent).toBe('Dec 25');
+        dom.window.close();
+    });
+
+    test('keeps a distant month highlighted while the native pager crosses intermediate months', async () => {
+        const { dom, window } = createFeature();
+        const dateField = window.document.createElement('div');
+        dateField.className = 'mo-date-field-wrapper';
+        dateField.textContent = '(AUG 1, 2025 - OCT 30, 2025)';
+        window.document.body.appendChild(dateField);
+
+        const toolbar = window.document.createElement('div');
+        toolbar.id = 'actualize-toolbar';
+        const monthGroup = window.document.createElement('div');
+        monthGroup.className = 'actual-months-group';
+        const nativeGroup = window.document.createElement('mo-button-group');
+        nativeGroup.className = 'month-button-group';
+        monthGroup.appendChild(nativeGroup);
+        ['Aug 25', 'Sep 25'].forEach((label, index) => {
+            const item = window.document.createElement('mo-button-group-item');
+            item.textContent = label;
+            item.setAttribute('aria-pressed', index === 0 ? 'true' : 'false');
+            nativeGroup.appendChild(item);
+        });
+        const next = window.document.createElement('mo-button-group-item');
+        next.setAttribute('value', 'Next');
+        next.addEventListener('click', () => {
+            nativeGroup.querySelectorAll('mo-button-group-item').forEach(item => item.setAttribute('aria-pressed', 'false'));
+            nativeGroup.querySelectorAll('mo-button-group-item')[1].setAttribute('aria-pressed', 'true');
+            const targetItem = window.document.createElement('mo-button-group-item');
+            targetItem.textContent = 'Oct 25';
+            targetItem.setAttribute('aria-pressed', 'false');
+            targetItem.addEventListener('click', () => {
+                nativeGroup.querySelectorAll('mo-button-group-item').forEach(item => item.setAttribute('aria-pressed', 'false'));
+                targetItem.setAttribute('aria-pressed', 'true');
+            });
+            nativeGroup.insertBefore(targetItem, next);
+        });
+        nativeGroup.appendChild(next);
+        toolbar.appendChild(monthGroup);
+        window.document.body.appendChild(toolbar);
+
+        window.actualiseNavbarFeature.initialize();
+        window.actualiseNavbarFeature.apply();
+        const target = window.document.querySelector('button[data-month="2025-10"]');
+        target.click();
+        await new Promise(resolve => window.setTimeout(resolve, 10));
+
+        expect(target.getAttribute('aria-pressed')).toBe('true');
+        expect(target.classList.contains('is-selected')).toBe(true);
+        dom.window.close();
+    });
 });

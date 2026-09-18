@@ -85,6 +85,10 @@
                 <div class="toggle-container">
                     <span>Show Loading Facts:</span>
                     <div class="button-and-toggle-group">
+                        <select id="loadingFactsUI" aria-label="Loading facts appearance" class="settings-button">
+                            <option value="new">New UI</option>
+                            <option value="old">Old UI</option>
+                        </select>
                         <button id="loadingFactsStatsButton" class="settings-button loading-facts-stats-button" type="button">Fact stats</button>
                         <label class="toggle"><input type="checkbox" id="loadingFactsToggle"><span class="slider"></span></label>
                     </div>
@@ -92,6 +96,21 @@
                 <div class="toggle-container">
                     <span>Help Guides launcher:</span>
                     <label class="toggle"><input type="checkbox" id="helpGuidesToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Assist Prisma sign-in on active tabs:</span>
+                    <label class="toggle"><input type="checkbox" id="prismaLoginAssistantToggle"><span class="slider"></span></label>
+                </div>
+                <div id="prisma-login-assistant-options" class="prisma-login-assistant-options" hidden aria-live="polite">
+                    <label>
+                        Work email
+                        <input id="prismaLoginAssistantEmail" type="email" autocomplete="email" placeholder="name@company.com">
+                    </label>
+                    <label>
+                        Organisation
+                        <input id="prismaLoginAssistantOrganisation" type="text" value="WPP Media UK Agency Owner United Kingdom">
+                    </label>
+                    <p>Saved only in this browser. The assistant never signs in when Prisma is in a background tab.</p>
                 </div>
                 <div class="toggle-container">
                     <span>Count Placements Selected:</span>

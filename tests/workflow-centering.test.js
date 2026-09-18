@@ -90,6 +90,45 @@ describe('workflow widget alignment', () => {
         expect(wrapperRule.style.getPropertyValue('height')).toBe('auto');
         expect(navbarRule.style.getPropertyValue('flex')).toBe('0 0 auto');
         expect(slotRule.style.getPropertyValue('flex')).toBe('1 0 max-content');
+        expect(slotRule.style.getPropertyValue('justify-content')).toBe('center');
+        dom.window.close();
+    });
+
+    test('centres Actualise workflow controls against the full bar on desktop widths', () => {
+        const dom = new JSDOM(`<!doctype html><style>${contentStyles}</style>`);
+        const rules = Array.from(dom.window.document.styleSheets[0].cssRules);
+        const wideScreenRule = rules.find(rule => rule.conditionText === '(min-width: 1600px)');
+        const slotRule = Array.from(wideScreenRule.cssRules).find(rule =>
+            rule.selectorText === '.toolshed-actualise-navbar-wrapper > .ai-style-change-1'
+        );
+
+        expect({
+            position: slotRule.style.position,
+            left: slotRule.style.left,
+            top: slotRule.style.top,
+            width: slotRule.style.width,
+            transform: slotRule.style.transform
+        }).toEqual({
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            width: 'max-content',
+            transform: 'translate(-50%, -50%)'
+        });
+        dom.window.close();
+    });
+
+    test('keeps intermediate-width workflow controls immediately after navigation', () => {
+        const dom = new JSDOM(`<!doctype html><style>${contentStyles}</style>`);
+        const rules = Array.from(dom.window.document.styleSheets[0].cssRules);
+        const intermediateRule = rules.find(rule =>
+            rule.conditionText === '(min-width: 1000px) and (max-width: 1599px)'
+        );
+        const slotRule = Array.from(intermediateRule.cssRules).find(rule =>
+            rule.selectorText === '.toolshed-actualise-navbar-wrapper > .ai-style-change-1'
+        );
+
+        expect(slotRule.style.getPropertyValue('justify-content')).toBe('flex-start');
         dom.window.close();
     });
 

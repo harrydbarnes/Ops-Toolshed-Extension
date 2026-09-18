@@ -110,6 +110,44 @@ section h2 {
     margin-bottom: 0;
 }
 
+.prisma-login-assistant-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin: -2px 0 12px;
+    padding: 12px;
+    border: 1px solid #e1e5ec;
+    border-radius: 6px;
+    background: #f8f9fb;
+}
+
+.prisma-login-assistant-options[hidden] {
+    display: none;
+}
+
+.prisma-login-assistant-options label {
+    display: grid;
+    gap: 5px;
+    color: #404756;
+    font-size: .9em;
+}
+
+.prisma-login-assistant-options input {
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 8px;
+    border: 1px solid #cbd2dc;
+    border-radius: 4px;
+    font: inherit;
+}
+
+.prisma-login-assistant-options p {
+    grid-column: 1 / -1;
+    margin: 0;
+    color: #596273;
+    font-size: .85em;
+}
+
 .setting-row label,
 .setting-row .setting-label {
     font-size: 1em;

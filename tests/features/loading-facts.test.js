@@ -57,6 +57,7 @@ describe('Loading Facts behaviour', () => {
         };
 
         window.eval(loadingFactsScript);
+        window.loadingFactsFeature.ui = 'old';
         const feature = window.loadingFactsFeature;
         feature.isEnabled = true;
         feature.isIntersecting = true;
@@ -111,6 +112,7 @@ describe('Loading Facts behaviour', () => {
         };
 
         window.eval(loadingFactsScript);
+        window.loadingFactsFeature.ui = 'old';
         const feature = window.loadingFactsFeature;
         feature.isEnabled = true;
         feature.isIntersecting = true;
@@ -160,6 +162,7 @@ describe('Loading Facts behaviour', () => {
         };
 
         window.eval(loadingFactsScript);
+        window.loadingFactsFeature.ui = 'old';
         await expect(window.loadingFactsFeature.initialize()).resolves.toBeUndefined();
         expect(window.loadingFactsFeature.isEnabled).toBe(true);
         expect(window.loadingFactsFeature.settingsLoaded).toBe(true);
@@ -207,13 +210,14 @@ describe('Loading Facts behaviour', () => {
         };
         window.chrome = {
             storage: {
-                sync: { get: jest.fn((_keys, callback) => callback({ loadingFactsEnabled: true })) },
+                sync: { get: jest.fn((_keys, callback) => callback({ loadingFactsEnabled: true, loadingFactsUI: 'old' })) },
                 local: { get: jest.fn((_keys, callback) => callback({ legacyStats: { totalLoadingTime: 1 } })) },
                 onChanged: { addListener: jest.fn() }
             }
         };
 
         window.eval(loadingFactsScript);
+        window.loadingFactsFeature.ui = 'old';
         await window.loadingFactsFeature.initialize();
         runScheduledTimer(scheduledTimers, 200);
         intersectionCallback([{ target: activeSpinner, isIntersecting: true }]);
@@ -304,13 +308,14 @@ describe('Loading Facts behaviour', () => {
         };
         window.chrome = {
             storage: {
-                sync: { get: jest.fn((_keys, callback) => callback({ loadingFactsEnabled: true })) },
+                sync: { get: jest.fn((_keys, callback) => callback({ loadingFactsEnabled: true, loadingFactsUI: 'old' })) },
                 local: { get: jest.fn((_keys, callback) => callback({ legacyStats: { totalLoadingTime: 1 } })) },
                 onChanged: { addListener: jest.fn() }
             }
         };
 
         window.eval(loadingFactsScript);
+        window.loadingFactsFeature.ui = 'old';
         await window.loadingFactsFeature.initialize();
         runScheduledTimer(scheduledTimers, 200);
 
@@ -342,13 +347,14 @@ describe('Loading Facts behaviour', () => {
         };
         window.chrome = {
             storage: {
-                sync: { get: jest.fn((_keys, callback) => callback({ loadingFactsEnabled: true })) },
+                sync: { get: jest.fn((_keys, callback) => callback({ loadingFactsEnabled: true, loadingFactsUI: 'old' })) },
                 local: { get: jest.fn((_keys, callback) => callback({ legacyStats: { totalLoadingTime: 1 } })) },
                 onChanged: { addListener: jest.fn() }
             }
         };
 
         window.eval(loadingFactsScript);
+        window.loadingFactsFeature.ui = 'old';
         await window.loadingFactsFeature.initialize();
         runScheduledTimer(scheduledTimers, 200);
 
@@ -397,7 +403,7 @@ describe('Loading Facts behaviour', () => {
         window.chrome = {
             storage: {
                 sync: {
-                    get: jest.fn((keys, callback) => callback({ loadingFactsEnabled: true }))
+                    get: jest.fn((keys, callback) => callback({ loadingFactsEnabled: true, loadingFactsUI: 'old' }))
                 },
                 local: {
                     get: jest.fn((keys, callback) => callback({
@@ -410,6 +416,7 @@ describe('Loading Facts behaviour', () => {
         };
 
         window.eval(loadingFactsScript);
+        window.loadingFactsFeature.ui = 'old';
         await window.loadingFactsFeature.initialize();
         runScheduledTimer(scheduledTimers, 200);
         intersectionCallback([{ target: spinner, isIntersecting: true }]);
@@ -447,7 +454,7 @@ describe('Loading Facts behaviour', () => {
         window.IntersectionObserver = jest.fn(() => ({ observe: jest.fn(), disconnect: jest.fn() }));
         window.chrome = {
             storage: {
-                sync: { get: jest.fn((_keys, callback) => callback({ loadingFactsEnabled: true })) },
+                sync: { get: jest.fn((_keys, callback) => callback({ loadingFactsEnabled: true, loadingFactsUI: 'old' })) },
                 local: {
                     get: jest.fn((_keys, callback) => callback({
                         legacyStats: { totalLoadingTime: 3600 },
@@ -462,6 +469,7 @@ describe('Loading Facts behaviour', () => {
         };
 
         window.eval(loadingFactsScript);
+        window.loadingFactsFeature.ui = 'old';
         await window.loadingFactsFeature.initialize();
         await expect(window.loadingFactsFeature.getProcessedFact())
             .resolves.toContain('1h 1m 5s');
@@ -486,7 +494,7 @@ describe('Loading Facts behaviour', () => {
         window.IntersectionObserver = jest.fn(() => ({ observe: jest.fn(), disconnect: jest.fn() }));
         window.chrome = {
             storage: {
-                sync: { get: jest.fn((_keys, callback) => callback({ loadingFactsEnabled: true })) },
+                sync: { get: jest.fn((_keys, callback) => callback({ loadingFactsEnabled: true, loadingFactsUI: 'old' })) },
                 local: {
                     get: jest.fn((_keys, callback) => callback(stored)),
                     set: jest.fn(update => Object.assign(stored, update))
@@ -496,6 +504,7 @@ describe('Loading Facts behaviour', () => {
         };
 
         window.eval(loadingFactsScript);
+        window.loadingFactsFeature.ui = 'old';
         const feature = window.loadingFactsFeature;
 
         await expect(feature.getProcessedFact()).resolves.toBe(secondFact);
@@ -525,13 +534,14 @@ describe('Loading Facts behaviour', () => {
         window.IntersectionObserver = jest.fn(() => ({ observe: jest.fn(), disconnect: jest.fn() }));
         window.chrome = {
             storage: {
-                sync: { get: jest.fn((_keys, callback) => callback({ loadingFactsEnabled: true })) },
+                sync: { get: jest.fn((_keys, callback) => callback({ loadingFactsEnabled: true, loadingFactsUI: 'old' })) },
                 local: { get: jest.fn((_keys, callback) => callback({ legacyStats: { totalLoadingTime: 1 } })) },
                 onChanged: { addListener: jest.fn() }
             }
         };
 
         window.eval(loadingFactsScript);
+        window.loadingFactsFeature.ui = 'old';
         const feature = window.loadingFactsFeature;
         feature.isEnabled = true;
         feature.isIntersecting = true;
@@ -554,7 +564,7 @@ describe('Loading Facts behaviour', () => {
         window.IntersectionObserver = jest.fn(() => ({ observe: jest.fn(), disconnect: jest.fn() }));
         window.chrome = {
             storage: {
-                sync: { get: jest.fn((_keys, callback) => callback({ loadingFactsEnabled: true })) },
+                sync: { get: jest.fn((_keys, callback) => callback({ loadingFactsEnabled: true, loadingFactsUI: 'old' })) },
                 local: {
                     get: jest.fn((_keys, callback) => callback(stored)),
                     set: jest.fn(update => Object.assign(stored, update))
@@ -564,6 +574,7 @@ describe('Loading Facts behaviour', () => {
         };
 
         window.eval(loadingFactsScript);
+        window.loadingFactsFeature.ui = 'old';
         const feature = window.loadingFactsFeature;
         const fact = window.LOADING_FACTS[0];
 
@@ -599,6 +610,7 @@ describe('Loading Facts behaviour', () => {
         };
 
         window.eval(loadingFactsScript);
+        window.loadingFactsFeature.ui = 'old';
         const feature = window.loadingFactsFeature;
         const toast = window.document.createElement('div');
         toast.id = feature.toastId;
@@ -623,4 +635,79 @@ describe('Loading Facts behaviour', () => {
         expect(toast.classList).toContain('slide-down');
         dom.window.close();
     });
+});
+
+
+test('new loading UI defaults on, delays appearance, and cancels short loads', async () => {
+    const dom = new JSDOM('<span id="spinner"></span>', { runScripts: 'outside-only' });
+    const w = dom.window;
+    try {
+        const timers = new Map(); let id = 0;
+        w.setTimeout = (fn, delay) => { timers.set(++id, {fn, delay}); return id; };
+        w.clearTimeout = key => timers.delete(key);
+        w.requestAnimationFrame = fn => fn();
+        w.utils = { isElementVisible: () => true };
+        w.eval(loadingFactsScript);
+        const f = w.loadingFactsFeature, spinner = w.document.getElementById('spinner');
+        spinner.getBoundingClientRect = () => ({left: 400, bottom: 250, width: 20, height: 20});
+        f.observedSpinner = spinner; f.isIntersecting = true;
+        expect(f.ui).toBe('new');
+        await f.showToast(spinner);
+        expect(w.document.getElementById(f.toastId)).toBeNull();
+        expect([...timers.values()].some(t => t.delay === 750)).toBe(true);
+        f.handleNoVisibleSpinner();
+        expect(timers.size).toBe(0);
+        await f.showToast(spinner);
+        const timer = [...timers.values()].find(t => t.delay === 750);
+        timer.fn();
+        for(let i=0;i<8;i++) await Promise.resolve();
+        const toast = w.document.getElementById(f.toastId);
+        expect(toast.classList.contains('loading-fact-toast--new')).toBe(true);
+        expect(toast.style.top).toBe('');
+        expect(toast.style.bottom).toBe('');
+        expect(toast.querySelector('summary').getAttribute('aria-label')).toBe('Loading fact options');
+        expect(toast.querySelector('details').textContent).toContain('Flag for review');
+        f.hideToast({force:true});
+    } finally { w.close(); }
+});
+
+test.each(['new', 'old'])('%s UI keeps the same fact through homepage spinner and skeleton handoff', async ui => {
+    const dom = new JSDOM('<body><mo-spinner></mo-spinner></body>', {runScripts:'outside-only',url:'https://go.mediaocean.com/campaign-management/#route=campaigns'});
+    const w=dom.window;
+    try {
+        let id=0;const timers=new Map();
+        w.setTimeout=(fn,delay)=>{timers.set(++id,{fn,delay});return id;};
+        w.clearTimeout=key=>timers.delete(key);
+        const run=delay=>{const entry=[...timers].find(([,t])=>t.delay===delay);expect(entry).toBeDefined();timers.delete(entry[0]);entry[1].fn();};
+        w.requestAnimationFrame=fn=>fn();
+        w.utils={isElementVisible:e=>Boolean(e?.isConnected)};
+        let state={pageVisibleSpinners:[],pageVisibleSkeletons:[],visibleSpinners:[],sidePanelVisibleSpinners:[]};
+        w.loadingMonitor={getState:()=>state};
+        w.eval(loadingFactsScript);
+        const f=w.loadingFactsFeature;f.ui=ui;f.settingsLoaded=true;
+        f.intersectionObserver={disconnect:()=>{},observe:()=>{}};
+        const spinner=w.document.querySelector('mo-spinner');
+        spinner.getBoundingClientRect=()=>({left:500,width:24,height:24});
+        f.observedSpinner=spinner;f.isIntersecting=true;
+        await f.showToast(spinner,true);
+        const original=w.document.getElementById(f.toastId);
+        const copy=original.textContent;
+        spinner.remove();f.observedSpinner=null;f.isIntersecting=false;
+        f.handleNoVisibleSpinner();
+        expect(original.classList.contains('slide-down')).toBe(false);
+        const skeleton=w.document.createElement('mo-skeleton');skeleton.className='mo-grid-skeleton';
+        skeleton.getBoundingClientRect=()=>({left:220,width:1000,height:500});
+        w.document.body.append(skeleton);
+        state={...state,pageVisibleSkeletons:[skeleton]};
+        f.checkForLoading(state);run(200);
+        expect(w.document.getElementById(f.toastId)).toBe(original);
+        expect(original.textContent).toBe(copy);
+        expect(original.classList.contains('slide-down')).toBe(false);
+        expect([...timers.values()].some(t=>t.delay===800)).toBe(false);
+        skeleton.remove();state={...state,pageVisibleSkeletons:[]};
+        f.checkForLoading(state);run(200);run(800);
+        expect(original.classList.contains('slide-down')).toBe(true);
+        run(500);
+        expect(w.document.getElementById(f.toastId)).toBeNull();
+    } finally {w.close();}
 });

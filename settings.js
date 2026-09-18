@@ -914,6 +914,45 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupToggle('appLearnReplaceToggle', 'appLearnReplaceEnabled', 'AppLearn transparency setting saved:', settings);
     setupToggle('blockAppLearnPopupsToggle', 'blockAppLearnPopupsEnabled', 'AppLearn popup blocking setting saved:', settings);
     setupToggle('helpGuidesToggle', 'helpGuidesEnabled', 'Help Guides setting saved:', settings);
+    setupToggle('prismaLoginAssistantToggle', 'prismaLoginAssistantEnabled', 'Prisma sign-in assistant setting saved:', settings);
+
+    const prismaLoginAssistantToggle = document.getElementById('prismaLoginAssistantToggle');
+    const prismaLoginAssistantOptions = document.getElementById('prisma-login-assistant-options');
+    const prismaLoginAssistantEmail = document.getElementById('prismaLoginAssistantEmail');
+    const prismaLoginAssistantOrganisation = document.getElementById('prismaLoginAssistantOrganisation');
+    const updatePrismaLoginAssistantOptions = () => {
+        if (!prismaLoginAssistantOptions || !prismaLoginAssistantToggle) return;
+        prismaLoginAssistantOptions.hidden = !prismaLoginAssistantToggle.checked;
+    };
+    if (prismaLoginAssistantToggle) {
+        updatePrismaLoginAssistantOptions();
+        prismaLoginAssistantToggle.addEventListener('change', updatePrismaLoginAssistantOptions);
+        prismaLoginAssistantToggle.addEventListener('change', () => {
+            chrome.storage.local.set({ prismaLoginAssistantEnabledLocal: prismaLoginAssistantToggle.checked });
+        });
+    }
+    if (prismaLoginAssistantToggle && prismaLoginAssistantEmail && prismaLoginAssistantOrganisation) {
+        chrome.storage.local.get({
+            prismaLoginAssistantEnabledLocal: null,
+            prismaLoginAssistantEmail: '',
+            prismaLoginAssistantOrganisation: 'WPP Media UK Agency Owner United Kingdom'
+        }, localSettings => {
+            if (localSettings.prismaLoginAssistantEnabledLocal !== null) {
+                prismaLoginAssistantToggle.checked = localSettings.prismaLoginAssistantEnabledLocal === true;
+                updatePrismaLoginAssistantOptions();
+            }
+            prismaLoginAssistantEmail.value = localSettings.prismaLoginAssistantEmail || '';
+            prismaLoginAssistantOrganisation.value = localSettings.prismaLoginAssistantOrganisation || 'WPP Media UK Agency Owner United Kingdom';
+        });
+        const savePrismaLoginAssistantDetails = () => {
+            chrome.storage.local.set({
+                prismaLoginAssistantEmail: prismaLoginAssistantEmail.value.trim(),
+                prismaLoginAssistantOrganisation: prismaLoginAssistantOrganisation.value.trim()
+            });
+        };
+        prismaLoginAssistantEmail.addEventListener('change', savePrismaLoginAssistantDetails);
+        prismaLoginAssistantOrganisation.addEventListener('change', savePrismaLoginAssistantDetails);
+    }
     setupToggle('approverSidebarEnhancementsToggle', 'approverSidebarEnhancementsEnabled', 'Approver Sidebar Enhancements setting saved:', settings);
     setupToggle('approverSubmittedRecipientDisplayToggle', 'approverSubmittedRecipientDisplayEnabled', 'Submitted approval recipients setting saved:', settings);
     setupToggle('approvalTrackingToggle', 'approvalTrackingEnabled', 'Approval Tracking setting saved:', settings);
@@ -1120,6 +1159,15 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupToggle('gmiChatShortcutToggle', 'gmiChatShortcutEnabled', 'GMI Chat Shortcut setting saved:', settings);
     setupToggle('autoCopyUrlToggle', 'autoCopyUrlEnabled', 'Auto Copy URL setting saved:', settings);
     setupToggle('loadingFactsToggle', 'loadingFactsEnabled', 'Show Loading Facts setting saved:', settings);
+    const loadingFactsUI = document.getElementById('loadingFactsUI');
+    if (loadingFactsUI) {
+        chrome.storage.sync.get('loadingFactsUI', data => {
+            loadingFactsUI.value = data.loadingFactsUI === 'old' ? 'old' : 'new';
+        });
+        loadingFactsUI.addEventListener('change', () => {
+            chrome.storage.sync.set({ loadingFactsUI: loadingFactsUI.value === 'old' ? 'old' : 'new' });
+        });
+    }
     setupToggle('orderGridScrollSyncToggle', 'orderGridScrollSyncEnabled', 'Order grid header alignment setting saved:', settings);
 
     const loadingFactsStatsButton = document.getElementById('loadingFactsStatsButton');

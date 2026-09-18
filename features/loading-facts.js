@@ -257,6 +257,8 @@
     const CAMPAIGN_LOADING_END_DELAY_MS = 2500;
     const HOVER_EXIT_DELAY_MS = 2000;
     const RECENT_FACT_HISTORY_LIMIT = 60;
+    const NEW_UI_SHOW_DELAY_MS = 750;
+    const HOMEPAGE_HANDOFF_DELAY_MS = 800;
 
     function getStorageArea(area) {
         if (typeof chrome === 'undefined') return null;
@@ -305,6 +307,10 @@
             this.isVisible = false;
             this.debounceTimer = null;
             this.isEnabled = true; // Default to enabled
+            this.ui = 'new';
+            this.showTimer = null;
+            this.delayedSpinner = null;
+            this.loadingStartedAt = null;
             this.isIntersecting = false; // Track viewport visibility
             this.observedSpinner = null;
             this.pendingShow = false;
@@ -323,10 +329,15 @@
                 ? null
                 : chrome.storage?.onChanged;
             storageChanges?.addListener((changes, area) => {
+                if (area === 'sync' && changes.loadingFactsUI) {
+                    this.ui = changes.loadingFactsUI.newValue === 'old' ? 'old' : 'new';
+                    this.hideToast({ force: true });
+                    setTimeout(() => this.checkForLoading(), ANIMATION_DURATION_MS);
+                }
                 if (area === 'sync' && changes.loadingFactsEnabled) {
                     this.isEnabled = changes.loadingFactsEnabled.newValue !== false;
                     // If disabled while visible, hide immediately
-                    if (!this.isEnabled && this.isVisible) {
+                    if (!this.isEnabled) {
                         this.hideToast({ force: true });
                     }
                 }
@@ -334,9 +345,10 @@
         }
 
         async initialize() {
-            const data = await getStorageData('sync', 'loadingFactsEnabled');
+            const data = await getStorageData('sync', ['loadingFactsEnabled', 'loadingFactsUI']);
 
             this.isEnabled = data.loadingFactsEnabled !== false;
+            this.ui = data.loadingFactsUI === 'old' ? 'old' : 'new';
             this.settingsLoaded = true;
 
             if (window.loadingMonitor?.subscribe) {
@@ -433,6 +445,16 @@
         }
 
         handleNoVisibleSpinner() {
+            if (this.isCampaignHomepage()) {
+                this.scheduleCampaignEnd();
+                return;
+            }
+            this.cancelDelayedShow();
+            if (this.ui === 'new') {
+                this.loadingStartedAt = null;
+                this.requestToastHide();
+                return;
+            }
             if (this.isCampaignRoute() && document.getElementById(this.toastId)) {
                 this.scheduleCampaignEnd();
             } else {
@@ -446,7 +468,7 @@
                 this.campaignEndTimer = null;
                 const monitorState = window.loadingMonitor?.getState?.();
                 const visibleSpinner = monitorState
-                    ? monitorState.pageVisibleSpinners[0]
+                    ? monitorState.pageVisibleSpinners[0] || (this.isCampaignHomepage() && monitorState.pageVisibleSkeletons?.[0])
                     : window.utils.findVisibleLoadingSpinners()
                         .find(candidate => !this.isInsideSidePanel(candidate));
                 if (visibleSpinner && this.isElementVisible(visibleSpinner)) {
@@ -454,7 +476,15 @@
                     return;
                 }
                 this.requestToastHide();
-            }, CAMPAIGN_LOADING_END_DELAY_MS);
+                this.cancelDelayedShow();
+                this.loadingStartedAt = null;
+            }, this.isCampaignHomepage() ? HOMEPAGE_HANDOFF_DELAY_MS : CAMPAIGN_LOADING_END_DELAY_MS);
+        }
+
+        isCampaignHomepage() {
+            const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+            return window.location.pathname.includes('/campaign-management') &&
+                params.get('route') === 'campaigns' && !params.get('campaign-id');
         }
 
         findAncestor(element, selector) {
@@ -496,6 +526,11 @@
             const rect = target.getBoundingClientRect();
             if (!Number.isFinite(rect.left) || rect.width <= 0 || rect.height <= 0) return false;
             toast.style.left = `${rect.left + (rect.width / 2)}px`;
+            if (this.ui === 'new') {
+                const width = Math.min(440, window.innerWidth - 32);
+                toast.style.width = `${width}px`;
+                toast.style.left = `${Math.max(width / 2 + 16, Math.min(window.innerWidth - width / 2 - 16, rect.left + rect.width / 2))}px`;
+            }
             return true;
         }
 
@@ -519,7 +554,7 @@
                 const state = this.latestLoadingState || window.loadingMonitor?.getState?.();
                 const visibleSpinners = state?.visibleSpinners || window.utils.findVisibleLoadingSpinners();
                 const spinner = state
-                    ? state.pageVisibleSpinners[0] || null
+                    ? state.pageVisibleSpinners[0] || (this.isCampaignHomepage() && state.pageVisibleSkeletons?.[0]) || null
                     : visibleSpinners.find(candidate => !this.isInsideSidePanel(candidate)) || null;
                 const hasSidePanelSpinner = state
                     ? state.sidePanelVisibleSpinners.length > 0
@@ -639,12 +674,29 @@
             setStorageData('local', { loadingFactRatings: ratings });
         }
 
-        async showToast(spinner) {
+        cancelDelayedShow() {
+            if (this.showTimer !== null) clearTimeout(this.showTimer);
+            this.showTimer = null;
+            this.delayedSpinner = null;
+        }
+
+        async showToast(spinner, delayElapsed = false) {
             if (this.isCampaignSearchSpinner(spinner)) {
                 this.hideToast({ force: true });
                 return;
             }
             if (document.getElementById(this.toastId) || this.pendingShow || !spinner) return;
+            if (this.ui === 'new' && !delayElapsed) {
+                this.delayedSpinner = spinner;
+                if (this.showTimer !== null) return;
+                if (this.loadingStartedAt === null) this.loadingStartedAt = Date.now();
+                this.showTimer = setTimeout(() => {
+                    const currentSpinner = this.observedSpinner;
+                    this.cancelDelayedShow();
+                    if (currentSpinner) this.showToast(currentSpinner, true);
+                }, Math.max(0, NEW_UI_SHOW_DELAY_MS - (Date.now() - this.loadingStartedAt)));
+                return;
+            }
 
             this.pendingShow = true;
             const requestId = ++this.requestId;
@@ -669,6 +721,7 @@
             const toast = document.createElement('div');
             toast.id = this.toastId;
             toast.className = 'loading-fact-toast slide-up';
+            if (this.ui === 'new') toast.classList.add('loading-fact-toast--new');
             toast.style.left = '50vw';
             toast.style.visibility = 'hidden';
 
@@ -696,6 +749,11 @@
             contentDiv.appendChild(span);
 
             toast.appendChild(contentDiv);
+            toast.addEventListener('focusout', () => {
+                setTimeout(() => {
+                    if (this.pendingToastHide && !toast.contains(document.activeElement)) this.hideToast();
+                }, 0);
+            });
 
             const actionsDiv = document.createElement('div');
             actionsDiv.className = 'loading-fact-actions';
@@ -722,12 +780,37 @@
                 toast.setAttribute('aria-label', rating === 'remove'
                     ? 'Loading fact removed'
                     : 'Loading fact marked as not sure');
+                if (this.ui === 'new') {
+                    span.textContent = rating === 'remove' ? 'This fact won’t be shown again.' : 'Flagged for review.';
+                    toast.querySelector('details').open = false;
+                }
             };
 
             notSureButton.addEventListener('click', () => handleRating('notSure'));
             removeButton.addEventListener('click', () => handleRating('remove'));
             actionsDiv.append(notSureButton, removeButton);
-            toast.appendChild(actionsDiv);
+            if (this.ui === 'new') {
+                const details = document.createElement('details');
+                details.className = 'loading-fact-menu';
+                const summary = document.createElement('summary');
+                summary.textContent = '…';
+                summary.setAttribute('aria-label', 'Loading fact options');
+                notSureButton.textContent = 'Flag for review';
+                removeButton.textContent = 'Don’t show this fact again';
+                details.append(summary, actionsDiv);
+                toast.appendChild(details);
+                details.addEventListener('toggle', () => {
+                    if (!details.open && this.pendingToastHide) this.hideToast();
+                });
+                toast.addEventListener('keydown', event => {
+                    if (event.key === 'Escape') {
+                        details.open = false;
+                        summary.focus();
+                    }
+                });
+            } else {
+                toast.appendChild(actionsDiv);
+            }
 
             toast.addEventListener('pointerenter', () => {
                 this.isToastHovered = true;
@@ -758,6 +841,8 @@
         }
 
         hideToast({ force = false } = {}) {
+            this.cancelDelayedShow();
+            this.loadingStartedAt = null;
             this.cancelCampaignEndTimer();
             this.requestId += 1;
             this.pendingShow = false;
@@ -767,7 +852,7 @@
                 return;
             }
 
-            if (!force && this.isToastHovered) {
+            if (!force && (this.isToastHovered || toast.querySelector('details[open]') || toast.contains(document.activeElement))) {
                 this.pendingToastHide = true;
                 return;
             }

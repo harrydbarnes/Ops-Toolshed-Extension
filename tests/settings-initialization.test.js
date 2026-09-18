@@ -50,6 +50,7 @@ const EXPECTED_DEFAULTS = {
     actualiseNavbarEnabled: true,
     campaignTabTitleEnabled: true,
     planToBuyRedirectEnabled: true,
+    prismaLoginAssistantEnabled: false,
     gmiChatShortcutEnabled: true,
     autoCopyUrlEnabled: true,
     loadingFactsEnabled: true,

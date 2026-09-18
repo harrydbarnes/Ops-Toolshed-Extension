@@ -861,6 +861,81 @@ body.reminder-theme-black #confirmation-popup {
     pointer-events: auto;
 }
 
+/* Show the complete campaign month range in one predictable, keyboard
+   accessible strip. The native pager remains mounted for Prisma's state and
+   is used behind the scenes when a month is outside its six-item window. */
+.actual-months-group.toolshed-actualise-months-group {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    min-height: 34px;
+    padding: 1px 72px;
+}
+
+.actual-months-group.toolshed-actualise-months-group > [data-toolshed-actualise-native-month-group="true"] {
+    display: none !important;
+}
+
+.toolshed-actualise-month-selector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0;
+    max-width: 100%;
+}
+
+.toolshed-actualise-month-button {
+    min-width: 54px;
+    min-height: 32px;
+    padding: 7px 9px;
+    border: 1px solid #d4dbe4;
+    border-right-width: 0;
+    background: #fff;
+    color: #2864c7;
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    line-height: 16px;
+    white-space: nowrap;
+}
+
+.toolshed-actualise-month-button:first-child {
+    border-radius: 3px 0 0 3px;
+}
+
+.toolshed-actualise-month-button:last-child {
+    border-right-width: 1px;
+    border-radius: 0 3px 3px 0;
+}
+
+.toolshed-actualise-month-button:hover,
+.toolshed-actualise-month-button:focus-visible {
+    background: #eef5ff;
+    outline: none;
+}
+
+.toolshed-actualise-month-button.is-selected,
+.toolshed-actualise-month-button[aria-pressed="true"] {
+    border-color: #2864c7;
+    background: #2864c7;
+    color: #fff;
+}
+
+@media (max-width: 700px) {
+    .actual-months-group.toolshed-actualise-months-group {
+        padding-right: 52px;
+        padding-left: 52px;
+    }
+
+    .toolshed-actualise-month-button {
+        min-width: 50px;
+        padding-right: 6px;
+        padding-left: 6px;
+    }
+}
+
 .actual-months-group.toolshed-actualise-months-group > .toolshed-actualise-close-button,
 .actual-months-group.toolshed-actualise-months-group > .toolshed-actualise-native-close {
     position: absolute !important;
@@ -1349,6 +1424,7 @@ div[slot="right"].ai-style-change-1 {
     align-items: center;
     column-gap: 12px;
     height: auto !important;
+    position: relative;
 }
 
 .toolshed-actualise-navbar-wrapper > #p2b-navbar {
@@ -1360,8 +1436,30 @@ div[slot="right"].ai-style-change-1 {
     position: static;
     width: auto;
     flex: 1 0 max-content;
-    justify-content: flex-end;
+    justify-content: center;
     transform: none;
+}
+
+/* At intermediate widths, keep the controls just after the navigation. This
+   is the smallest rightward move that preserves a gap from the title. */
+@media (min-width: 1000px) and (max-width: 1599px) {
+    .toolshed-actualise-navbar-wrapper > .ai-style-change-1 {
+        justify-content: flex-start;
+    }
+}
+
+/* On wider desktop widths, centre the approval controls against the whole
+   Actualise bar. The flex layout above keeps a gap and wraps when the title
+   and controls cannot fit together. */
+@media (min-width: 1600px) {
+    .toolshed-actualise-navbar-wrapper > .ai-style-change-1 {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: max-content;
+        flex: 0 0 auto;
+        transform: translate(-50%, -50%);
+    }
 }
 
 /* --- Campaign History --- */
@@ -1994,4 +2092,38 @@ div[slot="right"].ai-style-change-1 {
     .toolshed-campaign-history-result button > svg {
         transition: none;
     }
+}
+/* Native loading facts; legacy pill remains available in Settings. */
+.loading-fact-toast--new {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: calc(100vw - 32px);
+    min-height: 0;
+    padding: 12px 44px 12px 14px;
+    border: 1px solid #e0e3e8;
+    border-radius: 6px;
+    background: #f8f9fb;
+    color: #444b55;
+    box-shadow: none;
+    font: 13px/1.5 Avenir, Arial, sans-serif;
+}
+.loading-fact-toast--new .loading-fact-icon,
+.loading-fact-toast--new .loading-fact-content strong { display: none; }
+.loading-fact-toast--new .loading-fact-content { align-items: flex-start; text-align: left; }
+.loading-fact-menu { position: absolute; right: 5px; top: 7px; }
+.loading-fact-menu summary { display: grid; place-items: center; width: 32px; height: 32px; cursor: pointer; list-style: none; border-radius: 4px; }
+.loading-fact-menu summary::-webkit-details-marker { display: none; }
+.loading-fact-menu summary:hover { background: #e9edf2; }
+.loading-fact-menu summary:focus-visible,
+.loading-fact-toast--new .loading-fact-action:focus-visible { outline: 2px solid #2870eb; outline-offset: 2px; }
+.loading-fact-toast--new .loading-fact-actions { bottom: 36px; top: auto; right: 0; transform: none; width: 210px; padding: 5px; flex-direction: column; border: 1px solid #e0e3e8; border-radius: 6px; background: white; box-shadow: 0 3px 10px #00000014; }
+.loading-fact-toast--new .loading-fact-action { width: 100%; height: auto; min-height: 32px; padding: 7px; border: 0; border-radius: 3px; background: white; color: #444b55; font: 12px/1.5 Avenir, Arial, sans-serif; text-align: left; }
+.loading-fact-toast--new .loading-fact-action:hover:not(:disabled) { background: #eef1f6; outline: none; }
+.loading-fact-toast--new.slide-up { animation: loadingFactFadeIn 160ms ease-out forwards; }
+.loading-fact-toast--new.slide-down { animation: loadingFactFadeOut 160ms ease-out forwards; pointer-events: none; }
+@keyframes loadingFactFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes loadingFactFadeOut { from { opacity: 1; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+    .loading-fact-toast.slide-up, .loading-fact-toast.slide-down { animation: none; }
+    .loading-fact-toast.slide-down { opacity: 0; }
 }

@@ -25,6 +25,13 @@ export const CONTENT_SCRIPT_DEFINITIONS = Object.freeze([
         persistAcrossSessions: false
     },
     {
+        id: 'ops-toolshed-prisma-login-assistant',
+        matches: ['https://*.mediaocean.com/*'],
+        js: ['features/extension-state-controller.js', 'features/prisma-login-assistant.js'],
+        runAt: 'document_start',
+        persistAcrossSessions: false
+    },
+    {
         id: 'ops-toolshed-campaign-details-frames',
         matches: ['https://*.mediaocean.com/idesk/prisma-campaign-details/*'],
         js: [

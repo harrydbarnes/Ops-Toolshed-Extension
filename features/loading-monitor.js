@@ -7,11 +7,13 @@
         '.mo-spinner',
         'svg.spinner'
     ].join(', ');
+    const SKELETON_SELECTOR = 'mo-skeleton.mo-grid-skeleton';
+    const LOADING_SELECTOR = `${SPINNER_SELECTOR}, ${SKELETON_SELECTOR}`;
     // Prisma renders the approver workflow in a sidebar-like region without
     // using its native <mo-side-panel> host. Treat that region as side-panel
     // work so approval-only spinners do not look like page loading.
     const SIDE_PANEL_ANCESTOR_SELECTOR = 'mo-side-panel, .mo-side-panel, .workflow-widget-wrapper';
-    const SHADOW_HOST_SELECTOR = 'mo-side-panel, mo-spinner';
+    const SHADOW_HOST_SELECTOR = 'mo-side-panel, mo-spinner, mo-skeleton';
     const candidates = new Set();
     const listeners = new Set();
     const observedRoots = new WeakSet();
@@ -24,6 +26,7 @@
     let currentState = Object.freeze({
         visibleSpinners: Object.freeze([]),
         pageVisibleSpinners: Object.freeze([]),
+        pageVisibleSkeletons: Object.freeze([]),
         sidePanelVisibleSpinners: Object.freeze([])
     });
 
@@ -38,7 +41,7 @@
     }
 
     function registerCandidate(element) {
-        if (!element?.matches?.(SPINNER_SELECTOR)) return;
+        if (!element?.matches?.(LOADING_SELECTOR)) return;
         candidates.add(element);
         if (!candidateIds.has(element)) candidateIds.set(element, nextCandidateId++);
     }
@@ -48,7 +51,7 @@
         if (root.nodeType === Node.ELEMENT_NODE) registerCandidate(root);
         if (!root.querySelectorAll) return;
 
-        root.querySelectorAll(SPINNER_SELECTOR).forEach(registerCandidate);
+        root.querySelectorAll(LOADING_SELECTOR).forEach(registerCandidate);
         root.querySelectorAll(SHADOW_HOST_SELECTOR).forEach(element => {
             if (element.shadowRoot) observeRoot(element.shadowRoot);
         });
@@ -61,12 +64,15 @@
     }
 
     function handleMutations(records) {
+        let visibilityChanged = false;
         records.forEach(record => {
             if (record.type === 'attributes') {
-                if (record.target?.matches?.(SPINNER_SELECTOR) || isShadowHost(record.target)) {
+                if (record.target?.matches?.(LOADING_SELECTOR) || isShadowHost(record.target)) {
                     pendingRoots.add(record.target);
                 }
+                if (Array.from(candidates).some(candidate => record.target.contains?.(candidate))) visibilityChanged = true;
             }
+            if (record.removedNodes?.length && Array.from(candidates).some(candidate => !candidate.isConnected)) visibilityChanged = true;
             record.addedNodes?.forEach(node => {
                 if (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
                     return;
@@ -76,13 +82,14 @@
                 // Only spinner candidates and the small set of hosts that can
                 // contain a spinner Shadow DOM need re-indexing. Scanning all
                 // arbitrary added nodes makes large campaigns block Chrome.
-                if (node.matches?.(SPINNER_SELECTOR) || isShadowHost(node) ||
+                if (node.matches?.(LOADING_SELECTOR) || isShadowHost(node) ||
+                    (node.childElementCount && node.querySelector?.(LOADING_SELECTOR)) ||
                     isShadowHost(record.target) || record.target instanceof ShadowRoot) {
                     pendingRoots.add(node);
                 }
             });
         });
-        if (pendingRoots.size > 0) scheduleRefresh();
+        if (pendingRoots.size > 0 || visibilityChanged) scheduleRefresh();
     }
 
     function observeRoot(root) {
@@ -104,13 +111,18 @@
 
         const visibleSpinners = [];
         const pageVisibleSpinners = [];
+        const pageVisibleSkeletons = [];
         const sidePanelVisibleSpinners = [];
         candidates.forEach(candidate => {
-            if (!candidate.isConnected) {
+            if (!candidate.isConnected || !candidate.matches(LOADING_SELECTOR)) {
                 candidates.delete(candidate);
                 return;
             }
             if (!window.utils.isElementVisible(candidate)) return;
+            if (candidate.matches(SKELETON_SELECTOR)) {
+                if (!isInsideSidePanel(candidate)) pageVisibleSkeletons.push(candidate);
+                return;
+            }
             visibleSpinners.push(candidate);
             if (isInsideSidePanel(candidate)) sidePanelVisibleSpinners.push(candidate);
             else pageVisibleSpinners.push(candidate);
@@ -119,12 +131,13 @@
         return Object.freeze({
             visibleSpinners: Object.freeze(visibleSpinners),
             pageVisibleSpinners: Object.freeze(pageVisibleSpinners),
+            pageVisibleSkeletons: Object.freeze(pageVisibleSkeletons),
             sidePanelVisibleSpinners: Object.freeze(sidePanelVisibleSpinners)
         });
     }
 
     function getSignature(state) {
-        return state.visibleSpinners
+        return [...state.visibleSpinners, ...state.pageVisibleSkeletons]
             .map(spinner => `${candidateIds.get(spinner)}:${isInsideSidePanel(spinner) ? 'side' : 'page'}`)
             .join('|');
     }

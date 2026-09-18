@@ -87,6 +87,17 @@ describe('Manifest content-script order', () => {
         expect(mediaoceanRegistration.js).toContain('features/onboarding-tour.js');
     });
 
+    test('loads the active-tab-only Prisma sign-in assistant at document start', () => {
+        const loginRegistration = CONTENT_SCRIPT_DEFINITIONS.find(entry =>
+            entry.js?.includes('features/prisma-login-assistant.js')
+        );
+
+        expect(loginRegistration).toMatchObject({
+            runAt: 'document_start',
+            js: ['features/extension-state-controller.js', 'features/prisma-login-assistant.js']
+        });
+    });
+
     test('loads the Actualise month response bridge in the page world before the isolated content script', () => {
         const bridgeRegistration = CONTENT_SCRIPT_DEFINITIONS.find(entry =>
             entry.js?.includes('features/actualise-month-bridge.js')
