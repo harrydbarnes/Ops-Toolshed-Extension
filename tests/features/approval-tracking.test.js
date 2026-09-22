@@ -83,6 +83,42 @@ describe('Approval Polling Service', () => {
         });
     });
 
+    test('watching a draft persists until the API reports submission', async () => {
+        await trackCampaignApproval({ campaignId: 'CPDRAFT', campaignName: 'Draft', watchForSubmission: true });
+        expect(localStorageData[PENDING_APPROVAL_KEY].CPDRAFT).toMatchObject({
+            watchingSubmission: true,
+            submittedAt: null
+        });
+
+        global.fetch.mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({ budgetApprovalStatus: 'NOT_SUBMITTED' })
+        });
+        await pollPendingApprovals();
+        expect(localStorageData[PENDING_APPROVAL_KEY].CPDRAFT.watchingSubmission).toBe(true);
+        expect(localStorageData[APPROVED_CAMPAIGNS_KEY] || []).toHaveLength(0);
+
+        global.fetch.mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({ budgetApprovalStatus: 'SUBMITTED' })
+        });
+        await pollPendingApprovals();
+        expect(localStorageData[PENDING_APPROVAL_KEY].CPDRAFT).toMatchObject({
+            watchingSubmission: false,
+            submittedAt: expect.any(Number)
+        });
+
+        global.fetch.mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({ budgetApprovalStatus: 'APPROVED' })
+        });
+        await pollPendingApprovals();
+        expect(localStorageData[PENDING_APPROVAL_KEY].CPDRAFT).toBeUndefined();
+        expect(localStorageData[APPROVED_CAMPAIGNS_KEY]).toEqual([
+            expect.objectContaining({ campaignId: 'CPDRAFT' })
+        ]);
+    });
+
     test('dismissApprovedCampaign removes campaign from approved list', async () => {
         localStorageData[APPROVED_CAMPAIGNS_KEY] = [
             { campaignId: 'CP1', campaignName: 'Camp 1' },
@@ -193,6 +229,58 @@ describe('Approval Polling Service', () => {
         await pollPendingApprovals();
         expect(global.fetch).not.toHaveBeenCalled();
     });
+
+    test('a campaign submitted while a poll is in flight remains pending', async () => {
+        await trackCampaignApproval({ campaignId: 'CP1', campaignName: 'First' });
+        let releaseFetch;
+        global.fetch.mockImplementation(() => new Promise(resolve => { releaseFetch = resolve; }));
+        const poll = pollPendingApprovals();
+        while (!releaseFetch) await new Promise(resolve => setImmediate(resolve));
+
+        await trackCampaignApproval({ campaignId: 'CP2', campaignName: 'Second' });
+        releaseFetch({ ok: true, json: async () => ({ budgetApprovalStatus: 'SUBMITTED' }) });
+        await poll;
+
+        expect(Object.keys(localStorageData[PENDING_APPROVAL_KEY]).sort()).toEqual(['CP1', 'CP2']);
+    });
+
+    test('a fresh submission of the same campaign survives an older approved response', async () => {
+        await trackCampaignApproval({ campaignId: 'CP1', campaignName: 'First submission' });
+        let releaseFetch;
+        global.fetch.mockImplementation(() => new Promise(resolve => { releaseFetch = resolve; }));
+        const poll = pollPendingApprovals();
+        while (!releaseFetch) await new Promise(resolve => setImmediate(resolve));
+
+        await trackCampaignApproval({ campaignId: 'CP1', campaignName: 'New submission' });
+        releaseFetch({ ok: true, json: async () => ({ budgetApprovalStatus: 'APPROVED' }) });
+        await poll;
+
+        expect(localStorageData[PENDING_APPROVAL_KEY].CP1.campaignName).toBe('New submission');
+        expect(localStorageData[APPROVED_CAMPAIGNS_KEY] || []).toHaveLength(0);
+        expect(sentMessages).toHaveLength(0);
+    });
+
+    test('non-Prisma profile does not poll or keep an approval alarm', async () => {
+        syncStorageData.onboardingAudience = 'non-prisma';
+        localStorageData[PENDING_APPROVAL_KEY] = { CP1: { campaignId: 'CP1' } };
+        global.chrome.alarms.clear = jest.fn().mockResolvedValue(true);
+        await pollPendingApprovals();
+        const { setupApprovalAlarm } = require('../../background/approval-polling.js');
+        await setupApprovalAlarm();
+        expect(global.fetch).not.toHaveBeenCalled();
+        expect(global.chrome.alarms.clear).toHaveBeenCalledWith(ALARM_NAME);
+    });
+
+    test('approval alarm can be recreated when tracking is enabled again', async () => {
+        const { setupApprovalAlarm } = require('../../background/approval-polling.js');
+        syncStorageData.approvalTrackingEnabled = false;
+        global.chrome.alarms.clear = jest.fn().mockResolvedValue(true);
+        await setupApprovalAlarm();
+        expect(global.chrome.alarms.clear).toHaveBeenCalledWith(ALARM_NAME);
+        syncStorageData.approvalTrackingEnabled = true;
+        await setupApprovalAlarm();
+        expect(global.chrome.alarms.create).toHaveBeenCalledWith(ALARM_NAME, { periodInMinutes: 5 });
+    });
 });
 
 describe('Approval Tracking Content Script UI', () => {
@@ -289,6 +377,21 @@ describe('Approval Tracking Content Script UI', () => {
 
         expect(externalRule).toMatch(/transform:\s*translateY\(-1px\)/i);
         expect(inlineRule).toMatch(/transform:\s*translateY\(-1px\)/i);
+    });
+
+    test('lowers clock-only approval states without moving the approved checkmark', () => {
+        const clockStates = /\.toolshed-approval-banner-button\.is-(?:pending-only|none-tracked) \.toolshed-approval-banner-icon\s*\{([^}]*)\}/g;
+        const readClockOffsets = source => Array.from(source.matchAll(clockStates)).map(match => match[1]);
+
+        expect(readClockOffsets(approvalCss)).toEqual([
+            expect.stringMatching(/transform:\s*translateY\(1px\)/i),
+            expect.stringMatching(/transform:\s*translateY\(1px\)/i)
+        ]);
+        expect(readClockOffsets(scriptCode)).toEqual([
+            expect.stringMatching(/transform:\s*translateY\(1px\)/i),
+            expect.stringMatching(/transform:\s*translateY\(1px\)/i)
+        ]);
+        expect(approvalCss).not.toMatch(/is-all-approved \.toolshed-approval-banner-icon\s*\{[^}]*transform:/i);
     });
 
     test('injects banner button before switch-account-button with 1/1 Campaign Approved', async () => {
@@ -409,6 +512,77 @@ describe('Approval Tracking Content Script UI', () => {
         await Promise.resolve();
 
         expect(localData[PENDING_APPROVAL_KEY].CP3GQJ6).toBeUndefined();
+    });
+
+    test('keeps a manually watched draft visible when the workflow says NOT SUBMITTED', async () => {
+        localData[PENDING_APPROVAL_KEY] = {
+            CP3GQJ6: { campaignId: 'CP3GQJ6', campaignName: 'Draft', watchingSubmission: true, watchedAt: Date.now(), submittedAt: null }
+        };
+        document.querySelector('.workflow-widget-wrapper').textContent = 'NOT SUBMITTED';
+        window.approvalTrackingFeature.initialize();
+        await new Promise(r => setTimeout(r, 15));
+        document.querySelector('.toolshed-approval-banner-button').click();
+        await new Promise(r => setTimeout(r, 15));
+
+        window.approvalTrackingFeature.checkLiveWorkflowWidget();
+        await Promise.resolve();
+
+        expect(localData[PENDING_APPROVAL_KEY].CP3GQJ6.watchingSubmission).toBe(true);
+        expect(document.querySelector('.toolshed-approval-panel').textContent).toContain('Watching for Submission (1)');
+        expect(document.querySelector('.toolshed-approval-panel').textContent).toContain('Awaiting submission');
+        expect(document.querySelector('.toolshed-approval-banner-button').textContent).toContain('1 Watching Submission');
+    });
+
+    test('Track current campaign saves a pre-submission watch', async () => {
+        document.querySelector('.workflow-widget-wrapper').textContent = 'NOT SUBMITTED';
+        window.chrome.runtime.sendMessage.mockImplementation(async msg => {
+            runtimeMessages.push(msg);
+            if (msg.action === 'trackCampaignApproval') {
+                localData[PENDING_APPROVAL_KEY] = {
+                    [msg.campaign.campaignId]: { ...msg.campaign, watchingSubmission: true, watchedAt: Date.now(), submittedAt: null }
+                };
+            }
+            return { status: 'success' };
+        });
+        window.approvalTrackingFeature.initialize();
+        await new Promise(r => setTimeout(r, 15));
+        document.querySelector('.toolshed-approval-banner-button').click();
+        await new Promise(r => setTimeout(r, 15));
+        document.querySelector('.toolshed-approval-track-current-btn').click();
+        await new Promise(r => setTimeout(r, 25));
+
+        expect(runtimeMessages).toContainEqual(expect.objectContaining({
+            action: 'trackCampaignApproval',
+            campaign: expect.objectContaining({ campaignId: 'CP3GQJ6', watchForSubmission: true })
+        }));
+        expect(localData[PENDING_APPROVAL_KEY].CP3GQJ6.watchingSubmission).toBe(true);
+        expect(document.querySelector('.toolshed-approval-panel').textContent).toContain('Watching for Submission (1)');
+    });
+
+    test('a watched campaign becomes pending when the live workflow reports SUBMITTED', async () => {
+        localData[PENDING_APPROVAL_KEY] = {
+            CP3GQJ6: { campaignId: 'CP3GQJ6', watchingSubmission: true, submittedAt: null }
+        };
+        window.chrome.runtime.sendMessage.mockImplementation(async msg => {
+            runtimeMessages.push(msg);
+            if (msg.action === 'trackCampaignApproval') {
+                localData[PENDING_APPROVAL_KEY].CP3GQJ6 = {
+                    ...msg.campaign,
+                    watchingSubmission: false
+                };
+            }
+            return { status: 'success' };
+        });
+        window.approvalTrackingFeature.initialize();
+        await new Promise(r => setTimeout(r, 15));
+        window.approvalTrackingFeature.checkLiveWorkflowWidget();
+        await new Promise(r => setTimeout(r, 10));
+
+        expect(runtimeMessages).toContainEqual(expect.objectContaining({
+            action: 'trackCampaignApproval',
+            campaign: expect.objectContaining({ campaignId: 'CP3GQJ6', submittedAt: expect.any(Number) })
+        }));
+        expect(localData[PENDING_APPROVAL_KEY].CP3GQJ6.watchingSubmission).toBe(false);
     });
 
     test('keeps exact submitted and approved states distinct from their negative forms', () => {

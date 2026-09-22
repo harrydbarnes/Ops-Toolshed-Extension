@@ -416,11 +416,11 @@
         }
     }
 
-    function isSharePointPdfShare(rawUrl) {
+    function isSharePointPdf(rawUrl) {
         try {
             const url = new URL(rawUrl);
-            return url.hostname.toLowerCase() === 'insidemedia.sharepoint.com' &&
-                url.pathname.includes('/:b:/');
+            return url.protocol === 'https:' && url.hostname.toLowerCase() === 'insidemedia.sharepoint.com' &&
+                (url.pathname.includes('/:b:/') || /\.pdf$/i.test(url.pathname));
         } catch {
             return false;
         }
@@ -503,7 +503,7 @@
 
     async function loadGuideIntoFrame(guide, revision) {
         const frameUrl = getEmbeddableGuideUrl(guide.url);
-        if (!isSharePointPdfShare(guide.url)) {
+        if (!isSharePointPdf(guide.url)) {
             pdfViewer?.clear().catch(() => {});
             elements.customViewer.hidden = true;
             elements.frame.hidden = false;

@@ -5,9 +5,7 @@
 Ops Toolshed is a Google Chrome extension that supercharges Mediaocean Prisma and streamlines day-to-day campaign workflows. It automates repetitive tasks, adds one-click navigation and exports, flags budget and product code issues, provides quick access to approvers and standard operating procedures, and centralises agency tools.
 
 ## What's new in 1.9
-- **Campaign Approval Tracking:** Monitors submitted campaigns in the background every 5 minutes, notifies users with an in-page toast alert when marked as Approved, displays an `x/y Campaign Approved` status notice with dropdown list next to Switch Accounts, and enables one-click navigation to open approved campaigns in a new tab.
-- **Campaign History:** Adds global search for visited campaigns by name, client, CP number, CL/PR/CA reference, or supplier with local logging and paginated browsing.
-- **Moe media auto-select:** When Moe asks for a media, automatically selects the current campaign media and sends the first prompt when the matching option is available. The behaviour can be disabled under Settings → Features → Live Chat.
+Read the [in-extension release notes](toolshed.html) for the current changes and roadmap. That page is the maintained version history.
 
 ---
 
@@ -57,14 +55,14 @@ When an update is released:
 ### ❓ Troubleshooting & FAQs
 - **"Manifest file is missing or unreadable" error?**
   When clicking *Load unpacked*, ensure you select the specific folder that directly contains `manifest.json`, rather than a nested outer or unzipped wrapper folder.
-- **Is this safe to use with client data?**
-  Yes. Ops Toolshed executes entirely within your local browser. No passwords, client names, campaign budgets, or user tracking data are ever transmitted to third-party or external servers.
+- **How is client data handled?**
+  Campaign data can be read from Prisma, stored in Chrome for features such as History and approval tracking, and sent to Mediaocean when a feature checks a campaign. The Social Booking Checker can send a saved Meta access token to Meta Graph API when you refresh Meta data. Review [Data, permissions and privacy](docs/data-and-permissions.md) before using client data.
 
 ---
 
 ## 🧭 Getting Started & First Steps
 
-- **First-Run Tour:** The first time you open Prisma with Ops Toolshed active, a brief onboarding walkthrough will highlight key features and let you choose your preferred defaults.
+- **First-Run Setup:** Choose whether you book on Prisma. Prisma bookers can set preferences and take the guided Prisma tour. Everyone else gets a short setup for shared tools and reminders, without the Prisma tour. Change your choice later in Settings.
 - **Customising Features:** Click the Ops Toolshed toolbar icon and select **Settings** (or right-click the icon and choose **Options**) to enable or disable individual features at any time.
 - **Help Guides:** Inside Prisma, look for the floating launcher in the bottom-right corner to search standard operating procedures (SOPs), read SharePoint documentation, and view guided walkthroughs.
 
@@ -79,30 +77,7 @@ When an update is released:
 - **Social Booking Checker:** Cross-reference Meta campaign exports against Prisma booking reports with PO match suggestions, variance analysis, and Excel exports.
 
 ### ⚡ Prisma Workflow Enhancements
-All enhancements can be independently toggled in **Settings**:
-
-| Feature | What it does |
-| --- | --- |
-| **Campaign Navigation** | Adds optimised navigation tabs, direct Orders & Actualise buttons, campaign-name click-to-copy, and edit shortcuts. |
-| **Max Campaign Budget** | One-click button to fill editable Buy Cost or Actualise Gross payable cells to match the remaining budget. |
-| **Actualise Bulk Export** | Download and combine every visible month's Actualise view into a single, clean Excel-ready CSV in one click. |
-| **Actualise Month Guard** | Shows a green *Correct Month* badge or detects mismatches (*Check Month*) and auto-refreshes to the right grid. |
-| **Campaign History** | Search visited campaigns by name, client, CP number, CL/PR/CA code, or supplier with local logging. |
-| **Product Code Warning** | Flags product and campaign suffix limits in active headers and provides EasyVista planner reminders. |
-| **DST Assurance** | Displays DST Booked badges and verifies Meta 2% Location Fees for compliant booking setups. |
-| **Order ID Copy** | One-click button to copy Order IDs without version suffixes from the Orders sidebar or summary. |
-| **Approver Workflow** | Quick approver search, favourite approvers, batch email copying, and submission email tracking. |
-| **Approval Tracking** | Monitors submitted campaigns in the background every 5 minutes and notifies you via toast and banner when marked Approved. |
-| **Placement Counter** | Displays the real-time count of selected placements in the Prisma grid. |
-| **Auto Copy Campaign URL** | Copies clean, shareable campaign links with a single click. |
-| **Add Campaign Automation** | Opens full details automatically, selects Digital media mix, and hides unused sections. |
-| **See Comments on Locked Buys** | Keeps comments and notes accessible even when a Buy is locked. |
-| **Plan-to-Buy Direct** | Automatically navigates directly to the Buy workspace when clicking campaign links. |
-| **Prisma Username Label** | Displays your signed-in username in the top banner so active account context is always clear. |
-| **AppLearn Cleanup** | Makes the AppLearn logo translucent and closes non-functional login popups. |
-| **Loading Facts** | Displays rotating media industry facts, tips, and wait-time statistics during page loads. |
-
-*...and so much more!*
+Settings lets Prisma bookers choose their campaign, Orders, Actualise, approver, navigation and help enhancements individually. The [complete feature catalogue](docs/feature-catalogue.md) is generated from the same registry used by Settings and the in-extension feature explorer; it is the reference for feature names, descriptions and defaults.
 
 ### 👥 Approver Management
 - Search and filter approved signers by Business Unit or Client/Office.
@@ -121,15 +96,15 @@ View your personal productivity metrics in the **Release Notes, Roadmap + Stats*
 - Time spent waiting for Prisma to load across Home, Plan, Buy, Actualise, and Orders.
 - Activity heatmaps, streaks, and popups blocked.
 - *Note: Stats are stored 100% locally on your machine and can be disabled or reset at any time.*
-- **Diagnostics Mode:** Advanced Settings can temporarily record local feature timings, lifecycle outcomes, coarse Prisma page area, and the current campaign ID when one is present. It stays local, can be exported or cleared, and turns off after 24 hours or when Chrome restarts; campaign IDs are included only in the user-exported file, so share it appropriately.
+- **Diagnostics Mode:** Advanced Settings can temporarily record local feature timings, lifecycle outcomes, coarse Prisma page area, and the current campaign ID when one is present. The local records can be exported or cleared, and collection turns off after 24 hours or when Chrome restarts. Treat both the stored records and an exported file as sensitive.
 
 ---
 
 ## 🔒 Privacy & Data Security
 
-- **Local Storage:** All preferences, reminders, campaign history, and stats are saved exclusively in your Chrome browser's local storage (`chrome.storage.local`).
-- **No Third-Party Tracking:** The extension communicates only with required internal work domains (`mediaocean.com`, `sharepoint.com`, and optional local Meta Graph API calls if you use the Social Booking Checker).
-- **Your Data Stays Yours:** No campaign names, financial figures, client data, or credentials are ever sent to external analytics or third-party servers.
+- **Storage:** Feature preferences, the onboarding role and reminder settings use `chrome.storage.sync`, which may sync through the user's Chrome profile. Campaign history, approval records, uploaded reports, the Meta token, stats and diagnostics use local extension storage. See the [data inventory](docs/data-and-permissions.md) for retention and clearing controls.
+- **Network access:** Prisma features communicate with Mediaocean; Social Booking Checker can call Meta Graph API with a user-provided token; Help Guides open company SharePoint. Some extension pages may load stylesheet/font assets from public CDNs. The extension does not include a separate analytics service.
+- **Sensitive exports:** Campaign History, diagnostics and Social Booking exports can contain client or campaign information. Review the file and use approved company channels before sharing it.
 
 ---
 

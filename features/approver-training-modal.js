@@ -31,8 +31,8 @@
 
         const copy = async () => {
             try {
-                if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(TRAINING_URL);
-                else await chrome.runtime.sendMessage({ action: 'copyToClipboard', text: TRAINING_URL });
+                if (!navigator.clipboard?.writeText) throw new Error('Clipboard is unavailable');
+                await navigator.clipboard.writeText(TRAINING_URL);
                 toast.textContent = 'Training link copied';
                 toast.classList.remove('error');
                 toast.classList.add('success', 'visible');

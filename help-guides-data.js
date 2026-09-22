@@ -1,51 +1,33 @@
 (function() {
-    // Replace each test URL with the direct SharePoint PDF URL. Direct file URLs
-    // are more likely to embed successfully than SharePoint preview-page URLs.
-    const TEST_PDF_URL = 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
-
+    // Catalogue checked against the AppLearn PDFs folder on 22 September 2026.
+    // PDFs are fetched from SharePoint when opened, so file updates are picked up
+    // without bundling copies. New or renamed files require a catalogue update.
     window.HELP_GUIDES = [
-        {
-            id: 'debug-sharepoint-pdf-1',
-            title: 'SharePoint PDF test 1',
-            category: 'Proof of concept',
-            tags: ['debug', 'sharepoint', 'pdf', 'proof of concept'],
-            url: 'https://insidemedia.sharepoint.com/:b:/s/TPO-SharePoint/IQD2h7DtgPh2TKi7Cd07B6mwAbrR--kfQp2O_c7BcTQvaeg',
-            isDebug: true
-        },
-        {
-            id: 'debug-sharepoint-pdf-2',
-            title: 'SharePoint PDF test 2',
-            category: 'Proof of concept',
-            tags: ['debug', 'sharepoint', 'pdf', 'proof of concept'],
-            url: 'https://insidemedia.sharepoint.com/:b:/s/TPO-SharePoint/IQB4s1rHzJ7vS7sUrPpXSCL0Ad4XLsHTFghMoSgXh8FAeoI',
-            isDebug: true
-        },
-
-        { id: 'access-getting-started', title: 'Getting Started User Information and Client Access', category: 'Access', tags: ['getting started', 'user information', 'onboarding', 'client access'], url: TEST_PDF_URL },
-        { id: 'access-client', title: 'Client Access', category: 'Access', tags: ['client', 'permissions', 'login', 'access'], url: TEST_PDF_URL },
-        { id: 'access-support', title: 'Support', category: 'Access', tags: ['support', 'help', 'contact', 'access'], url: TEST_PDF_URL },
-
-        { id: 'approval-budget', title: 'Budget Approval', category: 'Approval', tags: ['budget', 'approval', 'authorisation', 'sign off'], url: TEST_PDF_URL },
-
-        { id: 'booking-suppliers', title: 'Suppliers', category: 'Booking', tags: ['supplier', 'booking', 'provider', 'vendor'], url: TEST_PDF_URL },
-        { id: 'booking-categories', title: 'Booking Categories', category: 'Booking', tags: ['category', 'booking', 'setup', 'classification'], url: TEST_PDF_URL },
-        { id: 'booking-provider-mapping', title: 'Provider (ClientProduct) Mapping', category: 'Booking', tags: ['provider', 'client product', 'mapping', 'booking'], url: TEST_PDF_URL },
-        { id: 'booking-custom-fee', title: 'Custom Fee Setup', category: 'Booking', tags: ['custom fee', 'setup', 'cost', 'booking'], url: TEST_PDF_URL },
-        { id: 'booking-discrepancy', title: 'Discrepancy Guide', category: 'Booking', tags: ['discrepancy', 'troubleshooting', 'variance', 'booking'], url: TEST_PDF_URL },
-        { id: 'booking-unlock-mx', title: 'Unlocking Booking Request - MX Media Explorer', category: 'Booking', tags: ['unlock', 'request', 'media explorer', 'mx'], url: TEST_PDF_URL },
-        { id: 'booking-google-youtube-reservation', title: 'Google DST YouTube Via Reservation', category: 'Booking', tags: ['google', 'dst', 'youtube', 'reservation'], url: TEST_PDF_URL },
-        { id: 'booking-google-display-ads', title: 'Google DST Display Via Google Ads', category: 'Booking', tags: ['google', 'dst', 'display', 'google ads'], url: TEST_PDF_URL },
-        { id: 'booking-google-search-ads', title: 'Google DST Search Via Google Ads', category: 'Booking', tags: ['google', 'dst', 'search', 'google ads'], url: TEST_PDF_URL },
-        { id: 'booking-google-ads', title: 'Google DST Via Google Ads', category: 'Booking', tags: ['google', 'dst', 'google ads', 'booking'], url: TEST_PDF_URL },
-        { id: 'booking-google-reporting', title: 'Google DST Reporting Guide', category: 'Booking', tags: ['google', 'dst', 'reporting', 'delivery'], url: TEST_PDF_URL },
-
-        { id: 'reconcile-cost-refresh', title: 'Prisma Cost Refresh', category: 'Reconcile', tags: ['prisma', 'cost', 'refresh', 'reconcile'], url: TEST_PDF_URL },
-
-        { id: 'supplier-facebook-faq', title: 'Facebook Integration - FAQs, Support and Mapping', category: 'Supplier Integrations', tags: ['facebook', 'faq', 'support', 'mapping'], url: TEST_PDF_URL },
-        { id: 'supplier-facebook-workflow-1', title: 'Facebook Integration Workflow 1', category: 'Supplier Integrations', tags: ['facebook', 'integration', 'workflow', 'step 1'], url: TEST_PDF_URL },
-        { id: 'supplier-facebook-workflow-2', title: 'Facebook Integration Workflow 2', category: 'Supplier Integrations', tags: ['facebook', 'integration', 'workflow', 'step 2'], url: TEST_PDF_URL },
-        { id: 'supplier-facebook-amendments', title: 'Facebook Integration - Amendments & Cancellation', category: 'Supplier Integrations', tags: ['facebook', 'amendment', 'cancellation', 'integration'], url: TEST_PDF_URL },
-
-        { id: 'traffic-supplier-mappings', title: 'Supplier Mappings', category: 'Traffic', tags: ['supplier', 'mapping', 'traffic', 'trafficking'], url: TEST_PDF_URL }
+        {"id":"access-getting-started","title":"Getting Started User Information and Client Access","category":"Access","tags":["getting started","user information","onboarding","client access"],"url":"https://insidemedia.sharepoint.com/sites/UKTechOpsAppsMaintenancePage/Shared%20Documents/AppLearn%20PDFs/Getting%20Started%20User%20Information%20and%20Client%20Access.pdf"},
+        {"id":"access-client","title":"Client Access","category":"Access","tags":["client","permissions","login","access"],"url":"https://insidemedia.sharepoint.com/sites/UKTechOpsAppsMaintenancePage/Shared%20Documents/AppLearn%20PDFs/Client%20Access.pdf"},
+        {"id":"access-support","title":"Support","category":"Access","tags":["support","help","contact","access"],"url":"https://insidemedia.sharepoint.com/sites/UKTechOpsAppsMaintenancePage/Shared%20Documents/AppLearn%20PDFs/Support.pdf"},
+        {"id":"approval-budget","title":"Budget Approval","category":"Approval","tags":["budget","approval","authorisation","sign off"],"url":"https://insidemedia.sharepoint.com/sites/UKTechOpsAppsMaintenancePage/Shared%20Documents/AppLearn%20PDFs/Budget%20Approval.pdf"},
+        {"id":"booking-suppliers","title":"Suppliers","category":"Booking","tags":["supplier","booking","provider","vendor"],"url":"https://insidemedia.sharepoint.com/sites/UKTechOpsAppsMaintenancePage/Shared%20Documents/AppLearn%20PDFs/Suppliers.pdf"},
+        {"id":"booking-categories","title":"Booking Categories","category":"Booking","tags":["category","booking","setup","classification"],"url":"https://insidemedia.sharepoint.com/sites/UKTechOpsAppsMaintenancePage/Shared%20Documents/AppLearn%20PDFs/Booking%20Categories.pdf"},
+        {"id":"booking-provider-mapping","title":"Provider (ClientProduct) Mapping","category":"Booking","tags":["provider","client product","mapping","booking"],"url":"https://insidemedia.sharepoint.com/sites/UKTechOpsAppsMaintenancePage/Shared%20Documents/AppLearn%20PDFs/Provider%20Mapping.pdf"},
+        {"id":"booking-custom-fee","title":"Custom Fee Setup","category":"Booking","tags":["custom fee","setup","cost","booking"],"url":"https://insidemedia.sharepoint.com/sites/UKTechOpsAppsMaintenancePage/Shared%20Documents/AppLearn%20PDFs/Custom%20Fee%20Setup.pdf"},
+        {"id":"booking-discrepancy","title":"Discrepancy Guide","category":"Booking","tags":["discrepancy","troubleshooting","variance","booking"],"url":"https://insidemedia.sharepoint.com/sites/UKTechOpsAppsMaintenancePage/Shared%20Documents/AppLearn%20PDFs/Discrepancy%20Guide.pdf"},
+        {"id":"booking-unlock-mx","title":"Unlocking Booking Request - MX Media Explorer","category":"Booking","tags":["unlock","request","media explorer","mx"],"url":"https://insidemedia.sharepoint.com/sites/UKTechOpsAppsMaintenancePage/Shared%20Documents/AppLearn%20PDFs/Unlocking%20Booking%20Request%20-%20MX%20Media%20Explorer.pdf"},
+        {"id":"booking-google-youtube-reservation","title":"Google DST YouTube Via Reservation","category":"Booking","tags":["google","dst","youtube","reservation"],"url":"https://insidemedia.sharepoint.com/sites/UKTechOpsAppsMaintenancePage/Shared%20Documents/AppLearn%20PDFs/Google%20DST%20Youtube%20Via%20Reservation.pdf"},
+        {"id":"booking-google-display-ads","title":"Google DST Display Via Google Ads","category":"Booking","tags":["google","dst","display","google ads"],"url":"https://insidemedia.sharepoint.com/sites/UKTechOpsAppsMaintenancePage/Shared%20Documents/AppLearn%20PDFs/Google%20DST%20Display%20Via%20Google%20Ads.pdf"},
+        {"id":"booking-google-search-ads","title":"Google DST Search Via Google Ads","category":"Booking","tags":["google","dst","search","google ads"],"url":"https://insidemedia.sharepoint.com/sites/UKTechOpsAppsMaintenancePage/Shared%20Documents/AppLearn%20PDFs/Google%20DST%20Search%20Via%20Google%20Ads.pdf"},
+        {"id":"booking-google-ads","title":"Google DST YouTube Via Google Ads","category":"Booking","tags":["google","dst","google ads","booking","youtube"],"url":"https://insidemedia.sharepoint.com/sites/UKTechOpsAppsMaintenancePage/Shared%20Documents/AppLearn%20PDFs/Google%20DST%20Youtube%20Via%20Google%20Ads.pdf"},
+        {"id":"booking-google-reporting","title":"Google DST Reporting Guide","category":"Booking","tags":["google","dst","reporting","delivery"],"url":"https://insidemedia.sharepoint.com/sites/UKTechOpsAppsMaintenancePage/Shared%20Documents/AppLearn%20PDFs/Google%20DST%20Reporting%20Guide.pdf"},
+        {"id":"reconcile-cost-refresh","title":"Prisma Cost Refresh","category":"Reconcile","tags":["prisma","cost","refresh","reconcile"],"url":"https://insidemedia.sharepoint.com/sites/UKTechOpsAppsMaintenancePage/Shared%20Documents/AppLearn%20PDFs/Prisma%20Cost%20Refresh.pdf"},
+        {"id":"supplier-facebook-faq","title":"Facebook Integration - FAQs, Support and Mapping","category":"Supplier Integrations","tags":["facebook","faq","support","mapping"],"url":"https://insidemedia.sharepoint.com/sites/UKTechOpsAppsMaintenancePage/Shared%20Documents/AppLearn%20PDFs/Facebook%20Integration%2C%20FAQ%2C%20Support%20%26%20Mappings.pdf"},
+        {"id":"supplier-facebook-workflow-1","title":"Facebook Integration Workflow 1","category":"Supplier Integrations","tags":["facebook","integration","workflow","step 1"],"url":"https://insidemedia.sharepoint.com/sites/UKTechOpsAppsMaintenancePage/Shared%20Documents/AppLearn%20PDFs/Facebook%20Integration%20Workflow%201.pdf"},
+        {"id":"supplier-facebook-workflow-2","title":"Facebook Integration Workflow 2","category":"Supplier Integrations","tags":["facebook","integration","workflow","step 2"],"url":"https://insidemedia.sharepoint.com/sites/UKTechOpsAppsMaintenancePage/Shared%20Documents/AppLearn%20PDFs/Facebook%20Integration%20Workflow%202.pdf"},
+        {"id":"supplier-facebook-amendments","title":"Facebook Integration - Amendments & Cancellation","category":"Supplier Integrations","tags":["facebook","amendment","cancellation","integration"],"url":"https://insidemedia.sharepoint.com/sites/UKTechOpsAppsMaintenancePage/Shared%20Documents/AppLearn%20PDFs/Facebook%20Integration%20-%20Amendments%20%26%20Cancellation.pdf"},
+        {"id":"traffic-supplier-mappings","title":"Supplier Mappings","category":"Traffic","tags":["supplier","mapping","traffic","trafficking"],"url":"https://insidemedia.sharepoint.com/sites/UKTechOpsAppsMaintenancePage/Shared%20Documents/AppLearn%20PDFs/Supplier%20Mapping.pdf"},
+        {"id":"booking-amazon-dsp","title":"Amazon DST Guide – DSP","category":"Booking","tags":["amazon","dst","dsp"],"url":"https://insidemedia.sharepoint.com/sites/UKTechOpsAppsMaintenancePage/Shared%20Documents/AppLearn%20PDFs/Amazon%20DST%20Guide%20%E2%80%93%20DSP.pdf"},
+        {"id":"booking-amazon-managed-service","title":"Amazon DST Guide – Managed Service IO","category":"Booking","tags":["amazon","dst","managed service","io"],"url":"https://insidemedia.sharepoint.com/sites/UKTechOpsAppsMaintenancePage/Shared%20Documents/AppLearn%20PDFs/Amazon%20DST%20Guide%20%E2%80%93%20Managed%20Service%20IO.pdf"},
+        {"id":"booking-amazon-sponsored-ads","title":"Amazon DST Guide – Sponsored Ads","category":"Booking","tags":["amazon","dst","sponsored ads"],"url":"https://insidemedia.sharepoint.com/sites/UKTechOpsAppsMaintenancePage/Shared%20Documents/AppLearn%20PDFs/Amazon%20DST%20Guide%20%E2%80%93%20Sponsored%20Ads.pdf"},
+        {"id":"supplier-facebook-workflow-3","title":"Facebook Integration Workflow 3","category":"Supplier Integrations","tags":["facebook","integration","workflow","step 3"],"url":"https://insidemedia.sharepoint.com/sites/UKTechOpsAppsMaintenancePage/Shared%20Documents/AppLearn%20PDFs/Facebook%20Integration%20Workflow%203.pdf"},
+        {"id":"reconcile-mqs-invoice-queries","title":"MQS Invoice Queries - MX Media Explorer","category":"Reconcile","tags":["mqs","invoice","queries","mx","media explorer"],"url":"https://insidemedia.sharepoint.com/sites/UKTechOpsAppsMaintenancePage/Shared%20Documents/AppLearn%20PDFs/MQS%20Invoice%20Queries%20-%20MX%20Media%20Explorer.pdf"}
     ];
 })();

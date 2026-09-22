@@ -5,6 +5,7 @@ import { expireDiagnosticsIfNeeded, recordDiagnosticEvent } from './background/d
 import { getLegacyPrismaRedirect } from './background/prisma-url.js';
 import {
   MASTER_FEATURE_KEY,
+  AUDIENCE_KEY,
   featureModeReady,
   isFeatureModeActive,
   isPopupSender,
@@ -527,9 +528,12 @@ async function restoreFeatureResources() {
 }
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName !== 'sync' || !changes[MASTER_FEATURE_KEY]) return;
-  const disabled = changes[MASTER_FEATURE_KEY].newValue === true;
-  reconcileFeatureMode(disabled, { reloadTabs: true })
+  if (areaName === 'sync' && changes.approvalTrackingEnabled && !changes[MASTER_FEATURE_KEY] && !changes[AUDIENCE_KEY]) {
+    setupApprovalAlarm().catch(error => console.error('Could not update approval alarm:', error));
+    return;
+  }
+  if (areaName !== 'sync' || (!changes[MASTER_FEATURE_KEY] && !changes[AUDIENCE_KEY])) return;
+  refreshFeatureMode({ reloadTabs: true })
     .then(enabled => enabled ? restoreFeatureResources() : closeFeatureSurfaces())
     .catch(error => console.error('Could not apply the global feature mode:', error));
 });

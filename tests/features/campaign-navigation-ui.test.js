@@ -1,6 +1,7 @@
 const { JSDOM } = require('jsdom');
 const fs = require('fs');
 const path = require('path');
+const { captureTrustedListener } = require('../helpers/trusted-dom-event');
 
 const featureScript = fs.readFileSync(
     path.resolve(__dirname, '../../features/campaign.js'),
@@ -58,7 +59,15 @@ function createPage(settings = {}, url = 'https://groupmuk-prisma.mediaocean.com
         configurable: true
     });
     dom.window.HTMLCanvasElement.prototype.getContext = () => null;
+    const trustedPointerDown = captureTrustedListener(dom.window, dom.window.document, 'pointerdown');
     dom.window.eval(featureScript);
+    const nativeDispatch = dom.window.Element.prototype.dispatchEvent;
+    dom.window.Element.prototype.dispatchEvent = function(event) {
+        if (event.type === 'pointerdown') trustedPointerDown(this, { clientX: event.clientX, clientY: event.clientY });
+        return nativeDispatch.call(this, event);
+    };
+    dom.window.dispatchSyntheticPointerDown = (target) => nativeDispatch.call(target,
+        new dom.window.MouseEvent('pointerdown', { bubbles: true, composed: true }));
     return dom;
 }
 
@@ -81,6 +90,14 @@ function mockBuyDetailsTextMetrics(dom, buyDetails, beforePipeWidth = 80) {
 }
 
 describe('campaign navigation UI optimisation', () => {
+    test('ignores a synthetic page pointer event for campaign copy', async () => {
+        const dom = createPage();
+        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
+        dom.window.dispatchSyntheticPointerDown(dom.window.document.querySelector('.mo-campaign-name-wrapper'));
+        await Promise.resolve();
+        expect(dom.window.chrome.runtime.sendMessage).not.toHaveBeenCalled();
+        dom.window.close();
+    });
     test.each(['legacy', 'new'])('marks Orders instead of Buy active on a %s Order Summary UI', orderUi => {
         const dom = createPage({}, 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP3FMRK&ptb-mod=buy&ptb-ctx=orderSummary&showOrders=true');
         const { document } = dom.window;

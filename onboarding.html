@@ -23,6 +23,16 @@
             </div>
 
             <div class="stage-content">
+                <section id="audience-choice" class="audience-choice" hidden aria-label="Choose your work">
+                    <button id="choose-prisma" class="audience-option" type="button"><strong>I book on Prisma</strong><span>Set up campaign shortcuts and take the optional Prisma tour.</span></button>
+                    <button id="choose-non-prisma" class="audience-option" type="button"><strong>I don't book on Prisma</strong><span>Keep the shared tools without Prisma setup or the campaign tour.</span></button>
+                    <p class="audience-data-note">Preferences may sync through your Chrome profile; campaign records stay in local extension storage. <a href="docs/data-and-permissions.md" target="_blank" rel="noopener">Review data and permissions</a>.</p>
+                </section>
+                <section id="non-prisma-setup" class="non-prisma-setup" hidden>
+                    <p>Ops Toolshed is ready for your day-to-day tools. Open the toolbar popup for Aura timesheets, the Social Booking Checker and other launch links. Approvers and Help Guides are available from the popup when useful.</p>
+                    <label class="setting-choice"><span><strong>Weekly timesheet reminder</strong><small>Receive the Aura timesheet reminder. Change this later in Settings.</small></span><input type="checkbox" data-setting="timesheetReminderEnabled" checked><i aria-hidden="true"></i></label>
+                    <div class="non-prisma-actions"><a class="explorer-link" href="feature-explorer.html">Explore all features</a><button id="finish-non-prisma" class="primary-action" type="button">Finish setup</button><button id="change-audience" class="quiet-action" type="button">Change my answer</button></div>
+                </section>
                 <section class="onboarding-page active" data-page="0">
                     <div class="choice-layout recommended-layout">
                         <div class="choice-list">
@@ -31,7 +41,7 @@
                             <label class="setting-choice"><span><strong>Help Guides launcher</strong><small>Keep searchable guidance one click away.</small></span><input type="checkbox" data-setting="helpGuidesEnabled" checked><i aria-hidden="true"></i></label>
                             <label class="setting-choice"><span><strong>Block broken AppLearn popups</strong><small>Prevent unusable login windows interrupting Prisma.</small></span><input type="checkbox" data-setting="blockAppLearnPopupsEnabled" checked><i aria-hidden="true"></i></label>
                         </div>
-                        <aside class="context-note reassurance-note"><img class="onboarding-feature-image" src="assets/feature-previews/prisma-help-guides.png" alt="The Help Guides launcher in Prisma"><strong>Help, right where you work</strong><p>Open searchable guides from the purple launcher in Prisma. Every choice here can be changed later in Settings.</p></aside>
+                        <aside class="context-note reassurance-note"><img class="onboarding-feature-image" src="assets/feature-previews/prisma-help-guides.jpg" alt="The Help Guides launcher in Prisma"><strong>Help, right where you work</strong><p>Open searchable guides from the purple launcher in Prisma. Every choice here can be changed later in Settings.</p></aside>
                     </div>
                 </section>
 

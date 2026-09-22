@@ -513,7 +513,7 @@ button:disabled, .settings-button:disabled {
     position: fixed;
     z-index: 1000;
     display: grid;
-    width: min(320px, calc(100vw - 24px));
+    width: min(460px, calc(100vw - 24px));
     gap: 8px;
     padding: 8px;
     border-radius: var(--md-sys-shape-corner-extra-small, 4px);
@@ -556,9 +556,9 @@ button:disabled, .settings-button:disabled {
 .feature-rich-tooltip-image {
     display: block;
     width: 100%;
-    max-height: 132px;
+    max-height: 240px;
     border-radius: var(--md-sys-shape-corner-extra-small, 4px);
-    object-fit: cover;
+    object-fit: contain;
     object-position: top left;
 }
 
@@ -584,6 +584,13 @@ button:disabled, .settings-button:disabled {
     flex-wrap: wrap;
     gap: 8px;
     margin-top: 12px;
+}
+
+#onboardingAudienceStatus {
+    flex-basis: 100%;
+    margin: 0;
+    color: var(--md-sys-color-on-surface-variant, #5f6368);
+    font-size: 0.9rem;
 }
 
 .onboarding-launch-actions .settings-button {
@@ -1367,6 +1374,6 @@ body::after {
 
 button.feature-tooltip-indicator { border: 0; cursor: pointer; width: 24px; height: 24px; padding: 0; }
 button.feature-tooltip-indicator:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
-.feature-rich-tooltip-image { width: auto; max-width: 100%; height: auto; max-height: 220px; object-fit: contain; justify-self: start; }
+.feature-rich-tooltip-image { width: 100%; max-width: 100%; height: auto; max-height: 240px; object-fit: contain; justify-self: start; }
 .feature-rich-tooltip-image[hidden], .feature-preview-note[hidden] { display: none; }
 .feature-preview-note { margin: 0; font-style: italic; }

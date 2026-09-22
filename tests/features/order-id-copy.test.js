@@ -1,11 +1,12 @@
 const { JSDOM } = require('jsdom');
 const fs = require('fs');
 const path = require('path');
+const { captureTrustedClicks } = require('../helpers/trusted-dom-event');
 
 const featureScript = fs.readFileSync(path.resolve(__dirname, '../../features/order-id-copy.js'), 'utf8');
 
 describe('Order ID Copy Feature', () => {
-    let dom, window, document, storageListener;
+    let dom, window, document, storageListener, trustedClick;
 
     beforeEach(() => {
         jest.useFakeTimers();
@@ -15,6 +16,7 @@ describe('Order ID Copy Feature', () => {
         });
         window = dom.window;
         document = window.document;
+        trustedClick = captureTrustedClicks(window);
         storageListener = null;
 
         // Mock Chrome API
@@ -116,7 +118,7 @@ describe('Order ID Copy Feature', () => {
             '#cm-buy-sidebar-nav-list [id$="-order-header"] > .mo-nav-list-item-content'
         );
         orderIdTarget.getBoundingClientRect = () => ({ left: 12, width: 80, bottom: 30 });
-        orderIdTarget.click();
+        trustedClick(orderIdTarget);
         await Promise.resolve();
 
         expect(window.chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
@@ -160,7 +162,7 @@ describe('Order ID Copy Feature', () => {
         const orderIdTarget = document.querySelector(
             '#cm-buy-sidebar-nav-list [id$="-order-header"] > .mo-nav-list-item-content'
         );
-        orderIdTarget.click();
+        trustedClick(orderIdTarget);
         await Promise.resolve();
 
         expect(window.chrome.runtime.sendMessage).toHaveBeenCalledWith({
@@ -199,7 +201,7 @@ describe('Order ID Copy Feature', () => {
             '#cm-buy-sidebar-nav-list [id$="-order-header"] > .mo-nav-list-item-content'
         );
         orderIdTarget.getBoundingClientRect = () => ({ left: 0, width: 30, bottom: 30 });
-        orderIdTarget.click();
+        trustedClick(orderIdTarget);
         await Promise.resolve();
 
         const toast = document.querySelector('.order-id-copy-toast');
@@ -225,7 +227,7 @@ describe('Order ID Copy Feature', () => {
         window.orderIdCopyFeature.checkAndAddCopyButtons();
         const button = document.querySelector('.order-id-copy-btn');
 
-        button.click();
+        trustedClick(button);
 
         expect(window.chrome.runtime.sendMessage).toHaveBeenCalledWith({
             action: 'copyOrderIdToClipboard',
@@ -249,7 +251,7 @@ describe('Order ID Copy Feature', () => {
         const button = document.querySelector('.order-id-copy-btn');
         const originalText = button.textContent;
 
-        button.click();
+        trustedClick(button);
         await Promise.resolve();
 
         expect(button.textContent).toBe('Copied!');
@@ -258,6 +260,12 @@ describe('Order ID Copy Feature', () => {
         jest.advanceTimersByTime(2000);
         expect(button.textContent).toBe(originalText);
         expect(button.classList.contains('copied')).toBe(false);
+    });
+
+    test('does not copy an Order ID for a synthetic page click', () => {
+        window.orderIdCopyFeature.checkAndAddCopyButtons();
+        document.querySelector('.order-id-copy-btn').click();
+        expect(window.chrome.runtime.sendMessage).not.toHaveBeenCalled();
     });
 
     test('removes visible legacy controls when disabled from Settings', () => {

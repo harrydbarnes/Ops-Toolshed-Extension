@@ -24,11 +24,11 @@
     let reconcileQueued = false;
     let usernameSubmitted = false;
     let organisationSubmitted = false;
-    let organisationDropdownOpened = false;
     let organisationOptionChosen = false;
     let suppressAutomationForCurrentPage = false;
     let promptVisible = false;
     let settingsLoaded = false;
+    let currentSignInStage = '';
 
     function isActiveDocument() {
         return document.visibilityState === 'visible' && document.hasFocus();
@@ -59,11 +59,18 @@
         return pageText().includes('select your organisation to sign in');
     }
 
+    function isButtonEnabled(element) {
+        return Boolean(element) &&
+            !element.disabled &&
+            element.getAttribute('aria-disabled') !== 'true' &&
+            isVisible(element);
+    }
+
     function queryButton(label) {
         const target = label.toLowerCase();
         return Array.from(document.querySelectorAll('button, input[type="submit"]')).find(element =>
             normalise(element.textContent || element.value).toLowerCase() === target &&
-            !element.disabled
+            isButtonEnabled(element)
         ) || null;
     }
 
@@ -190,21 +197,103 @@
         return Date.now() - settings.promptStartedAt < PROMPT_DURATION_MS;
     }
 
+    function getOrganisationLabel(element) {
+        if (!element) return '';
+        const name = element.querySelector?.('.org-name-single-value')?.textContent;
+        const country = element.querySelector?.('.mo-caption')?.textContent;
+        return normalise([name, country].filter(Boolean).join(' ')) || normalise(element.textContent);
+    }
+
+    function organisationMatches(actual, expected) {
+        const candidate = normalise(actual).toLowerCase();
+        const target = normalise(expected).toLowerCase();
+        if (!candidate || !target) return false;
+        return candidate === target || candidate.startsWith(`${target} `) || target.startsWith(`${candidate} `);
+    }
+
+    function getSelectedOrganisation() {
+        return document.querySelector(
+            '.mo-select__single-value, [class*="singleValue"], [class*="single-value"]'
+        );
+    }
+
+    function getOrganisationPicker() {
+        const pickerContainer = document.querySelector('#organisation-selection-list, .organisation-selection');
+        return pickerContainer?.querySelector(
+            '.mo-select__control, [role="combobox"], [aria-haspopup="listbox"]'
+        ) || document.querySelector(
+            '[role="combobox"], [aria-haspopup="listbox"], input[aria-autocomplete="list"]'
+        );
+    }
+
+    function openOrganisationPicker() {
+        const picker = getOrganisationPicker();
+        if (!picker) return false;
+        const input = picker.matches?.('input[aria-autocomplete="list"]')
+            ? picker
+            : picker.querySelector?.('input[aria-autocomplete="list"]');
+        input?.focus?.();
+        const control = picker.matches?.('.mo-select__control')
+            ? picker
+            : picker.closest?.('.mo-select__control') || picker;
+        control.dispatchEvent(new MouseEvent('mousedown', {
+            bubbles: true,
+            cancelable: true,
+            view: window
+        }));
+        control.click?.();
+        return true;
+    }
+
+    function isVisible(element) {
+        if (!element || element.hidden || element.getAttribute('aria-hidden') === 'true') return false;
+        const style = window.getComputedStyle?.(element);
+        return !style || (style.display !== 'none' && style.visibility !== 'hidden');
+    }
+
+    function isOrganisationPickerOpen() {
+        return Boolean(document.querySelector(
+            '[role="listbox"], [class*="menu-is-open"], [class*="__menu"]'
+        ));
+    }
+
+    function storageGet(area, defaults) {
+        return new Promise((resolve, reject) => {
+            let settled = false;
+            const finish = value => {
+                if (settled) return;
+                settled = true;
+                if (chrome.runtime?.lastError) {
+                    reject(new Error(chrome.runtime.lastError.message));
+                    return;
+                }
+                resolve({ ...defaults, ...(value || {}) });
+            };
+            try {
+                const result = area.get(defaults, finish);
+                result?.then?.(finish, reject);
+            } catch (error) {
+                reject(error);
+            }
+        });
+    }
+
     function selectNativeOrganisation(select, organisation) {
         const option = Array.from(select.options).find(candidate =>
-            normalise(candidate.textContent) === organisation
+            organisationMatches(getOrganisationLabel(candidate), organisation)
         );
         if (!option) return false;
-        select.value = option.value;
-        select.dispatchEvent(new Event('input', { bubbles: true }));
-        select.dispatchEvent(new Event('change', { bubbles: true }));
+        if (select.value !== option.value) {
+            select.value = option.value;
+            select.dispatchEvent(new Event('input', { bubbles: true }));
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+        }
         return true;
     }
 
     function findOrganisationOption(organisation) {
-        return Array.from(document.querySelectorAll('[role="option"], li, button, div')).find(element =>
-            normalise(element.textContent) === organisation &&
-            element.offsetParent !== null
+        return Array.from(document.querySelectorAll('[role="option"], li, button, [class*="option"]')).find(element =>
+            isVisible(element) && organisationMatches(getOrganisationLabel(element), organisation)
         ) || null;
     }
 
@@ -214,23 +303,28 @@
         if (nativeSelect && !selectNativeOrganisation(nativeSelect, settings.organisation)) return;
 
         if (!nativeSelect) {
-            const option = findOrganisationOption(settings.organisation);
-            if (option && !organisationOptionChosen) {
-                organisationOptionChosen = true;
-                option.click();
-                window.setTimeout(scheduleReconcile, 0);
-                return;
-            }
-            if (!option) {
-                const selector = document.querySelector('[role="combobox"], [aria-haspopup="listbox"], select + button');
-                if (!organisationDropdownOpened && selector) {
-                    organisationDropdownOpened = true;
-                    selector.click();
+            const selected = getSelectedOrganisation();
+            if (!selected || !organisationMatches(getOrganisationLabel(selected), settings.organisation)) {
+                const option = findOrganisationOption(settings.organisation);
+                if (option && !organisationOptionChosen) {
+                    organisationOptionChosen = true;
+                    option.dispatchEvent(new MouseEvent('mousedown', {
+                        bubbles: true,
+                        cancelable: true,
+                        view: window
+                    }));
+                    option.click();
+                    window.setTimeout(() => {
+                        organisationOptionChosen = false;
+                        scheduleReconcile();
+                    }, 0);
+                    return;
+                }
+                if (!option && !isOrganisationPickerOpen()) {
+                    openOrganisationPicker();
                 }
                 return;
             }
-            const selector = document.querySelector('[role="combobox"], [aria-haspopup="listbox"]');
-            if (selector && !normalise(selector.textContent).includes(settings.organisation)) return;
         }
 
         const submit = queryButton('submit');
@@ -262,8 +356,17 @@
         reconcileQueued = false;
         if (!settingsLoaded) return;
         if (!hasPrismaSignInPage()) return;
-        if (isUsernameStage()) tryUsernameStage();
-        if (isOrganisationStage()) tryOrganisationStage();
+        const stage = isUsernameStage() ? 'username' : isOrganisationStage() ? 'organisation' : '';
+        if (stage !== currentSignInStage) {
+            currentSignInStage = stage;
+            if (stage === 'username') usernameSubmitted = false;
+            if (stage === 'organisation') {
+                organisationSubmitted = false;
+                organisationOptionChosen = false;
+            }
+        }
+        if (stage === 'username') tryUsernameStage();
+        if (stage === 'organisation') tryOrganisationStage();
     }
 
     function scheduleReconcile() {
@@ -285,8 +388,8 @@
     function initialize() {
         if (observer || !chrome.storage?.sync || !chrome.storage?.local) return;
         Promise.all([
-            chrome.storage.sync.get({ [SETTINGS.enabled]: false }),
-            chrome.storage.local.get({
+            storageGet(chrome.storage.sync, { [SETTINGS.enabled]: false }),
+            storageGet(chrome.storage.local, {
                 [SETTINGS.enabledLocal]: null,
                 [SETTINGS.email]: '',
                 [SETTINGS.organisation]: DEFAULT_ORGANISATION,
@@ -323,7 +426,12 @@
         document.addEventListener('visibilitychange', scheduleReconcile);
         window.addEventListener('pagehide', dispose, { once: true });
         observer = new MutationObserver(scheduleReconcile);
-        observer.observe(document.documentElement, { childList: true, subtree: true });
+        observer.observe(document.documentElement, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['aria-disabled', 'aria-expanded', 'aria-hidden', 'class', 'disabled', 'hidden', 'style', 'value']
+        });
         scheduleReconcile();
     }
 
@@ -331,6 +439,7 @@
         observer?.disconnect();
         observer = null;
         settingsLoaded = false;
+        currentSignInStage = '';
     }
 
     window.prismaLoginAssistantFeature = { initialize, isActiveDocument, reconcile, dispose };

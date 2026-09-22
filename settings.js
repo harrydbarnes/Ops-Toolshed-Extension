@@ -298,7 +298,7 @@ function ensureFeaturePreviewTooltip(root = document) {
     copy.append(heading, paragraph);
     const note = root.createElement('p');
     note.className = 'feature-preview-note';
-    tooltip.append(image, copy, note);
+    tooltip.append(copy, image, note);
     image.addEventListener('error', () => { image.hidden = true; note.textContent = 'Screenshot unavailable. Use the description above.'; note.hidden = false; });
     root.body.append(tooltip);
     return tooltip;
@@ -539,6 +539,20 @@ document.addEventListener('DOMContentLoaded', async function() {
     } 
 
     const launchOnboardingButton = document.getElementById('launchOnboardingButton');
+    const audienceStatus = document.getElementById('onboardingAudienceStatus');
+    const prismaTourButtons = [
+        document.getElementById('launchOnboardingTourV1Button'),
+        document.getElementById('launchOnboardingTourV2Button')
+    ];
+    let onboardingAudience = 'prisma';
+    function showOnboardingAudience(audience) {
+        onboardingAudience = audience === 'non-prisma' ? 'non-prisma' : 'prisma';
+        if (audienceStatus) audienceStatus.textContent = onboardingAudience === 'non-prisma'
+            ? 'Setup profile: I do not book on Prisma. Prisma tours are hidden.'
+            : 'Setup profile: I book on Prisma.';
+        prismaTourButtons.forEach(button => { if (button) button.hidden = onboardingAudience === 'non-prisma'; });
+    }
+    chrome.storage.sync.get({ onboardingAudience: 'prisma' }, data => showOnboardingAudience(data.onboardingAudience));
     if (launchOnboardingButton) {
         launchOnboardingButton.addEventListener('click', () => {
             chrome.tabs.create({ url: chrome.runtime.getURL('onboarding.html') })
@@ -549,6 +563,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const ONBOARDING_PRISMA_HOME = 'https://go.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns';
 
     function openOnboardingSidePanel(path) {
+        if (onboardingAudience === 'non-prisma') return;
         try {
             const tab = chrome.tabs.create({ url: ONBOARDING_PRISMA_HOME });
             tab?.catch?.(error => console.error('Could not open Prisma for the onboarding tour:', error));
@@ -1303,6 +1318,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     // popup kill switch or any other extension surface.
     chrome.storage.onChanged.addListener((changes, area) => {
         if (area !== 'sync') return;
+        if (changes.onboardingAudience) showOnboardingAudience(changes.onboardingAudience.newValue);
 
         syncedToggleInputs.forEach((input, storageKey) => {
             if (!changes[storageKey]) return;

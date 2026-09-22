@@ -146,18 +146,19 @@ describe('Help Guides side panel', () => {
         expect(styles).toMatch(/viewer-coachmark-layer\.is-closing/);
     });
 
-    test('renders the 21 library guides plus two SharePoint proof-of-concept PDFs', async () => {
+    test('renders all 26 SharePoint guides without temporary PDFs', async () => {
         const { dom } = await createApp();
         const labels = [...dom.window.document.querySelectorAll('.category-filter')].map(node => node.textContent);
 
-        expect(dom.window.document.querySelectorAll('.guide-card')).toHaveLength(23);
-        expect(dom.window.document.querySelectorAll('.guide-card-favourite')).toHaveLength(23);
+        expect(dom.window.document.querySelectorAll('.guide-card')).toHaveLength(26);
+        expect(dom.window.document.querySelectorAll('.guide-card-favourite')).toHaveLength(26);
         expect(labels).toEqual(['All', 'Access', 'Approval', 'Booking', 'Reconcile', 'Supplier Integrations', 'Traffic']);
-        expect(dom.window.document.getElementById('results-summary').textContent).toBe('23 guides');
-        const debugSection = dom.window.document.querySelector('.guide-section.is-debug');
-        expect(debugSection.querySelector('.guide-section-title').textContent).toContain('Example PDFs · Debugging');
-        expect([...debugSection.querySelectorAll('.guide-card')].map(card => card.dataset.guideId))
-            .toEqual(['debug-sharepoint-pdf-1', 'debug-sharepoint-pdf-2']);
+        expect(dom.window.document.getElementById('results-summary').textContent).toBe('26 guides');
+        expect(dom.window.document.querySelector('.guide-section.is-debug')).toBeNull();
+        expect(new Set(dom.window.HELP_GUIDES.map(guide => guide.url)).size).toBe(26);
+        for (const guide of dom.window.HELP_GUIDES) {
+            expect(guide.url).toMatch(/^https:\/\/insidemedia\.sharepoint\.com\/sites\/UKTechOpsAppsMaintenancePage\/Shared%20Documents\/AppLearn%20PDFs\/.+\.pdf$/);
+        }
         expect([...dom.window.document.querySelectorAll('.guide-card strong')]
             .filter(node => node.textContent === 'Suppliers')).toHaveLength(1);
         closeApp(dom);
@@ -204,7 +205,7 @@ describe('Help Guides side panel', () => {
         document.querySelector('[data-sort="category"]').click();
         expect(document.querySelector('[data-sort="category"]').getAttribute('aria-pressed')).toBe('true');
         expect([...document.querySelectorAll('.guide-section-title')].map(node => node.textContent))
-            .toEqual(['◇Example PDFs · Debugging', 'Access', 'Approval', 'Booking', 'Reconcile', 'Supplier Integrations', 'Traffic']);
+            .toEqual(['Access', 'Approval', 'Booking', 'Reconcile', 'Supplier Integrations', 'Traffic']);
         expect(localSet).toHaveBeenCalledWith({ helpGuidesSortMode: 'category' }, expect.any(Function));
 
         document.querySelector('[data-sort="alpha"]').click();
@@ -215,7 +216,7 @@ describe('Help Guides side panel', () => {
     test('uses coloured category abbreviations and visually distinct tag chips', async () => {
         const { dom } = await createApp();
         const { document } = dom.window;
-        const expected = ['POC', 'Acc', 'Appr', 'Book', 'Rec', 'Int', 'Tfc'];
+        const expected = ['Acc', 'Appr', 'Book', 'Rec', 'Int', 'Tfc'];
 
         expect(new Set([...document.querySelectorAll('.guide-file-icon')].map(node => node.textContent)))
             .toEqual(new Set(expected));
@@ -235,11 +236,11 @@ describe('Help Guides side panel', () => {
         expect(document.querySelector('[data-category="Booking"]')).toBe(bookingFilter);
         expect(document.activeElement).toBe(bookingFilter);
         expect(bookingFilter.getAttribute('aria-pressed')).toBe('true');
-        expect(document.querySelectorAll('.guide-card')).toHaveLength(11);
+        expect(document.querySelectorAll('.guide-card')).toHaveLength(14);
 
         document.getElementById('clear-search').click();
         expect(document.querySelector('[data-category="All"]').getAttribute('aria-pressed')).toBe('true');
-        expect(document.querySelectorAll('.guide-card')).toHaveLength(23);
+        expect(document.querySelectorAll('.guide-card')).toHaveLength(26);
         closeApp(dom);
     });
 
@@ -273,7 +274,7 @@ describe('Help Guides side panel', () => {
 
         document.getElementById('back-to-guides').click();
         const sectionTitles = [...document.querySelectorAll('.guide-section-title')].map(node => node.textContent);
-        expect(sectionTitles[1]).toContain('Favourites');
+        expect(sectionTitles[0]).toContain('Favourites');
         const favouriteSection = [...document.querySelectorAll('.guide-section')]
             .find(section => section.querySelector('.guide-section-title')?.textContent.includes('Favourites'));
         expect(favouriteSection.querySelector('.guide-card strong').textContent).toBe('Budget Approval');
@@ -327,7 +328,7 @@ describe('Help Guides side panel', () => {
         document.querySelector('[data-guide-id="reconcile-cost-refresh"]').click();
 
         await dom.window.helpGuidesApp.shareCurrentGuide();
-        expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('dummy.pdf'));
+        expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('Prisma%20Cost%20Refresh.pdf'));
         expect(document.getElementById('panel-toast-message').textContent).toBe('Guide link copied');
         expect(document.getElementById('panel-toast-layer').hidden).toBe(false);
         closeApp(dom);
@@ -341,7 +342,8 @@ describe('Help Guides side panel', () => {
         expect(document.getElementById('library-view').hidden).toBe(true);
         expect(document.getElementById('viewer-view').hidden).toBe(false);
         expect(document.getElementById('viewer-title').textContent).toBe('Facebook Integration Workflow 1');
-        expect(document.getElementById('pdf-frame').src).toContain('dummy.pdf');
+        expect(document.getElementById('pdf-frame').hidden).toBe(true);
+        expect(document.getElementById('open-external').href).toContain('Facebook%20Integration%20Workflow%201.pdf');
         expect(document.getElementById('share-guide')).not.toBeNull();
         expect(document.getElementById('favourite-guide')).not.toBeNull();
         expect(document.getElementById('open-external').textContent.trim()).toBe('Open');
@@ -355,11 +357,11 @@ describe('Help Guides side panel', () => {
         const pdfBytes = Uint8Array.from([37, 80, 68, 70, 45, 49, 46, 55, 10, 37, 226, 227, 207, 211]).buffer;
         const { dom, fetchMock, pdfDocument } = await createApp({ sharePointBytes: pdfBytes });
         const { document } = dom.window;
-        const guide = dom.window.HELP_GUIDES.find(item => item.id === 'debug-sharepoint-pdf-1');
+        const guide = dom.window.HELP_GUIDES.find(item => item.id === 'approval-budget');
 
         await dom.window.helpGuidesApp.openGuide(guide);
 
-        expect(fetchMock).toHaveBeenCalledWith(`${guide.url}?download=1`, {
+        expect(fetchMock).toHaveBeenCalledWith(guide.url, {
             cache: 'no-store',
             credentials: 'include',
             redirect: 'follow'
@@ -407,7 +409,7 @@ describe('Help Guides side panel', () => {
             sharePointBytes: pdfBytes,
             enableResizeObserver: true
         });
-        const guide = dom.window.HELP_GUIDES.find(item => item.id === 'debug-sharepoint-pdf-1');
+        const guide = dom.window.HELP_GUIDES.find(item => item.id === 'approval-budget');
         await dom.window.helpGuidesApp.openGuide(guide);
         expect(pdfPage.render).toHaveBeenCalledTimes(9);
 
@@ -426,8 +428,8 @@ describe('Help Guides side panel', () => {
             sharePointBytes: pdfBytes,
             viewerHintCount: 2
         });
-        const firstGuide = dom.window.HELP_GUIDES.find(item => item.id === 'debug-sharepoint-pdf-1');
-        const secondGuide = dom.window.HELP_GUIDES.find(item => item.id === 'debug-sharepoint-pdf-2');
+        const firstGuide = dom.window.HELP_GUIDES.find(item => item.id === 'approval-budget');
+        const secondGuide = dom.window.HELP_GUIDES.find(item => item.id === 'access-client');
 
         await dom.window.helpGuidesApp.openGuide(firstGuide);
         expect(dom.window.document.getElementById('viewer-coachmark').hidden).toBe(false);
@@ -445,7 +447,7 @@ describe('Help Guides side panel', () => {
     test('allows the resize reminder to be permanently dismissed', async () => {
         const pdfBytes = Uint8Array.from([37, 80, 68, 70, 45, 49, 46, 55]).buffer;
         const { dom, localSet } = await createApp({ sharePointBytes: pdfBytes });
-        const guide = dom.window.HELP_GUIDES.find(item => item.id === 'debug-sharepoint-pdf-1');
+        const guide = dom.window.HELP_GUIDES.find(item => item.id === 'approval-budget');
 
         await dom.window.helpGuidesApp.openGuide(guide);
         const optout = dom.window.document.getElementById('viewer-coachmark-disable');
@@ -460,7 +462,7 @@ describe('Help Guides side panel', () => {
     test('shows a five-second side-panel message after Open is selected', async () => {
         const pdfBytes = Uint8Array.from([37, 80, 68, 70, 45, 49, 46, 55]).buffer;
         const { dom } = await createApp({ sharePointBytes: pdfBytes, viewerHintDismissed: true });
-        const guide = dom.window.HELP_GUIDES.find(item => item.id === 'debug-sharepoint-pdf-1');
+        const guide = dom.window.HELP_GUIDES.find(item => item.id === 'approval-budget');
         await dom.window.helpGuidesApp.openGuide(guide);
         const open = dom.window.document.getElementById('open-external');
         open.addEventListener('click', event => event.preventDefault());
@@ -474,10 +476,42 @@ describe('Help Guides side panel', () => {
         closeApp(dom);
     });
 
+    test('fetches fresh PDF bytes each time a guide is opened', async () => {
+        const pdfBytes = Uint8Array.from([37, 80, 68, 70, 45, 49, 46, 55]).buffer;
+        const { dom, fetchMock } = await createApp({ sharePointBytes: pdfBytes });
+        try {
+            expect(fetchMock).not.toHaveBeenCalled();
+            const guide = dom.window.HELP_GUIDES.find(item => item.id === 'approval-budget');
+            await dom.window.helpGuidesApp.openGuide(guide);
+            dom.window.helpGuidesApp.closeGuide();
+            await dom.window.helpGuidesApp.openGuide(guide);
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+            expect(fetchMock).toHaveBeenLastCalledWith(guide.url, {
+                cache: 'no-store', credentials: 'include', redirect: 'follow'
+            });
+        } finally {
+            closeApp(dom);
+        }
+    });
+
+    test('retains the external file link when SharePoint denies access', async () => {
+        const { dom, fetchMock } = await createApp({ sharePointBytes: new ArrayBuffer(0) });
+        try {
+            fetchMock.mockResolvedValue({ ok: false, status: 403 });
+            const guide = dom.window.HELP_GUIDES.find(item => item.id === 'approval-budget');
+            await dom.window.helpGuidesApp.openGuide(guide);
+            expect(dom.window.document.getElementById('viewer-fallback').hidden).toBe(false);
+            expect(dom.window.document.getElementById('open-external').href).toBe(guide.url);
+            expect(dom.window.URL.createObjectURL).not.toHaveBeenCalled();
+        } finally {
+            closeApp(dom);
+        }
+    });
+
     test('rejects a SharePoint sign-in page instead of rendering it as a PDF', async () => {
         const htmlBytes = Uint8Array.from([60, 104, 116, 109, 108, 62]).buffer;
         const { dom } = await createApp({ sharePointBytes: htmlBytes });
-        const guide = dom.window.HELP_GUIDES.find(item => item.id === 'debug-sharepoint-pdf-2');
+        const guide = dom.window.HELP_GUIDES.find(item => item.id === 'access-client');
 
         await dom.window.helpGuidesApp.openGuide(guide);
 

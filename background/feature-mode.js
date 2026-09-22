@@ -3,6 +3,7 @@ import { CONTENT_SCRIPT_DEFINITIONS } from './content-script-definitions.js';
 export { CONTENT_SCRIPT_DEFINITIONS } from './content-script-definitions.js';
 
 export const MASTER_FEATURE_KEY = 'allFeaturesDisabled';
+export const AUDIENCE_KEY = 'onboardingAudience';
 
 const OWNED_ID_PREFIX = 'ops-toolshed-';
 let active = false;
@@ -61,14 +62,14 @@ export function isPopupSender(sender) {
     return Boolean(popupUrl && sender?.url === popupUrl && !sender?.tab);
 }
 
-export function reconcileFeatureMode(disabled, { reloadTabs = false } = {}) {
+export function reconcileFeatureMode(disabled, { reloadTabs = false, audience = 'prisma' } = {}) {
     if (disabled === true) {
         active = false;
         initialized = true;
     }
     reconciliation = reconciliation.catch(() => undefined).then(async () => {
         const nextActive = disabled !== true;
-        if (nextActive) {
+        if (nextActive && audience !== 'non-prisma') {
             await registerOwnedContentScripts();
             active = true;
             initialized = true;
@@ -88,13 +89,15 @@ export function reconcileFeatureMode(disabled, { reloadTabs = false } = {}) {
                 console.error('[Feature Mode] Could not reload Mediaocean tabs:', error);
             }
         }
-        return false;
+        active = nextActive;
+        initialized = true;
+        return nextActive;
     });
     return reconciliation;
 }
 
-export const featureModeReady = storageGet({ [MASTER_FEATURE_KEY]: false })
-    .then(settings => reconcileFeatureMode(settings[MASTER_FEATURE_KEY] === true))
+export const featureModeReady = storageGet({ [MASTER_FEATURE_KEY]: false, [AUDIENCE_KEY]: 'prisma' })
+    .then(settings => reconcileFeatureMode(settings[MASTER_FEATURE_KEY] === true, { audience: settings[AUDIENCE_KEY] }))
     .catch(error => {
         active = false;
         initialized = true;
@@ -103,6 +106,6 @@ export const featureModeReady = storageGet({ [MASTER_FEATURE_KEY]: false })
     });
 
 export async function refreshFeatureMode(options) {
-    const settings = await storageGet({ [MASTER_FEATURE_KEY]: false });
-    return reconcileFeatureMode(settings[MASTER_FEATURE_KEY] === true, options);
+    const settings = await storageGet({ [MASTER_FEATURE_KEY]: false, [AUDIENCE_KEY]: 'prisma' });
+    return reconcileFeatureMode(settings[MASTER_FEATURE_KEY] === true, { ...options, audience: settings[AUDIENCE_KEY] });
 }

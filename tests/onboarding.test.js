@@ -27,7 +27,9 @@ function setup() {
     const sync = createStorage();
     const local = createStorage();
     dom.window.chrome = {
-        runtime: { getURL: jest.fn(file => `chrome-extension://test/${file}`), lastError: undefined },
+        runtime: { getURL: jest.fn(file => file === 'settings.html'
+            ? 'chrome-extension://test/onboarding.html#settings'
+            : `chrome-extension://test/${file}`), lastError: undefined },
         storage: { sync, local },
         sidePanel: { setOptions: jest.fn(() => Promise.resolve()), open: jest.fn(() => Promise.resolve()) },
         tabs: { update: jest.fn() },
@@ -37,10 +39,38 @@ function setup() {
     return { dom, sync, local, chrome: dom.window.chrome };
 }
 
+async function choosePrisma(dom) {
+    dom.window.document.getElementById('choose-prisma').click();
+    await Promise.resolve();
+    await Promise.resolve();
+}
+
 describe('First-run onboarding', () => {
+    test('routes non-Prisma colleagues to shared tools without opening a Prisma tour', async () => {
+        const { dom, sync, local, chrome } = setup();
+        await Promise.resolve();
+        const doc = dom.window.document;
+        expect(doc.getElementById('audience-choice').hidden).toBe(false);
+        expect(doc.querySelector('#audience-choice a[href="docs/data-and-permissions.md"]')).not.toBeNull();
+        doc.getElementById('choose-non-prisma').click();
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(sync.store.onboardingAudience).toBe('non-prisma');
+        expect(doc.getElementById('non-prisma-setup').hidden).toBe(false);
+        expect(doc.querySelector('[data-page="0"]').hidden).toBe(true);
+        expect(chrome.sidePanel.open).not.toHaveBeenCalled();
+        doc.getElementById('finish-non-prisma').click();
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(local.store).toEqual(expect.objectContaining({ onboardingCompleted: true, onboardingTourActive: false }));
+        expect(chrome.tabs.update).not.toHaveBeenCalled();
+        expect(dom.window.location.hash).toBe('#settings');
+        dom.window.close();
+    });
     test('uses a three-step sequential flow and presents recommended settings first', async () => {
         const { dom } = setup();
         await Promise.resolve();
+        await choosePrisma(dom);
 
         expect(dom.window.document.getElementById('progress-count').textContent).toBe('1 of 3');
         expect(dom.window.document.querySelector('[data-page="0"] [data-setting="helpGuidesEnabled"]')).not.toBeNull();
@@ -56,6 +86,7 @@ describe('First-run onboarding', () => {
     test('saves settings as choices change', async () => {
         const { dom, sync } = setup();
         await Promise.resolve();
+        await choosePrisma(dom);
 
         const toggle = dom.window.document.querySelector('[data-setting="helpGuidesEnabled"]');
         toggle.checked = false;
@@ -68,6 +99,7 @@ describe('First-run onboarding', () => {
     test('uses the two-PID answer to control Switch Accounts and URL restoration together', async () => {
         const { dom, sync } = setup();
         await Promise.resolve();
+        await choosePrisma(dom);
 
         dom.window.document.querySelector('[data-pid-choice="false"]').click();
         await Promise.resolve();
@@ -83,6 +115,7 @@ describe('First-run onboarding', () => {
     test('opens Prisma and the guided side panel from the final step', async () => {
         const { dom, local, chrome } = setup();
         await Promise.resolve();
+        await choosePrisma(dom);
 
         dom.window.document.getElementById('next-step').click();
         dom.window.document.getElementById('next-step').click();
@@ -102,6 +135,7 @@ describe('First-run onboarding', () => {
 test('keeps optional preferences collapsed and moves focus to each new heading', async () => {
     const { dom } = setup();
     await Promise.resolve();
+    await choosePrisma(dom);
     const doc = dom.window.document;
     doc.getElementById('next-step').click();
     expect(doc.querySelector('.optional-preferences').open).toBe(false);

@@ -1,10 +1,10 @@
 import { recordDiagnosticEvent } from './diagnostics-manager.js';
+import { PENDING_APPROVAL_KEY, APPROVED_CAMPAIGNS_KEY, queueApprovalMutation, mutatePendingApprovals } from './approval-store.js';
 
-const PENDING_APPROVAL_KEY = 'pendingApprovalCampaigns';
-const APPROVED_CAMPAIGNS_KEY = 'approvedCampaigns';
 const ALARM_NAME = 'approvalStatusCheckAlarm';
 const ALARM_PERIOD_MINUTES = 5;
 const PRISMA_CAMPAIGN_API_BASE = 'https://go.mediaocean.com/campaign-service/secure/campaign/publicforui/';
+let trackingSequence = 0;
 
 export async function getPendingApprovals() {
     try {
@@ -30,17 +30,19 @@ export async function trackCampaignApproval(campaign) {
     if (!campaign || !campaign.campaignId) return { status: 'error', message: 'Missing campaignId' };
 
     try {
-        const pending = await getPendingApprovals();
         const campaignId = String(campaign.campaignId).trim();
-        pending[campaignId] = {
+        const record = {
             campaignId,
             campaignName: String(campaign.campaignName || campaignId).trim(),
             url: campaign.url || '',
-            submittedAt: Number(campaign.submittedAt) || Date.now(),
+            submittedAt: campaign.watchForSubmission ? null : (Number(campaign.submittedAt) || Date.now()),
+            watchedAt: campaign.watchForSubmission ? Date.now() : undefined,
+            watchingSubmission: campaign.watchForSubmission === true,
+            trackingVersion: `${Date.now()}-${++trackingSequence}`,
             lastChecked: Date.now()
         };
-        await chrome.storage.local.set({ [PENDING_APPROVAL_KEY]: pending });
-        return { status: 'success', campaign: pending[campaignId] };
+        await mutatePendingApprovals(pending => { pending[campaignId] = record; });
+        return { status: 'success', campaign: record };
     } catch (error) {
         console.error('[Approval Polling] Error tracking campaign approval:', error);
         return { status: 'error', message: error.message };
@@ -51,9 +53,11 @@ export async function dismissApprovedCampaign(campaignId) {
     if (!campaignId) return { status: 'error', message: 'Missing campaignId' };
 
     try {
-        const approved = await getApprovedCampaigns();
-        const filtered = approved.filter(item => String(item.campaignId).trim() !== String(campaignId).trim());
-        await chrome.storage.local.set({ [APPROVED_CAMPAIGNS_KEY]: filtered });
+        await queueApprovalMutation(async () => {
+            const approved = await getApprovedCampaigns();
+            const filtered = approved.filter(item => String(item.campaignId).trim() !== String(campaignId).trim());
+            await chrome.storage.local.set({ [APPROVED_CAMPAIGNS_KEY]: filtered });
+        });
         return { status: 'success' };
     } catch (error) {
         console.error('[Approval Polling] Error dismissing approved campaign:', error);
@@ -65,9 +69,7 @@ export async function dismissPendingCampaign(campaignId) {
     if (!campaignId) return { status: 'error', message: 'Missing campaignId' };
 
     try {
-        const pending = await getPendingApprovals();
-        delete pending[String(campaignId).trim()];
-        await chrome.storage.local.set({ [PENDING_APPROVAL_KEY]: pending });
+        await mutatePendingApprovals(pending => { delete pending[String(campaignId).trim()]; });
         return { status: 'success' };
     } catch (error) {
         console.error('[Approval Polling] Error dismissing pending campaign:', error);
@@ -77,7 +79,7 @@ export async function dismissPendingCampaign(campaignId) {
 
 export async function clearAllApprovedCampaigns() {
     try {
-        await chrome.storage.local.set({ [APPROVED_CAMPAIGNS_KEY]: [] });
+        await queueApprovalMutation(() => chrome.storage.local.set({ [APPROVED_CAMPAIGNS_KEY]: [] }));
         return { status: 'success' };
     } catch (error) {
         console.error('[Approval Polling] Error clearing approved campaigns:', error);
@@ -106,9 +108,10 @@ async function broadcastApprovalEvent(campaign) {
 async function isApprovalPollingEnabled() {
     const settings = await chrome.storage.sync.get({
         approvalTrackingEnabled: true,
-        allFeaturesDisabled: false
+        allFeaturesDisabled: false,
+        onboardingAudience: 'prisma'
     });
-    return settings.allFeaturesDisabled !== true && settings.approvalTrackingEnabled !== false;
+    return settings.allFeaturesDisabled !== true && settings.onboardingAudience !== 'non-prisma' && settings.approvalTrackingEnabled !== false;
 }
 
 export async function pollPendingApprovals() {
@@ -144,9 +147,7 @@ export async function pollPendingApprovals() {
             return;
         }
 
-        let pendingChanged = false;
-        let approvedChanged = false;
-        const approvedList = await getApprovedCampaigns();
+        const checked = [];
 
         for (const campaignId of campaignIds) {
             const entry = pending[campaignId];
@@ -159,42 +160,12 @@ export async function pollPendingApprovals() {
                     headers: { 'Accept': 'application/json' }
                 });
 
-                if (!response.ok) {
-                    failedCount += 1;
-                    entry.lastChecked = Date.now();
-                    pendingChanged = true;
-                    continue;
-                }
-
-                const data = await response.json();
+                if (!response.ok) failedCount += 1;
+                const data = response.ok ? await response.json() : null;
                 if (!(await isApprovalPollingEnabled())) return;
-                if (data && data.budgetApprovalStatus === 'APPROVED') {
-                    delete pending[campaignId];
-                    pendingChanged = true;
-
-                    const approvedRecord = {
-                        campaignId: entry.campaignId,
-                        campaignName: entry.campaignName || data.name || entry.campaignId,
-                        url: entry.url,
-                        submittedAt: entry.submittedAt,
-                        approvedAt: Date.now()
-                    };
-
-                    const existingIdx = approvedList.findIndex(item => item.campaignId === entry.campaignId);
-                    if (existingIdx >= 0) {
-                        approvedList.splice(existingIdx, 1);
-                    }
-                    approvedList.unshift(approvedRecord);
-                    approvedChanged = true;
-                    approvedTransitions += 1;
-
-                    if (await isApprovalPollingEnabled()) {
-                        await broadcastApprovalEvent(approvedRecord);
-                    }
-                } else {
-                    entry.lastChecked = Date.now();
-                    pendingChanged = true;
-                }
+                checked.push({ campaignId, submittedAt: entry.submittedAt, trackingVersion: entry.trackingVersion,
+                    approved: data?.budgetApprovalStatus === 'APPROVED',
+                    submitted: data?.budgetApprovalStatus === 'SUBMITTED', name: data?.name });
             } catch (err) {
                 failedCount += 1;
                 console.warn('[Approval Polling] Error checking campaign ' + campaignId + ':', err);
@@ -202,11 +173,48 @@ export async function pollPendingApprovals() {
         }
 
         if (!(await isApprovalPollingEnabled())) return;
-        if (pendingChanged) {
-            await chrome.storage.local.set({ [PENDING_APPROVAL_KEY]: pending });
-        }
-        if (approvedChanged) {
-            await chrome.storage.local.set({ [APPROVED_CAMPAIGNS_KEY]: approvedList });
+        const newlyApproved = await queueApprovalMutation(async () => {
+            const stored = await chrome.storage.local.get({
+                [PENDING_APPROVAL_KEY]: {},
+                [APPROVED_CAMPAIGNS_KEY]: []
+            });
+            const currentPending = stored[PENDING_APPROVAL_KEY] || {};
+            const approvedList = stored[APPROVED_CAMPAIGNS_KEY] || [];
+            const transitions = [];
+            let pendingChanged = false;
+            for (const result of checked) {
+                const entry = currentPending[result.campaignId];
+                if (!entry || entry.submittedAt !== result.submittedAt || entry.trackingVersion !== result.trackingVersion) continue;
+                pendingChanged = true;
+                if (result.approved) {
+                    delete currentPending[result.campaignId];
+                    const approvedRecord = {
+                        campaignId: entry.campaignId,
+                        campaignName: entry.campaignName || result.name || entry.campaignId,
+                        url: entry.url,
+                        submittedAt: entry.submittedAt,
+                        approvedAt: Date.now()
+                    };
+                    const existingIdx = approvedList.findIndex(item => item.campaignId === entry.campaignId);
+                    if (existingIdx >= 0) approvedList.splice(existingIdx, 1);
+                    approvedList.unshift(approvedRecord);
+                    transitions.push(approvedRecord);
+                } else if (entry.watchingSubmission && result.submitted) {
+                    entry.watchingSubmission = false;
+                    entry.submittedAt = Date.now();
+                    entry.trackingVersion = `${Date.now()}-${++trackingSequence}`;
+                    entry.lastChecked = Date.now();
+                } else {
+                    entry.lastChecked = Date.now();
+                }
+            }
+            if (pendingChanged) await chrome.storage.local.set({ [PENDING_APPROVAL_KEY]: currentPending });
+            if (transitions.length) await chrome.storage.local.set({ [APPROVED_CAMPAIGNS_KEY]: approvedList });
+            return transitions;
+        });
+        approvedTransitions = newlyApproved.length;
+        for (const record of newlyApproved) {
+            if (await isApprovalPollingEnabled()) await broadcastApprovalEvent(record);
         }
         await recordDiagnosticEvent({
             source: 'approval-tracking',
@@ -237,6 +245,10 @@ export async function pollPendingApprovals() {
 
 export async function setupApprovalAlarm() {
     try {
+        if (!(await isApprovalPollingEnabled())) {
+            await chrome.alarms.clear?.(ALARM_NAME);
+            return;
+        }
         const existing = await chrome.alarms.get(ALARM_NAME);
         if (!existing) {
             await chrome.alarms.create(ALARM_NAME, {

@@ -220,7 +220,7 @@
     }
 
     function handleNewUiSidebarClick(event) {
-        if (!featureEnabled) return;
+        if (!featureEnabled || !event.isTrusted) return;
         const target = getNewUiOrderIdTarget(event.target);
         if (!target || !isOrdersSidebarRoute() || !isNewOrderUi()) return;
 
@@ -272,6 +272,7 @@
                      copyBtn.title = 'Copy Clean Order ID';
 
                      copyBtn.addEventListener('click', (e) => {
+                         if (!e.isTrusted) return;
                          e.preventDefault();
                          e.stopPropagation();
                          handleCopy(copyBtn, text);

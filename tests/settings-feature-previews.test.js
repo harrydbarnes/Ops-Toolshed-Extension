@@ -32,7 +32,13 @@ describe('Settings feature previews', () => {
             expect(indicator.getAttribute('aria-label')).toMatch(/^Preview /);
         });
         expect(document.querySelectorAll('#feature-settings-tooltip')).toHaveLength(1);
-        expect(document.querySelector('#feature-settings-tooltip img')).not.toBeNull();
+        const tooltip = document.querySelector('#feature-settings-tooltip');
+        expect([...tooltip.children].map(child => child.className)).toEqual([
+            'feature-rich-tooltip-copy',
+            'feature-rich-tooltip-image',
+            'feature-preview-note'
+        ]);
+        expect(tooltip.querySelector('img')).not.toBeNull();
         dom.window.close();
         delete global.document;
     });
@@ -51,7 +57,7 @@ describe('Settings feature preview interactions', () => {
         help.querySelector('button.feature-tooltip-indicator').click();
         const tooltip = ensureFeaturePreviewTooltip(document);
         expect(tooltip.querySelector('img').hidden).toBe(false);
-        expect(tooltip.querySelector('img').getAttribute('src')).toContain('prisma-help-guides.png');
+        expect(tooltip.querySelector('img').getAttribute('src')).toContain('prisma-help-guides.jpg');
         loading.dispatchEvent(new dom.window.MouseEvent('pointermove', { bubbles: true }));
         document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape' }));
         jest.advanceTimersByTime(400);

@@ -295,12 +295,14 @@
         }
         .toolshed-approval-banner-button.is-pending-only .toolshed-approval-banner-icon {
             color: #38bdf8 !important;
+            transform: translateY(1px);
         }
         .toolshed-approval-banner-button.is-none-tracked {
             color: rgba(255, 255, 255, 0.75) !important;
         }
         .toolshed-approval-banner-button.is-none-tracked .toolshed-approval-banner-icon {
             color: rgba(255, 255, 255, 0.6) !important;
+            transform: translateY(1px);
         }
         .toolshed-approval-banner-button.is-none-tracked:hover,
         .toolshed-approval-banner-button.is-none-tracked:focus-visible {
@@ -355,9 +357,11 @@
         });
         const approvedList = data[APPROVED_STORAGE_KEY] || [];
         const pendingMap = data[PENDING_STORAGE_KEY] || {};
-        const pendingKeys = Object.keys(pendingMap);
+        const pendingKeys = Object.keys(pendingMap).filter(id => !pendingMap[id]?.watchingSubmission);
+        const watchedKeys = Object.keys(pendingMap).filter(id => pendingMap[id]?.watchingSubmission);
         const approvedCount = approvedList.length;
         const pendingCount = pendingKeys.length;
+        const watchedCount = watchedKeys.length;
         const totalCount = approvedCount + pendingCount;
 
         // Header
@@ -372,10 +376,12 @@
         title.textContent = 'Campaign Approvals';
         titleGroup.appendChild(title);
 
-        if (totalCount > 0) {
+        if (totalCount > 0 || watchedCount > 0) {
             const badge = document.createElement('span');
             badge.className = 'toolshed-approval-panel-badge';
-            badge.textContent = `${approvedCount}/${totalCount} Approved`;
+            badge.textContent = totalCount > 0
+                ? `${approvedCount}/${totalCount} Approved${watchedCount ? ` · ${watchedCount} watching` : ''}`
+                : `${watchedCount} watching submission`;
             titleGroup.appendChild(badge);
         }
         header.appendChild(titleGroup);
@@ -452,7 +458,7 @@
         const body = document.createElement('div');
         body.className = 'toolshed-approval-panel-body';
 
-        if (totalCount === 0) {
+        if (totalCount === 0 && watchedCount === 0) {
             const empty = document.createElement('div');
             empty.className = 'toolshed-approval-empty-state';
             empty.textContent = 'No campaigns currently being tracked for approval.';
@@ -563,7 +569,12 @@
             }
 
             // Pending Section
-            if (pendingCount > 0) {
+            if (pendingCount > 0 || watchedCount > 0) {
+                [
+                    { keys: watchedKeys, title: 'Watching for Submission', watching: true },
+                    { keys: pendingKeys, title: 'Pending Approval', watching: false }
+                ].forEach(function(group) {
+                if (!group.keys.length) return;
                 const pendingSection = document.createElement('div');
                 pendingSection.className = 'toolshed-approval-section';
 
@@ -572,14 +583,14 @@
 
                 const secTitle = document.createElement('h4');
                 secTitle.className = 'toolshed-approval-section-title';
-                secTitle.textContent = `Pending Approval (${pendingCount})`;
+                secTitle.textContent = `${group.title} (${group.keys.length})`;
                 secHeader.appendChild(secTitle);
                 pendingSection.appendChild(secHeader);
 
                 const list = document.createElement('ul');
                 list.className = 'toolshed-approval-list';
 
-                pendingKeys.forEach(function(cId) {
+                group.keys.forEach(function(cId) {
                     const item = pendingMap[cId];
                     const li = document.createElement('li');
                     li.className = 'toolshed-approval-item';
@@ -605,7 +616,9 @@
 
                     const timeSpan = document.createElement('span');
                     timeSpan.className = 'toolshed-approval-item-time';
-                    timeSpan.textContent = `Submitted ${formatRelativeTime(item.submittedAt)} • Checking every 5m`;
+                    timeSpan.textContent = group.watching
+                        ? `Watching since ${formatRelativeTime(item.watchedAt)} • Checking every 5m`
+                        : `Submitted ${formatRelativeTime(item.submittedAt)} • Checking every 5m`;
                     meta.appendChild(timeSpan);
 
                     link.appendChild(meta);
@@ -619,7 +632,7 @@
 
                     const statusBadge = document.createElement('span');
                     statusBadge.className = 'toolshed-approval-badge-pending';
-                    statusBadge.textContent = '⏳ Submitted';
+                    statusBadge.textContent = group.watching ? '⏳ Awaiting submission' : '⏳ Submitted';
                     statusCol.appendChild(statusBadge);
 
                     const dismissBtn = document.createElement('button');
@@ -646,6 +659,7 @@
 
                 pendingSection.appendChild(list);
                 body.appendChild(pendingSection);
+                });
             }
         }
 
@@ -675,7 +689,7 @@
                             campaignId: currentCampaignId,
                             campaignName: getCampaignName() || currentCampaignId,
                             url: window.location.href,
-                            submittedAt: Date.now()
+                            watchForSubmission: true
                         }
                     });
                     checkLiveWorkflowWidget();
@@ -690,7 +704,9 @@
                 note.className = 'toolshed-approval-already-tracked-note';
                 note.textContent = isAlreadyApproved
                     ? `✓ Campaign ${currentCampaignId} is marked Approved`
-                    : `✓ Currently tracking campaign ${currentCampaignId}`;
+                    : pendingMap[currentCampaignId]?.watchingSubmission
+                        ? `✓ Watching campaign ${currentCampaignId} for submission`
+                        : `✓ Currently tracking campaign ${currentCampaignId}`;
                 footer.appendChild(note);
             }
             panel.appendChild(footer);
@@ -779,13 +795,14 @@
         const approvedList = data[APPROVED_STORAGE_KEY] || [];
         const pendingMap = data[PENDING_STORAGE_KEY] || {};
         const approvedCount = approvedList.length;
-        const pendingCount = Object.keys(pendingMap).length;
+        const pendingCount = Object.values(pendingMap).filter(item => !item?.watchingSubmission).length;
+        const watchedCount = Object.values(pendingMap).filter(item => item?.watchingSubmission).length;
         const totalCount = approvedCount + pendingCount;
 
         const noun = totalCount === 1 ? 'Campaign' : 'Campaigns';
         const summaryText = totalCount === 0
-            ? 'Campaign Approvals'
-            : `${approvedCount}/${totalCount} ${noun} Approved`;
+            ? (watchedCount ? `${watchedCount} Watching Submission` : 'Campaign Approvals')
+            : `${approvedCount}/${totalCount} ${noun} Approved${watchedCount ? ` · ${watchedCount} Watching` : ''}`;
 
         buttons.forEach(btn => {
             btn.style.removeProperty('display');
@@ -799,9 +816,13 @@
                 textSpan.textContent = summaryText;
             }
 
-            if (totalCount === 0) {
+            if (totalCount === 0 && watchedCount === 0) {
                 btn.classList.add('is-none-tracked');
                 btn.title = 'No campaigns currently being tracked for approval - Click to view';
+                if (iconSpan) iconSpan.innerHTML = CLOCK_SVG;
+            } else if (totalCount === 0) {
+                btn.classList.add('is-pending-only');
+                btn.title = `Watching ${watchedCount} campaign${watchedCount === 1 ? '' : 's'} for submission - Click to view`;
                 if (iconSpan) iconSpan.innerHTML = CLOCK_SVG;
             } else if (approvedCount === totalCount) {
                 btn.classList.add('is-all-approved');
@@ -1095,7 +1116,20 @@
                     const pending = data[PENDING_STORAGE_KEY] || {};
                     const approvedList = data[APPROVED_STORAGE_KEY] || [];
                     const isApproved = approvedList.some(function(item) { return item.campaignId === campaignId; });
-                    if (!pending[campaignId] && !isApproved) {
+                    if (pending[campaignId]?.watchingSubmission) {
+                        safeSendMessage({
+                            action: 'trackCampaignApproval',
+                            campaign: {
+                                campaignId,
+                                campaignName: getCampaignName() || campaignId,
+                                url: window.location.href,
+                                submittedAt: Date.now()
+                            }
+                        }).then(function() {
+                            updateBannerIndicator();
+                            if (currentPanel && bannerButton) renderApprovalPanel(bannerButton, { reuseCurrent: true });
+                        });
+                    } else if (!pending[campaignId] && !isApproved) {
                         pending[campaignId] = {
                             campaignId: campaignId,
                             campaignName: getCampaignName() || campaignId,
@@ -1122,7 +1156,7 @@
                 chrome.storage.local.get({ [PENDING_STORAGE_KEY]: {} }, function(data) {
                     if (!isExtensionContextValid() || !data) return;
                     const pending = data[PENDING_STORAGE_KEY] || {};
-                    if (!pending[campaignId]) return;
+                    if (!pending[campaignId] || pending[campaignId].watchingSubmission) return;
                     delete pending[campaignId];
                     chrome.storage.local.set({ [PENDING_STORAGE_KEY]: pending }, function() {
                         if (!isExtensionContextValid()) return;

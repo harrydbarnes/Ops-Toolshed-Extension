@@ -13,13 +13,23 @@ test('catalogue covers every feature setting and every boolean preference withou
     for (const key of Object.keys(BOOLEAN_DEFAULTS)) expect(FEATURE_CATALOGUE.some(item => item.setting === key)).toBe(true);
     for (const feature of FEATURE_CATALOGUE) {
         if (feature.image) {
-            expect(fs.existsSync(path.join(__dirname, '..', feature.image.src))).toBe(true);
+            const assetPath = path.join(__dirname, '..', feature.image.src);
+            expect(fs.existsSync(assetPath)).toBe(true);
+            if (feature.image.src.endsWith('.jpg')) {
+                expect([...fs.readFileSync(assetPath).subarray(0, 2)]).toEqual([0xff, 0xd8]);
+            }
             expect(feature.image.alt.length).toBeGreaterThan(10);
             expect(feature.image.src).not.toContain('prisma-navigation');
         } else expect(feature.previewNote.length).toBeGreaterThan(0);
         if (feature.href.startsWith('settings.html?')) expect(dom.window.document.getElementById(feature.id)).not.toBeNull();
     }
     dom.window.close();
+});
+
+test('Actualise navigation preview explains the retained navigation', () => {
+    const feature = FEATURE_CATALOGUE.find(item => item.id === 'actualiseNavbarToggle');
+    expect(feature.description).toBe('Keeps Prisma’s main Plan, Buy, Traffic, Analyse and Orders navigation visible in Actualise.');
+    expect(feature.image.src).toBe('assets/feature-previews/prisma-actualise-navigation.jpg');
 });
 
 test('explorer searches all features, filters groups, exposes current settings and updates without writing preferences', async () => {

@@ -53,6 +53,7 @@
     let historyOutsideClickHandler = null;
     let navigationObserver = null;
     let navigationObservedRoots = new Set();
+    let currentNavigationLink = null;
     let navigationReconciliationQueued = false;
 
     function normalizeWhitespace(value) {
@@ -948,7 +949,16 @@
         const isExtensionNode = node => node?.nodeType === 1 &&
             (node.id === NAVIGATION_ID || node.id === SHADOW_NAVIGATION_STYLE_ID);
 
+        if (!currentNavigationLink?.isConnected) return true;
+        const navigationParent = getParentElement(currentNavigationLink);
+
         return mutations.some(mutation => {
+            const target = mutation.target;
+            if (target !== navigationParent && !navigationParent?.contains?.(target)) {
+                const changedNavigation = [...mutation.addedNodes, ...mutation.removedNodes]
+                    .some(node => node?.contains?.(currentNavigationLink) || node === currentNavigationLink);
+                if (!changedNavigation) return false;
+            }
             const nodes = [
                 ...Array.from(mutation.addedNodes || []),
                 ...Array.from(mutation.removedNodes || [])
@@ -1031,6 +1041,7 @@
         const existing = findNavigationLinks()
             .find(link => getParentElement(link) === insertionContainer);
         if (existing) {
+            currentNavigationLink = existing;
             // Re-append on every reconciliation so History remains the
             // furthest-right option after Prisma or a user reorders native
             // navigation items.
@@ -1046,6 +1057,7 @@
             : template?.cloneNode(false) || document.createElement('a');
         ensureShadowNavigationStyles(insertionContainer);
         link.id = NAVIGATION_ID;
+        currentNavigationLink = link;
         link.classList.add('toolshed-campaign-history-nav');
         link.classList.remove('active', 'selected', 'is-active', 'disabled', 'mo-disabled');
         link.removeAttribute('aria-current');
@@ -1147,17 +1159,11 @@
         return url + '&osModalId=prsm-cm-cmpcopy';
     }
 
-    async function copyToClipboard(text) {
+    async function copyToClipboard(text, action) {
         if (!text) return false;
         try {
-            if (navigator.clipboard?.writeText) {
-                await navigator.clipboard.writeText(text);
-                return true;
-            }
-        } catch (_error) {}
-        try {
             if (chrome.runtime?.sendMessage) {
-                const response = await chrome.runtime.sendMessage({ action: 'copyToClipboard', text });
+                const response = await chrome.runtime.sendMessage({ action, text });
                 return response?.status === 'success';
             }
         } catch (_error) {}
@@ -1177,6 +1183,7 @@
         item.appendChild(span);
 
         item.addEventListener('click', event => {
+            if (!event.isTrusted) return;
             event.stopPropagation();
             onClick(event, item);
         });
@@ -1223,7 +1230,7 @@
 
         // 3. Copy campaign link (to clipboard)
         const copyLinkItem = createContextMenuItem('Copy campaign link', 'link', async (_event, btn) => {
-            const success = await copyToClipboard(entry.url);
+            const success = await copyToClipboard(entry.url, 'copyCampaignUrlToClipboard');
             const labelSpan = btn.querySelector('span');
             if (labelSpan) labelSpan.textContent = success ? 'Copied link!' : 'Failed to copy';
             window.setTimeout(() => closeContextMenu(), 500);
@@ -1233,7 +1240,7 @@
         // 4. Copy campaign name (to clipboard)
         const copyNameItem = createContextMenuItem('Copy campaign name', 'text', async (_event, btn) => {
             const nameToCopy = entry.campaignName || entry.cpNumber || entry.campaignId || '';
-            const success = await copyToClipboard(nameToCopy);
+            const success = await copyToClipboard(nameToCopy, 'copyCampaignHeaderToClipboard');
             const labelSpan = btn.querySelector('span');
             if (labelSpan) labelSpan.textContent = success ? 'Copied name!' : 'Failed to copy';
             window.setTimeout(() => closeContextMenu(), 500);

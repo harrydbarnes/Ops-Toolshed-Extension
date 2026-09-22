@@ -1,11 +1,12 @@
 const { JSDOM } = require('jsdom');
 const fs = require('fs');
 const path = require('path');
+const { captureTrustedClicks } = require('../helpers/trusted-dom-event');
 
 const featureScript = fs.readFileSync(path.resolve(__dirname, '../../features/auto-copy-url.js'), 'utf8');
 
 describe('Auto Copy Campaign URL Feature', () => {
-    let dom, window, document, storageState, showToast;
+    let dom, window, document, storageState, showToast, trustedClick;
 
     function setupDom(autoCopyUrlEnabled = true, autoCopyUrlMode = 'short') {
         jest.useFakeTimers();
@@ -38,6 +39,7 @@ describe('Auto Copy Campaign URL Feature', () => {
 
         window = dom.window;
         document = window.document;
+        trustedClick = captureTrustedClicks(window);
 
         window.chrome = {
             runtime: {
@@ -83,20 +85,12 @@ describe('Auto Copy Campaign URL Feature', () => {
 
     function clickPageLinkIcon() {
         const icon = document.querySelector('mo-icon[name="link"]');
-        icon.dispatchEvent(new window.MouseEvent('click', {
-            bubbles: true,
-            cancelable: true,
-            composed: true
-        }));
+        trustedClick(icon);
     }
 
     function clickPageLinkControl() {
         const popover = document.querySelector('mo-popover');
-        popover.dispatchEvent(new window.MouseEvent('click', {
-            bubbles: true,
-            cancelable: true,
-            composed: true
-        }));
+        trustedClick(popover);
     }
 
     async function flushAutomation() {
@@ -157,6 +151,14 @@ describe('Auto Copy Campaign URL Feature', () => {
         expect(copyHandler).not.toHaveBeenCalled();
         expect(showToast).not.toHaveBeenCalled();
         expect(document.querySelector('mo-icon[name="link"]').classList).not.toContain('auto-copy-icon');
+    });
+
+    test('does not copy a URL after a synthetic page click', async () => {
+        const { copyHandler } = setupDom(true, 'full');
+        document.querySelector('mo-icon[name="link"]').click();
+        await flushAutomation();
+        expect(window.chrome.runtime.sendMessage).not.toHaveBeenCalled();
+        expect(copyHandler).not.toHaveBeenCalled();
     });
 
     test('starts cue tracking only when the disabled feature is enabled', async () => {

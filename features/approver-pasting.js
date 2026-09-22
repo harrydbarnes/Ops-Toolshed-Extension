@@ -1137,18 +1137,14 @@
 
             pasteButton.disabled = true;
             pasteButton.textContent = 'Pasting...';
-            let originalClipboard = '';
-
             try {
                 const initialResponse = await chrome.runtime.sendMessage({ action: 'getClipboardText' });
                 if (initialResponse.status !== 'success' || !initialResponse.text) {
                     console.error('Could not read clipboard.');
                     return;
                 }
-                originalClipboard = initialResponse.text;
-
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                const emails = originalClipboard.split(/[\n,;]+/).map(e => e.trim()).filter(e => emailRegex.test(e));
+                const emails = initialResponse.text.split(/[\n,;]+/).map(e => e.trim()).filter(e => emailRegex.test(e));
 
                 if (emails.length > 0) {
                     await pasteEmails(emails, selectors);
@@ -1156,15 +1152,13 @@
             } catch (error) {
                 console.error('[Paste Logic] Error during paste operation:', error);
             } finally {
-                if (originalClipboard) {
-                    await chrome.runtime.sendMessage({ action: 'copyToClipboard', text: originalClipboard });
-                }
                 pasteButton.disabled = false;
                 pasteButton.textContent = 'Paste Approvers';
             }
         });
 
-        pasteFavouritesButton.addEventListener('click', async () => {
+        pasteFavouritesButton.addEventListener('click', async (event) => {
+            if (!event.isTrusted) return;
             pasteFavouritesButton.disabled = true;
             pasteFavouritesButton.textContent = 'Pasting...';
             try {
@@ -1186,7 +1180,6 @@
 
     async function pasteEmails(emails, selectors) {
         for (const email of emails) {
-            await chrome.runtime.sendMessage({ action: 'copyToClipboard', text: email });
             const selectContainer = document.querySelector(selectors.selectContainer);
             if (selectContainer) {
                 selectContainer.click();
@@ -1194,10 +1187,23 @@
                 break;
             }
             try {
-                await window.utils.waitForElement('.select2-search-field input', 500);
-                document.execCommand('paste');
-                const firstResult = await window.utils.waitForElement(selectors.firstResult);
-                firstResult.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+                const input = await window.utils.waitForElement('.select2-search-field input', 500);
+                if (!input) throw new Error('Prisma recipient search is unavailable.');
+                input.focus();
+                const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+                if (setter) setter.call(input, email);
+                else input.value = email;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new KeyboardEvent('keyup', { key: 'l', bubbles: true }));
+                const matchDeadline = Date.now() + 3000;
+                let matchingResult = null;
+                while (!matchingResult && Date.now() < matchDeadline) {
+                    matchingResult = Array.from(document.querySelectorAll(selectors.firstResult))
+                        .find(result => result.textContent?.toLowerCase().includes(email.toLowerCase()));
+                    if (!matchingResult) await new Promise(resolve => setTimeout(resolve, 50));
+                }
+                if (!matchingResult) throw new Error(`Prisma did not return a matching approver for ${email}.`);
+                matchingResult.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
                 await window.utils.waitForElementToDisappear(selectors.firstResult);
             } catch (error) {
                 console.warn(`[Paste Logic] Could not complete paste for ${email}:`, error);

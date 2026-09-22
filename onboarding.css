@@ -75,6 +75,16 @@ button, select { color: inherit; }
 .quiet-action:hover { color: var(--ink); }
 
 .onboarding-stage { padding: clamp(28px, 4vw, 48px); }
+.audience-choice { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.audience-option { min-height: 150px; padding: 24px; display: grid; align-content: center; gap: 10px; text-align: left; border: 1px solid var(--line); border-radius: var(--radius); background: var(--soft); cursor: pointer; }
+.audience-option:hover, .audience-option:focus-visible { border-color: var(--accent); outline: 2px solid rgba(232, 47, 121, .2); }
+.audience-option strong { font-size: 21px; }
+.audience-option span, .non-prisma-setup > p { color: var(--muted); line-height: 1.5; }
+.audience-data-note { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.non-prisma-setup { max-width: 700px; display: grid; gap: 20px; }
+.non-prisma-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 20px; }
+[hidden] { display: none !important; }
+@media (max-width: 650px) { .audience-choice { grid-template-columns: 1fr; } }
 
 .onboarding-progress { display: flex; align-items: center; gap: 10px; margin-bottom: 26px; color: var(--muted); font-size: 14px; font-weight: 600; }
 .onboarding-progress strong { color: var(--accent-dark); }

@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
+const { captureTrustedClicks } = require('../helpers/trusted-dom-event');
 
 const featureScript = fs.readFileSync(
     path.resolve(__dirname, '../../features/campaign-history.js'),
@@ -99,8 +100,9 @@ function createPage({
     const sync = createStorageArea(syncStore);
     const local = createStorageArea(localStore);
 
+    const trustedClick = captureTrustedClicks(dom.window);
     dom.window.chrome = {
-        runtime: { lastError: null },
+        runtime: { lastError: null, sendMessage: jest.fn().mockResolvedValue({ status: 'success' }) },
         storage: {
             sync,
             local,
@@ -110,10 +112,28 @@ function createPage({
     dom.window.eval(featureScript);
     dom.window.campaignHistoryFeature.initialize();
 
-    return { dom, localStore, changeListeners };
+    return { dom, localStore, changeListeners, trustedClick };
 }
 
 describe('campaign history feature', () => {
+    test('unrelated grid mutations do not trigger a full navigation rescan', async () => {
+        const { dom } = createPage();
+        await flushPromises();
+        const { document } = dom.window;
+        expect(document.getElementById('toolshed-campaign-history-nav')).not.toBeNull();
+        const querySelectorAll = jest.spyOn(document, 'querySelectorAll');
+        const grid = document.createElement('div');
+        grid.id = 'unrelated-grid';
+        document.body.appendChild(grid);
+        for (let index = 0; index < 40; index += 1) {
+            const row = document.createElement('div');
+            row.textContent = `row ${index}`;
+            grid.appendChild(row);
+        }
+        await flushPromises();
+        expect(querySelectorAll.mock.calls.filter(([selector]) => selector === '*')).toHaveLength(0);
+        dom.window.close();
+    });
     test('uses the reminder popup pink for the panel accent', () => {
         expect(contentCss).toMatch(/--toolshed-history-reminder-pink:\s*#ff3d80/i);
         expect(cssRule(contentCss, '#toolshed-campaign-history-panel::before'))
@@ -715,7 +735,7 @@ describe('campaign history feature', () => {
 
     test('supports middle-click, ctrl-click, and right-click context menu on campaign cards', async () => {
         const testCampaignUrl = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP100';
-        const { dom } = createPage({
+        const { dom, trustedClick } = createPage({
             url: dashboardUrl,
             entries: [
                 {
@@ -783,6 +803,8 @@ describe('campaign history feature', () => {
         // 4. Test "Open in new tab" item
         window.open.mockClear();
         items[0].click();
+        expect(window.open).not.toHaveBeenCalled();
+        trustedClick(items[0]);
         expect(window.open).toHaveBeenCalledWith(testCampaignUrl, '_blank');
         expect(document.getElementById('toolshed-campaign-history-context-menu')).toBeNull();
 
@@ -796,7 +818,7 @@ describe('campaign history feature', () => {
         const menuCopy = document.getElementById('toolshed-campaign-history-context-menu');
         const copyCampaignBtn = Array.from(menuCopy.querySelectorAll('.toolshed-campaign-history-context-item'))
             .find(el => el.textContent === 'Copy campaign');
-        copyCampaignBtn.click();
+        trustedClick(copyCampaignBtn);
         expect(window.location.href).toContain('&osModalId=prsm-cm-cmpcopy');
         expect(document.getElementById('toolshed-campaign-history-context-menu')).toBeNull();
 
@@ -810,8 +832,11 @@ describe('campaign history feature', () => {
         const menu2 = document.getElementById('toolshed-campaign-history-context-menu');
         const copyLinkItem = Array.from(menu2.querySelectorAll('.toolshed-campaign-history-context-item'))
             .find(el => el.textContent.includes('Copy campaign link'));
+        window.chrome.runtime.sendMessage.mockClear();
         copyLinkItem.click();
-        expect(window.navigator.clipboard.writeText).toHaveBeenCalledWith(testCampaignUrl);
+        expect(window.chrome.runtime.sendMessage).not.toHaveBeenCalled();
+        trustedClick(copyLinkItem);
+        expect(window.chrome.runtime.sendMessage).toHaveBeenCalledWith({ action: 'copyCampaignUrlToClipboard', text: testCampaignUrl });
 
         // 6. Test "Copy campaign name"
         card.dispatchEvent(new window.MouseEvent('contextmenu', {
@@ -823,8 +848,8 @@ describe('campaign history feature', () => {
         const menu3 = document.getElementById('toolshed-campaign-history-context-menu');
         const copyNameItem = Array.from(menu3.querySelectorAll('.toolshed-campaign-history-context-item'))
             .find(el => el.textContent.includes('Copy campaign name'));
-        copyNameItem.click();
-        expect(window.navigator.clipboard.writeText).toHaveBeenCalledWith('Test Target Campaign');
+        trustedClick(copyNameItem);
+        expect(window.chrome.runtime.sendMessage).toHaveBeenCalledWith({ action: 'copyCampaignHeaderToClipboard', text: 'Test Target Campaign' });
 
         // 7. Test dismissal via Escape key
         card.dispatchEvent(new window.MouseEvent('contextmenu', {

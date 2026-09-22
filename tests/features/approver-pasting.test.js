@@ -456,9 +456,16 @@ describe('Internal Approval recipient history controls', () => {
         expect(pasteButton.textContent).toBe('Paste Approvers');
     });
 
+    test('does not fetch favourites after a synthetic page click', async () => {
+        setupDom();
+        window.approverPastingFeature.handleApproverPasting();
+        document.querySelectorAll('.prisma-paste-button')[1].click();
+        await flushPromises();
+        expect(window.chrome.runtime.sendMessage).not.toHaveBeenCalled();
+    });
+
     test('keeps the full paste workflow working after a genuine user click', async () => {
         setupDom();
-        document.execCommand = jest.fn().mockReturnValue(true);
         window.chrome.runtime.sendMessage.mockImplementation(async request => (
             request.action === 'getClipboardText'
                 ? { status: 'success', text: 'first@example.com' }
@@ -469,13 +476,26 @@ describe('Internal Approval recipient history controls', () => {
         await pasteHandler.call(pasteButton, { isTrusted: true });
 
         expect(window.chrome.runtime.sendMessage.mock.calls.map(([request]) => request)).toEqual([
-            { action: 'getClipboardText' },
-            { action: 'copyToClipboard', text: 'first@example.com' },
-            { action: 'copyToClipboard', text: 'first@example.com' }
+            { action: 'getClipboardText' }
         ]);
-        expect(document.execCommand).toHaveBeenCalledWith('paste');
+        expect(document.querySelector('.select2-input').value).toBe('first@example.com');
         expect(pasteButton.disabled).toBe(false);
         expect(pasteButton.textContent).toBe('Paste Approvers');
+    });
+
+    test('selects the matching approver rather than a stale first result', async () => {
+        setupDom();
+        window.chrome.runtime.sendMessage.mockResolvedValue({ status: 'success', text: 'second@example.com' });
+        const staleResult = document.querySelector('.select2-result-selectable');
+        const matchingResult = staleResult.nextElementSibling;
+        const staleMouseUp = jest.fn();
+        const matchingMouseUp = jest.fn();
+        staleResult.addEventListener('mouseup', staleMouseUp);
+        matchingResult.addEventListener('mouseup', matchingMouseUp);
+        const { pasteButton, pasteHandler } = installAndCapturePasteHandler();
+        await pasteHandler.call(pasteButton, { isTrusted: true });
+        expect(staleMouseUp).not.toHaveBeenCalled();
+        expect(matchingMouseUp).toHaveBeenCalledTimes(1);
     });
 
     test('captures selected approval recipients before submit and shows them beside Submitted', async () => {

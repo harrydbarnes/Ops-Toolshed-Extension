@@ -25,7 +25,8 @@ describe('AppLearn popup blocking setting', () => {
 
     test('offers a Features-tab launch for first-run onboarding and both side-panel versions', () => {
         expect(settingsHtml).toContain('id="launchOnboardingButton"');
-        expect(settingsHtml).toContain('Launch user onboarding');
+        expect(settingsHtml).toContain('Change setup profile');
+        expect(settingsHtml).toContain('id="onboardingAudienceStatus"');
         expect(settingsHtml).toContain('id="launchOnboardingTourV1Button"');
         expect(settingsHtml).toContain('Open side panel v1');
         expect(settingsHtml).toContain('id="launchOnboardingTourV2Button"');

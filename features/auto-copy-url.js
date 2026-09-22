@@ -428,6 +428,7 @@
         if (listenerAttached) return;
 
         document.addEventListener('click', (event) => {
+            if (!event.isTrusted) return;
             if (ignoreNextTrigger) {
                 ignoreNextTrigger = false;
                 return;

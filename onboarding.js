@@ -26,9 +26,13 @@
     ];
     let activeStep = 0;
     let currentSettings = { ...defaults };
+    let selectedAudience = null;
 
     const elements = {
         pages: Array.from(document.querySelectorAll('.onboarding-page')),
+        audienceChoice: document.getElementById('audience-choice'),
+        nonPrismaSetup: document.getElementById('non-prisma-setup'),
+        progress: document.querySelector('.onboarding-progress'),
         progressCount: document.getElementById('progress-count'),
         progressFill: document.getElementById('progress-fill'),
         progressLabel: document.getElementById('progress-label'),
@@ -119,6 +123,9 @@
     }
 
     function renderStep(index, moveFocus = false) {
+        elements.audienceChoice.hidden = true;
+        elements.nonPrismaSetup.hidden = true;
+        elements.progress.hidden = false;
         activeStep = Math.max(0, Math.min(stepCopy.length - 1, index));
         const [label, title, description] = stepCopy[activeStep];
         elements.progressCount.textContent = `${activeStep + 1} of ${stepCopy.length}`;
@@ -137,6 +144,44 @@
         elements.start.hidden = activeStep !== stepCopy.length - 1;
         if (activeStep === stepCopy.length - 1) updateSummary();
         if (moveFocus) elements.title.focus();
+    }
+
+    function renderAudienceChoice() {
+        elements.pages.forEach(page => { page.hidden = true; });
+        elements.nonPrismaSetup.hidden = true;
+        elements.audienceChoice.hidden = false;
+        elements.progress.hidden = true;
+        elements.previous.hidden = true;
+        elements.next.hidden = true;
+        elements.start.hidden = true;
+        elements.title.textContent = 'How will you use Ops Toolshed?';
+        elements.description.textContent = 'Choose the setup that fits your work. You can change this later in Settings.';
+        elements.title.focus();
+    }
+
+    function renderNonPrismaSetup() {
+        elements.pages.forEach(page => { page.hidden = true; });
+        elements.audienceChoice.hidden = true;
+        elements.nonPrismaSetup.hidden = false;
+        elements.progress.hidden = true;
+        elements.previous.hidden = true;
+        elements.next.hidden = true;
+        elements.start.hidden = true;
+        elements.title.textContent = 'Your shared tools are ready.';
+        elements.description.textContent = 'There is no Prisma tour or campaign setup for this choice.';
+        elements.title.focus();
+    }
+
+    async function chooseAudience(audience) {
+        try {
+            await storageSet(chrome.storage?.sync, { onboardingAudience: audience });
+            selectedAudience = audience;
+            elements.error.hidden = true;
+            if (audience === 'prisma') renderStep(0, true);
+            else renderNonPrismaSetup();
+        } catch {
+            elements.status.textContent = 'Could not save your choice. Try again.';
+        }
     }
 
     async function markComplete(values = {}) {
@@ -208,6 +253,18 @@
     elements.previous.addEventListener('click', () => renderStep(activeStep - 1, true));
     elements.next.addEventListener('click', () => renderStep(activeStep + 1, true));
     elements.start.addEventListener('click', startGuidedTour);
+    document.getElementById('choose-prisma').addEventListener('click', () => void chooseAudience('prisma'));
+    document.getElementById('choose-non-prisma').addEventListener('click', () => void chooseAudience('non-prisma'));
+    document.getElementById('change-audience').addEventListener('click', renderAudienceChoice);
+    document.getElementById('finish-non-prisma').addEventListener('click', async () => {
+        if (selectedAudience !== 'non-prisma') return;
+        try {
+            await markComplete({ onboardingTourActive: false, onboardingSkipped: false });
+            window.location.href = chrome.runtime.getURL('settings.html');
+        } catch {
+            elements.status.textContent = 'Could not save setup completion. Try again.';
+        }
+    });
     elements.skip.addEventListener('click', () => {
         void markComplete({ onboardingTourActive: false, onboardingSkipped: true });
         window.location.href = chrome.runtime.getURL('settings.html');
@@ -216,6 +273,6 @@
     storageGet(chrome.storage?.sync, defaults).then(settings => {
         currentSettings = settings;
         syncControls();
-        renderStep(0);
+        renderAudienceChoice();
     });
 })();

@@ -7,9 +7,9 @@ describe('Features master-mode boundary', () => {
         chrome.tabs.query.mockResolvedValue([]);
     });
 
-    function setMasterState(disabled) {
+    function setMasterState(disabled, audience = 'prisma') {
         chrome.storage.sync.get.mockImplementation((_keys, callback) => {
-            const result = { allFeaturesDisabled: disabled };
+            const result = { allFeaturesDisabled: disabled, onboardingAudience: audience };
             callback?.(result);
             return Promise.resolve(result);
         });
@@ -27,6 +27,16 @@ describe('Features master-mode boundary', () => {
             mode.CONTENT_SCRIPT_DEFINITIONS.map(item => item.id)
         );
         expect(registrations.every(item => item.persistAcrossSessions === false)).toBe(true);
+    });
+
+    test('keeps shared extension tools active without Prisma injection for a non-Prisma profile', async () => {
+        setMasterState(false, 'non-prisma');
+        const mode = require('../background/feature-mode');
+        await expect(mode.featureModeReady).resolves.toBe(true);
+        expect(mode.isFeatureModeActive()).toBe(true);
+        expect(chrome.scripting.registerContentScripts).not.toHaveBeenCalled();
+        await expect(mode.reconcileFeatureMode(false, { audience: 'prisma', reloadTabs: true })).resolves.toBe(true);
+        expect(chrome.scripting.registerContentScripts).toHaveBeenCalledTimes(1);
     });
 
     test('remains fail-closed and does not register content bundles when Features is off', async () => {

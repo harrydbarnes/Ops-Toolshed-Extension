@@ -1047,6 +1047,7 @@
         campaignNameCopyListenerAttached = true;
 
         document.addEventListener('pointerdown', event => {
+            if (!event.isTrusted) return;
             if (campaignDateShortcutEnabled && handleCampaignDateShortcut(event)) return;
             if (campaignHeaderQuickCopyEnabled && handleBuyDetailsCopy(event)) return;
             if (!campaignNameQuickCopyEnabled) return;
