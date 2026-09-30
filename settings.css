@@ -127,12 +127,16 @@ section h2 {
 
 .prisma-login-assistant-options label {
     display: grid;
+    grid-template-rows: auto 1fr;
     gap: 5px;
     color: #404756;
     font-size: .9em;
 }
 
-.prisma-login-assistant-options input {
+.prisma-login-assistant-options label input {
+    width: 100%;
+    margin: 0;
+    height: 38px;
     min-width: 0;
     box-sizing: border-box;
     padding: 8px;
@@ -823,12 +827,6 @@ input:checked + .slider:before {
     background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent black */
     z-index: 100; /* Below modal, above page content */
     display: none; /* Initially hidden */
-}
-
-.loading-facts-stats-button {
-    margin: 0;
-    padding: 7px 10px;
-    font-size: 0.86em;
 }
 
 .loading-facts-review .section-header-with-button {

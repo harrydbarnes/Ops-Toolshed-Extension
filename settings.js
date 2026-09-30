@@ -1185,7 +1185,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
     setupToggle('orderGridScrollSyncToggle', 'orderGridScrollSyncEnabled', 'Order grid header alignment setting saved:', settings);
 
-    const loadingFactsStatsButton = document.getElementById('loadingFactsStatsButton');
     const loadingFactSummary = document.getElementById('loadingFactSummary');
     const loadingFactReviewList = document.getElementById('loadingFactReviewList');
     const exportLoadingFactRatings = document.getElementById('exportLoadingFactRatings');
@@ -1258,9 +1257,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     };
 
-    loadingFactsStatsButton?.addEventListener('click', () => {
-        document.getElementById('tab-loading-facts')?.click();
-    });
     document.getElementById('tab-loading-facts')?.addEventListener('click', renderLoadingFactReview);
 
     exportLoadingFactRatings?.addEventListener('click', async () => {

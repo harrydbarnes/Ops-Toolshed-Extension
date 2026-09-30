@@ -38,6 +38,7 @@ describe('Manifest content-script order', () => {
             expect(scripts.indexOf(featureScript)).toBeGreaterThan(utilsIndex);
         });
         expect(scripts[scripts.length - 1]).toBe('content.js');
+        expect(scripts.indexOf('features/social-campaign-check.js')).toBeGreaterThan(scripts.indexOf('features/dst-assurance.js'));
         expect(mediaoceanRegistration.allFrames).not.toBe(true);
         expect(mediaoceanRegistration.persistAcrossSessions).toBe(false);
 

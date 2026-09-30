@@ -271,7 +271,7 @@
             outline: none !important;
             box-shadow: none !important;
             line-height: 1 !important;
-            transform: translateY(-1px) !important;
+            transform: none !important;
         }
         .toolshed-approval-banner-button:hover,
         .toolshed-approval-banner-button:focus-visible {
@@ -295,14 +295,12 @@
         }
         .toolshed-approval-banner-button.is-pending-only .toolshed-approval-banner-icon {
             color: #38bdf8 !important;
-            transform: translateY(1px);
         }
         .toolshed-approval-banner-button.is-none-tracked {
             color: rgba(255, 255, 255, 0.75) !important;
         }
         .toolshed-approval-banner-button.is-none-tracked .toolshed-approval-banner-icon {
             color: rgba(255, 255, 255, 0.6) !important;
-            transform: translateY(1px);
         }
         .toolshed-approval-banner-button.is-none-tracked:hover,
         .toolshed-approval-banner-button.is-none-tracked:focus-visible {
@@ -334,6 +332,7 @@
             font-size: 13px;
             font-weight: 500;
             white-space: nowrap;
+            transform: translateY(-1px);
         }
     `;
 

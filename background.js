@@ -1,5 +1,6 @@
 import { handleHelpGuidesPanelEvent, messageHandlers } from './background/message-handlers.js';
 import { migrateStats } from './background/stats-manager.js';
+import { setupSocialCheckAlarm, pollSocialCampaigns, SOCIAL_CHECK_ALARM } from './background/social-campaign-check.js';
 import { setupApprovalAlarm, pollPendingApprovals, ALARM_NAME as APPROVAL_ALARM_NAME } from './background/approval-polling.js';
 import { expireDiagnosticsIfNeeded, recordDiagnosticEvent } from './background/diagnostics-manager.js';
 import { getLegacyPrismaRedirect } from './background/prisma-url.js';
@@ -21,7 +22,7 @@ chrome.sidePanel?.onClosed?.addListener(info => isFeatureModeActive() && handleH
 // --- Alarms and Notifications ---
 
 featureModeReady.then(enabled => {
-  if (enabled) setupApprovalAlarm();
+  if (enabled) { setupApprovalAlarm(); setupSocialCheckAlarm().catch(() => {}); }
   else closeFeatureSurfaces();
 });
 
@@ -42,6 +43,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   }
   migrateStats();
   setupApprovalAlarm();
+  setupSocialCheckAlarm().catch(() => {});
   if (!chrome.runtime || !chrome.runtime.id) return;
 
   if (details?.reason === 'install') {
@@ -136,6 +138,8 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
       await triggerTimesheetNotification();
     } else if (alarm.name === APPROVAL_ALARM_NAME) {
       await pollPendingApprovals();
+    } else if (alarm.name === SOCIAL_CHECK_ALARM) {
+      await pollSocialCampaigns();
     }
   } catch (error) {
     console.error(`Error handling alarm "${alarm.name}":`, error);
@@ -489,6 +493,7 @@ async function closeFeatureSurfaces() {
   await Promise.allSettled([
     chrome.alarms.clear('timesheetReminder'),
     chrome.alarms.clear(APPROVAL_ALARM_NAME),
+    chrome.alarms.clear(SOCIAL_CHECK_ALARM),
     chrome.notifications.clear('timesheetReminder')
   ]);
 
@@ -517,6 +522,7 @@ async function closeFeatureSurfaces() {
 async function restoreFeatureResources() {
   await chrome.sidePanel?.setOptions?.({ path: 'help-guides.html', enabled: true });
   await setupApprovalAlarm();
+  await setupSocialCheckAlarm();
   const settings = await chrome.storage.sync.get({
     timesheetReminderEnabled: true,
     reminderDay: 'Friday',

@@ -39,6 +39,22 @@ function getWorkflowSlotStyles(bodyClass = '') {
 }
 
 describe('workflow widget alignment', () => {
+    test('preserves native label and status widths beside injected workflow controls', () => {
+        const dom = new JSDOM(`<!doctype html><style>${contentStyles}</style>
+            <body class="approver-widget-placement-enabled gmi-chat-enabled">
+                <div class="workflow-widget-wrapper"><div>MEDIA PLAN Digital</div><button>SUBMITTED</button><button>GMI Chat</button></div>
+            </body>`);
+        const wrapper = dom.window.document.querySelector('.workflow-widget-wrapper');
+        const styles = dom.window.getComputedStyle(wrapper);
+        expect(styles.maxWidth).toBe('none');
+        expect(styles.width).toBe('max-content');
+        expect(styles.flexShrink).toBe('0');
+        for (const child of wrapper.children) {
+            expect(dom.window.getComputedStyle(child).flexShrink).toBe('0');
+        }
+        dom.window.close();
+    });
+
     test('keeps GMI Chat clear of the workflow icon', () => {
         const dom = new JSDOM(`<!doctype html><style>${contentStyles}</style>`);
         const rules = Array.from(dom.window.document.styleSheets[0].cssRules);

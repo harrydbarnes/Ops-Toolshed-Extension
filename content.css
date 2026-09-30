@@ -504,7 +504,15 @@ body.reminder-theme-black #confirmation-popup {
 
 .approver-widget-placement-enabled.gmi-chat-enabled .workflow-widget-wrapper {
     min-width: 260px;
-    max-width: 300px;
+    max-width: none;
+    width: max-content;
+    flex-shrink: 0;
+}
+
+/* Preserve native plan labels and status badges when injected controls widen
+   the centred workflow row. Flex compression can otherwise overlap them. */
+.approver-widget-placement-enabled .workflow-widget-wrapper > * {
+    flex-shrink: 0;
 }
 
 /* Keep the date card and its rear pencil tab in one predictable stacking
@@ -687,6 +695,12 @@ body.reminder-theme-black #confirmation-popup {
     white-space: nowrap;
     flex: 0 0 auto;
     vertical-align: middle;
+}
+
+/* DST supplies its own trailing gap. Preserve that gap when Meta follows
+   GMI Chat directly instead. */
+.gmi-chat-button + #ops-social-campaign-check {
+    margin-left: 8px;
 }
 
 .toolshed-dst-assurance--correct {

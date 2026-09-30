@@ -66,6 +66,7 @@ export const CONTENT_SCRIPT_DEFINITIONS = Object.freeze([
             'features/stats-collector.js',
             'features/placement-counter.js',
             'features/dst-assurance.js',
+            'features/social-campaign-check.js',
             'features/actualise-month-assurance.js',
             'features/banner-username.js',
             'features/swap-accounts.js',

@@ -110,6 +110,28 @@ function createPage({
 }
 
 describe('DST Assurance', () => {
+    test('detects Actualise supplier groups within Media total, excluding fee groups',()=>{
+        const dom=createPage();
+        try {
+            const table=dom.window.document.querySelector('.ht_master .htCore');
+            table.innerHTML='<tbody><tr><td></td><td></td><td></td><td>Name</td></tr>'+createRow({name:'Media total',months:[]})+createRow({name:'FACEBOOK | 000770',groupLevel:0,months:[]})+createRow({name:'Fee total',months:[]})+createRow({name:'FACEBOOK | 000770',groupLevel:0,months:[]})+'</tbody>';
+            // Actualise has an extra expand/collapse column before Name and no Cost header.
+            table.querySelectorAll('tr').forEach(row=>row.insertBefore(dom.window.document.createElement('td'),row.children[3]));
+            expect(dom.window.dstAssuranceFeature.hasFacebookBooking()).toBe(true);
+            table.querySelectorAll('tr')[2].children[4].textContent='AMAZON | 000770';
+            expect(dom.window.dstAssuranceFeature.hasFacebookBooking()).toBe(false);
+        } finally {dom.window.close();}
+    });
+    test.each([
+        [{},true],
+        [{mediaSupplier:'GOOGLE(Google Media)'},false],
+        [{mediaSection:'Search'},false],
+        [{months:['Jun 26'],mediaStartDate:'01/06/2026',mediaEndDate:'30/06/2026',dstAssuranceEnabled:false},true]
+    ])('shares Facebook booking detection independent of DST dates and settings: %j',(options,expected)=>{
+        const dom=createPage(options);
+        try {expect(dom.window.dstAssuranceFeature.hasFacebookBooking()).toBe(expected);}
+        finally {dom.window.close();}
+    });
     test('does not activate for a campaign whose flighting ends before July 2026', () => {
         const dom = createPage({
             months: ['Jun 26'],
@@ -959,6 +981,20 @@ describe('DST Assurance', () => {
         dom.window.close();
     });
 
+    test('opening Meta tooltip dismisses DST and DST announces itself when reopened', () => {
+        const dom=createPage({includeFee:false});
+        try {
+            dom.window.dstAssuranceFeature.apply();
+            const badge=dom.window.document.querySelector('.toolshed-dst-assurance');
+            const tooltip=dom.window.document.querySelector('.toolshed-dst-assurance-tooltip');
+            const opened=jest.fn();dom.window.document.addEventListener('ops-toolshed-header-tooltip-open',opened);
+            badge.dispatchEvent(new dom.window.Event('mouseenter'));
+            expect(tooltip.hidden).toBe(false);expect(opened.mock.calls[0][0].detail).toBe(tooltip.id);
+            dom.window.document.dispatchEvent(new dom.window.CustomEvent('ops-toolshed-header-tooltip-open',{detail:'meta'}));
+            expect(tooltip.hidden).toBe(true);expect(badge.getAttribute('aria-expanded')).toBe('false');
+            badge.dispatchEvent(new dom.window.Event('mouseenter'));expect(tooltip.hidden).toBe(false);
+        } finally {dom.window.close();}
+    });
     test('uses a fixed dark tooltip below the badge instead of the browser title popup', () => {
         const dom = new JSDOM(`<!doctype html><style>${contentStyles}</style>`);
         const rules = Array.from(dom.window.document.styleSheets[0].cssRules);

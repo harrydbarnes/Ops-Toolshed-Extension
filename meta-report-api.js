@@ -78,6 +78,9 @@
                 ? new URL(pathOrUrl)
                 : new URL(`${baseUrl}/${apiVersion}/${String(pathOrUrl).replace(/^\//, '')}`);
             url.searchParams.delete('access_token');
+            if (url.origin !== new URL(baseUrl).origin || url.protocol !== 'https:') {
+                throw new Error('Meta pagination returned an unexpected destination.');
+            }
             Object.entries(params).forEach(([key, value]) => {
                 if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
             });
@@ -92,6 +95,8 @@
                 try {
                     response = await fetchImpl(url.toString(), {
                         method: 'GET',
+                        redirect: 'error',
+                        ...(typeof AbortSignal.timeout === 'function' ? { signal: AbortSignal.timeout(30000) } : {}),
                         headers: { Authorization: `Bearer ${token}` }
                     });
                     payload = await response.json();
@@ -107,7 +112,12 @@
                     await sleep(retryDelay(response, attempt, random));
                     continue;
                 }
-                if (!response.ok || (payload && payload.error)) throw new Error(safeErrorMessage(payload, response.status));
+                if (!response.ok || (payload && payload.error)) {
+                    const error = new Error(safeErrorMessage(payload, response.status));
+                    error.metaCode = metaCode;
+                    error.source = 'meta';
+                    throw error;
+                }
                 return payload;
             }
             throw new Error('Meta could not complete the request after several attempts.');
@@ -117,13 +127,30 @@
             const rows = [];
             let next = path;
             let nextParams = params;
+            const visited = new Set();
             while (next) {
+                const pageUrl = buildUrl(next, nextParams).toString();
+                if (visited.has(pageUrl) || visited.size >= 100) throw new Error('Meta pagination is incomplete. Try again later.');
+                visited.add(pageUrl);
                 const payload = await request(next, nextParams);
-                if (Array.isArray(payload.data)) rows.push(...payload.data);
+                if (!Array.isArray(payload.data)) throw new Error('Meta returned an incomplete list response.');
+                rows.push(...payload.data);
                 next = payload.paging && payload.paging.next ? payload.paging.next : '';
                 nextParams = {};
             }
             return rows;
+        }
+
+        async function getCampaignSnapshot(campaignId) {
+            const id = cleanId(campaignId);
+            if (!/^\d+$/.test(id)) throw new Error('Invalid Meta campaign ID.');
+            const campaign = await request(id, { fields: 'id,account_id,name,start_time,stop_time,status,daily_budget,lifetime_budget,updated_time,is_adset_budget_sharing_enabled,is_budget_schedule_enabled' });
+            const [account, adSets, dailySpend] = await Promise.all([
+                getAccountMetadata(campaign.account_id),
+                requestAll(`${id}/adsets`, { fields: 'id,campaign_id,name,start_time,end_time,status,daily_budget,lifetime_budget,updated_time,is_budget_schedule_enabled', limit: 500 }),
+                requestAll(`${id}/insights`, { fields: 'campaign_id,date_start,date_stop,spend', level: 'campaign', date_preset: 'maximum', time_increment: 1, limit: 500 })
+            ]);
+            return { campaign, account, adSets, dailySpend };
         }
 
         function getCampaigns(accountId) {
@@ -361,7 +388,7 @@
             return { accountId: cleanId(accountId), account: accountMetadata, campaigns, adSets, records };
         }
 
-        return { getAccountMetadata, getCampaigns, getAdSets, getInsights, getDailyInsights, getReport, getMonthlyReport, syncAccount };
+        return { getCampaignSnapshot, getAccountMetadata, getCampaigns, getAdSets, getInsights, getDailyInsights, getReport, getMonthlyReport, syncAccount };
     }
 
     function resolveDateRange(preset, todayValue = new Date()) {

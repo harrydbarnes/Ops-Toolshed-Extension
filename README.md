@@ -7,6 +7,8 @@ Ops Toolshed is a Google Chrome extension that supercharges Mediaocean Prisma an
 ## What's new in 1.9
 Read the [in-extension release notes](toolshed.html) for the current changes and roadmap. That page is the maintained version history.
 
+Use **Check Meta** in a Prisma campaign to check its current bookings in an overlay, or **Live campaign checks** in Social Booking Checker to check visited campaigns and manage monitors. No exported reports are needed. Choose **Meta access** to save or replace your token directly, without uploading reports. A check does not enrol a campaign in monitoring: choose **Monitor this campaign** separately for checks every 30 minutes while Chrome is running. Results show budget and date differences, available Meta spend outside booking dates, and changes since the last successful check. Monitored campaigns show a header indicator when something needs review. Missing links, shared booking coverage, currency differences and unavailable historical data are shown for review rather than treated as a complete match.
+
 ---
 
 ## 🚀 How to Install (Quick 2-Minute Setup)

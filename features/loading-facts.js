@@ -514,6 +514,15 @@
         updateToastPosition(spinner) {
             const toast = document.getElementById(this.toastId);
             if (!toast || !spinner) return false;
+
+            const target = this.getSpinnerTarget(spinner);
+            if (!target) return false;
+            const rect = target.getBoundingClientRect();
+            if (!Number.isFinite(rect.left) || rect.width <= 0 || rect.height <= 0) return false;
+
+            // Loader handoffs can briefly expose a zero-sized target. Keep the
+            // current geometry intact until a replacement target is measurable;
+            // otherwise the new UI falls back to intrinsic max-content sizing.
             toast.style.top = '';
             toast.style.bottom = '';
             toast.style.width = '';
@@ -521,10 +530,6 @@
             toast.style.maxWidth = '';
             toast.style.boxSizing = '';
 
-            const target = this.getSpinnerTarget(spinner);
-            if (!target) return false;
-            const rect = target.getBoundingClientRect();
-            if (!Number.isFinite(rect.left) || rect.width <= 0 || rect.height <= 0) return false;
             toast.style.left = `${rect.left + (rect.width / 2)}px`;
             if (this.ui === 'new') {
                 const width = Math.min(440, window.innerWidth - 32);

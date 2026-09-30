@@ -10,6 +10,29 @@ function response(status, payload, headers = {}) {
 }
 
 describe('Meta report API client', () => {
+    test('does not treat a malformed insights response as zero spend', async () => {
+        const fetchImpl = jest.fn().mockResolvedValue(response(200, {}));
+        await expect(createClient({accessToken:'secret',fetchImpl}).getDailyInsights('1','2026-06-01','2026-06-30')).rejects.toThrow(/incomplete list/);
+    });
+    test('rejects cross-origin pagination before forwarding the bearer token', async () => {
+        const fetchImpl = jest.fn().mockResolvedValue(response(200, {data: [], paging: {next: 'https://example.com/steal'}}));
+        await expect(createClient({accessToken:'secret',fetchImpl}).getCampaigns('1')).rejects.toThrow(/unexpected destination/);
+        expect(fetchImpl).toHaveBeenCalledTimes(1);
+    });
+    test('reads campaign-specific maximum daily history without Prisma date restrictions', async () => {
+        const fetchImpl = jest.fn(async value => {
+            const url = new URL(value);
+            if (url.pathname.endsWith('/99')) return response(200,{id:'99',account_id:'88'});
+            if (url.pathname.endsWith('/act_88')) return response(200,{id:'88',currency:'GBP'});
+            if (url.pathname.endsWith('/adsets')) return response(200,{data:[]});
+            expect(url.pathname).toBe('/v24.0/99/insights');
+            expect(url.searchParams.get('date_preset')).toBe('maximum');
+            expect(url.searchParams.get('time_increment')).toBe('1');
+            expect(url.searchParams.has('time_range')).toBe(false);
+            return response(200,{data:[{date_start:'2026-01-01',date_stop:'2026-01-01',spend:'10'}]});
+        });
+        expect((await createClient({accessToken:'secret',fetchImpl}).getCampaignSnapshot('99')).dailySpend).toHaveLength(1);
+    });
     test('paginates account-scoped GET requests without Business discovery or tokens in URLs', async () => {
         const fetchImpl = jest.fn(async urlValue => {
             const url = new URL(urlValue);

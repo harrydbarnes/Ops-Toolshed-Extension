@@ -49,9 +49,13 @@ describe('release metadata', () => {
 
         try {
             const currentRelease = dom.window.document.querySelector('#release-notes .release');
-            const items = Array.from(currentRelease.querySelectorAll('li'));
+            const releaseItems = Array.from(currentRelease.querySelectorAll('li'));
+            expect(releaseItems).toHaveLength(29);
+            expect(releaseItems[0].textContent).toContain('Live Meta Campaign Checks');
+            expect(releaseItems[0].querySelector('.release-badge').dataset.releaseType).toBe('new');
+            const items = releaseItems.slice(1);
 
-            expect(items).toHaveLength(27);
+            expect(items).toHaveLength(28);
             expect(items[4].textContent).toContain('Help Guide Library');
             expect(items[5].textContent).toContain('Loading Facts');
             expect(items[0].textContent).toContain('Campaign Approval Tracking');

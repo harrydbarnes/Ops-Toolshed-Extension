@@ -31,6 +31,32 @@ describe('Loading Facts behaviour', () => {
         expect(contentCss).toContain('color: #15364d;');
     });
 
+    test('keeps the new UI geometry when a loader handoff has no measurable target', () => {
+        const dom = new JSDOM('<!doctype html><html><body><div id="ops-toolshed-loading-toast"></div><div id="spinner"></div></body></html>', {
+            runScripts: 'outside-only'
+        });
+        const { window } = dom;
+        try {
+            window.eval(loadingFactsScript);
+            const feature = window.loadingFactsFeature;
+            feature.ui = 'new';
+
+            const toast = window.document.getElementById(feature.toastId);
+            const spinner = window.document.getElementById('spinner');
+            toast.style.width = '440px';
+            toast.style.left = '220px';
+            toast.style.bottom = '24px';
+            spinner.getBoundingClientRect = () => ({ left: 100, width: 0, height: 0 });
+
+            expect(feature.updateToastPosition(spinner)).toBe(false);
+            expect(toast.style.width).toBe('440px');
+            expect(toast.style.left).toBe('220px');
+            expect(toast.style.bottom).toBe('24px');
+        } finally {
+            window.close();
+        }
+    });
+
     test('does not show a loading fact for campaign search activity', async () => {
         const dom = new JSDOM('<!doctype html><html><body><mo-overlay role="menu"><mo-banner-recent-menu-content><mo-search-box><span class="search-spinner"></span></mo-search-box></mo-banner-recent-menu-content></mo-overlay></body></html>', {
             url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns',

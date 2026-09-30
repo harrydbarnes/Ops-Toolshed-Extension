@@ -91,6 +91,7 @@ describe('background behavior while Features is off', () => {
 
         expect(chrome.alarms.clear).toHaveBeenCalledWith('timesheetReminder');
         expect(chrome.alarms.clear).toHaveBeenCalledWith('approvalStatusCheckAlarm');
+        expect(chrome.alarms.clear).toHaveBeenCalledWith('ops-toolshed-social-campaign-check');
         expect(chrome.notifications.clear).toHaveBeenCalledWith('timesheetReminder');
         expect(chrome.sidePanel.close).toHaveBeenCalledWith({ tabId: 42 });
         expect(chrome.sidePanel.close).toHaveBeenCalledTimes(1);

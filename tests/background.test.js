@@ -1,3 +1,9 @@
+jest.mock('../background/social-campaign-check', () => ({
+    SOCIAL_CHECK_ALARM: 'ops-toolshed-social-campaign-check',
+    setupSocialCheckAlarm: jest.fn().mockResolvedValue(),
+    pollSocialCampaigns: jest.fn().mockResolvedValue(),
+    handleSocialCheck: jest.fn()
+}));
 jest.mock('../background/feature-mode', () => ({
     MASTER_FEATURE_KEY: 'allFeaturesDisabled',
     featureModeReady: Promise.resolve(true),

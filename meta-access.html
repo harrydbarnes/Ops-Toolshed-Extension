@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Meta access · Ops Toolshed</title>
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="social-finance.css"><link rel="stylesheet" href="social-campaign-check.css">
+</head>
+<body class="live-check-page">
+<main class="report-shell">
+    <header class="report-header"><a class="brand" href="settings.html" aria-label="Open Ops Toolshed settings"><img src="icon.png" alt=""><span>Ops Toolshed</span></a><a class="back-link" href="social-campaign-check.html">← Live campaign checks</a></header>
+    <section class="report-intro" aria-labelledby="page-title">
+    <h1 id="page-title">Meta access</h1>
+    <p>Set up or replace the token used by live campaign checks, monitoring and Social Booking Checker. No report uploads needed.</p>
+    </section><div class="check-content">
+    <section class="token-settings" aria-label="Saved Meta access">
+        <p id="saved-status" role="status"></p>
+        <form id="token-form">
+            <label for="token">New Meta access token</label>
+            <input id="token" type="password" autocomplete="off" spellcheck="false" autocapitalize="off" maxlength="4096" required style="box-sizing:border-box;width:100%" aria-describedby="token-help">
+            <p id="token-help" class="note">Obtain a fresh token through your existing Meta access process, with access to the ad accounts you need to check. The existing saved token is never displayed here.</p>
+            <div class="actions"><button id="save-token" type="submit">Save token</button><button id="remove-token" type="button" class="secondary">Remove saved token</button></div>
+        </form>
+        <p id="status" role="status" aria-live="polite"></p>
+    </section>
+    <p class="note">The token is saved in this Chrome profile's local extension storage. Saving it does not validate its permissions; return to Prisma and choose Check Meta to test it. An expired token cannot renew itself.</p>
+</div></main>
+<script src="meta-access.js"></script>
+</body></html>

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Live campaign checks · Ops Toolshed</title>
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="social-finance.css"><link rel="stylesheet" href="social-campaign-check.css">
+</head>
+<body class="live-check-page">
+<main class="report-shell">
+    <header class="report-header"><a class="brand" href="settings.html" aria-label="Open Ops Toolshed settings"><img src="icon.png" alt=""><span>Ops Toolshed</span></a><a class="back-link" href="social-finance.html">← Social Booking Checker</a></header>
+    <section class="report-intro" aria-labelledby="page-title">
+    <h1 id="page-title">Live campaign checks</h1>
+    <p>Compare live Prisma bookings with Meta. No exported reports or special Prisma layout needed.</p>
+    </section><div class="check-content">
+    <form id="check-form">
+        <label for="campaign">Prisma CP number</label>
+        <div class="controls"><input id="campaign" required pattern="CP[A-Za-z0-9]{3,20}" placeholder="CP…" maxlength="22"><button id="check" type="submit">Check now</button></div>
+    </form>
+    <p id="status" role="status" aria-live="polite"></p>
+    <section id="result" aria-label="Campaign check results"></section>
+    <section class="saved"><h2>Visited and checked campaigns</h2><p>Select a campaign to check it now. Visiting or checking a campaign never starts monitoring.</p><label for="search">Find a campaign</label><input id="search" type="search" placeholder="Name or CP number"><div id="saved"></div><nav id="pagination" class="actions pagination" aria-label="Campaign list pages" hidden></nav></section>
+    <p class="note">Monitoring checks every 30 minutes while Chrome is running. It needs a valid Prisma session and a saved Meta token with access to the campaign. <a href="meta-access.html">Meta access</a>.</p>
+</div></main>
+<script src="social-campaign-check.js"></script>
+</body></html>

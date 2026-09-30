@@ -197,6 +197,8 @@
         const rows = tableRows || Array.from(table.querySelectorAll('tr'));
         const headerRow = rows.find(row =>
             Array.from(row.children).some(cell => normalizeText(cell.textContent).toLowerCase() === 'cost')
+        ) || rows.find(row =>
+            Array.from(row.children).some(cell => normalizeText(cell.textContent).toLowerCase() === 'name')
         );
         if (!headerRow) {
             return { nameIndex: 3, costIndex: 8, startDateIndex: 5, endDateIndex: 6 };
@@ -378,12 +380,29 @@
         return pattern.test(normalizeText(name));
     }
 
-    function assessMetaDst(rows, displayRange, feeRange, monthColumns = []) {
-        if (!displayRange) return createHiddenAssessment();
-
-        const facebookSupplierRows = rows
+    function getFacebookSupplierRows(rows, displayRange) {
+        if (!displayRange) return [];
+        return rows
             .slice(displayRange.start + 1, displayRange.end)
             .filter(row => row.isGroup && row.groupLevel === 1 && isFacebookSupplier(row.name));
+    }
+
+    function hasFacebookBooking(root = document) {
+        const table = getCanonicalTable(root);
+        if (!table) return false;
+        const rows = getRows(table);
+        const displayRange = getSectionRange(rows, 'display');
+        if (displayRange) return getFacebookSupplierRows(rows, displayRange).length > 0;
+        // Actualise groups suppliers directly beneath Media total.
+        const start = rows.findIndex(row => row.name.toLowerCase() === 'media total');
+        if (start < 0) return false;
+        const feeStart = rows.findIndex((row, index) => index > start && row.name.toLowerCase() === 'fee total');
+        return rows.slice(start + 1, feeStart < 0 ? rows.length : feeStart)
+            .some(row => row.isGroup && row.groupLevel === 0 && isFacebookSupplier(row.name));
+    }
+
+    function assessMetaDst(rows, displayRange, feeRange, monthColumns = []) {
+        const facebookSupplierRows = getFacebookSupplierRows(rows, displayRange);
         if (!facebookSupplierRows.length) return createHiddenAssessment();
 
         const dateCoverage = getFacebookDateCoverage(rows, facebookSupplierRows, displayRange);
@@ -694,6 +713,7 @@
         };
         const show = () => {
             clearDismissTimer();
+            ownerDocument.dispatchEvent(new view.CustomEvent('ops-toolshed-header-tooltip-open', { detail: tooltip.id }));
             tooltip.hidden = false;
             positionDstTooltip(badge, tooltip);
             setExpanded(true);
@@ -704,6 +724,8 @@
             tooltip.hidden = true;
             setExpanded(false);
         };
+        const handleOtherTooltip = event => { if (event.detail !== tooltip.id) hide(); };
+        ownerDocument.addEventListener('ops-toolshed-header-tooltip-open', handleOtherTooltip);
         const scheduleDismiss = () => {
             clearDismissTimer();
             if (tooltip.hidden || !view) return;
@@ -767,6 +789,7 @@
             },
             destroy: () => {
                 clearDismissTimer();
+                ownerDocument.removeEventListener('ops-toolshed-header-tooltip-open', handleOtherTooltip);
                 badge.removeEventListener('mouseenter', show);
                 badge.removeEventListener('mouseleave', handleBadgeMouseLeave);
                 badge.removeEventListener('focus', show);
@@ -988,6 +1011,7 @@
         initialize,
         apply,
         assessDstAssurance,
+        hasFacebookBooking,
         renderDstAssurance
     };
 })();

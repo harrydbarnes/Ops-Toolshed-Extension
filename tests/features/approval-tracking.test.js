@@ -371,26 +371,27 @@ describe('Approval Tracking Content Script UI', () => {
         if (dom && dom.window) dom.window.close();
     });
 
-    test('uses the measured Prisma banner baseline offset in both style contexts', () => {
+    test('centres the approval control without a whole-button vertical offset in both style contexts', () => {
         const externalRule = approvalCss.match(/\.toolshed-approval-banner-button\s*\{([^}]*)\}/)?.[1] || '';
         const inlineRule = scriptCode.match(/\.toolshed-approval-banner-button\s*\{([^}]*)\}/)?.[1] || '';
 
-        expect(externalRule).toMatch(/transform:\s*translateY\(-1px\)/i);
-        expect(inlineRule).toMatch(/transform:\s*translateY\(-1px\)/i);
+        expect(externalRule).toMatch(/transform:\s*none/i);
+        expect(inlineRule).toMatch(/transform:\s*none/i);
+        for (const source of [approvalCss, scriptCode]) {
+            const textRule = source.match(/\.toolshed-approval-banner-text\s*\{([^}]*)\}/)?.[1] || '';
+            expect(textRule).toMatch(/transform:\s*translateY\(-1px\)/i);
+        }
     });
 
-    test('lowers clock-only approval states without moving the approved checkmark', () => {
+    test('keeps clock-only approval states centred without a downward offset', () => {
         const clockStates = /\.toolshed-approval-banner-button\.is-(?:pending-only|none-tracked) \.toolshed-approval-banner-icon\s*\{([^}]*)\}/g;
         const readClockOffsets = source => Array.from(source.matchAll(clockStates)).map(match => match[1]);
 
-        expect(readClockOffsets(approvalCss)).toEqual([
-            expect.stringMatching(/transform:\s*translateY\(1px\)/i),
-            expect.stringMatching(/transform:\s*translateY\(1px\)/i)
-        ]);
-        expect(readClockOffsets(scriptCode)).toEqual([
-            expect.stringMatching(/transform:\s*translateY\(1px\)/i),
-            expect.stringMatching(/transform:\s*translateY\(1px\)/i)
-        ]);
+        for (const source of [approvalCss, scriptCode]) {
+            const clockRules = readClockOffsets(source);
+            expect(clockRules).toHaveLength(2);
+            clockRules.forEach(rule => expect(rule).not.toMatch(/transform:/i));
+        }
         expect(approvalCss).not.toMatch(/is-all-approved \.toolshed-approval-banner-icon\s*\{[^}]*transform:/i);
     });
 
