@@ -131,6 +131,22 @@
         (record.results || []).forEach(result => {
             const card = element('article', '', 'card');
             card.append(element('h3', result.name || result.campaignId), element('p', `Meta ${result.campaignId} · ${result.timezone || 'Account timezone unavailable'}`, 'note'));
+            const accountId = String(result.accountId || '').replace(/^act_/, '');
+            if (/^\d+$/.test(accountId) && /^\d+$/.test(String(result.campaignId || ''))) {
+                const link = element('a', 'Open in Meta ↗', 'meta-campaign-link');
+                link.href = `https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${accountId}&selected_campaign_ids=${result.campaignId}&treenav=true&filter_set=${encodeURIComponent(`CAMPAIGN_GROUP_SELECTED-STRING_SET\u001eIN\u001e["${result.campaignId}"]`)}`;
+                link.target = '_blank'; link.rel = 'noopener noreferrer';
+                link.setAttribute('aria-label', 'Open this campaign in Meta Ads Manager (new tab)');
+                const prismaId = openCampaign;
+                link.addEventListener('click', async event => {
+                    event.preventDefault();
+                    try {
+                        const response = await chrome.runtime.sendMessage({ action: 'socialCampaignCheck', operation: 'openMeta', campaignId: prismaId, metaCampaignId: String(result.campaignId), accountId });
+                        if (response?.status !== 'success') throw new Error(response?.message || 'Meta campaign could not be opened.');
+                    } catch (error) { if (openCampaign === prismaId) panelStatus.textContent = error.message; }
+                });
+                card.lastElementChild.append(element('span', ' · '), link);
+            }
             card.append(comparison(result));
             const metrics = element('div', '', 'metrics');
             [
@@ -199,6 +215,7 @@
         style.textContent += `:host{container-type:inline-size}h3{overflow-wrap:anywhere}.comparison{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0;margin:16px 0;font-size:13px;line-height:1.45}.comparison caption{text-align:left;font-weight:650;font-size:15px;margin-bottom:10px}.comparison th,.comparison td{padding:12px 10px;text-align:left;vertical-align:top;border-bottom:1px solid #dde5e9;overflow-wrap:anywhere}.comparison thead th{font-size:12px;color:#536875;padding-top:8px;padding-bottom:8px}.comparison thead th:first-child{width:19%}.comparison thead th:last-child{width:27%}.comparison tbody th{font-weight:600}.comparison .prisma-value{background:#f0f6fa}.comparison .meta-value{background:#f5f2fa}.comparison .difference-value{color:#536875}.comparison td strong{display:block;font-weight:600;font-variant-numeric:tabular-nums}.comparison .value-hint{display:block;font-size:11px;color:#536875;margin-top:4px}.comparison .differs .difference-value{background:#fff2df;color:#793d08}.comparison .differs .meta-value strong{color:#793d08;text-decoration:underline;text-decoration-color:#d7872a;text-underline-offset:4px}.comparison .source-label{display:none}.metrics{margin-top:14px}.metric strong{font-variant-numeric:tabular-nums}@container(max-width:560px){.comparison thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.comparison,.comparison tbody,.comparison caption{display:block}.comparison tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);margin-bottom:12px;border:1px solid #dde5e9;border-radius:6px;overflow:hidden}.comparison tbody th{grid-column:1/-1;background:#fafbfc;padding:9px 12px}.comparison td{padding:10px 12px}.comparison .difference-value{grid-column:1/-1;border-bottom:0}.comparison .source-label{display:block;font-size:11px;color:#536875;margin-bottom:4px}.comparison .difference-value .source-label{display:inline;margin:0 8px 0 0}.comparison .difference-value strong{display:inline}.panel{padding:14px}}`;
         style.textContent += '.comparison .placement-budget-row.differs .difference-value{background:#fff0f0;color:#982a31}.comparison .placement-budget-row.differs .meta-value strong{color:#982a31;text-decoration-color:#ba4b51}';
         style.textContent += '.comparison .informational-date td strong{font-weight:400}';
+        style.textContent += '.meta-campaign-link{color:#165c72;text-decoration:underline;text-underline-offset:2px}.meta-campaign-link:focus-visible{outline:3px solid #e5a641;outline-offset:2px}';
         style.textContent += `.panel-heading{flex:1;min-width:180px}.status{margin:4px 0 0;padding:0;font-size:12px;font-weight:400}.primary-actions{margin-top:12px;gap:10px}.monitor-status{white-space:nowrap}.card{margin-top:12px;padding-top:12px}h3{margin-bottom:4px}p{margin:8px 0}.card>p.note{margin:6px 0}.comparison{margin:12px 0}.comparison caption{margin-bottom:6px}.comparison tbody th,.comparison tbody td{padding-top:10px;padding-bottom:10px}.metrics{margin-top:10px}.metric{padding:8px 10px}footer{margin-top:10px;padding-top:8px}@container(min-width:561px){.panel{padding:16px}.comparison tbody th,.comparison tbody td{padding-top:8px;padding-bottom:8px}}`;
         const panel = element('section', '', 'panel');
         panel.setAttribute('role', 'dialog');

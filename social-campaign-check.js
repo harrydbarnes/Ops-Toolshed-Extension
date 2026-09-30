@@ -45,6 +45,20 @@
         if (record.unmatched?.length) root.append(text('p',`${record.unmatched.length} Meta media booking(s) could not be checked: missing ID, account, budget or dates.`, 'finding'));
         (record.results || []).forEach(item => {
             const card = text('article','','card'); card.append(text('h2',item.name || item.campaignId),text('p',`Meta ${item.campaignId} · Account ${item.accountId} · ${item.timezone || 'Account timezone unavailable'}`,'note'));
+            const accountId=String(item.accountId || '').replace(/^act_/,'');
+            if (/^\d+$/.test(accountId) && /^\d+$/.test(String(item.campaignId || ''))) {
+                const link=text('a','Open in Meta ↗');
+                link.href=`https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${accountId}&selected_campaign_ids=${item.campaignId}&treenav=true&filter_set=${encodeURIComponent(`CAMPAIGN_GROUP_SELECTED-STRING_SET\u001eIN\u001e["${item.campaignId}"]`)}`;
+                link.target='_blank';link.rel='noopener noreferrer';
+                link.setAttribute('aria-label','Open this campaign in Meta Ads Manager (new tab)');
+                const prismaId=selected;
+                link.addEventListener('click',async event=>{
+                    event.preventDefault();
+                    try { await send('openMeta',{campaignId:prismaId,metaCampaignId:String(item.campaignId),accountId}); }
+                    catch(error){byId('status').textContent=error.message;}
+                });
+                card.lastElementChild.append(text('span',' · '),link);
+            }
             const metrics = text('div','','metrics');
             [['Prisma net media booked',item.budget],['Prisma package soft limit',item.packageBudget],['Meta lifetime budget',item.metaBudget],['Meta spend (available history)',item.totalSpend],['Spend outside booked dates',item.outsideSpend]].forEach(([label,value])=> { const metric = text('div','','metric'); metric.append(text('span',label),text('strong', value == null && label === 'Prisma package soft limit' ? 'Not supplied' : money(value,label.startsWith('Prisma') ? item.prismaCurrency : item.currency))); metrics.append(metric); });
             card.append(metrics);

@@ -57,6 +57,20 @@ describe('Prisma Check Meta launcher',()=>{
         expect(shadow.querySelector('footer').children).toHaveLength(1);
         expect(shadow.querySelector('details').textContent).toContain('Monitoring requires Chrome, a Prisma session and valid Meta access.');
     });
+    test('links the exact Meta campaign and account in a separate tab without adding an action row',async()=>{
+        const result=resultFixture();result.accountId='act_456';
+        const shadow=await showResult(result),link=shadow.querySelector('a.meta-campaign-link');
+        const url=new URL(link.href);expect(url.searchParams.get('act')).toBe('456');expect(url.searchParams.get('selected_campaign_ids')).toBe('123');
+        expect(url.searchParams.get('filter_set')).toBe('CAMPAIGN_GROUP_SELECTED-STRING_SET\u001eIN\u001e["123"]');
+        expect(link.target).toBe('_blank');expect(link.rel).toBe('noopener noreferrer');
+        expect(link.parentElement.textContent).toContain('Meta 123 · Europe/London · Open in Meta');
+        link.click();await Promise.resolve();
+        expect(chrome.runtime.sendMessage).toHaveBeenLastCalledWith({action:'socialCampaignCheck',operation:'openMeta',campaignId:'CPTEST',metaCampaignId:'123',accountId:'456'});
+    });
+    test('does not show a misleading Meta link when account IDs are missing or invalid',async()=>{
+        const result=resultFixture();result.accountId='456&selected_campaign_ids=999';
+        const shadow=await showResult(result);expect(shadow.querySelector('a.meta-campaign-link')).toBeNull();
+    });
     test('does not calculate currency deltas or conceal gaps and missing flight dates',async()=>{
         const result=resultFixture();result.currency='USD';result.metaBudget=null;
         result.metaRanges=[{start:'2026-06-01',end:'2026-09-30'},{start:'2026-07-07',end:null}];

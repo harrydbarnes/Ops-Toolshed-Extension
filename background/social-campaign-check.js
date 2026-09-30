@@ -136,6 +136,39 @@ export async function pollSocialCampaigns() {
         if (record.monitor) { try { await checkSocialCampaign(id, true); } catch (_) { /* Saved health error and deduplicated alert. */ } }
     }
 }
+async function openMetaCampaign(prismaId, metaId, accountId) {
+    const account = String(accountId || '').replace(/^act_/, '');
+    const campaign = String(metaId || '');
+    if (!/^\d+$/.test(account) || !/^\d+$/.test(campaign) || !validId(prismaId)) throw new Error('Meta campaign link is incomplete. Run the check again.');
+    const record = (await records())[prismaId];
+    if (!record?.results?.some(item => String(item.campaignId) === campaign && String(item.accountId).replace(/^act_/, '') === account)) throw new Error('Run a check for this linked Meta campaign first.');
+    const stored = (await chrome.storage.local.get('socialMetaPortfolioByAccount'))?.socialMetaPortfolioByAccount || {};
+    const portfolios = Object.fromEntries(Object.entries(stored).filter(([key,value]) => /^\d+$/.test(key) && /^\d+$/.test(String(value))).slice(-200));
+    const tabs = await chrome.tabs.query({ url: ['https://adsmanager.facebook.com/*', 'https://business.facebook.com/*'] });
+    const matching = tabs.map(tab => {
+        try {
+            const url = new URL(tab.url);
+            const business = url.searchParams.get('business_id');
+            return ['https://adsmanager.facebook.com','https://business.facebook.com'].includes(url.origin) && url.searchParams.get('act') === account && /^\d+$/.test(business || '') ? { business, active: tab.active, accessed: tab.lastAccessed || 0 } : null;
+        } catch (_) { return null; }
+    }).filter(Boolean).sort((a,b) => Number(b.active) - Number(a.active) || b.accessed - a.accessed);
+    if (matching.length) {
+        delete portfolios[account]; portfolios[account] = matching[0].business;
+        await chrome.storage.local.set({ socialMetaPortfolioByAccount: Object.fromEntries(Object.entries(portfolios).slice(-200)) });
+    }
+    const url = new URL('https://adsmanager.facebook.com/adsmanager/manage/campaigns');
+    url.searchParams.set('act', account);
+    if (portfolios[account]) {
+        url.searchParams.set('business_id', portfolios[account]);
+        url.searchParams.set('global_scope_id', portfolios[account]);
+    }
+    url.searchParams.set('selected_campaign_ids', campaign);
+    url.searchParams.set('treenav', 'true');
+    url.searchParams.set('filter_set', `CAMPAIGN_GROUP_SELECTED-STRING_SET\u001eIN\u001e["${campaign}"]`);
+    await allowed();
+    await chrome.tabs.create({ url: url.href });
+    return { status: 'success' };
+}
 export async function handleSocialCheck(request, sender, sendResponse) {
     try {
         await allowed();
@@ -168,7 +201,8 @@ export async function handleSocialCheck(request, sender, sendResponse) {
         } else if (prismaTab && request.operation === 'access') {
             await chrome.tabs.create({ url: chrome.runtime.getURL('meta-access.html') });
             sendResponse({ status: 'success' });
-        } else if ((ownPage || prismaTab) && request.operation === 'check') sendResponse({ status: 'success', record: await checkSocialCampaign(request.campaignId) });
+        } else if ((ownPage || prismaTab) && request.operation === 'openMeta') sendResponse(await openMetaCampaign(request.campaignId, request.metaCampaignId, request.accountId));
+        else if ((ownPage || prismaTab) && request.operation === 'check') sendResponse({ status: 'success', record: await checkSocialCampaign(request.campaignId) });
         else if ((ownPage || prismaTab) && request.operation === 'monitor') sendResponse(await setSocialMonitoring(request.campaignId, request.monitor));
         else throw new Error('Unsupported campaign check request.');
     } catch (error) { sendResponse({ status: 'error', message: error.message }); }

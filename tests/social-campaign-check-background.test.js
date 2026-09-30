@@ -22,6 +22,29 @@ describe('Opt-in background campaign checks',()=>{
         jest.spyOn(api,'createClient').mockReturnValue({getCampaignSnapshot:getSnapshot});
     });
     afterEach(()=>{jest.restoreAllMocks();delete global.fetch;});
+    const senderPage=()=>({id:'test-id',url:'chrome-extension://test-id/social-campaign-check.html'});
+    const linkRequest=()=>({operation:'openMeta',campaignId:'CPTEST',metaCampaignId:'99',accountId:'88'});
+    test('opens only the checked campaign and learns the portfolio for its ad account',async()=>{
+        await manager.checkSocialCampaign('CPTEST');
+        chrome.tabs.query.mockResolvedValue([{url:'https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=88&business_id=123',active:true},{url:'https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=77&business_id=999',active:true}]);
+        const response=jest.fn();await manager.handleSocialCheck(linkRequest(),senderPage(),response);
+        expect(response).toHaveBeenCalledWith({status:'success'});
+        const url=new URL(chrome.tabs.create.mock.calls.at(-1)[0].url);
+        expect(url.searchParams.get('filter_set')).toBe('CAMPAIGN_GROUP_SELECTED-STRING_SET\u001eIN\u001e["99"]');
+        expect(url.searchParams.get('selected_campaign_ids')).toBe('99');expect(url.searchParams.get('act')).toBe('88');
+        expect(url.searchParams.get('business_id')).toBe('123');expect(url.searchParams.get('global_scope_id')).toBe('123');
+        expect(storage.socialMetaPortfolioByAccount).toEqual({'88':'123'});
+        chrome.tabs.query.mockResolvedValue([]);await manager.handleSocialCheck(linkRequest(),senderPage(),response);
+        expect(new URL(chrome.tabs.create.mock.calls.at(-1)[0].url).searchParams.get('business_id')).toBe('123');
+    });
+    test('never borrows a different ad account portfolio or opens unverified campaigns',async()=>{
+        await manager.checkSocialCampaign('CPTEST');
+        chrome.tabs.query.mockResolvedValue([{url:'https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=77&business_id=999'}]);
+        const response=jest.fn();await manager.handleSocialCheck(linkRequest(),senderPage(),response);
+        expect(new URL(chrome.tabs.create.mock.calls.at(-1)[0].url).searchParams.has('business_id')).toBe(false);
+        chrome.tabs.create.mockClear();await manager.handleSocialCheck({...linkRequest(),metaCampaignId:'333'},senderPage(),response);
+        expect(chrome.tabs.create).not.toHaveBeenCalled();expect(response).toHaveBeenLastCalledWith(expect.objectContaining({status:'error'}));
+    });
     test('one-off checks directly refresh Prisma without enrolling a monitor',async()=>{
         const result=await manager.checkSocialCampaign('CPTEST');
         expect(result.monitor).not.toBe(true);expect(result.results[0].budget).toBe(100);

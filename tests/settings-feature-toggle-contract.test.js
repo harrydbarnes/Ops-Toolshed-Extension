@@ -13,6 +13,7 @@ const FEATURE_TOGGLE_KEYS = {
     appLearnReplaceToggle: 'appLearnReplaceEnabled',
     bannerUsernameToggle: 'bannerUsernameEnabled',
     loadingFactsToggle: 'loadingFactsEnabled',
+    loadingFactsUI: 'loadingFactsUI',
     helpGuidesToggle: 'helpGuidesEnabled',
     prismaLoginAssistantToggle: 'prismaLoginAssistantEnabled',
     countPlacementsSelectedToggle: 'countPlacementsSelectedEnabled',
@@ -180,7 +181,9 @@ describe('Settings feature toggle contract', () => {
             toggle.checked = false;
             toggle.click();
 
-            if (toggle.id === 'diagnosticsModeToggle') {
+            if (toggle.id === 'loadingFactsUI') {
+                expect(window.chrome.storage.sync.set).toHaveBeenCalledWith({ loadingFactsUI: 'new' });
+            } else if (toggle.id === 'diagnosticsModeToggle') {
                 expect(window.chrome.runtime.sendMessage).toHaveBeenCalledWith({
                     action: 'SET_DIAGNOSTICS_MODE',
                     enabled: true
@@ -300,12 +303,20 @@ describe('Settings feature toggle contract', () => {
 test('loading facts appearance defaults to New UI and persists both choices', async () => {
     const {dom,window,syncStore} = await createSettingsPage();
     try {
-        const select = window.document.getElementById('loadingFactsUI');
-        expect(select.value).toBe('new');
+        const toggle = window.document.getElementById('loadingFactsUI');
+        expect(toggle.type).toBe('checkbox');
+        expect(toggle.checked).toBe(true);
+        expect(FEATURE_SETTINGS_DEFAULTS.loadingFactsUI).toBe('new');
         for (const value of ['old','new']) {
-            select.value = value;
-            select.dispatchEvent(new window.Event('change',{bubbles:true}));
+            toggle.click();
             expect(syncStore.loadingFactsUI).toBe(value);
         }
+    } finally { dom.window.close(); }
+});
+
+test('loading facts appearance toggle restores a saved Old UI preference', async () => {
+    const {dom,window} = await createSettingsPage([], {loadingFactsUI:'old'});
+    try {
+        expect(window.document.getElementById('loadingFactsUI').checked).toBe(false);
     } finally { dom.window.close(); }
 });

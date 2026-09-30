@@ -40,6 +40,15 @@ describe('Live campaign check feedback',()=>{
         const monitor=[...dom.window.document.querySelectorAll('#result button')][0];expect(monitor.disabled).toBe(false);
         expect(chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
     });
+    test('links a checked campaign to its exact Meta ad account and campaign in a new tab',async()=>{
+        const result={campaignId:'123',accountId:'act_456',currency:'GBP',prismaCurrency:'GBP',budget:100,packageBudget:200,metaBudget:100,totalSpend:0,outsideSpend:0,findings:[],warnings:[],notes:[],bookings:[],metaRanges:[],outsideDays:[]};
+        chrome.runtime.sendMessage.mockResolvedValue({status:'success',record:{checkedAt:'2026-09-30T12:00:00Z',results:[result],unmatched:[]}});
+        dom.window.eval(script);await flush();dom.window.document.querySelector('#saved button').click();await flush();
+        const link=dom.window.document.querySelector('#result a');
+        const url=new URL(link.href);expect(url.searchParams.get('act')).toBe('456');expect(url.searchParams.get('selected_campaign_ids')).toBe('123');
+        expect(url.searchParams.get('filter_set')).toBe('CAMPAIGN_GROUP_SELECTED-STRING_SET\u001eIN\u001e["123"]');
+        expect(link.target).toBe('_blank');expect(link.rel).toBe('noopener noreferrer');
+    });
     test('long campaign names cannot shrink the Check now label onto multiple lines',()=>{
         expect(css).toContain('white-space:nowrap;flex-shrink:0');expect(css).toContain('.saved-row button{min-width:110px}');
     });

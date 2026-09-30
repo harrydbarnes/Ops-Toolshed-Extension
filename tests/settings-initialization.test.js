@@ -54,6 +54,7 @@ const EXPECTED_DEFAULTS = {
     gmiChatShortcutEnabled: true,
     autoCopyUrlEnabled: true,
     loadingFactsEnabled: true,
+    loadingFactsUI: 'new',
     orderGridScrollSyncEnabled: true,
     statsCollectorEnabled: true,
     diagnosticsModeEnabled: false,

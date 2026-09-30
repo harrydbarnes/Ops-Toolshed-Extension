@@ -22,6 +22,7 @@ const SETTINGS_DEFAULTS = Object.freeze({
     reminderTheme: 'pink',
     autoCopyUrlMode: 'short',
     metaFinanceToolMode: 'social',
+    loadingFactsUI: 'new',
     ...featureSettingsRegistry.BOOLEAN_DEFAULTS,
     prismaReminderFrequency: 'daily',
     prismaCountdownDuration: '5',
@@ -1177,10 +1178,10 @@ document.addEventListener('DOMContentLoaded', async function() {
     const loadingFactsUI = document.getElementById('loadingFactsUI');
     if (loadingFactsUI) {
         chrome.storage.sync.get('loadingFactsUI', data => {
-            loadingFactsUI.value = data.loadingFactsUI === 'old' ? 'old' : 'new';
+            loadingFactsUI.checked = data.loadingFactsUI !== 'old';
         });
         loadingFactsUI.addEventListener('change', () => {
-            chrome.storage.sync.set({ loadingFactsUI: loadingFactsUI.value === 'old' ? 'old' : 'new' });
+            chrome.storage.sync.set({ loadingFactsUI: loadingFactsUI.checked ? 'new' : 'old' });
         });
     }
     setupToggle('orderGridScrollSyncToggle', 'orderGridScrollSyncEnabled', 'Order grid header alignment setting saved:', settings);
