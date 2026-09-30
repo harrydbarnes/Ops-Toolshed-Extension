@@ -205,15 +205,18 @@
     }
 
     function organisationMatches(actual, expected) {
-        const candidate = normalise(actual).toLowerCase();
-        const target = normalise(expected).toLowerCase();
+        // Prisma renamed this organisation; preserve existing saved settings.
+        const canonicalLabel = value => normalise(value).toLowerCase()
+            .replace(/^wpp media uk agency owner(?= united kingdom$|$)/, 'wpp media uk');
+        const candidate = canonicalLabel(actual);
+        const target = canonicalLabel(expected);
         if (!candidate || !target) return false;
         return candidate === target || candidate.startsWith(`${target} `) || target.startsWith(`${candidate} `);
     }
 
     function getSelectedOrganisation() {
         return document.querySelector(
-            '.mo-select__single-value, [class*="singleValue"], [class*="single-value"]'
+            '#organisation-selection-list .mo-select__single-value, .organisation-selection .mo-select__single-value'
         );
     }
 
@@ -329,6 +332,8 @@
 
         const submit = queryButton('submit');
         if (submit && isActiveDocument() && !organisationSubmitted) {
+            // Moving focus out of React Select closes its menu before submission.
+            submit.focus();
             organisationSubmitted = true;
             submit.click();
         }

@@ -20,7 +20,8 @@ function createPage({
     customSelectedOrganisation = ORGANISATION,
     storageApi = 'promise',
     submitDisabled = false,
-    submitAriaDisabled = false
+    submitAriaDisabled = false,
+    optionOrganisation = ORGANISATION
 } = {}) {
     const customOrganisationName = customSelectedOrganisation.replace(/\s+United Kingdom$/, '');
     const body = stage === 'username'
@@ -85,10 +86,11 @@ function createPage({
             if (window.document.querySelector('.mo-select__option')) return;
             const option = window.document.createElement('div');
             option.className = 'mo-select__option';
-            option.innerHTML = `<div class="org-name-single-value">WPP Media UK Agency Owner</div><div class="mo-caption">United Kingdom</div>`;
+            option.innerHTML = `<div class="org-name-single-value">${optionOrganisation.replace(/\s+United Kingdom$/, '')}</div><div class="mo-caption">United Kingdom</div>`;
             window.document.body.appendChild(option);
             option.addEventListener('click', () => {
-                selected.innerHTML = `<div class="org-name-single-value">${ORGANISATION.replace(/\s+United Kingdom$/, '')}</div><div class="mo-caption">United Kingdom</div>`;
+                selected.innerHTML = option.innerHTML;
+                window.document.getElementById('buttonSubmit').disabled = false;
                 option.remove();
             });
         };
@@ -114,6 +116,44 @@ function closePage(dom) {
 }
 
 describe('Prisma sign-in assistant', () => {
+    test('selects the renamed WPP organisation from an empty picker instead of mistaking an option label for selection', async () => {
+        const { dom, window } = createPage({
+            stage: 'custom-organisation', enabled: true,
+            customSelectedOrganisation: '', optionOrganisation: 'WPP Media UK United Kingdom',
+            submitDisabled: true
+        });
+        window.document.querySelector('.mo-select__single-value').className = 'mo-select__placeholder';
+        const submit = window.document.getElementById('buttonSubmit');
+        const submitClick = jest.fn();
+        submit.addEventListener('click', submitClick);
+        // Model React Select creating the selected-value wrapper only after selection.
+        window.document.addEventListener('click', event => {
+            if (event.target.closest('.mo-select__option')) {
+                window.document.querySelector('.mo-select__placeholder').className = 'mo-select__single-value';
+            }
+        }, true);
+        await settle();
+        expect(window.document.querySelector('.mo-select__single-value').textContent)
+            .toBe('WPP Media UKUnited Kingdom');
+        expect(window.document.querySelector('.mo-select__option')).toBeNull();
+        expect(submitClick).toHaveBeenCalledTimes(1);
+        expect(window.document.activeElement).toBe(submit);
+        closePage(dom);
+    });
+
+    test('accepts the renamed remembered organisation without reopening the dropdown', async () => {
+        const { dom, window } = createPage({
+            stage: 'custom-organisation', enabled: true,
+            customSelectedOrganisation: 'WPP Media UK United Kingdom'
+        });
+        const submitClick = jest.fn();
+        window.document.getElementById('buttonSubmit').addEventListener('click', submitClick);
+        await settle();
+        expect(window.document.querySelector('.mo-select__option')).toBeNull();
+        expect(submitClick).toHaveBeenCalledTimes(1);
+        closePage(dom);
+    });
+
     test('shows the two-day sign-in prompt without filling or submitting while disabled', async () => {
         const { dom, window } = createPage();
         await settle();
