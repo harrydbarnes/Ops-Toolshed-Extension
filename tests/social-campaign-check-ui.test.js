@@ -72,4 +72,11 @@ describe('Live campaign check feedback',()=>{
         expect(result.querySelector('a').getAttribute('href')).toBe('meta-access.html');
         expect(result.textContent).not.toContain('Any results below are from the last successful check.');
     });
+    test('missing account access does not advise renewing the token',async()=>{
+        chrome.runtime.sendMessage.mockResolvedValue({status:'error',message:"Meta denied token access to ad account 88. Check the system user's ad account assignment and ads_read permissions in Meta Business Settings."});
+        dom.window.eval(script);await flush();dom.window.document.querySelector('#saved button').click();await flush();
+        const result=dom.window.document.getElementById('result');
+        expect(result.textContent).toContain('ad account 88');expect(result.textContent).toContain('system user');
+        expect(result.textContent).not.toContain('update your token');expect(result.querySelector('a[href="meta-access.html"]')).toBeNull();
+    });
 });

@@ -7,7 +7,7 @@ const fields = values=>Object.entries(values).map(([id,value])=>({id,value}));
 const grid = { total:1,nodes:[{fields:fields({id:'1',placementNumber:'P1',placementType:'1',providerTypeId:'3',adserverInstanceId:'123',accountCode:'88',campaignIdOnExternalProvider:'99',placementCurrencyCode:'GBP',supplierCost:'125',budgetPayableAmount:'100',flightStart:'2026-06-01',flightEnd:'2026-06-30'})}] };
 const snapshot = {campaign:{id:'99',account_id:'88',name:'Campaign',lifetime_budget:'15000'},account:{id:'88',currency:'GBP',timezone_name:'Europe/London'},adSets:[{id:'a',start_time:'2026-06-01',end_time:'2026-06-30'}],dailySpend:[]};
 describe('Opt-in background campaign checks',()=>{
-    let storage, getSnapshot;
+    let storage, getSnapshot, verifyAccountAccess;
     beforeEach(()=>{
         resetMocks();isFeatureModeActive.mockReturnValue(true);
         globalThis.socialCampaignCore=core;globalThis.metaReportApi=api;
@@ -19,9 +19,28 @@ describe('Opt-in background campaign checks',()=>{
         chrome.tabs.get.mockResolvedValue({id:5,url:'https://go.mediaocean.com/campaign-management/#campaign-id=CPTEST'});
         global.fetch=jest.fn(async url=>({ok:true,status:200,json:async()=>url.includes('publicforui')?{id:1234,publicId:'CPTEST',agencyId:1,campaignName:'Prisma campaign'}:url.includes('/hybrid/rc')?grid:['P1']}));
         getSnapshot=jest.fn().mockResolvedValue(snapshot);
-        jest.spyOn(api,'createClient').mockReturnValue({getCampaignSnapshot:getSnapshot});
+        verifyAccountAccess=jest.fn().mockResolvedValue({accountId:'88',name:'Ad account'});
+        jest.spyOn(api,'createClient').mockReturnValue({getCampaignSnapshot:getSnapshot,verifyAccountAccess});
     });
     afterEach(()=>{jest.restoreAllMocks();delete global.fetch;});
+    test.each([100,200,10])('reports account-specific access failures (%s), not a token-renewal prompt',async code=>{
+        verifyAccountAccess.mockRejectedValue(Object.assign(new Error('Provider error secret'),{metaCode:code,source:'meta'}));
+        await expect(manager.checkSocialCampaign('CPTEST')).rejects.toThrow(/ad account 88/);
+        const saved=storage.socialCampaignChecks.CPTEST;
+        expect(saved.error).toContain("system user");expect(saved.error).toContain('P1');
+        expect(saved.error).not.toContain('secret');expect(saved.error).not.toContain('replace it');
+        expect(saved.latestPrisma.bookings).toHaveLength(1);expect(getSnapshot).not.toHaveBeenCalled();
+    });
+    test('an expired token during account verification still asks to replace the token',async()=>{
+        verifyAccountAccess.mockRejectedValue(Object.assign(new Error('secret'),{metaCode:190,source:'meta'}));
+        await expect(manager.checkSocialCampaign('CPTEST')).rejects.toThrow(/expired or is invalid/);
+        expect(getSnapshot).not.toHaveBeenCalled();
+    });
+    test('distinguishes a readable account from a missing campaign or denied reporting access',async()=>{
+        getSnapshot.mockRejectedValue(Object.assign(new Error('secret'),{metaCode:100,source:'meta'}));
+        await expect(manager.checkSocialCampaign('CPTEST')).rejects.toThrow(/Token can read Meta ad account 88, but campaign 99/);
+        expect(storage.socialCampaignChecks.CPTEST.error).not.toContain('assign this ad account');
+    });
     const senderPage=()=>({id:'test-id',url:'chrome-extension://test-id/social-campaign-check.html'});
     const linkRequest=()=>({operation:'openMeta',campaignId:'CPTEST',metaCampaignId:'99',accountId:'88'});
     test('opens only the checked campaign and learns the portfolio for its ad account',async()=>{

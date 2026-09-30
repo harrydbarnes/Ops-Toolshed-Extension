@@ -18,7 +18,7 @@
         root.append(text('h2', `${selected} · ${record.campaignName || 'Campaign check'}`));
         if (record.error) {
             root.append(text('p', `${record.error.replace(/Choose Meta access/g, "Choose 'Meta access'")}${record.checkedAt ? ' Any results below are from the last successful check.' : ''}`, 'error'));
-            if (/Meta access|token/i.test(record.error)) {
+            if (/Meta access|token.*(?:expired|invalid)|save a.*token/i.test(record.error)) {
                 const help=text('p', "Use 'Meta access' below, or the link at the bottom of this page, to update your token. ", 'note');
                 const link=text('a','Meta access');link.href='meta-access.html';help.append(link);root.append(help);
             }

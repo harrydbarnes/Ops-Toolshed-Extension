@@ -87,13 +87,33 @@ async function performCheck(id, scheduled) {
         if (old.agencyId && old.agencyId !== data.campaign.agencyId) throw new Error('Prisma agency context changed. Open the campaign in the original account and check again.');
         const groups = globalThis.socialCampaignCore.groupBookings(data.bookings);
         const results = [];
+        const verifiedAccounts = new Set();
         if (groups.length) {
             const credentials = (await chrome.storage.local.get('socialBookingMetaApiCredentials'))?.socialBookingMetaApiCredentials || {};
             if (!credentials.accessToken) throw new Error('Save a Meta access token in Social Booking Checker to run the live comparison.');
             const client = globalThis.metaReportApi.createClient({ accessToken: credentials.accessToken });
             for (const group of groups) {
                 enabled();
-                const snapshot = await client.getCampaignSnapshot(group.campaignId);
+                let snapshot;
+                let accountVerified = verifiedAccounts.has(group.accountId);
+                try {
+                    if (!accountVerified) {
+                        await client.verifyAccountAccess(group.accountId);
+                        verifiedAccounts.add(group.accountId);
+                        accountVerified = true;
+                    }
+                    snapshot = await client.getCampaignSnapshot(group.campaignId);
+                } catch (error) {
+                    // Meta code 100 can mean missing access OR a missing object; do not infer assignment alone.
+                    if ([10,100,200].includes(error.metaCode)) {
+                        error.accountAccessMessage = accountVerified
+                            ? `Token can read Meta ad account ${group.accountId}, but campaign ${group.campaignId} or its reporting data is unavailable. Check the campaign ID and token permissions for ads/reporting.`
+                            : error.metaCode === 100
+                                ? `Token cannot read Meta ad account ${group.accountId}, linked to Prisma ${group.bookings.map(item => item.placementNumber).join(', ')}. Check the Prisma account ID and assign this ad account to the token's system user in Meta Business Settings.`
+                                : `Meta denied token access to ad account ${group.accountId}, linked to Prisma ${group.bookings.map(item => item.placementNumber).join(', ')}. Check the system user's ad account assignment and the app/token ads_read permissions in Meta Business Settings.`;
+                    }
+                    throw error;
+                }
                 let links = null;
                 const provider = group.bookings[0].providerId;
                 if (/^\d+$/.test(provider)) {
@@ -110,7 +130,7 @@ async function performCheck(id, scheduled) {
         return saved;
     } catch (error) {
         // Never store a token, response body, request URL or an untrusted provider error message.
-        const message = error.metaCode === 190 || /token.*expired|code 190/i.test(error.message) ? "Your saved Meta token has expired or is invalid. Choose 'Meta access' at the bottom of the check panel to replace it, then check again." : String(error.message).startsWith('Save a Meta access token') ? "Choose 'Meta access' at the bottom of the check panel and save a token to run the live comparison. No report uploads are needed." : error.source === 'meta' || /Meta/.test(String(error.message)) ? "Meta check failed. Choose 'Meta access' at the bottom of the check panel to check your saved token, account access and API availability." : String(error.message || 'Campaign check failed.').slice(0, 240);
+        const message = error.metaCode === 190 || /token.*expired|code 190/i.test(error.message) ? "Your saved Meta token has expired or is invalid. Choose 'Meta access' at the bottom of the check panel to replace it, then check again." : error.accountAccessMessage || (String(error.message).startsWith('Save a Meta access token') ? "Choose 'Meta access' at the bottom of the check panel and save a token to run the live comparison. No report uploads are needed." : error.source === 'meta' || /Meta/.test(String(error.message)) ? "Meta check failed. Choose 'Meta access' at the bottom of the check panel to check your saved token, account access and API availability." : String(error.message || 'Campaign check failed.').slice(0, 240));
         if (!isFeatureModeActive() || (revisions.get(id) || 0) !== revision) throw new Error(message);
         try { await allowed(); } catch (_) { throw new Error(message); }
         const saved = await update(id, current => ({ ...current, ...(latestPrisma ? { latestPrisma, campaignName: latestPrisma.campaignName } : {}), error: message, attemptedAt: new Date().toISOString() }));

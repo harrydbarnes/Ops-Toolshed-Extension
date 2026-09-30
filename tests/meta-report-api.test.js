@@ -10,6 +10,20 @@ function response(status, payload, headers = {}) {
 }
 
 describe('Meta report API client', () => {
+    test('verifies the exact account and read access to campaigns without fetching a full account list',async()=>{
+        const fetchImpl=jest.fn().mockResolvedValueOnce(response(200,{id:'act_88',name:'Account'})).mockResolvedValueOnce(response(200,{data:[]}));
+        const result=await createClient({accessToken:'secret',fetchImpl}).verifyAccountAccess('88');
+        expect(result).toEqual({accountId:'88',name:'Account'});
+        const urls=fetchImpl.mock.calls.map(call=>new URL(call[0]));
+        expect(urls.map(url=>url.pathname)).toEqual(['/v24.0/act_88','/v24.0/act_88/campaigns']);
+        expect(urls[1].searchParams.get('limit')).toBe('1');
+        expect(urls.every(url=>!url.searchParams.has('access_token'))).toBe(true);
+        expect(fetchImpl.mock.calls[0][1].headers.Authorization).toBe('Bearer secret');
+    });
+    test('metadata alone does not count as campaign read access',async()=>{
+        const fetchImpl=jest.fn().mockResolvedValueOnce(response(200,{id:'88'})).mockResolvedValueOnce(response(400,{error:{code:200,message:'Permissions denied'}}));
+        await expect(createClient({accessToken:'secret',fetchImpl}).verifyAccountAccess('88')).rejects.toMatchObject({metaCode:200,source:'meta'});
+    });
     test('does not treat a malformed insights response as zero spend', async () => {
         const fetchImpl = jest.fn().mockResolvedValue(response(200, {}));
         await expect(createClient({accessToken:'secret',fetchImpl}).getDailyInsights('1','2026-06-01','2026-06-30')).rejects.toThrow(/incomplete list/);

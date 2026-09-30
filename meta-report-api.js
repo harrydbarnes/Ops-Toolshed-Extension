@@ -152,6 +152,16 @@
             ]);
             return { campaign, account, adSets, dailySpend };
         }
+        async function verifyAccountAccess(accountId) {
+            const id = cleanId(accountId);
+            if (!/^\d+$/.test(id)) throw new Error('Invalid Meta ad account ID.');
+            const account = await request(`act_${id}`, { fields: 'id,name' });
+            if (cleanId(account.id) !== id) throw new Error('Meta returned a different ad account.');
+            // Reading metadata alone does not prove access to advertising data.
+            const campaigns = await request(`act_${id}/campaigns`, { fields: 'id', limit: 1 });
+            if (!Array.isArray(campaigns.data)) throw new Error('Meta account access could not be verified.');
+            return { accountId: id, name: account.name || '' };
+        }
 
         function getCampaigns(accountId) {
             return requestAll(`${accountPath(accountId)}/campaigns`, {
@@ -388,7 +398,7 @@
             return { accountId: cleanId(accountId), account: accountMetadata, campaigns, adSets, records };
         }
 
-        return { getCampaignSnapshot, getAccountMetadata, getCampaigns, getAdSets, getInsights, getDailyInsights, getReport, getMonthlyReport, syncAccount };
+        return { verifyAccountAccess, getCampaignSnapshot, getAccountMetadata, getCampaigns, getAdSets, getInsights, getDailyInsights, getReport, getMonthlyReport, syncAccount };
     }
 
     function resolveDateRange(preset, todayValue = new Date()) {
