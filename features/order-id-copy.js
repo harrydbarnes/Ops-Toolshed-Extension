@@ -80,6 +80,15 @@
                 background-color: var(--btn-copied-bg);
                 color: var(--btn-copied-text-color);
             }
+            .ops-order-email-copy-btn {
+                margin-left: 8px;
+                vertical-align: middle;
+            }
+            td[id^="orderRecipients-"]:has(> .ops-order-email-copy-btn) > div {
+                display: inline-block;
+                width: calc(100% - 62px);
+                vertical-align: middle;
+            }
             #cm-buy-sidebar-nav-list [id$="-order-header"] > .mo-nav-list-item-content {
                 cursor: pointer;
             }
@@ -244,6 +253,7 @@
 
     function checkAndAddCopyButtons() {
         ensureNewUiSidebarCopyListener();
+        reconcileEmailCopyButtons();
         if (!isOrderSummaryRoute()) {
             return;
         }
@@ -285,6 +295,57 @@
         });
     }
 
+    function getRecipientEmails(cell) {
+        const content = cell.cloneNode(true);
+        content.querySelectorAll('.ops-order-email-copy-btn').forEach(button => button.remove());
+        const sources = [content.textContent, ...Array.from(content.querySelectorAll('[data-full-text]'),
+            element => element.getAttribute('data-full-text'))];
+        const seen = new Set();
+        return sources.flatMap(text => text?.match(/[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9-]+(?:\.[A-Z0-9-]+)+/gi) || [])
+            .filter(email => {
+                const key = email.toLowerCase();
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+    }
+
+    function reconcileEmailCopyButtons() {
+        const active = featureEnabled && isOrderSummaryRoute() && isNewOrderUi();
+        document.querySelectorAll('.ops-order-email-copy-btn').forEach(button => {
+            if (!active || !getRecipientEmails(button.closest('td')).length) button.remove();
+        });
+        if (!active) return;
+        document.querySelectorAll('td[id^="orderRecipients-"]').forEach(cell => {
+            if (!getRecipientEmails(cell).length || cell.querySelector('.ops-order-email-copy-btn')) return;
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'order-id-copy-btn ops-order-email-copy-btn';
+            button.textContent = 'Copy';
+            button.title = 'Copy all email addresses in this row';
+            button.setAttribute('aria-label', button.title);
+            button.addEventListener('click', event => {
+                if (!event.isTrusted || !featureEnabled || !isOrderSummaryRoute() || !isNewOrderUi()) return;
+                event.preventDefault();
+                event.stopPropagation();
+                const emails = getRecipientEmails(cell);
+                if (!emails.length) return;
+                chrome.runtime.sendMessage({ action: 'copyOrderEmailsToClipboard', text: emails.join('; ') })
+                    .then(response => {
+                        if (response?.status !== 'success') throw new Error('Clipboard copy failed');
+                        showToast('Email addresses copied to clipboard!', button);
+                        button.textContent = 'Copied!';
+                        button.classList.add('copied');
+                        setTimeout(() => {
+                            button.textContent = 'Copy';
+                            button.classList.remove('copied');
+                        }, 2000);
+                    }).catch(() => showToast('Failed to copy email addresses', button));
+            });
+            cell.appendChild(button);
+        });
+    }
+
     function initialize() {
         // Fetch 'uiTheme' alongside 'orderIdCopyEnabled'
         chrome.storage.sync.get(['orderIdCopyEnabled', 'uiTheme'], (data) => {
@@ -315,7 +376,10 @@
             if (namespace === 'sync' && changes.orderIdCopyEnabled) {
                 featureEnabled = changes.orderIdCopyEnabled.newValue !== false;
                 if (featureEnabled) checkAndAddCopyButtons();
-                else removeLegacyCopyControls();
+                else {
+                    removeLegacyCopyControls();
+                    reconcileEmailCopyButtons();
+                }
             }
         });
     }

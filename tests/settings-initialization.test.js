@@ -25,6 +25,7 @@ const EXPECTED_DEFAULTS = {
     addCampaignShortcutEnabled: true,
     hidingSectionsEnabled: true,
     automateFormFieldsEnabled: true,
+    campaignPoAutofillEnabled: true,
     countPlacementsSelectedEnabled: true,
     swapAccountsEnabled: true,
     rememberAccountSwitchUrlEnabled: true,

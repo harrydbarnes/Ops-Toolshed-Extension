@@ -59,7 +59,8 @@ describe('Manifest content-script order', () => {
         expect(frameRegistration.js).toEqual([
             'features/extension-state-controller.js',
             'features/campaign-details-focus.js',
-            'features/campaign-add-sections.js'
+            'features/campaign-add-sections.js',
+            'features/campaign-po-autofill.js'
         ]);
         expect(frameRegistration.css).toBeUndefined();
         expect(frameRegistration.allFrames).toBe(true);

@@ -75,6 +75,50 @@ describe('Order ID Copy Feature', () => {
         expect(querySelectorAll.mock.calls.some(([selector]) => selector === 'td.pad')).toBe(false);
     });
 
+    test('copies every recipient in the new UI row and reads updated cell contents', async () => {
+        document.body.insertAdjacentHTML('afterbegin', `<div id="cm-buy-sidebar-order-revisions-header">
+            <div class="mo-nav-list-item-accessory-content"><mo-menu></mo-menu></div></div>`);
+        document.querySelector('tbody').insertAdjacentHTML('beforeend', `<tr>
+            <td id="orderRecipients-0"><div><mo-text data-full-text="one@example.com; two@example.com">one@example.com; two@example.com</mo-text></div></td>
+            <td id="orderRecipients-1"></td></tr>`);
+        window.orderIdCopyFeature.checkAndAddCopyButtons();
+        window.orderIdCopyFeature.checkAndAddCopyButtons();
+        expect(document.querySelectorAll('.ops-order-email-copy-btn')).toHaveLength(1);
+        const cell = document.getElementById('orderRecipients-0');
+        const button = cell.querySelector('button');
+        button.click();
+        expect(window.chrome.runtime.sendMessage).not.toHaveBeenCalled();
+        trustedClick(button);
+        await Promise.resolve();
+        expect(window.chrome.runtime.sendMessage).toHaveBeenLastCalledWith({
+            action: 'copyOrderEmailsToClipboard', text: 'one@example.com; two@example.com'
+        });
+        cell.querySelector('div').innerHTML = '<mo-text data-full-text="new@example.com; other@example.com">new@example.com</mo-text>';
+        trustedClick(button);
+        await Promise.resolve();
+        expect(window.chrome.runtime.sendMessage).toHaveBeenLastCalledWith({
+            action: 'copyOrderEmailsToClipboard', text: 'new@example.com; other@example.com'
+        });
+        cell.querySelector('div').textContent = '';
+        window.orderIdCopyFeature.checkAndAddCopyButtons();
+        expect(cell.querySelector('button')).toBeNull();
+    });
+
+    test('removes recipient buttons when leaving Orders or disabling copy controls', () => {
+        document.body.insertAdjacentHTML('afterbegin', `<div id="cm-buy-sidebar-order-revisions-header">
+            <div class="mo-nav-list-item-accessory-content"><mo-menu></mo-menu></div></div>`);
+        document.querySelector('td').id = 'orderRecipients-0';
+        document.querySelector('td').textContent = 'one@example.com';
+        window.orderIdCopyFeature.initialize();
+        expect(document.querySelector('.ops-order-email-copy-btn')).not.toBeNull();
+        storageListener({ orderIdCopyEnabled: { newValue: false } }, 'sync');
+        expect(document.querySelector('.ops-order-email-copy-btn')).toBeNull();
+        storageListener({ orderIdCopyEnabled: { newValue: true } }, 'sync');
+        window.location.hash = 'campaign-id=CP123&ptb-mod=buy&ptb-ctx=digital';
+        window.orderIdCopyFeature.checkAndAddCopyButtons();
+        expect(document.querySelector('.ops-order-email-copy-btn')).toBeNull();
+    });
+
     test('removes stale legacy controls when Prisma changes to the new Order UI in place', () => {
         window.orderIdCopyFeature.checkAndAddCopyButtons();
         expect(document.querySelector('.order-id-copy-btn')).not.toBeNull();

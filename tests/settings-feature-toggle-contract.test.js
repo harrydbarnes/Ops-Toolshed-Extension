@@ -47,6 +47,7 @@ const FEATURE_TOGGLE_KEYS = {
     dstAssuranceToggle: 'dstAssuranceEnabled',
     budgetWidgetOptimisedToggle: 'budgetWidgetOptimisedEnabled',
     productCodeLimitWarningToggle: 'productCodeLimitWarningEnabled',
+    campaignPoAutofillToggle: 'campaignPoAutofillEnabled',
     newOrderUiOptimisationToggle: 'newOrderUiOptimisationEnabled',
     seeCommentsOnLockedBuysToggle: 'alwaysShowCommentsEnabled',
     gmiChatShortcutToggle: 'gmiChatShortcutEnabled',

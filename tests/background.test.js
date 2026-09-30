@@ -588,6 +588,36 @@ describe('Background message routing', () => {
         });
     });
 
+    test('relays all verified order email addresses to the offscreen clipboard', async () => {
+        chrome.runtime.getContexts.mockResolvedValue([{}]);
+        chrome.runtime.sendMessage.mockResolvedValue({ status: 'success' });
+        const listener = loadMessageListener();
+        const sendResponse = jest.fn();
+        listener({ action: 'copyOrderEmailsToClipboard', text: 'one@example.com; two@example.com' }, {
+            id: chrome.runtime.id, tab: { id: 42 },
+            url: 'https://go.mediaocean.com/campaign-management/'
+        }, sendResponse);
+        await waitForResponse(sendResponse);
+        expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+            target: 'offscreen', action: 'copyToClipboard', text: 'one@example.com; two@example.com'
+        });
+        expect(sendResponse).toHaveBeenCalledWith({ status: 'success' });
+    });
+
+    test.each([
+        ['invalid text', 'not an email', 'https://go.mediaocean.com/'],
+        ['unverified sender', 'one@example.com', 'https://attacker.example/']
+    ])('rejects order email copies with %s', async (label, text, url) => {
+        const listener = loadMessageListener();
+        const sendResponse = jest.fn();
+        listener({ action: 'copyOrderEmailsToClipboard', text }, {
+            id: chrome.runtime.id, tab: { id: 42 }, url
+        }, sendResponse);
+        await waitForResponse(sendResponse);
+        expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
+        expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ status: 'error' }));
+    });
+
     test('rejects Order ID copies from an unverified sender', async () => {
         const listener = loadMessageListener();
         const sendResponse = jest.fn();

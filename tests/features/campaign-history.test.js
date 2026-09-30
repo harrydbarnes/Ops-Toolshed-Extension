@@ -116,6 +116,72 @@ function createPage({
 }
 
 describe('campaign history feature', () => {
+    test.each(['throw', 'promise', 'callback'])('stops quietly after extension invalidation via %s', async mode => {
+        const { dom } = createPage({ settings: { campaignHistoryLoggingEnabled: false } });
+        try {
+            await flushPromises();
+            const { window } = dom;
+            const warn = jest.spyOn(window.console, 'warn').mockImplementation(() => {});
+            const get = window.chrome.storage.local.get;
+            get.mockImplementation((keys, callback) => {
+                if (mode === 'throw') throw new Error('Extension context invalidated.');
+                if (mode === 'promise') return Promise.reject(new Error('Extension context invalidated.'));
+                window.chrome.runtime.lastError = { message: 'Extension context invalidated.' };
+                callback();
+                window.chrome.runtime.lastError = null;
+            });
+            window.campaignHistoryFeature.open();
+            await flushPromises();
+            window.campaignHistoryFeature.apply();
+            window.dispatchEvent(new window.Event('pageshow'));
+            expect(window.campaignHistoryFeature.open()).toBe(false);
+            expect(get).toHaveBeenCalledTimes(1);
+            expect(warn).not.toHaveBeenCalled();
+            expect(window.document.getElementById('toolshed-campaign-history-nav')).toBeNull();
+        } finally {
+            dom.window.close();
+        }
+    });
+
+    test('still warns and retries a genuine campaign storage failure', async () => {
+        const { dom } = createPage();
+        try {
+            await flushPromises();
+            const { window } = dom;
+            const warn = jest.spyOn(window.console, 'warn').mockImplementation(() => {});
+            window.chrome.storage.local.set.mockImplementationOnce(() => Promise.reject(new Error('Storage quota exceeded')));
+            window.document.querySelector('.mo-campaign-name-wrapper').textContent = 'Updated campaign';
+            window.campaignHistoryFeature.apply();
+            await flushPromises();
+            expect(warn).toHaveBeenCalledWith('[Campaign History] Could not save campaign visit.', expect.any(Error));
+            window.campaignHistoryFeature.apply();
+            await flushPromises();
+            expect(window.chrome.storage.local.set).toHaveBeenCalledTimes(3);
+        } finally {
+            dom.window.close();
+        }
+    });
+
+    test('does not retry or warn when saving a visit loses the extension context', async () => {
+        const { dom } = createPage();
+        try {
+            await flushPromises();
+            const { window } = dom;
+            const warn = jest.spyOn(window.console, 'warn').mockImplementation(() => {});
+            window.chrome.storage.local.set.mockImplementationOnce(() => Promise.reject(new Error('Extension context invalidated.')));
+            window.document.querySelector('.mo-campaign-name-wrapper').textContent = 'Updated campaign';
+            window.campaignHistoryFeature.apply();
+            await flushPromises();
+            window.campaignHistoryFeature.apply();
+            window.campaignHistoryFeature.handleRouteChange();
+            window.campaignHistoryFeature.apply();
+            await flushPromises();
+            expect(window.chrome.storage.local.set).toHaveBeenCalledTimes(2);
+            expect(warn).not.toHaveBeenCalled();
+        } finally {
+            dom.window.close();
+        }
+    });
     test('unrelated grid mutations do not trigger a full navigation rescan', async () => {
         const { dom } = createPage();
         await flushPromises();

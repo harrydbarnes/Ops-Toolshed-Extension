@@ -35,6 +35,7 @@
     const LOCATION_CODE_PATTERN = /^[A-Z][A-Z0-9._-]{3,31}$/i;
 
     let initialized = false;
+    let extensionContextInvalidated = false;
     let settingsReady = false;
     let viewEnabled = DEFAULT_SETTINGS[VIEW_SETTING_KEY];
     let loggingEnabled = DEFAULT_SETTINGS[LOGGING_SETTING_KEY];
@@ -77,6 +78,10 @@
 
     function callStorage(storageArea, method, ...args) {
         return new Promise((resolve, reject) => {
+            if (extensionContextInvalidated) {
+                reject(new Error('Extension context invalidated.'));
+                return;
+            }
             if (!storageArea || typeof storageArea[method] !== 'function') {
                 reject(new Error(`Storage method ${method} is unavailable.`));
                 return;
@@ -86,6 +91,12 @@
             const settle = (callback, value) => {
                 if (settled) return;
                 settled = true;
+                if (callback === reject && /extension context invalidated/i.test(value?.message || String(value))) {
+                    extensionContextInvalidated = true;
+                    removeNavigationObserver();
+                    removeNavigationLink();
+                    closeHistoryPanel({ animate: false });
+                }
                 callback(value);
             };
             const callback = value => {
@@ -123,6 +134,7 @@
             );
             return { ...DEFAULT_SETTINGS, ...(result || {}) };
         } catch (error) {
+            if (extensionContextInvalidated) return { ...DEFAULT_SETTINGS };
             console.warn('[Campaign History] Could not read settings; using defaults.', error);
             return { ...DEFAULT_SETTINGS };
         }
@@ -565,6 +577,7 @@
             try {
                 await writeHistoryEntries(entries);
             } catch (error) {
+                if (extensionContextInvalidated) throw error;
                 console.warn('[Campaign History] Could not migrate stored campaign history.', error);
             }
         }
@@ -609,7 +622,7 @@
     }
 
     function recordCampaignVisit(snapshot, incrementVisit) {
-        if (!loggingEnabled || !snapshot?.key) return;
+        if (extensionContextInvalidated || !loggingEnabled || !snapshot?.key) return;
 
         const fingerprint = getEntryFingerprint(snapshot);
         if (snapshot.key === activeVisitKey && fingerprint === activeVisitFingerprint) return;
@@ -644,6 +657,7 @@
             historyLoadError = null;
             renderHistoryResults();
         }).catch(error => {
+            if (extensionContextInvalidated) return;
             console.warn('[Campaign History] Could not save campaign visit.', error);
             if (snapshot.key === activeVisitKey && fingerprint === activeVisitFingerprint) {
                 activeVisitKey = '';
@@ -975,12 +989,12 @@
     }
 
     function scheduleNavigationReconciliation() {
-        if (navigationReconciliationQueued) return;
+        if (extensionContextInvalidated || navigationReconciliationQueued) return;
         navigationReconciliationQueued = true;
         const schedule = window.queueMicrotask || (callback => Promise.resolve().then(callback));
         schedule(() => {
             navigationReconciliationQueued = false;
-            if (!window.document || !settingsReady || !viewEnabled || !isPrismaPage()) return;
+            if (extensionContextInvalidated || !window.document || !settingsReady || !viewEnabled || !isPrismaPage()) return;
             ensureNavigationObserver();
             ensureNavigationLink();
         });
@@ -2026,7 +2040,7 @@
     }
 
     function openHistoryPanel() {
-        if (!viewEnabled || !isPrismaPage()) return false;
+        if (extensionContextInvalidated || !viewEnabled || !isPrismaPage()) return false;
         const panel = ensurePanel();
         if (!panel) return false;
         startPanelOpen(panel);
@@ -2091,7 +2105,7 @@
     }
 
     function handlePageShow() {
-        if (!settingsReady || !viewEnabled || !isPrismaPage()) return;
+        if (extensionContextInvalidated || !settingsReady || !viewEnabled || !isPrismaPage()) return;
         ensureNavigationObserver();
         ensureNavigationLink();
     }
@@ -2101,6 +2115,7 @@
     }
 
     function apply() {
+        if (extensionContextInvalidated) return;
         if (!settingsReady || !isPrismaPage()) {
             removeNavigationLink();
             removeNavigationObserver();

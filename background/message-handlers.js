@@ -220,6 +220,18 @@ async function copyOrderIdToClipboard(request, sender, sendResponse, context) {
     await context.handleOffscreenClipboard({ ...request, text: orderId }, sendResponse);
 }
 
+async function copyOrderEmailsToClipboard(request, sender, sendResponse, context) {
+    const verified = getVerifiedPrismaRequest({}, sender);
+    const text = typeof request?.text === 'string' ? request.text.trim() : '';
+    const emails = text.split('; ');
+    if (sender?.id !== chrome.runtime.id || !verified || !text ||
+        !emails.every(email => /^[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9-]+(?:\.[A-Z0-9-]+)+$/i.test(email))) {
+        sendResponse({ status: 'error', message: 'Valid order email addresses from Prisma are required.' });
+        return;
+    }
+    await context.handleOffscreenClipboard({ ...request, text }, sendResponse);
+}
+
 async function getFavouriteApprovers(request, sender, sendResponse) {
     try {
         const data = await chrome.storage.local.get(['favoriteApprovers']);
@@ -475,6 +487,7 @@ export const messageHandlers = {
     copyCampaignUrlToClipboard,
     copyCampaignHeaderToClipboard,
     copyOrderIdToClipboard,
+    copyOrderEmailsToClipboard,
     getFavouriteApprovers,
     openApproversPage,
     openHelpGuides,

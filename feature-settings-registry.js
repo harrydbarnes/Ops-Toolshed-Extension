@@ -24,6 +24,7 @@
         addCampaignShortcutEnabled: true,
         hidingSectionsEnabled: true,
         automateFormFieldsEnabled: true,
+        campaignPoAutofillEnabled: true,
         countPlacementsSelectedEnabled: true,
         swapAccountsEnabled: true,
         rememberAccountSwitchUrlEnabled: true,
@@ -62,6 +63,7 @@
     // Shared by Settings previews and the optional onboarding explorer.
     // Only map images that have been visually checked against the named feature.
     const FEATURE_CATALOGUE = Object.freeze([
+        Object.freeze({ id: 'campaignPoAutofillToggle', title: 'Purchase order reference autofill', description: 'Copies selected PO numbers into blank Reference ID and Client reference fields when adding a campaign. Updates autofilled values while preserving manual edits.', group: 'create', setting: 'campaignPoAutofillEnabled', href: 'settings.html?feature=campaignPoAutofillToggle#features', image: null, previewNote: 'Screenshot not yet available.' }),
         Object.freeze({"id": "uiThemeSegmented", "title": "Popup UI theme", "description": "Choose the pink or black presentation used by the extension popup.", "group": "personalise", "setting": "uiTheme", "href": "settings.html?feature=uiThemeSegmented#features", "image": null, "previewNote": "Screenshot not yet available."}),
         Object.freeze({"id": "logoToggle", "title": "Replace Prisma Logo", "description": "Swaps the standard Prisma mark for the selected Toolshed logo treatment.", "group": "personalise", "setting": "logoReplaceEnabled", "href": "settings.html?feature=logoToggle#features", "image": {"src": "assets/feature-previews/prisma-logo.jpg", "alt": "Pink Toolshed logo replacing the Prisma mark in the header"}, "previewNote": ""}),
         Object.freeze({"id": "appLearnReplaceToggle", "title": "Translucent AppLearn Logo", "description": "Makes the AppLearn logo less visually dominant while keeping it recognisable.", "group": "personalise", "setting": "appLearnReplaceEnabled", "href": "settings.html?feature=appLearnReplaceToggle#features", "image": null, "previewNote": "Screenshot not yet available."}),

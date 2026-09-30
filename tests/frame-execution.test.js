@@ -28,7 +28,8 @@ describe('Mediaocean frame execution boundary', () => {
             js: [
                 'features/extension-state-controller.js',
                 'features/campaign-details-focus.js',
-                'features/campaign-add-sections.js'
+                'features/campaign-add-sections.js',
+                'features/campaign-po-autofill.js'
             ]
         });
         expect(campaignFeature).not.toContain("request?.action !== 'focusCampaignDetailsBasic'");

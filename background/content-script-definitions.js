@@ -37,7 +37,8 @@ export const CONTENT_SCRIPT_DEFINITIONS = Object.freeze([
         js: [
             'features/extension-state-controller.js',
             'features/campaign-details-focus.js',
-            'features/campaign-add-sections.js'
+            'features/campaign-add-sections.js',
+            'features/campaign-po-autofill.js'
         ],
         allFrames: true,
         persistAcrossSessions: false

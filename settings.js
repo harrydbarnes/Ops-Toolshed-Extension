@@ -1099,6 +1099,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupToggle('dstAssuranceToggle', 'dstAssuranceEnabled', 'DST Assurance setting saved:', settings);
     setupToggle('actualiseMonthAssuranceToggle', 'actualiseMonthAssuranceEnabled', 'Actualise month assurance setting saved:', settings);
     setupToggle('productCodeLimitWarningToggle', 'productCodeLimitWarningEnabled', 'Product Code Limit Warning setting saved:', settings);
+    setupToggle('campaignPoAutofillToggle', 'campaignPoAutofillEnabled', 'Purchase order autofill setting saved:', settings);
 
     const PRODUCT_CODE_WARNING_IGNORE_STORAGE_KEY = 'productCodeLimitWarningIgnored';
     const resetProductCodeWarningIgnoredButton = document.getElementById('resetProductCodeWarningIgnoredButton');
