@@ -510,16 +510,24 @@ describe('Content Script Main Logic', () => {
             isNewOrderUi: jest.fn(() => true),
             handleOrderViewToggle: jest.fn()
         };
-        window.orderIdCopyFeature = { checkAndAddCopyButtons: jest.fn() };
+        window.orderIdCopyFeature = {
+            checkAndAddCopyButtons: jest.fn(),
+            reconcileEmailCopyButtons: jest.fn()
+        };
         const observer = mutationObservers.find(instance =>
             instance.__callback.toString().includes('scheduleDynamicUiReconciliation')
         );
 
-        observer.__trigger([{ type: 'childList', target: document.body, addedNodes: [] }]);
+        const recipientCell = document.createElement('td');
+        recipientCell.id = 'orderRecipients-0';
+        recipientCell.textContent = 'one@example.com';
+        document.body.appendChild(recipientCell);
+        observer.__trigger([{ type: 'childList', target: recipientCell, addedNodes: [] }]);
         jest.runOnlyPendingTimers();
 
         expect(window.orderViewToggleFeature.handleOrderViewToggle).toHaveBeenCalledTimes(1);
         expect(window.orderIdCopyFeature.checkAndAddCopyButtons).not.toHaveBeenCalled();
+        expect(window.orderIdCopyFeature.reconcileEmailCopyButtons).toHaveBeenCalledTimes(1);
     });
 
     test('runs New Order UI reconciliation on the Buy route where its native header is rendered', async () => {

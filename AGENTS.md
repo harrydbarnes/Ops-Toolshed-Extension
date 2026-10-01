@@ -100,6 +100,15 @@ Do not use `--forceExit`; it can hide leaked timers or unclosed JSDOM windows. I
 
 ## Browser Verification
 
+### Tooltip consistency and clipping
+
+- Inspect nearby extension controls before choosing tooltip placement. Follow the local above/below convention; DST Assurance and Check Meta prefer below the trigger with an 8px gap.
+- In Prisma grids, headers, and scrollable panels, mount custom tooltips under `document.body` with `position: fixed` and the established overlay z-index (`2147483647`). Increasing z-index inside a clipped ancestor does not resolve clipping.
+- Use the trigger's live bounding rectangle, centre horizontally, and clamp to viewport margins. Prefer the local direction and flip only when the viewport lacks space. Keep long text within the viewport.
+- Avoid `title` on controls with a custom tooltip: Prisma may intercept it and render a second, clipped tooltip. Use `aria-label` for the control and `role="tooltip"` with `aria-describedby` while the tooltip is visible.
+- Support hover and keyboard focus, Escape dismissal, and cleanup on blur, scroll, resize, route changes, disabled features, or removal of the trigger. Remove stale tooltip nodes and accessibility references.
+- Verify actual hover/focus rendering in the signed-in host, including adjacent tooltips, scrollable containers, viewport edges, and `document.elementsFromPoint()` hit targets. A jsdom positioning test does not prove host stacking or clipping.
+
 - Reload the unpacked extension from `chrome://extensions` after source changes.
 - Reload the target Prisma/Aura tab so updated content scripts are injected.
 - Use the existing signed-in Chrome session for live Prisma checks when available.

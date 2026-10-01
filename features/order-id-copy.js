@@ -107,6 +107,53 @@
     let currentToast = null;
     let sidebarCopyListenerAttached = false;
     let featureEnabled = true;
+    let emailTooltip = null;
+
+    function hideEmailTooltip() {
+        if (emailTooltip) {
+            document.getElementById(emailTooltip.dataset.owner)?.removeAttribute('aria-describedby');
+            emailTooltip.remove();
+            emailTooltip = null;
+        }
+    }
+
+    function showEmailTooltip(button) {
+        hideEmailTooltip();
+        const tooltip = document.createElement('div');
+        tooltip.id = 'ops-order-email-copy-tooltip';
+        tooltip.setAttribute('role', 'tooltip');
+        tooltip.textContent = button.getAttribute('aria-label');
+        tooltip.style.cssText = 'position:fixed;z-index:2147483647;max-width:calc(100vw - 16px);padding:9px 12px;border-radius:6px;background:#1f2937;color:#fff;box-shadow:0 3px 12px #0003;font:13px/1.4 system-ui,sans-serif;pointer-events:none;box-sizing:border-box';
+        document.body.appendChild(tooltip);
+        button.setAttribute('aria-describedby', tooltip.id);
+        tooltip.dataset.owner = button.id;
+        const rect = button.getBoundingClientRect();
+        const bounds = tooltip.getBoundingClientRect();
+        const left = rect.left + (rect.width - bounds.width) / 2;
+        tooltip.style.left = `${Math.max(8, Math.min(left, window.innerWidth - bounds.width - 8))}px`;
+        // Match DST and Meta: prefer below, flipping only at the viewport edge.
+        tooltip.style.top = `${rect.bottom + 8 + bounds.height <= window.innerHeight - 8
+            ? rect.bottom + 8 : Math.max(8, rect.top - bounds.height - 8)}px`;
+        emailTooltip = tooltip;
+    }
+
+    document.addEventListener('mouseover', event => {
+        const button = event.target.closest?.('.ops-order-email-copy-btn');
+        if (button && !button.contains(event.relatedTarget)) showEmailTooltip(button);
+    });
+    document.addEventListener('mouseout', event => {
+        const button = event.target.closest?.('.ops-order-email-copy-btn');
+        if (button && !button.contains(event.relatedTarget)) hideEmailTooltip();
+    });
+    document.addEventListener('focusin', event => {
+        if (event.target.matches?.('.ops-order-email-copy-btn')) showEmailTooltip(event.target);
+    });
+    document.addEventListener('focusout', event => {
+        if (event.target.matches?.('.ops-order-email-copy-btn')) hideEmailTooltip();
+    });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape') hideEmailTooltip(); });
+    document.addEventListener('scroll', hideEmailTooltip, true);
+    window.addEventListener('resize', hideEmailTooltip);
 
     function showToast(message, target) {
         clearTimeout(toastTimeout);
@@ -298,7 +345,10 @@
     function getRecipientEmails(cell) {
         const content = cell.cloneNode(true);
         content.querySelectorAll('.ops-order-email-copy-btn').forEach(button => button.remove());
-        const sources = [content.textContent, ...Array.from(content.querySelectorAll('[data-full-text]'),
+        const textNodes = [];
+        const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
+        while (walker.nextNode()) textNodes.push(walker.currentNode.textContent);
+        const sources = [textNodes.join(' '), ...Array.from(content.querySelectorAll('[data-full-text]'),
             element => element.getAttribute('data-full-text'))];
         const seen = new Set();
         return sources.flatMap(text => text?.match(/[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9-]+(?:\.[A-Z0-9-]+)+/gi) || [])
@@ -312,8 +362,12 @@
 
     function reconcileEmailCopyButtons() {
         const active = featureEnabled && isOrderSummaryRoute() && isNewOrderUi();
+        if (!active || (emailTooltip && !document.getElementById(emailTooltip.dataset.owner))) hideEmailTooltip();
         document.querySelectorAll('.ops-order-email-copy-btn').forEach(button => {
-            if (!active || !getRecipientEmails(button.closest('td')).length) button.remove();
+            if (!active || !getRecipientEmails(button.closest('td')).length) {
+                if (emailTooltip?.dataset.owner === button.id) hideEmailTooltip();
+                button.remove();
+            }
         });
         if (!active) return;
         document.querySelectorAll('td[id^="orderRecipients-"]').forEach(cell => {
@@ -322,8 +376,8 @@
             button.type = 'button';
             button.className = 'order-id-copy-btn ops-order-email-copy-btn';
             button.textContent = 'Copy';
-            button.title = 'Copy all email addresses in this row';
-            button.setAttribute('aria-label', button.title);
+            button.id = `ops-email-copy-${cell.id}`;
+            button.setAttribute('aria-label', 'Copy all email addresses in this row');
             button.addEventListener('click', event => {
                 if (!event.isTrusted || !featureEnabled || !isOrderSummaryRoute() || !isNewOrderUi()) return;
                 event.preventDefault();
@@ -387,6 +441,7 @@
     window.orderIdCopyFeature = {
         initialize,
         checkAndAddCopyButtons,
+        reconcileEmailCopyButtons,
         isOrderSummaryRoute,
         isOrdersSidebarRoute,
         isNewOrderUi,

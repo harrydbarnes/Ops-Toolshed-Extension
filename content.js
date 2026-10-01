@@ -72,7 +72,7 @@ const EXTENSION_OWNED_SELECTOR = [
 const DIRTY_FEATURE_HINTS = [
     {
         groups: ['orders'],
-        selector: '#cm-buy-sidebar-order-revisions-header, #cm-buy-sidebar-order-revisions, [data-cy="order-summary"]'
+        selector: '#cm-buy-sidebar-order-revisions-header, #cm-buy-sidebar-order-revisions, [data-cy="order-summary"], td[id^="orderRecipients-"]'
     },
     {
         groups: ['actualise'],
@@ -529,6 +529,10 @@ async function mainContentScriptInit() {
                     // The feature performs a targeted new/legacy UI check before
                     // any legacy cell scan and removes stale legacy controls.
                     window.orderIdCopyFeature?.checkAndAddCopyButtons();
+                } else {
+                    // Recipient rows arrive after the sidebar and are recycled
+                    // by Prisma. Reconcile emails without scanning legacy IDs.
+                    window.orderIdCopyFeature?.reconcileEmailCopyButtons?.();
                 }
             }
         } else if (isAura && window.logoFeature.shouldReplaceLogoOnThisPage()) {

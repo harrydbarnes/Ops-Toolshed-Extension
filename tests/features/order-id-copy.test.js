@@ -49,6 +49,28 @@ describe('Order ID Copy Feature', () => {
         jest.useRealTimers();
     });
 
+    test('email tooltip escapes the grid, prefers below, and dismisses on scroll', () => {
+        document.body.insertAdjacentHTML('afterbegin', '<div id="cm-buy-sidebar-order-revisions-header"><div class="mo-nav-list-item-accessory-content"><mo-menu></mo-menu></div></div><table><tbody><tr><td id="orderRecipients-1">one@example.com</td></tr></tbody></table>');
+        window.orderIdCopyFeature.reconcileEmailCopyButtons();
+        const button = document.querySelector('.ops-order-email-copy-btn');
+        button.getBoundingClientRect = () => ({ left: 100, top: 100, bottom: 120, width: 40 });
+        button.dispatchEvent(new window.MouseEvent('mouseover', { bubbles: true }));
+        const tooltip = document.getElementById('ops-order-email-copy-tooltip');
+        expect(tooltip.parentElement).toBe(document.body);
+        expect(tooltip.style.position).toBe('fixed');
+        expect(tooltip.style.top).toBe('128px');
+        expect(button.hasAttribute('title')).toBe(false);
+        expect(button.getAttribute('aria-describedby')).toBe(tooltip.id);
+        document.dispatchEvent(new window.Event('scroll'));
+        expect(tooltip.isConnected).toBe(false);
+        expect(button.hasAttribute('aria-describedby')).toBe(false);
+        Object.defineProperty(window, 'innerHeight', { configurable: true, value: 130 });
+        button.focus();
+        expect(document.getElementById('ops-order-email-copy-tooltip').style.top).toBe('92px');
+        button.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        expect(document.getElementById('ops-order-email-copy-tooltip')).toBeNull();
+    });
+
     test('should add copy button and apply flexbox to cell', () => {
         window.orderIdCopyFeature.checkAndAddCopyButtons();
 
@@ -79,7 +101,7 @@ describe('Order ID Copy Feature', () => {
         document.body.insertAdjacentHTML('afterbegin', `<div id="cm-buy-sidebar-order-revisions-header">
             <div class="mo-nav-list-item-accessory-content"><mo-menu></mo-menu></div></div>`);
         document.querySelector('tbody').insertAdjacentHTML('beforeend', `<tr>
-            <td id="orderRecipients-0"><div><mo-text data-full-text="one@example.com; two@example.com">one@example.com; two@example.com</mo-text></div></td>
+            <td id="orderRecipients-0"><div><mo-text data-full-text="one@example.com">one@example.com</mo-text><mo-text data-full-text="two@example.com">two@example.com</mo-text></div></td>
             <td id="orderRecipients-1"></td></tr>`);
         window.orderIdCopyFeature.checkAndAddCopyButtons();
         window.orderIdCopyFeature.checkAndAddCopyButtons();
