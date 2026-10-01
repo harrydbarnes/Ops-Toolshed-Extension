@@ -132,6 +132,14 @@
         return String(value ?? '').trim().replace(/^="(.*)"$/, '$1').replace(/\.0$/, '');
     }
 
+    function idPrecisionErrors(parsed, columns, source) {
+        return ['accountId','campaignId','adSetId','businessId'].filter(key => columns[key]).flatMap(key => {
+            const affected = parsed.rows.map((row,index) => ({value:cleanId(row[columns[key]]),line:index + 2})).filter(item => /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)[eE][+-]?\d+$/.test(item.value));
+            if (!affected.length) return [];
+            return [`${source} export contains scientific-notation IDs in ${columns[key]} (${affected.length} row${affected.length === 1 ? '' : 's'}; first data row ${affected[0].line}). The full digits may have been lost, for example after Excel converted the IDs to numbers. Exact matching is blocked. Download a fresh CSV and upload it directly; to view it in Excel, import the ID columns as Text.`];
+        });
+    }
+
     function usableId(value) {
         const id = cleanId(value);
         return Boolean(id) && !['none', 'n/a', 'na', 'null', 'unknown'].includes(id.toLowerCase());
@@ -303,6 +311,7 @@
     function aggregateMeta(parsed) {
         const columns = resolveColumns(parsed.headers, META_ALIASES);
         const errors = [];
+        errors.push(...idPrecisionErrors(parsed,columns,'Meta'));
         ['accountId', 'campaignId', 'spend'].forEach(key => {
             if (!columns[key]) errors.push(`Meta export is missing ${key === 'accountId' ? 'Account ID' : key === 'campaignId' ? 'Campaign ID' : 'Amount spent'}.`);
         });
@@ -404,6 +413,7 @@
     function extractMetaReferenceData(parsed) {
         const columns = resolveColumns(parsed.headers, META_ALIASES);
         const errors = [];
+        errors.push(...idPrecisionErrors(parsed,columns,'Meta'));
         if (!columns.accountId) errors.push('Meta export is missing Account ID.');
         if (!columns.campaignId) errors.push('Meta export is missing Campaign ID.');
         if (errors.length) return { accounts: [], campaigns: [], adSets: [], errors };
@@ -438,6 +448,8 @@
     function extractPrismaReferenceData(parsed) {
         const columns = resolveColumns(parsed.headers, PRISMA_ALIASES);
         const errors = [];
+        errors.push(...idPrecisionErrors(parsed,columns,'Prisma'));
+        if (errors.length) return {accounts:[],clientProducts:[],errors};
         if (!columns.accountId) {
             errors.push('Prisma export is missing Partner account id, so its client scope cannot be checked.');
             return { accounts: [], errors };
@@ -485,6 +497,7 @@
     function aggregatePrisma(parsed, options = {}) {
         const columns = resolveColumns(parsed.headers, PRISMA_ALIASES);
         const errors = [];
+        errors.push(...idPrecisionErrors(parsed,columns,'Prisma'));
         ['accountId', 'campaignId', 'month', 'planned'].forEach(key => {
             if (!columns[key]) errors.push(`Prisma export is missing ${key === 'accountId' ? 'Partner account id' : key === 'campaignId' ? 'Partner line id' : key === 'month' ? 'Period' : 'PLANNED_AMOUNT/Gross Amount'}.`);
         });

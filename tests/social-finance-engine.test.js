@@ -5,6 +5,19 @@ const metaCsv = `Account name,Account ID,Campaign name,Campaign ID,Month,Amount 
 const prismaCsv = `Client name,Partner account id,Partner line id,Period,PLANNED_AMOUNT,Campaign name,Partner,Integrated status,Placement creator,Days in Flight start date,Days in Flight end date\nBoots,999,120000000000000001,Jun 2026,100,Matched campaign,Facebook,Integrated,Alice,1/6/26,30/6/26\nBoots,999,120000000000000003,May 2026,20,Wrong month,Facebook,Integrated,Bob,1/5/26,31/5/26\nBoots,999,120000000000000004,Jun 2026,90,Spend exposure,Facebook,Integrated,Chris,1/6/26,30/6/26\nBoots,999,120000000000000005,Jun 2026,60,Date exposure,Facebook,Integrated,Dana,1/6/26,30/6/26\nBoots,999,,Jun 2026,40,Named unlinked campaign,Facebook,Not integrated,Erin,1/6/26,30/6/26`;
 
 describe('social finance comparison engine', () => {
+    test('preserves long IDs as strings and rejects scientific-notation IDs before comparison or mapping', () => {
+        const original=parseCsv('Partner account id,Partner line id,Period,PLANNED_AMOUNT\n1234567890123456,120000000000000099,Oct 26,123.45');
+        expect(aggregatePrisma(original).records[0].campaignId).toBe('120000000000000099');
+        expect(aggregatePrisma(original).records[0].accountId).toBe('1234567890123456');
+        const damaged=parseCsv('Partner account id,Partner line id,Period,PLANNED_AMOUNT\n1.23457E+15,1.20251E+17,Oct 26,123.45');
+        expect(aggregatePrisma(damaged).records).toEqual([]);
+        expect(aggregatePrisma(damaged).errors.join(' ')).toContain('Exact matching is blocked');
+        expect(extractPrismaReferenceData(damaged).accounts).toEqual([]);
+        const damagedMeta=parseCsv('Account ID,Campaign ID,Month,Amount spent\n1234567890123456,1.20251e17,Oct 26,10');
+        expect(aggregateMeta(damagedMeta).records).toEqual([]);
+        expect(extractMetaReferenceData(damagedMeta).campaigns).toEqual([]);
+        expect(aggregateMeta(damagedMeta).errors.join(' ')).toContain('import the ID columns as Text');
+    });
     test('requires the confirmed v9 Prisma booking and workflow columns in strict upload validation', () => {
         const result = aggregatePrisma(parseCsv('Partner account id,Partner line id,Period,PLANNED_AMOUNT\n111,1,Jun 2026,10'), { requireStandardTemplate: true });
 
