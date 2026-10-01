@@ -56,6 +56,39 @@
         const fields = entity => ({ id: entity.id, start: entity.start_time || '', end: entity.stop_time || entity.end_time || '', daily: entity.daily_budget ?? null, lifetime: entity.lifetime_budget ?? null, schedule: entity.is_budget_schedule_enabled || false, sharing: entity.is_adset_budget_sharing_enabled || false });
         return JSON.stringify([fields(snapshot.campaign), ...snapshot.adSets.slice().sort((a,b) => String(a.id).localeCompare(String(b.id))).map(fields)]);
     }
+    function deliveryReview(result, campaign, today = new Date()) {
+        if (result.totalSpend > 0 || !result.bookings.length || !result.timezone) return null;
+        const parts = new Intl.DateTimeFormat('en-GB', { timeZone: result.timezone, year:'numeric', month:'2-digit', day:'2-digit' }).formatToParts(today);
+        const day = ['year','month','day'].map(type => parts.find(part => part.type === type).value).join('-');
+        const start = result.bookings.map(item => item.start).sort()[0];
+        if (Date.parse(day) - Date.parse(start) < 2 * 86400000) return null;
+        // A future Meta start can be an intentional postponement. It is not evidence of a replacement.
+        if (result.metaRanges.length && result.metaRanges.every(range => range.start && range.start > day)) return null;
+        const status = String(campaign.effective_status || campaign.configured_status || campaign.status || 'UNKNOWN');
+        const ended = result.metaRanges.length && result.metaRanges.every(range => range.end && range.end < day);
+        return { status, message: `No spend recorded for the linked campaign in available Meta history${ended ? '; its Meta flight has ended' : ''}. ${status === 'PAUSED' ? 'Meta reports it as paused. ' : ['DELETED','ARCHIVED'].includes(status) ? `Meta reports it as ${status.toLowerCase()}. ` : ''}It may have been postponed, paused, cancelled or replaced; the reason is not confirmed.` };
+    }
+    function candidateEvidence(linked, candidate) {
+        if (!/^\d+$/.test(String(candidate.id)) || String(candidate.account_id) !== String(linked.account_id) || String(candidate.id) === String(linked.id)) return null;
+        const directSource = String(candidate.source_campaign_id || '') === String(linked.id) || String(linked.source_campaign_id || '') === String(candidate.id);
+        const sameName = Boolean(linked.name) && String(candidate.name || '').trim().toLowerCase() === String(linked.name).trim().toLowerCase();
+        if (!directSource && !sameName) return null;
+        return directSource ? 'Meta source_campaign_id links these campaigns; this does not prove replacement.' : 'Same campaign name and ad account; replacement is not confirmed.';
+    }
+    function budgetPlan(bookings, metaBudget, coverage, comparable) {
+        if (!coverage || !comparable || metaBudget == null || !bookings.every(item => item.budget >= 0 && item.integration && typeof item.integration.trafficked === 'boolean')) return null;
+        const ordered = bookings.slice().sort((a,b) => a.start.localeCompare(b.start) || a.placementId.localeCompare(b.placementId));
+        if (ordered[0].integration.control !== 'replace_budget' || !ordered[0].integration.trafficked || ordered.slice(1).some(item => item.integration.control !== 'increment_budget')) return null;
+        const firstPending = ordered.findIndex(item => !item.integration.trafficked);
+        if (firstPending < 0 || ordered.slice(firstPending).some(item => item.integration.trafficked)) return null;
+        const appliedBudget = ordered.slice(0,firstPending).reduce((sum,item) => sum + item.budget,0);
+        let expected = appliedBudget, projected = metaBudget;
+        const pending = ordered.slice(firstPending).map(item => {
+            expected += item.budget; projected += item.budget;
+            return { placementNumber:item.placementNumber, start:item.start, amount:item.budget, expectedBudget:expected, projectedBudget:projected, risk:projected > expected + 0.01 };
+        });
+        return { appliedBudget, pending };
+    }
     function compare(group, snapshot, linkedPlacements, previous) {
         const { campaign, account, adSets, dailySpend } = snapshot;
         if (String(campaign.id) !== group.campaignId || String(campaign.account_id) !== group.accountId || String(account.id).replace(/^act_/, '') !== group.accountId) throw new Error('Meta returned a different campaign or account.');
@@ -83,6 +116,9 @@
         const entities = number(campaign.lifetime_budget) > 0 || number(campaign.daily_budget) > 0 ? [campaign] : adSets;
         const lifetime = entities.length > 0 && entities.every(entity => number(entity.lifetime_budget) > 0 && !entity.is_budget_schedule_enabled) && !campaign.is_adset_budget_sharing_enabled;
         const metaBudget = lifetime ? entities.reduce((sum,entity) => sum + Number(entity.lifetime_budget) / 100, 0) : null;
+        const upweightPlan = budgetPlan(group.bookings,metaBudget,coverage,comparable && number(campaign.lifetime_budget) > 0);
+        const metaComparisonBudget = upweightPlan?.appliedBudget ?? budget;
+        if (!upweightPlan && group.bookings.some(item => item.integration?.control === 'increment_budget' && item.integration.trafficked === false)) warnings.push('Upweight preflight unavailable: linked coverage, budget type or the replacement/increment sequence is not fully verified. Review the pending increment before trafficking.');
         if (!lifetime) warnings.push('Meta uses daily, mixed, scheduled or unavailable budgets. No lifetime budget comparison is possible; configuration changes are still checked.');
         const ranges = adSets.length ? adSets.map(item => ({ start: metaDate(item.start_time), end: metaDate(item.end_time) })) : [{ start: metaDate(campaign.start_time), end: metaDate(campaign.stop_time) }];
         const booked = value => group.bookings.some(item => value >= item.start && value <= item.end);
@@ -117,17 +153,38 @@
             if (amount > 0 && !booked(day)) { outsideSpend += amount; outsideDays.push({ date: day, spend: amount }); }
         });
         if (comparable && outsideSpend > 0.01) findings.push('Meta has spend outside the selected Prisma booking dates.');
-        if (comparable && metaBudget !== null && Math.abs(metaBudget - budget) > 0.01) findings.push(metaBudget > budget ? 'Meta lifetime budget is higher than booked net media.' : 'Meta lifetime budget is lower than booked net media.');
+        if (comparable && metaBudget !== null && Math.abs(metaBudget - metaComparisonBudget) > 0.01) findings.push(metaBudget > metaComparisonBudget ? 'Meta lifetime budget is higher than booked net media.' : 'Meta lifetime budget is lower than booked net media.');
+        if (upweightPlan?.pending.some(item => item.risk)) findings.push('Possible duplicate upweight: applying an untrafficked Prisma increment to the current Meta budget would exceed the expected placement total. Confirm whether the increase is already in Meta before trafficking; the cause is not proven.');
         if (comparable && totalSpend > budget + 0.01) findings.push('Meta spend exceeds the selected Prisma net media budget.');
         if (packageBudget !== null) notes.push('Package budget is a soft limit. Checks use placement net cost.');
         const packageSources = [...new Map(group.bookings.filter(item => item.packageBudget !== null).map(item => [item.packageId, { placementNumber: item.packagePlacementNumber || item.packageId, field: 'programmaticPackageBudget', value: item.packageBudget }])).values()];
         const fingerprint = configuration(snapshot);
+        const bookingBudgetState = items => JSON.stringify(items.map(item => [item.placementId,item.currency,item.budget,item.integration?.control || '',item.integration?.trafficked ?? null]).sort((a,b) => String(a[0]).localeCompare(String(b[0]))));
+        const bookingDateState = items => JSON.stringify(items.map(item => [item.placementId,item.start,item.end]).sort((a,b) => String(a[0]).localeCompare(String(b[0]))));
+        const rangeState = items => JSON.stringify(items.map(item => [item.start,item.end]).sort());
+        const sameScope = previous?.accountId === group.accountId && previous?.campaignId === group.campaignId && Array.isArray(previous.bookings);
+        const unchangedPrismaBudget = sameScope && bookingBudgetState(previous.bookings) === bookingBudgetState(group.bookings);
+        const unchangedPrismaDates = sameScope && bookingDateState(previous.bookings) === bookingDateState(group.bookings);
+        let changeReview = null;
+        if (previous?.fingerprint && previous.fingerprint !== fingerprint) {
+            const messages = [];
+            if (comparable && previous.currency === account.currency && unchangedPrismaBudget && previous.metaBudget != null && metaBudget != null && Math.abs(metaBudget - previous.metaBudget) > 0.01 && Math.abs(metaBudget - metaComparisonBudget) > 0.01) {
+                const money = value => new Intl.NumberFormat('en-GB',{style:'currency',currency:account.currency}).format(value);
+                messages.push(`Possible Meta budget change not reflected in Prisma: ${money(previous.metaBudget)} → ${money(metaBudget)}; linked placement net cost remains ${money(budget)}. The checks do not establish who made the change.`);
+            }
+            if (unchangedPrismaDates && Array.isArray(previous.metaRanges) && rangeState(previous.metaRanges) !== rangeState(ranges)) {
+                const flights = items => items.map(item => `${item.start || 'Missing'} to ${item.end || 'Open / missing'}`).join('; ');
+                messages.push(`Meta flight changed: ${flights(previous.metaRanges)} → ${flights(ranges)}. Prisma booking dates are unchanged. Changes within the booking flight can be intentional.`);
+            }
+            if (messages.length) changeReview = { messages, metaFingerprint:fingerprint, prismaBudgetState:bookingBudgetState(group.bookings), prismaDateState:bookingDateState(group.bookings) };
+        } else if (previous?.changeReview?.metaFingerprint === fingerprint && previous.changeReview.prismaBudgetState === bookingBudgetState(group.bookings) && previous.changeReview.prismaDateState === bookingDateState(group.bookings)) changeReview = previous.changeReview;
+        if (changeReview) changeReview.messages.forEach(message => (message.startsWith('Possible Meta budget') ? findings : notes).push(message));
         let lastChange = previous?.lastChange || null;
         if (previous?.fingerprint && previous.fingerprint !== fingerprint) {
             findings.push('Meta budget or dates changed since the last successful check.');
             lastChange = { detectedAt: new Date().toISOString(), previousLifetimeBudget: previous.metaBudget, previousDailyBudgets: previous.dailyBudgets || [], previousRanges: previous.metaRanges || [] };
         }
-        return { campaignId: group.campaignId, accountId: group.accountId, name: campaign.name, currency: account.currency, prismaCurrency: currencies.length === 1 ? currencies[0] : '', timezone: account.timezone_name, budget, packageBudget: currencies.length === 1 ? packageBudget : null, packageSources, metaBudget: comparable ? metaBudget : null, totalSpend, outsideSpend, outsideDays, findings, warnings, notes, comparisonBasis: 'Prisma allocated net media', coverage, fingerprint, lastChange, bookings: group.bookings, metaRanges: ranges, dailyBudgets: comparable ? entities.map(entity => number(entity.daily_budget)).filter(value => value !== null && value > 0).map(value => value / 100) : [], insightScope: 'Meta maximum available history, daily in the ad account timezone. Older unavailable history is not verified.' };
+        return { campaignId: group.campaignId, accountId: group.accountId, name: campaign.name, currency: account.currency, prismaCurrency: currencies.length === 1 ? currencies[0] : '', timezone: account.timezone_name, budget, metaComparisonBudget, upweightPlan, packageBudget: currencies.length === 1 ? packageBudget : null, packageSources, metaBudget: comparable ? metaBudget : null, totalSpend, outsideSpend, outsideDays, findings, warnings, notes, comparisonBasis: 'Prisma allocated net media', coverage, fingerprint, lastChange, changeReview, bookings: group.bookings, metaRanges: ranges, dailyBudgets: comparable ? entities.map(entity => number(entity.daily_budget)).filter(value => value !== null && value > 0).map(value => value / 100) : [], insightScope: 'Meta maximum available history, daily in the ad account timezone. Older unavailable history is not verified.' };
     }
-    return { extractBookings, groupBookings, compare, configuration };
+    return { extractBookings, groupBookings, compare, configuration, deliveryReview, candidateEvidence };
 });

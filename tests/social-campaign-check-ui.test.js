@@ -24,6 +24,16 @@ describe('Live campaign check feedback',()=>{
         dom.window.chrome=chrome;dom.window.HTMLElement.prototype.scrollIntoView=jest.fn();
     });
     afterEach(()=>dom.window.close());
+    test('candidate links and creation evidence stay separate from the linked result',async()=>{
+        const result={name:'Linked',campaignId:'123',accountId:'456',currency:'GBP',prismaCurrency:'GBP',budget:100,packageBudget:200,metaBudget:100,totalSpend:0,outsideSpend:0,findings:[],warnings:['No spend recorded; reason not confirmed.'],notes:[],bookings:[],metaRanges:[],outsideDays:[],deliveryReview:{},creation:{actor:'Operator',application:'Mediaocean',at:'2026-06-01'},candidates:[]};
+        result.candidates=[{...result,candidates:[],name:'Possible',campaignId:'789',totalSpend:30,evidence:'Same name; unconfirmed.'}];
+        chrome.runtime.sendMessage.mockResolvedValue({status:'success',record:{checkedAt:'2026-09-30T12:00:00Z',results:[result],unmatched:[]}});
+        dom.window.eval(script);await flush();dom.window.document.querySelector('#saved button').click();await flush();
+        const section=dom.window.document.querySelector('.candidate');expect(section.textContent).toContain('£30.00');expect(section.textContent).toContain('Unconfirmed match');
+        section.querySelector('a').click();await flush();expect(chrome.runtime.sendMessage).toHaveBeenLastCalledWith({action:'socialCampaignCheck',operation:'openMeta',campaignId:'CPTEST',metaCampaignId:'789',accountId:'456'});
+        expect(dom.window.document.querySelector('details').textContent).toContain('Operator · Mediaocean');
+        expect(dom.window.document.querySelector('#result').textContent).not.toContain('No issues found');
+    });
     test('a failed Check now visibly exposes the error instead of returning silently to Not monitored',async()=>{
         chrome.runtime.sendMessage.mockResolvedValue({status:'error',message:'Prisma session expired.'});
         dom.window.eval(script);await flush();dom.window.document.querySelector('#saved button').click();await flush();

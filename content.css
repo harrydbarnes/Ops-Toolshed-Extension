@@ -431,7 +431,9 @@ body.reminder-theme-black #confirmation-popup {
     padding: 4px 17px;
 
     /* LAYOUT FIXES */
-    display: inline-block !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
 
     /* 1. Force margin to zero */
     margin-bottom: 0 !important;
@@ -443,7 +445,7 @@ body.reminder-theme-black #confirmation-popup {
     vertical-align: middle !important;
 
     /* 3. Ensure line-height doesn't expand the box unnecessarily */
-    line-height: normal !important;
+    line-height: 14px !important;
 }
 
 .gmi-chat-button:hover {
@@ -688,10 +690,10 @@ body.reminder-theme-black #confirmation-popup {
     border: 1px solid transparent;
     border-radius: 999px;
     cursor: default;
-    font-family: inherit;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     font-size: 11px;
     font-weight: 700;
-    line-height: 1.2;
+    line-height: 14px;
     white-space: nowrap;
     flex: 0 0 auto;
     vertical-align: middle;

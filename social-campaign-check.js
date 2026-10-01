@@ -45,6 +45,7 @@
         if (record.unmatched?.length) root.append(text('p',`${record.unmatched.length} Meta media booking(s) could not be checked: missing ID, account, budget or dates.`, 'finding'));
         (record.results || []).forEach(item => {
             const card = text('article','','card'); card.append(text('h2',item.name || item.campaignId),text('p',`Meta ${item.campaignId} · Account ${item.accountId} · ${item.timezone || 'Account timezone unavailable'}`,'note'));
+            if (item.deliveryReview) card.append(text('p','Linked campaign needs review · no recorded delivery','finding'));
             const accountId=String(item.accountId || '').replace(/^act_/,'');
             if (/^\d+$/.test(accountId) && /^\d+$/.test(String(item.campaignId || ''))) {
                 const link=text('a','Open in Meta ↗');
@@ -62,6 +63,13 @@
             const metrics = text('div','','metrics');
             [['Prisma net media booked',item.budget],['Prisma package soft limit',item.packageBudget],['Meta lifetime budget',item.metaBudget],['Meta spend (available history)',item.totalSpend],['Spend outside booked dates',item.outsideSpend]].forEach(([label,value])=> { const metric = text('div','','metric'); metric.append(text('span',label),text('strong', value == null && label === 'Prisma package soft limit' ? 'Not supplied' : money(value,label.startsWith('Prisma') ? item.prismaCurrency : item.currency))); metrics.append(metric); });
             card.append(metrics);
+            if (item.upweightPlan) {
+                const section=text('section','','candidate'),table=document.createElement('table');
+                section.append(text('h3','Untrafficked Prisma increments'),text('p',`Current expected Meta budget: ${money(item.metaComparisonBudget,item.prismaCurrency)}. Full placement booking: ${money(item.budget,item.prismaCurrency)}.`,'note'));
+                const header=document.createElement('tr');['Placement / start','Increment','Meta after traffic','Expected total'].forEach(label=>header.append(text('th',label)));table.append(header);
+                item.upweightPlan.pending.forEach(pending=>{const row=text('tr','',pending.risk?'finding':'');[`${pending.placementNumber} · ${pending.start}`,money(pending.amount,item.currency),money(pending.projectedBudget,item.currency),money(pending.expectedBudget,item.currency)].forEach(value=>row.append(text('td',value)));table.append(row);});
+                const scroll=text('div','','table-scroll');scroll.append(table);section.append(scroll,text('p','Projection assumes these increments are trafficked in start-date order. Recheck before trafficking.','note'));card.append(section);
+            }
             if (item.dailyBudgets?.length) card.append(text('p',`Meta daily budget(s): ${item.dailyBudgets.map(value=>money(value,item.currency)).join(', ')}. Daily budgets are not compared to a total booking.`));
             item.findings.forEach(value=>card.append(text('p',value,'finding')));
             item.warnings.forEach(value=>card.append(text('p',value,'warning')));
@@ -71,7 +79,30 @@
                 card.append(text('p',`Last Meta budget/date change detected: ${new Date(change.detectedAt).toLocaleString('en-GB')}. Previous lifetime budget: ${money(change.previousLifetimeBudget,item.currency)}.${change.previousDailyBudgets.length ? ` Previous daily budget(s): ${change.previousDailyBudgets.map(value=>money(value,item.currency)).join(', ')}.` : ''} Previous flight: ${change.previousRanges.map(range=>`${range.start || 'Missing'} to ${range.end || 'Open / missing'}`).join('; ')}.`,'note'));
             }
             if (!item.findings.length && !item.warnings.length) card.append(text('p','No issues found within the verified booking scope.'));
+            (item.candidates || []).forEach(candidate => {
+                const section=text('section','','candidate');
+                section.append(text('h3','Possible delivering campaign'),text('p',candidate.name),text('p',candidate.evidence,'note'),text('p','Unconfirmed match · kept separate from the linked comparison.','warning'));
+                const account=String(candidate.accountId || '').replace(/^act_/,''),id=String(candidate.campaignId || '');
+                if (/^\d+$/.test(account) && /^\d+$/.test(id)) {
+                    const ref=text('p',`Meta ${id} · `,'note'),link=text('a','Open this campaign in Meta ↗');
+                    link.href=`https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${account}&selected_campaign_ids=${id}&filter_set=${encodeURIComponent(`CAMPAIGN_GROUP_SELECTED-STRING_SET\u001eIN\u001e["${id}"]`)}`;
+                    link.target='_blank';link.rel='noopener noreferrer';const prismaId=selected;
+                    link.addEventListener('click',async event=>{event.preventDefault();try{await send('openMeta',{campaignId:prismaId,metaCampaignId:id,accountId:account});}catch(error){byId('status').textContent=error.message;}});
+                    ref.append(link);section.append(ref);
+                }
+                const metrics=text('div','','metrics');
+                [['Prisma placement net cost',candidate.budget,candidate.prismaCurrency],['Possible Meta lifetime budget',candidate.metaBudget,candidate.currency],['Possible Meta spend',candidate.totalSpend,candidate.currency]].forEach(([label,value,currency])=>{const metric=text('div','','metric');metric.append(text('span',label),text('strong',money(value,currency)));metrics.append(metric);});
+                section.append(metrics,text('p',`Possible Meta flight: ${candidate.metaRanges.map(range=>`${range.start || 'Missing'} to ${range.end || 'Open / missing'}`).join('; ')}`,'note'));
+                if (candidate.dailyBudgets?.length) section.append(text('p',`Meta daily budget(s): ${candidate.dailyBudgets.map(value=>money(value,candidate.currency)).join(', ')}. Daily budgets are not compared to a total booking.`,'note'));
+                candidate.findings.forEach(value=>section.append(text('p',value,'finding')));
+                candidate.warnings.forEach(value=>section.append(text('p',value,'warning')));
+                card.append(section);
+            });
             const detail = document.createElement('details'); detail.append(text('summary','Booking details and data sources'));
+            const creation=item.creation;
+            detail.append(text('p',creation ? `Meta creation event: ${creation.actor || 'Unknown actor'} · ${creation.application || 'Unknown application'}${creation.at ? ` · ${creation.at}` : ''}.` : 'Meta creation event unavailable in accessible history.','note'));
+            if (item.prismaOrigins?.some(source=>source.origin)) item.prismaOrigins.forEach(source=>detail.append(text('p',`Prisma ${source.placementNumber} origin: ${source.origin || 'Unknown'} (booking-details externalEntityOrigin).`,'note')));
+            else detail.append(text('p','Prisma link origin: unknown. A Meta creator or creation app alone does not prove pushed versus linked back.','note'));
             const scroll = text('div','','table-scroll'), table = document.createElement('table');
             const header = document.createElement('tr'); ['Source','Reference','Start','End','Amount'].forEach(value=>header.append(text('th',value))); table.append(header);
             const rows = [...item.bookings.map(b=>['Prisma',b.placementNumber,b.start,b.end,money(b.budget,b.currency)]), ...item.metaRanges.map(r=>['Meta flight',item.campaignId,r.start || 'Missing',r.end || 'Open / missing','—']),...item.outsideDays.map(d=>['Outside-date spend',item.campaignId,d.date,d.date,money(d.spend,item.currency)])];

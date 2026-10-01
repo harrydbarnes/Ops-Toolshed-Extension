@@ -123,14 +123,14 @@
             throw new Error('Meta could not complete the request after several attempts.');
         }
 
-        async function requestAll(path, params = {}) {
+        async function requestAll(path, params = {}, maxPages = 100) {
             const rows = [];
             let next = path;
             let nextParams = params;
             const visited = new Set();
             while (next) {
                 const pageUrl = buildUrl(next, nextParams).toString();
-                if (visited.has(pageUrl) || visited.size >= 100) throw new Error('Meta pagination is incomplete. Try again later.');
+                if (visited.has(pageUrl) || visited.size >= maxPages) throw new Error('Meta pagination is incomplete. Try again later.');
                 visited.add(pageUrl);
                 const payload = await request(next, nextParams);
                 if (!Array.isArray(payload.data)) throw new Error('Meta returned an incomplete list response.');
@@ -144,13 +144,30 @@
         async function getCampaignSnapshot(campaignId) {
             const id = cleanId(campaignId);
             if (!/^\d+$/.test(id)) throw new Error('Invalid Meta campaign ID.');
-            const campaign = await request(id, { fields: 'id,account_id,name,start_time,stop_time,status,daily_budget,lifetime_budget,updated_time,is_adset_budget_sharing_enabled,is_budget_schedule_enabled' });
+            const campaign = await request(id, { fields: 'id,account_id,name,start_time,stop_time,status,effective_status,configured_status,buying_type,created_time,source_campaign_id,daily_budget,lifetime_budget,updated_time,is_adset_budget_sharing_enabled,is_budget_schedule_enabled' });
             const [account, adSets, dailySpend] = await Promise.all([
                 getAccountMetadata(campaign.account_id),
                 requestAll(`${id}/adsets`, { fields: 'id,campaign_id,name,start_time,end_time,status,daily_budget,lifetime_budget,updated_time,is_budget_schedule_enabled', limit: 500 }),
                 requestAll(`${id}/insights`, { fields: 'campaign_id,date_start,date_stop,spend', level: 'campaign', date_preset: 'maximum', time_increment: 1, limit: 500 })
             ]);
             return { campaign, account, adSets, dailySpend };
+        }
+        async function getCampaignCandidates(accountId) {
+            return requestAll(accountPath(accountId) + '/campaigns', {
+                fields: 'id,account_id,name,source_campaign_id,effective_status,configured_status,buying_type', limit: 500
+            }, 10);
+        }
+        async function getCampaignCreation(campaign) {
+            const id = cleanId(campaign.id), created = Date.parse(campaign.created_time);
+            if (!/^\d+$/.test(id) || !Number.isFinite(created)) return null;
+            const payload = await request(accountPath(campaign.account_id) + '/activities', {
+                oid: id, add_children: false, since: Math.floor(created / 1000) - 86400,
+                until: Math.floor(created / 1000) + 86400, limit: 100,
+                fields: 'object_id,event_type,event_time,actor_name,application_name,application_id'
+            });
+            if (!Array.isArray(payload.data)) throw new Error('Meta returned an incomplete activity response.');
+            const event = payload.data.find(item => String(item.object_id) === id && ['create_campaign_group','create_campaign_legacy'].includes(item.event_type));
+            return event ? { actor: String(event.actor_name || '').slice(0,120), application: String(event.application_name || '').slice(0,120), applicationId: cleanId(event.application_id), at: event.event_time || '', eventType: event.event_type } : null;
         }
         async function verifyAccountAccess(accountId) {
             const id = cleanId(accountId);
@@ -398,7 +415,7 @@
             return { accountId: cleanId(accountId), account: accountMetadata, campaigns, adSets, records };
         }
 
-        return { verifyAccountAccess, getCampaignSnapshot, getAccountMetadata, getCampaigns, getAdSets, getInsights, getDailyInsights, getReport, getMonthlyReport, syncAccount };
+        return { verifyAccountAccess, getCampaignSnapshot, getCampaignCandidates, getCampaignCreation, getAccountMetadata, getCampaigns, getAdSets, getInsights, getDailyInsights, getReport, getMonthlyReport, syncAccount };
     }
 
     function resolveDateRange(preset, todayValue = new Date()) {

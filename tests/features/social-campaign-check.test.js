@@ -22,6 +22,26 @@ describe('Prisma Check Meta launcher',()=>{
         for(let index=0;index<8;index++)await Promise.resolve();
         return document.getElementById('ops-social-campaign-panel').shadowRoot;
     }
+    test('shows an unconfirmed candidate separately with its own comparison and exact link',async()=>{
+        const result=resultFixture();result.accountId='456';result.totalSpend=0;result.deliveryReview={message:'No recorded spend; reason is not confirmed.'};result.warnings=[result.deliveryReview.message];
+        result.candidates=[{...resultFixture(),name:'<img src=x onerror=alert(1)>',accountId:'456',campaignId:'789',totalSpend:50,evidence:'Same name and account; replacement is not confirmed.'}];
+        const shadow=await showResult(result),section=shadow.querySelector('.candidate');
+        expect(section.textContent).toContain('Unconfirmed match');expect(section.querySelector('img')).toBeNull();
+        expect(section.querySelector('caption').textContent).toBe('Prisma vs possible Meta campaign');expect(section.textContent).toContain('£50.00');
+        expect(shadow.textContent).not.toContain('No issues found');expect(shadow.querySelector('.card > .comparison').textContent).toContain('£0.00');
+        const link=section.querySelector('a');link.click();await Promise.resolve();
+        expect(chrome.runtime.sendMessage).toHaveBeenLastCalledWith({action:'socialCampaignCheck',operation:'openMeta',campaignId:'CPTEST',metaCampaignId:'789',accountId:'456'});
+        expect(shadow.querySelector('details').textContent).toContain('Prisma link origin: unknown');
+    });
+    test('shows an increment projection and compares Meta against trafficked placement cost',async()=>{
+        const result={...resultFixture(),budget:150,metaComparisonBudget:100,metaBudget:100,totalSpend:50,findings:[],upweightPlan:{appliedBudget:100,pending:[{placementNumber:'PNOV',start:'2026-11-01',amount:50,projectedBudget:150,expectedBudget:150,risk:false}]}};
+        const shadow=await showResult(result);
+        expect(shadow.querySelector('.placement-budget-row').textContent).toContain('Trafficked placement net cost');
+        expect(shadow.querySelector('.placement-budget-row').textContent).toContain('Matches');
+        expect(shadow.querySelector('.candidate').textContent).toContain('PNOV · 2026-11-01');
+        expect(shadow.querySelector('.candidate').textContent).toContain('£50.00');
+        expect(shadow.querySelector('.candidate').textContent).toContain('Recheck before trafficking');
+    });
     test('compares source values with exact date and monetary differences instead of duplicate warnings',async()=>{
         const shadow=await showResult(resultFixture()),table=shadow.querySelector('.comparison');
         expect([...table.querySelectorAll('thead th')].map(cell=>cell.textContent)).toEqual(['Compare','Prisma','Meta','Difference']);

@@ -33,6 +33,7 @@
 .check-content th,.check-content td{text-align:left;border-bottom:1px solid var(--line);padding:10px}
 .check-content details{margin:16px 0}
 .check-content summary{cursor:pointer;font-weight:600}
+.candidate{margin:20px 0;padding:16px;border:1px solid var(--line);border-radius:10px;background:#fafcfd}
 .table-scroll{overflow:auto}
 .check-content .error{color:#a12e29}
 .token-settings{max-width:780px}

@@ -7,7 +7,7 @@ const fields = values=>Object.entries(values).map(([id,value])=>({id,value}));
 const grid = { total:1,nodes:[{fields:fields({id:'1',placementNumber:'P1',placementType:'1',providerTypeId:'3',adserverInstanceId:'123',accountCode:'88',campaignIdOnExternalProvider:'99',placementCurrencyCode:'GBP',supplierCost:'125',budgetPayableAmount:'100',flightStart:'2026-06-01',flightEnd:'2026-06-30'})}] };
 const snapshot = {campaign:{id:'99',account_id:'88',name:'Campaign',lifetime_budget:'15000'},account:{id:'88',currency:'GBP',timezone_name:'Europe/London'},adSets:[{id:'a',start_time:'2026-06-01',end_time:'2026-06-30'}],dailySpend:[]};
 describe('Opt-in background campaign checks',()=>{
-    let storage, getSnapshot, verifyAccountAccess;
+    let storage, getSnapshot, verifyAccountAccess, getCandidates, getCreation;
     beforeEach(()=>{
         resetMocks();isFeatureModeActive.mockReturnValue(true);
         globalThis.socialCampaignCore=core;globalThis.metaReportApi=api;
@@ -20,9 +20,43 @@ describe('Opt-in background campaign checks',()=>{
         global.fetch=jest.fn(async url=>({ok:true,status:200,json:async()=>url.includes('publicforui')?{id:1234,publicId:'CPTEST',agencyId:1,campaignName:'Prisma campaign'}:url.includes('/hybrid/rc')?grid:['P1']}));
         getSnapshot=jest.fn().mockResolvedValue(snapshot);
         verifyAccountAccess=jest.fn().mockResolvedValue({accountId:'88',name:'Ad account'});
-        jest.spyOn(api,'createClient').mockReturnValue({getCampaignSnapshot:getSnapshot,verifyAccountAccess});
+        getCandidates=jest.fn().mockResolvedValue([]);getCreation=jest.fn().mockResolvedValue(null);
+        jest.spyOn(api,'createClient').mockReturnValue({getCampaignSnapshot:getSnapshot,verifyAccountAccess,getCampaignCandidates:getCandidates,getCampaignCreation:getCreation});
     });
     afterEach(()=>{jest.restoreAllMocks();delete global.fetch;});
+    test('keeps spending candidates separate, validates their snapshots and allows their exact Meta links',async()=>{
+        getCandidates.mockResolvedValue([{id:'100',account_id:'88',name:'Campaign'},{id:'101',account_id:'77',name:'Campaign'},{id:'102',account_id:'88',name:'Campaign'}]);
+        getSnapshot.mockImplementation(async id=>id==='99'?snapshot:{...snapshot,campaign:{...snapshot.campaign,id},dailySpend:id==='100'?[{date_start:'2026-06-15',date_stop:'2026-06-15',spend:'10'}]:[]});
+        const record=await manager.checkSocialCampaign('CPTEST'),linked=record.results[0];
+        expect(linked.totalSpend).toBe(0);expect(linked.campaignId).toBe('99');expect(linked.candidates).toHaveLength(1);
+        expect(linked.candidates[0]).toMatchObject({campaignId:'100',accountId:'88',totalSpend:10});expect(linked.warnings.join(' ')).toContain('reason is not confirmed');
+        expect(getSnapshot).not.toHaveBeenCalledWith('101');
+        const response=jest.fn();chrome.tabs.query.mockResolvedValue([]);
+        await manager.handleSocialCheck({...linkRequest(),metaCampaignId:'100'},senderPage(),response);
+        expect(response).toHaveBeenLastCalledWith({status:'success'});expect(new URL(chrome.tabs.create.mock.calls.at(-1)[0].url).searchParams.get('selected_campaign_ids')).toBe('100');
+    });
+    test('optional discovery failures keep the linked result and report incomplete search',async()=>{
+        getCandidates.mockRejectedValue(new Error('secret provider response'));
+        const record=await manager.checkSocialCampaign('CPTEST');
+        expect(record.results[0].warnings.join(' ')).toContain('could not be searched');expect(record.results[0].warnings.join(' ')).not.toContain('secret');
+    });
+    test('reads explicit Prisma origin only from identity-verified booking details',async()=>{
+        const original=fetch.getMockImplementation();
+        fetch.mockImplementation(async(url,options)=>url.includes('/placement/placementId/')?{ok:true,json:async()=>({id:1,campaignId:1234,externalEntityOrigin:'PRISMA'})}:original(url,options));
+        let record=await manager.checkSocialCampaign('CPTEST');
+        expect(record.results[0].prismaOrigins).toEqual([{placementNumber:'P1',origin:'PRISMA',sourceId:'1'}]);
+        fetch.mockImplementation(async(url,options)=>url.includes('/placement/placementId/')?{ok:true,json:async()=>({id:2,campaignId:1234,externalEntityOrigin:'PRISMA'})}:original(url,options));
+        record=await manager.checkSocialCampaign('CPTEST');
+        expect(record.results[0].prismaOrigins[0].origin).toBeNull();
+    });
+    test('uses verified leaf controls and traffic state to forecast a pending increment',async()=>{
+        const pendingGrid={total:2,nodes:[grid.nodes[0],{fields:fields({...Object.fromEntries(grid.nodes[0].fields.map(field=>[field.id,field.value])),id:'2',placementNumber:'P2',budgetPayableAmount:'50',flightStart:'2026-07-01',flightEnd:'2026-07-31'})}]};
+        fetch.mockImplementation(async url=>({ok:true,json:async()=>url.includes('publicforui')?{id:1234,publicId:'CPTEST',agencyId:1}:url.includes('/hybrid/rc')?pendingGrid:url.includes('/placement/placementId/')?{id:url.endsWith('/1')?1:2,campaignId:1234,externalCampaignId:'99',campaignBudgetCurrencyCode:'GBP',flightStart:url.endsWith('/1')?'2026-06-01':'2026-07-01',budgetCost:url.endsWith('/1')?'100':'50',budgetOptimization:'LIFETIME',budgetControl:url.endsWith('/1')?'replace_budget':'increment_budget',isPlacementTrafficked:url.endsWith('/1')}:['P1','P2']}));
+        getSnapshot.mockResolvedValue({...snapshot,campaign:{...snapshot.campaign,lifetime_budget:'10000'}});
+        const result=(await manager.checkSocialCampaign('CPTEST')).results[0];
+        expect(result.metaComparisonBudget).toBe(100);expect(result.upweightPlan.pending[0]).toMatchObject({amount:50,projectedBudget:150,risk:false});
+        expect(result.findings.join(' ')).not.toContain('lower than booked');
+    });
     test.each([100,200,10])('reports account-specific access failures (%s), not a token-renewal prompt',async code=>{
         verifyAccountAccess.mockRejectedValue(Object.assign(new Error('Provider error secret'),{metaCode:code,source:'meta'}));
         await expect(manager.checkSocialCampaign('CPTEST')).rejects.toThrow(/ad account 88/);

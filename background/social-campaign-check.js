@@ -88,6 +88,8 @@ async function performCheck(id, scheduled) {
         const groups = globalThis.socialCampaignCore.groupBookings(data.bookings);
         const results = [];
         const verifiedAccounts = new Set();
+        const candidateLists = new Map();
+        const originDetails = new Map();
         if (groups.length) {
             const credentials = (await chrome.storage.local.get('socialBookingMetaApiCredentials'))?.socialBookingMetaApiCredentials || {};
             if (!credentials.accessToken) throw new Error('Save a Meta access token in Social Booking Checker to run the live comparison.');
@@ -119,7 +121,56 @@ async function performCheck(id, scheduled) {
                 if (/^\d+$/.test(provider)) {
                     try { links = await prisma(`/campaign-service/secure/campaign/${data.campaign.id}/placement/${provider}/accounts/${group.accountId}/campaigns/${group.campaignId}`); } catch (_) { /* Coverage stays explicitly unverified. */ }
                 }
-                results.push(globalThis.socialCampaignCore.compare(group, snapshot, links, old.results?.find(item => item.campaignId === group.campaignId)));
+                const readDetail = async placementId => {
+                    if (!/^\d+$/.test(placementId)) return null;
+                    if (!originDetails.has(placementId)) {
+                        try {
+                            const detail = await prisma(`/campaign-service/secure/campaign/${data.campaign.id}/placement/placementId/${placementId}`);
+                            originDetails.set(placementId, String(detail.id) === placementId && String(detail.campaignId) === String(data.campaign.id) ? detail : null);
+                        } catch (_) { originDetails.set(placementId, null); }
+                    }
+                    return originDetails.get(placementId);
+                };
+                const prismaOrigins = [];
+                for (const booking of group.bookings) {
+                    const placementId = booking.packageId || booking.placementId;
+                    const parent = await readDetail(placementId), detail = await readDetail(booking.placementId);
+                    prismaOrigins.push({ placementNumber: booking.placementNumber, origin: /^[A-Z_]{1,40}$/.test(parent?.externalEntityOrigin || '') ? parent.externalEntityOrigin : null, sourceId: placementId });
+                    if (detail && String(detail.externalCampaignId) === group.campaignId && detail.campaignBudgetCurrencyCode === booking.currency && detail.flightStart === booking.start && typeof detail.isPlacementTrafficked === 'boolean' && ['increment_budget','replace_budget'].includes(detail.budgetControl) && detail.budgetOptimization === 'LIFETIME' && detail.budgetCost != null && Number(detail.budgetCost) === booking.budget) {
+                        booking.integration = { control:detail.budgetControl, trafficked:detail.isPlacementTrafficked };
+                    }
+                }
+                const result = globalThis.socialCampaignCore.compare(group, snapshot, links, old.results?.find(item => item.campaignId === group.campaignId));
+                result.prismaOrigins = prismaOrigins;
+                result.creation = null;
+                try { result.creation = await client.getCampaignCreation(snapshot.campaign); }
+                catch (error) { if (error.metaCode === 190) throw error; }
+                result.deliveryReview = globalThis.socialCampaignCore.deliveryReview(result, snapshot.campaign);
+                result.candidates = [];
+                if (result.deliveryReview) {
+                    result.warnings.push(result.deliveryReview.message);
+                    try {
+                        if (!candidateLists.has(group.accountId)) candidateLists.set(group.accountId, await client.getCampaignCandidates(group.accountId));
+                        const matches = candidateLists.get(group.accountId).map(candidate => ({candidate,evidence:globalThis.socialCampaignCore.candidateEvidence(snapshot.campaign,candidate)})).filter(item => item.evidence);
+                        if (matches.length > 5) result.warnings.push('More than five possible matches exist. Only the first five were checked; review Meta manually.');
+                        for (const {candidate,evidence} of matches.slice(0,5)) {
+                            try {
+                                const possible = await client.getCampaignSnapshot(String(candidate.id));
+                                const comparison = globalThis.socialCampaignCore.compare({...group,campaignId:String(candidate.id)}, possible, null);
+                                // Show only candidates with spend during these bookings; never adopt them as the linked campaign.
+                                if (!possible.dailySpend.some(day => Number(day.spend) > 0 && group.bookings.some(booking => day.date_start >= booking.start && day.date_start <= booking.end))) continue;
+                                result.candidates.push({...comparison,evidence});
+                            } catch (error) {
+                                if (error.metaCode === 190) throw error;
+                                result.warnings.push('A possible campaign could not be checked. Candidate search is incomplete.');
+                            }
+                        }
+                    } catch (error) {
+                        if (error.metaCode === 190) throw error;
+                        result.warnings.push('Possible delivering campaigns could not be searched. The linked comparison is unchanged.');
+                    }
+                }
+                results.push(result);
             }
         }
         await allowed();
@@ -143,7 +194,7 @@ async function alertIfNeeded(id, record, revision) {
     if (!record.monitor || !isFeatureModeActive() || (revisions.get(id) || 0) !== revision) return;
     const actionable = record.error || record.unmatched?.length || record.results?.some(item => item.findings.length || item.warnings.length);
     if (!actionable) { await update(id, current => ({ ...current, alertSignature: '' })); return; }
-    const signature = JSON.stringify([record.error, record.unmatched?.map(item => item.placementId), record.results?.map(item => [item.campaignId, item.fingerprint, item.findings.filter(value => !value.includes('changed since')), item.warnings, Math.round((item.outsideSpend || 0) * 100), item.budget])]);
+    const signature = JSON.stringify([record.error, record.unmatched?.map(item => item.placementId), record.results?.map(item => [item.campaignId, item.fingerprint, item.findings.filter(value => !value.includes('changed since')), item.warnings, item.candidates?.map(candidate => [candidate.campaignId,candidate.fingerprint]), Math.round((item.outsideSpend || 0) * 100), item.budget])]);
     if (signature === record.alertSignature) return;
     await chrome.notifications.create(`social-check-${id}`, { type: 'basic', iconUrl: chrome.runtime.getURL('icon.png'), title: `Review Meta booking: ${id}`, message: record.error || 'Budget, date, spend or coverage differences need review. Open Live campaign checks in Social Booking Checker.' });
     await update(id, current => current.monitor && (revisions.get(id) || 0) === revision ? { ...current, alertSignature: signature } : current);
@@ -161,7 +212,7 @@ async function openMetaCampaign(prismaId, metaId, accountId) {
     const campaign = String(metaId || '');
     if (!/^\d+$/.test(account) || !/^\d+$/.test(campaign) || !validId(prismaId)) throw new Error('Meta campaign link is incomplete. Run the check again.');
     const record = (await records())[prismaId];
-    if (!record?.results?.some(item => String(item.campaignId) === campaign && String(item.accountId).replace(/^act_/, '') === account)) throw new Error('Run a check for this linked Meta campaign first.');
+    if (!record?.results?.some(item => [item,...(item.candidates || [])].some(candidate => String(candidate.campaignId) === campaign && String(candidate.accountId).replace(/^act_/, '') === account && String(item.accountId).replace(/^act_/, '') === account))) throw new Error('Run a check for this linked Meta campaign first.');
     const stored = (await chrome.storage.local.get('socialMetaPortfolioByAccount'))?.socialMetaPortfolioByAccount || {};
     const portfolios = Object.fromEntries(Object.entries(stored).filter(([key,value]) => /^\d+$/.test(key) && /^\d+$/.test(String(value))).slice(-200));
     const tabs = await chrome.tabs.query({ url: ['https://adsmanager.facebook.com/*', 'https://business.facebook.com/*'] });

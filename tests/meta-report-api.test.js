@@ -10,6 +10,17 @@ function response(status, payload, headers = {}) {
 }
 
 describe('Meta report API client', () => {
+    test('creation evidence is scoped to the exact campaign and ignores child/unrelated events',async()=>{
+        const fetchImpl=jest.fn().mockResolvedValue(response(200,{data:[{object_id:'7',event_type:'create_campaign_group',actor_name:'Wrong'},{object_id:'99',event_type:'update_campaign_name'},{object_id:'99',event_type:'create_campaign_group',actor_name:'Operator',application_name:'Mediaocean',application_id:'123',event_time:'2026-06-01'}]}));
+        const event=await createClient({accessToken:'secret',fetchImpl}).getCampaignCreation({id:'99',account_id:'88',created_time:'2026-06-01T12:00:00Z'});
+        expect(event).toMatchObject({actor:'Operator',application:'Mediaocean',applicationId:'123'});
+        const url=new URL(fetchImpl.mock.calls[0][0]);expect(url.pathname).toBe('/v24.0/act_88/activities');expect(url.searchParams.get('oid')).toBe('99');expect(url.searchParams.get('add_children')).toBe('false');
+    });
+    test('candidate discovery remains scoped to one account and requests source relationships',async()=>{
+        const fetchImpl=jest.fn().mockResolvedValue(response(200,{data:[]}));
+        await createClient({accessToken:'secret',fetchImpl}).getCampaignCandidates('88');
+        const url=new URL(fetchImpl.mock.calls[0][0]);expect(url.pathname).toBe('/v24.0/act_88/campaigns');expect(url.searchParams.get('fields')).toContain('source_campaign_id');
+    });
     test('verifies the exact account and read access to campaigns without fetching a full account list',async()=>{
         const fetchImpl=jest.fn().mockResolvedValueOnce(response(200,{id:'act_88',name:'Account'})).mockResolvedValueOnce(response(200,{data:[]}));
         const result=await createClient({accessToken:'secret',fetchImpl}).verifyAccountAccess('88');

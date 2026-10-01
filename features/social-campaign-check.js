@@ -13,6 +13,29 @@
         return node;
     };
     const money = (amount, currency) => amount == null ? 'Not comparable' : new Intl.NumberFormat('en-GB', { style: 'currency', currency: /^[A-Z]{3}$/.test(currency || '') ? currency : 'GBP' }).format(amount);
+    function possibleCampaign(candidate, prismaId) {
+        const section = element('section', '', 'candidate');
+        section.append(element('h3', 'Possible delivering campaign'), element('p', candidate.name), element('p', candidate.evidence, 'note'), element('p', 'Unconfirmed match · kept separate from the linked comparison.', 'warning'));
+        const account = String(candidate.accountId || '').replace(/^act_/, ''), id = String(candidate.campaignId || '');
+        if (/^\d+$/.test(account) && /^\d+$/.test(id)) {
+            const reference = element('p', `Meta ${id} · `, 'note'), link = element('a', 'Open this campaign in Meta ↗', 'meta-campaign-link');
+            link.href = `https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${account}&selected_campaign_ids=${id}&filter_set=${encodeURIComponent(`CAMPAIGN_GROUP_SELECTED-STRING_SET\u001eIN\u001e["${id}"]`)}`;
+            link.target = '_blank'; link.rel = 'noopener noreferrer';
+            link.addEventListener('click', async event => {
+                event.preventDefault();
+                try {
+                    const response = await chrome.runtime.sendMessage({action:'socialCampaignCheck',operation:'openMeta',campaignId:prismaId,metaCampaignId:id,accountId:account});
+                    if (response?.status !== 'success') throw new Error(response?.message || 'Meta campaign could not be opened.');
+                } catch (error) { if (openCampaign === prismaId) panelStatus.textContent = error.message; }
+            });
+            reference.append(link); section.append(reference);
+        }
+        const table = comparison(candidate); table.querySelector('caption').textContent = 'Prisma vs possible Meta campaign'; section.append(table);
+        if (candidate.dailyBudgets?.length) section.append(element('p', `Meta daily budget(s): ${candidate.dailyBudgets.map(value => money(value, candidate.currency)).join(', ')}. Daily budgets are not compared to a total booking.`, 'note'));
+        (candidate.findings || []).filter(message => !/^Flight dates differ:|^Meta lifetime budget is (higher|lower) than booked net media\.$|^Meta spend exceeds the selected Prisma net media budget\.$/.test(message)).forEach(message => section.append(element('p', message, 'finding')));
+        (candidate.warnings || []).forEach(message => section.append(element('p', message, 'warning')));
+        return section;
+    }
     function comparison(result) {
         const table = element('table', '', 'comparison');
         table.append(element('caption', 'Prisma vs Meta'));
@@ -51,16 +74,33 @@
             if (days !== null && days !== 0 && !needsReview) body.lastElementChild.classList.add('informational-date');
         });
         const comparable = result.budget != null && result.currency === result.prismaCurrency && ['GBP','USD','EUR','AUD','CAD','NZD'].includes(result.currency);
-        const budgetDelta = comparable && result.metaBudget != null ? result.metaBudget - result.budget : null;
-        row('Budget', money(result.budget, result.prismaCurrency), money(result.metaBudget, result.currency),
+        const comparisonBudget = result.metaComparisonBudget ?? result.budget;
+        const budgetDelta = comparable && result.metaBudget != null ? result.metaBudget - comparisonBudget : null;
+        row('Budget', money(comparisonBudget, result.prismaCurrency), money(result.metaBudget, result.currency),
             budgetDelta === null ? 'Not comparable' : Math.abs(budgetDelta) <= 0.01 ? 'Matches' : `${money(Math.abs(budgetDelta), result.currency)} ${budgetDelta > 0 ? 'higher' : 'lower'}`,
-            budgetDelta !== null && Math.abs(budgetDelta) > 0.01, 'Placement net cost', 'Lifetime budget');
+            budgetDelta !== null && Math.abs(budgetDelta) > 0.01, result.upweightPlan ? 'Trafficked placement net cost' : 'Placement net cost', 'Lifetime budget');
         const spendDelta = comparable && result.totalSpend != null ? result.totalSpend - result.budget : null;
         row('Spend vs booking', money(result.budget, result.prismaCurrency), money(result.totalSpend, result.currency),
             spendDelta === null ? 'Not comparable' : spendDelta > 0.01 ? `${money(spendDelta, result.currency)} over budget` : Math.abs(spendDelta) <= 0.01 ? 'At booked budget' : `${money(-spendDelta, result.currency)} within budget`,
             spendDelta !== null && spendDelta > 0.01, 'Placement net cost', 'Actual spend');
         table.append(body);
         return table;
+    }
+    function upweightPreview(result) {
+        const section = element('section', '', 'candidate'), table = element('table', '', 'comparison');
+        table.append(element('caption', 'Untrafficked Prisma increments'));
+        const head = element('thead'), headings = element('tr');
+        ['Placement / start', 'Increment', 'Meta after traffic', 'Expected total'].forEach(label => { const cell = element('th',label); cell.scope = 'col'; headings.append(cell); });
+        head.append(headings); table.append(head);
+        const body = element('tbody');
+        result.upweightPlan.pending.forEach(item => {
+            const row = element('tr', '', item.risk ? 'differs' : '');
+            const reference = element('th', `${item.placementNumber} · ${item.start}`); reference.scope = 'row'; row.append(reference);
+            [item.amount,item.projectedBudget,item.expectedBudget].forEach((value,index) => { const cell = element('td','',['prisma-value','meta-value','difference-value'][index]); cell.append(element('span',['Increment: ','Meta after traffic: ','Expected total: '][index],'source-label'),element('strong',money(value,result.currency))); row.append(cell); });
+            body.append(row);
+        });
+        table.append(body); section.append(table,element('p',`Full placement booking: ${money(result.budget,result.prismaCurrency)}. Projection assumes these increments are trafficked in start-date order. Recheck before trafficking.`, 'note'));
+        return section;
     }
     function closePanel(options) {
         const host = panelHost;
@@ -147,7 +187,9 @@
                 });
                 card.lastElementChild.append(element('span', ' · '), link);
             }
+            if (result.deliveryReview) card.append(element('p', 'Linked campaign needs review · no recorded delivery', 'finding'));
             card.append(comparison(result));
+            if (result.upweightPlan) card.append(upweightPreview(result));
             const metrics = element('div', '', 'metrics');
             [
                 ['Prisma package soft limit', result.packageBudget, result.prismaCurrency],
@@ -164,9 +206,14 @@
             result.warnings.forEach(message => card.append(element('p', message, 'warning')));
             (result.notes || []).filter(message => !message.startsWith('Flight dates differ:')).forEach(message => card.append(element('p', message, 'note')));
             if (!result.findings.length && !result.warnings.length) card.append(element('p', 'No issues found within the verified booking scope.'));
+            (result.candidates || []).forEach(candidate => card.append(possibleCampaign(candidate, openCampaign)));
             if (result.lastChange) card.append(element('p', `Last Meta budget/date change detected: ${new Date(result.lastChange.detectedAt).toLocaleString('en-GB')}. Previous lifetime budget: ${money(result.lastChange.previousLifetimeBudget, result.currency)}.`, 'note'));
             const details = element('details');
             details.append(element('summary', 'Booking details and data sources'));
+            const creation = result.creation;
+            details.append(element('p', creation ? `Meta creation event: ${creation.actor || 'Unknown actor'} · ${creation.application || 'Unknown application'}${creation.at ? ` · ${creation.at}` : ''}.` : 'Meta creation event unavailable in accessible history.', 'note'));
+            if (result.prismaOrigins?.some(item => item.origin)) result.prismaOrigins.forEach(item => details.append(element('p', `Prisma ${item.placementNumber} origin: ${item.origin || 'Unknown'} (booking-details externalEntityOrigin).`, 'note')));
+            else details.append(element('p', 'Prisma link origin: unknown. A Meta creator or creation app alone does not prove pushed versus linked back.', 'note'));
             result.bookings.forEach(booking => details.append(element('p', `Prisma ${booking.placementNumber}: ${booking.start} to ${booking.end} · ${money(booking.budget, booking.currency)}`, 'note')));
             result.metaRanges.forEach(range => details.append(element('p', `Meta flight: ${range.start || 'Missing'} to ${range.end || 'Open / missing'}`, 'note')));
             result.outsideDays.forEach(day => details.append(element('p', `${day.date}: ${money(day.spend, result.currency)} outside the selected booking dates`, 'note')));
@@ -215,6 +262,7 @@
         style.textContent += `:host{container-type:inline-size}h3{overflow-wrap:anywhere}.comparison{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0;margin:16px 0;font-size:13px;line-height:1.45}.comparison caption{text-align:left;font-weight:650;font-size:15px;margin-bottom:10px}.comparison th,.comparison td{padding:12px 10px;text-align:left;vertical-align:top;border-bottom:1px solid #dde5e9;overflow-wrap:anywhere}.comparison thead th{font-size:12px;color:#536875;padding-top:8px;padding-bottom:8px}.comparison thead th:first-child{width:19%}.comparison thead th:last-child{width:27%}.comparison tbody th{font-weight:600}.comparison .prisma-value{background:#f0f6fa}.comparison .meta-value{background:#f5f2fa}.comparison .difference-value{color:#536875}.comparison td strong{display:block;font-weight:600;font-variant-numeric:tabular-nums}.comparison .value-hint{display:block;font-size:11px;color:#536875;margin-top:4px}.comparison .differs .difference-value{background:#fff2df;color:#793d08}.comparison .differs .meta-value strong{color:#793d08;text-decoration:underline;text-decoration-color:#d7872a;text-underline-offset:4px}.comparison .source-label{display:none}.metrics{margin-top:14px}.metric strong{font-variant-numeric:tabular-nums}@container(max-width:560px){.comparison thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.comparison,.comparison tbody,.comparison caption{display:block}.comparison tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);margin-bottom:12px;border:1px solid #dde5e9;border-radius:6px;overflow:hidden}.comparison tbody th{grid-column:1/-1;background:#fafbfc;padding:9px 12px}.comparison td{padding:10px 12px}.comparison .difference-value{grid-column:1/-1;border-bottom:0}.comparison .source-label{display:block;font-size:11px;color:#536875;margin-bottom:4px}.comparison .difference-value .source-label{display:inline;margin:0 8px 0 0}.comparison .difference-value strong{display:inline}.panel{padding:14px}}`;
         style.textContent += '.comparison .placement-budget-row.differs .difference-value{background:#fff0f0;color:#982a31}.comparison .placement-budget-row.differs .meta-value strong{color:#982a31;text-decoration-color:#ba4b51}';
         style.textContent += '.comparison .informational-date td strong{font-weight:400}';
+        style.textContent += '.candidate{margin:16px 0;padding:12px;border:1px solid #d7e2e8;border-radius:8px;background:#fafcfd}.candidate>h3{font-size:14px}.candidate .comparison{margin-bottom:0}';
         style.textContent += '.meta-campaign-link{color:#165c72;text-decoration:underline;text-underline-offset:2px}.meta-campaign-link:focus-visible{outline:3px solid #e5a641;outline-offset:2px}';
         style.textContent += `.panel-heading{flex:1;min-width:180px}.status{margin:4px 0 0;padding:0;font-size:12px;font-weight:400}.primary-actions{margin-top:12px;gap:10px}.monitor-status{white-space:nowrap}.card{margin-top:12px;padding-top:12px}h3{margin-bottom:4px}p{margin:8px 0}.card>p.note{margin:6px 0}.comparison{margin:12px 0}.comparison caption{margin-bottom:6px}.comparison tbody th,.comparison tbody td{padding-top:10px;padding-bottom:10px}.metrics{margin-top:10px}.metric{padding:8px 10px}footer{margin-top:10px;padding-top:8px}@container(min-width:561px){.panel{padding:16px}.comparison tbody th,.comparison tbody td{padding-top:8px;padding-bottom:8px}}`;
         const panel = element('section', '', 'panel');
