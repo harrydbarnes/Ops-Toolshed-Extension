@@ -1,9 +1,9 @@
 const { JSDOM } = require('jsdom');
-const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 const { captureTrustedClicks } = require('../helpers/trusted-dom-event');
 
-const featureScript = fs.readFileSync(path.resolve(__dirname, '../../features/auto-copy-url.js'), 'utf8');
+const featureScript = readScript(path.resolve(__dirname, '../../features/auto-copy-url.js'));
 
 describe('Auto Copy Campaign URL Feature', () => {
     let dom, window, document, storageState, showToast, trustedClick;

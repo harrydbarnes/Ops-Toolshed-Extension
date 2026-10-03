@@ -1,9 +1,9 @@
-const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 
-const utilsCode = fs.readFileSync(path.resolve(__dirname, '../../utils.js'), 'utf8');
-const monitorCode = fs.readFileSync(path.resolve(__dirname, '../../features/loading-monitor.js'), 'utf8');
+const utilsCode = readScript(path.resolve(__dirname, '../../utils.js'));
+const monitorCode = readScript(path.resolve(__dirname, '../../features/loading-monitor.js'));
 
 describe('shared Prisma loading monitor', () => {
     function makeVisible(element) {

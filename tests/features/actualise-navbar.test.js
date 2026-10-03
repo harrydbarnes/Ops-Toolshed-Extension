@@ -1,15 +1,9 @@
-const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 
-const featureCode = fs.readFileSync(
-    path.resolve(__dirname, '../../features/actualise-navbar.js'),
-    'utf8'
-);
-const shortcutCode = fs.readFileSync(
-    path.resolve(__dirname, '../../features/actualise-shortcut.js'),
-    'utf8'
-);
+const featureCode = readScript(path.resolve(__dirname, '../../features/actualise-navbar.js'));
+const shortcutCode = readScript(path.resolve(__dirname, '../../features/actualise-shortcut.js'));
 
 describe('Actualise navigation bar', () => {
     function createFeature({

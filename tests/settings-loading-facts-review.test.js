@@ -12,7 +12,7 @@ describe('Loading Facts review settings', () => {
         const rules=[...view.window.document.styleSheets[0].cssRules];
         const sizing=rules.find(rule=>rule.selectorText==='.prisma-login-assistant-options label input');
         expect(sizing.style.getPropertyValue('width')).toBe('100%');
-        expect(sizing.style.getPropertyValue('margin')).toBe('0');
+        expect(sizing.style.getPropertyValue('margin')).toBe('0px');
         expect(sizing.style.getPropertyValue('height')).toBe('38px');
         expect(sizing.style.getPropertyValue('box-sizing')).toBe('border-box');
         view.window.close();

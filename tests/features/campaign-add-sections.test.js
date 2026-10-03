@@ -1,11 +1,8 @@
-const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 
-const featureScript = fs.readFileSync(
-    path.resolve(__dirname, '../../features/campaign-add-sections.js'),
-    'utf8'
-);
+const featureScript = readScript(path.resolve(__dirname, '../../features/campaign-add-sections.js'));
 
 const addCampaignUrl = 'https://groupmuk-prisma.mediaocean.com/idesk/prisma-campaign-details/index.html?osModalId=prsm-cm-cmpadd';
 

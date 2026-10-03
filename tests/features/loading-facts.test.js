@@ -1,11 +1,9 @@
 const { JSDOM } = require('jsdom');
 const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 
-const loadingFactsScript = fs.readFileSync(
-    path.resolve(__dirname, '../../features/loading-facts.js'),
-    'utf8'
-);
+const loadingFactsScript = readScript(path.resolve(__dirname, '../../features/loading-facts.js'));
 const contentCss = fs.readFileSync(
     path.resolve(__dirname, '../../content.css'),
     'utf8'

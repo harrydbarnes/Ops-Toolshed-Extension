@@ -24,6 +24,19 @@ describe('Opt-in background campaign checks',()=>{
         jest.spyOn(api,'createClient').mockReturnValue({getCampaignSnapshot:getSnapshot,verifyAccountAccess,getCampaignCandidates:getCandidates,getCampaignCreation:getCreation});
     });
     afterEach(()=>{jest.restoreAllMocks();delete global.fetch;});
+    test('one unavailable link does not discard other current results and monitoring remains opt-in',async()=>{
+        const original=fetch.getMockImplementation();
+        const multi={total:2,nodes:[...grid.nodes,{fields:fields({id:'2',placementNumber:'P2',placementType:'1',providerTypeId:'3',adserverInstanceId:'123',accountCode:'88',campaignIdOnExternalProvider:'100',placementCurrencyCode:'GBP',budgetPayableAmount:'100',flightStart:'2026-06-01',flightEnd:'2026-06-30'})}]};
+        fetch.mockImplementation(async(url,options)=>url.includes('/hybrid/rc')?{ok:true,json:async()=>multi}:original(url,options));
+        getSnapshot.mockImplementation(async id=>{if(id==='100')throw Object.assign(new Error('secret provider body'),{metaCode:100});return snapshot;});
+        const record=await manager.checkSocialCampaign('CPTEST');
+        expect(record.results).toHaveLength(1);expect(record.results[0].campaignId).toBe('99');expect(record.results[0].checkedAt).toBeTruthy();
+        expect(record.linkFailures).toHaveLength(1);expect(record.linkFailures[0]).toMatchObject({campaignId:'100',accountId:'88',placements:['P2']});
+        expect(record.linkFailures[0].message).toContain('Token can read');expect(record.linkFailures[0].message).not.toContain('secret');expect(record.monitor).not.toBe(true);
+        expect(chrome.notifications.create).not.toHaveBeenCalled();
+        getSnapshot.mockImplementation(async id=>({...snapshot,campaign:{...snapshot.campaign,id}}));
+        const recovered=await manager.checkSocialCampaign('CPTEST');expect(recovered.results).toHaveLength(2);expect(recovered.linkFailures).toEqual([]);
+    });
     test('keeps spending candidates separate, validates their snapshots and allows their exact Meta links',async()=>{
         getCandidates.mockResolvedValue([{id:'100',account_id:'88',name:'Campaign'},{id:'101',account_id:'77',name:'Campaign'},{id:'102',account_id:'88',name:'Campaign'}]);
         getSnapshot.mockImplementation(async id=>id==='99'?snapshot:{...snapshot,campaign:{...snapshot.campaign,id},dailySpend:id==='100'?[{date_start:'2026-06-15',date_stop:'2026-06-15',spend:'10'}]:[]});
@@ -149,6 +162,19 @@ describe('Opt-in background campaign checks',()=>{
         expect(send).toHaveBeenCalledWith(expect.objectContaining({status:'error'}));expect(fetch).not.toHaveBeenCalled();
         await manager.handleSocialCheck({operation:'check',campaignId:'CPTEST'},sender,send);
         expect(send).toHaveBeenLastCalledWith(expect.objectContaining({status:'success'}));
+    });
+    test('monitoring overview can check and stop an opted-in campaign from another Prisma campaign',async()=>{
+        await manager.checkSocialCampaign('CPTEST');await manager.setSocialMonitoring('CPTEST',true);
+        chrome.tabs.get.mockResolvedValue({id:5,url:'https://go.mediaocean.com/campaign-management/#campaign-id=CPOTHER'});
+        const sender={id:'test-id',url:'https://go.mediaocean.com/campaign-management/#campaign-id=CPOTHER',tab:{id:5}},send=jest.fn();
+        await manager.handleSocialCheck({operation:'check',campaignId:'CPTEST',fromMonitorOverview:true},sender,send);
+        expect(send).toHaveBeenLastCalledWith(expect.objectContaining({status:'success'}));
+        await manager.handleSocialCheck({operation:'monitor',campaignId:'CPTEST',monitor:false,fromMonitorOverview:true},sender,send);
+        expect(send).toHaveBeenLastCalledWith({status:'success'});expect(storage.socialCampaignChecks.CPTEST.monitor).toBe(false);
+        await manager.handleSocialCheck({operation:'monitor',campaignId:'CPTEST',monitor:true,fromMonitorOverview:true},sender,send);
+        expect(send).toHaveBeenLastCalledWith(expect.objectContaining({status:'error'}));
+        await manager.handleSocialCheck({operation:'check',campaignId:'CPTEST',fromMonitorOverview:true},sender,send);
+        expect(send).toHaveBeenLastCalledWith(expect.objectContaining({status:'error'}));
     });
     test('expired tokens are shown as a specific access problem',async()=>{
         getSnapshot.mockRejectedValue(Object.assign(new Error('Token expired code 190'),{metaCode:190,source:'meta'}));

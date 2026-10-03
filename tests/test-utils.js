@@ -1,22 +1,15 @@
 const { JSDOM } = require('jsdom');
-const fs = require('fs');
+const { readScript } = require('./helpers/read-script');
 const path = require('path');
-const activeDoms = new Set();
-
-afterEach(() => {
-    activeDoms.forEach(dom => dom.window.close());
-    activeDoms.clear();
-});
 
 function setupTestEnvironment(featureScriptContent, options = {}) {
-    const utilsScript = fs.readFileSync(path.resolve(__dirname, '../utils.js'), 'utf8');
+    const utilsScript = readScript(path.resolve(__dirname, '../utils.js'));
     const url = options.url || "https://groupmuk-prisma.mediaocean.com/campaign-management/";
 
     const dom = new JSDOM('<!DOCTYPE html><html><body><div id="content">Content</div></body></html>', {
         url: url,
         runScripts: "dangerously"
     });
-    activeDoms.add(dom);
     const window = dom.window;
     const document = window.document;
 

@@ -1,12 +1,10 @@
 const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 
 const html = fs.readFileSync(path.resolve(__dirname, '../../approvers.html'), 'utf8');
-const featureCode = fs.readFileSync(
-    path.resolve(__dirname, '../../features/approver-training-modal.js'),
-    'utf8'
-);
+const featureCode = readScript(path.resolve(__dirname, '../../features/approver-training-modal.js'));
 
 function createModal() {
     const dom = new JSDOM(html, {

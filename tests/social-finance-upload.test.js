@@ -1,9 +1,10 @@
 const fs = require('fs');
+const { readScript } = require('./helpers/read-script');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 
 const html = fs.readFileSync(path.resolve(__dirname, '../social-finance.html'), 'utf8');
-const script = fs.readFileSync(path.resolve(__dirname, '../social-finance.js'), 'utf8');
+const script = readScript(path.resolve(__dirname, '../social-finance.js'));
 
 function dropFile(window, dropZone, file) {
     const event = new window.Event('drop', { bubbles: true, cancelable: true });

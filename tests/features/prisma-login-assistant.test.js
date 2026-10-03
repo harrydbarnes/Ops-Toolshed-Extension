@@ -1,11 +1,8 @@
-const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 
-const featureCode = fs.readFileSync(
-    path.resolve(__dirname, '../../features/prisma-login-assistant.js'),
-    'utf8'
-);
+const featureCode = readScript(path.resolve(__dirname, '../../features/prisma-login-assistant.js'));
 
 const ORGANISATION = 'WPP Media UK Agency Owner United Kingdom';
 

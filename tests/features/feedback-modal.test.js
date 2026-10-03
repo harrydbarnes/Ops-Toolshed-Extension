@@ -1,13 +1,10 @@
 /**
- * @jest-environment jsdom
+ * @jest-environment ./tests/jsdom-environment.cjs
  */
-const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 
-const feedbackModalScript = fs.readFileSync(
-    path.resolve(__dirname, '../../features/feedback-modal.js'),
-    'utf8'
-);
+const feedbackModalScript = readScript(path.resolve(__dirname, '../../features/feedback-modal.js'));
 
 function setupFeedbackModal(savedName = '') {
     const scheduledTimers = [];

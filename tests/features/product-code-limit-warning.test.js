@@ -1,11 +1,8 @@
 const { JSDOM } = require('jsdom');
-const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 
-const featureScript = fs.readFileSync(
-    path.resolve(__dirname, '../../features/product-code-limit-warning.js'),
-    'utf8'
-);
+const featureScript = readScript(path.resolve(__dirname, '../../features/product-code-limit-warning.js'));
 
 function attachFeatureSetting(dom, featureEnabled, ignoredProductCodes = []) {
     if (featureEnabled === null && !ignoredProductCodes.length) return;
@@ -274,7 +271,13 @@ describe('Product Code Limit Warning Feature', () => {
             const ignoreButtonStyle = frameDocument.defaultView.getComputedStyle(ignoreButton);
             expect(ignoreButtonStyle.marginTop).toBe('4px');
             expect(ignoreButtonStyle.paddingTop).toBe('3px');
-            expect(ignoreButtonStyle.fontSize).toBe('12px');
+            // jsdom 30 computes the inherited font shorthand over this explicit
+            // size. Verify the cascade declarations until that CSSOM bug is fixed.
+            const ignoreButtonRule = Array.from(frameStyles.sheet.cssRules).find(rule =>
+                rule.selectorText === '.toolshed-product-code-limit-warning-ignore'
+            );
+            expect(ignoreButtonRule.style.getPropertyValue('font')).toBe('inherit');
+            expect(ignoreButtonRule.style.getPropertyValue('font-size')).toBe('12px');
             warning.dispatchEvent(new frameDocument.defaultView.Event('mouseenter'));
             expect(tooltip.hidden).toBe(false);
 

@@ -1,8 +1,8 @@
-const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 const { setupTestEnvironment } = require('../test-utils');
 
-const featureScript = fs.readFileSync(path.resolve(__dirname, '../../features/reminders.js'), 'utf8');
+const featureScript = readScript(path.resolve(__dirname, '../../features/reminders.js'));
 
 describe('Reminders Feature Security (XSS)', () => {
     let window, document;

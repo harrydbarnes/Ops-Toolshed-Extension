@@ -1,12 +1,13 @@
 const fs = require('fs');
+const { readScript } = require('./helpers/read-script');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 
 const html = fs.readFileSync(path.resolve(__dirname, '../help-guides.html'), 'utf8');
 const styles = fs.readFileSync(path.resolve(__dirname, '../help-guides.css'), 'utf8');
-const dataCode = fs.readFileSync(path.resolve(__dirname, '../help-guides-data.js'), 'utf8');
-const pdfViewerCode = fs.readFileSync(path.resolve(__dirname, '../features/help-guide-pdf-viewer.js'), 'utf8');
-const appCode = fs.readFileSync(path.resolve(__dirname, '../help-guides.js'), 'utf8');
+const dataCode = readScript(path.resolve(__dirname, '../help-guides-data.js'));
+const pdfViewerCode = readScript(path.resolve(__dirname, '../features/help-guide-pdf-viewer.js'));
+const appCode = readScript(path.resolve(__dirname, '../help-guides.js'));
 
 async function createApp({
     favourites = [],

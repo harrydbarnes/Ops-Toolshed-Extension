@@ -27,6 +27,11 @@ describe('Live Prisma and Meta campaign comparisons',()=>{
     });
     test('rejects a truncated Prisma response instead of treating it as complete',()=>{expect(()=>extractBookings({total:5,nodes:[]})).toThrow(/partial/);});
     test('keeps unlinked Meta media as an incomplete check',()=>{expect(extractBookings({total:1,nodes:[{fields:fields({id:'1',providerTypeId:'3',placementType:'1'})}]}).unmatched).toHaveLength(1);});
+    test('surfaces status and last recorded spend from validated daily history',()=>{
+        const result=run([booking()],snapshot({campaign:{id:'99',account_id:'88',lifetime_budget:'10000',effective_status:'PAUSED'},dailySpend:[{date_start:'2026-06-20',date_stop:'2026-06-20',spend:'5'},{date_start:'2026-06-25',date_stop:'2026-06-25',spend:'0'},{date_start:'2026-06-01',date_stop:'2026-06-01',spend:'10'}]}));
+        expect(result.delivery).toEqual({status:'PAUSED',firstSpendDate:'2026-06-01',lastSpendDate:'2026-06-20'});
+        expect(run([booking()],snapshot()).delivery).toEqual({status:'UNKNOWN',firstSpendDate:null,lastSpendDate:null});
+    });
     test('detects spend before, after and in gaps between booking flights',()=>{
         const dailySpend=['2026-05-31','2026-06-05','2026-06-15','2026-07-01'].map(date=>({date_start:date,date_stop:date,spend:'5'}));
         const result=run([booking({end:'2026-06-10'}),booking({placementId:'2',placementNumber:'P2',start:'2026-06-20',budget:0})],snapshot({dailySpend}),['P1','P2']);
@@ -39,6 +44,13 @@ describe('Live Prisma and Meta campaign comparisons',()=>{
         expect(result.budget).toBe(150);expect(result.metaComparisonBudget).toBe(100);
         expect(result.upweightPlan.pending[0]).toMatchObject({amount:50,projectedBudget:150,expectedBudget:150,risk:false});
         expect(result.findings.join(' ')).not.toMatch(/higher|lower|duplicate upweight/);
+    });
+    test('names missing starting evidence and exposes pending amounts without fabricating an expected budget',()=>{
+        const bookings=scheduledBookings();delete bookings[0].integration;
+        const result=run(bookings,snapshot(),['P1','P2']);
+        expect(result.upweightPlan).toBeNull();expect(result.upweightReview.pending).toEqual([{placementNumber:'P2',start:'2026-07-01',amount:50}]);
+        expect(result.upweightReview.reasons.join(' ')).toContain('Starting replacement budget is unverified: P1');
+        expect(result.upweightReview.verifiedTraffickedBudget).toBe(0);expect(result.upweightReview.pending[0].projectedBudget).toBeUndefined();
     });
     test('flags a possible double increment when Meta already includes the pending budget',()=>{
         const result=run(scheduledBookings(),snapshot({campaign:{id:'99',account_id:'88',lifetime_budget:'15000'}}),['P1','P2']);

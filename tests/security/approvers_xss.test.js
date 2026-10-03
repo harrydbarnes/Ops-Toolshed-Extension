@@ -1,5 +1,5 @@
 /**
- * @jest-environment jsdom
+ * @jest-environment ./tests/jsdom-environment.cjs
  */
 
 import { renderApprovers } from '../../approvers.js';

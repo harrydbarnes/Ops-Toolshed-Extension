@@ -1,12 +1,13 @@
 const fs = require('fs');
+const { readScript } = require('./helpers/read-script');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 const { FEATURE_SETTINGS_DEFAULTS } = require('../settings');
 
 const settingsHtml = fs.readFileSync(path.resolve(__dirname, '../settings.html'), 'utf8');
-const settingsScript = fs.readFileSync(path.resolve(__dirname, '../settings.js'), 'utf8');
-const utilsScript = fs.readFileSync(path.resolve(__dirname, '../utils.js'), 'utf8');
-const registryScript = fs.readFileSync(path.resolve(__dirname, '../feature-settings-registry.js'), 'utf8');
+const settingsScript = readScript(path.resolve(__dirname, '../settings.js'));
+const utilsScript = readScript(path.resolve(__dirname, '../utils.js'));
+const registryScript = readScript(path.resolve(__dirname, '../feature-settings-registry.js'));
 
 const FEATURE_TOGGLE_KEYS = {
     logoToggle: 'logoReplaceEnabled',

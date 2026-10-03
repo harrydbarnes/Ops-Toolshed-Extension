@@ -1,11 +1,9 @@
 const { JSDOM } = require('jsdom');
 const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 
-const dstAssuranceScript = fs.readFileSync(
-    path.resolve(__dirname, '../../features/dst-assurance.js'),
-    'utf8'
-);
+const dstAssuranceScript = readScript(path.resolve(__dirname, '../../features/dst-assurance.js'));
 const contentStyles = fs.readFileSync(
     path.resolve(__dirname, '../../content.css'),
     'utf8'
@@ -1019,8 +1017,8 @@ describe('DST Assurance', () => {
             position: 'fixed',
             zIndex: '2147483647',
             maxWidth: '360px',
-            background: '#1f2937',
-            color: '#fff',
+            background: 'rgb(31, 41, 55)',
+            color: 'rgb(255, 255, 255)',
             borderRadius: '6px',
             whiteSpace: 'normal',
             pointerEvents: 'auto'
@@ -1046,13 +1044,13 @@ describe('DST Assurance', () => {
 
         expect(warningRule.style.getPropertyValue('background-color'))
             .toBe(badgeRule.style.getPropertyValue('background'));
-        expect(warningRule.style.getPropertyValue('background-color')).toBe('#fef3c7');
+        expect(warningRule.style.getPropertyValue('background-color')).toBe('rgb(254, 243, 199)');
         expect(warningRule.style.getPropertyValue('box-shadow'))
             .toBe('inset 0 0 0 1px #fcd34d');
-        expect(warningRule.style.getPropertyValue('color')).toBe('#111827');
+        expect(warningRule.style.getPropertyValue('color')).toBe('rgb(17, 24, 39)');
         expect(groupCellOverrideRule.style.getPropertyValue('background'))
             .toBe(badgeRule.style.getPropertyValue('background'));
-        expect(groupCellOverrideRule.style.getPropertyValue('background-color')).toBe('#fef3c7');
+        expect(groupCellOverrideRule.style.getPropertyValue('background-color')).toBe('rgb(254, 243, 199)');
         dom.window.close();
     });
 });

@@ -1,8 +1,8 @@
 const { JSDOM } = require('jsdom');
-const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 
-const featureScript = fs.readFileSync(path.resolve(__dirname, '../../features/swap-accounts.js'), 'utf8');
+const featureScript = readScript(path.resolve(__dirname, '../../features/swap-accounts.js'));
 
 describe('Switch Accounts feature', () => {
     let dom;

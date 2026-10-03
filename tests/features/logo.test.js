@@ -1,9 +1,9 @@
-const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 
-const utilsScript = fs.readFileSync(path.resolve(__dirname, '../../utils.js'), 'utf8');
-const logoScript = fs.readFileSync(path.resolve(__dirname, '../../features/logo.js'), 'utf8');
+const utilsScript = readScript(path.resolve(__dirname, '../../utils.js'));
+const logoScript = readScript(path.resolve(__dirname, '../../features/logo.js'));
 const prismaLogoPath = 'M9.23616 0C4.13364 0 0 3.78471 0 8.455C0 13.1253 4.13364 16.91 9.23616 16.91';
 
 function setupLogoFeature() {

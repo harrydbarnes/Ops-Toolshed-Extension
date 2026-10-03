@@ -1,16 +1,11 @@
 const { JSDOM } = require('jsdom');
 const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 const { captureTrustedListener } = require('../helpers/trusted-dom-event');
 
-const featureScript = fs.readFileSync(
-    path.resolve(__dirname, '../../features/campaign.js'),
-    'utf8'
-);
-const campaignDetailsFocusScript = fs.readFileSync(
-    path.resolve(__dirname, '../../features/campaign-details-focus.js'),
-    'utf8'
-);
+const featureScript = readScript(path.resolve(__dirname, '../../features/campaign.js'));
+const campaignDetailsFocusScript = readScript(path.resolve(__dirname, '../../features/campaign-details-focus.js'));
 const contentStyles = fs.readFileSync(
     path.resolve(__dirname, '../../content.css'),
     'utf8'
@@ -706,8 +701,8 @@ describe('campaign navigation UI optimisation', () => {
             display: 'inline-block',
             position: 'relative',
             overflow: 'visible',
-            background: '#f3f4f6',
-            border: '1px solid #e5e7eb',
+            background: 'rgb(243, 244, 246)',
+            border: '1px solid rgb(229, 231, 235)',
             borderRadius: '0.45em',
             boxShadow: '0 1px 2px rgba(15, 23, 42, 0.06)',
             padding: '0.15em 0.5em',
@@ -737,7 +732,7 @@ describe('campaign navigation UI optimisation', () => {
             height: '1.35em',
             boxSizing: 'border-box',
             paddingInline: '0.2em',
-            background: '#fff',
+            background: 'rgb(255, 255, 255)',
             borderRadius: '0.45em',
             paddingBottom: '0.15em',
             zIndex: '0',

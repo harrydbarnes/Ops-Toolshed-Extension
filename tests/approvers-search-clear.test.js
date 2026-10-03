@@ -1,5 +1,5 @@
 /**
- * @jest-environment jsdom
+ * @jest-environment ./tests/jsdom-environment.cjs
  */
 
 import { clearApproverSearch, syncSearchClearButton } from '../approvers.js';

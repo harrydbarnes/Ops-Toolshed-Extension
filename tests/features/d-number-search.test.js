@@ -1,8 +1,8 @@
 const { JSDOM } = require('jsdom');
-const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 
-const scriptContent = fs.readFileSync(path.resolve(__dirname, '../../features/d-number-search.js'), 'utf8');
+const scriptContent = readScript(path.resolve(__dirname, '../../features/d-number-search.js'));
 
 describe('D-Number Search Feature', () => {
     let dom, window, document;

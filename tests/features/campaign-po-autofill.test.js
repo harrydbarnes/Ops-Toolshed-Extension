@@ -1,8 +1,8 @@
-const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 const { JSDOM } = require('jsdom');
-const source = fs.readFileSync(path.resolve(__dirname, '../../features/campaign-po-autofill.js'), 'utf8');
-const stateSource = fs.readFileSync(path.resolve(__dirname, '../../features/extension-state-controller.js'), 'utf8');
+const source = readScript(path.resolve(__dirname, '../../features/campaign-po-autofill.js'));
+const stateSource = readScript(path.resolve(__dirname, '../../features/extension-state-controller.js'));
 const flush = async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); };
 
 describe('campaign PO reference autofill', () => {

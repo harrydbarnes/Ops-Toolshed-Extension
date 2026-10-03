@@ -1,9 +1,9 @@
 const { JSDOM } = require('jsdom');
-const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 
 // Load the script content to inject into JSDOM
-const placementCounterScript = fs.readFileSync(path.resolve(__dirname, '../../features/placement-counter.js'), 'utf8');
+const placementCounterScript = readScript(path.resolve(__dirname, '../../features/placement-counter.js'));
 
 describe('Placement Counter Feature', () => {
     let dom, window, document;

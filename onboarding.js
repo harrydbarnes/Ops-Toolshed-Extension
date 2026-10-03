@@ -167,8 +167,8 @@
         elements.previous.hidden = true;
         elements.next.hidden = true;
         elements.start.hidden = true;
-        elements.title.textContent = 'Your shared tools are ready.';
-        elements.description.textContent = 'There is no Prisma tour or campaign setup for this choice.';
+        elements.title.textContent = 'Your everyday tools are ready.';
+        elements.description.textContent = 'Prisma page enhancements and approval polling are paused. Your individual feature preferences are kept.';
         elements.title.focus();
     }
 

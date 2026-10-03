@@ -1,0 +1,9 @@
+{
+  "name": "babel-preset-current-node-syntax",
+  "version": "1.2.0",
+  "private": true,
+  "main": "index.cjs",
+  "peerDependencies": {
+    "@babel/core": "^7.29.7 || ^8.0.0"
+  }
+}

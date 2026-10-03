@@ -1,11 +1,8 @@
-const fs = require('fs');
+const { readScript } = require('./helpers/read-script');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 
-const offscreenScript = fs.readFileSync(
-    path.resolve(__dirname, '../offscreen.js'),
-    'utf8'
-);
+const offscreenScript = readScript(path.resolve(__dirname, '../offscreen.js'));
 
 function loadOffscreenDocument() {
     const dom = new JSDOM('<!doctype html><html><body></body></html>', {

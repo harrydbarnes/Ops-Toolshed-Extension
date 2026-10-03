@@ -1,11 +1,8 @@
-const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 
-const bridgeCode = fs.readFileSync(
-    path.resolve(__dirname, '../../features/actualise-month-bridge.js'),
-    'utf8'
-);
+const bridgeCode = readScript(path.resolve(__dirname, '../../features/actualise-month-bridge.js'));
 
 describe('Actualise month bridge', () => {
     test('publishes the requested and returned month from the native Actualise XHR', async () => {
@@ -23,65 +20,83 @@ describe('Actualise month bridge', () => {
             runScripts: 'dangerously',
             url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP123&ptb-ctx=actualize&route=actualize&mos=2025-11-01'
         });
-        class FakeXHR extends dom.window.EventTarget {
-            open(method, url) {
-                this.method = method;
-                this.url = url;
+        try {
+            class FakeXHR extends dom.window.EventTarget {
+                open(method, url) {
+                    this.method = method;
+                    this.url = url;
+                }
+
+                send(body) {
+                    this.body = body;
+                    this.status = 200;
+                    this.responseText = JSON.stringify(response);
+                    this.dispatchEvent(new this.ownerDocument.defaultView.Event('load'));
+                }
             }
 
-            send(body) {
-                this.body = body;
-                this.status = 200;
-                this.responseText = JSON.stringify(response);
-                this.dispatchEvent(new this.ownerDocument.defaultView.Event('load'));
-            }
-        }
+            FakeXHR.prototype.ownerDocument = dom.window.document;
+            dom.window.XMLHttpRequest = FakeXHR;
+            dom.window.document.documentElement.setAttribute('data-ops-toolshed-features-active', 'true');
+            const messages = [];
+            dom.window.addEventListener('message', event => messages.push(event.data));
+            const nextBridgeMessage = () => new Promise((resolve, reject) => {
+                const onMessage = event => {
+                    if (event.data?.type !== 'ops-toolshed-actualise-month-data') return;
+                    dom.window.removeEventListener('message', onMessage);
+                    dom.window.clearTimeout(timeout);
+                    resolve();
+                };
+                const timeout = dom.window.setTimeout(() => {
+                    dom.window.removeEventListener('message', onMessage);
+                    reject(new Error('Actualise bridge did not publish a message'));
+                }, 1000);
+                dom.window.addEventListener('message', onMessage);
+            });
+            dom.window.eval(bridgeCode);
 
-        FakeXHR.prototype.ownerDocument = dom.window.document;
-        dom.window.XMLHttpRequest = FakeXHR;
-        dom.window.document.documentElement.setAttribute('data-ops-toolshed-features-active', 'true');
-        const messages = [];
-        dom.window.addEventListener('message', event => messages.push(event.data));
-        dom.window.eval(bridgeCode);
+            const xhr = new dom.window.XMLHttpRequest();
+            xhr.open(
+                'PUT',
+                'https://groupmuk-prisma.mediaocean.com/campaign-service/secure/campaign/1/queryservice/mediaplan/hybrid/actualize'
+            );
+            const firstMessage = nextBridgeMessage();
+            xhr.send(JSON.stringify({
+                type: 'prismaDetailActualizeReconcile',
+                filter: {
+                    op: 'and',
+                    filters: [{
+                        fields: [{ id: 'month', value: '2025-11', op: 'eq' }]
+                    }]
+                }
+            }));
+            await firstMessage;
 
-        const xhr = new dom.window.XMLHttpRequest();
-        xhr.open(
-            'PUT',
-            'https://groupmuk-prisma.mediaocean.com/campaign-service/secure/campaign/1/queryservice/mediaplan/hybrid/actualize'
-        );
-        xhr.send(JSON.stringify({
-            type: 'prismaDetailActualizeReconcile',
-            filter: {
-                op: 'and',
-                filters: [{
-                    fields: [{ id: 'month', value: '2025-11', op: 'eq' }]
-                }]
-            }
-        }));
-        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
-
-        expect(messages).toContainEqual(expect.objectContaining({
-            source: 'ops-toolshed-actualise-month-bridge',
-            type: 'ops-toolshed-actualise-month-data',
-            detail: expect.objectContaining({
-                campaignId: 'CP123',
-                requestMonth: '2025-11',
-                responseMonths: ['2025-11']
-            })
-        }));
-
-        dom.window.dispatchEvent(new dom.window.MessageEvent('message', {
-            source: dom.window,
-            origin: dom.window.location.origin,
-            data: {
+            expect(messages).toContainEqual(expect.objectContaining({
                 source: 'ops-toolshed-actualise-month-bridge',
-                type: 'ops-toolshed-actualise-month-request-latest'
-            }
-        }));
-        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
-        expect(messages.filter(message => message?.type === 'ops-toolshed-actualise-month-data'))
-            .toHaveLength(2);
-        dom.window.close();
+                type: 'ops-toolshed-actualise-month-data',
+                detail: expect.objectContaining({
+                    campaignId: 'CP123',
+                    requestMonth: '2025-11',
+                    responseMonths: ['2025-11']
+                })
+            }));
+
+            const replayMessage = nextBridgeMessage();
+            dom.window.dispatchEvent(new dom.window.MessageEvent('message', {
+                source: dom.window,
+                origin: dom.window.location.origin,
+                data: {
+                    source: 'ops-toolshed-actualise-month-bridge',
+                    type: 'ops-toolshed-actualise-month-request-latest'
+                }
+            }));
+            await replayMessage;
+            expect(messages.filter(message => message?.type === 'ops-toolshed-actualise-month-data'))
+                .toHaveLength(2);
+        } finally {
+            dom.window.close();
+        }
     });
 
     test('does not publish unrelated requests', () => {

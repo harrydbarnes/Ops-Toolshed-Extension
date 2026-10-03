@@ -30,8 +30,9 @@
             if (record.latestPrisma.unmatched.length) preview.append(text('p',`${record.latestPrisma.unmatched.length} additional Meta booking(s) have incomplete links or financial data.`,'warning'));
             root.append(preview);
         }
+        (record.linkFailures || []).forEach(failure => root.append(text('p',`Meta ${failure.campaignId} unavailable: ${failure.message}${failure.checkedAt ? ' Last successful check: '+new Date(failure.checkedAt).toLocaleString('en-GB')+'.' : ''} No current comparison for this link.`,'warning')));
         if (!record.checkedAt) return;
-        root.append(text('p', `Last successful check: ${new Date(record.checkedAt).toLocaleString('en-GB')}`));
+        root.append(text('p', `${record.linkFailures?.length && !record.error ? 'Partial check' : 'Last successful check'}: ${new Date(record.checkedAt).toLocaleString('en-GB')}`));
         const actions = text('div','', 'actions');
         const monitor = text('button',record.monitor ? 'Stop monitoring' : 'Monitor this campaign','secondary');
         monitor.type = 'button';
@@ -122,7 +123,7 @@
         page=Math.max(0,Math.min(page,pageCount-1));
         const visible=search ? matches : matches.slice(page*pageSize,(page+1)*pageSize);
         visible.forEach(([id,item])=>{
-            const row=text('div','','saved-row'), label=text('div',''); label.append(text('strong',item.campaignName || id),text('small',`${id} · ${item.monitor ? 'Monitoring' : 'Not monitored'}${busy && selected === id ? ' · Checking…' : item.error ? ' · Last check failed' : item.checkedAt ? ` · Checked ${new Date(item.checkedAt).toLocaleString('en-GB')}` : ''}`));
+            const row=text('div','','saved-row'), label=text('div',''); label.append(text('strong',item.campaignName || id),text('small',`${id} · ${item.monitor ? 'Monitoring' : 'Not monitored'}${busy && selected === id ? ' · Checking…' : item.error ? ' · Last check failed' : item.linkFailures?.length ? ' · Some Meta links unavailable' : item.checkedAt ? ` · Checked ${new Date(item.checkedAt).toLocaleString('en-GB')}` : ''}`));
             if (item.error) label.append(text('small',item.error,'error'));
             const button=text('button',busy && selected === id ? 'Checking…' : 'Check now','secondary');button.type='button';button.disabled=busy;button.addEventListener('click',()=>{byId('check-form').scrollIntoView({block:'start',behavior:'smooth'});check(id);});row.append(label,button);root.append(row);
         });

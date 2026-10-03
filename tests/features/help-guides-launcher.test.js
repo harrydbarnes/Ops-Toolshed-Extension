@@ -1,11 +1,8 @@
-const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 
-const featureCode = fs.readFileSync(
-    path.resolve(__dirname, '../../features/help-guides-launcher.js'),
-    'utf8'
-);
+const featureCode = readScript(path.resolve(__dirname, '../../features/help-guides-launcher.js'));
 
 describe('Help Guides page launcher', () => {
     function createFeature({

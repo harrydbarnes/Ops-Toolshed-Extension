@@ -3,7 +3,10 @@
     if (window !== window.top || window.opsSocialCampaignCheckInstalled) return;
     window.opsSocialCampaignCheckInstalled = true;
     let interval, tooltip, panelHost, panelBody, panelStatus, panelCheck, panelActions, openCampaign = '', checking = false;
-    let records = {};
+    let records = {}, selectedMeta = null, selectionCampaign = '';
+    let monitorButton, monitorHost;
+    const monitorBusy = new Set();
+    const dateLabel = value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') ? new Intl.DateTimeFormat('en-GB', {day:'numeric',month:'short',year:'numeric',timeZone:'UTC'}).format(new Date(value+'T00:00:00Z')) : 'Unknown date';
     let panelCloseTimer, panelEntranceTimer, tooltipDismissTimer;
     const currentCampaign = () => location.hash.match(/(?:^#|[&?])campaign-id=(CP[A-Z0-9]+)/)?.[1] || '';
     const element = (tag, value, className) => {
@@ -59,6 +62,7 @@
         };
         const dates = (items, key) => items.map(item => item[key]).filter(Boolean).sort();
         const formatDate = value => value ? new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${value}T00:00:00Z`)) : 'Missing / open';
+        const flight = [];
         ['start', 'end'].forEach(key => {
             const prismaDates = dates(result.bookings || [], key), metaDates = dates(result.metaRanges || [], key);
             const prisma = key === 'start' ? prismaDates[0] : prismaDates.at(-1);
@@ -68,11 +72,15 @@
             const verb = key === 'start' ? 'Starts' : 'Ends';
             const difference = days === null ? 'Cannot verify' : days === 0 ? 'Same day' : `${verb} ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} ${days > 0 ? 'later' : 'earlier'}`;
             const needsReview = days === null || (key === 'start' ? days < 0 : days > 0);
-            row(key === 'start' ? 'Flight start' : 'Flight end', formatDate(prisma), formatDate(meta), difference, needsReview,
-                (result.bookings?.length > 1 ? (key === 'start' ? 'Earliest booking' : 'Latest booking') : ''),
-                (result.metaRanges?.length > 1 ? (key === 'start' ? 'Earliest ad set' : 'Latest ad set') : ''));
-            if (days !== null && days !== 0 && !needsReview) body.lastElementChild.classList.add('informational-date');
+            flight.push({prisma:formatDate(prisma),meta:formatDate(meta),difference,needsReview,informational:days !== null && days !== 0 && !needsReview});
         });
+        row('Flight',flight.map(item => item.prisma).join(' – '),flight.map(item => item.meta).join(' – '),'',flight.some(item => item.needsReview));
+        const flightLine = body.lastElementChild;
+        if (!flight.some(item => item.needsReview)) flightLine.classList.add('informational-date');
+        const differenceCell = flightLine.querySelector('.difference-value'); differenceCell.lastElementChild.remove();
+        flight.forEach(item => differenceCell.append(element('span',item.difference,item.needsReview ? 'date-review' : 'date-note')));
+        if ((result.bookings || []).length > 1) flightLine.querySelector('.prisma-value').append(element('span','Earliest booking to latest booking','value-hint'));
+        if ((result.metaRanges || []).length > 1) flightLine.querySelector('.meta-value').append(element('span','Earliest ad set to latest ad set','value-hint'));
         const comparable = result.budget != null && result.currency === result.prismaCurrency && ['GBP','USD','EUR','AUD','CAD','NZD'].includes(result.currency);
         const comparisonBudget = result.metaComparisonBudget ?? result.budget;
         const budgetDelta = comparable && result.metaBudget != null ? result.metaBudget - comparisonBudget : null;
@@ -87,20 +95,35 @@
         return table;
     }
     function upweightPreview(result) {
-        const section = element('section', '', 'candidate'), table = element('table', '', 'comparison');
-        table.append(element('caption', 'Untrafficked Prisma increments'));
-        const head = element('thead'), headings = element('tr');
-        ['Placement / start', 'Increment', 'Meta after traffic', 'Expected total'].forEach(label => { const cell = element('th',label); cell.scope = 'col'; headings.append(cell); });
-        head.append(headings); table.append(head);
-        const body = element('tbody');
-        result.upweightPlan.pending.forEach(item => {
-            const row = element('tr', '', item.risk ? 'differs' : '');
-            const reference = element('th', `${item.placementNumber} · ${item.start}`); reference.scope = 'row'; row.append(reference);
-            [item.amount,item.projectedBudget,item.expectedBudget].forEach((value,index) => { const cell = element('td','',['prisma-value','meta-value','difference-value'][index]); cell.append(element('span',['Increment: ','Meta after traffic: ','Expected total: '][index],'source-label'),element('strong',money(value,result.currency))); row.append(cell); });
-            body.append(row);
+        const plan = result.upweightPlan, review = result.upweightReview, pending = (plan || review).pending;
+        const risk = pending.some(item => item.risk);
+        const section = element('section', '', 'candidate upweight' + (risk ? ' risk' : ''));
+        section.append(element('h3', risk ? 'Possible duplicate upweight' : plan ? 'Budget is booked, but not yet trafficked' : 'Pending upweight · verification incomplete'));
+        if (review) section.append(element('p',review.reasons.join(' '),'note'));
+        if (risk) section.append(element('p', 'Meta is already above the verified trafficked budget. Check whether the increase is already in Meta before trafficking; the cause is not proven.', 'note'));
+        const values = element('div', '', 'upweight-values');
+        [['Full booking',result.budget],[plan ? 'Already trafficked' : 'Verified trafficked placements only',plan ? plan.appliedBudget : review.verifiedTraffickedBudget]].forEach(([label,value]) => {
+            const cell = element('div'); cell.append(element('span',label,'note'),element('strong',money(value,result.prismaCurrency))); values.append(cell);
         });
-        table.append(body); section.append(table,element('p',`Full placement booking: ${money(result.budget,result.prismaCurrency)}. Projection assumes these increments are trafficked in start-date order. Recheck before trafficking.`, 'note'));
+        pending.forEach(item => {
+            const cell = element('div'); cell.append(element('span',`${item.placementNumber} · pending ${dateLabel(item.start)}`,'note'),element('strong','+' + money(item.amount,result.prismaCurrency))); values.append(cell);
+        });
+        section.append(values);
+        if (plan) pending.forEach(item => section.append(element('p', `Meta after ${item.placementNumber} increment: ${money(item.projectedBudget,result.currency)} · ${item.risk ? money(item.projectedBudget-item.expectedBudget,result.currency)+' above' : Math.abs(item.projectedBudget-item.expectedBudget)<=0.01 ? 'matches' : money(item.expectedBudget-item.projectedBudget,result.currency)+' below'} expected ${money(item.expectedBudget,result.prismaCurrency)}.`, 'projection')));
+        if (!plan) section.append(element('p','Projection unavailable. Verify the starting budget before trafficking.','note'));
         return section;
+    }
+    function campaignLabel(result) {
+        const name = result.name || result.campaignId;
+        const match = name.match(/(?:^|-)(Consideration|Conversions?|Awareness|Traffic)-(Landing Page Views|Video Views|N\/A)$/i);
+        return match ? match[1] + (match[2].toUpperCase() === 'N/A' ? '' : ' · '+match[2]) : name;
+    }
+    function resultStatus(result) {
+        if (result.upweightPlan?.pending.some(item => item.risk)) return 'Possible duplicate upweight';
+        if (result.upweightReview) return 'Verify upweight';
+        if (result.findings?.length || result.warnings?.length) return 'Needs review';
+        if (result.upweightPlan?.pending.length) return 'Upweight pending';
+        return 'No issues found';
     }
     function closePanel(options) {
         const host = panelHost;
@@ -142,35 +165,65 @@
         panelCheck.disabled = checking;
         panelCheck.textContent = checking ? 'Checking…' : 'Check again';
         panelActions.replaceChildren(panelCheck);
-        panelStatus.textContent = checking ? 'Reading current Prisma bookings and Meta data…' : record?.error || (record?.checkedAt ? `Last successful check: ${new Date(record.checkedAt).toLocaleString('en-GB')}` : 'Ready to check this campaign.');
+        panelStatus.textContent = checking ? 'Reading current Prisma bookings and Meta data…' : record?.error || (record?.checkedAt ? `${record.linkFailures?.length ? 'Partial check' : 'Last successful check'}: ${new Date(record.checkedAt).toLocaleString('en-GB')}` : 'Ready to check this campaign.');
+        const context = panelHost.shadowRoot.querySelector('.footer-context');
+        if (context) context.textContent = record?.monitor ? 'Monitoring every 30 minutes · requires Chrome and access.' : 'One-off check · nothing is monitored automatically.';
         if (!record) return;
+        if (selectionCampaign !== openCampaign) { selectionCampaign = openCampaign; selectedMeta = null; }
         if (record.error && record.latestPrisma) {
-            panelBody.append(element('p', 'Prisma bookings retrieved · Meta comparison incomplete', 'warning'));
-            record.latestPrisma.bookings.forEach(booking => panelBody.append(element('p', `${booking.placementNumber} · Meta ${booking.campaignId} · ${money(booking.budget, booking.currency)} · ${booking.start} to ${booking.end}`, 'note')));
+            const preview = element('details'); preview.append(element('summary','Prisma bookings retrieved · Meta comparison incomplete'));
+            record.latestPrisma.bookings.forEach(booking => preview.append(element('p', `${booking.placementNumber} · Meta ${booking.campaignId} · ${money(booking.budget, booking.currency)} · ${booking.start} to ${booking.end}`, 'note')));
+            panelBody.append(preview);
         }
         if (record.error && record.checkedAt) panelBody.append(element('p', 'Results below are from the last successful check.', 'warning'));
         if (record.checkedAt) {
             const monitor = element('button', record.monitor ? 'Stop monitoring' : 'Monitor this campaign', 'secondary');
             monitor.type = 'button';
             monitor.disabled = checking;
+            const status = element('button', record.monitor ? 'Monitoring · every 30 minutes' : 'One-off · monitoring off', 'note monitor-status');
+            status.type = 'button'; status.disabled = checking;
+            status.setAttribute('aria-label',record.monitor ? 'Turn off monitoring for this campaign' : 'Turn on monitoring for this campaign');
+            status.addEventListener('click', () => monitor.click());
             monitor.addEventListener('click', async () => {
                 const id = openCampaign;
-                monitor.disabled = true;
+                monitor.disabled = status.disabled = true;
                 try {
                     const response = await chrome.runtime.sendMessage({ action: 'socialCampaignCheck', operation: 'monitor', campaignId: id, monitor: !record.monitor });
                     if (response?.status !== 'success') throw new Error(response?.message || 'Monitoring could not be updated.');
                     records[id] = { ...records[id], monitor: !record.monitor };
                     if (openCampaign === id) renderPanel();
-                } catch (error) { panelStatus.textContent = error.message; monitor.disabled = false; }
+                } catch (error) { if (openCampaign === id) panelStatus.textContent = error.message; monitor.disabled = status.disabled = false; }
             });
             panelActions.append(monitor);
-            panelActions.append(element('span', record.monitor ? 'Monitoring · every 30 minutes' : 'One-off · monitoring off', 'note monitor-status'));
+            panelActions.append(status);
         }
         if (record.unmatched?.length) panelBody.append(element('p', `${record.unmatched.length} Meta booking(s) have incomplete IDs, accounts, budgets or dates.`, 'warning'));
-        if (record.checkedAt && !record.results?.length) panelBody.append(element('p', 'No linked Meta media bookings were found. This is not a complete Meta comparison.', 'warning'));
-        (record.results || []).forEach(result => {
-            const card = element('article', '', 'card');
-            card.append(element('h3', result.name || result.campaignId), element('p', `Meta ${result.campaignId} · ${result.timezone || 'Account timezone unavailable'}`, 'note'));
+        if (record.checkedAt && !record.results?.length && !record.linkFailures?.length) panelBody.append(element('p', 'No linked Meta media bookings were found. This is not a complete Meta comparison.', 'warning'));
+        const results = record.results || [], failures = record.linkFailures || [];
+        if (results.length || failures.length) {
+            const overview = element('div', '', 'overview');
+            overview.append(element('strong', `${results.length} ${record.error ? 'saved results' : 'checked'}${failures.length ? ' · '+failures.length+' unavailable' : ''}${results.some(item => item.upweightPlan || item.upweightReview) ? ' · '+results.filter(item => item.upweightPlan || item.upweightReview).length+' pending upweight(s)' : ''}`));
+            panelBody.append(overview);
+            if (selectedMeta === null || !results.some(item => item.campaignId === selectedMeta) && selectedMeta !== '') selectedMeta = results[0]?.campaignId || '';
+            results.forEach(result => {
+                const row = element('button', '', 'campaign-row' + (selectedMeta === result.campaignId ? ' selected' : ''));
+                row.type = 'button'; row.setAttribute('aria-expanded', String(selectedMeta === result.campaignId));
+                row.setAttribute('aria-controls','ops-meta-selected-detail');
+                row.setAttribute('aria-label',`${result.name || result.campaignId} · ${resultStatus(result)}`);
+                row.append(element('span',campaignLabel(result),'campaign-name'),element('span',resultStatus(result),'campaign-state'));
+                row.addEventListener('click', () => { selectedMeta = selectedMeta === result.campaignId ? '' : result.campaignId; renderPanel(); [...panelBody.querySelectorAll('.campaign-row')].find(item => item.dataset.campaignId === result.campaignId)?.focus(); });
+                row.dataset.campaignId = result.campaignId;
+                panelBody.append(row);
+            });
+            failures.forEach(failure => {
+                const card = element('section','','link-failure');
+                card.append(element('strong',`Meta ${failure.campaignId} · unavailable`),element('p',failure.message,'warning'),element('p',failure.checkedAt ? `Last successful check: ${new Date(failure.checkedAt).toLocaleString('en-GB')}. No current comparison for this link.` : 'No current comparison for this link.','note'));
+                panelBody.append(card);
+            });
+        }
+        results.filter(result => result.campaignId === selectedMeta).forEach(result => {
+            const card = element('article', '', 'card'); card.id = 'ops-meta-selected-detail';
+            card.append(element('h3', campaignLabel(result)), element('p', `Meta ${result.campaignId} · ${result.timezone || 'Account timezone unavailable'}`, 'note'));
             const accountId = String(result.accountId || '').replace(/^act_/, '');
             if (/^\d+$/.test(accountId) && /^\d+$/.test(String(result.campaignId || ''))) {
                 const link = element('a', 'Open in Meta ↗', 'meta-campaign-link');
@@ -187,9 +240,10 @@
                 });
                 card.lastElementChild.append(element('span', ' · '), link);
             }
+
             if (result.deliveryReview) card.append(element('p', 'Linked campaign needs review · no recorded delivery', 'finding'));
             card.append(comparison(result));
-            if (result.upweightPlan) card.append(upweightPreview(result));
+            if (result.upweightPlan || result.upweightReview) card.append(upweightPreview(result));
             const metrics = element('div', '', 'metrics');
             [
                 ['Prisma package soft limit', result.packageBudget, result.prismaCurrency],
@@ -199,22 +253,28 @@
                 metric.append(element('span', label), element('strong', label === 'Prisma package soft limit' && amount == null ? 'Not supplied' : money(amount, currency)));
                 metrics.append(metric);
             });
-            card.append(metrics);
+            const delivery = result.delivery;
+            if (delivery) card.append(element('p', `Meta: ${delivery.status || 'Unknown status'} · ${delivery.lastSpendDate ? 'last recorded spend '+dateLabel(delivery.lastSpendDate) : 'no spend recorded in available history'} · spend outside booking dates: ${money(result.outsideSpend,result.currency)}`, 'delivery note'));
+            else card.append(element('p',`Spend outside booking dates: ${money(result.outsideSpend,result.currency)}`,'delivery note'));
             if (result.dailyBudgets?.length) card.append(element('p', `Meta daily budget(s): ${result.dailyBudgets.map(value => money(value, result.currency)).join(', ')}. Daily budgets are not compared to a total booking.`, 'note'));
             // These findings are now expressed by the values and deltas in the comparison.
-            result.findings.filter(message => !/^Flight dates differ:|^Meta lifetime budget is (higher|lower) than booked net media\.$|^Meta spend exceeds the selected Prisma net media budget\.$/.test(message)).forEach(message => card.append(element('p', message, 'finding')));
-            result.warnings.forEach(message => card.append(element('p', message, 'warning')));
-            (result.notes || []).filter(message => !message.startsWith('Flight dates differ:')).forEach(message => card.append(element('p', message, 'note')));
-            if (!result.findings.length && !result.warnings.length) card.append(element('p', 'No issues found within the verified booking scope.'));
+            result.findings.filter(message => !/^Possible duplicate upweight:|^Flight dates differ:|^Meta lifetime budget is (higher|lower) than booked net media\.$|^Meta spend exceeds the selected Prisma net media budget\.$/.test(message)).forEach(message => card.append(element('p', message, 'finding')));
+            result.warnings.filter(message => !result.upweightReview || !message.startsWith('Upweight preflight unavailable:')).forEach(message => card.append(element('p', message, 'warning')));
+            (result.notes || []).filter(message => !/^(Flight dates differ:|Checks cover this Prisma|Package budget is a soft)/.test(message)).forEach(message => card.append(element('p', message, 'note')));
+            if (!result.findings.length && !result.warnings.length && !result.upweightPlan && !result.upweightReview) card.append(element('p', 'No issues found within the verified booking scope.'));
             (result.candidates || []).forEach(candidate => card.append(possibleCampaign(candidate, openCampaign)));
             if (result.lastChange) card.append(element('p', `Last Meta budget/date change detected: ${new Date(result.lastChange.detectedAt).toLocaleString('en-GB')}. Previous lifetime budget: ${money(result.lastChange.previousLifetimeBudget, result.currency)}.`, 'note'));
             const details = element('details');
             details.append(element('summary', 'Booking details and data sources'));
+            details.append(element('p',result.name || result.campaignId,'note'));
+            if (result.upweightPlan) details.append(element('p','Projection assumes start-date order. Recheck before trafficking.','note'));
+            if (result.checkedAt) details.append(element('p', `Link refreshed ${new Date(result.checkedAt).toLocaleString('en-GB')}`, 'note'));
+            details.append(metrics,element('p','Package budget is a soft limit. Checks use placement net cost.','note'));
             const creation = result.creation;
             details.append(element('p', creation ? `Meta creation event: ${creation.actor || 'Unknown actor'} · ${creation.application || 'Unknown application'}${creation.at ? ` · ${creation.at}` : ''}.` : 'Meta creation event unavailable in accessible history.', 'note'));
             if (result.prismaOrigins?.some(item => item.origin)) result.prismaOrigins.forEach(item => details.append(element('p', `Prisma ${item.placementNumber} origin: ${item.origin || 'Unknown'} (booking-details externalEntityOrigin).`, 'note')));
             else details.append(element('p', 'Prisma link origin: unknown. A Meta creator or creation app alone does not prove pushed versus linked back.', 'note'));
-            result.bookings.forEach(booking => details.append(element('p', `Prisma ${booking.placementNumber}: ${booking.start} to ${booking.end} · ${money(booking.budget, booking.currency)}`, 'note')));
+            result.bookings.forEach(booking => details.append(element('p', `Prisma ${booking.placementNumber}: ${booking.start} to ${booking.end} · ${money(booking.budget, booking.currency)} · ${booking.integration ? (booking.integration.trafficked ? 'Trafficked' : 'Not trafficked')+' · '+(booking.integration.control === 'increment_budget' ? 'Increment budget' : 'Replace budget') : 'Traffic and budget action unverified'}`, 'note')));
             result.metaRanges.forEach(range => details.append(element('p', `Meta flight: ${range.start || 'Missing'} to ${range.end || 'Open / missing'}`, 'note')));
             result.outsideDays.forEach(day => details.append(element('p', `${day.date}: ${money(day.spend, result.currency)} outside the selected booking dates`, 'note')));
             (result.packageSources || []).forEach(source => details.append(element('p', `Package limit: Prisma ${source.placementNumber} (${source.field}).`, 'note')));
@@ -223,6 +283,7 @@
             card.append(details);
             panelBody.append(card);
         });
+        if (results.length) panelBody.append(element('p','Scope: this Prisma campaign. Other linked campaigns must be checked before confirming a discrepancy.','scope note'));
     }
     async function runCheck(id) {
         if (checking) return;
@@ -252,7 +313,7 @@
         panelHost = element('div');
         panelHost.id = 'ops-social-campaign-panel';
         const rect = button.getBoundingClientRect();
-        const width = Math.min(720, Math.max(280, window.innerWidth - 24));
+        const width = Math.min(820, Math.max(280, window.innerWidth - 24));
         const top = Math.min(rect.bottom + 8, Math.max(12, window.innerHeight - 240));
         panelHost.style.cssText = `position:fixed;z-index:2147483646;top:${top}px;left:${Math.max(12, Math.min(rect.right - width, window.innerWidth - width - 12))}px;width:${width}px;pointer-events:auto`;
         const shadow = panelHost.attachShadow({ mode: 'open' });
@@ -265,6 +326,9 @@
         style.textContent += '.candidate{margin:16px 0;padding:12px;border:1px solid #d7e2e8;border-radius:8px;background:#fafcfd}.candidate>h3{font-size:14px}.candidate .comparison{margin-bottom:0}';
         style.textContent += '.meta-campaign-link{color:#165c72;text-decoration:underline;text-underline-offset:2px}.meta-campaign-link:focus-visible{outline:3px solid #e5a641;outline-offset:2px}';
         style.textContent += `.panel-heading{flex:1;min-width:180px}.status{margin:4px 0 0;padding:0;font-size:12px;font-weight:400}.primary-actions{margin-top:12px;gap:10px}.monitor-status{white-space:nowrap}.card{margin-top:12px;padding-top:12px}h3{margin-bottom:4px}p{margin:8px 0}.card>p.note{margin:6px 0}.comparison{margin:12px 0}.comparison caption{margin-bottom:6px}.comparison tbody th,.comparison tbody td{padding-top:10px;padding-bottom:10px}.metrics{margin-top:10px}.metric{padding:8px 10px}footer{margin-top:10px;padding-top:8px}@container(min-width:561px){.panel{padding:16px}.comparison tbody th,.comparison tbody td{padding-top:8px;padding-bottom:8px}}`;
+        style.textContent += `.panel{display:flex;flex-direction:column;overflow:hidden;padding:0}.panel>header{padding:12px 20px 0;flex-shrink:0}.panel>.primary-actions{padding:0 20px 10px;margin-top:8px;flex-shrink:0}.panel-body{min-height:0;overflow:auto;padding:0 20px 7px;border-top:1px solid #dde5e9;overscroll-behavior:contain}.panel>footer{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0;padding:12px 20px;flex-shrink:0}.panel>footer .actions{gap:8px}.overview{padding:8px 0;font-size:12px}.campaign-row{width:100%;display:flex;justify-content:space-between;gap:12px;align-items:center;border:0;border-bottom:1px solid #dde5e9;border-radius:0;background:#fff;color:#183440;padding:7px 8px;text-align:left;font-size:12px;white-space:normal;min-height:38px}.campaign-row.selected{background:#f0f6f8;border-left:3px solid #165c72;padding-left:5px}.campaign-name{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.campaign-state{flex-shrink:0;color:#795b25;font-weight:400}.card{margin-top:0;padding-top:12px;border-top:0}.card>h3{font-size:14px}.comparison{margin:10px 0;font-size:12px}.comparison caption{font-size:13px;margin-bottom:4px}.comparison th,.comparison td{padding:6px 10px!important}.comparison .value-hint{margin-top:2px}.comparison .difference-value strong{font-weight:400}.date-note,.date-review{display:block}.date-note{color:#536875;font-weight:400}.date-review{color:#793d08;font-weight:600}.upweight{background:#fffbf3;border-color:#e6d8bc;border-left:2px solid #d7872a;margin:10px 0;padding:10px 12px}.upweight.risk{background:#fff5f5;border-color:#ba4b51}.upweight>h3{font-size:13px;color:#795b25}.upweight.risk>h3{color:#982a31}.upweight-values{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:8px 0}.upweight-values span,.upweight-values strong{display:block}.upweight-values strong{font-size:14px;font-variant-numeric:tabular-nums}.projection{border-top:1px solid #eee5d6;padding-top:6px;font-size:12px}.upweight>p.note{font-size:11px;margin:4px 0}.delivery{font-size:11px}details{border-top:1px solid #dde5e9;padding-top:8px;margin-top:8px;font-size:12px}.scope{font-size:11px;margin:8px 0 0}.link-failure{padding:10px;border-left:3px solid #d7872a;background:#fff8ef;margin-top:8px;font-size:12px}@container(max-width:560px){.campaign-row{align-items:flex-start;flex-direction:column;gap:2px}.campaign-name{white-space:normal}.panel>header{padding:12px 14px 0}.panel>.primary-actions{padding:0 14px 10px}.panel-body{padding:0 14px 7px}.panel>footer{padding:10px 14px}.comparison tr{margin-bottom:6px}}`;
+        style.textContent += `@media(min-width:700px) and (max-height:900px){.panel-body{padding-bottom:0}.panel>header{padding-top:10px}.panel>.primary-actions{margin-top:6px;padding-bottom:8px}.panel>footer{padding-top:8px;padding-bottom:8px}.overview{padding:6px 0}.campaign-row{min-height:30px;padding-top:5px;padding-bottom:5px}.card{padding-top:8px}.card>p.note{margin:4px 0}.card>.comparison{margin:6px 0}.card>.comparison caption{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.card>.comparison tbody tr:first-child .value-hint{display:none}.card>.comparison th,.card>.comparison td{padding-top:5px!important;padding-bottom:5px!important}.upweight{padding:8px 10px;margin:8px 0}.upweight-values{margin:6px 0}.upweight>p.note{margin:3px 0}.delivery{margin:6px 0}details{margin-top:6px;padding-top:6px}.scope{margin-top:6px}}`;
+        style.textContent += `.primary-actions .monitor-status{background:transparent;border:0;border-radius:3px;color:#536875;padding:3px 0;text-decoration:underline;text-underline-offset:3px;font-size:12px;white-space:nowrap}.primary-actions .monitor-status:hover{color:#165c72}`;
         const panel = element('section', '', 'panel');
         panel.setAttribute('role', 'dialog');
         panel.setAttribute('aria-label', `Meta campaign check ${id}`);
@@ -283,23 +347,27 @@
         panelCheck.addEventListener('click', () => runCheck(id));
         panelActions = element('div', '', 'actions primary-actions');
         panelActions.style.justifyContent = 'flex-start';
-        panelBody = element('div');
+        panelBody = element('div', '', 'panel-body');
         const footer = element('footer');
         const manage = element('button', 'All campaigns', 'secondary');
         manage.type = 'button';
         manage.addEventListener('click', async () => {
-            const response = await chrome.runtime.sendMessage({ action: 'socialCampaignCheck', operation: 'open', listOnly: true });
-            if (response?.status !== 'success') panelStatus.textContent = response?.message || 'The campaign list could not be opened.';
+            try {
+                const response = await chrome.runtime.sendMessage({ action: 'socialCampaignCheck', operation: 'open', listOnly: true });
+                if (response?.status !== 'success') throw new Error(response?.message || 'The campaign list could not be opened.');
+            } catch (error) { if (openCampaign === id) panelStatus.textContent = error.message; }
         });
         const access = element('button', 'Meta access', 'secondary');
         access.type = 'button';
         access.addEventListener('click', async () => {
-            const response = await chrome.runtime.sendMessage({ action: 'socialCampaignCheck', operation: 'access', campaignId: id });
-            if (response?.status !== 'success') panelStatus.textContent = response?.message || 'Meta access settings could not be opened.';
+            try {
+                const response = await chrome.runtime.sendMessage({ action: 'socialCampaignCheck', operation: 'access', campaignId: id });
+                if (response?.status !== 'success') throw new Error(response?.message || 'Meta access settings could not be opened.');
+            } catch (error) { if (openCampaign === id) panelStatus.textContent = error.message; }
         });
         const links = element('div', '', 'actions');
         links.append(manage, access);
-        footer.append(links);
+        footer.append(element('span','One-off check · nothing is monitored automatically.','note footer-context'),links);
         panel.append(header, panelActions, panelBody, footer);
         shadow.append(style, panel);
         document.body.append(panelHost);
@@ -329,6 +397,7 @@
         tooltip.style.left = `${Math.max(8, Math.min(centredLeft, window.innerWidth - tooltipWidth - 8))}px`;
     }
     function reconcile() {
+        reconcileMonitoring();
         const active = window.opsToolshedExtensionState?.isActive();
         const campaign = location.hash.match(/(?:^#|[&?])campaign-id=(CP[A-Z0-9]+)/);
         const container = document.querySelector('.workflow-widget-wrapper');
@@ -337,7 +406,7 @@
         if (panelHost && panelHost.shadowRoot.querySelector('[role="dialog"]').getAttribute('aria-label') !== `Meta campaign check ${campaign[1]}`) closePanel({ immediate: true });
         if (existing?.parentElement === container) {
             const record = records[campaign[1]];
-            existing.textContent = record?.monitor && (record.error || record.results?.some(result => result.findings.length || result.warnings.length)) ? 'Check Meta •' : 'Check Meta';
+            existing.textContent = record?.monitor && (record.error || record.linkFailures?.length || record.results?.some(result => result.findings.length || result.warnings.length)) ? 'Check Meta •' : 'Check Meta';
             return;
         }
         existing?.remove();
@@ -358,19 +427,132 @@
         button.addEventListener('click', () => openPanel(button));
         container.appendChild(button);
     }
+    function monitoringEntries() {
+        return Object.entries(records).filter(([id, record]) => /^CP[A-Z0-9]+$/.test(id) && record.monitor);
+    }
+    function monitorIssues(record) {
+        if (record.error) return [record.error];
+        return [...new Set([...(record.linkFailures || []).map(link => link.message),
+            ...(record.results || []).flatMap(result => [...(result.findings || []), ...(result.warnings || [])])])];
+    }
+    function closeMonitoring(immediate = false) {
+        const host = monitorHost;
+        monitorHost = null;
+        monitorButton?.setAttribute('aria-expanded', 'false');
+        if (!host) return;
+        if (immediate) host.remove();
+        else {
+            host.shadowRoot.querySelector('.panel').classList.remove('is-open');
+            host.style.pointerEvents = 'none';
+            setTimeout(() => host.remove(), 200);
+        }
+    }
+    async function monitorAction(id, operation) {
+        if (monitorBusy.has(id)) return;
+        if (monitorHost) monitorHost.shadowRoot.querySelector('.status').textContent = '';
+        monitorBusy.add(id); renderMonitoring();
+        try {
+            const response = await chrome.runtime.sendMessage({action:'socialCampaignCheck',operation,campaignId:id,fromMonitorOverview:true,...(operation === 'monitor' ? {monitor:false} : {})});
+            if (response?.status !== 'success') throw new Error(response?.message || 'Monitoring action failed.');
+            if (operation === 'monitor') records[id] = {...records[id],monitor:false};
+            else if (response.record) records[id] = response.record;
+        } catch (error) {
+            // Keep failed actions visible without replacing the saved check health.
+            if (monitorHost) monitorHost.shadowRoot.querySelector('.status').textContent = error.message;
+        } finally {
+            monitorBusy.delete(id); reconcileMonitoring(); renderMonitoring();
+        }
+    }
+    function renderMonitoring() {
+        if (!monitorHost) return;
+        const root = monitorHost.shadowRoot, body = root.querySelector('.body');
+        body.replaceChildren();
+        const entries = monitoringEntries(), needsReview = entries.filter(([,record]) => monitorIssues(record).length).length;
+        root.querySelector('.summary').textContent = `${entries.length} monitored · ${needsReview} need review`;
+        if (!entries.length) body.append(element('p','No campaigns are monitored. Use Check Meta on a campaign to enable monitoring.','note'));
+        entries.sort((a,b) => Number(Boolean(monitorIssues(b[1]).length)) - Number(Boolean(monitorIssues(a[1]).length))).forEach(([id,record]) => {
+            const row = element('section','','monitor-row'), issues = monitorIssues(record);
+            row.append(element('h3',record.campaignName || id),element('p',`${id} · ${issues.length ? 'Needs review' : 'No issues flagged'}`,issues.length ? 'review' : 'note'));
+            row.append(element('p',record.checkedAt ? `Last successful check: ${new Date(record.checkedAt).toLocaleString('en-GB')}` : 'No successful check yet','note'));
+            if (record.error && record.checkedAt) row.append(element('p','Check failed; saved results are from the last successful check.','note'));
+            if (issues.length) {
+                const details = element('details'), summary = element('summary',`${issues.length} issue${issues.length === 1 ? '' : 's'} to review`);
+                details.append(summary);
+                [...new Set(issues)].forEach(message => details.append(element('p',message,'issue')));
+                row.append(details);
+            }
+            const actions = element('div','','actions'), link = element('a','Open campaign');
+            const url = new URL(location.href);
+            url.hash = `osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=${id}&ptb-mod=buy&ptb-ctx=digital&route=online`;
+            link.href = url.href;
+            link.addEventListener('click',() => closeMonitoring(true));
+            const check = element('button',monitorBusy.has(id) ? 'Working…' : 'Check now'), stop = element('button','Stop monitoring','secondary');
+            check.type = stop.type = 'button'; check.disabled = stop.disabled = monitorBusy.has(id);
+            check.addEventListener('click',() => monitorAction(id,'check'));
+            stop.addEventListener('click',() => monitorAction(id,'monitor'));
+            actions.append(link,check,stop); row.append(actions); body.append(row);
+        });
+    }
+    function openMonitoring() {
+        if (monitorHost) { closeMonitoring(); return; }
+        closePanel({immediate:true}); hideTooltip();
+        const rect = monitorButton.getBoundingClientRect(), width = Math.min(600,window.innerWidth-24);
+        monitorHost = element('div'); monitorHost.id = 'ops-meta-monitoring-panel';
+        monitorHost.style.cssText = `position:fixed;z-index:2147483646;top:${Math.max(12,rect.bottom+8)}px;left:${Math.max(12,Math.min(rect.right-width,window.innerWidth-width-12))}px;width:${width}px;pointer-events:auto`;
+        const root = monitorHost.attachShadow({mode:'open'}), style = element('style');
+        style.textContent = ':host{font:13px/1.45 system-ui,sans-serif;color:#183440}.panel{background:white;border:1px solid #bbccd6;border-radius:12px;box-shadow:0 8px 36px #18344033;max-height:calc(100vh - 100px);display:flex;flex-direction:column;opacity:0;transform:translateY(-8px) scale(.985);transform-origin:top right;transition:opacity 180ms ease-out,transform 200ms cubic-bezier(.22,1,.36,1)}.panel.is-open{opacity:1;transform:none}header,footer{padding:14px 18px;flex-shrink:0}header,.actions{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}h2{font-size:18px;margin:0}h3{font-size:14px;margin:0;overflow-wrap:anywhere}p{margin:6px 0}.note,.summary{font-size:12px;color:#536875}.summary{margin:4px 0 0}.body{overflow:auto;min-height:0;padding:0 18px}.monitor-row{padding:14px 0;border-top:1px solid #dde5e9}.review{color:#793d08}.issue{font-size:12px;overflow-wrap:anywhere}.actions{justify-content:flex-start;margin-top:10px}button,a{font:inherit;white-space:nowrap}button{padding:7px 10px;border:1px solid #165c72;border-radius:5px;background:#165c72;color:#fff;cursor:pointer}.secondary{background:white;color:#165c72}button:disabled{opacity:.55;cursor:wait}a{color:#165c72}summary{cursor:pointer}footer{border-top:1px solid #dde5e9}button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #e5a641;outline-offset:2px}@media(prefers-reduced-motion:reduce){.panel{transition:none}}';
+        const panel = element('section','','panel'); panel.setAttribute('role','dialog'); panel.setAttribute('aria-label','Meta Monitoring');
+        const header = element('header'), title = element('div'), close = element('button','Close','secondary');
+        close.type = 'button'; close.addEventListener('click',() => {closeMonitoring();monitorButton?.focus();});
+        title.append(element('h2','Meta Monitoring'),element('p','','summary')); header.append(title,close);
+        const status = element('p','','status'); status.setAttribute('role','status');
+        const footer = element('footer'); footer.append(element('p','Checks every 30 minutes while Chrome is running, with a signed-in Prisma session and valid Meta access.','note'),status);
+        panel.append(header,element('div','','body'),footer); root.append(style,panel);document.body.append(monitorHost);
+        monitorButton.setAttribute('aria-expanded','true');renderMonitoring();
+        setTimeout(() => {if(panel.isConnected)panel.classList.add('is-open');},0);close.focus();
+    }
+    function reconcileMonitoring() {
+        const enabled = window.opsToolshedExtensionState?.isActive() && location.hostname === 'go.mediaocean.com';
+        const entries = monitoringEntries();
+        if (!enabled || !entries.length) {
+            monitorButton?.remove(); monitorButton=null;
+            if (!enabled) closeMonitoring(true);
+            return;
+        }
+        const roots = [document]; let approval, userMenu;
+        for (let index=0;index<roots.length;index++) {
+            const root=roots[index];
+            approval ||= root.querySelector('.toolshed-approval-banner-button');
+            userMenu ||= root.querySelector('mo-banner-user-menu');
+            root.querySelectorAll('mo-banner,mo-banner-user-menu,mo-banner-user-menu-content').forEach(host=>{if(host.shadowRoot)roots.push(host.shadowRoot);});
+        }
+        const anchor = approval || userMenu;
+        if (!anchor?.parentElement) {monitorButton?.remove();monitorButton=null;closeMonitoring(true);return;}
+        if (!monitorButton?.isConnected || monitorButton.parentElement !== anchor.parentElement) {
+            closeMonitoring(true);
+            monitorButton?.remove();monitorButton=element('button');monitorButton.id='ops-meta-monitoring';monitorButton.type='button';
+            monitorButton.style.cssText='display:inline-flex;align-items:center;gap:6px;padding:4px 8px;margin:0 8px;border:0;border-radius:4px;background:transparent;color:inherit;font:inherit;font-size:12px;transform:translateY(1px);white-space:nowrap;cursor:pointer;pointer-events:auto';
+            monitorButton.setAttribute('aria-haspopup','dialog');monitorButton.setAttribute('aria-expanded',String(Boolean(monitorHost)));
+            monitorButton.addEventListener('click',event=>{event.stopPropagation();openMonitoring();});anchor.parentElement.insertBefore(monitorButton,anchor);
+        }
+        const review = entries.filter(([,record])=>monitorIssues(record).length).length;
+        monitorButton.textContent=`Meta Monitoring${review ? ` · ${review} to review` : ''}`;
+        monitorButton.setAttribute('aria-label',monitorButton.textContent);
+    }
     window.opsToolshedExtensionState?.subscribe(active => {
         clearInterval(interval);
         reconcile();
         if (active) interval = setInterval(reconcile, 1500);
     });
-    window.addEventListener('resize', () => { hideTooltip(); closePanel(); });
+    window.addEventListener('resize', () => { hideTooltip(); closePanel(); closeMonitoring(true); });
     window.addEventListener('scroll', hideTooltip, true);
     document.addEventListener('ops-toolshed-header-tooltip-open', event => { if (event.detail !== 'meta') hideTooltip(); });
     document.addEventListener('mouseenter', event => {
         if (event.target instanceof Element && event.target.closest('.toolshed-dst-assurance')) hideTooltip();
     }, true);
-    document.addEventListener('keydown', event => { if (event.key === 'Escape') { hideTooltip(); closePanel(); } });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape') { hideTooltip(); closePanel(); closeMonitoring(); } });
     document.addEventListener('click', event => {
+        if (monitorHost && !event.composedPath().includes(monitorHost) && !event.composedPath().includes(monitorButton)) closeMonitoring();
         if (panelHost && !event.composedPath().includes(panelHost) && !event.composedPath().includes(document.getElementById('ops-social-campaign-check'))) closePanel();
     });
     chrome.storage.local.get('socialCampaignChecks').then(data => { records = data?.socialCampaignChecks || {}; reconcile(); }).catch(() => {});
@@ -379,5 +561,6 @@
         records = changes.socialCampaignChecks.newValue || {};
         reconcile();
         if (!checking) renderPanel();
+        renderMonitoring();
     });
 })();

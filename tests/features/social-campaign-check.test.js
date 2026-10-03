@@ -1,6 +1,7 @@
+const { readScript } = require('../helpers/read-script');
 const fs=require('fs'),path=require('path');
 const {JSDOM}=require('jsdom');
-const script=fs.readFileSync(path.resolve(__dirname,'../../features/social-campaign-check.js'),'utf8');
+const script=readScript(path.resolve(__dirname,'../../features/social-campaign-check.js'));
 describe('Prisma Check Meta launcher',()=>{
     let listener,active,dom,window,document,tick;
     beforeEach(()=>{
@@ -16,12 +17,110 @@ describe('Prisma Check Meta launcher',()=>{
     });
     afterEach(()=>{dom.window.close();});
     const resultFixture = () => ({name:'Healthy Skin',campaignId:'123',timezone:'Europe/London',currency:'GBP',prismaCurrency:'GBP',budget:8165.21,metaBudget:34278.73,totalSpend:28731.06,packageBudget:34278.73,outsideSpend:0,bookings:[{placementNumber:'PTEST',start:'2026-06-01',end:'2026-09-30',budget:8165.21,currency:'GBP'}],metaRanges:[{start:'2026-07-07',end:'2026-09-13'}],outsideDays:[],findings:['Flight dates differ: old prose','Meta lifetime budget is higher than booked net media.','Meta spend exceeds the selected Prisma net media budget.'],warnings:[],notes:[]});
+    test('monitoring overview lists only opted-in campaigns and routes its actions explicitly',async()=>{
+        document.body.insertAdjacentHTML('afterbegin','<nav><button class="toolshed-approval-banner-button">Campaign Approvals</button></nav>');
+        chrome.storage.local.get.mockResolvedValue({socialCampaignChecks:{CPOTHER:{monitor:true,campaignName:'Other campaign',checkedAt:'2026-10-01T12:00:00Z',error:'Token expired',results:[]},CPTEST:{monitor:false}}});
+        window.eval(script);for(let i=0;i<8;i++)await Promise.resolve();
+        const button=document.getElementById('ops-meta-monitoring');
+        expect(button.textContent).toBe('Meta Monitoring · 1 to review');
+        expect(button.style.border).toBe('0px');
+        expect(button.style.transform).toBe('translateY(1px)');
+        button.click();const root=document.getElementById('ops-meta-monitoring-panel').shadowRoot;
+        expect(root.querySelectorAll('.monitor-row')).toHaveLength(1);
+        expect(root.textContent).toContain('Token expired');expect(root.textContent).toContain('saved results');
+        expect(new URL(root.querySelector('a').href).hash).toContain('campaign-id=CPOTHER');
+        chrome.runtime.sendMessage.mockResolvedValue({status:'success',record:{monitor:true,campaignName:'Other campaign',checkedAt:'2026-10-02T12:00:00Z',results:[]}});
+        root.querySelector('.actions button').click();for(let i=0;i<8;i++)await Promise.resolve();
+        expect(chrome.runtime.sendMessage).toHaveBeenLastCalledWith({action:'socialCampaignCheck',operation:'check',campaignId:'CPOTHER',fromMonitorOverview:true});
+        root.querySelector('.actions .secondary').click();for(let i=0;i<8;i++)await Promise.resolve();
+        expect(chrome.runtime.sendMessage).toHaveBeenLastCalledWith({action:'socialCampaignCheck',operation:'monitor',campaignId:'CPOTHER',fromMonitorOverview:true,monitor:false});
+        expect(document.getElementById('ops-meta-monitoring')).toBeNull();expect(root.textContent).toContain('No campaigns are monitored');
+    });
+    test('recreates monitoring header after replacement and removes it when features are disabled',async()=>{
+        document.body.insertAdjacentHTML('afterbegin','<nav><button class="toolshed-approval-banner-button">Campaign Approvals</button></nav>');
+        chrome.storage.local.get.mockResolvedValue({socialCampaignChecks:{CPTEST:{monitor:true,results:[]}}});
+        window.eval(script);for(let i=0;i<8;i++)await Promise.resolve();
+        const old=document.getElementById('ops-meta-monitoring');old.parentElement.remove();
+        document.body.insertAdjacentHTML('afterbegin','<nav><button class="toolshed-approval-banner-button">Campaign Approvals</button></nav>');tick();
+        expect(document.getElementById('ops-meta-monitoring')).not.toBe(old);
+        expect(document.getElementById('ops-meta-monitoring').textContent).toBe('Meta Monitoring');
+        document.getElementById('ops-meta-monitoring').click();active=false;listener(false);
+        expect(document.getElementById('ops-meta-monitoring')).toBeNull();expect(document.getElementById('ops-meta-monitoring-panel')).toBeNull();
+    });
     async function showResult(result) {
         chrome.runtime.sendMessage.mockResolvedValue({status:'success',record:{checkedAt:'2026-09-29T12:00:00Z',results:[result],unmatched:[]}});
         window.eval(script);document.getElementById('ops-social-campaign-check').click();
         for(let index=0;index<8;index++)await Promise.resolve();
         return document.getElementById('ops-social-campaign-panel').shadowRoot;
     }
+    test('removes excess bottom padding in shorter desktop windows while keeping the body scrollable',async()=>{
+        const shadow=await showResult(resultFixture());
+        const css=shadow.querySelector('style').textContent;
+        expect(css).toContain('@media(min-width:700px) and (max-height:900px){.panel-body{padding-bottom:0}');
+        expect(css).toContain('.panel-body{min-height:0;overflow:auto;');
+        expect(shadow.querySelector('.panel > footer')).not.toBeNull();
+        expect(shadow.querySelector('details').open).toBe(false);
+    });
+    test('selects one linked comparison at a time without refreshing or starting monitoring',async()=>{
+        const first=resultFixture(),second={...resultFixture(),campaignId:'789',name:'Second linked campaign',metaBudget:50};
+        chrome.runtime.sendMessage.mockResolvedValue({status:'success',record:{checkedAt:'2026-09-29T12:00:00Z',results:[first,second],unmatched:[]}});
+        window.eval(script);document.getElementById('ops-social-campaign-check').click();
+        for(let i=0;i<8;i++)await Promise.resolve();
+        const shadow=document.getElementById('ops-social-campaign-panel').shadowRoot;
+        expect(shadow.querySelectorAll('.campaign-row')).toHaveLength(2);expect(shadow.querySelectorAll('.card')).toHaveLength(1);
+        const calls=chrome.runtime.sendMessage.mock.calls.length;
+        shadow.querySelectorAll('.campaign-row')[1].click();
+        expect(shadow.querySelector('.card').textContent).toContain('Second linked campaign');expect(shadow.querySelectorAll('.card')).toHaveLength(1);
+        expect(shadow.querySelectorAll('.campaign-row')[1].getAttribute('aria-expanded')).toBe('true');expect(chrome.runtime.sendMessage).toHaveBeenCalledTimes(calls);
+        shadow.querySelectorAll('.campaign-row')[1].click();expect(shadow.querySelector('.card')).toBeNull();
+        expect(shadow.querySelector('.primary-actions button').textContent).toBe('Check again');
+    });
+    test('shows link failures separately without presenting a fresh comparison for them',async()=>{
+        chrome.runtime.sendMessage.mockResolvedValue({status:'success',record:{checkedAt:'2026-09-29T12:00:00Z',results:[resultFixture()],unmatched:[],linkFailures:[{campaignId:'789',accountId:'456',message:'Token can read the account but reporting is unavailable.',checkedAt:'2026-09-28T12:00:00Z'}]}});
+        window.eval(script);document.getElementById('ops-social-campaign-check').click();for(let i=0;i<8;i++)await Promise.resolve();
+        const shadow=document.getElementById('ops-social-campaign-panel').shadowRoot;
+        expect(shadow.querySelector('.status').textContent).toContain('Partial check');expect(shadow.querySelector('.overview').textContent).toContain('1 checked · 1 unavailable');
+        expect(shadow.querySelector('.link-failure').textContent).toContain('No current comparison');expect(shadow.querySelectorAll('.card')).toHaveLength(1);
+    });
+    test('shows verified traffic controls and recent spend without inventing live delivery',async()=>{
+        const result=resultFixture();result.delivery={status:'PAUSED',lastSpendDate:'2026-09-13'};
+        result.bookings[0].integration={trafficked:false,control:'increment_budget'};
+        const shadow=await showResult(result);
+        expect(shadow.querySelector('.delivery').textContent).toContain('PAUSED · last recorded spend 13 Sept 2026');
+        expect(shadow.querySelector('details').textContent).toContain('Not trafficked · Increment budget');
+        expect(shadow.querySelector('.panel-body')).not.toBeNull();expect(shadow.querySelector('.panel > footer')).not.toBeNull();
+    });
+    test('projects every pending increment and highlights duplicate risk rather than assuming a cause',async()=>{
+        const result={...resultFixture(),budget:150,metaComparisonBudget:100,metaBudget:150,upweightPlan:{appliedBudget:100,pending:[{placementNumber:'PNOV',start:'2026-11-01',amount:50,projectedBudget:200,expectedBudget:150,risk:true}]}};
+        const shadow=await showResult(result),preview=shadow.querySelector('.upweight');
+        expect(preview.classList.contains('risk')).toBe(true);expect(preview.textContent).toContain('£200.00 · £50.00 above expected £150.00');
+        expect(preview.textContent).toContain('cause is not proven');expect(shadow.querySelector('.campaign-state').textContent).toBe('Possible duplicate upweight');
+    });
+    test('names unverifiable preflight evidence while keeping the pending amount visible',async()=>{
+        const result={...resultFixture(),upweightReview:{verifiedTraffickedBudget:100,pending:[{placementNumber:'PNOV',start:'2026-11-01',amount:50}],reasons:['Starting replacement budget is unverified: PSEPT.']}};
+        result.warnings=['Upweight preflight unavailable: incomplete starting evidence.'];
+        const shadow=await showResult(result),preview=shadow.querySelector('.upweight');
+        expect(preview.textContent).toContain('Starting replacement budget is unverified: PSEPT');expect(preview.textContent).toContain('+£50.00');
+        expect(preview.textContent).toContain('Projection unavailable');expect(shadow.querySelector('.projection')).toBeNull();
+        expect(shadow.querySelector('.campaign-state').textContent).toBe('Verify upweight');
+    });
+    test('monitoring status toggles the current campaign directly and guards repeated clicks',async()=>{
+        const shadow=await showResult(resultFixture());
+        let complete;
+        chrome.runtime.sendMessage.mockImplementation(()=>new Promise(resolve=>{complete=resolve;}));
+        const status=shadow.querySelector('.monitor-status');
+        expect(status.getAttribute('aria-label')).toBe('Turn on monitoring for this campaign');
+        status.click();status.click();
+        expect(chrome.runtime.sendMessage).toHaveBeenLastCalledWith({action:'socialCampaignCheck',operation:'monitor',campaignId:'CPTEST',monitor:true});
+        expect(status.disabled).toBe(true);expect(shadow.querySelector('.primary-actions .secondary').disabled).toBe(true);
+        complete({status:'success'});for(let i=0;i<8;i++)await Promise.resolve();
+        expect(shadow.querySelector('.monitor-status').textContent).toBe('Monitoring · every 30 minutes');
+        expect(shadow.querySelector('.monitor-status').getAttribute('aria-label')).toBe('Turn off monitoring for this campaign');
+        chrome.runtime.sendMessage.mockResolvedValue({status:'success'});
+        shadow.querySelector('.monitor-status').click();for(let i=0;i<8;i++)await Promise.resolve();
+        expect(chrome.runtime.sendMessage).toHaveBeenLastCalledWith({action:'socialCampaignCheck',operation:'monitor',campaignId:'CPTEST',monitor:false});
+        expect(shadow.querySelector('.monitor-status').textContent).toBe('One-off · monitoring off');
+    });
     test('shows an unconfirmed candidate separately with its own comparison and exact link',async()=>{
         const result=resultFixture();result.accountId='456';result.totalSpend=0;result.deliveryReview={message:'No recorded spend; reason is not confirmed.'};result.warnings=[result.deliveryReview.message];
         result.candidates=[{...resultFixture(),name:'<img src=x onerror=alert(1)>',accountId:'456',campaignId:'789',totalSpend:50,evidence:'Same name and account; replacement is not confirmed.'}];
@@ -38,19 +137,19 @@ describe('Prisma Check Meta launcher',()=>{
         const shadow=await showResult(result);
         expect(shadow.querySelector('.placement-budget-row').textContent).toContain('Trafficked placement net cost');
         expect(shadow.querySelector('.placement-budget-row').textContent).toContain('Matches');
-        expect(shadow.querySelector('.candidate').textContent).toContain('PNOV · 2026-11-01');
+        expect(shadow.querySelector('.candidate').textContent).toContain('PNOV · pending 1 Nov 2026');
         expect(shadow.querySelector('.candidate').textContent).toContain('£50.00');
-        expect(shadow.querySelector('.candidate').textContent).toContain('Recheck before trafficking');
+        expect(shadow.querySelector('details').textContent).toContain('Recheck before trafficking');
     });
     test('compares source values with exact date and monetary differences instead of duplicate warnings',async()=>{
         const shadow=await showResult(resultFixture()),table=shadow.querySelector('.comparison');
         expect([...table.querySelectorAll('thead th')].map(cell=>cell.textContent)).toEqual(['Compare','Prisma','Meta','Difference']);
         const rows=[...table.querySelectorAll('tbody tr')];
         expect(rows[0].textContent).toContain('1 Jun 2026');expect(rows[0].textContent).toContain('7 Jul 2026');
-        expect(rows[0].textContent).toContain('Starts 36 days later');expect(rows[1].textContent).toContain('Ends 17 days earlier');
-        expect(rows[2].textContent).toContain('£26,113.52 higher');expect(rows[3].textContent).toContain('£20,565.85 over budget');
-        expect(rows[2].classList.contains('placement-budget-row')).toBe(true);
-        expect(table.querySelectorAll('tr.differs')).toHaveLength(2);expect(table.querySelectorAll('.informational-date')).toHaveLength(2);expect(shadow.querySelectorAll('.finding')).toHaveLength(0);
+        expect(rows[0].textContent).toContain('Starts 36 days later');expect(rows[0].textContent).toContain('Ends 17 days earlier');
+        expect(rows[1].textContent).toContain('£26,113.52 higher');expect(rows[2].textContent).toContain('£20,565.85 over budget');
+        expect(rows[1].classList.contains('placement-budget-row')).toBe(true);
+        expect(table.querySelectorAll('tr.differs')).toHaveLength(2);expect(table.querySelectorAll('.informational-date')).toHaveLength(1);expect(shadow.querySelectorAll('.finding')).toHaveLength(0);
         expect([...shadow.querySelectorAll('.metric span')].map(node=>node.textContent)).toEqual(['Prisma package soft limit','Spend outside booking dates']);
     });
     test('matching dates and lifetime budget are neutral and spend below budget is not flagged',async()=>{
@@ -74,7 +173,8 @@ describe('Prisma Check Meta launcher',()=>{
         const shadow=await showResult(resultFixture());
         expect(shadow.querySelector('header .panel-heading .status')).not.toBeNull();
         expect(shadow.querySelector('.primary-actions .monitor-status').textContent).toBe('One-off · monitoring off');
-        expect(shadow.querySelector('footer').children).toHaveLength(1);
+        expect(shadow.querySelector('footer').children).toHaveLength(2);
+        expect(shadow.querySelector('.footer-context').textContent).toContain('nothing is monitored automatically');
         expect(shadow.querySelector('details').textContent).toContain('Monitoring requires Chrome, a Prisma session and valid Meta access.');
     });
     test('links the exact Meta campaign and account in a separate tab without adding an action row',async()=>{
@@ -99,16 +199,16 @@ describe('Prisma Check Meta launcher',()=>{
         result.warnings=['Currency mismatch or unsupported currency: monetary differences have not been calculated.'];
         const shadow=await showResult(result),rows=[...shadow.querySelectorAll('.comparison tbody tr')];
         expect(rows[0].textContent).toContain('Earliest booking');expect(rows[0].textContent).toContain('Earliest ad set');
-        expect(rows[1].textContent).toContain('Missing / open');expect(rows[1].textContent).toContain('Cannot verify');
+        expect(rows[0].textContent).toContain('Missing / open');expect(rows[0].textContent).toContain('Cannot verify');
+        expect(rows[1].querySelector('.difference-value').textContent).toContain('Not comparable');
         expect(rows[2].querySelector('.difference-value').textContent).toContain('Not comparable');
-        expect(rows[3].querySelector('.difference-value').textContent).toContain('Not comparable');
         expect(shadow.querySelectorAll('.finding')).toHaveLength(2);expect(shadow.querySelector('.warning').textContent).toContain('Currency mismatch');
     });
     test('shows a lower lifetime budget and earlier start with singular day wording',async()=>{
         const result=resultFixture();result.metaBudget=8000;result.metaRanges=[{start:'2026-05-31',end:'2026-10-01'}];
         const shadow=await showResult(result),text=shadow.querySelector('.comparison').textContent;
         expect(text).toContain('Starts 1 day earlier');expect(text).toContain('Ends 1 day later');expect(text).toContain('£165.21 lower');
-        expect(shadow.querySelectorAll('.comparison tbody tr.differs')).toHaveLength(4);
+        expect(shadow.querySelectorAll('.comparison tbody tr.differs')).toHaveLength(3);
         expect(shadow.querySelector('.informational-date')).toBeNull();
     });
     test('adds a gap after GMI Chat only when no DST badge separates it from Meta',()=>{
@@ -145,7 +245,7 @@ describe('Prisma Check Meta launcher',()=>{
         expect(document.getElementById('ops-social-campaign-panel').shadowRoot.querySelector('[role="dialog"]')).not.toBeNull();
         for (let index=0;index<8;index++) await Promise.resolve();
         const actions=document.getElementById('ops-social-campaign-panel').shadowRoot.querySelector('.primary-actions');
-        expect([...actions.querySelectorAll('button')].map(button=>button.textContent)).toEqual(['Check again','Monitor this campaign']);
+        expect([...actions.querySelectorAll('button')].map(button=>button.textContent)).toEqual(['Check again','Monitor this campaign','One-off · monitoring off']);
         expect(actions.style.justifyContent).toBe('flex-start');
         expect(document.querySelectorAll('#ops-social-campaign-check')).toHaveLength(1);
         tick();expect(document.querySelectorAll('#ops-social-campaign-check')).toHaveLength(1);

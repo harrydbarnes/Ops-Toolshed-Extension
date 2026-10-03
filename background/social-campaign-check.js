@@ -80,13 +80,13 @@ async function performCheck(id, scheduled) {
     const revision = revisions.get(id) || 0;
     const old = (await records())[id] || {};
     if (scheduled && !old.monitor) return;
-    let latestPrisma = null;
+    let latestPrisma = null, failedLinks = [];
     try {
         const data = await readPrismaCampaign(id);
         latestPrisma = { campaignName: data.campaign.campaignName, fetchedAt: new Date().toISOString(), bookings: data.bookings, unmatched: data.unmatched };
         if (old.agencyId && old.agencyId !== data.campaign.agencyId) throw new Error('Prisma agency context changed. Open the campaign in the original account and check again.');
         const groups = globalThis.socialCampaignCore.groupBookings(data.bookings);
-        const results = [];
+        const results = [], linkFailures = failedLinks;
         const verifiedAccounts = new Set();
         const candidateLists = new Map();
         const originDetails = new Map();
@@ -96,6 +96,7 @@ async function performCheck(id, scheduled) {
             const client = globalThis.metaReportApi.createClient({ accessToken: credentials.accessToken });
             for (const group of groups) {
                 enabled();
+                try {
                 let snapshot;
                 let accountVerified = verifiedAccounts.has(group.accountId);
                 try {
@@ -170,31 +171,40 @@ async function performCheck(id, scheduled) {
                         result.warnings.push('Possible delivering campaigns could not be searched. The linked comparison is unchanged.');
                     }
                 }
+                result.checkedAt = new Date().toISOString();
                 results.push(result);
+                } catch (error) {
+                    if (error.metaCode === 190 || !isFeatureModeActive()) throw error;
+                    linkFailures.push({ campaignId:group.campaignId, accountId:group.accountId, placements:group.bookings.map(item => item.placementNumber), message:checkErrorMessage(error), checkedAt:old.results?.find(item => item.campaignId === group.campaignId && item.accountId === group.accountId)?.checkedAt || (old.results?.some(item => item.campaignId === group.campaignId && item.accountId === group.accountId) ? old.checkedAt : old.linkFailures?.find(item => item.campaignId === group.campaignId && item.accountId === group.accountId)?.checkedAt || null) });
+                }
             }
         }
+        if (linkFailures.length && !results.length) throw Object.assign(new Error(linkFailures[0].message), {accountAccessMessage:linkFailures[0].message});
         await allowed();
-        const next = { campaignId: id, campaignName: data.campaign.campaignName || id, agencyId: data.campaign.agencyId, checkedAt: new Date().toISOString(), results, unmatched: data.unmatched, error: '', attemptedAt: new Date().toISOString() };
+        const next = { campaignId: id, campaignName: data.campaign.campaignName || id, agencyId: data.campaign.agencyId, checkedAt: new Date().toISOString(), results, linkFailures, unmatched: data.unmatched, error: '', attemptedAt: new Date().toISOString() };
         if ((revisions.get(id) || 0) !== revision) return { ...next, monitor: false };
         const saved = await update(id, current => ({ ...current, ...next }));
         if (scheduled) await alertIfNeeded(id, saved, revision);
         return saved;
     } catch (error) {
         // Never store a token, response body, request URL or an untrusted provider error message.
-        const message = error.metaCode === 190 || /token.*expired|code 190/i.test(error.message) ? "Your saved Meta token has expired or is invalid. Choose 'Meta access' at the bottom of the check panel to replace it, then check again." : error.accountAccessMessage || (String(error.message).startsWith('Save a Meta access token') ? "Choose 'Meta access' at the bottom of the check panel and save a token to run the live comparison. No report uploads are needed." : error.source === 'meta' || /Meta/.test(String(error.message)) ? "Meta check failed. Choose 'Meta access' at the bottom of the check panel to check your saved token, account access and API availability." : String(error.message || 'Campaign check failed.').slice(0, 240));
+        const message = checkErrorMessage(error);
         if (!isFeatureModeActive() || (revisions.get(id) || 0) !== revision) throw new Error(message);
         try { await allowed(); } catch (_) { throw new Error(message); }
-        const saved = await update(id, current => ({ ...current, ...(latestPrisma ? { latestPrisma, campaignName: latestPrisma.campaignName } : {}), error: message, attemptedAt: new Date().toISOString() }));
+        const saved = await update(id, current => ({ ...current, ...(latestPrisma ? { latestPrisma, campaignName: latestPrisma.campaignName } : {}), linkFailures:failedLinks, error: message, attemptedAt: new Date().toISOString() }));
         if (scheduled) await alertIfNeeded(id, saved, revision);
         throw new Error(message);
     }
 }
+function checkErrorMessage(error) {
+    return error.metaCode === 190 || /token.*expired|code 190/i.test(error.message) ? "Your saved Meta token has expired or is invalid. Choose 'Meta access' at the bottom of the check panel to replace it, then check again." : error.accountAccessMessage || (String(error.message).startsWith('Save a Meta access token') ? "Choose 'Meta access' at the bottom of the check panel and save a token to run the live comparison. No report uploads are needed." : error.source === 'meta' || /Meta/.test(String(error.message)) ? "Meta check failed. Choose 'Meta access' at the bottom of the check panel to check your saved token, account access and API availability." : String(error.message || 'Campaign check failed.').slice(0, 240));
+}
 async function alertIfNeeded(id, record, revision) {
     try { await allowed(); } catch (_) { return; }
     if (!record.monitor || !isFeatureModeActive() || (revisions.get(id) || 0) !== revision) return;
-    const actionable = record.error || record.unmatched?.length || record.results?.some(item => item.findings.length || item.warnings.length);
+    const actionable = record.error || record.linkFailures?.length || record.unmatched?.length || record.results?.some(item => item.findings.length || item.warnings.length);
     if (!actionable) { await update(id, current => ({ ...current, alertSignature: '' })); return; }
-    const signature = JSON.stringify([record.error, record.unmatched?.map(item => item.placementId), record.results?.map(item => [item.campaignId, item.fingerprint, item.findings.filter(value => !value.includes('changed since')), item.warnings, item.candidates?.map(candidate => [candidate.campaignId,candidate.fingerprint]), Math.round((item.outsideSpend || 0) * 100), item.budget])]);
+    const signature = JSON.stringify([record.error, record.linkFailures?.map(item => [item.campaignId,item.accountId,item.message]), record.unmatched?.map(item => item.placementId), record.results?.map(item => [item.campaignId, item.fingerprint, item.findings.filter(value => !value.includes('changed since')), item.warnings, item.candidates?.map(candidate => [candidate.campaignId,candidate.fingerprint]), Math.round((item.outsideSpend || 0) * 100), item.budget])]);
     if (signature === record.alertSignature) return;
     await chrome.notifications.create(`social-check-${id}`, { type: 'basic', iconUrl: chrome.runtime.getURL('icon.png'), title: `Review Meta booking: ${id}`, message: record.error || 'Budget, date, spend or coverage differences need review. Open Live campaign checks in Social Booking Checker.' });
     await update(id, current => current.monitor && (revisions.get(id) || 0) === revision ? { ...current, alertSignature: signature } : current);
@@ -262,7 +272,10 @@ export async function handleSocialCheck(request, sender, sendResponse) {
         const prismaTab = prismaSender && isPrismaUrl(currentTabUrl);
         if (!ownPage && !prismaTab) throw new Error('Campaign checks require Prisma or the Live campaign checks page.');
         const tabCampaign = prismaTab ? new URL(currentTabUrl).hash.match(/(?:^#|[&?])campaign-id=(CP[A-Z0-9]+)/)?.[1] : '';
-        if (prismaTab && request.operation !== 'open' && (!tabCampaign || request.campaignId !== tabCampaign)) throw new Error('Check the campaign currently open in this Prisma tab.');
+        const overviewAction = prismaTab && request.fromMonitorOverview === true &&
+            (request.operation === 'check' || (request.operation === 'monitor' && request.monitor === false)) &&
+            (await records())[request.campaignId]?.monitor === true;
+        if (prismaTab && request.operation !== 'open' && !overviewAction && (!tabCampaign || request.campaignId !== tabCampaign)) throw new Error('Check the campaign currently open in this Prisma tab.');
         if (request.operation === 'open' && prismaTab) {
             const url = new URL(currentTabUrl);
             const match = url.hash.match(/(?:^#|[&?])campaign-id=(CP[A-Z0-9]+)/);

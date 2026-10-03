@@ -1,11 +1,10 @@
+const { readScript } = require('../helpers/read-script');
 const fs = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 
-const featureScript = fs.readFileSync(
-    path.resolve(__dirname, '../../features/campaign-tab-title.js'),
-    'utf8'
-);
+const filename = path.resolve(__dirname, '../../features/campaign-tab-title.js');
+const featureScript = readScript(filename);
 
 const campaignUrl = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=12345';
 
@@ -106,7 +105,9 @@ describe('campaign tab title', () => {
     });
 
     test('does not watch every mutation in the document head', () => {
-        expect(featureScript).toContain("headObserver.observe(document.head, { childList: true });");
-        expect(featureScript).not.toContain('observer.observe(document.head, { childList: true, subtree: true, characterData: true });');
+        // Inspect the source contract, rather than coverage-instrumented code.
+        const source = fs.readFileSync(filename, 'utf8');
+        expect(source).toContain("headObserver.observe(document.head, { childList: true });");
+        expect(source).not.toContain('observer.observe(document.head, { childList: true, subtree: true, characterData: true });');
     });
 });

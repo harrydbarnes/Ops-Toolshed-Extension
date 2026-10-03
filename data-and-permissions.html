@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Data and permissions · Ops Toolshed</title>
+    <link rel="stylesheet" href="onboarding.css">
+</head>
+<body>
+<main class="onboarding-shell privacy-shell">
+    <header class="onboarding-header"><a class="brand" href="onboarding.html"><img src="icon.png" alt=""><span>Ops Toolshed</span></a><a class="quiet-action" href="settings.html">Settings</a></header>
+    <div class="onboarding-stage privacy-content">
+        <h1>Data and permissions</h1>
+        <p class="stage-description">See what is saved, where connections go and why browser access is needed.</p>
+        <section aria-labelledby="storage-heading">
+            <h2 id="storage-heading">Where your data lives</h2>
+            <div class="data-flow">
+                <div class="data-destination"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17H6a4 4 0 0 1-1-8 7 7 0 0 1 13-1 4.5 4.5 0 0 1 0 9h-1M9 14l3-3 3 3m-3-3v10"/></svg><h3>Chrome profile</h3><span class="data-tag">Saved in your Chrome profile</span><p>Feature choices, setup profile, reminder schedule and custom reminder text.</p><small>May sync when Chrome Sync is enabled and the extension ID matches. Control in Settings and Chrome Sync.</small></div>
+                <div class="data-destination"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M8 21h8m-4-5v5"/></svg><h3>This browser</h3><span class="data-tag">Local extension storage</span><p>Campaign history, approval records, approver favourites and recipient history, Stats, diagnostics and saved finance references.</p><small>Clear or disable these in the relevant tool.</small></div>
+                <div class="data-destination"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/></svg><h3>Your files</h3><span class="data-tag">Exports you choose</span><p>Uploaded reports are processed in the extension page. Saved references may stay locally; exported results and diagnostics go to your download location.</p><small>Clear source data in the tool; delete exports when no longer needed.</small></div>
+            </div>
+        </section>
+        <section aria-labelledby="connections-heading">
+            <h2 id="connections-heading">When data leaves the extension</h2>
+            <dl class="connection-list">
+                <div><dt>Mediaocean <span>Prisma features</span></dt><dd>Uses your signed-in session for campaign actions and approval checks. Enabled approval tracking polls every five minutes for Prisma bookers.</dd></div>
+                <div><dt>Company SharePoint <span>Help Guides</span></dt><dd>Opens company guidance and loads guide PDFs.</dd></div>
+                <div><dt>Meta Graph API <span>Optional checker</span></dt><dd>Uses your supplied access token to retrieve Meta data. The token is stored locally as a recoverable value, without extension encryption. Remove it in Social Booking Checker.</dd></div>
+                <div><dt>Public font &amp; style CDNs <span>Page appearance</span></dt><dd>Receive ordinary request metadata, such as your IP address. Extension code does not send campaign records to these services.</dd></div>
+            </dl>
+            <p class="privacy-note">There is no separate analytics endpoint. Stats and diagnostics stay local unless you export them. Diagnostics Mode expires after 24 hours or a browser restart and can be cleared sooner.</p>
+        </section>
+        <section aria-labelledby="permissions-heading">
+            <h2 id="permissions-heading">What browser access supports</h2>
+            <dl class="permission-list">
+                <div><dt>Preferences &amp; reminders</dt><dd>Storage, alarms and notifications save choices and show reminders.</dd></div>
+                <div><dt>Page tools &amp; navigation</dt><dd>Active tab, tabs, scripting and side panel support page enhancements, shortcuts and guides.</dd></div>
+                <div><dt>Copy &amp; paste actions</dt><dd>Clipboard read/write and offscreen access support explicit copy and paste. Clipboard content can be sensitive and is handled for the requested action.</dd></div>
+                <div><dt>Service connections</dt><dd>Host access covers Mediaocean sites, company SharePoint and Meta Graph API.</dd></div>
+            </dl>
+            <p class="privacy-note">Choosing “I don't book on Prisma” pauses Prisma injection and approval polling. It preserves preferences and existing local records; it does not remove Chrome permissions.</p>
+        </section>
+        <footer class="privacy-footnote">Use a company-managed Chrome profile and follow company retention rules for exported files. This overview supports rollout review and does not replace company data policy.</footer>
+    </div>
+</main>
+</body>
+</html>

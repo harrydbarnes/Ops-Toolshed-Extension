@@ -1,6 +1,7 @@
+const { readScript } = require('./helpers/read-script');
 const fs=require('fs'),path=require('path'),{JSDOM}=require('jsdom');
 const html=fs.readFileSync(path.resolve(__dirname,'../meta-access.html'),'utf8');
-const script=fs.readFileSync(path.resolve(__dirname,'../meta-access.js'),'utf8');
+const script=readScript(path.resolve(__dirname,'../meta-access.js'));
 const flush=async()=>{for(let i=0;i<15;i++)await Promise.resolve();};
 describe('Standalone Meta access without report uploads',()=>{
     let dom,chrome,storage;

@@ -1,8 +1,9 @@
 const fs = require('fs');
+const { readScript } = require('./helpers/read-script');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 
-const gateSource = fs.readFileSync(path.resolve(__dirname, '../extension-page-gate.js'), 'utf8');
+const gateSource = readScript(path.resolve(__dirname, '../extension-page-gate.js'));
 const gatedPages = [
     'settings.html',
     'toolshed.html',

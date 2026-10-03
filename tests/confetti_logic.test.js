@@ -1,5 +1,5 @@
 /**
- * @jest-environment jsdom
+ * @jest-environment ./tests/jsdom-environment.cjs
  */
 const fs = require('fs');
 const path = require('path');

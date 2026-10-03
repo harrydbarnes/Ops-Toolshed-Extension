@@ -1,11 +1,8 @@
 const { JSDOM } = require('jsdom');
-const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 
-const featureScript = fs.readFileSync(
-    path.resolve(__dirname, '../../features/actualise-scroll-restore.js'),
-    'utf8'
-);
+const featureScript = readScript(path.resolve(__dirname, '../../features/actualise-scroll-restore.js'));
 
 function makeScrollable(element, scrollLeft = 0) {
     Object.defineProperty(element, 'scrollWidth', { configurable: true, value: 1600 });

@@ -1,0 +1,1 @@
+window.coverageFixtureResult = 42;

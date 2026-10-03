@@ -1,12 +1,10 @@
 const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 const { captureTrustedClicks } = require('../helpers/trusted-dom-event');
 
-const featureScript = fs.readFileSync(
-    path.resolve(__dirname, '../../features/campaign-history.js'),
-    'utf8'
-);
+const featureScript = readScript(path.resolve(__dirname, '../../features/campaign-history.js'));
 const contentCss = fs.readFileSync(path.resolve(__dirname, '../../content.css'), 'utf8');
 
 function cssRule(css, selector) {

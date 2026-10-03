@@ -1,11 +1,8 @@
 const { JSDOM } = require('jsdom');
-const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 
-const script = fs.readFileSync(
-    path.resolve(__dirname, '../../features/order-grid-scroll-sync.js'),
-    'utf8'
-);
+const script = readScript(path.resolve(__dirname, '../../features/order-grid-scroll-sync.js'));
 
 function setup({
     enabled = true,

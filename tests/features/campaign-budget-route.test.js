@@ -1,11 +1,8 @@
 const { JSDOM } = require('jsdom');
-const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 
-const campaignScript = fs.readFileSync(
-    path.resolve(__dirname, '../../features/campaign.js'),
-    'utf8'
-);
+const campaignScript = readScript(path.resolve(__dirname, '../../features/campaign.js'));
 
 function createCampaignPage(url, settings = {}) {
     const dom = new JSDOM(`<!doctype html>

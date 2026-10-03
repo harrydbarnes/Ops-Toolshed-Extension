@@ -1,6 +1,7 @@
+const { readScript } = require('./helpers/read-script');
 const fs=require('fs'),path=require('path'),{JSDOM}=require('jsdom');
 const html=fs.readFileSync(path.resolve(__dirname,'../social-campaign-check.html'),'utf8');
-const script=fs.readFileSync(path.resolve(__dirname,'../social-campaign-check.js'),'utf8');
+const script=readScript(path.resolve(__dirname,'../social-campaign-check.js'));
 const css=fs.readFileSync(path.resolve(__dirname,'../social-campaign-check.css'),'utf8');
 const flush=async()=>{for(let index=0;index<20;index++)await Promise.resolve();};
 describe('Live campaign check feedback',()=>{

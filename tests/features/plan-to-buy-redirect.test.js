@@ -1,11 +1,8 @@
-const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 
-const script = fs.readFileSync(
-    path.resolve(__dirname, '../../features/plan-to-buy-redirect.js'),
-    'utf8'
-);
+const script = readScript(path.resolve(__dirname, '../../features/plan-to-buy-redirect.js'));
 
 function setup(url, enabled = true, body = '') {
     const dom = new JSDOM(`<!doctype html><html><body>${body}</body></html>`, {

@@ -1,9 +1,10 @@
 const fs = require('fs');
+const { readScript } = require('./helpers/read-script');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 
 const html = fs.readFileSync(path.resolve(__dirname, '../onboarding-tour.html'), 'utf8');
-const script = fs.readFileSync(path.resolve(__dirname, '../onboarding-tour.js'), 'utf8');
+const script = readScript(path.resolve(__dirname, '../onboarding-tour.js'));
 
 function setup(settings = {}, startingUrl = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#route=campaigns') {
     const dom = new JSDOM(html, { runScripts: 'outside-only', url: 'chrome-extension://test/onboarding-tour.html' });

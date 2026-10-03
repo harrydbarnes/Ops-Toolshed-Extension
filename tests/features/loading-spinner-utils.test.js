@@ -1,8 +1,8 @@
-const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 
-const utilsCode = fs.readFileSync(path.resolve(__dirname, '../../utils.js'), 'utf8');
+const utilsCode = readScript(path.resolve(__dirname, '../../utils.js'));
 
 describe('shared loading spinner detection', () => {
     test('returns null when a Shadow DOM search is given no root', () => {

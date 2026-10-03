@@ -1,11 +1,9 @@
 const { JSDOM } = require('jsdom');
 const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 
-const gmiChatScript = fs.readFileSync(
-    path.resolve(__dirname, '../../features/gmi-chat.js'),
-    'utf8'
-);
+const gmiChatScript = readScript(path.resolve(__dirname, '../../features/gmi-chat.js'));
 const contentStyles = fs.readFileSync(
     path.resolve(__dirname, '../../content.css'),
     'utf8'
@@ -50,7 +48,7 @@ describe('GMI Chat behaviour', () => {
         storageListener({ gmiChatShortcutEnabled: { newValue: false } }, 'sync');
 
         expect(window.document.body.classList).not.toContain('gmi-chat-enabled');
-        expect(window.getComputedStyle(workflowWidget).minWidth).toBe('');
+        expect(window.getComputedStyle(workflowWidget).minWidth).toBe('auto');
         expect(workflowWidget.querySelector('.gmi-chat-button')).toBeNull();
         dom.window.close();
     });

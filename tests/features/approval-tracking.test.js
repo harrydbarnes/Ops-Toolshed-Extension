@@ -285,9 +285,10 @@ describe('Approval Polling Service', () => {
 
 describe('Approval Tracking Content Script UI', () => {
     const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
     const path = require('path');
     const { JSDOM } = require('jsdom');
-    const scriptCode = fs.readFileSync(path.resolve(__dirname, '../../features/approval-tracking.js'), 'utf8');
+    const scriptCode = readScript(path.resolve(__dirname, '../../features/approval-tracking.js'));
     const approvalCss = fs.readFileSync(path.resolve(__dirname, '../../features/approval-tracking.css'), 'utf8');
 
     let dom;

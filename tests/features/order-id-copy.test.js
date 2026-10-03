@@ -1,9 +1,9 @@
 const { JSDOM } = require('jsdom');
-const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 const { captureTrustedClicks } = require('../helpers/trusted-dom-event');
 
-const featureScript = fs.readFileSync(path.resolve(__dirname, '../../features/order-id-copy.js'), 'utf8');
+const featureScript = readScript(path.resolve(__dirname, '../../features/order-id-copy.js'));
 
 describe('Order ID Copy Feature', () => {
     let dom, window, document, storageListener, trustedClick;

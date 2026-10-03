@@ -11,7 +11,7 @@ function collectJavaScriptFiles(directory) {
         if (entry.isDirectory()) {
             return ignoredDirectories.has(entry.name) ? [] : collectJavaScriptFiles(filePath);
         }
-        return entry.isFile() && entry.name.endsWith('.js') ? [filePath] : [];
+        return entry.isFile() && /\.(?:js|cjs|mjs)$/.test(entry.name) ? [filePath] : [];
     });
 }
 

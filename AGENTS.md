@@ -22,10 +22,20 @@ Before creating **ANY** commit, pushing a branch, or marking a task as "Complete
 If this step is skipped, the "Build Date" seen by users will remain "stuck" on the previous version, causing confusion. Do not rely solely on the pre-commit hook; explicitly run this to ensure success.
 
 ## Environment Setup
+* Development and CI require Node.js 24.11 or newer. Babel 8 and jsdom 30 are development dependencies; they are not bundled into the extension.
+* Jest commands must enable `--experimental-vm-modules` to load jsdom 30's ESM dependencies. Prefer the npm scripts, which include this flag.
+* Jest's `babel-preset-current-node-syntax` is overridden with the local compatibility preset in `scripts/babel-current-node-syntax`. It relies on the built-in ECMAScript parser in Babel 7.29.7 and Babel 8 instead of installing obsolete Babel 7-only syntax plugins. Retain Jest's separate mock-hoisting preset and remove this override when upstream fixes its dependency tree.
 * Ensure the `.husky/pre-commit` hook is executable:
     ```bash
     chmod +x .husky/pre-commit
     ```
+
+### Dependency and test maintenance
+
+* Dependabot version PRs are disabled with `open-pull-requests-limit: 0`; keep automatic security PRs disabled in GitHub settings too. Vulnerability alerts stay enabled. Run `npm run dependencies:report` locally for updates and audit results. There are no scheduled reporting jobs or Codex reviews.
+* Jest and manually created windows both use the root jsdom 30 dependency. Use `@jest-environment ./tests/jsdom-environment.cjs` for browser-environment suites.
+* The jsdom test wrapper closes manually created windows after each test, including across `jest.resetModules()`. Continue closing windows explicitly when a test finishes using them.
+* Use `tests/helpers/read-script.js` for browser scripts executed from source text. It instruments scripts during coverage runs and shares counters with the Jest process; ordinary filesystem reads bypass Jest's coverage transform.
 
 ## Project Architecture
 
@@ -75,7 +85,7 @@ Useful commands:
 
 ```bash
 npm test
-node node_modules/jest/bin/jest.js --runTestsByPath tests/toolshed-stats.test.js --runInBand --coverage=false
+node --experimental-vm-modules node_modules/jest/bin/jest.js --runTestsByPath tests/toolshed-stats.test.js --runInBand --coverage=false
 ```
 
 ### Prisma Refactor Regression Gate

@@ -1,9 +1,10 @@
 const fs = require('fs');
+const { readScript } = require('./helpers/read-script');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 
 const html = fs.readFileSync(path.resolve(__dirname, '../onboarding.html'), 'utf8');
-const script = fs.readFileSync(path.resolve(__dirname, '../onboarding.js'), 'utf8');
+const script = readScript(path.resolve(__dirname, '../onboarding.js'));
 
 function createStorage(initial = {}) {
     const store = { ...initial };
@@ -51,12 +52,14 @@ describe('First-run onboarding', () => {
         await Promise.resolve();
         const doc = dom.window.document;
         expect(doc.getElementById('audience-choice').hidden).toBe(false);
-        expect(doc.querySelector('#audience-choice a[href="docs/data-and-permissions.md"]')).not.toBeNull();
+        expect(doc.querySelector('#audience-choice a[href="data-and-permissions.html"]')).not.toBeNull();
         doc.getElementById('choose-non-prisma').click();
         await Promise.resolve();
         await Promise.resolve();
         expect(sync.store.onboardingAudience).toBe('non-prisma');
         expect(doc.getElementById('non-prisma-setup').hidden).toBe(false);
+        expect(doc.querySelectorAll('.shared-tool-list dt')).toHaveLength(4);
+        expect(doc.getElementById('choose-non-prisma').textContent).toContain('Social Booking Checker');
         expect(doc.querySelector('[data-page="0"]').hidden).toBe(true);
         expect(chrome.sidePanel.open).not.toHaveBeenCalled();
         doc.getElementById('finish-non-prisma').click();
@@ -129,6 +132,18 @@ describe('First-run onboarding', () => {
         expect(local.store).toEqual(expect.objectContaining({ onboardingCompleted: true, onboardingTourActive: true, onboardingTourVersion: 'v2' }));
         dom.window.close();
     });
+});
+
+test('data review has visual storage destinations and explains retained permissions', () => {
+    const review = fs.readFileSync(path.resolve(__dirname, '../data-and-permissions.html'), 'utf8');
+    const dom = new JSDOM(review);
+    const doc = dom.window.document;
+    expect(doc.querySelectorAll('.data-destination')).toHaveLength(3);
+    expect(doc.querySelectorAll('.connection-list > div')).toHaveLength(4);
+    expect(doc.querySelectorAll('.permission-list > div')).toHaveLength(4);
+    expect(doc.body.textContent).toContain('does not remove Chrome permissions');
+    expect(doc.body.textContent).toContain('without extension encryption');
+    dom.window.close();
 });
 
 

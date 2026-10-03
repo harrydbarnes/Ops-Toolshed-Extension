@@ -1,11 +1,8 @@
-const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 
-const featureCode = fs.readFileSync(
-    path.resolve(__dirname, '../../features/applearn-replace.js'),
-    'utf8'
-);
+const featureCode = readScript(path.resolve(__dirname, '../../features/applearn-replace.js'));
 
 function createFeature({ enabled = true, inShadowRoot = false } = {}) {
     const dom = new JSDOM('<!doctype html><html><head></head><body><div id="host"></div></body></html>', {
