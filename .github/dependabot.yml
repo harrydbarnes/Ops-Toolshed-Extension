@@ -1,0 +1,14 @@
+version: 2
+updates:
+  # Report-only policy: no version-update PRs. Keep security-update PRs disabled
+  # separately in repository settings; Dependabot alerts remain available.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
