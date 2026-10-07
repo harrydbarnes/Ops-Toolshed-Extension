@@ -61,7 +61,9 @@
                 </div>
                 <div class="toggle-container">
                     <span>Replace Prisma Logo:</span>
-                    <label class="toggle"><input type="checkbox" id="logoToggle"><span class="slider"></span></label>
+                    <label class="toggle">
+                        <input type="checkbox" id="logoToggle"><span class="slider"></span>
+                    </label>
                 </div>
                 <div class="toggle-container">
                     <span>Translucent 'AppLearn' Logo:</span>
@@ -168,6 +170,16 @@
                 <div class="toggle-container">
                     <span>Log campaigns visited:</span>
                     <label class="toggle"><input type="checkbox" id="campaignHistoryLoggingToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container" data-feature-mode-available-when-disabled>
+                    <div class="settings-feature-mode-copy">
+                        <span>Redirect links from the retired Prisma URL:</span>
+                        <p class="settings-feature-mode-help">On by default. Keeps old campaign links working and remains available when Features are off.</p>
+                    </div>
+                    <label class="toggle">
+                        <input type="checkbox" id="legacyPrismaRedirectToggle" aria-label="Redirect links from the retired Prisma URL">
+                        <span class="slider"></span>
+                    </label>
                 </div>
             </section>
 
@@ -496,7 +508,7 @@
             <a href="#" id="open-feedback-modal">Have an idea? Let the chef know here!</a>
         </div>
     </div>
-    <script src="extension-page-gate.js" data-scripts="feature-settings-registry.js,build-info.js,utils.js,features/feedback-modal.js,features/loading-facts.js,settings.js"></script>
+    <script src="extension-page-gate.js" data-allow-when-disabled="true" data-scripts="feature-settings-registry.js,build-info.js,utils.js,features/feedback-modal.js,features/loading-facts.js,settings.js"></script>
 
     <div id="build-info" class="build-info"></div>
 

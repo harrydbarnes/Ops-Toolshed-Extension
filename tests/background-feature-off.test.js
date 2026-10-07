@@ -70,6 +70,19 @@ describe('background behavior while Features is off', () => {
         expect(chrome.alarms.create).not.toHaveBeenCalled();
     });
 
+    test('redirects legacy Prisma campaign links while Features is off', async () => {
+        await loadDisabledBackground();
+        const tabUpdatedListener = chrome.tabs.onUpdated.addListener.mock.calls[0][0];
+        const url = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP3JFCF&ptb-mod=buy';
+
+        tabUpdatedListener(12, { url }, { id: 12, url, windowId: 7 });
+        await new Promise(resolve => jest.requireActual('timers').setTimeout(resolve, 1));
+
+        expect(chrome.tabs.update).toHaveBeenCalledWith(12, {
+            url: 'https://go.mediaocean.com/campaign-management/#campaign-id=CP3JFCF&ptb-mod=buy'
+        });
+    });
+
     test('an Off transition clears alarms, notifications, panels, and offscreen work', async () => {
         await loadDisabledBackground();
         await new Promise(jest.requireActual('timers').setImmediate);

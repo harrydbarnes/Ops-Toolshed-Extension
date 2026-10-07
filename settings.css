@@ -152,6 +152,33 @@ section h2 {
     font-size: .85em;
 }
 
+.settings-feature-mode-help {
+    margin: 6px 0 0;
+    color: #596273;
+    font-size: .9em;
+    line-height: 1.45;
+}
+
+.settings-feature-mode-copy {
+    flex: 1;
+    min-width: 0;
+}
+
+#features > section.is-feature-mode-off {
+    opacity: .48;
+    filter: grayscale(.2);
+}
+
+#features > section > .toggle-container.is-feature-mode-off {
+    opacity: .48;
+    filter: grayscale(.2);
+}
+
+.tab-content.is-feature-mode-off {
+    opacity: .48;
+    filter: grayscale(.2);
+}
+
 .setting-row label,
 .setting-row .setting-label {
     font-size: 1em;

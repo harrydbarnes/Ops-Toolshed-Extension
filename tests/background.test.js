@@ -305,13 +305,29 @@ describe('legacy Prisma tab redirect', () => {
         require('../background');
     });
 
-    test('moves an old campaign link to go.mediaocean.com in the same tab', () => {
+    test('moves an old campaign link to go.mediaocean.com in the same tab', async () => {
         const listener = chrome.tabs.onUpdated.addListener.mock.calls[0][0];
         const url = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP3JFCF&ptb-mod=buy';
         listener(12, { url }, { id: 12, url, windowId: 7 });
+        await new Promise(resolve => setTimeout(resolve, 1));
         expect(chrome.tabs.update).toHaveBeenCalledWith(12, {
             url: 'https://go.mediaocean.com/campaign-management/#campaign-id=CP3JFCF&ptb-mod=buy'
         });
+    });
+
+    test('respects the independent legacy Prisma redirect setting', async () => {
+        chrome.storage.sync.get.mockImplementation((_keys, callback) => {
+            const result = { legacyPrismaRedirectEnabled: false };
+            callback?.(result);
+            return Promise.resolve(result);
+        });
+        const listener = chrome.tabs.onUpdated.addListener.mock.calls[0][0];
+        const url = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP3JFCF';
+
+        listener(12, { url }, { id: 12, url, windowId: 7 });
+        await new Promise(resolve => setTimeout(resolve, 1));
+
+        expect(chrome.tabs.update).not.toHaveBeenCalled();
     });
 });
 

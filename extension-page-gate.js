@@ -3,6 +3,7 @@
 
     const MASTER_KEY = 'allFeaturesDisabled';
     const gateScript = document.currentScript;
+    const allowWhenDisabled = gateScript?.dataset.allowWhenDisabled === 'true';
     const scriptsToLoad = (gateScript?.dataset.scripts || '').split(',').map(value => value.trim()).filter(Boolean);
     const moduleScripts = new Set((gateScript?.dataset.modules || '').split(',').map(value => value.trim()).filter(Boolean));
     let resolveReady;
@@ -70,8 +71,8 @@
         if (settled) return;
         enabled = isEnabled === true;
         settled = true;
-        resolveReady(enabled);
-        if (enabled) activatePage().catch(error => {
+        resolveReady(enabled || allowWhenDisabled);
+        if (enabled || allowWhenDisabled) activatePage().catch(error => {
             console.error('Could not activate extension page:', error);
             showDisabledPage();
         });
@@ -91,6 +92,8 @@
     chrome.storage.onChanged.addListener((changes, areaName) => {
         if (areaName !== 'sync' || !changes[MASTER_KEY]) return;
         const nextEnabled = changes[MASTER_KEY].newValue !== true;
-        if (settled && nextEnabled !== enabled) window.location.reload();
+        if (!settled || nextEnabled === enabled) return;
+        if (allowWhenDisabled) enabled = nextEnabled;
+        else window.location.reload();
     });
 })();

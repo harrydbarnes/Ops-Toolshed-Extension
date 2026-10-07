@@ -312,7 +312,7 @@ function addFeatureSettingPreviews(root = document) {
         const preview = control && FEATURE_SETTING_PREVIEWS[control.id];
         if (!preview) return;
         container.dataset.featurePreviewControl = control.id;
-        const label = Array.from(container.children).find(child => child.tagName === 'SPAN');
+        const label = container.querySelector(':scope > span, :scope > div > span');
         if (label && !container.querySelector('.feature-tooltip-indicator')) {
             const labelGroup = root.createElement('span');
             labelGroup.className = 'feature-setting-label';
@@ -528,6 +528,41 @@ document.addEventListener('DOMContentLoaded', async function() {
         console.error('Failed to load Settings preferences; using defaults for this page:', error);
         settings = { ...SETTINGS_DEFAULTS };
     }
+
+    const featureSettingSections = document.querySelectorAll('#features > section');
+    const setFeatureModeInert = (element, disabled) => {
+        element.inert = disabled;
+        element.classList.toggle('is-feature-mode-off', disabled);
+        if (disabled) element.setAttribute('aria-disabled', 'true');
+        else element.removeAttribute('aria-disabled');
+    };
+    const setSettingsFeatureMode = enabled => {
+        featureSettingSections.forEach(section => {
+            const availableWhenDisabled = section.querySelector(':scope > [data-feature-mode-available-when-disabled]');
+            if (!availableWhenDisabled) {
+                setFeatureModeInert(section, !enabled);
+                return;
+            }
+
+            setFeatureModeInert(section, false);
+            Array.from(section.children).forEach(child => {
+                const keepAvailable = child.tagName === 'H2' || child === availableWhenDisabled;
+                setFeatureModeInert(child, !enabled && !keepAvailable);
+            });
+        });
+        document.querySelectorAll('.tab-button:not(#tab-features)').forEach(button => {
+            button.disabled = !enabled;
+            button.setAttribute('aria-disabled', String(!enabled));
+        });
+        document.querySelectorAll('.tab-content:not(#features)').forEach(panel => {
+            panel.inert = !enabled;
+            panel.classList.toggle('is-feature-mode-off', !enabled);
+        });
+    };
+    setSettingsFeatureMode(window.opsToolshedPageGate
+        ? window.opsToolshedPageGate.isEnabled()
+        : true);
+
     // --- Feedback Modal Logic --- 
     const feedbackLink = document.getElementById('open-feedback-modal'); 
     if (feedbackLink) { 
@@ -930,6 +965,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupToggle('appLearnReplaceToggle', 'appLearnReplaceEnabled', 'AppLearn transparency setting saved:', settings);
     setupToggle('blockAppLearnPopupsToggle', 'blockAppLearnPopupsEnabled', 'AppLearn popup blocking setting saved:', settings);
     setupToggle('helpGuidesToggle', 'helpGuidesEnabled', 'Help Guides setting saved:', settings);
+    setupToggle('legacyPrismaRedirectToggle', 'legacyPrismaRedirectEnabled', 'Legacy Prisma URL redirect setting saved:', settings);
     setupToggle('prismaLoginAssistantToggle', 'prismaLoginAssistantEnabled', 'Prisma sign-in assistant setting saved:', settings);
 
     const prismaLoginAssistantToggle = document.getElementById('prismaLoginAssistantToggle');
@@ -1316,6 +1352,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     // popup kill switch or any other extension surface.
     chrome.storage.onChanged.addListener((changes, area) => {
         if (area !== 'sync') return;
+        if (changes.allFeaturesDisabled) {
+            setSettingsFeatureMode(changes.allFeaturesDisabled.newValue !== true);
+        }
         if (changes.onboardingAudience) showOnboardingAudience(changes.onboardingAudience.newValue);
 
         syncedToggleInputs.forEach((input, storageKey) => {

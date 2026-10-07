@@ -446,13 +446,17 @@ chrome.tabs.onCreated.addListener(tab => {
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    if (!isFeatureModeActive()) return;
     const currentUrl = changeInfo.url || tab.url;
     const prismaRedirect = changeInfo.url && getLegacyPrismaRedirect(changeInfo.url);
     if (prismaRedirect) {
-        chrome.tabs.update(tabId, { url: prismaRedirect });
+        chrome.storage.sync.get({ legacyPrismaRedirectEnabled: true }, settings => {
+            if (chrome.runtime?.lastError || settings?.legacyPrismaRedirectEnabled !== false) {
+                chrome.tabs.update(tabId, { url: prismaRedirect });
+            }
+        });
         return;
     }
+    if (!isFeatureModeActive()) return;
     if (changeInfo.status === 'loading' && isMediaoceanUrl(currentUrl)) {
         rememberLoadingMediaoceanTab(tabId, tab.windowId);
     } else if (changeInfo.status === 'complete' || (changeInfo.url && !isMediaoceanUrl(currentUrl))) {

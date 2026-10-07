@@ -15,7 +15,7 @@ const gatedPages = [
     'social-finance.html'
 ];
 
-function createPage({ disabled = false, storageError = false } = {}) {
+function createPage({ disabled = false, storageError = false, allowWhenDisabled = false } = {}) {
     const dom = new JSDOM('<!doctype html><html><body><p id="original">Original</p></body></html>', {
         runScripts: 'outside-only',
         url: 'chrome-extension://test/settings.html'
@@ -23,6 +23,7 @@ function createPage({ disabled = false, storageError = false } = {}) {
     const { window } = dom;
     const gateScript = window.document.createElement('script');
     gateScript.dataset.scripts = '';
+    if (allowWhenDisabled) gateScript.dataset.allowWhenDisabled = 'true';
     Object.defineProperty(window.document, 'currentScript', {
         configurable: true,
         value: gateScript
@@ -57,6 +58,18 @@ describe('extension page gate', () => {
         dom.window.close();
     });
 
+    test('loads Settings while Features are off when the page opts into access', async () => {
+        const dom = createPage({ disabled: true, allowWhenDisabled: true });
+        await Promise.resolve();
+        await Promise.resolve();
+
+        await expect(dom.window.opsToolshedPageGate.ready).resolves.toBe(true);
+        expect(dom.window.opsToolshedPageGate.isEnabled()).toBe(false);
+        expect(dom.window.document.documentElement.hidden).toBe(false);
+        expect(dom.window.document.getElementById('original')).not.toBeNull();
+        dom.window.close();
+    });
+
     test('unhides an enabled page after the gate resolves', async () => {
         const dom = createPage({ disabled: false });
         await Promise.resolve();
@@ -86,5 +99,10 @@ describe('extension page gate', () => {
             expect(html).toContain('data-scripts=');
             expect(html).toContain('<style>html { visibility: hidden; }</style>');
         });
+    });
+
+    test('opts Settings into loading while the master feature mode is off', () => {
+        const html = fs.readFileSync(path.resolve(__dirname, '../settings.html'), 'utf8');
+        expect(html).toContain('data-allow-when-disabled="true"');
     });
 });

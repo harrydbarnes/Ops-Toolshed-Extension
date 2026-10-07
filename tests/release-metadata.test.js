@@ -50,7 +50,7 @@ describe('release metadata', () => {
         try {
             const currentRelease = dom.window.document.querySelector('#release-notes .release');
             const releaseItems = Array.from(currentRelease.querySelectorAll('li'));
-            expect(releaseItems).toHaveLength(33);
+            expect(releaseItems).toHaveLength(34);
             expect(currentRelease.textContent).toContain('Social Booking Checker IDs');
             expect(releaseItems[0].textContent).toContain('Purchase Order Reference Autofill');
             expect(releaseItems[0].querySelector('.release-badge').dataset.releaseType).toBe('new');
@@ -59,7 +59,7 @@ describe('release metadata', () => {
             expect(releaseItems[2].textContent).toContain('Live Meta Campaign Checks');
             const items = releaseItems.slice(3);
 
-            expect(items).toHaveLength(30);
+            expect(items).toHaveLength(31);
             expect(items[4].textContent).toContain('Help Guide Library');
             expect(items[5].textContent).toContain('Loading Facts');
             expect(items[0].textContent).toContain('Campaign Approval Tracking');
@@ -80,12 +80,13 @@ describe('release metadata', () => {
             expect(items[17].textContent).toContain('Prisma Sign-in Assistant');
             expect(items[18].textContent).toContain('Campaign Name Copy');
             expect(items[19].textContent).toContain('Plan Navigation');
-            expect(items[20].textContent).toContain('Not Submitted');
-            expect(items[21].textContent).toContain('already-approved campaign');
-            expect(items[22].textContent).toContain('clear idle state');
-            expect(items[23].textContent).toContain('Redistribute action');
-            expect(items[25].textContent).toContain('permanent Moe chat bubble');
-            expect(items[26].textContent).toContain('retired Loading Fact Review');
+            expect(items[20].textContent).toContain('Legacy Prisma Links');
+            expect(items[21].textContent).toContain('Not Submitted');
+            expect(items[22].textContent).toContain('already-approved campaign');
+            expect(items[23].textContent).toContain('clear idle state');
+            expect(items[24].textContent).toContain('Redistribute action');
+            expect(items[26].textContent).toContain('permanent Moe chat bubble');
+            expect(items[27].textContent).toContain('retired Loading Fact Review');
             expect(items[6].textContent).toContain('Getting Started');
             expect(items[7].textContent).toContain('Feature Previews');
         } finally {

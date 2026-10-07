@@ -9,6 +9,7 @@ const EXPECTED_DEFAULTS = {
     appLearnReplaceEnabled: true,
     blockAppLearnPopupsEnabled: true,
     helpGuidesEnabled: true,
+    legacyPrismaRedirectEnabled: true,
     approverSidebarEnhancementsEnabled: true,
     approverSubmittedRecipientDisplayEnabled: true,
     approvalTrackingEnabled: true,

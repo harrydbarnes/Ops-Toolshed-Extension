@@ -10,6 +10,7 @@ const utilsScript = readScript(path.resolve(__dirname, '../utils.js'));
 const registryScript = readScript(path.resolve(__dirname, '../feature-settings-registry.js'));
 
 const FEATURE_TOGGLE_KEYS = {
+    legacyPrismaRedirectToggle: 'legacyPrismaRedirectEnabled',
     logoToggle: 'logoReplaceEnabled',
     appLearnReplaceToggle: 'appLearnReplaceEnabled',
     bannerUsernameToggle: 'bannerUsernameEnabled',
@@ -199,6 +200,44 @@ describe('Settings feature toggle contract', () => {
         }
 
         for (let index = 0; index < 5; index += 1) await Promise.resolve();
+        dom.window.close();
+    });
+
+    test('keeps only the Prisma redirect control available in Navigation while popup Features are off', async () => {
+        const { dom, window } = await createSettingsPage();
+        const navigationSettings = window.document.getElementById('navigation-settings');
+        const appearanceSettings = window.document.getElementById('appearance-settings');
+        const redirectToggle = window.document.getElementById('legacyPrismaRedirectToggle');
+        const redirectRow = redirectToggle.closest('.toggle-container');
+        const campaignTabTitleRow = window.document.getElementById('campaignTabTitleToggle').closest('.toggle-container');
+        const remindersTab = window.document.getElementById('tab-reminders');
+        const remindersPanel = window.document.getElementById('reminders');
+        const onStorageChange = window.chrome.storage.onChanged.addListener.mock.calls[0][0];
+
+        expect(window.document.getElementById('settingsFeaturesMasterToggle')).toBeNull();
+        onStorageChange({ allFeaturesDisabled: { newValue: true } }, 'sync');
+        expect(appearanceSettings.inert).toBe(true);
+        expect(appearanceSettings.getAttribute('aria-disabled')).toBe('true');
+        expect(appearanceSettings.classList.contains('is-feature-mode-off')).toBe(true);
+        expect(navigationSettings.inert).toBe(false);
+        expect(campaignTabTitleRow.inert).toBe(true);
+        expect(campaignTabTitleRow.getAttribute('aria-disabled')).toBe('true');
+        expect(redirectRow.inert).toBe(false);
+        expect(remindersTab.disabled).toBe(true);
+        expect(remindersPanel.inert).toBe(true);
+        expect(redirectToggle.disabled).toBe(false);
+
+        redirectToggle.click();
+        expect(window.chrome.storage.sync.set).toHaveBeenCalledWith(
+            { legacyPrismaRedirectEnabled: false },
+            expect.any(Function)
+        );
+
+        onStorageChange({ allFeaturesDisabled: { newValue: false } }, 'sync');
+        expect(appearanceSettings.inert).toBe(false);
+        expect(appearanceSettings.classList.contains('is-feature-mode-off')).toBe(false);
+        expect(campaignTabTitleRow.inert).toBe(false);
+        expect(remindersTab.disabled).toBe(false);
         dom.window.close();
     });
 
