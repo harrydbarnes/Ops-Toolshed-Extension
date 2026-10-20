@@ -582,6 +582,48 @@ describe('Background message routing', () => {
         expect(sendResponse).toHaveBeenCalledWith({ status: 'success' });
     });
 
+    test.each(['copyOrderIdToClipboard', 'getClipboardText'])(
+        'accepts %s with Chrome-provided Prisma origin when sender URL is absent', async (action) => {
+            chrome.runtime.getContexts.mockResolvedValue([{}]);
+            chrome.runtime.sendMessage.mockResolvedValue({ status: 'success', text: 'O-D30UV6T' });
+            const listener = loadMessageListener();
+            const sendResponse = jest.fn();
+            listener({ action, text: 'O-D30UV6T' }, {
+                id: chrome.runtime.id, tab: { id: 42 }, frameId: 0,
+                origin: 'https://go.mediaocean.com'
+            }, sendResponse);
+            await waitForResponse(sendResponse);
+            expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+                target: 'offscreen',
+                action: action === 'getClipboardText' ? 'readClipboard' : 'copyToClipboard'
+            }));
+            expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ status: 'success' }));
+        }
+    );
+
+    test.each([
+        { origin: 'null' },
+        { origin: 'http://go.mediaocean.com' },
+        { origin: 'https://mediaocean.com.attacker.example' },
+        { origin: 'https://go.mediaocean.com', url: 'https://attacker.example/' },
+        { origin: 'https://go.mediaocean.com', url: 'invalid' },
+        { origin: 'https://go.mediaocean.com', url: '' },
+        { origin: 'https://go.mediaocean.com', id: 'another-extension' },
+        { origin: 'https://go.mediaocean.com', tab: undefined }
+    ])('rejects unverified fallback metadata %j', async (metadata) => {
+        const listener = loadMessageListener();
+        const sendResponse = jest.fn();
+        listener({ action: 'copyOrderIdToClipboard', text: 'O-D30UV6T',
+            url: 'https://go.mediaocean.com' }, {
+            id: chrome.runtime.id, tab: { id: 42 }, ...metadata
+        }, sendResponse);
+        await waitForResponse(sendResponse);
+        expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
+        expect(sendResponse).toHaveBeenCalledWith({
+            status: 'error', message: 'Order ID copies are only available from Prisma.'
+        });
+    });
+
     test('rejects malformed Order ID copy requests', async () => {
         const listener = loadMessageListener();
         const sendResponse = jest.fn();

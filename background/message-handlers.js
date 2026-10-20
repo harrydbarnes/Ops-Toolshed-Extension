@@ -38,7 +38,9 @@ function getVerifiedPrismaRequest(request, sender) {
     let senderUrl;
     let requestedUrl;
     try {
-        senderUrl = new URL(sender?.url || '');
+        // Chrome can omit the document URL while still supplying its trusted origin.
+        // Never let origin override an explicitly supplied (possibly invalid) URL.
+        senderUrl = new URL(sender?.url === undefined ? sender?.origin : sender.url);
         requestedUrl = request?.url ? new URL(request.url) : null;
     } catch {
         return null;
