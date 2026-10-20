@@ -66,10 +66,6 @@
         console.log(`[Stats Collector] Campaign tracked: ${campaignId}`);
     }
 
-    function observeLoadingSpinner() {
-        scheduleLoadingCheck();
-    }
-
     function getPrismaArea(url = window.location.href) {
         let params;
         try {
@@ -98,18 +94,6 @@
     // --- 2. Track Loading Spinner Time ---
     let loadingSpinnerStartTime = null;
     let loadingSpinnerArea = '';
-    let loadingCheckScheduled = false;
-
-    function scheduleLoadingCheck() {
-        if (!isEnabled || loadingCheckScheduled) return;
-        loadingCheckScheduled = true;
-        const schedule = window.requestAnimationFrame || (callback => window.setTimeout(callback, 0));
-        schedule(() => {
-            loadingCheckScheduled = false;
-            checkLoadingState();
-        });
-    }
-
     function getVisibleSpinners(state) {
         if (Array.isArray(state?.visibleSpinners)) return state.visibleSpinners;
         if (window.loadingMonitor?.getState) {
@@ -184,16 +168,28 @@
 
     // --- Main Initialization ---
     let isInitialized = false;
+    let unsubscribeLoadingMonitor = null;
+
+    function startLoadingMeasurements() {
+        if (unsubscribeLoadingMonitor || !window.loadingMonitor?.subscribe) return;
+        unsubscribeLoadingMonitor = window.loadingMonitor.subscribe(checkLoadingState);
+    }
+
+    function stopLoadingMeasurements() {
+        finishActiveLoadingMeasurement();
+        unsubscribeLoadingMonitor?.();
+        unsubscribeLoadingMonitor = null;
+    }
     function initializeStatsCollector() {
         if (isInitialized) return;
 
-        // Loading Facts owns shared spinner observation. Stats must not add a
-        // second subscriber during Prisma's large initial campaign render;
-        // user-action counters remain active below.
+        // Share the existing monitor so statistics stay independent of Loading Facts.
+        startLoadingMeasurements();
 
         // Use event delegation for buttons
         document.body.addEventListener('click', handleClickEvents);
-        window.addEventListener('pagehide', finishActiveLoadingMeasurement);
+        window.addEventListener('pagehide', stopLoadingMeasurements);
+        window.addEventListener('pageshow', startLoadingMeasurements);
         window.addEventListener('hashchange', () => checkLoadingState());
         window.addEventListener('popstate', () => checkLoadingState());
 

@@ -126,6 +126,43 @@ describe('Order ID Copy Feature', () => {
         expect(cell.querySelector('button')).toBeNull();
     });
 
+    function createRecipientRow(contents, attributes = '') {
+        document.body.insertAdjacentHTML('afterbegin', '<div id="cm-buy-sidebar-order-revisions-header"><div class="mo-nav-list-item-accessory-content"><mo-menu></mo-menu></div></div>');
+        document.querySelector('tbody').insertAdjacentHTML('beforeend', '<tr><td id="orderRecipients-0" ' + attributes + '><div>' + contents + '</div></td></tr>');
+        window.orderIdCopyFeature.checkAndAddCopyButtons();
+        const cell = document.getElementById('orderRecipients-0');
+        return { cell, button: cell.querySelector('.ops-order-email-copy-btn') };
+    }
+
+    test.each(['(1 More)', '( 2 more )'])('does not copy incomplete recipients when Prisma shows %s', async overflow => {
+        const { button } = createRecipientRow('<mo-text>one@example.com</mo-text><mo-text>two@example.com</mo-text><div>' + overflow + '</div>');
+        trustedClick(button);
+        await Promise.resolve();
+        expect(window.chrome.runtime.sendMessage).not.toHaveBeenCalled();
+        expect(document.querySelector('.order-id-copy-toast').textContent).toBe('Prisma is hiding email addresses. The full recipient list is unavailable, so nothing was copied.');
+        expect(button.textContent).toBe('Copy');
+        expect(button.classList.contains('copied')).toBe(false);
+    });
+
+    test.each(['root', 'descendant'])('copies the complete recipient list from %s data-full-text despite overflow', async location => {
+        const fullText = 'one@example.com; two@example.com; three@example.com';
+        const { button } = createRecipientRow('<mo-text ' + (location === 'descendant' ? 'data-full-text="' + fullText + '"' : '') + '>one@example.com</mo-text><mo-text>two@example.com</mo-text><div>(1 More)</div>', location === 'root' ? 'data-full-text="' + fullText + '"' : '');
+        trustedClick(button);
+        await Promise.resolve();
+        expect(window.chrome.runtime.sendMessage).toHaveBeenLastCalledWith({ action: 'copyOrderEmailsToClipboard', text: fullText });
+    });
+
+    test('does not count repeated addresses as hidden recipients and rechecks the current DOM before retrying', async () => {
+        const { cell, button } = createRecipientRow('<mo-text data-full-text="ONE@example.com; two@example.com">one@example.com</mo-text><mo-text>two@example.com</mo-text><div>(1 More)</div>');
+        trustedClick(button);
+        await Promise.resolve();
+        expect(window.chrome.runtime.sendMessage).not.toHaveBeenCalled();
+        cell.querySelector('div').innerHTML = '<mo-text>one@example.com; two@example.com; three@example.com</mo-text>';
+        trustedClick(button);
+        await Promise.resolve();
+        expect(window.chrome.runtime.sendMessage).toHaveBeenLastCalledWith({ action: 'copyOrderEmailsToClipboard', text: 'one@example.com; two@example.com; three@example.com' });
+    });
+
     test('removes recipient buttons when leaving Orders or disabling copy controls', () => {
         document.body.insertAdjacentHTML('afterbegin', `<div id="cm-buy-sidebar-order-revisions-header">
             <div class="mo-nav-list-item-accessory-content"><mo-menu></mo-menu></div></div>`);

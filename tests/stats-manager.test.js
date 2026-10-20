@@ -24,11 +24,6 @@ describe('Stats Manager', () => {
         global.Date = RealDate;
     });
 
-    // Helper to wait for async operations (using real timers)
-    async function waitForAsync() {
-        await new Promise(resolve => setTimeout(resolve, 100));
-    }
-
     test('migrateStats should move prismaUserStats to legacyStats', async () => {
         const oldStats = {
             visitedCampaigns: ['c1'],
@@ -63,14 +58,11 @@ describe('Stats Manager', () => {
         const d = new Date();
         const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-        // These are fire-and-forget in implementation, so we wait after
+        // Await the real queued writes, including concurrent submissions.
         handleTrackStat({ type: 'CAMPAIGN_VISIT', value: 'c2' }, {}, () => {});
         handleTrackStat({ type: 'LOADING_TIME', value: 2.5 }, {}, () => {});
         handleTrackStat({ type: 'PLACEMENT_ADDED', value: 3 }, {}, () => {});
-        handleTrackStat({ type: 'RECONCILIATION', value: 2 }, {}, () => {});
-
-        // Wait for the chain of promises to resolve
-        await waitForAsync();
+        await handleTrackStat({ type: 'RECONCILIATION', value: 2 }, {}, () => {});
 
         const store = chrome.storage.local.__getStore();
         // Check if dailyStats exists first
@@ -90,11 +82,9 @@ describe('Stats Manager', () => {
         const d = new Date();
         const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-        handleTrackStat({ type: 'CAMPAIGN_VISIT', value: 'c2' }, {}, () => {});
-        await waitForAsync();
+        await handleTrackStat({ type: 'CAMPAIGN_VISIT', value: 'c2' }, {}, () => {});
 
-        handleTrackStat({ type: 'CAMPAIGN_VISIT', value: 'c2' }, {}, () => {});
-        await waitForAsync();
+        await handleTrackStat({ type: 'CAMPAIGN_VISIT', value: 'c2' }, {}, () => {});
 
         const store = chrome.storage.local.__getStore();
         expect(store.dailyStats).toBeDefined();
@@ -108,11 +98,10 @@ describe('Stats Manager', () => {
             type: 'LOADING_TIME',
             value: { seconds: 3.25, area: 'actualise' }
         }, {}, () => {});
-        handleTrackStat({
+        await handleTrackStat({
             type: 'LOADING_TIME',
             value: { seconds: 1.5, area: 'actualise' }
         }, {}, () => {});
-        await waitForAsync();
 
         const store = chrome.storage.local.__getStore();
         const daily = store.dailyStats['2023-10-27'];
@@ -136,6 +125,28 @@ describe('Stats Manager', () => {
         expect(sendResponse).toHaveBeenCalledWith({ status: 'success' });
     });
 
+    test('reports a failed storage write and continues processing subsequent stats', async () => {
+        const failedResponse = jest.fn();
+        const nextResponse = jest.fn();
+        const errorLog = jest.spyOn(console, 'error').mockImplementation(() => {});
+        chrome.storage.local.set.mockRejectedValueOnce(new Error('Storage unavailable'));
+
+        try {
+            await handleTrackStat({ type: 'PLACEMENT_ADDED', value: 1 }, {}, failedResponse);
+            expect(failedResponse).toHaveBeenCalledTimes(1);
+            expect(failedResponse).toHaveBeenCalledWith({
+                status: 'error', message: 'Error: Storage unavailable'
+            });
+
+            await handleTrackStat({ type: 'PLACEMENT_ADDED', value: 2 }, {}, nextResponse);
+            expect(nextResponse).toHaveBeenCalledTimes(1);
+            expect(nextResponse).toHaveBeenCalledWith({ status: 'success' });
+            expect(chrome.storage.local.__getStore().dailyStats['2023-10-27'].placements).toBe(2);
+        } finally {
+            errorLog.mockRestore();
+        }
+    });
+
     test('handleTrackStat should recover the start date from existing daily stats', async () => {
         await chrome.storage.local.set({
             dailyStats: {
@@ -148,8 +159,7 @@ describe('Stats Manager', () => {
             }
         });
 
-        handleTrackStat({ type: 'PLACEMENT_ADDED', value: 1 }, {}, () => {});
-        await waitForAsync();
+        await handleTrackStat({ type: 'PLACEMENT_ADDED', value: 1 }, {}, () => {});
 
         const store = chrome.storage.local.__getStore();
         expect(store.statsStartDate).toBe('2023-01-15T00:00:00.000Z');

@@ -1,5 +1,5 @@
 const { JSDOM } = require('jsdom');
-const fs = require('fs');
+const { readScript } = require('./helpers/read-script');
 const path = require('path');
 
 const scriptsToLoad = [
@@ -18,7 +18,7 @@ const scriptsToLoad = [
     'features/dst-assurance.js',
     'features/actualise-month-assurance.js',
     'content.js'
-].map(scriptPath => fs.readFileSync(path.resolve(__dirname, `../${scriptPath}`), 'utf8'));
+].map(scriptPath => readScript(path.resolve(__dirname, `../${scriptPath}`)));
 
 describe('Content Script Main Logic', () => {
     let window;

@@ -43,19 +43,6 @@
         }
     }
 
-    async function safeStorageSet(area, items) {
-        if (!isExtensionContextValid()) return;
-        try {
-            await chrome.storage[area].set(items);
-        } catch (error) {
-            if (String(error?.message || error).includes('Extension context invalidated')) {
-                stopBannerLifecycle();
-                return;
-            }
-            throw error;
-        }
-    }
-
     async function safeSendMessage(message) {
         if (!isExtensionContextValid()) return null;
         try {

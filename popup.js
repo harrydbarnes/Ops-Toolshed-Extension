@@ -423,28 +423,6 @@ function generateUrlFromData(campaignId, campaignDateStr) {
     return `${baseUrl}${encodeURIComponent(campaignId)}&route=actualize&mos=${formattedDate}`;
 }
 
-// Removed handleLogoToggle, handleMetaReminderToggle, handleTimesheetReminderToggle,
-// handleReminderDayChange, handleReminderTimeChange, updateTimeOptions, and updateAlarm functions.
-// Note: If `updateAlarm` or parts of it were used by other functionalities not being removed,
-// those parts would need to be preserved or refactored. Based on the current context,
-// they seem exclusively tied to the removed settings UI.
-
-/**
- * Adds a click listener to a link-like element (e.g., <a>).
- * Prevents the default link navigation and executes a custom handler.
- * @param {string} id The ID of the DOM element.
- * @param {function} clickHandler The function to execute on click.
- */
-function addNavigationClickListener(id, clickHandler) {
-    const element = document.getElementById(id);
-    if (element) {
-        element.addEventListener('click', (event) => {
-            event.preventDefault();
-            clickHandler(event);
-        });
-    }
-}
-
 function addClickListener(id, url) {
     const button = document.getElementById(id);
     if (button) {

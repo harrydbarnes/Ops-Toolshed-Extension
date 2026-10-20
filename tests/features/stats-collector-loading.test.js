@@ -186,29 +186,62 @@ describe('loading-time collection', () => {
         dom.window.close();
     });
 
-    test('does not add a second shared loading-monitor subscriber during startup', () => {
+    test('records shared monitor transitions without a separate observer and resumes after pagehide', () => {
         const dom = new JSDOM('<!doctype html><html><body></body></html>', {
-            runScripts: 'dangerously',
+            runScripts: 'outside-only',
             url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/'
         });
         const { window } = dom;
-        const subscribe = jest.fn();
+        let now = 1000;
+        window.Date.now = () => now;
         window.chrome = {
-            runtime: { sendMessage: jest.fn() },
+            runtime: { sendMessage: jest.fn().mockResolvedValue({ status: 'success' }) },
             storage: {
                 sync: { get: jest.fn((_key, callback) => callback({ statsCollectorEnabled: true })) },
                 onChanged: { addListener: jest.fn() }
             }
         };
-        window.loadingMonitor = {
-            subscribe,
-            getState: jest.fn(() => ({ visibleSpinners: [] }))
-        };
+        let deliverMutations;
+        window.MutationObserver = jest.fn(callback => {
+            deliverMutations = callback;
+            return { observe: jest.fn(), disconnect: jest.fn() };
+        });
         window.eval(utilsCode);
+        window.eval(readScript(path.resolve(__dirname, '../../features/loading-monitor.js')));
+        window.loadingMonitor.initialize();
+        const observersBeforeStats = window.MutationObserver.mock.calls.length;
+        const subscribe = jest.spyOn(window.loadingMonitor, 'subscribe');
         window.eval(statsCode);
         window.statsCollector.initialize();
+        window.statsCollector.initialize();
+        expect(window.MutationObserver).toHaveBeenCalledTimes(observersBeforeStats);
 
-        expect(subscribe).not.toHaveBeenCalled();
+        const spinner = makeVisible(window.document.createElement('mo-spinner'));
+        window.document.body.appendChild(spinner);
+        deliverMutations([{ type: 'childList', addedNodes: [spinner] }]);
+        window.loadingMonitor.refreshNow();
+        now = 1500;
+        window.dispatchEvent(new window.Event('pagehide'));
+        expect(window.chrome.runtime.sendMessage).toHaveBeenLastCalledWith({
+            action: 'TRACK_STAT', type: 'LOADING_TIME', value: { seconds: 0.5, area: 'other' }
+        });
+        expect(subscribe).toHaveBeenCalledTimes(1);
+        now = 2000;
+        spinner.remove();
+        window.loadingMonitor.refreshNow();
+        expect(window.chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
+        window.dispatchEvent(new window.Event('pageshow'));
+        expect(subscribe).toHaveBeenCalledTimes(2);
+        window.document.body.appendChild(spinner);
+        deliverMutations([{ type: 'childList', addedNodes: [spinner] }]);
+        window.loadingMonitor.refreshNow();
+        now = 2250;
+        spinner.remove();
+        window.loadingMonitor.refreshNow();
+        expect(window.chrome.runtime.sendMessage).toHaveBeenLastCalledWith({
+            action: 'TRACK_STAT', type: 'LOADING_TIME', value: { seconds: 0.25, area: 'other' }
+        });
+        expect(window.chrome.runtime.sendMessage).toHaveBeenCalledTimes(2);
         dom.window.close();
     });
 

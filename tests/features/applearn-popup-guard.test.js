@@ -1,12 +1,10 @@
 const fs = require('fs');
+const { readScript } = require('../helpers/read-script');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 
 const guardPath = path.resolve(__dirname, '../../features/applearn-popup-guard.js');
 const controllerPath = path.resolve(__dirname, '../../features/applearn-popup-guard-controller.js');
-const manifest = JSON.parse(
-    fs.readFileSync(path.resolve(__dirname, '../../manifest.json'), 'utf8')
-);
 const { CONTENT_SCRIPT_DEFINITIONS } = require('../../background/content-script-definitions');
 
 describe('AppLearn popup guard', () => {
@@ -33,7 +31,7 @@ describe('AppLearn popup guard', () => {
         window.document.documentElement.setAttribute('data-ops-toolshed-applearn-popup-active', 'true');
         const nativeOpen = jest.fn(() => ({ opened: true }));
         window.open = nativeOpen;
-        window.eval(fs.readFileSync(guardPath, 'utf8'));
+        window.eval(readScript(guardPath));
 
         expect(window.open('https://splitscreen-adopt.applearn.tv/')).toBeNull();
         expect(window.open('https://wpp.okta.com/app/wpp_groupmapplearndev_1/example/sso/saml')).toBeNull();
@@ -61,7 +59,7 @@ describe('AppLearn popup guard', () => {
         window.document.documentElement.setAttribute('data-ops-toolshed-applearn-popup-active', 'true');
         const nativeOpen = jest.fn(() => ({ opened: true }));
         window.open = nativeOpen;
-        window.eval(fs.readFileSync(guardPath, 'utf8'));
+        window.eval(readScript(guardPath));
 
         expect(window.open('https://splitscreen-adopt.applearn.tv.example.com/')).toEqual({ opened: true });
         expect(window.open('https://example.com/')).toEqual({ opened: true });

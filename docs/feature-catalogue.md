@@ -13,6 +13,7 @@ The non-Prisma setup profile does not inject Prisma features. Shared popup tools
 | Translucent AppLearn Logo | Makes the AppLearn logo less visually dominant while keeping it recognisable. | On |
 | Meta finance tool | Selects whether the popup opens Booking Checker or the legacy Billing Check workflow. | Choice or action |
 | Loading Facts | Shows a useful fact while Prisma is processing an Actualise action. | On |
+| Loading Facts appearance | Turn on for the new Loading Facts appearance, or off for the old appearance. | Choice or action |
 | Stats Collector | Records waiting-time and productivity signals for the local Toolshed statistics view. | On |
 | Diagnostics Mode | Temporarily records local feature timings, outcomes and the current campaign ID when available; clear or export records in Settings. | Off |
 | Meta reconciliation reminder | Show the checks needed before reconciling Meta bookings. | On |
@@ -27,6 +28,7 @@ The non-Prisma setup profile does not inject Prisma features. Shared popup tools
 | Feature | What it does | Default |
 | --- | --- | --- |
 | Prisma banner username | Shows the signed-in Mediaocean username in the Prisma banner. | On |
+| Legacy Prisma link redirect | Redirects campaign links from Prisma's retired URL to the current site, even when other extension features are off. | On |
 | Campaign tab title | Uses the active campaign name as the browser tab title. | On |
 | Open Plan campaign links in Buy | Opens Buy when a campaign Plan URL is loaded directly. Clicking Prisma’s Plan tab still opens Plan. | On |
 | Prisma sign-in assistant | On a focused Prisma sign-in tab only, fills your saved email, remembers the browser, and selects your organisation. | Off |
@@ -43,6 +45,7 @@ The non-Prisma setup profile does not inject Prisma features. Shared popup tools
 
 | Feature | What it does | Default |
 | --- | --- | --- |
+| Purchase order reference autofill | Copies selected PO numbers into blank Reference ID and Client reference fields when adding a campaign. Updates autofilled values while preserving manual edits. | On |
 | Quick campaign actions | Adds quick details, copy campaign and history actions to campaign pages. | On |
 | Campaign name copy | Adds a one-click copy action for the campaign name. | On |
 | Campaign header copy | Adds copy actions for the campaign ID and CL, PR and CA references. | On |

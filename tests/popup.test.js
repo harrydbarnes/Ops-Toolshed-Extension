@@ -1,3 +1,4 @@
+const { readScript } = require('./helpers/read-script');
 const fs = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
@@ -12,9 +13,69 @@ const {
 const featureSettingsRegistry = require('../feature-settings-registry');
 
 describe('popup DOM initialization', () => {
-    test('declares the campaign URL button before registering its listener', () => {
-        const popupSource = fs.readFileSync(path.resolve(__dirname, '../popup.js'), 'utf8');
-        expect(popupSource).toContain("const generateUrlButton = document.getElementById('generateUrl');");
+    test('wires campaign and navigation actions from the real popup markup', () => {
+        const dom = new JSDOM(fs.readFileSync(path.resolve(__dirname, '../popup.html'), 'utf8'), {
+            runScripts: 'outside-only', url: 'chrome-extension://test/popup.html'
+        });
+        const { window } = dom;
+        const createTab = jest.fn();
+        const openOptions = jest.fn();
+        window.chrome = {
+            runtime: {
+                getManifest: () => ({ version: '1.9' }),
+                getURL: file => `chrome-extension://test/${file}`,
+                openOptionsPage: openOptions
+            },
+            tabs: { create: createTab },
+            storage: {
+                sync: { get: (keys, callback) => callback(Array.isArray(keys) ? {} : keys) },
+                onChanged: { addListener: jest.fn() }
+            }
+        };
+        window.console.log = jest.fn();
+        try {
+            window.eval(readScript(path.resolve(__dirname, '../feature-settings-registry.js')));
+            window.eval(readScript(path.resolve(__dirname, '../popup.js')));
+            window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
+
+            window.document.getElementById('campaignId').value = 'CP3HFCC';
+            window.document.getElementById('campaignDate').value = 'October 2026';
+            window.document.getElementById('generateUrl').click();
+            expect(createTab).toHaveBeenLastCalledWith({ url:
+                'https://go.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-buy&campaign-id=CP3HFCC&route=actualize&mos=2026-10-01'
+            });
+            window.document.getElementById('prismaButton').click();
+            expect(createTab).toHaveBeenLastCalledWith({ url:
+                'https://go.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns'
+            });
+            window.document.getElementById('menu-roadmap').click();
+            expect(createTab).toHaveBeenLastCalledWith({ url: 'chrome-extension://test/toolshed.html' });
+            window.document.getElementById('menu-settings').click();
+            expect(openOptions).toHaveBeenCalledTimes(1);
+            expect(window.document.getElementById('version-link').textContent).toBe('r1.9');
+        } finally {
+            window.close();
+        }
+    });
+
+    test('initializes the campaign URL button and handles its click', () => {
+        const dom = new JSDOM(`<!doctype html>
+            <button id="generateUrl">Generate</button>
+            <input id="campaignId"><input id="campaignDate">
+            <span id="campaignIdError" class="hidden"></span>`, { runScripts: 'outside-only' });
+        const { window } = dom;
+        window.chrome = { ...chrome, runtime: { ...chrome.runtime, getManifest: () => ({ version: '1.9.0' }) } };
+        window.OpsToolshedFeatureSettings = featureSettingsRegistry;
+        window.console.log = jest.fn();
+        window.eval(readScript(path.resolve(__dirname, '../popup.js')));
+        window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
+
+        window.document.getElementById('generateUrl').click();
+
+        const error = window.document.getElementById('campaignIdError');
+        expect(error.textContent).toBe('Please enter a Campaign ID.');
+        expect(error.classList.contains('hidden')).toBe(false);
+        dom.window.close();
     });
 });
 

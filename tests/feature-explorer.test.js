@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
+const { readScript } = require('./helpers/read-script');
 const { FEATURE_CATALOGUE, BOOLEAN_DEFAULTS } = require('../feature-settings-registry');
 
 const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
@@ -42,8 +43,8 @@ test('explorer searches all features, filters groups, exposes current settings a
             onChanged: { addListener: callback => { onChange = callback; } }
         }
     };
-    dom.window.eval(read('feature-settings-registry.js'));
-    dom.window.eval(read('feature-explorer.js'));
+    dom.window.eval(readScript(path.join(__dirname, '..', 'feature-settings-registry.js')));
+    dom.window.eval(readScript(path.join(__dirname, '..', 'feature-explorer.js')));
     await Promise.resolve(); await Promise.resolve();
     const doc = dom.window.document;
     expect(doc.querySelectorAll('.explorer-feature')).toHaveLength(FEATURE_CATALOGUE.length);

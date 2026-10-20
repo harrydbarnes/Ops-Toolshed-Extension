@@ -342,22 +342,34 @@
         });
     }
 
-    function getRecipientEmails(cell) {
+    function getRecipientDetails(cell) {
         const content = cell.cloneNode(true);
         content.querySelectorAll('.ops-order-email-copy-btn').forEach(button => button.remove());
         const textNodes = [];
         const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
         while (walker.nextNode()) textNodes.push(walker.currentNode.textContent);
-        const sources = [textNodes.join(' '), ...Array.from(content.querySelectorAll('[data-full-text]'),
-            element => element.getAttribute('data-full-text'))];
-        const seen = new Set();
-        return sources.flatMap(text => text?.match(/[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9-]+(?:\.[A-Z0-9-]+)+/gi) || [])
-            .filter(email => {
-                const key = email.toLowerCase();
-                if (seen.has(key)) return false;
-                seen.add(key);
-                return true;
-            });
+        const parseEmails = sources => {
+            const seen = new Set();
+            return sources.flatMap(text => text?.match(/[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9-]+(?:\.[A-Z0-9-]+)+/gi) || [])
+                .filter(email => {
+                    const key = email.toLowerCase();
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                });
+        };
+        const visibleEmails = parseEmails([textNodes.join(' ')]);
+        const hiddenCount = textNodes.reduce((total, text) => {
+            const match = text.trim().match(/^\(\s*(\d+)\s+more\s*\)$/i);
+            return total + (match ? Number(match[1]) : 0);
+        }, 0);
+        const emails = parseEmails([textNodes.join(' '), content.getAttribute('data-full-text'),
+            ...Array.from(content.querySelectorAll('[data-full-text]'), element => element.getAttribute('data-full-text'))]);
+        return { emails, hasHiddenRecipients: emails.length < visibleEmails.length + hiddenCount };
+    }
+
+    function getRecipientEmails(cell) {
+        return getRecipientDetails(cell).emails;
     }
 
     function reconcileEmailCopyButtons() {
@@ -382,7 +394,11 @@
                 if (!event.isTrusted || !featureEnabled || !isOrderSummaryRoute() || !isNewOrderUi()) return;
                 event.preventDefault();
                 event.stopPropagation();
-                const emails = getRecipientEmails(cell);
+                const { emails, hasHiddenRecipients } = getRecipientDetails(cell);
+                if (hasHiddenRecipients) {
+                    showToast('Prisma is hiding email addresses. The full recipient list is unavailable, so nothing was copied.', button);
+                    return;
+                }
                 if (!emails.length) return;
                 chrome.runtime.sendMessage({ action: 'copyOrderEmailsToClipboard', text: emails.join('; ') })
                     .then(response => {
