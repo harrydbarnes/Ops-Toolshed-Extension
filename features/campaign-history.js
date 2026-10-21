@@ -55,6 +55,7 @@
     let panelGeometryCleanupTimer = null;
     let historyOutsideClickHandler = null;
     let navigationObserver = null;
+    let navigationResizeObserver = null;
     let navigationObservedRoots = new Set();
     let currentNavigationLink = null;
     let navigationReconciliationQueued = false;
@@ -830,18 +831,11 @@
         return getElementsIncludingShadowDom(element).length;
     }
 
-    function findPrismaBannerModuleContainer(elements) {
-        return elements.find(element =>
-            element?.id === PRISMA_BANNER_MODULE_CONTAINER_ID &&
-            containsExactLabel(element, 'Campaigns') &&
-            containsExactLabel(element, 'Reports')
-        ) || null;
+    function findPrismaBannerModuleContainer(elements = getElementsIncludingShadowDom()) {
+        return elements.find(element => element?.id === PRISMA_BANNER_MODULE_CONTAINER_ID) || null;
     }
 
     function findTopNavigationContainer() {
-        // Prisma has used both #ptb-header and shell/header implementations
-        // outside that element. Search the whole visible document, including
-        // open shadow roots, then rank the smallest top-level nav candidate.
         const elements = getElementsIncludingShadowDom();
         const bannerModuleContainer = findPrismaBannerModuleContainer(elements);
         if (bannerModuleContainer) return bannerModuleContainer;
@@ -851,8 +845,20 @@
                 containsExactLabel(element, 'Campaigns') &&
                 containsExactLabel(element, 'Reports')
             )
+            .filter(element => {
+                let current = element;
+                for (let depth = 0; current && depth < 12; depth += 1) {
+                    if (String(current.tagName || '').toUpperCase() === PRISMA_OVERFLOW_MENU_TAG ||
+                        String(current.tagName || '').toUpperCase() === 'MO-BANNER-MODULE-OVERFLOW-MENU') {
+                        return false;
+                    }
+                    current = getParentElement(current);
+                }
+                return true;
+            })
             .filter(element =>
-                hasDistinctDirectNavigationLabels(element) || isNavigationContainer(element)
+                isNavigationContainer(element) ||
+                (hasDistinctDirectNavigationLabels(element) && isTopShellNavigationElement(element))
             );
 
         return candidates
@@ -961,16 +967,42 @@
         root.appendChild(style);
     }
 
+    function isNavigationItemVisible(element) {
+        if (!element?.isConnected) return false;
+
+        let current = element;
+        while (current) {
+            const style = window.getComputedStyle?.(current);
+            if (style?.display === 'none' || style?.visibility === 'hidden' || style?.visibility === 'collapse') {
+                return false;
+            }
+            current = getParentElement(current);
+        }
+
+        const rect = element.getBoundingClientRect?.();
+        if (!rect || (rect.width <= 0 && rect.height <= 0)) {
+            const documentRect = document.documentElement?.getBoundingClientRect?.();
+            return !documentRect || (documentRect.width <= 0 && documentRect.height <= 0);
+        }
+        return rect.right > 0 && rect.bottom > 0 && rect.left < window.innerWidth && rect.top < window.innerHeight;
+    }
+
     function hasRelevantNavigationMutation(mutations) {
         const isExtensionNode = node => node?.nodeType === 1 &&
             (node.id === NAVIGATION_ID ||
                 node.id === OVERFLOW_NAVIGATION_ID ||
                 node.id === SHADOW_NAVIGATION_STYLE_ID);
 
-        const isInsideOverflowMenu = node => {
+        const isInsideCampaignNavigation = node => {
             let current = node?.host || node;
             for (let depth = 0; current && depth < 12; depth += 1) {
-                if (String(current.tagName || '').toUpperCase() === PRISMA_OVERFLOW_MENU_TAG) {
+                const tagName = String(current.tagName || '').toUpperCase();
+                if (tagName === 'MO-BANNER' ||
+                    tagName === 'MO-BANNER-MODULE-OVERFLOW-MENU' ||
+                    tagName === PRISMA_OVERFLOW_MENU_TAG ||
+                    current.id === PRISMA_BANNER_MODULE_CONTAINER_ID ||
+                    current.id === 'ptb-header' ||
+                    isNavigationContainer(current)) {
                     return true;
                 }
                 current = getParentElement(current);
@@ -978,17 +1010,19 @@
             return false;
         };
 
-        const containsOverflowMenu = node => {
+        const containsCampaignNavigation = node => {
             if (node?.nodeType !== 1) return false;
             const tagName = String(node.tagName || '').toUpperCase();
-            if (tagName === PRISMA_OVERFLOW_MENU_TAG) return true;
+            if (tagName === 'MO-BANNER' ||
+                tagName === 'MO-BANNER-MODULE-OVERFLOW-MENU' ||
+                tagName === PRISMA_OVERFLOW_MENU_TAG ||
+                node.id === PRISMA_BANNER_MODULE_CONTAINER_ID ||
+                node.id === 'ptb-header' ||
+                isNavigationContainer(node)) return true;
             return tagName === 'MO-OVERLAY' && getElementsIncludingShadowDom(node).some(element =>
                 String(element.tagName || '').toUpperCase() === PRISMA_OVERFLOW_MENU_TAG
             );
         };
-
-        if (!currentNavigationLink?.isConnected) return true;
-        const navigationParent = getParentElement(currentNavigationLink);
 
         return mutations.some(mutation => {
             const target = mutation.target;
@@ -996,20 +1030,21 @@
                 ...Array.from(mutation.addedNodes || []),
                 ...Array.from(mutation.removedNodes || [])
             ];
-            const changedOverflowMenu = isInsideOverflowMenu(target) || nodes.some(containsOverflowMenu);
-            if (target !== navigationParent && !navigationParent?.contains?.(target) && !changedOverflowMenu) {
-                const changedNavigation = nodes
-                    .some(node => node?.contains?.(currentNavigationLink) || node === currentNavigationLink);
-                if (!changedNavigation) return false;
+            const changedCampaignNavigation = isInsideCampaignNavigation(target) ||
+                nodes.some(containsCampaignNavigation);
+            if (!changedCampaignNavigation) return false;
+
+            if (mutation.type === 'attributes' || mutation.type === 'characterData') {
+                return !isExtensionNode(target);
             }
+
             const hasNativeChange = nodes.some(node =>
                 node?.nodeType !== 1 || !isExtensionNode(node)
             );
-            if (hasNativeChange) return true;
-
-            // Ignore our own append/style mutations unless Prisma removed the
-            // History link and it is no longer discoverable.
-            return findNavigationLinks().length === 0;
+            const removedHistoryItem = Array.from(mutation.removedNodes || []).some(node =>
+                [NAVIGATION_ID, OVERFLOW_NAVIGATION_ID].includes(node?.id) && !node.isConnected
+            );
+            return hasNativeChange || removedHistoryItem;
         });
     }
 
@@ -1021,8 +1056,7 @@
             navigationReconciliationQueued = false;
             if (extensionContextInvalidated || !window.document || !settingsReady || !viewEnabled || !isPrismaPage()) return;
             ensureNavigationObserver();
-            ensureNavigationLink();
-            ensureOverflowNavigationItems();
+            reconcileNavigationItems();
         });
     }
 
@@ -1045,15 +1079,37 @@
         });
         roots.forEach(root => {
             if (navigationObservedRoots.has(root)) return;
-            navigationObserver.observe(root, { childList: true, subtree: true });
+            navigationObserver.observe(root, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['class', 'hidden', 'style'],
+                characterData: true
+            });
             navigationObservedRoots.add(root);
         });
+
+        const ResizeObserverConstructor = window.ResizeObserver ||
+            (typeof ResizeObserver !== 'undefined' ? ResizeObserver : null);
+        if (ResizeObserverConstructor && !navigationResizeObserver) {
+            navigationResizeObserver = new ResizeObserverConstructor(() => scheduleNavigationReconciliation());
+        }
+        if (navigationResizeObserver) {
+            getElementsIncludingShadowDom()
+                .filter(element =>
+                    String(element.tagName || '').toUpperCase() === 'MO-BANNER' ||
+                    element.id === PRISMA_BANNER_MODULE_CONTAINER_ID
+                )
+                .forEach(element => navigationResizeObserver.observe(element));
+        }
     }
 
     function removeNavigationObserver() {
         navigationObserver?.takeRecords?.();
         navigationObserver?.disconnect();
         navigationObserver = null;
+        navigationResizeObserver?.disconnect();
+        navigationResizeObserver = null;
         navigationObservedRoots = new Set();
         navigationReconciliationQueued = false;
     }
@@ -1077,23 +1133,61 @@
         }
     }
 
-    function createOverflowNavigationItem() {
-        const item = document.createElement('mo-menu-item');
+    function findOverflowReportsItem(group) {
+        const matchingElement = getElementsIncludingShadowDom(group)
+            .filter(element => hasExactLabel(element, 'Reports'))
+            .sort((left, right) =>
+                getNavigationCandidateSize(left) - getNavigationCandidateSize(right)
+            )[0];
+        if (!matchingElement) return null;
+
+        let item = matchingElement;
+        while (item && getParentElement(item) !== group) item = getParentElement(item);
+        return item || null;
+    }
+
+    function findOverflowNavigationGroups() {
+        return getElementsIncludingShadowDom()
+            .filter(element => String(element.tagName || '').toUpperCase() === PRISMA_OVERFLOW_MENU_TAG)
+            .flatMap(menu =>
+                getElementsIncludingShadowDom(menu.shadowRoot || menu)
+                    .filter(element => String(element.tagName || '').toUpperCase() === 'MO-MENU-ITEM-GROUP')
+            );
+    }
+
+    function createOverflowNavigationItem(reportsItem) {
+        const item = reportsItem.cloneNode(true);
         item.id = OVERFLOW_NAVIGATION_ID;
         item.setAttribute('tabindex', '0');
+        item.setAttribute('aria-label', 'Open campaign history');
+        item.setAttribute('data-toolshed-menu-template', 'reports');
+        item.removeAttribute('data-module-id');
 
-        const icon = createSvgIcon('history');
-        icon.setAttribute('slot', 'left');
+        const descendants = getElementsIncludingShadowDom(item);
+        descendants.forEach(element => {
+            if (element.id) element.removeAttribute('id');
+            if (element.hasAttribute?.('data-module-id')) element.removeAttribute('data-module-id');
+        });
 
-        const link = document.createElement('a');
-        link.className = 'module-label';
-        link.setAttribute('href', '#');
-        link.setAttribute('aria-label', 'Open campaign history');
-        link.appendChild(createTextElement('div', 'module-label-text', 'History'));
-        item.append(icon, link);
+        const textElement = descendants.find(element => element.classList?.contains('module-label-text')) ||
+            descendants
+                .filter(element => hasExactLabel(element, 'Reports'))
+                .sort((left, right) =>
+                    getNavigationCandidateSize(left) - getNavigationCandidateSize(right)
+                )[0];
+        if (textElement) textElement.textContent = 'History';
+        else item.textContent = 'History';
 
-        // Let Prisma's menu item receive the click so it can close the overflow
-        // menu after opening the history panel.
+        descendants
+            .filter(element => String(element.tagName || '').toUpperCase() === 'A')
+            .forEach(link => {
+                link.setAttribute('href', '#');
+                link.setAttribute('aria-label', 'Open campaign history');
+                link.removeAttribute('target');
+            });
+
+        // Keep Prisma's native Reports row structure so History shares the same
+        // icon slot, left padding, and text alignment in the overflow menu.
         item.addEventListener('click', event => {
             event.preventDefault();
             toggleHistoryPanel();
@@ -1102,53 +1196,48 @@
     }
 
     function ensureOverflowNavigationItems() {
-        const overflowMenus = getElementsIncludingShadowDom()
-            .filter(element => String(element.tagName || '').toUpperCase() === PRISMA_OVERFLOW_MENU_TAG);
-        const groups = overflowMenus.flatMap(menu =>
-            getElementsIncludingShadowDom(menu.shadowRoot || menu)
-                .filter(element => String(element.tagName || '').toUpperCase() === 'MO-MENU-ITEM-GROUP')
-        );
+        findOverflowNavigationGroups().forEach(group => {
+            const reportsItem = findOverflowReportsItem(group);
+            if (!reportsItem) return;
 
-        groups.forEach(group => {
-            const existing = getElementsIncludingShadowDom(group)
+            let existing = getElementsIncludingShadowDom(group)
                 .find(element => element.id === OVERFLOW_NAVIGATION_ID);
-            if (existing) {
-                if (existing.parentElement !== group || group.lastElementChild !== existing) {
-                    group.appendChild(existing);
-                }
-                return;
+            const isNativeClone = existing?.getAttribute('data-toolshed-menu-template') === 'reports';
+            if (existing && (!isNativeClone || existing.parentElement !== group)) {
+                existing.remove();
+                existing = null;
             }
-            group.appendChild(createOverflowNavigationItem());
+            if (!existing) existing = createOverflowNavigationItem(reportsItem);
+
+            if (reportsItem.nextElementSibling !== existing) {
+                group.insertBefore(existing, reportsItem.nextElementSibling);
+            }
         });
     }
 
     function ensureNavigationLink() {
         const container = findTopNavigationContainer();
-        if (!container) {
-            removeNavigationLink();
-            return null;
+        const reportsItem = container ? findTopNavigationItem(container, 'Reports') : null;
+        if (!container || !reportsItem || !isNavigationItemVisible(reportsItem)) {
+            removeTopLevelNavigationLink();
+            return false;
         }
 
-        const template = findTopNavigationItem(container, 'Reports') ||
-            findTopNavigationItem(container, 'Campaigns');
-        const insertionContainer = findNavigationInsertionContainer(container, template);
+        const insertionContainer = findNavigationInsertionContainer(container, reportsItem);
         const existing = findNavigationLinks()
             .find(link => getParentElement(link) === insertionContainer);
         if (existing) {
             currentNavigationLink = existing;
-            // Re-append on every reconciliation so History remains the
-            // furthest-right option after Prisma or a user reorders native
-            // navigation items.
-            if (insertionContainer.lastElementChild !== existing) {
-                insertionContainer.appendChild(existing);
+            if (reportsItem.nextElementSibling !== existing) {
+                insertionContainer.insertBefore(existing, reportsItem.nextElementSibling);
             }
-            return existing;
+            return true;
         }
         findNavigationLinks().forEach(link => link.remove());
 
-        const link = shouldUseDirectAnchor(template, insertionContainer)
+        const link = shouldUseDirectAnchor(reportsItem, insertionContainer)
             ? document.createElement('a')
-            : template?.cloneNode(false) || document.createElement('a');
+            : reportsItem.cloneNode(false);
         ensureShadowNavigationStyles(insertionContainer);
         link.id = NAVIGATION_ID;
         currentNavigationLink = link;
@@ -1180,17 +1269,35 @@
             toggleHistoryPanel();
         });
 
-        // Append after the current native options. This keeps History as the
-        // furthest-right option even when a user rearranges Campaigns/Reports.
-        insertionContainer.appendChild(link);
-        return link;
+        insertionContainer.insertBefore(link, reportsItem.nextElementSibling);
+        return true;
     }
 
-    function removeNavigationLink() {
+    function reconcileNavigationItems() {
+        if (ensureNavigationLink()) {
+            removeOverflowNavigationItems();
+        } else {
+            ensureOverflowNavigationItems();
+        }
+    }
+
+    function removeTopLevelNavigationLink() {
         findNavigationLinks().forEach(element => element.remove());
+        currentNavigationLink = null;
         getElementsIncludingShadowDom()
             .filter(element => element.id === SHADOW_NAVIGATION_STYLE_ID)
             .forEach(element => element.remove());
+    }
+
+    function removeOverflowNavigationItems() {
+        getElementsIncludingShadowDom()
+            .filter(element => element.id === OVERFLOW_NAVIGATION_ID)
+            .forEach(element => element.remove());
+    }
+
+    function removeNavigationLink() {
+        removeTopLevelNavigationLink();
+        removeOverflowNavigationItems();
     }
 
     function createButton(className, label, iconName) {
@@ -2093,6 +2200,9 @@
             if (!currentPanel || currentPanel.hidden || currentPanel.classList.contains('is-closing')) return;
             if (currentPanel.contains(event.target)) return;
             if (activeContextMenu && activeContextMenu.contains(event.target)) return;
+            if (event.composedPath?.().some(target =>
+                target?.id === NAVIGATION_ID || target?.id === OVERFLOW_NAVIGATION_ID
+            )) return;
             const navLinks = findNavigationLinks();
             if (navLinks.some(link => link.contains(event.target))) return;
             closeHistoryPanel({ animate: true });
@@ -2142,8 +2252,7 @@
     function handlePageShow() {
         if (extensionContextInvalidated || !settingsReady || !viewEnabled || !isPrismaPage()) return;
         ensureNavigationObserver();
-        ensureNavigationLink();
-        ensureOverflowNavigationItems();
+        reconcileNavigationItems();
     }
 
     function handleVisibilityChange() {
@@ -2161,8 +2270,7 @@
 
         if (viewEnabled) {
             ensureNavigationObserver();
-            ensureNavigationLink();
-            ensureOverflowNavigationItems();
+            reconcileNavigationItems();
         }
         else {
             removeNavigationLink();
@@ -2184,6 +2292,7 @@
         document.addEventListener('keydown', handleDocumentKeydown);
         window.addEventListener('hashchange', handleRouteChange);
         window.addEventListener('popstate', handleRouteChange);
+        window.addEventListener('resize', scheduleNavigationReconciliation);
         window.addEventListener('pagehide', removeNavigationObserver);
         window.addEventListener('pageshow', handlePageShow);
         document.addEventListener('visibilitychange', handleVisibilityChange);

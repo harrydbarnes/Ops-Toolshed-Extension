@@ -47,17 +47,52 @@ function wait(milliseconds) {
     return new Promise(resolve => setTimeout(resolve, milliseconds));
 }
 
+function createPrismaOverflowMenu(document) {
+    const overflowOverlay = document.createElement('mo-overlay');
+    overflowOverlay.setAttribute('role', 'menu');
+    const overflowMenu = document.createElement('mo-banner-module-overflow-menu-content');
+    const overflowShadow = overflowMenu.attachShadow({ mode: 'open' });
+    const group = document.createElement('mo-menu-item-group');
+    group.setAttribute('role', 'group');
+    const reportsItem = document.createElement('mo-menu-item');
+    reportsItem.id = 'prsm-cvr';
+    reportsItem.setAttribute('role', 'menuitem');
+    reportsItem.className = 'menu-item';
+    const reportsLink = document.createElement('a');
+    reportsLink.className = 'module-label';
+    reportsLink.href = '#reports';
+    const reportsLabel = document.createElement('div');
+    reportsLabel.className = 'module-label-text';
+    reportsLabel.textContent = 'Reports';
+    reportsLink.appendChild(reportsLabel);
+    reportsItem.appendChild(reportsLink);
+    group.appendChild(reportsItem);
+    overflowShadow.appendChild(group);
+    overflowOverlay.appendChild(overflowMenu);
+    document.body.appendChild(overflowOverlay);
+    return { overflowOverlay, overflowMenu, group };
+}
+
+function getHistoryOverflowItem(document) {
+    return document.querySelector('mo-banner-module-overflow-menu-content')
+        ?.shadowRoot?.querySelector('#toolshed-campaign-history-overflow-nav') || null;
+}
+
+function clickHistoryMenuItem(document) {
+    getHistoryOverflowItem(document)?.querySelector('a.module-label')?.click();
+}
+
 function createPage({
     url = campaignUrl,
     settings = {},
     entries = [],
     fieldMarkup = '',
     location = '',
+    overflowMenu = true,
     navigationMarkup = `
         <div id="ptb-header">
             <nav id="prisma-top-navigation">
                 <a id="prisma-campaigns" href="#campaigns">Campaigns</a>
-                <a id="prisma-reports" href="#reports">Reports</a>
             </nav>
         </div>`
 } = {}) {
@@ -87,6 +122,8 @@ function createPage({
         contextShadow.appendChild(contextLabel);
         dom.window.document.body.appendChild(contextMenu);
     }
+
+    if (overflowMenu) createPrismaOverflowMenu(dom.window.document);
 
     const syncStore = {
         campaignHistoryEnabled: true,
@@ -137,6 +174,7 @@ describe('campaign history feature', () => {
             expect(get).toHaveBeenCalledTimes(1);
             expect(warn).not.toHaveBeenCalled();
             expect(window.document.getElementById('toolshed-campaign-history-nav')).toBeNull();
+            expect(getHistoryOverflowItem(window.document)).toBeNull();
         } finally {
             dom.window.close();
         }
@@ -185,7 +223,7 @@ describe('campaign history feature', () => {
         const { dom } = createPage();
         await flushPromises();
         const { document } = dom.window;
-        expect(document.getElementById('toolshed-campaign-history-nav')).not.toBeNull();
+        expect(getHistoryOverflowItem(document)).not.toBeNull();
         const querySelectorAll = jest.spyOn(document, 'querySelectorAll');
         const grid = document.createElement('div');
         grid.id = 'unrelated-grid';
@@ -225,8 +263,8 @@ describe('campaign history feature', () => {
             .toMatch(/width:\s*52px/i);
         expect(cssRule(contentCss, '.toolshed-campaign-history-page-button'))
             .toMatch(/height:\s*32px/i);
-        expect(cssRule(contentCss, '.toolshed-campaign-history-nav-label'))
-            .toMatch(/transform:\s*translateY\(-0\.5px\)/i);
+        expect(cssRule(contentCss, '.toolshed-campaign-history-nav'))
+            .toMatch(/gap:\s*6px/i);
         expect(featureScript)
             .toMatch(/toolshed-campaign-history-nav-label[\s\S]*?translateY\(-0\.5px\)/i);
         expect(contentCss)
@@ -248,10 +286,18 @@ describe('campaign history feature', () => {
             .not.toMatch(/window\.addEventListener\('unload',/);
     });
 
-    test('adds a native-looking History navigation link and records searchable campaign metadata', async () => {
+    test('keeps History in the banner before Reports moves to overflow and records searchable campaign metadata', async () => {
         const { dom, localStore } = createPage({
             fieldMarkup: '<div data-cy="client-name">The Coca-Cola Company</div><div data-cy="supplier">Meta</div>',
-            location: 'NGMCLON'
+            location: 'NGMCLON',
+            overflowMenu: false,
+            navigationMarkup: `
+                <div id="ptb-header">
+                    <nav id="prisma-top-navigation">
+                        <a id="prisma-campaigns" href="#campaigns">Campaigns</a>
+                        <a id="prisma-reports" href="#reports">Reports</a>
+                    </nav>
+                </div>`
         });
         const { document, campaignHistoryFeature } = dom.window;
 
@@ -261,11 +307,12 @@ describe('campaign history feature', () => {
         expect(navLink).not.toBeNull();
         expect(navLink.parentElement.id).toBe('prisma-top-navigation');
         expect(navLink.previousElementSibling.id).toBe('prisma-reports');
+        expect(getHistoryOverflowItem(document)).toBeNull();
         expect(document.querySelector('.p2b-navbar-wrapper #toolshed-campaign-history-nav')).toBeNull();
         expect(navLink.textContent).toContain('History');
         const navContent = navLink.querySelector('.toolshed-campaign-history-nav-content');
-        expect(navContent.children[0].textContent).toBe('History');
         const historyIcon = navContent.querySelector('.toolshed-campaign-history-icon-history');
+        expect(navContent.children[0].textContent).toBe('History');
         expect(historyIcon).not.toBeNull();
         expect(historyIcon.querySelector('circle')).toBeNull();
         expect(historyIcon.querySelectorAll('path')).toHaveLength(3);
@@ -386,7 +433,7 @@ describe('campaign history feature', () => {
         const { document } = dom.window;
 
         await flushPromises();
-        document.getElementById('toolshed-campaign-history-nav').click();
+        getHistoryOverflowItem(document).click();
         await flushPromises();
         expect(document.querySelector('.toolshed-campaign-history-count').textContent)
             .toBe('3 campaigns visited');
@@ -415,7 +462,7 @@ describe('campaign history feature', () => {
         const { document } = dom.window;
 
         await flushPromises();
-        document.getElementById('toolshed-campaign-history-nav').click();
+        getHistoryOverflowItem(document).click();
         await flushPromises();
 
         const panel = document.getElementById('toolshed-campaign-history-panel');
@@ -488,7 +535,7 @@ describe('campaign history feature', () => {
         dom.window.close();
     });
 
-    test('finds History in a shell without #ptb-header and restores its furthest-right position', async () => {
+    test('keeps History beside Reports in shells without #ptb-header', async () => {
         const { dom } = createPage({
             navigationMarkup: `
                 <header class="global-header">
@@ -503,22 +550,24 @@ describe('campaign history feature', () => {
         await flushPromises();
 
         const nav = document.querySelector('.global-primary-navigation');
-        const navLink = document.getElementById('toolshed-campaign-history-nav');
-        expect(navLink).not.toBeNull();
-        expect(navLink.parentElement).toBe(nav);
-        expect(nav.lastElementChild).toBe(navLink);
+        const historyLink = document.getElementById('toolshed-campaign-history-nav');
+        expect(historyLink).not.toBeNull();
+        expect(historyLink.parentElement).toBe(nav);
+        expect(historyLink.previousElementSibling.textContent).toBe('Reports');
+        expect(Array.from(nav.children, child => child.textContent)).toEqual(['Campaigns', 'Reports', expect.stringContaining('History')]);
 
         const nativeOption = document.createElement('a');
         nativeOption.href = '#help';
         nativeOption.textContent = 'Help';
         nav.appendChild(nativeOption);
         campaignHistoryFeature.apply();
-        expect(nav.lastElementChild).toBe(navLink);
+        expect(nav.lastElementChild).toBe(nativeOption);
+        expect(historyLink.nextElementSibling).toBe(nativeOption);
 
         dom.window.close();
     });
 
-    test('adds a visible anchor to the Prisma banner module container inside nested shadow roots', async () => {
+    test('adds History beside Reports inside Prisma’s banner module container', async () => {
         const { dom } = createPage({ navigationMarkup: '' });
         const { document } = dom.window;
         await flushPromises();
@@ -551,69 +600,137 @@ describe('campaign history feature', () => {
         const historyLink = bannerShadow.querySelector('#toolshed-campaign-history-nav');
         expect(historyLink).not.toBeNull();
         expect(historyLink.tagName).toBe('A');
-        expect(historyLink.parentElement).toBe(moduleContainer);
-        expect(moduleContainer.lastElementChild).toBe(historyLink);
-        expect(historyLink.textContent).toContain('History');
-        expect(bannerShadow.querySelector('#toolshed-campaign-history-shadow-styles')).not.toBeNull();
+        expect(historyLink.previousElementSibling.id).toBe('mo-banner-module-prsm-cvr');
+        expect(Array.from(moduleContainer.children, child => child.id)).toEqual([
+            'mo-banner-module-prsm-cm-spa',
+            'mo-banner-module-prsm-cvr',
+            'toolshed-campaign-history-nav'
+        ]);
 
         dom.window.close();
     });
 
-    test('adds Campaign History to Prisma’s responsive banner overflow menu', async () => {
-        const { dom } = createPage();
+    test('moves History with Reports between the banner and its overflow menu', async () => {
+        const { dom } = createPage({
+            overflowMenu: false,
+            navigationMarkup: `
+                <div id="ptb-header">
+                    <nav id="prisma-top-navigation">
+                        <a id="prisma-campaigns" href="#campaigns">Campaigns</a>
+                        <button id="prisma-campaigns-overflow" type="button" aria-label="More">•••</button>
+                        <a id="prisma-reports" href="#reports">Reports</a>
+                    </nav>
+                </div>`
+        });
         const { document } = dom.window;
         await flushPromises();
 
-        const overflowOverlay = document.createElement('mo-overlay');
-        overflowOverlay.setAttribute('role', 'menu');
-        const overflowMenu = document.createElement('mo-banner-module-overflow-menu-content');
-        const overflowShadow = overflowMenu.attachShadow({ mode: 'open' });
-        const group = document.createElement('mo-menu-item-group');
-        group.setAttribute('role', 'group');
-        const reportsItem = document.createElement('mo-menu-item');
-        reportsItem.id = 'prsm-cvr';
-        reportsItem.appendChild(document.createTextNode('Reports'));
-        group.appendChild(reportsItem);
-        overflowShadow.appendChild(group);
-        overflowOverlay.appendChild(overflowMenu);
-        document.body.appendChild(overflowOverlay);
+        const nav = document.getElementById('prisma-top-navigation');
+        const directHistoryLink = document.getElementById('toolshed-campaign-history-nav');
+        expect(directHistoryLink.previousElementSibling.id).toBe('prisma-reports');
+        expect(directHistoryLink.nextElementSibling).toBeNull();
+
+        const { group } = createPrismaOverflowMenu(document);
+        const reportsItem = group.querySelector('#prsm-cvr');
 
         await flushPromises();
+        expect(getHistoryOverflowItem(document)).toBeNull();
 
-        const historyItem = group.querySelector('#toolshed-campaign-history-overflow-nav');
+        document.getElementById('prisma-reports').remove();
+        await flushPromises();
+
+        const historyItem = getHistoryOverflowItem(document);
         expect(historyItem).not.toBeNull();
         expect(historyItem.tagName).toBe('MO-MENU-ITEM');
         expect(historyItem.querySelector('.module-label-text').textContent).toBe('History');
-        expect(group.lastElementChild).toBe(historyItem);
-        expect(document.getElementById('toolshed-campaign-history-nav')).not.toBeNull();
+        expect(reportsItem.nextElementSibling).toBe(historyItem);
+        expect(historyItem.className).toBe(reportsItem.className);
+        expect(historyItem.querySelector('a.module-label').className)
+            .toBe(reportsItem.querySelector('a.module-label').className);
+        expect(historyItem.querySelector('.module-label-text').className)
+            .toBe(reportsItem.querySelector('.module-label-text').className);
+        expect(document.getElementById('toolshed-campaign-history-nav')).toBeNull();
 
         group.appendChild(document.createElement('mo-menu-item'));
         await flushPromises();
-        expect(group.lastElementChild).toBe(historyItem);
+        expect(reportsItem.nextElementSibling).toBe(historyItem);
+
+        historyItem.remove();
+        await flushPromises();
+        const restoredHistoryItem = getHistoryOverflowItem(document);
+        expect(restoredHistoryItem).not.toBeNull();
+        expect(restoredHistoryItem).not.toBe(historyItem);
+        expect(reportsItem.nextElementSibling).toBe(restoredHistoryItem);
 
         const click = new dom.window.MouseEvent('click', {
             bubbles: true,
             cancelable: true,
             composed: true
         });
-        historyItem.querySelector('a.module-label').dispatchEvent(click);
+        restoredHistoryItem.querySelector('a.module-label').dispatchEvent(click);
         await flushPromises();
         expect(click.defaultPrevented).toBe(true);
         expect(document.getElementById('toolshed-campaign-history-panel').hidden).toBe(false);
 
+        await wait(15);
+        const secondClick = new dom.window.MouseEvent('click', {
+            bubbles: true,
+            cancelable: true,
+            composed: true
+        });
+        restoredHistoryItem.querySelector('a.module-label').dispatchEvent(secondClick);
+        expect(document.getElementById('toolshed-campaign-history-panel').classList.contains('is-closing')).toBe(true);
+
+        const reportsLink = document.createElement('a');
+        reportsLink.id = 'prisma-reports';
+        reportsLink.href = '#reports';
+        reportsLink.textContent = 'Reports';
+        nav.appendChild(reportsLink);
+        await flushPromises();
+        expect(document.getElementById('toolshed-campaign-history-nav').previousElementSibling)
+            .toBe(reportsLink);
+        expect(getHistoryOverflowItem(document)).toBeNull();
+
         dom.window.close();
     });
 
-    test('keeps the History link available from the Prisma dashboard without logging a visit', async () => {
+    test('keeps Prisma’s three-dot trigger next to Campaigns and History beside Reports', async () => {
+        const { dom } = createPage({
+            navigationMarkup: `
+                <div id="ptb-header">
+                    <nav id="prisma-top-navigation">
+                        <a id="prisma-campaigns" href="#campaigns">Campaigns</a>
+                        <button id="prisma-campaigns-overflow" type="button" aria-label="More">•••</button>
+                        <a id="prisma-reports" href="#reports">Reports</a>
+                    </nav>
+                </div>`
+        });
+        const { document } = dom.window;
+
+        await flushPromises();
+
+        const campaigns = document.getElementById('prisma-campaigns');
+        const overflowTrigger = document.getElementById('prisma-campaigns-overflow');
+        expect(campaigns.nextElementSibling).toBe(overflowTrigger);
+        expect(document.getElementById('prisma-top-navigation').children).toHaveLength(4);
+        const reports = document.getElementById('prisma-reports');
+        const history = document.getElementById('toolshed-campaign-history-nav');
+        expect(history.previousElementSibling).toBe(reports);
+        expect(getHistoryOverflowItem(document)).toBeNull();
+
+        dom.window.close();
+    });
+
+    test('keeps History in the overflow menu on the Prisma dashboard without logging a visit', async () => {
         const { dom, localStore } = createPage({ url: dashboardUrl });
         const { document } = dom.window;
 
         await flushPromises();
 
-        const navLink = document.getElementById('toolshed-campaign-history-nav');
-        expect(navLink?.parentElement.id).toBe('prisma-top-navigation');
+        const historyItem = getHistoryOverflowItem(document);
+        expect(historyItem).not.toBeNull();
         expect(localStore.campaignHistoryEntries).toHaveLength(0);
-        navLink.click();
+        historyItem.click();
         await flushPromises();
         expect(document.getElementById('toolshed-campaign-history-panel').hidden).toBe(false);
         dom.window.close();
@@ -707,7 +824,7 @@ describe('campaign history feature', () => {
         expect(dom.window.campaignHistoryFeature.getCampaignSnapshot().supplier)
             .toBe('Facebook | GOAT | Adapted');
 
-        dom.window.document.getElementById('toolshed-campaign-history-nav').click();
+        clickHistoryMenuItem(dom.window.document);
         await flushPromises();
 
         expect(localStore.campaignHistoryEntries.map(entry => entry.supplier))
@@ -780,7 +897,7 @@ describe('campaign history feature', () => {
         });
 
         await flushPromises();
-        dom.window.document.getElementById('toolshed-campaign-history-nav').click();
+        clickHistoryMenuItem(dom.window.document);
         await flushPromises();
 
         const results = Array.from(dom.window.document.querySelectorAll('.toolshed-campaign-history-result'));
@@ -801,28 +918,28 @@ describe('campaign history feature', () => {
         const { document } = dom.window;
 
         await flushPromises();
-        expect(document.getElementById('toolshed-campaign-history-nav')).toBeNull();
+        expect(getHistoryOverflowItem(document)).toBeNull();
 
         changeListeners[0](
             { campaignHistoryEnabled: { newValue: true } },
             'sync'
         );
         await flushPromises();
-        expect(document.getElementById('toolshed-campaign-history-nav')).not.toBeNull();
+        expect(getHistoryOverflowItem(document)).not.toBeNull();
 
-        document.getElementById('toolshed-campaign-history-nav').click();
+        clickHistoryMenuItem(document);
         changeListeners[0](
             { campaignHistoryEnabled: { newValue: false } },
             'sync'
         );
-        expect(document.getElementById('toolshed-campaign-history-nav')).toBeNull();
+        expect(getHistoryOverflowItem(document)).toBeNull();
         expect(document.getElementById('toolshed-campaign-history-panel').hidden).toBe(true);
 
         changeListeners[0](
             { campaignHistoryEnabled: { newValue: true } },
             'sync'
         );
-        expect(document.getElementById('toolshed-campaign-history-nav')).not.toBeNull();
+        expect(getHistoryOverflowItem(document)).not.toBeNull();
         dom.window.close();
     });
 
@@ -870,7 +987,7 @@ describe('campaign history feature', () => {
         });
 
         await flushPromises();
-        document.getElementById('toolshed-campaign-history-nav').click();
+        clickHistoryMenuItem(document);
         await flushPromises();
 
         const card = document.querySelector('.toolshed-campaign-history-result button');
@@ -982,10 +1099,10 @@ describe('campaign history feature', () => {
 
         await flushPromises();
 
-        const navLink = document.getElementById('toolshed-campaign-history-nav');
-        expect(navLink).not.toBeNull();
+        const historyTrigger = getHistoryOverflowItem(document)?.querySelector('a.module-label');
+        expect(historyTrigger).not.toBeNull();
 
-        navLink.click();
+        historyTrigger.click();
         await flushPromises();
 
         const panel = document.getElementById('toolshed-campaign-history-panel');
@@ -1015,8 +1132,8 @@ describe('campaign history feature', () => {
 
         await flushPromises();
 
-        const navLink = document.getElementById('toolshed-campaign-history-nav');
-        navLink.click();
+        const historyTrigger = getHistoryOverflowItem(document)?.querySelector('a.module-label');
+        historyTrigger.click();
         await flushPromises();
 
         const panel = document.getElementById('toolshed-campaign-history-panel');
@@ -1024,8 +1141,8 @@ describe('campaign history feature', () => {
         expect(panel.hidden).toBe(false);
         expect(panel.classList.contains('is-closing')).toBe(false);
 
-        // Clicking nav link again closes panel with animation
-        navLink.click();
+        // Clicking History again closes the panel with animation.
+        historyTrigger.click();
         expect(panel.classList.contains('is-closing')).toBe(true);
 
         dom.window.close();

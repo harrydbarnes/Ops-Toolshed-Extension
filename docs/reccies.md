@@ -23,14 +23,14 @@ Imported report contents, assignment preferences, and results remain in
 `chrome.storage.local`. Forget local tracker data removes them.
 
 Show by controls grouping independently: D number (the default) or Campaign.
-Tracker status is a three-way choice: Any, Unreconciled or Reconciled. It reads
-only the imported Reccied field. Prisma status has optional checkboxes for
+Tracker Reccie status is Any, No or Yes. It reads only the imported Reccied
+field. Prisma status has optional checkboxes for
 Yes in sheet, not in Prisma; Ready in Prisma; and Needs attention. Selected Prisma
-statuses combine with OR, then combine with Tracker status using AND. For example,
-Unreconciled plus Ready in Prisma shows only rows ready to mark Yes in the tracker.
+statuses combine with OR, then combine with Tracker Reccie status using AND. For example,
+No plus Ready in Prisma shows only rows ready to mark Yes in the tracker.
 No Prisma checkboxes selected means any Prisma status, including not checked.
 
-Clear filters resets Tracker status to Any, clears Prisma statuses and search,
+Clear filters resets Tracker Reccie status to Any, clears Prisma statuses and search,
 and preserves grouping, person and assignment. Fresh users start with Any and no
 Prisma filters. Legacy saved dropdown choices migrate automatically. Old mixed OR
 selections become separate tracker/Prisma conditions with a one-time explanation;
@@ -197,6 +197,6 @@ Sheet setup is under **Reccie tracking settings**. The **Clear saved report data
 reset is inside the collapsed **Debug** section in every mode. Routine verification
 refreshes Prisma results without requiring a reset.
 
-Show by and Tracker status use adjacent pill selectors, sharing the Features
+Show by and Tracker Reccie status use adjacent pill selectors, sharing the Features
 settings appearance with Reccie source. Arrow keys change the active choice;
 selection, saved filters and verification rules are unchanged.

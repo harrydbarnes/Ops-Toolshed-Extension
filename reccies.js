@@ -56,6 +56,11 @@
         details.classList.toggle('reccie-is-open', details.open);
         disclosureStates.set(details, { content, frame: 0, timer: 0, token: 0, targetOpen: null, animating: false, transitionEnd: null });
     }
+    function revealDebugSection(details) {
+        if (details.id !== 'debug') return;
+        const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+        details.scrollIntoView?.({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'end' });
+    }
     function setDisclosureOpen(details, open) {
         const state = disclosureStates.get(details);
         if (!state) { details.open = open; return; }
@@ -86,6 +91,7 @@
             state.targetOpen = null;
             state.frame = 0;
             state.timer = 0;
+            if (open) revealDebugSection(details);
             return;
         }
 
@@ -108,6 +114,7 @@
                 state.targetOpen = null;
                 state.frame = 0;
                 state.timer = 0;
+                if (open) revealDebugSection(details);
             };
             state.transitionEnd = function onTransitionEnd(event) {
                 if (event.target !== content || event.propertyName !== 'height') return;
@@ -440,7 +447,7 @@
         $('tracker-status-control').hidden = automatic;
         statusInputs().find(input=>input.dataset.status==='mismatch').closest('label').hidden=automatic;
         if (automatic) { $('tracker-status').value='any'; statusInputs().find(input=>input.dataset.status==='mismatch').checked=false; }
-        $('filter-hint').textContent = automatic ? 'Any selected Prisma status matches. Nothing ticked shows all discovered placements, including failed checks.' : 'Matches the tracker status AND any selected Prisma status. Nothing ticked means any Prisma status, including not checked. Uses your latest checks.';
+        $('filter-hint').textContent = automatic ? 'Any selected Prisma status matches. Nothing ticked shows all discovered placements, including failed checks.' : 'Tracker Reccie status combines with selected Prisma statuses. Any includes all tracker values; no Prisma selection includes unchecked rows.';
         const source=tracker?.source;
         $('coverage-details').hidden = !source || (!automatic && mode !== 'early');
         const coverage=$('coverage-issues'); coverage.replaceChildren();
