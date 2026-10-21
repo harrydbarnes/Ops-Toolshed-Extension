@@ -7,6 +7,7 @@ const scriptsToLoad = [
     'features/logo.js',
     'features/reminders.js',
     'features/campaign.js',
+    'search-highlight.js',
     'features/campaign-history.js',
     'features/product-code-limit-warning.js',
     'features/d-number-search.js',

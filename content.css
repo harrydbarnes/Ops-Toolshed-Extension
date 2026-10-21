@@ -1861,15 +1861,7 @@ div[slot="right"].ai-style-change-1 {
     white-space: nowrap;
 }
 
-.toolshed-campaign-history-match {
-    box-decoration-break: clone;
-    -webkit-box-decoration-break: clone;
-    border-radius: 2px;
-    background: var(--toolshed-history-highlight);
-    color: inherit;
-    font-weight: inherit;
-    padding: 0 0.08em;
-}
+
 
 .toolshed-campaign-history-result-footer {
     display: flex;

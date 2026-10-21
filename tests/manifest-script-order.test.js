@@ -39,6 +39,9 @@ describe('Manifest content-script order', () => {
         });
         expect(scripts[scripts.length - 1]).toBe('content.js');
         expect(scripts.indexOf('features/social-campaign-check.js')).toBeGreaterThan(scripts.indexOf('features/dst-assurance.js'));
+        expect(scripts.indexOf('search-highlight.js')).toBeGreaterThan(utilsIndex);
+        expect(scripts.indexOf('search-highlight.js')).toBeLessThan(scripts.indexOf('features/campaign-history.js'));
+        expect(mediaoceanRegistration.css).toContain('search-highlight.css');
         expect(mediaoceanRegistration.allFrames).not.toBe(true);
         expect(mediaoceanRegistration.persistAcrossSessions).toBe(false);
 

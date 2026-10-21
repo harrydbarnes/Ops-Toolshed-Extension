@@ -256,13 +256,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             const { action } = request;
             // A side panel opened from a content-script click needs the original
             // user gesture. Even awaiting an already-resolved promise loses it.
-            if (action === 'openHelpGuides') {
+            if (action === 'openHelpGuides' || action === 'openReccies') {
                 if (!isFeatureModeActive()) {
                     respondOnce({ status: 'error', message: 'Ops Toolshed features are off or still starting.' });
                     return;
                 }
                 diagnosticMessageEligible = true;
-                await messageHandlers.openHelpGuides(request, sender, respondOnce);
+                await messageHandlers[action](request, sender, respondOnce);
                 return;
             }
 

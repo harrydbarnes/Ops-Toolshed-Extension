@@ -531,7 +531,7 @@
         if (!monitorButton?.isConnected || monitorButton.parentElement !== anchor.parentElement) {
             closeMonitoring(true);
             monitorButton?.remove();monitorButton=element('button');monitorButton.id='ops-meta-monitoring';monitorButton.type='button';
-            monitorButton.style.cssText='display:inline-flex;align-items:center;gap:6px;padding:4px 8px;margin:0 8px;border:0;border-radius:4px;background:transparent;color:inherit;font:inherit;font-size:12px;transform:translateY(1px);white-space:nowrap;cursor:pointer;pointer-events:auto';
+            monitorButton.style.cssText='display:inline-flex;align-items:center;gap:6px;padding:4px 8px;margin:0 8px;border:0;border-radius:4px;background:transparent;color:inherit;font:inherit;font-size:12px;white-space:nowrap;cursor:pointer;pointer-events:auto';
             monitorButton.setAttribute('aria-haspopup','dialog');monitorButton.setAttribute('aria-expanded',String(Boolean(monitorHost)));
             monitorButton.addEventListener('click',event=>{event.stopPropagation();openMonitoring();});anchor.parentElement.insertBefore(monitorButton,anchor);
         }

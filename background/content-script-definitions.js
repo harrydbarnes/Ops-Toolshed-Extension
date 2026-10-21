@@ -54,6 +54,7 @@ export const CONTENT_SCRIPT_DEFINITIONS = Object.freeze([
             'features/logo.js',
             'features/reminders.js',
             'features/campaign.js',
+            'search-highlight.js',
             'features/campaign-history.js',
             'features/product-code-limit-warning.js',
             'features/campaign-tab-title.js',
@@ -85,9 +86,11 @@ export const CONTENT_SCRIPT_DEFINITIONS = Object.freeze([
             'features/onboarding-tour.js',
             'features/applearn-replace.js',
             'features/approval-tracking.js',
+            'features/reccies-launcher.js',
             'content.js'
         ],
         css: [
+            'search-highlight.css',
             'approvers.css',
             'content.css',
             'features/feedback-modal.css',

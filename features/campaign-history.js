@@ -1732,42 +1732,7 @@
         if (shouldRestoreSearchFocus) searchInput.focus();
     }
 
-    function getSearchTokens(query) {
-        return normalizeSearchText(query).split(' ').filter(Boolean);
-    }
-
-    function escapeRegExp(value) {
-        return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    }
-
-    function appendHighlightedText(parent, value, query) {
-        const text = String(value || '');
-        if (!text) return;
-
-        const tokens = getSearchTokens(query)
-            .sort((left, right) => right.length - left.length)
-            .map(escapeRegExp);
-        if (tokens.length === 0) {
-            parent.appendChild(document.createTextNode(text));
-            return;
-        }
-
-        const matcher = new RegExp(tokens.join('|'), 'gi');
-        let cursor = 0;
-        let match;
-        while ((match = matcher.exec(text))) {
-            if (match.index > cursor) {
-                parent.appendChild(document.createTextNode(text.slice(cursor, match.index)));
-            }
-            const highlight = createTextElement('mark', 'toolshed-campaign-history-match', match[0]);
-            parent.appendChild(highlight);
-            cursor = matcher.lastIndex;
-        }
-
-        if (cursor < text.length) {
-            parent.appendChild(document.createTextNode(text.slice(cursor)));
-        }
-    }
+    const { getSearchTokens, appendHighlightedText } = window.OpsToolshedSearchHighlight;
 
     function createHighlightedTextElement(tagName, className, value, query) {
         const element = document.createElement(tagName);

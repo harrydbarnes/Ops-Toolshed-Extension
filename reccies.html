@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Reccies · Ops Toolshed</title>
+    <style>html { visibility: hidden; }</style>
+    <link rel="stylesheet" href="reccies.css">
+    <link rel="stylesheet" href="search-highlight.css">
+</head>
+<body>
+<main>
+    <header>
+        <div class="titleline"><h1>My Reccies</h1><span class="readonly">Read only</span></div>
+        <p class="intro">Your Reccie Tracker rows, checked against Prisma. The spreadsheet stays unchanged.</p>
+    </header>
+    <details id="source-details" open>
+        <summary>Tracker connection</summary>
+        <label for="sheet-url">Google Sheet tab URL</label>
+        <input id="sheet-url" type="url" placeholder="https://docs.google.com/spreadsheets/d/…/edit?gid=…" autocomplete="off">
+        <label for="report-month">Report month <span class="hint">Applies to every row</span></label>
+        <input id="report-month" type="month" required>
+        <button id="refresh-sheet" type="button" class="primary">Read Google Sheet</button>
+        <p class="hint">Uses your signed-in Google account. Open the Reccie report tab before copying its URL.</p>
+        <div class="import-row"><label for="csv-file">Or import a report CSV</label><input id="csv-file" type="file" accept=".csv,text/csv"></div>
+        <p class="hint">CSV is a snapshot. Refresh or import again after the tracker changes.</p>
+        <button id="forget-report" type="button" class="quiet">Forget local tracker data</button>
+    </details>
+    <p id="source-status" class="hint"></p>
+    <section aria-label="Find your rows" class="filters">
+        <div class="filter-pair">
+            <label>Assignment<select id="assignment"><option value="ops">Ops assigned</option><option value="buyer">Buyer</option><option value="group">Group</option><option value="any">Any assignment</option></select></label>
+            <label>Your name<select id="person"><option value="">Choose your name</option></select></label>
+        </div>
+        <label for="search">Search your rows</label><input id="search" type="search" placeholder="D number, campaign, client or supplier">
+        <label for="view">Show</label><select id="view"><option value="all">All my D numbers</option><option value="campaigns">All my campaigns</option><option value="outstanding">Unreconciled</option><option value="reconciled">Reconciled</option><option value="ready">Verified reconciled in Prisma</option><option value="review">Needs review</option></select>
+    </section>
+    <div class="checkbar"><p id="summary" role="status" aria-live="polite">Connect a tracker to get started.</p><button id="check-rows" type="button" class="primary" aria-describedby="verification-scope" disabled>Verify Reccie Status</button></div>
+    <p id="verification-scope" class="hint">Verifies all rows matching your filters, including rows below “Show more”.</p>
+    <p id="message" role="status" aria-live="polite"></p>
+    <div id="rows" aria-label="Reccie rows"></div>
+    <p class="rule">Ready means Reconciled = Yes and Buy status = Successful for the report month. Checking does not mark the tracker as reccied.</p>
+</main>
+<script src="extension-page-gate.js" data-scripts="search-highlight.js,reccie-core.js,reccies.js"></script>
+</body>
+</html>

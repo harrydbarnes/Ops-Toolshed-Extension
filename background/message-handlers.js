@@ -1,5 +1,6 @@
 import { approversData } from '../approvers-data.js';
 import { handleSocialCheck } from './social-campaign-check.js';
+import { handleReccies, openReccies } from './reccies.js';
 import {
     clearDiagnosticEvents,
     disableDiagnostics,
@@ -480,6 +481,8 @@ async function handleCheckApprovalStatusNow(request, sender, sendResponse) {
 
 export const messageHandlers = {
     socialCampaignCheck: handleSocialCheck,
+    reccies: handleReccies,
+    openReccies,
     showTimesheetNotification,
     createTimesheetAlarm,
     removeTimesheetAlarm,

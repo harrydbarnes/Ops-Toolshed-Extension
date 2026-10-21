@@ -5,7 +5,7 @@ const { JSDOM } = require('jsdom');
 const { captureTrustedClicks } = require('../helpers/trusted-dom-event');
 
 const featureScript = readScript(path.resolve(__dirname, '../../features/campaign-history.js'));
-const contentCss = fs.readFileSync(path.resolve(__dirname, '../../content.css'), 'utf8');
+const contentCss = fs.readFileSync(path.resolve(__dirname, '../../content.css'), 'utf8') + fs.readFileSync(path.resolve(__dirname, '../../search-highlight.css'), 'utf8');
 
 function cssRule(css, selector) {
     const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -107,6 +107,7 @@ function createPage({
             onChanged: { addListener: listener => changeListeners.push(listener) }
         }
     };
+    dom.window.eval(readScript(path.resolve(__dirname, '../../search-highlight.js')));
     dom.window.eval(featureScript);
     dom.window.campaignHistoryFeature.initialize();
 
@@ -211,7 +212,7 @@ describe('campaign history feature', () => {
         expect(cssRule(contentCss, '#toolshed-campaign-history-panel.is-expanded'))
             .toMatch(/left:\s*5vw/i);
         expect(cssRule(contentCss, '.toolshed-campaign-history-match'))
-            .toMatch(/background:\s*var\(--toolshed-history-highlight\)/i);
+            .toMatch(/background:\s*var\(--toolshed-history-highlight,\s*#f3e7ad\)/i);
         expect(cssRule(contentCss, '.toolshed-campaign-history-result button'))
             .toMatch(/text-indent:\s*0/i);
         expect(cssRule(contentCss, '.toolshed-campaign-history-result-copy'))

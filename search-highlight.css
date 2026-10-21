@@ -1,0 +1,9 @@
+.toolshed-campaign-history-match {
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    border-radius: 2px;
+    background: var(--toolshed-history-highlight, #f3e7ad);
+    color: inherit;
+    font-weight: inherit;
+    padding: 0 0.08em;
+}

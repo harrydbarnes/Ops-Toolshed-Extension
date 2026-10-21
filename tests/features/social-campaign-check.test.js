@@ -24,7 +24,7 @@ describe('Prisma Check Meta launcher',()=>{
         const button=document.getElementById('ops-meta-monitoring');
         expect(button.textContent).toBe('Meta Monitoring · 1 to review');
         expect(button.style.border).toBe('0px');
-        expect(button.style.transform).toBe('translateY(1px)');
+        expect(button.style.transform).toBe('');
         button.click();const root=document.getElementById('ops-meta-monitoring-panel').shadowRoot;
         expect(root.querySelectorAll('.monitor-row')).toHaveLength(1);
         expect(root.textContent).toContain('Token expired');expect(root.textContent).toContain('saved results');
