@@ -60,6 +60,8 @@
     let navigationObservedRoots = new Set();
     let currentNavigationLink = null;
     let navigationReconciliationQueued = false;
+    let campaignHistoryUsesOverflow = false;
+    let campaignHistoryBlockedLayoutSignature = '';
 
     function normalizeWhitespace(value) {
         return String(value || '').replace(/\s+/g, ' ').trim();
@@ -968,14 +970,50 @@
         root.appendChild(style);
     }
 
+    function getNavigationOverflow(style, axis) {
+        const axisOverflow = style?.[axis];
+        return axisOverflow && axisOverflow !== 'visible'
+            ? axisOverflow
+            : style?.overflow || axisOverflow;
+    }
+
     function isNavigationItemVisible(element) {
         if (!element?.isConnected) return false;
 
         let current = element;
+        const visibleBounds = {
+            left: 0,
+            top: 0,
+            right: window.innerWidth,
+            bottom: window.innerHeight
+        };
         while (current) {
             const style = window.getComputedStyle?.(current);
             if (style?.display === 'none' || style?.visibility === 'hidden' || style?.visibility === 'collapse') {
                 return false;
+            }
+
+            const currentRect = current === element ? null : current.getBoundingClientRect?.();
+            if (currentRect) {
+                const clientLeft = Number(current.clientLeft) || 0;
+                const clientTop = Number(current.clientTop) || 0;
+                const clientWidth = Number(current.clientWidth);
+                const clientHeight = Number(current.clientHeight);
+                const overflowX = getNavigationOverflow(style, 'overflowX');
+                const overflowY = getNavigationOverflow(style, 'overflowY');
+
+                if (['auto', 'clip', 'hidden', 'scroll'].includes(overflowX)) {
+                    const clipLeft = currentRect.left + clientLeft;
+                    const clipRight = clipLeft + (Number.isFinite(clientWidth) ? clientWidth : currentRect.width);
+                    visibleBounds.left = Math.max(visibleBounds.left, clipLeft);
+                    visibleBounds.right = Math.min(visibleBounds.right, clipRight);
+                }
+                if (['auto', 'clip', 'hidden', 'scroll'].includes(overflowY)) {
+                    const clipTop = currentRect.top + clientTop;
+                    const clipBottom = clipTop + (Number.isFinite(clientHeight) ? clientHeight : currentRect.height);
+                    visibleBounds.top = Math.max(visibleBounds.top, clipTop);
+                    visibleBounds.bottom = Math.min(visibleBounds.bottom, clipBottom);
+                }
             }
             current = getParentElement(current);
         }
@@ -985,7 +1023,43 @@
             const documentRect = document.documentElement?.getBoundingClientRect?.();
             return !documentRect || (documentRect.width <= 0 && documentRect.height <= 0);
         }
-        return rect.right > 0 && rect.bottom > 0 && rect.left < window.innerWidth && rect.top < window.innerHeight;
+
+        const edgeTolerance = 0.5;
+        return rect.left >= visibleBounds.left - edgeTolerance &&
+            rect.right <= visibleBounds.right + edgeTolerance &&
+            rect.top >= visibleBounds.top - edgeTolerance &&
+            rect.bottom <= visibleBounds.bottom + edgeTolerance;
+    }
+
+    function getNavigationLayoutSignature(element, insertionContainer) {
+        const parts = [`${window.innerWidth}x${window.innerHeight}`];
+        const describeElement = candidate => {
+            const rect = candidate.getBoundingClientRect?.();
+            const style = window.getComputedStyle?.(candidate);
+            return [
+                candidate.tagName,
+                candidate.id,
+                rect?.left,
+                rect?.top,
+                rect?.right,
+                rect?.bottom,
+                candidate.clientWidth,
+                candidate.clientHeight,
+                style?.display,
+                style?.visibility,
+                getNavigationOverflow(style, 'overflowX'),
+                getNavigationOverflow(style, 'overflowY')
+            ].join(':');
+        };
+
+        for (let current = element; current; current = getParentElement(current)) {
+            parts.push(describeElement(current));
+        }
+        getDirectChildren(insertionContainer)
+            .filter(child => child.id !== NAVIGATION_ID)
+            .forEach(child => parts.push(describeElement(child)));
+
+        return parts.join('|');
     }
 
     function hasRelevantNavigationMutation(mutations) {
@@ -1157,12 +1231,12 @@
             );
     }
 
-    function createOverflowNavigationItem(reportsItem) {
-        const item = reportsItem.cloneNode(true);
+    function createOverflowNavigationItem(templateItem) {
+        const item = templateItem.cloneNode(true);
         item.id = OVERFLOW_NAVIGATION_ID;
         item.setAttribute('tabindex', '0');
         item.setAttribute('aria-label', 'Open campaign history');
-        item.setAttribute('data-toolshed-menu-template', 'reports');
+        item.setAttribute('data-toolshed-menu-template', 'prisma-menu-item');
         item.removeAttribute('data-module-id');
 
         const descendants = getElementsIncludingShadowDom(item);
@@ -1188,8 +1262,8 @@
                 link.removeAttribute('target');
             });
 
-        // Keep Prisma's native Reports row structure so History shares the same
-        // icon slot, left padding, and text alignment in the overflow menu.
+        // Keep a native menu row structure so History shares the same icon slot,
+        // left padding, and text alignment as the other overflow items.
         item.addEventListener('click', event => {
             event.preventDefault();
             toggleHistoryPanel();
@@ -1197,32 +1271,75 @@
         return item;
     }
 
+    function alignOverflowNavigationItem(item, templateItem) {
+        const templateIcon = getElementsIncludingShadowDom(templateItem)
+            .find(element => String(element.tagName || '').toUpperCase() === 'MO-ICON' &&
+                element.getAttribute('slot') === 'left');
+        const historyIcon = getElementsIncludingShadowDom(item)
+            .find(element => String(element.tagName || '').toUpperCase() === 'MO-ICON' &&
+                element.getAttribute('slot') === 'left');
+        if (!templateIcon || !historyIcon) return;
+
+        const templateIconWidth = Number(templateIcon.getBoundingClientRect?.().width) ||
+            Number.parseFloat(window.getComputedStyle?.(templateIcon)?.width || '') ||
+            Number.parseFloat(templateIcon.style?.width || '');
+        if (!Number.isFinite(templateIconWidth) || templateIconWidth <= 0) return;
+
+        // Prisma sizes its empty custom icons wider than named icons. Keep the
+        // cloned row's left slot at the template width so History text aligns.
+        const width = `${templateIconWidth}px`;
+        if (historyIcon.style.width !== width) historyIcon.style.width = width;
+        if (historyIcon.style.minWidth !== width) historyIcon.style.minWidth = width;
+        if (historyIcon.style.maxWidth !== width) historyIcon.style.maxWidth = width;
+        const flexBasis = `0 0 ${width}`;
+        if (historyIcon.style.flex !== flexBasis) historyIcon.style.flex = flexBasis;
+    }
+
     function ensureOverflowNavigationItems() {
         findOverflowNavigationGroups().forEach(group => {
             const reportsItem = findOverflowReportsItem(group);
-            if (!reportsItem) return;
+            const nativeItems = getDirectChildren(group).filter(item =>
+                String(item.tagName || '').toUpperCase() === 'MO-MENU-ITEM' &&
+                item.id !== OVERFLOW_NAVIGATION_ID
+            );
+            const templateItem = reportsItem || nativeItems[0];
+            if (!templateItem) return;
 
             let existing = getElementsIncludingShadowDom(group)
                 .find(element => element.id === OVERFLOW_NAVIGATION_ID);
-            const isNativeClone = existing?.getAttribute('data-toolshed-menu-template') === 'reports';
+            const isNativeClone = existing?.getAttribute('data-toolshed-menu-template') === 'prisma-menu-item';
             if (existing && (!isNativeClone || existing.parentElement !== group)) {
                 existing.remove();
                 existing = null;
             }
-            if (!existing) existing = createOverflowNavigationItem(reportsItem);
+            if (!existing) existing = createOverflowNavigationItem(templateItem);
+            alignOverflowNavigationItem(existing, templateItem);
 
-            if (reportsItem.nextElementSibling !== existing) {
-                group.insertBefore(existing, reportsItem.nextElementSibling);
+            const insertionItem = reportsItem || nativeItems[nativeItems.length - 1];
+            if (insertionItem?.nextElementSibling !== existing) {
+                group.insertBefore(existing, insertionItem?.nextElementSibling || null);
             }
         });
     }
 
     function updateOverflowMenuItemCount() {
         const groups = findOverflowNavigationGroups();
-        if (!groups.length) return;
-
-        const itemCount = groups.reduce((total, group) => total + getDirectChildren(group)
+        const menuItemCount = groups.reduce((total, group) => total + getDirectChildren(group)
             .filter(item => String(item.tagName || '').toUpperCase() === 'MO-MENU-ITEM').length, 0);
+        const moduleContainer = findPrismaBannerModuleContainer();
+        if (!groups.length && !moduleContainer) return;
+
+        // Prisma mounts the overflow rows only while the three-dot menu is
+        // open. Until then, count modules Prisma explicitly marks hidden and
+        // include History whenever its full header item does not fit.
+        const hiddenModuleCount = moduleContainer
+            ? getDirectChildren(moduleContainer).filter(module =>
+                String(module.tagName || '').toUpperCase() === 'MO-BANNER-MODULE' &&
+                module.classList?.contains('hidden')
+            ).length
+            : 0;
+        const inferredMenuItemCount = hiddenModuleCount + (campaignHistoryUsesOverflow ? 1 : 0);
+        const itemCount = Math.max(menuItemCount, inferredMenuItemCount);
 
         getElementsIncludingShadowDom()
             .filter(element => String(element.tagName || '').toUpperCase() === 'MO-BANNER-MODULE-OVERFLOW-MENU')
@@ -1278,58 +1395,82 @@
     function ensureNavigationLink() {
         const container = findTopNavigationContainer();
         const reportsItem = container ? findTopNavigationItem(container, 'Reports') : null;
-        if (!container || !reportsItem || !isNavigationItemVisible(reportsItem)) {
+        if (!container || !reportsItem) {
+            campaignHistoryUsesOverflow = false;
+            campaignHistoryBlockedLayoutSignature = '';
+            removeTopLevelNavigationLink();
+            return false;
+        }
+        if (!isNavigationItemVisible(reportsItem)) {
+            campaignHistoryUsesOverflow = true;
+            campaignHistoryBlockedLayoutSignature = '';
             removeTopLevelNavigationLink();
             return false;
         }
 
         const insertionContainer = findNavigationInsertionContainer(container, reportsItem);
-        const existing = findNavigationLinks()
-            .find(link => getParentElement(link) === insertionContainer);
-        if (existing) {
-            currentNavigationLink = existing;
-            if (reportsItem.nextElementSibling !== existing) {
-                insertionContainer.insertBefore(existing, reportsItem.nextElementSibling);
-            }
-            return true;
+        const layoutSignature = getNavigationLayoutSignature(reportsItem, insertionContainer);
+        if (campaignHistoryUsesOverflow && campaignHistoryBlockedLayoutSignature === layoutSignature) {
+            removeTopLevelNavigationLink();
+            return false;
         }
-        findNavigationLinks().forEach(link => link.remove());
 
-        const link = shouldUseDirectAnchor(reportsItem, insertionContainer)
-            ? document.createElement('a')
-            : reportsItem.cloneNode(false);
-        ensureShadowNavigationStyles(insertionContainer);
-        link.id = NAVIGATION_ID;
-        currentNavigationLink = link;
-        link.classList.add('toolshed-campaign-history-nav');
-        link.classList.remove('active', 'selected', 'is-active', 'disabled', 'mo-disabled');
-        link.removeAttribute('aria-current');
-        link.removeAttribute('disabled');
-        link.removeAttribute('aria-disabled');
-        link.setAttribute('href', '#');
-        link.setAttribute('role', 'button');
-        link.setAttribute('aria-label', 'Open campaign history');
-        link.setAttribute('aria-controls', PANEL_ID);
-        link.textContent = '';
+        let link = findNavigationLinks()
+            .find(link => getParentElement(link) === insertionContainer);
+        if (link) {
+            currentNavigationLink = link;
+            if (reportsItem.nextElementSibling !== link) {
+                insertionContainer.insertBefore(link, reportsItem.nextElementSibling);
+            }
+        } else {
+            findNavigationLinks().forEach(existingLink => existingLink.remove());
 
-        const content = document.createElement('span');
-        content.className = 'toolshed-campaign-history-nav-content';
-        content.appendChild(createTextElement('span', 'toolshed-campaign-history-nav-label', 'History'));
-        content.appendChild(createSvgIcon('history'));
-        link.appendChild(content);
+            link = shouldUseDirectAnchor(reportsItem, insertionContainer)
+                ? document.createElement('a')
+                : reportsItem.cloneNode(false);
+            ensureShadowNavigationStyles(insertionContainer);
+            link.id = NAVIGATION_ID;
+            currentNavigationLink = link;
+            link.classList.add('toolshed-campaign-history-nav');
+            link.classList.remove('active', 'selected', 'is-active', 'disabled', 'mo-disabled');
+            link.removeAttribute('aria-current');
+            link.removeAttribute('disabled');
+            link.removeAttribute('aria-disabled');
+            link.setAttribute('href', '#');
+            link.setAttribute('role', 'button');
+            link.setAttribute('aria-label', 'Open campaign history');
+            link.setAttribute('aria-controls', PANEL_ID);
+            link.textContent = '';
 
-        link.addEventListener('click', event => {
-            event.preventDefault();
-            event.stopPropagation();
-            toggleHistoryPanel();
-        });
-        link.addEventListener('keydown', event => {
-            if (event.key !== ' ') return;
-            event.preventDefault();
-            toggleHistoryPanel();
-        });
+            const content = document.createElement('span');
+            content.className = 'toolshed-campaign-history-nav-content';
+            content.appendChild(createTextElement('span', 'toolshed-campaign-history-nav-label', 'History'));
+            content.appendChild(createSvgIcon('history'));
+            link.appendChild(content);
 
-        insertionContainer.insertBefore(link, reportsItem.nextElementSibling);
+            link.addEventListener('click', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                toggleHistoryPanel();
+            });
+            link.addEventListener('keydown', event => {
+                if (event.key !== ' ') return;
+                event.preventDefault();
+                toggleHistoryPanel();
+            });
+
+            insertionContainer.insertBefore(link, reportsItem.nextElementSibling);
+        }
+
+        if (!isNavigationItemVisible(link)) {
+            campaignHistoryUsesOverflow = true;
+            campaignHistoryBlockedLayoutSignature = getNavigationLayoutSignature(reportsItem, insertionContainer);
+            removeTopLevelNavigationLink();
+            return false;
+        }
+
+        campaignHistoryUsesOverflow = false;
+        campaignHistoryBlockedLayoutSignature = '';
         return true;
     }
 
@@ -1357,6 +1498,8 @@
     }
 
     function removeNavigationLink() {
+        campaignHistoryUsesOverflow = false;
+        campaignHistoryBlockedLayoutSignature = '';
         removeTopLevelNavigationLink();
         removeOverflowNavigationItems();
         syncOverflowMenuPresentation();

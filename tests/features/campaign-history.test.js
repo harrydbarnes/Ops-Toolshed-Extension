@@ -47,6 +47,28 @@ function wait(milliseconds) {
     return new Promise(resolve => setTimeout(resolve, milliseconds));
 }
 
+function setElementRect(element, { left, top, width, height }) {
+    const rect = {
+        x: left,
+        y: top,
+        left,
+        top,
+        right: left + width,
+        bottom: top + height,
+        width,
+        height,
+        toJSON: () => ({ left, top, right: left + width, bottom: top + height, width, height })
+    };
+    element.getBoundingClientRect = () => rect;
+}
+
+function setClientSize(element, width, height) {
+    Object.defineProperties(element, {
+        clientWidth: { configurable: true, value: width },
+        clientHeight: { configurable: true, value: height }
+    });
+}
+
 function createPrismaOverflowMenu(document) {
     const overflowOverlay = document.createElement('mo-overlay');
     overflowOverlay.setAttribute('role', 'menu');
@@ -740,6 +762,135 @@ describe('campaign history feature', () => {
         expect(document.getElementById('toolshed-campaign-history-nav').previousElementSibling)
             .toBe(reportsLink);
         expect(getHistoryOverflowItem(document)).toBeNull();
+
+        dom.window.close();
+    });
+
+    test('adds History to the overflow menu when Reports is clipped even without a Reports menu row', async () => {
+        const { dom } = createPage({ navigationMarkup: '', overflowMenu: false });
+        const { document, campaignHistoryFeature } = dom.window;
+        const banner = createPrismaBannerOverflow(document);
+        const campaignsModule = banner.moduleContainer.querySelector('#mo-banner-module-prsm-cm-spa');
+        const reportsModule = banner.moduleContainer.querySelector('#mo-banner-module-prsm-cvr');
+        campaignsModule.classList.add('hidden');
+        campaignsModule.style.visibility = 'hidden';
+        reportsModule.classList.remove('hidden');
+        reportsModule.style.visibility = 'visible';
+        banner.moduleContainer.style.overflow = 'hidden';
+        setClientSize(banner.moduleContainer, 1, 40);
+        setElementRect(banner.moduleContainer, { left: 389, top: 0, width: 1, height: 40 });
+        setElementRect(reportsModule, { left: 390, top: 0, width: 85, height: 40 });
+
+        const { group } = createPrismaOverflowMenu(document);
+        const nativeMenuItem = group.querySelector('#prsm-cvr');
+        nativeMenuItem.id = 'prsm-cm-spa';
+        nativeMenuItem.querySelector('.module-label-text').textContent = 'Campaigns';
+        const nativeIcon = document.createElement('mo-icon');
+        nativeIcon.setAttribute('slot', 'left');
+        nativeMenuItem.prepend(nativeIcon);
+        setElementRect(nativeIcon, { left: 508, top: 52, width: 12, height: 12 });
+
+        try {
+            await flushPromises();
+            campaignHistoryFeature.apply();
+            await flushPromises();
+
+            const historyItem = getHistoryOverflowItem(document);
+            expect(document.getElementById('toolshed-campaign-history-nav')).toBeNull();
+            expect(historyItem).not.toBeNull();
+            expect(historyItem.previousElementSibling).toBe(nativeMenuItem);
+            expect(historyItem.querySelector('.module-label-text').textContent).toBe('History');
+            expect(historyItem.className).toBe(nativeMenuItem.className);
+            expect(historyItem.querySelector('mo-icon[slot="left"]').style.width).toBe('12px');
+            expect(historyItem.querySelector('mo-icon[slot="left"]').style.flex).toBe('0 0 12px');
+            expect(banner.countLabel.textContent).toBe('2');
+        } finally {
+            dom.window.close();
+        }
+    });
+
+    test('moves History into overflow when the link itself would be clipped after Reports', async () => {
+        const { dom } = createPage({
+            navigationMarkup: `
+                <div id="ptb-header">
+                    <nav id="prisma-top-navigation">
+                        <a id="prisma-campaigns" href="#campaigns">Campaigns</a>
+                        <a id="prisma-reports" href="#reports">Reports</a>
+                    </nav>
+                </div>`
+        });
+        const { document, Element, campaignHistoryFeature } = dom.window;
+        const nav = document.getElementById('prisma-top-navigation');
+        const reports = document.getElementById('prisma-reports');
+        nav.style.overflow = 'hidden';
+        setClientSize(nav, 110, 40);
+        setElementRect(nav, { left: 0, top: 0, width: 110, height: 40 });
+        setElementRect(reports, { left: 20, top: 0, width: 70, height: 40 });
+
+        const originalGetBoundingClientRect = Element.prototype.getBoundingClientRect;
+        Element.prototype.getBoundingClientRect = function getBoundingClientRect() {
+            if (this.id === 'toolshed-campaign-history-nav') {
+                return {
+                    x: 90,
+                    y: 0,
+                    left: 90,
+                    top: 0,
+                    right: 175,
+                    bottom: 40,
+                    width: 85,
+                    height: 40
+                };
+            }
+            return originalGetBoundingClientRect.call(this);
+        };
+
+        try {
+            await flushPromises();
+            campaignHistoryFeature.apply();
+            await flushPromises();
+
+            const historyItem = getHistoryOverflowItem(document);
+            expect(document.getElementById('toolshed-campaign-history-nav')).toBeNull();
+            expect(historyItem).not.toBeNull();
+            expect(historyItem.previousElementSibling.id).toBe('prsm-cvr');
+        } finally {
+            Element.prototype.getBoundingClientRect = originalGetBoundingClientRect;
+            dom.window.close();
+        }
+    });
+
+    test('includes History in the overflow badge before Prisma lazily mounts the menu', async () => {
+        const { dom } = createPage({ navigationMarkup: '', overflowMenu: false });
+        const { document } = dom.window;
+
+        await flushPromises();
+
+        const banner = createPrismaBannerOverflow(document);
+        await flushPromises();
+
+        // One hidden native module (Reports) plus History should display 2,
+        // even before Prisma creates the menu rows.
+        expect(banner.countLabel.textContent).toBe('2');
+
+        const additionalHiddenModule = document.createElement('mo-banner-module');
+        additionalHiddenModule.id = 'mo-banner-module-prsm-orders';
+        additionalHiddenModule.classList.add('hidden');
+        additionalHiddenModule.style.visibility = 'hidden';
+        banner.moduleContainer.appendChild(additionalHiddenModule);
+        await flushPromises();
+
+        // The badge grows with another collapsed module instead of using a
+        // fixed count.
+        expect(banner.countLabel.textContent).toBe('3');
+        expect(document.getElementById('toolshed-campaign-history-nav')).toBeNull();
+        expect(getHistoryOverflowItem(document)).toBeNull();
+
+        const { group } = createPrismaOverflowMenu(document);
+        group.appendChild(document.createElement('mo-menu-item'));
+        await flushPromises();
+
+        expect(getHistoryOverflowItem(document)).not.toBeNull();
+        expect(banner.countLabel.textContent).toBe('3');
 
         dom.window.close();
     });
