@@ -559,6 +559,51 @@ describe('campaign history feature', () => {
         dom.window.close();
     });
 
+    test('adds Campaign History to Prisma’s responsive banner overflow menu', async () => {
+        const { dom } = createPage();
+        const { document } = dom.window;
+        await flushPromises();
+
+        const overflowOverlay = document.createElement('mo-overlay');
+        overflowOverlay.setAttribute('role', 'menu');
+        const overflowMenu = document.createElement('mo-banner-module-overflow-menu-content');
+        const overflowShadow = overflowMenu.attachShadow({ mode: 'open' });
+        const group = document.createElement('mo-menu-item-group');
+        group.setAttribute('role', 'group');
+        const reportsItem = document.createElement('mo-menu-item');
+        reportsItem.id = 'prsm-cvr';
+        reportsItem.appendChild(document.createTextNode('Reports'));
+        group.appendChild(reportsItem);
+        overflowShadow.appendChild(group);
+        overflowOverlay.appendChild(overflowMenu);
+        document.body.appendChild(overflowOverlay);
+
+        await flushPromises();
+
+        const historyItem = group.querySelector('#toolshed-campaign-history-overflow-nav');
+        expect(historyItem).not.toBeNull();
+        expect(historyItem.tagName).toBe('MO-MENU-ITEM');
+        expect(historyItem.querySelector('.module-label-text').textContent).toBe('History');
+        expect(group.lastElementChild).toBe(historyItem);
+        expect(document.getElementById('toolshed-campaign-history-nav')).not.toBeNull();
+
+        group.appendChild(document.createElement('mo-menu-item'));
+        await flushPromises();
+        expect(group.lastElementChild).toBe(historyItem);
+
+        const click = new dom.window.MouseEvent('click', {
+            bubbles: true,
+            cancelable: true,
+            composed: true
+        });
+        historyItem.querySelector('a.module-label').dispatchEvent(click);
+        await flushPromises();
+        expect(click.defaultPrevented).toBe(true);
+        expect(document.getElementById('toolshed-campaign-history-panel').hidden).toBe(false);
+
+        dom.window.close();
+    });
+
     test('keeps the History link available from the Prisma dashboard without logging a visit', async () => {
         const { dom, localStore } = createPage({ url: dashboardUrl });
         const { document } = dom.window;

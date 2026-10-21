@@ -7,6 +7,7 @@
     <style>html { visibility: hidden; }</style>
     <link rel="stylesheet" href="reccies.css">
     <link rel="stylesheet" href="search-highlight.css">
+    <link rel="stylesheet" href="segmented-control.css">
 </head>
 <body>
 <main>
@@ -14,16 +15,18 @@
         <div class="titleline"><h1>My Reccies</h1><span class="readonly">Read only</span></div>
         <p class="intro">Your Reccie Tracker rows, checked against Prisma. The spreadsheet stays unchanged.</p>
     </header>
-    <fieldset class="mode-switch" id="mode-switch"><legend>Reccie source</legend>
-        <label><input type="radio" name="mode" value="main" checked>Main Tracker</label>
-        <label><input type="radio" name="mode" value="early">Early Recs</label>
-        <label><input type="radio" name="mode" value="automatic">Automatic</label>
+    <fieldset class="mode-switch" id="mode-switch"><legend id="source-label">Reccie source</legend>
+        <div class="segmented-control" id="source-segments" role="group" aria-labelledby="source-label"></div>
+        <label hidden><input type="radio" name="mode" value="main" checked>Main Tracker</label>
+        <label hidden><input type="radio" name="mode" value="early">Early Recs</label>
+        <label hidden><input type="radio" name="mode" value="automatic">Automatic</label>
     </fieldset>
     <p id="mode-description" class="hint"></p>
     <button id="discover-campaigns" type="button" hidden>Discover visited campaigns</button>
     <details id="coverage-details" hidden><summary>Campaign coverage</summary><div id="coverage-issues"></div></details>
     <details id="source-details" open>
-        <summary>Tracker connection</summary>
+        <summary id="source-summary">Reccie tracking settings</summary>
+        <div id="sheet-connection">
         <label for="sheet-url">Google Sheet tab URL</label>
         <input id="sheet-url" type="url" placeholder="https://docs.google.com/spreadsheets/d/…/edit?gid=…" autocomplete="off">
         <label for="report-month">Report month <span id="month-hint" class="hint">Applies to every row</span></label>
@@ -32,17 +35,25 @@
         <p id="sheet-hint" class="hint">Uses your signed-in Google account. Open the Reccie report tab before copying its URL.</p>
         <div class="import-row"><label for="csv-file">Or import a report CSV</label><input id="csv-file" type="file" accept=".csv,text/csv"></div>
         <p class="hint">CSV is a snapshot. Refresh or import again after the tracker changes.</p>
+        </div>
     </details>
     <p id="source-status" class="hint"></p>
-    <button id="forget-report" type="button" class="quiet">Forget this local report</button>
     <section aria-label="Find your rows" class="filters">
         <div class="filter-pair" id="assignment-fields">
             <label>Assignment<select id="assignment"><option value="ops">Ops assigned</option><option value="buyer">Buyer</option><option value="group">Group</option><option value="any">Any assignment</option></select></label>
             <label>Your name<select id="person"><option value="">Choose your name</option></select></label>
         </div>
         <label for="search">Search your rows</label><input id="search" type="search" placeholder="D number, campaign, client or supplier">
-        <label for="show-by">Show by</label><select id="show-by"><option value="dnumber">D number</option><option value="campaign">Campaign</option></select>
-        <label id="tracker-status-label" for="tracker-status">Tracker status</label><select id="tracker-status"><option value="any">Any</option><option value="outstanding">Unreconciled</option><option value="reconciled">Reconciled</option></select>
+        <div class="view-controls">
+            <div class="filter-column"><span class="control-label" id="show-by-label">Show by</span>
+                <div class="segmented-control" id="show-by-segments" role="group" aria-labelledby="show-by-label"></div>
+                <select id="show-by" hidden><option value="dnumber">D number</option><option value="campaign">Campaign</option></select>
+            </div>
+            <div class="filter-column" id="tracker-status-control"><span class="control-label" id="tracker-status-label">Tracker status</span>
+                <div class="segmented-control" id="tracker-status-segments" role="group" aria-labelledby="tracker-status-label"></div>
+                <select id="tracker-status" hidden><option value="any">Any</option><option value="outstanding">Unreconciled</option><option value="reconciled">Reconciled</option></select>
+            </div>
+        </div>
         <fieldset class="status-filter"><legend>Prisma status</legend><div class="status-chips">
             <label><input type="checkbox" data-status="mismatch">Yes in sheet, not in Prisma</label>
             <label><input type="checkbox" data-status="ready">Ready in Prisma</label>
@@ -56,6 +67,9 @@
     <div id="rows" aria-label="Reccie rows"></div>
     <p class="rule">Ready means Reconciled = Yes and Buy status = Successful for the report month. Checking does not mark the tracker as reccied.</p>
     <details id="debug"><summary>Debug</summary>
+        <button id="forget-report" type="button" class="quiet" aria-describedby="forget-hint">Clear saved report data</button>
+        <p id="forget-hint" class="hint">Clears this report’s saved rows, Prisma results, filters and timings from this Chrome profile. The Google Sheet, Prisma and Campaign History stay unchanged.</p>
+
         <p id="debug-scope" class="hint">The normal verification button uses 8 workers. This slider changes only this debug run. Use the same filters and download each result before starting another run.</p>
         <label for="debug-workers">Workers: <output id="debug-worker-count" for="debug-workers">8</output></label>
         <input id="debug-workers" type="range" min="1" max="20" step="1" value="8">

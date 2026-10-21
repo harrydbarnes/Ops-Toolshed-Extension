@@ -50,7 +50,7 @@ describe('release metadata', () => {
         try {
             const currentRelease = dom.window.document.querySelector('#release-notes .release');
             const releaseItems = Array.from(currentRelease.querySelectorAll('li'));
-            expect(releaseItems).toHaveLength(37);
+            expect(releaseItems).toHaveLength(38);
             expect(currentRelease.textContent).toContain('Social Booking Checker IDs');
             expect(releaseItems[0].textContent).toContain('My Reccies (read-only preview)');
             expect(releaseItems[0].textContent).toContain('keep the tracker unchanged');
@@ -60,7 +60,11 @@ describe('release metadata', () => {
             expect(releaseItems[2].textContent).toContain('Order Email Copy');
             expect(releaseItems[2].querySelector('.release-badge').dataset.releaseType).toBe('new');
             expect(releaseItems[3].textContent).toContain('Live Meta Campaign Checks');
-            const items = releaseItems.slice(4);
+            const sidebarSections = releaseItems.find(item => item.querySelector('strong')?.textContent === 'Reccies Sidebar Sections:');
+            expect(sidebarSections).toBeDefined();
+            expect(sidebarSections.querySelector('.release-badge').dataset.releaseType).toBe('improved');
+            expect(sidebarSections.textContent).toContain('chevrons');
+            const items = releaseItems.slice(4).filter(item => item !== sidebarSections);
 
             expect(items).toHaveLength(33);
             expect(items[4].textContent).toContain('Help Guide Library');

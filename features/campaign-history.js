@@ -7,6 +7,8 @@
     const MAX_HISTORY_ENTRIES = 2000;
     const NAVIGATION_ID = 'toolshed-campaign-history-nav';
     const PRISMA_BANNER_MODULE_CONTAINER_ID = 'mo-banner-module-container';
+    const PRISMA_OVERFLOW_MENU_TAG = 'MO-BANNER-MODULE-OVERFLOW-MENU-CONTENT';
+    const OVERFLOW_NAVIGATION_ID = 'toolshed-campaign-history-overflow-nav';
     const SHADOW_NAVIGATION_STYLE_ID = 'toolshed-campaign-history-shadow-styles';
     const PANEL_ID = 'toolshed-campaign-history-panel';
     const HISTORY_KEY_ATTRIBUTE = 'data-toolshed-history-key';
@@ -961,22 +963,45 @@
 
     function hasRelevantNavigationMutation(mutations) {
         const isExtensionNode = node => node?.nodeType === 1 &&
-            (node.id === NAVIGATION_ID || node.id === SHADOW_NAVIGATION_STYLE_ID);
+            (node.id === NAVIGATION_ID ||
+                node.id === OVERFLOW_NAVIGATION_ID ||
+                node.id === SHADOW_NAVIGATION_STYLE_ID);
+
+        const isInsideOverflowMenu = node => {
+            let current = node?.host || node;
+            for (let depth = 0; current && depth < 12; depth += 1) {
+                if (String(current.tagName || '').toUpperCase() === PRISMA_OVERFLOW_MENU_TAG) {
+                    return true;
+                }
+                current = getParentElement(current);
+            }
+            return false;
+        };
+
+        const containsOverflowMenu = node => {
+            if (node?.nodeType !== 1) return false;
+            const tagName = String(node.tagName || '').toUpperCase();
+            if (tagName === PRISMA_OVERFLOW_MENU_TAG) return true;
+            return tagName === 'MO-OVERLAY' && getElementsIncludingShadowDom(node).some(element =>
+                String(element.tagName || '').toUpperCase() === PRISMA_OVERFLOW_MENU_TAG
+            );
+        };
 
         if (!currentNavigationLink?.isConnected) return true;
         const navigationParent = getParentElement(currentNavigationLink);
 
         return mutations.some(mutation => {
             const target = mutation.target;
-            if (target !== navigationParent && !navigationParent?.contains?.(target)) {
-                const changedNavigation = [...mutation.addedNodes, ...mutation.removedNodes]
-                    .some(node => node?.contains?.(currentNavigationLink) || node === currentNavigationLink);
-                if (!changedNavigation) return false;
-            }
             const nodes = [
                 ...Array.from(mutation.addedNodes || []),
                 ...Array.from(mutation.removedNodes || [])
             ];
+            const changedOverflowMenu = isInsideOverflowMenu(target) || nodes.some(containsOverflowMenu);
+            if (target !== navigationParent && !navigationParent?.contains?.(target) && !changedOverflowMenu) {
+                const changedNavigation = nodes
+                    .some(node => node?.contains?.(currentNavigationLink) || node === currentNavigationLink);
+                if (!changedNavigation) return false;
+            }
             const hasNativeChange = nodes.some(node =>
                 node?.nodeType !== 1 || !isExtensionNode(node)
             );
@@ -997,6 +1022,7 @@
             if (extensionContextInvalidated || !window.document || !settingsReady || !viewEnabled || !isPrismaPage()) return;
             ensureNavigationObserver();
             ensureNavigationLink();
+            ensureOverflowNavigationItems();
         });
     }
 
@@ -1040,6 +1066,60 @@
         const shadowLinks = getElementsIncludingShadowDom()
             .filter(element => element.id === NAVIGATION_ID);
         return Array.from(new Set([normalLink, ...shadowLinks].filter(Boolean)));
+    }
+
+    function toggleHistoryPanel() {
+        const panel = document.getElementById(PANEL_ID);
+        if (panel && !panel.hidden && !panel.classList.contains('is-closing')) {
+            closeHistoryPanel();
+        } else {
+            openHistoryPanel();
+        }
+    }
+
+    function createOverflowNavigationItem() {
+        const item = document.createElement('mo-menu-item');
+        item.id = OVERFLOW_NAVIGATION_ID;
+        item.setAttribute('tabindex', '0');
+
+        const icon = createSvgIcon('history');
+        icon.setAttribute('slot', 'left');
+
+        const link = document.createElement('a');
+        link.className = 'module-label';
+        link.setAttribute('href', '#');
+        link.setAttribute('aria-label', 'Open campaign history');
+        link.appendChild(createTextElement('div', 'module-label-text', 'History'));
+        item.append(icon, link);
+
+        // Let Prisma's menu item receive the click so it can close the overflow
+        // menu after opening the history panel.
+        item.addEventListener('click', event => {
+            event.preventDefault();
+            toggleHistoryPanel();
+        });
+        return item;
+    }
+
+    function ensureOverflowNavigationItems() {
+        const overflowMenus = getElementsIncludingShadowDom()
+            .filter(element => String(element.tagName || '').toUpperCase() === PRISMA_OVERFLOW_MENU_TAG);
+        const groups = overflowMenus.flatMap(menu =>
+            getElementsIncludingShadowDom(menu.shadowRoot || menu)
+                .filter(element => String(element.tagName || '').toUpperCase() === 'MO-MENU-ITEM-GROUP')
+        );
+
+        groups.forEach(group => {
+            const existing = getElementsIncludingShadowDom(group)
+                .find(element => element.id === OVERFLOW_NAVIGATION_ID);
+            if (existing) {
+                if (existing.parentElement !== group || group.lastElementChild !== existing) {
+                    group.appendChild(existing);
+                }
+                return;
+            }
+            group.appendChild(createOverflowNavigationItem());
+        });
     }
 
     function ensureNavigationLink() {
@@ -1092,22 +1172,12 @@
         link.addEventListener('click', event => {
             event.preventDefault();
             event.stopPropagation();
-            const panel = document.getElementById(PANEL_ID);
-            if (panel && !panel.hidden && !panel.classList.contains('is-closing')) {
-                closeHistoryPanel();
-            } else {
-                openHistoryPanel();
-            }
+            toggleHistoryPanel();
         });
         link.addEventListener('keydown', event => {
             if (event.key !== ' ') return;
             event.preventDefault();
-            const panel = document.getElementById(PANEL_ID);
-            if (panel && !panel.hidden && !panel.classList.contains('is-closing')) {
-                closeHistoryPanel();
-            } else {
-                openHistoryPanel();
-            }
+            toggleHistoryPanel();
         });
 
         // Append after the current native options. This keeps History as the
@@ -2073,6 +2143,7 @@
         if (extensionContextInvalidated || !settingsReady || !viewEnabled || !isPrismaPage()) return;
         ensureNavigationObserver();
         ensureNavigationLink();
+        ensureOverflowNavigationItems();
     }
 
     function handleVisibilityChange() {
@@ -2091,6 +2162,7 @@
         if (viewEnabled) {
             ensureNavigationObserver();
             ensureNavigationLink();
+            ensureOverflowNavigationItems();
         }
         else {
             removeNavigationLink();

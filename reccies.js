@@ -5,6 +5,36 @@
     const observed = () => tracker?.source?.type === 'automatic' || mode === 'automatic';
     const storageKey = suffix => mode === 'main' ? (suffix === 'preferences' ? 'recciePreferences' : 'reccieLastRunTiming') : `${core.trackerKey(mode, $('report-month').value)}:${suffix}`;
     const labels = { ready: 'Verified ready', outstanding: 'Outstanding', review: 'Needs attention', error: 'Check failed' };
+    // Keep existing filter values and persistence; visible pills drive their native change handlers.
+    const segmentBindings = [];
+    function bindSegments(container, options, read, choose, disabled) {
+        const buttons = options.map(option => {
+            const button = document.createElement('button');
+            button.type='button'; button.dataset.value=option.value; button.textContent=option.label;
+            button.addEventListener('click',()=>{ if (!disabled()) choose(option.value); });
+            container.append(button); return button;
+        });
+        buttons.forEach((button,index)=>button.addEventListener('keydown',event=>{
+            if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key) || disabled()) return;
+            event.preventDefault();
+            const next=event.key==='Home' ? 0 : event.key==='End' ? buttons.length-1 : (index+(event.key==='ArrowRight'?1:-1)+buttons.length)%buttons.length;
+            buttons[next].click(); buttons[next].focus();
+        }));
+        segmentBindings.push(()=>buttons.forEach(button=>{
+            const selected=button.dataset.value===read();
+            button.classList.toggle('is-selected',selected);
+            button.setAttribute('aria-pressed',String(selected));
+            button.tabIndex=selected ? 0 : -1; button.disabled=disabled();
+        }));
+    }
+    ['show-by','tracker-status'].forEach(id=>{
+        const select=$(id);
+        bindSegments($(`${id}-segments`),[...select.options].map(option=>({value:option.value,label:option.textContent})),()=>select.value,value=>{
+            select.value=value; select.dispatchEvent(new Event('change'));
+        },()=>select.disabled);
+    });
+    bindSegments($('source-segments'),[...document.querySelectorAll('[name=mode]')].map(input=>({value:input.value,label:input.parentElement.textContent.trim()})),
+        ()=>document.querySelector('[name=mode]:checked').value,value=>document.querySelector(`[name=mode][value="${value}"]`).click(),()=>busy);
     function trackerMismatch(row, result) {
         if (row.issue || row.reccied.toLowerCase() !== 'yes' || result?.state !== 'outstanding') return '';
         const reasons = [];
@@ -14,6 +44,88 @@
     }
     const dateLabel = value => value ? new Date(value).toLocaleString() : 'Never';
     const text = (tag, value, className) => { const node = document.createElement(tag); node.textContent = value; if (className) node.className = className; return node; };
+    const disclosureStates = new WeakMap();
+    const disclosureDuration = 200;
+    function prepareDisclosure(details) {
+        const summary = [...details.children].find(child => child.tagName === 'SUMMARY');
+        if (!summary) return;
+        const content = document.createElement('div');
+        content.className = 'reccie-details-content';
+        [...details.childNodes].filter(node => node !== summary).forEach(node => content.append(node));
+        details.append(content);
+        details.classList.toggle('reccie-is-open', details.open);
+        disclosureStates.set(details, { content, frame: 0, timer: 0, token: 0, targetOpen: null, animating: false, transitionEnd: null });
+    }
+    function setDisclosureOpen(details, open) {
+        const state = disclosureStates.get(details);
+        if (!state) { details.open = open; return; }
+        if (!state.animating && details.open === open) return;
+        if (state.animating && state.targetOpen === open) return;
+
+        if (state.frame) window.cancelAnimationFrame(state.frame);
+        if (state.timer) window.clearTimeout(state.timer);
+        if (state.transitionEnd) state.content.removeEventListener('transitionend', state.transitionEnd);
+        state.frame = 0;
+        state.timer = 0;
+        state.transitionEnd = null;
+        const token = ++state.token;
+        const content = state.content;
+        const currentHeight = content.getBoundingClientRect().height;
+        const currentOpacity = open && !details.open ? '0' : window.getComputedStyle(content).opacity;
+        content.style.height = `${currentHeight}px`;
+        content.style.opacity = currentOpacity;
+        details.classList.toggle('reccie-is-open', open);
+        if (open) details.open = true;
+        void content.offsetHeight;
+
+        if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) {
+            details.open = open;
+            content.style.height = '';
+            content.style.opacity = '';
+            state.animating = false;
+            state.targetOpen = null;
+            state.frame = 0;
+            state.timer = 0;
+            return;
+        }
+
+        state.animating = true;
+        state.targetOpen = open;
+        state.frame = window.requestAnimationFrame(() => {
+            state.frame = 0;
+            if (token !== state.token) return;
+            content.style.height = open ? `${content.scrollHeight}px` : '0px';
+            content.style.opacity = open ? '1' : '0';
+            const finish = () => {
+                if (token !== state.token) return;
+                if (state.transitionEnd) content.removeEventListener('transitionend', state.transitionEnd);
+                state.transitionEnd = null;
+                if (state.timer) window.clearTimeout(state.timer);
+                if (!open) details.open = false;
+                content.style.height = '';
+                content.style.opacity = '';
+                state.animating = false;
+                state.targetOpen = null;
+                state.frame = 0;
+                state.timer = 0;
+            };
+            state.transitionEnd = function onTransitionEnd(event) {
+                if (event.target !== content || event.propertyName !== 'height') return;
+                finish();
+            };
+            content.addEventListener('transitionend', state.transitionEnd);
+            state.timer = window.setTimeout(finish, disclosureDuration + 80);
+        });
+    }
+    document.querySelectorAll('details').forEach(prepareDisclosure);
+    document.addEventListener('click', event => {
+        const summary = event.target.closest?.('summary');
+        const details = summary?.parentElement;
+        if (!details || !disclosureStates.has(details)) return;
+        event.preventDefault();
+        const state = disclosureStates.get(details);
+        setDisclosureOpen(details, state.animating ? !state.targetOpen : !details.open);
+    });
     const highlighted = (tag, value, className) => {
         const node = text(tag, '', className);
         window.OpsToolshedSearchHighlight.appendHighlightedText(node, value, $('search').value);
@@ -71,6 +183,7 @@
         $('clear-filters').disabled = value;
         $('debug-workers').disabled = value;
         $('debug-run').disabled = $('check-rows').disabled;
+        segmentBindings.forEach(sync=>sync());
     }
     async function send(operation, args = {}) {
         const context = mode === 'main' ? {} : {mode, month:$('report-month').value};
@@ -204,7 +317,7 @@
         try {
             await send(operation, { ...args, month: $('report-month').value });
             showTiming(null);
-            people(); render(); $('source-details').open = false;
+            people(); render(); setDisclosureOpen($('source-details'), false);
             message(observed() ? 'Visited-campaign discovery finished. Review the coverage and results below.' : 'Report loaded. Choose your name, then verify the reconciliation status.');
             if (observed()) showTiming(tracker.lastCheckTiming);
         } catch (error) { message(error.message, true); }
@@ -238,7 +351,7 @@
     $('report-month').addEventListener('change', () => { render(); if (tracker && tracker.month !== $('report-month').value) message('Read or import the report again to use this month.'); });
     $('forget-report').addEventListener('click', async () => {
         setBusy(true);
-        try { await send('clear'); showTiming(null); people(); $('sheet-url').value = ''; render(); $('source-details').open = true; message('Local tracker data forgotten.'); }
+        try { await send('clear'); showTiming(null); people(); $('sheet-url').value = ''; render(); setDisclosureOpen($('source-details'), true); message('Local tracker data forgotten.'); }
         catch (error) { message(error.message, true); }
         finally { setBusy(false); }
     });
@@ -316,6 +429,7 @@
         const automatic = observed();
         document.querySelector('header .intro').textContent = automatic ? 'Placements from visited campaigns, checked against Prisma. The spreadsheet stays unchanged.' : 'Your Reccie Tracker rows, checked against Prisma. The spreadsheet stays unchanged.';
         $('mode-description').textContent = mode === 'main' ? 'Monthly tracker assignments.' : mode === 'early' ? `Early Reccie report for ${core.currentMonth()}. Current-month dates determine whether the tab can be used.` : `Current-month placements from campaigns visited this month in this Chrome profile. Not proof of who booked them. Visit campaigns with History logging on, then discover.`;
+        $('sheet-connection').hidden = mode === 'automatic';
         $('source-details').hidden = mode === 'automatic';
         $('forget-report').disabled = busy || !tracker;
         $('discover-campaigns').hidden = mode === 'main';
@@ -323,14 +437,14 @@
         $('month-hint').textContent = mode === 'main' ? 'Applies to every row' : 'Current month only';
         $('sheet-hint').textContent = mode === 'early' ? 'Reads the Early Reccie report tab from this spreadsheet. Booking End Date determines the month; stale reports fall back to visited campaigns.' : 'Uses your signed-in Google account. Open the Reccie report tab before copying its URL.';
         $('assignment-fields').hidden = automatic;
-        $('tracker-status').hidden = $('tracker-status-label').hidden = automatic;
+        $('tracker-status-control').hidden = automatic;
         statusInputs().find(input=>input.dataset.status==='mismatch').closest('label').hidden=automatic;
         if (automatic) { $('tracker-status').value='any'; statusInputs().find(input=>input.dataset.status==='mismatch').checked=false; }
         $('filter-hint').textContent = automatic ? 'Any selected Prisma status matches. Nothing ticked shows all discovered placements, including failed checks.' : 'Matches the tracker status AND any selected Prisma status. Nothing ticked means any Prisma status, including not checked. Uses your latest checks.';
         const source=tracker?.source;
         $('coverage-details').hidden = !source || (!automatic && mode !== 'early');
         const coverage=$('coverage-issues'); coverage.replaceChildren();
-        if (source?.issues?.length || source?.limited || source?.fallback) $('coverage-details').open=true;
+        if (source?.issues?.length || source?.limited || source?.fallback) setDisclosureOpen($('coverage-details'), true);
         if (source && automatic) {
             coverage.append(text('p', `${source.fallback ? `Early Recs fallback: ${source.fallbackReason} ` : ''}${source.coverage || ''}`));
             coverage.append(text('p', `${source.successfulCampaigns || 0} campaigns checked of ${source.attemptedCampaigns || 0} attempted; ${source.eligibleCampaigns || 0} eligible visited campaigns.${source.limited ? ' Limited to the 50 most recently visited campaigns.' : ''}`));
@@ -376,7 +490,7 @@
             const previous = new Date(); previous.setDate(1); previous.setMonth(previous.getMonth() - 1);
             $('report-month').value = tracker?.month || `${previous.getFullYear()}-${String(previous.getMonth() + 1).padStart(2, '0')}`;
             $('sheet-url').value = tracker?.source.url || '';
-            people(prefs.person); $('source-details').open = !tracker; render();
+            people(prefs.person); setDisclosureOpen($('source-details'), !tracker); render();
             if (typeof prefs.view === 'string' || !prefs.trackerStatus) {
                 await savePreferences();
                 if ($('tracker-status').value !== 'any' && selectedStatuses().length) message('Your filters now match both the tracker status and a selected Prisma status. Clear filters to see everything.');

@@ -18,7 +18,7 @@ function setGrouping(win,value) {
     win.document.getElementById('show-by').dispatchEvent(new win.Event('change'));
 }
 function create(preferences={}) {
-    const dom = new JSDOM(html,{url:'https://extension.test/reccies.html',runScripts:'dangerously'});
+    const dom = new JSDOM(html,{url:'https://extension.test/reccies.html',runScripts:'dangerously',pretendToBeVisual:true});
     const win=dom.window;
     let data={reccieTracker:initial(),recciePreferences:{person:'Harry',assignment:'ops',showBy:'dnumber',trackerStatus:'outstanding',statuses:[],...preferences}};
     if ('statuses' in preferences && !('trackerStatus' in preferences)) data.recciePreferences.trackerStatus='any';
@@ -42,8 +42,12 @@ describe('Reccies sidebar',()=>{
             await flush(); const doc=win.document, main=getData().reccieTracker;
             const auto={...initial(),revision:'automatic',month:core.currentMonth(),source:{type:'automatic',eligibleCampaigns:2,attemptedCampaigns:2,successfulCampaigns:1,issues:[{campaignId:'CPFAIL',message:'Access denied <img src=x>'}]},rows:[{...base,ops:'',buyer:'',group:'',reccied:'',month:core.currentMonth()}],checks:{2:{state:'ready',reconciled:'1',buyStatus:'SUCCESSFUL'}}};
             win.chrome.runtime.sendMessage.mockImplementation(async request=>({status:'success',tracker:request.mode==='automatic'?auto:request.mode==='early'?null:main}));
-            doc.querySelector('[name=mode][value=automatic]').click(); await flush();
+            doc.querySelector('#source-segments [data-value=automatic]').click(); await flush();
             expect(win.chrome.runtime.sendMessage).toHaveBeenLastCalledWith({action:'reccies',operation:'load',mode:'automatic',month:core.currentMonth()});
+            expect(doc.getElementById('source-details').hidden).toBe(true);
+            expect(doc.getElementById('sheet-connection').hidden).toBe(true);
+            expect(doc.getElementById('source-summary').textContent).toBe('Reccie tracking settings');
+            expect(doc.getElementById('forget-report').closest('details').id).toBe('debug');
             expect(doc.getElementById('assignment-fields').hidden).toBe(true);
             expect(doc.getElementById('tracker-status').hidden).toBe(true);
             expect(doc.querySelectorAll('.reccie-card')).toHaveLength(1);
@@ -53,20 +57,54 @@ describe('Reccies sidebar',()=>{
             expect(doc.getElementById('report-month').disabled).toBe(true);
             doc.querySelector('[data-status=ready]').click(); await flush();
             expect(getData()[`${core.trackerKey('automatic',core.currentMonth())}:preferences`].statuses).toEqual(['ready']);
-            doc.querySelector('[name=mode][value=main]').click(); await flush();
+            doc.querySelector('#source-segments [data-value=main]').click(); await flush();
             expect(doc.getElementById('person').value).toBe('Harry');
             expect(doc.getElementById('tracker-status').value).toBe('outstanding');
             expect(doc.getElementById('report-month').disabled).toBe(false);
             expect(getData().reccieTracker).toEqual(main);
-            doc.querySelector('[name=mode][value=early]').click(); await flush();
+            doc.querySelector('#source-segments [data-value=early]').click(); await flush();
             expect(doc.getElementById('sheet-hint').textContent).toContain('Early Reccie report');
             expect(doc.getElementById('discover-campaigns').textContent).toContain('fallback');
+        } finally {dom.window.close();}
+    });
+    test('uses Settings pill styles for side-by-side filters, persists clicks and supports arrow keys',async()=>{
+        const {dom,win,getData}=create();
+        try {
+            await flush(); const doc=win.document;
+            expect(doc.querySelector('.view-controls #show-by-segments')).not.toBeNull();
+            expect(doc.querySelector('.view-controls #tracker-status-segments')).not.toBeNull();
+            expect(doc.getElementById('show-by').hidden).toBe(true);
+            expect(doc.getElementById('tracker-status').hidden).toBe(true);
+            expect(doc.querySelector('link[href="segmented-control.css"]')).not.toBeNull();
+            const settings=fs.readFileSync(path.resolve(__dirname,'../settings.html'),'utf8');
+            expect(settings).toContain('href="segmented-control.css"');
+            const campaign=doc.querySelector('#show-by-segments [data-value=campaign]');
+            campaign.click(); await flush();
+            expect(campaign.getAttribute('aria-pressed')).toBe('true');
+            expect(campaign.tabIndex).toBe(0);
+            expect(getData().recciePreferences.showBy).toBe('campaign');
+            expect(doc.querySelectorAll('.campaign-card')).toHaveLength(1);
+            const reconciled=doc.querySelector('#tracker-status-segments [data-value=reconciled]');
+            reconciled.click(); await flush();
+            expect(getData().recciePreferences.trackerStatus).toBe('reconciled');
+            expect(doc.querySelector('.campaign-d-numbers').textContent).toBe('D03144023');
+            reconciled.dispatchEvent(new win.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true})); await flush();
+            const any=doc.querySelector('#tracker-status-segments [data-value=any]');
+            expect(doc.activeElement).toBe(any);
+            expect(any.getAttribute('aria-pressed')).toBe('true');
+            expect(reconciled.tabIndex).toBe(-1);
+            expect(getData().recciePreferences.trackerStatus).toBe('any');
         } finally {dom.window.close();}
     });
     test('new users start with all statuses and D number grouping',async()=>{
         const {dom,win}=create({statuses:undefined});
         try {
-            await flush();expect(win.document.querySelectorAll('[data-status]:checked')).toHaveLength(0);
+            await flush();expect(win.document.getElementById('forget-report').closest('details').id).toBe('debug');
+            expect(win.document.getElementById('sheet-connection').hidden).toBe(false);
+            expect(win.document.getElementById('source-summary').textContent).toBe('Reccie tracking settings');
+            expect(win.document.getElementById('forget-report').textContent).toBe('Clear saved report data');
+            expect(win.document.getElementById('debug').open).toBe(false);
+            expect(win.document.querySelectorAll('[data-status]:checked')).toHaveLength(0);
             expect(win.document.getElementById('show-by').value).toBe('dnumber');
             expect(win.document.querySelectorAll('.reccie-card')).toHaveLength(2);
         } finally {dom.window.close();}
@@ -242,7 +280,7 @@ describe('Reccies sidebar',()=>{
             expect(doc.getElementById('debug-worker-count').value).toBe(String(concurrency));
             doc.getElementById('debug-run').click();
             expect(win.chrome.runtime.sendMessage).toHaveBeenCalledWith({action:'reccies',operation:'check',revision:'test',rowIds:[2],method:`workers-${concurrency}`});
-            expect([...doc.querySelectorAll('#debug-run,#debug-workers,#check-rows')].every(button=>button.disabled)).toBe(true);
+            expect([...doc.querySelectorAll('#debug-run,#debug-workers,#check-rows,.segmented-control button')].every(button=>button.disabled)).toBe(true);
             expect(doc.getElementById('message').classList.contains('is-verifying')).toBe(true);
             expect(doc.querySelector('.reccie-status-dot').getAttribute('aria-hidden')).toBe('true');
             expect(doc.querySelector('.reccie-status-dots').getAttribute('aria-hidden')).toBe('true');

@@ -190,5 +190,13 @@ checks, and reports campaign-level failures even if no D numbers were known.
 Main, Early and Automatic snapshots are stored separately; Early and Automatic
 are also scoped by current month. Each mode has separate filters and diagnostics.
 Main remains the default on reopening, and its header/popup count stays tied to
-Main Tracker assignments. Forget removes only the selected local report and its
+Main Tracker assignments. Clear saved report data in Debug removes only the selected local report and its
 preferences/timing. No mode writes to Sheets or runs Apps Script.
+
+Sheet setup is under **Reccie tracking settings**. The **Clear saved report data**
+reset is inside the collapsed **Debug** section in every mode. Routine verification
+refreshes Prisma results without requiring a reset.
+
+Show by and Tracker status use adjacent pill selectors, sharing the Features
+settings appearance with Reccie source. Arrow keys change the active choice;
+selection, saved filters and verification rules are unchanged.
