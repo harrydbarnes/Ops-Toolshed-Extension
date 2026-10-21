@@ -10,6 +10,7 @@
     const PRISMA_OVERFLOW_MENU_TAG = 'MO-BANNER-MODULE-OVERFLOW-MENU-CONTENT';
     const OVERFLOW_NAVIGATION_ID = 'toolshed-campaign-history-overflow-nav';
     const SHADOW_NAVIGATION_STYLE_ID = 'toolshed-campaign-history-shadow-styles';
+    const OVERFLOW_SPACING_STYLE_ID = 'toolshed-campaign-history-overflow-spacing-styles';
     const PANEL_ID = 'toolshed-campaign-history-panel';
     const HISTORY_KEY_ATTRIBUTE = 'data-toolshed-history-key';
     const PANEL_TRANSITION_DURATION_MS = 240;
@@ -991,7 +992,8 @@
         const isExtensionNode = node => node?.nodeType === 1 &&
             (node.id === NAVIGATION_ID ||
                 node.id === OVERFLOW_NAVIGATION_ID ||
-                node.id === SHADOW_NAVIGATION_STYLE_ID);
+                node.id === SHADOW_NAVIGATION_STYLE_ID ||
+                node.id === OVERFLOW_SPACING_STYLE_ID);
 
         const isInsideCampaignNavigation = node => {
             let current = node?.host || node;
@@ -1215,6 +1217,64 @@
         });
     }
 
+    function updateOverflowMenuItemCount() {
+        const groups = findOverflowNavigationGroups();
+        if (!groups.length) return;
+
+        const itemCount = groups.reduce((total, group) => total + getDirectChildren(group)
+            .filter(item => String(item.tagName || '').toUpperCase() === 'MO-MENU-ITEM').length, 0);
+
+        getElementsIncludingShadowDom()
+            .filter(element => String(element.tagName || '').toUpperCase() === 'MO-BANNER-MODULE-OVERFLOW-MENU')
+            .forEach(menu => {
+                getElementsIncludingShadowDom(menu.shadowRoot || menu)
+                    .filter(element => String(element.tagName || '').toUpperCase() === 'MO-BANNER-WIDGET')
+                    .forEach(widget => {
+                        const layout = getElementsIncludingShadowDom(widget.shadowRoot || widget)
+                            .find(element => element.classList?.contains('overflow-label-layout'));
+                        const countLabel = getDirectChildren(layout)
+                            .find(child => /^\d+$/.test(String(child.textContent || '').trim()));
+                        if (countLabel && countLabel.textContent !== String(itemCount)) {
+                            countLabel.textContent = String(itemCount);
+                        }
+                    });
+            });
+    }
+
+    function ensureOverflowSpacingStyle(menu) {
+        const root = menu?.getRootNode?.();
+        if (!root?.host || !root.querySelector || root.querySelector(`#${OVERFLOW_SPACING_STYLE_ID}`)) return;
+
+        const style = document.createElement('style');
+        style.id = OVERFLOW_SPACING_STYLE_ID;
+        style.textContent = `
+            #${PRISMA_BANNER_MODULE_CONTAINER_ID} > mo-banner-module.hidden {
+                display: none !important;
+            }
+        `;
+        root.appendChild(style);
+    }
+
+    function syncOverflowMenuPresentation() {
+        const visibleMenus = getElementsIncludingShadowDom()
+            .filter(element =>
+                String(element.tagName || '').toUpperCase() === 'MO-BANNER-MODULE-OVERFLOW-MENU' &&
+                isNavigationItemVisible(element)
+            );
+        const visibleRoots = new Set(visibleMenus
+            .map(menu => menu.getRootNode?.())
+            .filter(root => root?.host));
+
+        getElementsIncludingShadowDom()
+            .filter(element => element.id === OVERFLOW_SPACING_STYLE_ID)
+            .forEach(style => {
+                if (!visibleRoots.has(style.getRootNode?.())) style.remove();
+            });
+
+        visibleMenus.forEach(ensureOverflowSpacingStyle);
+        updateOverflowMenuItemCount();
+    }
+
     function ensureNavigationLink() {
         const container = findTopNavigationContainer();
         const reportsItem = container ? findTopNavigationItem(container, 'Reports') : null;
@@ -1279,6 +1339,7 @@
         } else {
             ensureOverflowNavigationItems();
         }
+        syncOverflowMenuPresentation();
     }
 
     function removeTopLevelNavigationLink() {
@@ -1298,6 +1359,7 @@
     function removeNavigationLink() {
         removeTopLevelNavigationLink();
         removeOverflowNavigationItems();
+        syncOverflowMenuPresentation();
     }
 
     function createButton(className, label, iconName) {

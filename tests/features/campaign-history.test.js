@@ -78,6 +78,56 @@ function getHistoryOverflowItem(document) {
         ?.shadowRoot?.querySelector('#toolshed-campaign-history-overflow-nav') || null;
 }
 
+function createPrismaBannerOverflow(document, { overflowVisible = true } = {}) {
+    const banner = document.createElement('mo-banner');
+    const bannerShadow = banner.attachShadow({ mode: 'open' });
+    const bannerLayout = document.createElement('div');
+    bannerLayout.className = 'banner';
+    const moduleContainer = document.createElement('div');
+    moduleContainer.id = 'mo-banner-module-container';
+
+    const createModule = (id, label, hidden = false) => {
+        const module = document.createElement('mo-banner-module');
+        module.id = id;
+        if (hidden) {
+            module.classList.add('hidden');
+            module.style.visibility = 'hidden';
+        }
+
+        const moduleShadow = module.attachShadow({ mode: 'open' });
+        const menu = document.createElement('mo-menu');
+        const menuShadow = menu.attachShadow({ mode: 'open' });
+        const link = document.createElement('a');
+        link.textContent = label;
+        menuShadow.appendChild(link);
+        moduleShadow.appendChild(menu);
+        return module;
+    };
+
+    moduleContainer.append(
+        createModule('mo-banner-module-prsm-cm-spa', 'Campaigns'),
+        createModule('mo-banner-module-prsm-cvr', 'Reports', true)
+    );
+
+    const overflowMenu = document.createElement('mo-banner-module-overflow-menu');
+    overflowMenu.style.visibility = overflowVisible ? 'visible' : 'hidden';
+    const overflowShadow = overflowMenu.attachShadow({ mode: 'open' });
+    const widget = document.createElement('mo-banner-widget');
+    const widgetShadow = widget.attachShadow({ mode: 'open' });
+    const overflowLabelLayout = document.createElement('div');
+    overflowLabelLayout.className = 'overflow-label-layout';
+    const countLabel = document.createElement('div');
+    countLabel.textContent = '1';
+    overflowLabelLayout.append(countLabel, document.createElement('div'));
+    widgetShadow.appendChild(overflowLabelLayout);
+    overflowShadow.appendChild(widget);
+
+    bannerLayout.append(moduleContainer, overflowMenu);
+    bannerShadow.appendChild(bannerLayout);
+    document.body.prepend(banner);
+    return { banner, bannerShadow, moduleContainer, overflowMenu, countLabel };
+}
+
 function clickHistoryMenuItem(document) {
     getHistoryOverflowItem(document)?.querySelector('a.module-label')?.click();
 }
@@ -690,6 +740,41 @@ describe('campaign history feature', () => {
         expect(document.getElementById('toolshed-campaign-history-nav').previousElementSibling)
             .toBe(reportsLink);
         expect(getHistoryOverflowItem(document)).toBeNull();
+
+        dom.window.close();
+    });
+
+    test('counts the actual overflow items and collapses hidden tabs only while the three-dot menu is visible', async () => {
+        const { dom } = createPage({ navigationMarkup: '', overflowMenu: false });
+        const { document, campaignHistoryFeature } = dom.window;
+        const { group } = createPrismaOverflowMenu(document);
+        const banner = createPrismaBannerOverflow(document);
+
+        await flushPromises();
+
+        expect(getHistoryOverflowItem(document)).not.toBeNull();
+        expect(banner.countLabel.textContent).toBe('2');
+        const spacingStyle = banner.bannerShadow.querySelector('#toolshed-campaign-history-overflow-spacing-styles');
+        expect(spacingStyle.textContent).toContain('#mo-banner-module-container > mo-banner-module.hidden');
+        expect(spacingStyle.textContent).toContain('display: none !important');
+
+        const additionalItem = document.createElement('mo-menu-item');
+        additionalItem.id = 'prsm-orders';
+        group.appendChild(additionalItem);
+        await flushPromises();
+        expect(banner.countLabel.textContent).toBe('3');
+
+        additionalItem.remove();
+        await flushPromises();
+        expect(banner.countLabel.textContent).toBe('2');
+
+        banner.overflowMenu.style.visibility = 'hidden';
+        campaignHistoryFeature.apply();
+        expect(banner.bannerShadow.querySelector('#toolshed-campaign-history-overflow-spacing-styles')).toBeNull();
+
+        banner.overflowMenu.style.visibility = 'visible';
+        campaignHistoryFeature.apply();
+        expect(banner.bannerShadow.querySelector('#toolshed-campaign-history-overflow-spacing-styles')).not.toBeNull();
 
         dom.window.close();
     });
