@@ -7,10 +7,21 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
 const html = fs.readFileSync(path.resolve(__dirname,'../reccies.html'),'utf8');
 const base = {sourceRow:2,dNumber:'D03120200',campaignId:'CP3G9KS',month:'2026-09',buyer:'Buyer',ops:'Harry',group:'Harry',client:'Client',campaignName:'Campaign',supplier:'Supplier',order:'Order',comments:'',gross:'10',reccied:'No',issue:''};
 const initial = () => ({revision:'test',month:'2026-09',source:{type:'csv'},importedAt:'2026-10-20T12:00:00Z',rows:[{...base},{...base,sourceRow:3,dNumber:'D03144023',reccied:'Yes',supplier:'<img src=x onerror=alert(1)>'},{...base,sourceRow:4,dNumber:'D03144020',ops:'Other'}],checks:{}});
+function setStatuses(win,...statuses) {
+    win.document.getElementById('tracker-status').value=statuses.includes('outstanding')?'outstanding':statuses.includes('reconciled')?'reconciled':'any';
+    const inputs=[...win.document.querySelectorAll('[data-status]')];
+    inputs.forEach(input=>{input.checked=statuses.includes(input.dataset.status);});
+    inputs[0].dispatchEvent(new win.Event('change'));
+}
+function setGrouping(win,value) {
+    win.document.getElementById('show-by').value=value;
+    win.document.getElementById('show-by').dispatchEvent(new win.Event('change'));
+}
 function create(preferences={}) {
     const dom = new JSDOM(html,{url:'https://extension.test/reccies.html',runScripts:'dangerously'});
     const win=dom.window;
-    let data={reccieTracker:initial(),recciePreferences:{person:'Harry',assignment:'ops',view:'outstanding',...preferences}};
+    let data={reccieTracker:initial(),recciePreferences:{person:'Harry',assignment:'ops',showBy:'dnumber',trackerStatus:'outstanding',statuses:[],...preferences}};
+    if ('statuses' in preferences && !('trackerStatus' in preferences)) data.recciePreferences.trackerStatus='any';
     win.reccieCore=core;
     win.chrome={storage:{local:{get:jest.fn(async()=>data),set:jest.fn(async values=>Object.assign(data,values))}},permissions:{request:jest.fn(async()=>true)},runtime:{sendMessage:jest.fn(async request=>{
         if(request.operation==='check') {
@@ -25,6 +36,96 @@ function create(preferences={}) {
     return {dom,win,getData:()=>data};
 }
 describe('Reccies sidebar',()=>{
+    test('switches modes without network discovery and keeps assignment preferences separate',async()=>{
+        const {dom,win,getData}=create();
+        try {
+            await flush(); const doc=win.document, main=getData().reccieTracker;
+            const auto={...initial(),revision:'automatic',month:core.currentMonth(),source:{type:'automatic',eligibleCampaigns:2,attemptedCampaigns:2,successfulCampaigns:1,issues:[{campaignId:'CPFAIL',message:'Access denied <img src=x>'}]},rows:[{...base,ops:'',buyer:'',group:'',reccied:'',month:core.currentMonth()}],checks:{2:{state:'ready',reconciled:'1',buyStatus:'SUCCESSFUL'}}};
+            win.chrome.runtime.sendMessage.mockImplementation(async request=>({status:'success',tracker:request.mode==='automatic'?auto:request.mode==='early'?null:main}));
+            doc.querySelector('[name=mode][value=automatic]').click(); await flush();
+            expect(win.chrome.runtime.sendMessage).toHaveBeenLastCalledWith({action:'reccies',operation:'load',mode:'automatic',month:core.currentMonth()});
+            expect(doc.getElementById('assignment-fields').hidden).toBe(true);
+            expect(doc.getElementById('tracker-status').hidden).toBe(true);
+            expect(doc.querySelectorAll('.reccie-card')).toHaveLength(1);
+            expect(doc.getElementById('summary').textContent).toContain('assignment unknown');
+            expect(doc.getElementById('coverage-issues').textContent).toContain('CPFAIL: Access denied <img src=x>');
+            expect(doc.getElementById('coverage-issues').querySelector('img')).toBeNull();
+            expect(doc.getElementById('report-month').disabled).toBe(true);
+            doc.querySelector('[data-status=ready]').click(); await flush();
+            expect(getData()[`${core.trackerKey('automatic',core.currentMonth())}:preferences`].statuses).toEqual(['ready']);
+            doc.querySelector('[name=mode][value=main]').click(); await flush();
+            expect(doc.getElementById('person').value).toBe('Harry');
+            expect(doc.getElementById('tracker-status').value).toBe('outstanding');
+            expect(doc.getElementById('report-month').disabled).toBe(false);
+            expect(getData().reccieTracker).toEqual(main);
+            doc.querySelector('[name=mode][value=early]').click(); await flush();
+            expect(doc.getElementById('sheet-hint').textContent).toContain('Early Reccie report');
+            expect(doc.getElementById('discover-campaigns').textContent).toContain('fallback');
+        } finally {dom.window.close();}
+    });
+    test('new users start with all statuses and D number grouping',async()=>{
+        const {dom,win}=create({statuses:undefined});
+        try {
+            await flush();expect(win.document.querySelectorAll('[data-status]:checked')).toHaveLength(0);
+            expect(win.document.getElementById('show-by').value).toBe('dnumber');
+            expect(win.document.querySelectorAll('.reccie-card')).toHaveLength(2);
+        } finally {dom.window.close();}
+    });
+    test.each(['all','campaigns','outstanding','reconciled','mismatch','ready','review'])('migrates legacy %s preferences into independent controls',async view=>{
+        const {dom,win,getData}=create({view,showBy:undefined,trackerStatus:undefined,statuses:undefined});
+        try {
+            await flush();const statuses=['mismatch','ready','review'].includes(view)?[view]:[];
+            const trackerStatus=['outstanding','reconciled'].includes(view)?view:'any';
+            expect(win.document.getElementById('tracker-status').value).toBe(trackerStatus);
+            expect(win.document.getElementById('show-by').value).toBe(view==='campaigns'?'campaign':'dnumber');
+            expect([...win.document.querySelectorAll('[data-status]:checked')].map(input=>input.dataset.status)).toEqual(statuses);
+            expect(getData().recciePreferences).toEqual({person:'Harry',assignment:'ops',showBy:view==='campaigns'?'campaign':'dnumber',trackerStatus,statuses});
+        } finally {dom.window.close();}
+    });
+    test('combines tracker AND Prisma status, keeps Prisma chips OR and explains campaign attention issues',async()=>{
+        const {dom,win,getData}=create({trackerStatus:'any',statuses:[]});
+        try {
+            await flush();const doc=win.document,data=getData();
+            data.reccieTracker.rows=Array.from({length:5},(_,index)=>({...base,sourceRow:index+2,dNumber:`D${index}`,reccied:index?'Yes':'No',campaignId:index<2?'CPONE':index===2?'CPTWO':'',campaignName:index<2?'First':index===2?'Second':''}));
+            data.reccieTracker.rows[4].issue='Missing campaign ID';
+            data.reccieTracker.checks={2:{state:'ready',reconciled:'1',buyStatus:'SUCCESSFUL'},3:{state:'ready',reconciled:'1',buyStatus:'SUCCESSFUL'},4:{state:'outstanding',reconciled:'1',buyStatus:'PENDING'},5:{state:'error',message:'Access denied <img src=x onerror=alert(1)>'}};
+            setGrouping(win,'campaign');
+            expect(doc.querySelectorAll('.campaign-card')).toHaveLength(3);
+            expect(doc.getElementById('summary').textContent).toContain('3 campaigns · 5 D numbers shown');
+            expect(doc.querySelector('.badge.mismatch').textContent).toBe('Prisma mismatch');
+            expect(doc.querySelector('.mismatch-warning').textContent).toContain('D2 · Buy status: Pending');
+            const tracker=value=>{doc.getElementById('tracker-status').value=value;doc.getElementById('tracker-status').dispatchEvent(new win.Event('change'));};
+            tracker('outstanding');doc.querySelector('[data-status="ready"]').click();
+            expect(doc.querySelector('.campaign-d-numbers').textContent).toBe('D0');
+            tracker('reconciled');expect(doc.querySelector('.campaign-d-numbers').textContent).toBe('D1');
+            doc.querySelector('[data-status="review"]').click();
+            expect(doc.querySelectorAll('.campaign-card')).toHaveLength(2);
+            const attention=doc.querySelector('.campaign-attention');
+            expect(attention.textContent).toContain('D3 · Access denied <img');expect(attention.textContent).toContain('D4 · Missing campaign ID');
+            expect(attention.querySelector('img')).toBeNull();
+            doc.getElementById('search').value='D3';doc.getElementById('search').dispatchEvent(new win.Event('input'));
+            expect(doc.querySelector('.campaign-d-numbers').textContent).toBe('D3');
+            doc.getElementById('clear-filters').click();
+            expect(doc.getElementById('tracker-status').value).toBe('any');expect(doc.querySelectorAll('[data-status]:checked')).toHaveLength(0);
+            expect(doc.getElementById('show-by').value).toBe('campaign');expect(doc.getElementById('search').value).toBe('');
+            expect(doc.querySelectorAll('.campaign-card')).toHaveLength(3);expect(doc.getElementById('clear-filters').hidden).toBe(true);
+            setStatuses(win,'mismatch');doc.getElementById('check-rows').click();await flush();await flush();
+            expect(win.chrome.runtime.sendMessage).toHaveBeenCalledWith({action:'reccies',operation:'check',revision:'test',rowIds:[4],method:'workers-8'});
+            expect(doc.getElementById('message').textContent).toContain('Checked 1 campaign · 1 D number; 0 campaigns · 0 D numbers now shown');
+        } finally {dom.window.close();}
+    });
+    test('migrates old mixed OR filters with an explanation and treats opposite tracker filters as Any',async()=>{
+        for(const statuses of [['outstanding','ready'],['outstanding','reconciled','review']]) {
+            const {dom,win}=create({trackerStatus:undefined,statuses});
+            try {
+                await flush();const both=statuses.includes('reconciled');
+                expect(win.document.getElementById('tracker-status').value).toBe(both?'any':'outstanding');
+                expect(win.document.querySelector('[data-status="ready"]').checked).toBe(!both);
+                expect(win.document.querySelector('[data-status="review"]').checked).toBe(false);
+                if(!both) expect(win.document.getElementById('message').textContent).toContain('both the tracker status');
+            } finally {dom.window.close();}
+        }
+    });
     test('shows only confirmed sheet-Yes mismatches, explains both conditions and removes resolved rows',async()=>{
         const {dom,win,getData}=create();
         try {
@@ -43,10 +144,10 @@ describe('Reccies sidebar',()=>{
                 11:{state:'outstanding',reconciled:'0',buyStatus:'FAILED'},
                 12:{state:'outstanding',reconciled:'1',buyStatus:'SUCCESSFUL'}
             };
-            doc.getElementById('view').value='mismatch';doc.getElementById('view').dispatchEvent(new win.Event('change'));
+            setStatuses(win,'mismatch');
             expect([...doc.querySelectorAll('.card-top strong')].map(node=>node.textContent)).toEqual(['D0','D1','D2']);
-            expect([...doc.querySelectorAll('.badge.mismatch')].map(node=>node.textContent)).toEqual(['Not reconciled','Buy not successful','Not reconciled · Buy not successful']);
-            expect(win.chrome.storage.local.set).toHaveBeenCalledWith({recciePreferences:{person:'Harry',assignment:'ops',view:'mismatch'}});
+            expect([...doc.querySelectorAll('.badge.mismatch')].map(node=>node.textContent)).toEqual(['Prisma mismatch','Prisma mismatch','Prisma mismatch']);
+            expect(win.chrome.storage.local.set).toHaveBeenCalledWith({recciePreferences:{person:'Harry',assignment:'ops',showBy:'dnumber',trackerStatus:'any',statuses:['mismatch']}});
             doc.getElementById('search').value='D1';doc.getElementById('search').dispatchEvent(new win.Event('input'));
             expect(doc.querySelectorAll('.reccie-card')).toHaveLength(1);
             doc.getElementById('search').value='';doc.getElementById('search').dispatchEvent(new win.Event('input'));
@@ -58,11 +159,11 @@ describe('Reccies sidebar',()=>{
         } finally { dom.window.close(); }
     });
     test('restores the mismatch filter and explains how to check tracker-Yes rows first',async()=>{
-        const {dom,win}=create({view:'mismatch'});
+        const {dom,win}=create({statuses:['mismatch']});
         try {
-            await flush();expect(win.document.getElementById('view').value).toBe('mismatch');
+            await flush();expect(win.document.querySelector('[data-status="mismatch"]').checked).toBe(true);
             expect(win.document.querySelectorAll('.reccie-card')).toHaveLength(0);
-            expect(win.document.getElementById('rows').textContent).toContain('Use “Reconciled” and verify');
+            expect(win.document.getElementById('rows').textContent).toContain('Select Reconciled and verify');
         } finally { dom.window.close(); }
     });
     test('keeps Debug collapsed at the bottom with timings, download and a 1–20 slider',()=>{
@@ -155,7 +256,7 @@ describe('Reccies sidebar',()=>{
             expect(win.chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
             finish();await flush();await flush();
             expect(JSON.parse(doc.getElementById('timing-report').textContent)).toMatchObject({method:core.verificationMethod(`workers-${concurrency}`),methodConfirmed:true,concurrency,
-                selection:{trackerRevision:'test',reportMonth:'2026-09',person:'Harry',assignment:'ops',view:'outstanding',search:'',rowIds:[2]}});
+                selection:{trackerRevision:'test',reportMonth:'2026-09',person:'Harry',assignment:'ops',showBy:'dnumber',trackerStatus:'outstanding',statuses:[],search:'',rowIds:[2]}});
             expect([...doc.querySelectorAll('#debug-run,#debug-workers')].every(button=>!button.disabled)).toBe(true);
             expect(doc.querySelector('.reccie-status-dot')).toBeNull();
             expect(doc.querySelector('.reccie-status-dots')).toBeNull();
@@ -174,8 +275,7 @@ describe('Reccies sidebar',()=>{
                 data.reccieTracker.lastCheckTiming={method:core.verificationMethod(request.method),concurrency:core.verificationMethod(request.method).concurrency,rows:request.rowIds.length,campaigns:campaigns.size,campaignsDetail:[...campaigns].map(campaign=>({campaign,outcome:'success',requests:[{phase:'lookup'},{phase:'grid'}]}))};
                 return {status:'success',tracker:data.reccieTracker};
             });
-            doc.getElementById('view').value='all';
-            doc.getElementById('view').dispatchEvent(new win.Event('change'));
+            setStatuses(win);
             doc.getElementById('check-rows').click();
             await flush();await flush();
             const calls=win.chrome.runtime.sendMessage.mock.calls.map(([request])=>request);
@@ -209,13 +309,16 @@ describe('Reccies sidebar',()=>{
             expect(win.URL.revokeObjectURL).toHaveBeenCalledWith('blob:timings');
         } finally { dom.window.close(); }
     });
-    test('shows all seven view labels in the requested order',()=>{
-        const dom = new JSDOM(html);
+    test('separates grouping from optional status chips with no checked HTML defaults',()=>{
+        const dom=new JSDOM(html);
         try {
-            expect([...dom.window.document.querySelectorAll('#view option')].map(option=>option.textContent)).toEqual([
-                'All my D numbers','All my campaigns','Unreconciled','Reconciled','Yes in sheet, not in Prisma','Verified reconciled in Prisma','Needs review'
-            ]);
-        } finally { dom.window.close(); }
+            const doc=dom.window.document;
+            expect([...doc.querySelectorAll('#show-by option')].map(option=>option.textContent)).toEqual(['D number','Campaign']);
+            expect([...doc.querySelectorAll('[data-status]')].map(input=>input.parentElement.textContent.trim())).toEqual(['Yes in sheet, not in Prisma','Ready in Prisma','Needs attention']);
+            expect(doc.querySelectorAll('[data-status]:checked')).toHaveLength(0);
+            expect(doc.getElementById('show-by').value).toBe('dnumber');
+            expect(doc.getElementById('view')).toBeNull();
+        } finally {dom.window.close();}
     });
     test('retains row limits and aggregates retry diagnostics across larger runs',async()=>{
         const {dom,win,getData}=create();
@@ -226,31 +329,32 @@ describe('Reccies sidebar',()=>{
                 data.reccieTracker.lastCheckTiming={method:core.verificationMethod(request.method),concurrency:core.verificationMethod(request.method).concurrency,retries:1,cacheHits:0,campaignsDetail:[{outcome:'success',requests:[{phase:'lookup'},{phase:'grid',ok:false},{phase:'grid',ok:true}]}]};
                 return {status:'success',tracker:data.reccieTracker};
             });
-            doc.getElementById('view').value='all';doc.getElementById('view').dispatchEvent(new win.Event('change'));
+            setStatuses(win);
             doc.getElementById('check-rows').click();await flush();await flush();
             expect(win.chrome.runtime.sendMessage.mock.calls.map(([request])=>request.rowIds.length)).toEqual([500,120]);
             expect(JSON.parse(doc.getElementById('timing-report').textContent)).toMatchObject({selectedRows:620,plannedBatches:2,completedBatches:2,requests:6,retries:2});
         } finally { dom.window.close(); }
     });
-    test('groups only assigned rows by campaign, retains all D numbers during search and verifies them',async()=>{
+    test('groups assigned matching rows by campaign and verifies only matching D numbers',async()=>{
         const {dom,win}=create();await flush();
         const doc=win.document;
-        doc.getElementById('view').value='campaigns';doc.getElementById('view').dispatchEvent(new win.Event('change'));
+        setStatuses(win);setGrouping(win,'campaign');
         expect(doc.querySelectorAll('.campaign-card')).toHaveLength(1);
         expect(doc.querySelector('.campaign-title').textContent).toBe('Campaign');
         expect(doc.querySelector('.campaign-card').textContent).toContain('2 D numbers');
         expect(doc.querySelector('.campaign-d-numbers').textContent).toBe('D03120200, D03144023');
         doc.getElementById('search').value='d03120200';doc.getElementById('search').dispatchEvent(new win.Event('input'));
         expect(doc.querySelector('.campaign-d-numbers mark').textContent).toBe('D03120200');
-        expect(doc.querySelector('.campaign-d-numbers').textContent).toContain('D03144023');
+        expect(doc.querySelector('.campaign-d-numbers').textContent).not.toContain('D03144023');
+        expect(doc.querySelector('.campaign-card').textContent).toContain('1 D number');
         doc.getElementById('check-rows').click();await flush();await flush();
-        expect(win.chrome.runtime.sendMessage).toHaveBeenCalledWith({action:'reccies',operation:'check',revision:'test',rowIds:[2,3],method:'workers-8'});
+        expect(win.chrome.runtime.sendMessage).toHaveBeenCalledWith({action:'reccies',operation:'check',revision:'test',rowIds:[2],method:'workers-8'});
         dom.window.close();
     });
     test('uses the same tracker field for reconciled and unreconciled, retaining Prisma and review filters',async()=>{
         const {dom,win,getData}=create();await flush();const doc=win.document;
         getData().reccieTracker.checks={2:{state:'ready'},3:{state:'review',message:'D number not found for this month'}};
-        const show=value=>{doc.getElementById('view').value=value;doc.getElementById('view').dispatchEvent(new win.Event('change'));};
+        const show=value=>setStatuses(win,value);
         show('reconciled');expect(doc.querySelectorAll('.reccie-card')).toHaveLength(1);expect(doc.getElementById('rows').textContent).toContain('D03144023');
         show('outstanding');expect(doc.getElementById('rows').textContent).toContain('D03120200');expect(doc.getElementById('rows').textContent).not.toContain('D03144023');
         show('ready');expect(doc.getElementById('rows').textContent).toContain('D03120200');
@@ -260,7 +364,7 @@ describe('Reccies sidebar',()=>{
     test('highlights search matches with the shared Campaign History helper without interpreting HTML',async()=>{
         const {dom,win}=create();await flush();const doc=win.document;
         const append=jest.spyOn(win.OpsToolshedSearchHighlight,'appendHighlightedText');
-        doc.getElementById('view').value='all';doc.getElementById('view').dispatchEvent(new win.Event('change'));
+        setStatuses(win);
         doc.getElementById('search').value='<img';doc.getElementById('search').dispatchEvent(new win.Event('input'));
         expect(doc.querySelectorAll('.reccie-card')).toHaveLength(1);
         expect(doc.querySelector('.supplier mark').textContent).toBe('<img');
@@ -275,11 +379,11 @@ describe('Reccies sidebar',()=>{
         const doc=win.document;
         expect(doc.querySelectorAll('.reccie-card')).toHaveLength(1);
         expect(doc.querySelector('.reccie-card').textContent).toContain('D03120200');
-        doc.getElementById('view').value='all';doc.getElementById('view').dispatchEvent(new win.Event('change'));await flush();
+        setStatuses(win);await flush();
         expect(doc.querySelectorAll('.reccie-card')).toHaveLength(2);
         expect(doc.querySelector('.reccie-card img')).toBeNull();
         expect(doc.getElementById('rows').textContent).toContain('<img src=x');
-        expect(win.chrome.storage.local.set).toHaveBeenCalledWith({recciePreferences:{person:'Harry',assignment:'ops',view:'all'}});
+        expect(win.chrome.storage.local.set).toHaveBeenCalledWith({recciePreferences:{person:'Harry',assignment:'ops',showBy:'dnumber',trackerStatus:'any',statuses:[]}});
         expect(doc.querySelector('.card-bottom a').href).toContain('campaign-id=CP3G9KS');
         expect(doc.querySelector('.card-bottom a').href).toContain('mos=2026-09-01');
         dom.window.close();

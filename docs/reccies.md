@@ -22,19 +22,33 @@ supplier, order, gross and comments. Column letters may change; headers drive ma
 Imported report contents, assignment preferences, and results remain in
 `chrome.storage.local`. Forget local tracker data removes them.
 
-The Show menu lists All my D numbers, All my campaigns, Unreconciled, Reconciled,
-Yes in sheet, not in Prisma, Verified reconciled in Prisma and Needs review.
-The mismatch view includes tracker-Yes rows with a completed outstanding Prisma
-result: Reconciled = No and/or Buy status not Successful. Badges explain one or both
-conditions. Unchecked rows, access failures, missing D numbers and other review
-results are excluded because they do not establish a confirmed mismatch. Select
-Reconciled and verify first to check every tracker-Yes row; rechecking a mismatch
-removes it from this view if Prisma now meets the rule. Reconciled and Unreconciled use
-the imported tracker Reccied field; Prisma verification remains independent.
-Campaigns group the selected person's rows by CP number and month, display unique
-D numbers and their count, and retain all assigned D numbers when a campaign
-matches a search. Verification in that view checks those underlying rows. Search
-highlighting and its stylesheet are shared with Campaign History.
+Show by controls grouping independently: D number (the default) or Campaign.
+Tracker status is a three-way choice: Any, Unreconciled or Reconciled. It reads
+only the imported Reccied field. Prisma status has optional checkboxes for
+Yes in sheet, not in Prisma; Ready in Prisma; and Needs attention. Selected Prisma
+statuses combine with OR, then combine with Tracker status using AND. For example,
+Unreconciled plus Ready in Prisma shows only rows ready to mark Yes in the tracker.
+No Prisma checkboxes selected means any Prisma status, including not checked.
+
+Clear filters resets Tracker status to Any, clears Prisma statuses and search,
+and preserves grouping, person and assignment. Fresh users start with Any and no
+Prisma filters. Legacy saved dropdown choices migrate automatically. Old mixed OR
+selections become separate tracker/Prisma conditions with a one-time explanation;
+old opposite tracker selections become Any with no Prisma restriction, retaining
+that selection's previous all-rows meaning.
+
+Ready and Needs attention retain existing check-result logic. A sheet-Yes mismatch
+requires a completed outstanding result, not simply absence of ready status:
+failed, unchecked and review results remain separate. The badge reads Prisma
+mismatch so a failing buy status is not mistaken for Reconciled = No.
+
+Tracker, Prisma and search filters apply before grouping. Campaign counts and
+muted D number lists include only matching rows. Blank campaign IDs share a No
+campaign entry per month. Campaign cards show mismatch details and attention
+reasons per D number, including access errors and missing data. Search highlighting
+uses the shared Campaign History helper. Verification checks every matching source
+row, including rows below Show more. The finish message distinguishes rows checked
+from rows still matching afterward. Prisma business rules and requests are unchanged.
 
 ## Prisma checks
 
@@ -147,3 +161,34 @@ and absence of Google write traffic. Do not change the real Sheet while testing.
 While verification is active, the status message shows a pulsing dot and a fixed-width
 . / .. / ... animation. Both stop on completion or error, with a static indicator
 when reduced motion is requested. Decorative animation is hidden from screen readers.
+
+
+## Sources and modes
+
+The top source selector separates **Main Tracker**, **Early Recs**, and **Automatic**.
+Main Tracker retains the existing monthly import and assignment workflow.
+Early Recs reads the **Early Reccie report** tab in the same spreadsheet by name.
+Campaign ID (G) and Booking End Date (I) are read by header, not fixed position.
+Only current-month dated placements qualify. Blank dates inherit the month only
+when all valid dates establish the current month and none are invalid. Ambiguous
+dates remain visible for attention and are not queried. Other dated months are
+excluded. If no dates establish the current month, discovery becomes an explicitly
+labelled visited-campaign fallback. If the sheet cannot be read or has missing
+headers, the error is shown; users can explicitly choose that fallback instead.
+
+Automatic uses existing Campaign History entries whose latest visit was this month
+in Europe/London, deduplicated by campaign ID. Discovery is explicit, not scheduled.
+It queries current-month placements in the 50 most recently visited eligible
+campaigns with the same eight-worker queue and business rule. Coverage shows the
+eligible, attempted and successful campaign counts, any limit and campaign errors.
+History logging must have been enabled for visits to be recorded. This is not a
+complete booking ledger and does not establish that the user booked each placement.
+Assignment and tracker-only filters are therefore hidden for discovered placements.
+Failed discovery retains previously known placements in that campaign as failed
+checks, and reports campaign-level failures even if no D numbers were known.
+
+Main, Early and Automatic snapshots are stored separately; Early and Automatic
+are also scoped by current month. Each mode has separate filters and diagnostics.
+Main remains the default on reopening, and its header/popup count stays tied to
+Main Tracker assignments. Forget removes only the selected local report and its
+preferences/timing. No mode writes to Sheets or runs Apps Script.

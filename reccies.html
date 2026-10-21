@@ -14,33 +14,40 @@
         <div class="titleline"><h1>My Reccies</h1><span class="readonly">Read only</span></div>
         <p class="intro">Your Reccie Tracker rows, checked against Prisma. The spreadsheet stays unchanged.</p>
     </header>
+    <fieldset class="mode-switch" id="mode-switch"><legend>Reccie source</legend>
+        <label><input type="radio" name="mode" value="main" checked>Main Tracker</label>
+        <label><input type="radio" name="mode" value="early">Early Recs</label>
+        <label><input type="radio" name="mode" value="automatic">Automatic</label>
+    </fieldset>
+    <p id="mode-description" class="hint"></p>
+    <button id="discover-campaigns" type="button" hidden>Discover visited campaigns</button>
+    <details id="coverage-details" hidden><summary>Campaign coverage</summary><div id="coverage-issues"></div></details>
     <details id="source-details" open>
         <summary>Tracker connection</summary>
         <label for="sheet-url">Google Sheet tab URL</label>
         <input id="sheet-url" type="url" placeholder="https://docs.google.com/spreadsheets/d/…/edit?gid=…" autocomplete="off">
-        <label for="report-month">Report month <span class="hint">Applies to every row</span></label>
+        <label for="report-month">Report month <span id="month-hint" class="hint">Applies to every row</span></label>
         <input id="report-month" type="month" required>
         <button id="refresh-sheet" type="button" class="primary">Read Google Sheet</button>
-        <p class="hint">Uses your signed-in Google account. Open the Reccie report tab before copying its URL.</p>
+        <p id="sheet-hint" class="hint">Uses your signed-in Google account. Open the Reccie report tab before copying its URL.</p>
         <div class="import-row"><label for="csv-file">Or import a report CSV</label><input id="csv-file" type="file" accept=".csv,text/csv"></div>
         <p class="hint">CSV is a snapshot. Refresh or import again after the tracker changes.</p>
-        <button id="forget-report" type="button" class="quiet">Forget local tracker data</button>
     </details>
     <p id="source-status" class="hint"></p>
+    <button id="forget-report" type="button" class="quiet">Forget this local report</button>
     <section aria-label="Find your rows" class="filters">
-        <div class="filter-pair">
+        <div class="filter-pair" id="assignment-fields">
             <label>Assignment<select id="assignment"><option value="ops">Ops assigned</option><option value="buyer">Buyer</option><option value="group">Group</option><option value="any">Any assignment</option></select></label>
             <label>Your name<select id="person"><option value="">Choose your name</option></select></label>
         </div>
         <label for="search">Search your rows</label><input id="search" type="search" placeholder="D number, campaign, client or supplier">
         <label for="show-by">Show by</label><select id="show-by"><option value="dnumber">D number</option><option value="campaign">Campaign</option></select>
-        <fieldset class="status-filter"><legend>Status</legend><div class="status-chips">
-            <label><input type="checkbox" data-status="outstanding">Unreconciled</label>
-            <label><input type="checkbox" data-status="reconciled">Reconciled</label>
+        <label id="tracker-status-label" for="tracker-status">Tracker status</label><select id="tracker-status"><option value="any">Any</option><option value="outstanding">Unreconciled</option><option value="reconciled">Reconciled</option></select>
+        <fieldset class="status-filter"><legend>Prisma status</legend><div class="status-chips">
             <label><input type="checkbox" data-status="mismatch">Yes in sheet, not in Prisma</label>
             <label><input type="checkbox" data-status="ready">Ready in Prisma</label>
             <label><input type="checkbox" data-status="review">Needs attention</label>
-        </div><p class="hint">Shows rows matching any selected status. Nothing selected shows all your rows. Prisma statuses use your latest checks.</p>
+        </div><p id="filter-hint" class="hint">Matches the tracker status AND any selected Prisma status. Nothing ticked means any Prisma status, including not checked. Uses your latest checks.</p>
         <button id="clear-filters" type="button" class="filter-clear" hidden>Clear filters</button></fieldset>
     </section>
     <div class="checkbar"><p id="summary" role="status" aria-live="polite">Connect a tracker to get started.</p><button id="check-rows" type="button" class="primary" aria-describedby="verification-scope" disabled>Verify Reccie Status</button></div>

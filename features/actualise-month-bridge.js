@@ -19,10 +19,12 @@
     window[INSTALL_FLAG] = true;
     let latestEvidence = null;
     let featureModeActive = document.documentElement?.getAttribute('data-ops-toolshed-features-active') === 'true';
+    let xhrPatch = null;
+    let fetchPatch = null;
 
     document.addEventListener(MASTER_EVENT, event => {
         featureModeActive = event.detail === true;
-        if (!featureModeActive) latestEvidence = null;
+        updateInterceptors();
     });
 
     function normalizeMonth(value) {
@@ -43,6 +45,19 @@
         } catch (error) {
             return '';
         }
+    }
+
+    function isActualiseRoute() {
+        try {
+            const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+            return params.get('ptb-ctx') === 'actualize' || params.get('route') === 'actualize';
+        } catch (error) {
+            return false;
+        }
+    }
+
+    function isBridgeActive() {
+        return featureModeActive && isActualiseRoute();
     }
 
     function parseRequestBody(body) {
@@ -109,6 +124,8 @@
     }
 
     function publishEvidence(requestMonth, responseText) {
+        if (!isBridgeActive()) return;
+
         let payload;
         try {
             payload = JSON.parse(responseText);
@@ -133,7 +150,7 @@
     window.addEventListener('message', event => {
         if (event.source !== window || event.origin !== window.location.origin ||
             event.data?.source !== SOURCE || event.data.type !== REQUEST_TYPE ||
-            !featureModeActive || !latestEvidence) return;
+            !isBridgeActive() || !latestEvidence) return;
         window.postMessage({
             source: SOURCE,
             type: EVENT_TYPE,
@@ -154,20 +171,28 @@
         }
     }
 
-    const XHR = window.XMLHttpRequest;
-    if (XHR?.prototype) {
-        const originalOpen = XHR.prototype.open;
-        const originalSend = XHR.prototype.send;
-        const xhrStates = new WeakMap();
+    function installXhrBridge() {
+        const XHR = window.XMLHttpRequest;
+        if (!XHR?.prototype) return;
+        const prototype = XHR.prototype;
+        if (xhrPatch?.prototype === prototype) return;
+        removeXhrBridge();
 
-        XHR.prototype.open = function(method, url, ...rest) {
-            xhrStates.set(this, { method, url });
+        const originalOpen = prototype.open;
+        const originalSend = prototype.send;
+        const xhrStates = new WeakMap();
+        const wrappedOpen = function(method, url, ...rest) {
+            if (isBridgeActive() && isActualiseRequest(url)) {
+                xhrStates.set(this, { method, url });
+            } else {
+                xhrStates.delete(this);
+            }
             return originalOpen.call(this, method, url, ...rest);
         };
 
-        XHR.prototype.send = function(body) {
+        const wrappedSend = function(body) {
             const state = xhrStates.get(this);
-            if (featureModeActive && state && isActualiseRequest(state.url)) {
+            if (isBridgeActive() && state && isActualiseRequest(state.url)) {
                 const requestMonth = getRequestMonth(body);
                 if (!requestMonth) return originalSend.call(this, body);
                 this.addEventListener('load', () => {
@@ -178,13 +203,34 @@
             }
             return originalSend.call(this, body);
         };
+
+        prototype.open = wrappedOpen;
+        prototype.send = wrappedSend;
+        xhrPatch = { prototype, originalOpen, originalSend, wrappedOpen, wrappedSend };
     }
 
-    const originalFetch = window.fetch;
-    if (typeof originalFetch === 'function') {
-        window.fetch = function(input, init) {
+    function removeXhrBridge() {
+        if (!xhrPatch) return;
+        if (xhrPatch.prototype.open === xhrPatch.wrappedOpen) {
+            xhrPatch.prototype.open = xhrPatch.originalOpen;
+        }
+        if (xhrPatch.prototype.send === xhrPatch.wrappedSend) {
+            xhrPatch.prototype.send = xhrPatch.originalSend;
+        }
+        xhrPatch = null;
+    }
+
+    function installFetchBridge() {
+        if (typeof window.fetch !== 'function') return;
+        if (fetchPatch?.wrappedFetch === window.fetch) return;
+        removeFetchBridge();
+
+        const originalFetch = window.fetch;
+        const wrappedFetch = function(input, init) {
             const url = typeof input === 'string' ? input : input?.url;
-            if (!featureModeActive || !isActualiseRequest(url)) return originalFetch.apply(this, arguments);
+            if (!isBridgeActive() || !isActualiseRequest(url)) {
+                return originalFetch.apply(this, arguments);
+            }
 
             const requestMonth = getRequestMonth(init?.body);
             const responsePromise = originalFetch.apply(this, arguments);
@@ -199,5 +245,31 @@
                 return response;
             });
         };
+
+        window.fetch = wrappedFetch;
+        fetchPatch = { originalFetch, wrappedFetch };
     }
+
+    function removeFetchBridge() {
+        if (!fetchPatch) return;
+        if (window.fetch === fetchPatch.wrappedFetch) window.fetch = fetchPatch.originalFetch;
+        fetchPatch = null;
+    }
+
+    function updateInterceptors() {
+        if (isBridgeActive()) {
+            installXhrBridge();
+            installFetchBridge();
+            return;
+        }
+
+        latestEvidence = null;
+        removeXhrBridge();
+        removeFetchBridge();
+    }
+
+    window.addEventListener('hashchange', updateInterceptors);
+    window.addEventListener('popstate', updateInterceptors);
+    window.navigation?.addEventListener?.('currententrychange', updateInterceptors);
+    updateInterceptors();
 })();

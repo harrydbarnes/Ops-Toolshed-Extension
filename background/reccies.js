@@ -3,7 +3,6 @@ import { buildReccieQuery } from './reccie-query.js';
 import { isFeatureModeActive } from './feature-mode.js';
 
 const core = globalThis.reccieCore;
-const KEY = 'reccieTracker';
 let checking = false;
 let writes = Promise.resolve();
 function queueWrite(work) {
@@ -79,43 +78,40 @@ export async function openReccies(request, sender, sendResponse) {
         sendResponse({ status: 'success' });
     } catch (error) { sendResponse({ status: 'error', message: error.message }); }
 }
-async function importTracker(request, text, source) {
-    const rows = core.importCsv(text, request.month);
-    const tracker = { rows, month: request.month, source, importedAt: new Date().toISOString(),
-        revision: crypto.randomUUID(), checks: {} };
+async function storeTracker(request, rows, source, checks = {}, expectedRevision, timing) {
+    const key = core.trackerKey(request.mode, request.month);
+    const tracker = {rows,month:request.month,mode:request.mode || 'main',source,checks,importedAt:new Date().toISOString(),revision:crypto.randomUUID(),...(timing ? {lastCheckTiming:timing} : {})};
     assertActive();
-    await queueWrite(() => chrome.storage.local.set({ [KEY]: tracker }));
+    await queueWrite(async()=>{
+        const previous=(await chrome.storage.local.get(key))[key];
+        if (expectedRevision !== undefined && (previous?.revision || '') !== expectedRevision) throw new Error('Report changed during discovery. Results discarded.');
+        const values = {[key]:tracker};
+        if (!request.mode || request.mode === 'main') {
+            if (previous?.month) values[`${key}:${previous.month}`]=previous;
+            values[`${key}:${request.month}`]=tracker;
+        }
+        await chrome.storage.local.set(values);
+    });
     return tracker;
 }
-async function checkRows(request) {
-    if (checking) throw new Error('A Reccies check is already running.');
-    checking = true;
-    const started = performance.now();
-    try {
-        const method = core.verificationMethod(request.method);
-        const tracker = (await chrome.storage.local.get(KEY))[KEY];
-        if (!tracker || tracker.revision !== request.revision) throw new Error('The report changed. Reload Reccies and check again.');
-        if (!Array.isArray(request.rowIds) || !request.rowIds.length || request.rowIds.length > method.maxRows) throw new Error(`Choose up to ${method.maxRows} rows per check.`);
-        const ids = new Set(request.rowIds);
-        const rows = tracker.rows.filter(row => ids.has(row.sourceRow));
-        if (rows.length !== ids.size) throw new Error('Some selected rows are no longer in this report.');
-        const groups = new Map(), results = {};
-        for (const row of rows) {
-            if (row.issue) { results[row.sourceRow] = { state: 'review', message: row.issue }; continue; }
-            const key = `${row.campaignId}/${row.month}`;
-            if (!groups.has(key)) groups.set(key, []);
-            groups.get(key).push(row);
-        }
-        if (groups.size > method.maxCampaigns) throw new Error(`Check up to ${method.maxCampaigns} campaigns per batch.`);
-        const timing = { method, rows: rows.length, campaigns: groups.size, concurrency: method.concurrency,
-            runBudgetMs: method.runBudgetMs, skippedRows: Object.keys(results).length, cacheHits: 0, retries: 0, campaignsDetail: [] };
+async function importTracker(request, text, source) {
+    if (request.mode === 'early') {
+        const report = core.earlyRows(text, request.month);
+        if (!report.rows.length) return discoverTracker(request, report.reason, source);
+        return storeTracker(request,report.rows,{...source,tab:'Early Reccie report',excludedRows:report.excludedRows,ambiguousRows:report.ambiguousRows});
+    }
+    return storeTracker(request,core.importCsv(text,request.month),source);
+}
+async function runGroups(groups, method, options, started = performance.now()) {
+        const timing = { method, rows: options.rows, campaigns: groups.size, concurrency: method.concurrency,
+            runBudgetMs: method.runBudgetMs, skippedRows: options.skippedRows || 0, cacheHits: 0, retries: 0, campaignsDetail: [] };
         const deadline = started + method.runBudgetMs;
         const queue = [...groups.values()].map(group => ({ group, attempt: 1, campaign: null }));
         const worker = async () => {
             while (queue.length) {
                 const task = queue.shift(), {group} = task, first = group[0];
                 if (!task.timing) {
-                    task.timing = { campaign: first.campaignId, month: first.month, rows: group.length,
+                    task.timing = { campaign: first.campaignId, month: first.month, rows: options.discovery ? 0 : group.length,
                         queueMs: Math.round(performance.now() - started), requests: [], outcome: 'error', attempts: 0, totalMs: 0 };
                     timing.campaignsDetail.push(task.timing);
                 }
@@ -136,7 +132,8 @@ async function checkRows(request) {
                     const data = await prisma(`${campaign.id}/queryservice/mediaplan/hybrid/actualize`, buildReccieQuery(first.month), campaignTiming.requests, task.attempt, deadline, method);
                     const records = core.extractResults(data);
                     const checkedAt = new Date().toISOString();
-                    group.forEach(row => { results[row.sourceRow] = { ...core.evaluateRow(row, records), checkedAt }; });
+                    const count = options.onRecords(group, records, checkedAt);
+                    if (Number.isInteger(count)) campaignTiming.rows = count;
                     campaignTiming.outcome = 'success';
                     delete campaignTiming.errorName;
                     delete campaignTiming.message;
@@ -150,37 +147,124 @@ async function checkRows(request) {
                         continue;
                     }
                     const checkedAt = new Date().toISOString();
-                    group.forEach(row => { results[row.sourceRow] = { state: 'error', message: error.message, checkedAt }; });
+                    options.onError(group, error, checkedAt);
                 } finally { campaignTiming.totalMs += Math.round(performance.now() - campaignStarted); }
             }
         };
         await Promise.all(Array.from({length: method.concurrency}, () => worker()));
+        return timing;
+}
+async function checkRows(request) {
+    if (checking) throw new Error('A Reccies check is already running.');
+    checking = true;
+    const started = performance.now();
+    try {
+        const method = core.verificationMethod(request.method);
+        const key = core.trackerKey(request.mode, request.month);
+        const tracker = (await chrome.storage.local.get(key))[key];
+        if (!tracker || tracker.revision !== request.revision) throw new Error('The report changed. Reload Reccies and check again.');
+        if (!Array.isArray(request.rowIds) || !request.rowIds.length || request.rowIds.length > method.maxRows) throw new Error(`Choose up to ${method.maxRows} rows per check.`);
+        const ids = new Set(request.rowIds);
+        const rows = tracker.rows.filter(row => ids.has(row.sourceRow));
+        if (rows.length !== ids.size) throw new Error('Some selected rows are no longer in this report.');
+        const groups = new Map(), results = {};
+        for (const row of rows) {
+            if (row.issue) { results[row.sourceRow] = { state: 'review', message: row.issue }; continue; }
+            const key = `${row.campaignId}/${row.month}`;
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(row);
+        }
+        if (groups.size > method.maxCampaigns) throw new Error(`Check up to ${method.maxCampaigns} campaigns per batch.`);
+        const timing = await runGroups(groups, method, {
+            rows: rows.length, skippedRows: Object.keys(results).length,
+            onRecords: (group, records, checkedAt) => { group.forEach(row => { results[row.sourceRow] = { ...core.evaluateRow(row, records), checkedAt }; }); },
+            onError: (group, error, checkedAt) => { group.forEach(row => { results[row.sourceRow] = {state:'error',message:error.message,checkedAt}; }); }
+        }, started);
         assertActive();
         return await queueWrite(async () => {
-            const current = (await chrome.storage.local.get(KEY))[KEY];
+            const current = (await chrome.storage.local.get(key))[key];
             if (current?.revision !== tracker.revision) throw new Error('Report refreshed during the check. Results were discarded.');
             current.checks = { ...current.checks, ...results };
             timing.totalMs = Math.round(performance.now() - started);
             current.lastCheckTiming = timing;
-            await chrome.storage.local.set({ [KEY]: current });
+            await chrome.storage.local.set({ [key]: current, ...(!request.mode || request.mode==='main' ? {[`${key}:${current.month}`]:current} : {}) });
             return current;
         });
     } finally { checking = false; }
+}
+async function discoverTracker(request, fallbackReason = '', sheetSource = {}) {
+    if (!['early','automatic'].includes(request.mode)) throw new Error('Choose Early Recs or Automatic for visited campaigns.');
+    if (request.month !== core.currentMonth()) throw new Error('Visited campaign discovery uses the current month.');
+    if (checking) throw new Error('A Reccies check is already running.');
+    checking=true;
+    const started=performance.now(), startedAt=new Date().toISOString();
+    try {
+        const key=core.trackerKey(request.mode,request.month);
+        const stored=await chrome.storage.local.get(['campaignHistoryEntries',key]);
+        const previous=stored[key];
+        const history = Array.isArray(stored.campaignHistoryEntries) ? stored.campaignHistoryEntries : [];
+        const eligible = new Map();
+        history.slice().sort((a,b)=>(b.lastVisitedAt||0)-(a.lastVisitedAt||0)).forEach(entry=>{
+            const date=new Date(entry.lastVisitedAt);
+            const parts=Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/London',year:'numeric',month:'2-digit'}).formatToParts(date) : [];
+            const month=`${parts.find(part=>part.type==='year')?.value}-${parts.find(part=>part.type==='month')?.value}`;
+            if (month===request.month && /^CP[A-Z0-9]{3,20}$/.test(entry.campaignId) && !eligible.has(entry.campaignId)) eligible.set(entry.campaignId,entry);
+        });
+        const method=core.verificationMethod(request.method), seeds=[...eligible.values()].slice(0,method.maxCampaigns);
+        const groups=new Map(seeds.map((entry,index)=>[entry.campaignId,[{...entry,sourceRow:index+1,month:request.month}]]));
+        const rows=[],checks={},issues=[];
+        const addRow=(row,result)=>{row.sourceRow=rows.length+2;rows.push(row);checks[row.sourceRow]=result;};
+        const timing=await runGroups(groups,method,{rows:0,discovery:true,onRecords:(group,records,checkedAt)=>{
+            const first=group[0],unique=[...new Set(records.filter(record=>record.month===request.month && /^D\d{5,15}$/.test(record.buySerialNumber)).map(record=>record.buySerialNumber))];
+            if (rows.length+unique.length>10000) throw new Error('Discovery exceeded 10,000 placements.');
+            unique.forEach(dNumber=>{
+                const record=records.find(record=>record.buySerialNumber===dNumber && record.month===request.month);
+                const row={dNumber,campaignId:first.campaignId,month:request.month,campaignName:first.campaignName || first.campaignId,client:first.clientName || '',supplier:String(record.supplier || first.supplier || ''),order:'',gross:'',comments:'',buyer:'',ops:'',group:'',reccied:'',issue:'',origin:'visited-campaign'};
+                addRow(row,{...core.evaluateRow(row,records),checkedAt});
+            });
+            return unique.length;
+        },onError:(group,error,checkedAt)=>{
+            const campaignId=group[0].campaignId;issues.push({campaignId,message:error.message});
+            (previous?.rows || []).filter(row=>row.campaignId===campaignId).forEach(row=>addRow({...row},{state:'error',message:error.message,checkedAt}));
+        }});
+        const source={type:'automatic',url:sheetSource.url || previous?.source?.url || '',fallback:request.mode==='early',fallbackReason,
+            eligibleCampaigns:eligible.size,attemptedCampaigns:seeds.length,successfulCampaigns:seeds.length-issues.length,limited:eligible.size>seeds.length,issues,
+            coverage:'Current-month placements from campaigns visited this month in this Chrome profile. Not proof of who booked them.'};
+        timing.totalMs = Math.round(performance.now()-started);
+        timing.startedAt=startedAt; timing.mode=request.mode; timing.methodConfirmed=true;
+        const tracker=await storeTracker(request,rows,source,checks,previous?.revision || '',{...timing,type:'discovery',rows:rows.length});
+        return tracker;
+    } finally {checking=false;}
 }
 export async function handleReccies(request, sender, sendResponse) {
     try {
         if (!ownPage(sender)) throw new Error('Tracker data is available only in Ops Toolshed.');
         await assertPrismaProfile();
         let tracker;
+        core.trackerKey(request.mode,request.month);
+        if (request.mode === 'automatic' && ['refresh','import'].includes(request.operation)) throw new Error('Automatic uses visited campaigns, not a sheet import.');
         if (request.operation === 'import') tracker = await importTracker(request, request.csv, { type: 'csv', name: String(request.name || 'CSV import').slice(0, 150) });
         else if (request.operation === 'refresh') {
             const source = core.sheetSource(request.url);
             if (!await chrome.permissions.contains({ origins: ['https://docs.google.com/*'] })) throw new Error('Allow Google Sheets read access first.');
-            const response = await fetch(source.csvUrl, { method: 'GET', credentials: 'include', redirect: 'error', signal: AbortSignal.timeout(30000), cache: 'no-store' });
+            const csvUrl=request.mode==='early' ? `https://docs.google.com/spreadsheets/d/${source.spreadsheetId}/gviz/tq?tqx=out:csv&sheet=Early%20Reccie%20report` : source.csvUrl;
+            const response = await fetch(csvUrl, { method: 'GET', credentials: 'include', redirect: 'error', signal: AbortSignal.timeout(30000), cache: 'no-store' });
             if (!response.ok || !(response.headers.get('content-type') || '').includes('text/csv')) throw new Error('Google did not return CSV. Sign into the Google account with tracker access, or import a CSV.');
             tracker = await importTracker(request, await response.text(), { type: 'google', url: source.url });
+        } else if (request.operation === 'discover') tracker=await discoverTracker(request,request.mode==='early' ? 'Visited campaigns explicitly selected as Early Recs fallback.' : '');
+        else if (request.operation === 'load') {
+            const key=core.trackerKey(request.mode,request.month);
+            const stored=await chrome.storage.local.get([key,`${key}:${request.month}`]);
+            tracker=stored[`${key}:${request.month}`] || stored[key];
+            if (tracker?.month !== request.month) tracker=null;
         } else if (request.operation === 'check') tracker = await checkRows(request);
-        else if (request.operation === 'clear') { await queueWrite(() => chrome.storage.local.remove([KEY, 'recciePreferences', 'reccieLastRunTiming'])); }
+        else if (request.operation === 'clear') {
+            const key=core.trackerKey(request.mode,request.month);
+            await queueWrite(async()=>{
+                const previous=(await chrome.storage.local.get(key))[key];
+                await chrome.storage.local.remove([key,`${key}:${request.month || previous?.month}`, request.mode && request.mode!=='main' ? `${key}:preferences` : 'recciePreferences', request.mode && request.mode!=='main' ? `${key}:timing` : 'reccieLastRunTiming']);
+            });
+        }
         else throw new Error('Unknown Reccies action.');
         sendResponse({ status: 'success', tracker });
     } catch (error) { sendResponse({ status: 'error', message: error.message }); }

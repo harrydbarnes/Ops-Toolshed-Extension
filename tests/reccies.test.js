@@ -7,6 +7,28 @@ const fieldNode = (d = 'D03120200', month = '2026-09', reconciled = '1', buy = '
 ].map(([id,value]) => ({id,value})) });
 
 describe('Read-only reconciliation rules', () => {
+    test('isolates modes and validates booking dates',()=>{
+        expect(core.trackerKey('main')).toBe('reccieTracker');
+        expect(core.trackerKey('early','2026-10')).not.toBe(core.trackerKey('automatic','2026-10'));
+        expect(()=>core.trackerKey('invalid','2026-10')).toThrow();
+        expect(core.bookingMonth('31/10/2026')).toBe('2026-10');
+        expect(core.bookingMonth('2026-10-31')).toBe('2026-10');
+        expect(core.bookingMonth('31 October 2026')).toBe('2026-10');
+        expect(core.bookingMonth('31/02/2026')).toBeNull();
+        expect(core.bookingMonth('')).toBe('');
+    });
+    test('early dates establish current month; mixed months quarantine blanks',()=>{
+        const month=core.currentMonth(), date=`${month}-15`;
+        const row=(d,end)=>`${d},CP3G9KS,Buyer,Harry,Harry,No,Client,Campaign,Supplier,${end}\n`;
+        const uniform=`${headers}\n${row('D03120200',date)}${row('D03120201','')}`;
+        expect(core.earlyRows(uniform,month).rows[1]).toMatchObject({month,monthInferred:true,issue:''});
+        const mixed=core.earlyRows(uniform+row('D03120202',month==='2020-01'?'2020-02-15':'2020-01-15'),month);
+        expect(mixed.excludedRows).toBe(1);expect(mixed.ambiguousRows).toBe(1);
+        expect(mixed.rows[1].issue).toContain('ambiguous');
+        expect(core.earlyRows(csv,month).rows).toEqual([]);
+        expect(core.earlyRows(uniform.replace('Campaign ID Mediaocean','Campaign ID'),month).rows).toHaveLength(2);
+        expect(()=>core.earlyRows(uniform.replace('Booking End Date','Other'),month)).toThrow('Booking End Date');
+    });
     test('comparison methods differ only in their concurrency and retain the default',()=>{
         expect(core.verificationMethod().concurrency).toBe(8);
         const options=Array.from({length:20},(_,index)=>index+1).map(number=>core.verificationMethod(`workers-${number}`));
@@ -71,6 +93,47 @@ describe('Reccies background reads', () => {
     const call = async (handler, sender, request) => {
         const response = jest.fn(); await handler(request,sender,response); return response.mock.calls[0][0];
     };
+    test('discovery uses current history and saves separately from main',async()=>{
+        await call(handleReccies,sender,{operation:'import',csv,month:'2026-09'});
+        const original=structuredClone(state.reccieTracker),month=core.currentMonth();
+        state.campaignHistoryEntries=[{campaignId:'CP3G9KS',campaignName:'Visited',lastVisitedAt:Date.now()}, {campaignId:'CP3G9KS',lastVisitedAt:Date.now()}, {campaignId:'CPOld',lastVisitedAt:1}];
+        fetchMock.mockImplementation(async url=>url.includes('publicforui') ? {ok:true,json:async()=>({id:100,publicId:'CP3G9KS'})} : {ok:true,json:async()=>({status:0,total:2,nodes:[fieldNode('D03120200',month),fieldNode('D03120201','2020-01')]})});
+        const result=await call(handleReccies,sender,{operation:'discover',mode:'automatic',month});
+        expect(result.status).toBe('success');
+        expect(result.tracker.rows).toHaveLength(1);
+        expect(result.tracker.rows[0]).toMatchObject({ops:'',buyer:'',origin:'visited-campaign'});
+        expect(result.tracker.checks[2].state).toBe('ready');
+        expect(result.tracker.source).toMatchObject({eligibleCampaigns:1,attemptedCampaigns:1,successfulCampaigns:1});
+        expect(state.reccieTracker).toEqual(original);
+        expect(state[core.trackerKey('automatic',month)]).toEqual(result.tracker);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        fetchMock.mockResolvedValue({ok:false,status:403});
+        const failed=await call(handleReccies,sender,{operation:'discover',mode:'automatic',month});
+        expect(failed.tracker.rows).toHaveLength(1);
+        expect(failed.tracker.checks[2].state).toBe('error');
+        expect(failed.tracker.source.issues).toHaveLength(1);
+    });
+    test('discovery discards results when the same mode was refreshed during a query',async()=>{
+        const month=core.currentMonth(),key=core.trackerKey('automatic',month);
+        state.campaignHistoryEntries=[{campaignId:'CP3G9KS',lastVisitedAt:Date.now()}];
+        fetchMock.mockImplementation(async url=>{
+            if(url.includes('publicforui')) return {ok:true,json:async()=>({id:100,publicId:'CP3G9KS'})};
+            state[key]={revision:'replacement',month,rows:[],checks:{}};
+            return {ok:true,json:async()=>({status:0,total:1,nodes:[fieldNode('D03120200',month)]})};
+        });
+        const result=await call(handleReccies,sender,{operation:'discover',mode:'automatic',month});
+        expect(result).toMatchObject({status:'error',message:expect.stringContaining('changed')});
+        expect(state[key].revision).toBe('replacement');
+    });
+    test('early reads named tab and stale dates fall back without changing main',async()=>{
+        const month=core.currentMonth();
+        fetchMock.mockResolvedValue({ok:true,headers:{get:()=> 'text/csv'},text:async()=>csv});
+        const result=await call(handleReccies,sender,{operation:'refresh',mode:'early',month,url:'https://docs.google.com/spreadsheets/d/123456789012345678901234/edit?gid=123'});
+        expect(result.status).toBe('success');
+        expect(fetchMock.mock.calls[0][0]).toContain('sheet=Early%20Reccie%20report');
+        expect(result.tracker.source).toMatchObject({type:'automatic',fallback:true,eligibleCampaigns:0});
+        expect(state.reccieTracker).toBeUndefined();
+    });
     test.each(['workers-0','workers-21','workers-1.5','workers-99','toString'])('rejects invalid worker method %s before making requests',async method=>{
         const result=await call(handleReccies,sender,{operation:'check',method});
         expect(result).toMatchObject({status:'error',message:expect.stringContaining('Choose')});

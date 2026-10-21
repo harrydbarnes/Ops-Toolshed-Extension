@@ -43,6 +43,7 @@
         if (!validMonth(month)) throw new Error('Choose the report month, including for rows without booking dates.');
         const table = parseCsv(text);
         const headers = (table.shift() || []).map(value => clean(value).toLowerCase());
+        if (!headers.includes('campaign id mediaocean') && headers.includes('campaign id')) headers[headers.indexOf('campaign id')] = 'campaign id mediaocean';
         const required = ['serial number', 'campaign id mediaocean', 'buyer name', 'ops assigned', 'group', 'reccied'];
         for (const header of required) {
             if (headers.filter(value => value === header).length !== 1) throw new Error(`CSV needs one ${header} column. Export the Reccie report tab.`);
@@ -54,7 +55,7 @@
             buyer: get(row, 'buyer name'), ops: get(row, 'ops assigned'), group: get(row, 'group'),
             client: get(row, 'client name'), campaignName: get(row, 'campaign description'),
             supplier: get(row, 'supplier name'), order: get(row, 'order'), gross: get(row, 'gross'),
-            comments: get(row, 'comments'), reccied: get(row, 'reccied')
+            bookingEndDate: get(row, 'booking end date'), comments: get(row, 'comments'), reccied: get(row, 'reccied')
         })).filter(row => row.dNumber);
         if (!rows.length) throw new Error('No D numbers were found in this report.');
         const counts = new Map();
@@ -65,6 +66,45 @@
                     counts.get(row.dNumber) > 1 ? 'Duplicate D number in report' : '';
         });
         return rows;
+    }
+    function currentMonth() {
+        const parts = new Intl.DateTimeFormat('en-GB', {timeZone:'Europe/London',year:'numeric',month:'2-digit'}).formatToParts(new Date());
+        return `${parts.find(part=>part.type==='year').value}-${parts.find(part=>part.type==='month').value}`;
+    }
+    function trackerKey(mode = 'main', month) {
+        if (!['main','early','automatic'].includes(mode)) throw new Error('Choose a valid Reccies mode.');
+        if (mode === 'main') return 'reccieTracker';
+        if (!validMonth(month)) throw new Error('Choose a valid report month.');
+        return `reccieTracker:${mode}:${month}`;
+    }
+    function bookingMonth(value) {
+        const text = clean(value);
+        if (!text) return '';
+        let match = text.match(/^(20\d{2})-(\d{1,2})-(\d{1,2})(?:T.*)?$/), year, month, day;
+        if (match) [,year,month,day] = match;
+        else if ((match = text.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4}|\d{2})$/))) { [,day,month,year] = match; if (year.length === 2) year = `20${year}`; }
+        else if ((match = text.match(/^(\d{1,2})[- ]([A-Za-z]{3,9})[- ,]+(20\d{2})$/))) { [,day,month,year] = match; month = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'].indexOf(month.slice(0,3).toLowerCase())+1; }
+        else return null;
+        const date = new Date(Date.UTC(Number(year), Number(month)-1, Number(day)));
+        return date.getUTCFullYear()===Number(year) && date.getUTCMonth()===Number(month)-1 && date.getUTCDate()===Number(day) ? `${year}-${String(month).padStart(2,'0')}` : null;
+    }
+    function earlyRows(csv, month) {
+        if (month !== currentMonth()) throw new Error('Early Recs uses the current month.');
+        const headers = parseCsv(csv)[0]?.map(value=>clean(value).toLowerCase()) || [];
+        if (headers.filter(value=>value==='booking end date').length !== 1) throw new Error('Early Recs needs one Booking End Date column.');
+        if (parseCsv(csv).length < 2) return {rows:[],reason:'Early Reccie report has no current-month rows.'};
+        const all = importCsv(csv, month), dated = all.map(row=>bookingMonth(row.bookingEndDate));
+        const months = new Set(dated.filter(Boolean));
+        if (!months.has(month)) return {rows:[],reason:'Early Reccie report has no confirmed current-month booking dates.'};
+        const canInfer = months.size===1 && !dated.includes(null);
+        const rows = all.filter((row,index)=>{
+            const date = dated[index];
+            if (date && date!==month) return false;
+            if (date===null || (!date && !canInfer)) row.issue = row.issue || 'Booking End Date is invalid or ambiguous; confirm the month manually.';
+            if (!date && canInfer) row.monthInferred = true;
+            return true;
+        });
+        return {rows,excludedRows:all.length-rows.length,ambiguousRows:rows.filter(row=>row.issue?.includes('Booking End Date')).length};
     }
     function sheetSource(input) {
         let url;
@@ -106,5 +146,5 @@
         if (!/^CP[A-Z0-9]{3,20}$/.test(row.campaignId) || !validMonth(row.month)) return '';
         return `https://go.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=${row.campaignId}&ptb-mod=buy&ptb-ctx=actualize&route=actualize&mos=${row.month}-01`;
     }
-    return { validMonth, parseCsv, importCsv, sheetSource, extractResults, evaluateRow, campaignUrl, missingDMessage, verificationMethod };
+    return { validMonth, parseCsv, importCsv, sheetSource, extractResults, evaluateRow, campaignUrl, missingDMessage, verificationMethod, currentMonth, trackerKey, bookingMonth, earlyRows };
 });

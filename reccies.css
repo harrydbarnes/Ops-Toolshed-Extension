@@ -19,3 +19,16 @@
 .badge.mismatch{white-space:normal;text-align:right;max-width:58%;overflow-wrap:anywhere;background:#fceced;color:#9c3c44}
 
 .status-filter{border:0;padding:0;margin:14px 0 0;min-width:0}.status-filter legend{font-size:12px;font-weight:600;margin-bottom:7px}.status-chips{display:flex;flex-wrap:wrap;gap:7px}.status-chips label{display:inline-flex;align-items:center;gap:6px;margin:0;padding:6px 9px;border:1px solid #d8d5e3;border-radius:16px;font-weight:500;cursor:pointer}.status-chips label.is-selected{background:#ebe8f8;border-color:#8b72d6;color:#514381}.status-chips input{display:inline-block;width:auto;margin:0;padding:0;accent-color:#5b4ba8}.filter-clear{border:0;background:none;padding:0;color:#5142a4;text-decoration:underline;font-size:12px}.mismatch-warning{max-width:60%;text-align:right;min-width:0}.mismatch-warning .badge.mismatch{display:inline-block;max-width:100%}.mismatch-detail{font-size:11px;line-height:1.4;color:#686778;margin:4px 0 0;overflow-wrap:anywhere}
+
+.campaign-attention{margin-top:12px;padding-top:10px;border-top:1px solid #eeecf2}.campaign-attention .mismatch-detail{white-space:pre-wrap}
+
+.campaign-card>.mismatch-warning{max-width:none;text-align:left;margin-top:12px}
+
+.mode-switch { display:flex; gap:4px; padding:4px; border:1px solid #dcd9eb; border-radius:10px; margin:16px 0 8px; }
+.mode-switch legend { font-size:.8em; color:#625a82; }
+.mode-switch label { flex:1; margin:0; padding:8px 3px; border-radius:7px; text-align:center; cursor:pointer; font-size:.85em; }
+.mode-switch label:has(input:checked) { background:#292064; color:white; }
+.mode-switch input { display:inline-block; width:auto; margin:0 4px 0 0; accent-color:#6252ad; }
+.mode-switch label:has(input:focus-visible) { outline:2px solid #7764c2; outline-offset:2px; }
+[hidden] { display:none !important; }
+#coverage-issues p { overflow-wrap:anywhere; }
