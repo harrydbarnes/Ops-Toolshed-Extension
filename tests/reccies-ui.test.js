@@ -7,13 +7,17 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
 const html = fs.readFileSync(path.resolve(__dirname,'../reccies.html'),'utf8');
 const base = {sourceRow:2,dNumber:'D03120200',campaignId:'CP3G9KS',month:'2026-09',buyer:'Buyer',ops:'Harry',group:'Harry',client:'Client',campaignName:'Campaign',supplier:'Supplier',order:'Order',comments:'',gross:'10',reccied:'No',issue:''};
 const initial = () => ({revision:'test',month:'2026-09',source:{type:'csv'},importedAt:'2026-10-20T12:00:00Z',rows:[{...base},{...base,sourceRow:3,dNumber:'D03144023',reccied:'Yes',supplier:'<img src=x onerror=alert(1)>'},{...base,sourceRow:4,dNumber:'D03144020',ops:'Other'}],checks:{}});
-function create() {
+function create(preferences={}) {
     const dom = new JSDOM(html,{url:'https://extension.test/reccies.html',runScripts:'dangerously'});
     const win=dom.window;
-    let data={reccieTracker:initial(),recciePreferences:{person:'Harry',assignment:'ops',view:'outstanding'}};
+    let data={reccieTracker:initial(),recciePreferences:{person:'Harry',assignment:'ops',view:'outstanding',...preferences}};
     win.reccieCore=core;
     win.chrome={storage:{local:{get:jest.fn(async()=>data),set:jest.fn(async values=>Object.assign(data,values))}},permissions:{request:jest.fn(async()=>true)},runtime:{sendMessage:jest.fn(async request=>{
-        if(request.operation==='check') request.rowIds.forEach(id=>{data.reccieTracker.checks[id]={state:'ready',reconciled:'1',buyStatus:'SUCCESSFUL',checkedAt:'2026-10-20T13:00:00Z'};});
+        if(request.operation==='check') {
+            request.rowIds.forEach(id=>{data.reccieTracker.checks[id]={state:'ready',reconciled:'1',buyStatus:'SUCCESSFUL',checkedAt:'2026-10-20T13:00:00Z'};});
+            const method=core.verificationMethod(request.method);
+            data.reccieTracker.lastCheckTiming={method,concurrency:method.concurrency,campaignsDetail:[],retries:0};
+        }
         return {status:'success',tracker:data.reccieTracker};
     })}};
     win.eval(readScript(path.resolve(__dirname,'../search-highlight.js')));
@@ -21,12 +25,211 @@ function create() {
     return {dom,win,getData:()=>data};
 }
 describe('Reccies sidebar',()=>{
-    test('shows all six view labels in the requested order',()=>{
+    test('shows only confirmed sheet-Yes mismatches, explains both conditions and removes resolved rows',async()=>{
+        const {dom,win,getData}=create();
+        try {
+            await flush();const doc=win.document,data=getData();
+            data.reccieTracker.rows=Array.from({length:11},(_,index)=>({...base,sourceRow:index+2,dNumber:`D${index}`,reccied:'Yes'}));
+            data.reccieTracker.rows[1].reccied='yes';data.reccieTracker.rows[2].reccied='YES';
+            data.reccieTracker.rows[4].reccied='No';data.reccieTracker.rows[8].issue='Duplicate D number in report';data.reccieTracker.rows[9].ops='Other';
+            data.reccieTracker.checks={
+                2:{state:'outstanding',reconciled:'0',buyStatus:'SUCCESSFUL'},
+                3:{state:'outstanding',reconciled:'1',buyStatus:'PENDING'},
+                4:{state:'outstanding',reconciled:'0',buyStatus:'FAILED'},
+                5:{state:'ready',reconciled:'1',buyStatus:'SUCCESSFUL'},
+                6:{state:'outstanding',reconciled:'0',buyStatus:'FAILED'},
+                8:{state:'error'},9:{state:'review'},
+                10:{state:'outstanding',reconciled:'0',buyStatus:'FAILED'},
+                11:{state:'outstanding',reconciled:'0',buyStatus:'FAILED'},
+                12:{state:'outstanding',reconciled:'1',buyStatus:'SUCCESSFUL'}
+            };
+            doc.getElementById('view').value='mismatch';doc.getElementById('view').dispatchEvent(new win.Event('change'));
+            expect([...doc.querySelectorAll('.card-top strong')].map(node=>node.textContent)).toEqual(['D0','D1','D2']);
+            expect([...doc.querySelectorAll('.badge.mismatch')].map(node=>node.textContent)).toEqual(['Not reconciled','Buy not successful','Not reconciled · Buy not successful']);
+            expect(win.chrome.storage.local.set).toHaveBeenCalledWith({recciePreferences:{person:'Harry',assignment:'ops',view:'mismatch'}});
+            doc.getElementById('search').value='D1';doc.getElementById('search').dispatchEvent(new win.Event('input'));
+            expect(doc.querySelectorAll('.reccie-card')).toHaveLength(1);
+            doc.getElementById('search').value='';doc.getElementById('search').dispatchEvent(new win.Event('input'));
+            doc.getElementById('check-rows').click();await flush();await flush();
+            expect(win.chrome.runtime.sendMessage).toHaveBeenCalledWith({action:'reccies',operation:'check',revision:'test',rowIds:[2,3,4],method:'workers-8'});
+            expect(doc.querySelectorAll('.reccie-card')).toHaveLength(0);
+            expect(doc.getElementById('rows').textContent).toContain('Unchecked, failed and review items are not included');
+            expect(data.reccieTracker.rows[0].reccied).toBe('Yes');
+        } finally { dom.window.close(); }
+    });
+    test('restores the mismatch filter and explains how to check tracker-Yes rows first',async()=>{
+        const {dom,win}=create({view:'mismatch'});
+        try {
+            await flush();expect(win.document.getElementById('view').value).toBe('mismatch');
+            expect(win.document.querySelectorAll('.reccie-card')).toHaveLength(0);
+            expect(win.document.getElementById('rows').textContent).toContain('Use “Reconciled” and verify');
+        } finally { dom.window.close(); }
+    });
+    test('keeps Debug collapsed at the bottom with timings, download and a 1–20 slider',()=>{
+        const dom=new JSDOM(html);
+        try {
+            const doc=dom.window.document,debug=doc.getElementById('debug'),slider=doc.getElementById('debug-workers');
+            expect(doc.querySelector('main').lastElementChild).toBe(debug);
+            expect(debug.open).toBe(false);
+            expect(debug.querySelector('summary').textContent).toBe('Debug');
+            expect(slider.type).toBe('range');expect(slider.min).toBe('1');expect(slider.max).toBe('20');expect(slider.step).toBe('1');expect(slider.value).toBe('8');
+            expect(debug.contains(doc.getElementById('timing-details'))).toBe(true);
+            expect(debug.contains(doc.getElementById('download-timings'))).toBe(true);
+            expect(doc.querySelector('[data-verification-method]')).toBeNull();
+        } finally { dom.window.close(); }
+    });
+    test('debug worker selection does not change the normal eight-worker default',async()=>{
+        const {dom,win}=create();
+        try {
+            await flush();const doc=win.document;
+            doc.getElementById('debug-workers').value='1';doc.getElementById('debug-run').click();await flush();await flush();
+            doc.getElementById('check-rows').click();await flush();await flush();
+            expect(win.chrome.runtime.sendMessage.mock.calls.map(([request])=>request.method)).toEqual(['workers-1','workers-8']);
+        } finally { dom.window.close(); }
+    });
+    test('verification animations have a static reduced-motion alternative',()=>{
+        const dom=new JSDOM(html);
+        try {
+            const style=dom.window.document.createElement('style');
+            style.textContent=fs.readFileSync(path.resolve(__dirname,'../reccies.css'),'utf8');
+            dom.window.document.head.append(style);
+            const tail=dom.window.document.createElement('span');tail.className='reccie-status-tail';tail.textContent='once...';
+            dom.window.document.body.append(tail);
+            expect(dom.window.getComputedStyle(tail).whiteSpace).toBe('nowrap');
+            expect(dom.window.getComputedStyle(tail).display).toBe('inline-block');
+            const rules=[...style.sheet.cssRules];
+            const animations=rules.filter(rule=>rule.name?.startsWith('reccie-status-')).map(rule=>rule.name);
+            expect(animations).toEqual(expect.arrayContaining(['reccie-status-pulse','reccie-status-dot-two','reccie-status-dot-three']));
+            const reduced=rules.find(rule=>rule.media?.mediaText.replace(/\s/g,'')==='(prefers-reduced-motion:reduce)');
+            const overrides=[...reduced.cssRules];
+            const dot=dom.window.document.createElement('span');dot.className='reccie-status-dot';
+            const dots=dom.window.document.createElement('span');dots.className='reccie-status-dots';
+            dots.innerHTML='<span>.</span><span>.</span><span>.</span>';
+            for(const animated of [dot,...dots.querySelectorAll('span:nth-child(2),span:nth-child(3)')]) {
+                expect(overrides.some(rule=>animated.matches(rule.selectorText) && rule.style.animation==='none' && rule.style.opacity==='1')).toBe(true);
+            }
+        } finally { dom.window.close(); }
+    });
+    test('does not label an older background worker as a successful four-worker comparison',async()=>{
+        const {dom,win,getData}=create();
+        try {
+            await flush();
+            win.chrome.runtime.sendMessage.mockImplementation(async()=>{
+                getData().reccieTracker.lastCheckTiming={concurrency:3,campaignsDetail:[]};
+                return {status:'success',tracker:getData().reccieTracker};
+            });
+            win.document.getElementById('debug-workers').value='4';win.document.getElementById('debug-run').click();await flush();await flush();
+            expect(JSON.parse(win.document.getElementById('timing-report').textContent)).toMatchObject({methodConfirmed:false,outcome:'interrupted'});
+            expect(win.document.getElementById('message').textContent).toContain('Reload Ops Toolshed');
+            expect(win.document.getElementById('message').classList.contains('is-verifying')).toBe(false);
+            expect(win.document.querySelector('.reccie-status-dot')).toBeNull();
+            expect(win.document.getElementById('rows').getAttribute('aria-busy')).toBe('false');
+        } finally { dom.window.close(); }
+    });
+    test.each([1,2,3,4,5,6,8,20])('debug slider uses %i workers, records the selection and prevents overlapping runs',async concurrency=>{
+        const {dom,win,getData}=create();
+        try {
+            await flush();const doc=win.document;
+            let finish;
+            win.chrome.runtime.sendMessage.mockImplementation(request=>new Promise(resolve=>{finish=()=>{
+                const method=core.verificationMethod(request.method);
+                getData().reccieTracker.lastCheckTiming={method,concurrency:method.concurrency,campaignsDetail:[]};
+                resolve({status:'success',tracker:getData().reccieTracker});
+            };}));
+            doc.getElementById('debug-workers').value=String(concurrency);
+            doc.getElementById('debug-workers').dispatchEvent(new win.Event('input'));
+            expect(doc.getElementById('debug-worker-count').value).toBe(String(concurrency));
+            doc.getElementById('debug-run').click();
+            expect(win.chrome.runtime.sendMessage).toHaveBeenCalledWith({action:'reccies',operation:'check',revision:'test',rowIds:[2],method:`workers-${concurrency}`});
+            expect([...doc.querySelectorAll('#debug-run,#debug-workers,#check-rows')].every(button=>button.disabled)).toBe(true);
+            expect(doc.getElementById('message').classList.contains('is-verifying')).toBe(true);
+            expect(doc.querySelector('.reccie-status-dot').getAttribute('aria-hidden')).toBe('true');
+            expect(doc.querySelector('.reccie-status-dots').getAttribute('aria-hidden')).toBe('true');
+            expect(doc.querySelectorAll('.reccie-status-dots span')).toHaveLength(3);
+            expect(doc.getElementById('message').textContent).toContain(`Verifying reccie status · 1 row · ${concurrency} campaigns at once`);
+            expect(doc.querySelector('.reccie-status-dots').parentElement.className).toBe('reccie-status-tail');
+            expect(doc.querySelector('.reccie-status-tail').firstChild.textContent).toBe('once');
+            expect(doc.getElementById('check-rows').getAttribute('aria-busy')).toBe('true');
+            expect(doc.getElementById('rows').getAttribute('aria-busy')).toBe('true');
+            doc.getElementById('check-rows').click();
+            expect(win.chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
+            finish();await flush();await flush();
+            expect(JSON.parse(doc.getElementById('timing-report').textContent)).toMatchObject({method:core.verificationMethod(`workers-${concurrency}`),methodConfirmed:true,concurrency,
+                selection:{trackerRevision:'test',reportMonth:'2026-09',person:'Harry',assignment:'ops',view:'outstanding',search:'',rowIds:[2]}});
+            expect([...doc.querySelectorAll('#debug-run,#debug-workers')].every(button=>!button.disabled)).toBe(true);
+            expect(doc.querySelector('.reccie-status-dot')).toBeNull();
+            expect(doc.querySelector('.reccie-status-dots')).toBeNull();
+            expect(doc.getElementById('message').classList.contains('is-verifying')).toBe(false);
+            expect(doc.getElementById('rows').getAttribute('aria-busy')).toBe('false');
+        } finally { dom.window.close(); }
+    });
+    test('checks 372 rows across more than ten campaigns in one queue and retains downloadable diagnostics',async()=>{
+        const {dom,win,getData}=create();
+        try {
+            await flush();
+            const data=getData(), doc=win.document;
+            data.reccieTracker.rows=Array.from({length:372},(_,index)=>({...base,sourceRow:index+2,campaignId:`CPTEST${Math.floor(index/31)}`}));
+            win.chrome.runtime.sendMessage.mockImplementation(async request=>{
+                const campaigns=new Set(data.reccieTracker.rows.filter(row=>request.rowIds.includes(row.sourceRow)).map(row=>row.campaignId));
+                data.reccieTracker.lastCheckTiming={method:core.verificationMethod(request.method),concurrency:core.verificationMethod(request.method).concurrency,rows:request.rowIds.length,campaigns:campaigns.size,campaignsDetail:[...campaigns].map(campaign=>({campaign,outcome:'success',requests:[{phase:'lookup'},{phase:'grid'}]}))};
+                return {status:'success',tracker:data.reccieTracker};
+            });
+            doc.getElementById('view').value='all';
+            doc.getElementById('view').dispatchEvent(new win.Event('change'));
+            doc.getElementById('check-rows').click();
+            await flush();await flush();
+            const calls=win.chrome.runtime.sendMessage.mock.calls.map(([request])=>request);
+            expect(calls.map(request=>request.rowIds.length)).toEqual([372]);
+            const report=JSON.parse(doc.getElementById('timing-report').textContent);
+            expect(report).toMatchObject({selectedRows:372,plannedBatches:1,completedBatches:1,requests:24,outcome:'completed',failedCampaigns:0});
+            expect(doc.getElementById('timing-details').hidden).toBe(false);
+            expect(data.reccieLastRunTiming).toEqual({revision:'test',report});
+            expect(doc.getElementById('message').textContent).toContain('Check finished in');
+            win.URL.createObjectURL=jest.fn(()=> 'blob:timings');
+            win.URL.revokeObjectURL=jest.fn();
+            const click=jest.spyOn(win.HTMLAnchorElement.prototype,'click').mockImplementation(function(){
+                expect(this.download).toMatch(/^reccie-timings-workers-8-[0-9T-]+\.md$/);
+                expect(this.href).toBe('blob:timings');
+            });
+            const schedule=jest.spyOn(win,'setTimeout').mockImplementation(()=>1);
+            expect(doc.getElementById('download-timings').disabled).toBe(false);
+            doc.getElementById('download-timings').click();
+            expect(click).toHaveBeenCalledTimes(1);
+            const blob=win.URL.createObjectURL.mock.calls[0][0];
+            expect(blob.type).toBe('text/markdown;charset=utf-8');
+            const markdown=await new Promise((resolve,reject)=>{
+                const reader=new win.FileReader();
+                reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsText(blob);
+            });
+            expect(JSON.parse(markdown.split('```json\n')[1].split('\n```')[0])).toEqual(report);
+            expect(markdown).toContain('Method: 8 concurrent campaign checks');
+            expect(doc.querySelector('a[download]')).toBeNull();
+            expect(schedule).toHaveBeenCalledWith(expect.any(Function),1000);
+            schedule.mock.calls[0][0]();
+            expect(win.URL.revokeObjectURL).toHaveBeenCalledWith('blob:timings');
+        } finally { dom.window.close(); }
+    });
+    test('shows all seven view labels in the requested order',()=>{
         const dom = new JSDOM(html);
         try {
             expect([...dom.window.document.querySelectorAll('#view option')].map(option=>option.textContent)).toEqual([
-                'All my D numbers','All my campaigns','Unreconciled','Reconciled','Verified reconciled in Prisma','Needs review'
+                'All my D numbers','All my campaigns','Unreconciled','Reconciled','Yes in sheet, not in Prisma','Verified reconciled in Prisma','Needs review'
             ]);
+        } finally { dom.window.close(); }
+    });
+    test('retains row limits and aggregates retry diagnostics across larger runs',async()=>{
+        const {dom,win,getData}=create();
+        try {
+            await flush();const data=getData(),doc=win.document;
+            data.reccieTracker.rows=Array.from({length:620},(_,index)=>({...base,sourceRow:index+2,campaignId:`CPTEST${Math.floor(index/10)}`}));
+            win.chrome.runtime.sendMessage.mockImplementation(async request=>{
+                data.reccieTracker.lastCheckTiming={method:core.verificationMethod(request.method),concurrency:core.verificationMethod(request.method).concurrency,retries:1,cacheHits:0,campaignsDetail:[{outcome:'success',requests:[{phase:'lookup'},{phase:'grid',ok:false},{phase:'grid',ok:true}]}]};
+                return {status:'success',tracker:data.reccieTracker};
+            });
+            doc.getElementById('view').value='all';doc.getElementById('view').dispatchEvent(new win.Event('change'));
+            doc.getElementById('check-rows').click();await flush();await flush();
+            expect(win.chrome.runtime.sendMessage.mock.calls.map(([request])=>request.rowIds.length)).toEqual([500,120]);
+            expect(JSON.parse(doc.getElementById('timing-report').textContent)).toMatchObject({selectedRows:620,plannedBatches:2,completedBatches:2,requests:6,retries:2});
         } finally { dom.window.close(); }
     });
     test('groups only assigned rows by campaign, retains all D numbers during search and verifies them',async()=>{
@@ -41,7 +244,7 @@ describe('Reccies sidebar',()=>{
         expect(doc.querySelector('.campaign-d-numbers mark').textContent).toBe('D03120200');
         expect(doc.querySelector('.campaign-d-numbers').textContent).toContain('D03144023');
         doc.getElementById('check-rows').click();await flush();await flush();
-        expect(win.chrome.runtime.sendMessage).toHaveBeenCalledWith({action:'reccies',operation:'check',revision:'test',rowIds:[2,3]});
+        expect(win.chrome.runtime.sendMessage).toHaveBeenCalledWith({action:'reccies',operation:'check',revision:'test',rowIds:[2,3],method:'workers-8'});
         dom.window.close();
     });
     test('uses the same tracker field for reconciled and unreconciled, retaining Prisma and review filters',async()=>{
@@ -84,7 +287,7 @@ describe('Reccies sidebar',()=>{
     test('checks matching rows and keeps tracker and Prisma statuses separate',async()=>{
         const {dom,win,getData}=create();await flush();
         win.document.getElementById('check-rows').click();await flush();await flush();
-        expect(win.chrome.runtime.sendMessage).toHaveBeenCalledWith({action:'reccies',operation:'check',revision:'test',rowIds:[2]});
+        expect(win.chrome.runtime.sendMessage).toHaveBeenCalledWith({action:'reccies',operation:'check',revision:'test',rowIds:[2],method:'workers-8'});
         expect(win.document.getElementById('rows').textContent).toContain('Verified ready');
         expect(win.document.getElementById('rows').textContent).toContain('Tracker Reccied: No');
         expect(getData().reccieTracker.rows[0].reccied).toBe('No');
@@ -104,9 +307,24 @@ describe('Reccies sidebar',()=>{
     });
     test('centers checkbar summary with verify button and provides breathing room before verification scope',()=>{
         const css = fs.readFileSync(path.resolve(__dirname,'../reccies.css'),'utf8');
-        expect(css).toMatch(/\.checkbar[^{}]*\{[^}]*display:\s*flex[^}]*align-items:\s*center/);
-        expect(css).toMatch(/\.checkbar\s*\{margin:\s*20px 0 16px\}/);
-        expect(css).toMatch(/@media\(max-width:330px\)\s*\{[\s\S]*?\.checkbar\s*\{[^}]*align-items:\s*flex-start/);
+        const dom = new JSDOM(html);
+        try {
+            const style = dom.window.document.createElement('style');
+            style.textContent = css;
+            dom.window.document.head.append(style);
+            const checkbar = dom.window.getComputedStyle(dom.window.document.querySelector('.checkbar'));
+            expect(checkbar.display).toBe('flex');
+            expect(checkbar.alignItems).toBe('center');
+            expect(checkbar.marginTop).toBe('20px');
+            expect(checkbar.marginBottom).toBe('16px');
+
+            // jsdom does not apply viewport media queries; inspect the narrow-layout override separately.
+            const narrow = [...style.sheet.cssRules].find(rule =>
+                rule.media?.mediaText.replace(/\s/g,'') === '(max-width:330px)');
+            const narrowCheckbar = [...narrow.cssRules].find(rule => rule.selectorText === '.checkbar');
+            expect(narrowCheckbar.style.getPropertyValue('flex-direction')).toBe('column');
+            expect(narrowCheckbar.style.getPropertyValue('align-items')).toBe('flex-start');
+        } finally { dom.window.close(); }
     });
     test('renders header title and updated intro copy without redundant toolshed eyebrow or help link',()=>{
         const dom = new JSDOM(html);

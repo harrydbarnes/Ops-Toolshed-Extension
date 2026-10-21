@@ -21,17 +21,40 @@ async function assertPrismaProfile() {
     const settings = await chrome.storage.sync.get({ allFeaturesDisabled: false, onboardingAudience: 'prisma' });
     if (settings.allFeaturesDisabled || settings.onboardingAudience === 'non-prisma') throw new Error('Choose the Prisma profile and enable features to check Reccies.');
 }
-async function prisma(path, body) {
+async function prisma(path, body, requests, attempt, deadline, method) {
     await assertPrismaProfile();
-    const response = await fetch(`https://go.mediaocean.com/campaign-service/secure/campaign/${path}`, {
-        method: body ? 'PUT' : 'GET', credentials: 'include', redirect: 'error',
-        signal: AbortSignal.timeout(30000),
-        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-        ...(body ? { body: JSON.stringify(body) } : {})
-    });
-    if (!response.ok) throw new Error(`Prisma HTTP ${response.status}. Check your signed-in session and campaign access.`);
-    assertActive();
-    return response.json();
+    const started = performance.now();
+    const timeoutMs = Math.min(method.requestTimeoutMs, Math.ceil(deadline - started));
+    if (timeoutMs <= 0) throw new Error('Verification time limit reached. Verify these rows again.');
+    const timing = { phase: body ? 'grid' : 'lookup', attempt, startedMs: Math.round(started - (deadline - method.runBudgetMs)),
+        timeoutMs, httpStatus: null, headersMs: null, totalMs: 0, ok: false };
+    requests.push(timing);
+    try {
+        const response = await fetch(`https://go.mediaocean.com/campaign-service/secure/campaign/${path}`, {
+            method: body ? 'PUT' : 'GET', credentials: 'include', redirect: 'error',
+            signal: AbortSignal.timeout(timeoutMs),
+            headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+            ...(body ? { body: JSON.stringify(body) } : {})
+        });
+        timing.headersMs = Math.round(performance.now() - started);
+        timing.httpStatus = response.status ?? null;
+        if (!response.ok) {
+            const error = new Error(`Prisma HTTP ${response.status}. Check your signed-in session and campaign access.`);
+            error.retryable = [500, 502, 503, 504].includes(response.status);
+            throw error;
+        }
+        assertActive();
+        const data = await response.json();
+        timing.ok = true;
+        return data;
+    } catch (error) {
+        timing.errorName = error.name;
+        timing.timedOut = ['TimeoutError', 'AbortError'].includes(error.name);
+        const failure = timing.timedOut ? new Error(`Prisma request timed out after ${(timeoutMs / 1000).toFixed(1)} seconds. Verify these rows again if the retry also fails.`) : error;
+        if (timing.timedOut) failure.name = error.name;
+        if (timing.timedOut || error instanceof TypeError) failure.retryable = true;
+        throw failure;
+    } finally { timing.totalMs = Math.round(performance.now() - started); }
 }
 export async function openReccies(request, sender, sendResponse) {
     try {
@@ -67,10 +90,12 @@ async function importTracker(request, text, source) {
 async function checkRows(request) {
     if (checking) throw new Error('A Reccies check is already running.');
     checking = true;
+    const started = performance.now();
     try {
+        const method = core.verificationMethod(request.method);
         const tracker = (await chrome.storage.local.get(KEY))[KEY];
         if (!tracker || tracker.revision !== request.revision) throw new Error('The report changed. Reload Reccies and check again.');
-        if (!Array.isArray(request.rowIds) || !request.rowIds.length || request.rowIds.length > 500) throw new Error('Choose up to 500 rows per check.');
+        if (!Array.isArray(request.rowIds) || !request.rowIds.length || request.rowIds.length > method.maxRows) throw new Error(`Choose up to ${method.maxRows} rows per check.`);
         const ids = new Set(request.rowIds);
         const rows = tracker.rows.filter(row => ids.has(row.sourceRow));
         if (rows.length !== ids.size) throw new Error('Some selected rows are no longer in this report.');
@@ -81,30 +106,62 @@ async function checkRows(request) {
             if (!groups.has(key)) groups.set(key, []);
             groups.get(key).push(row);
         }
-        if (groups.size > 10) throw new Error('Check up to 10 campaigns per batch.');
-        const queue = [...groups.values()];
+        if (groups.size > method.maxCampaigns) throw new Error(`Check up to ${method.maxCampaigns} campaigns per batch.`);
+        const timing = { method, rows: rows.length, campaigns: groups.size, concurrency: method.concurrency,
+            runBudgetMs: method.runBudgetMs, skippedRows: Object.keys(results).length, cacheHits: 0, retries: 0, campaignsDetail: [] };
+        const deadline = started + method.runBudgetMs;
+        const queue = [...groups.values()].map(group => ({ group, attempt: 1, campaign: null }));
         const worker = async () => {
             while (queue.length) {
-                const group = queue.shift(), first = group[0];
+                const task = queue.shift(), {group} = task, first = group[0];
+                if (!task.timing) {
+                    task.timing = { campaign: first.campaignId, month: first.month, rows: group.length,
+                        queueMs: Math.round(performance.now() - started), requests: [], outcome: 'error', attempts: 0, totalMs: 0 };
+                    timing.campaignsDetail.push(task.timing);
+                }
+                const campaignTiming = task.timing;
+                // Failed requests go behind untouched campaigns; avoid an immediate retry on small runs too.
+                if (task.readyAt) await new Promise(resolve => setTimeout(resolve, Math.max(0, Math.min(task.readyAt, deadline) - performance.now())));
+                const campaignStarted = performance.now();
                 try {
-                    const campaign = await prisma(`publicforui/${first.campaignId}`);
+                    if (campaignStarted >= deadline) throw new Error('Verification time limit reached. Verify these rows again.');
+                    campaignTiming.attempts++;
+                    if (task.attempt > 1) {
+                        timing.retries++;
+                        campaignTiming.retryQueueMs = Math.round(campaignStarted - started);
+                    }
+                    const campaign = task.campaign || await prisma(`publicforui/${first.campaignId}`, undefined, campaignTiming.requests, task.attempt, deadline, method);
                     if (campaign.publicId !== first.campaignId || !/^\d+$/.test(String(campaign.id))) throw new Error('Prisma returned a different campaign.');
-                    const data = await prisma(`${campaign.id}/queryservice/mediaplan/hybrid/actualize`, buildReccieQuery(first.month));
+                    task.campaign = campaign;
+                    const data = await prisma(`${campaign.id}/queryservice/mediaplan/hybrid/actualize`, buildReccieQuery(first.month), campaignTiming.requests, task.attempt, deadline, method);
                     const records = core.extractResults(data);
                     const checkedAt = new Date().toISOString();
                     group.forEach(row => { results[row.sourceRow] = { ...core.evaluateRow(row, records), checkedAt }; });
+                    campaignTiming.outcome = 'success';
+                    delete campaignTiming.errorName;
+                    delete campaignTiming.message;
                 } catch (error) {
+                    campaignTiming.errorName = error.name;
+                    campaignTiming.message = error.message;
+                    if (task.attempt <= method.retryLimit && error.retryable && performance.now() + 1000 < deadline) {
+                        task.attempt++;
+                        task.readyAt = performance.now() + 1000;
+                        queue.push(task);
+                        continue;
+                    }
                     const checkedAt = new Date().toISOString();
                     group.forEach(row => { results[row.sourceRow] = { state: 'error', message: error.message, checkedAt }; });
-                }
+                } finally { campaignTiming.totalMs += Math.round(performance.now() - campaignStarted); }
             }
         };
-        await Promise.all([worker(), worker(), worker()]);
+        await Promise.all(Array.from({length: method.concurrency}, () => worker()));
         assertActive();
         return await queueWrite(async () => {
             const current = (await chrome.storage.local.get(KEY))[KEY];
             if (current?.revision !== tracker.revision) throw new Error('Report refreshed during the check. Results were discarded.');
             current.checks = { ...current.checks, ...results };
+            timing.totalMs = Math.round(performance.now() - started);
+            current.lastCheckTiming = timing;
             await chrome.storage.local.set({ [KEY]: current });
             return current;
         });
@@ -123,7 +180,7 @@ export async function handleReccies(request, sender, sendResponse) {
             if (!response.ok || !(response.headers.get('content-type') || '').includes('text/csv')) throw new Error('Google did not return CSV. Sign into the Google account with tracker access, or import a CSV.');
             tracker = await importTracker(request, await response.text(), { type: 'google', url: source.url });
         } else if (request.operation === 'check') tracker = await checkRows(request);
-        else if (request.operation === 'clear') { await queueWrite(() => chrome.storage.local.remove([KEY, 'recciePreferences'])); }
+        else if (request.operation === 'clear') { await queueWrite(() => chrome.storage.local.remove([KEY, 'recciePreferences', 'reccieLastRunTiming'])); }
         else throw new Error('Unknown Reccies action.');
         sendResponse({ status: 'success', tracker });
     } catch (error) { sendResponse({ status: 'error', message: error.message }); }

@@ -8,6 +8,16 @@
     const validMonth = value => /^(20\d{2})-(0[1-9]|1[0-2])$/.test(String(value || ''));
     const clean = value => String(value ?? '').trim();
     const missingDMessage = 'D number not found for this month — please check in case of tracker issues, likely deleted.';
+    const verificationMethods = Object.freeze(Object.fromEntries(Array.from({length:20}, (_,index) => index+1).map(concurrency => {
+        const id = `workers-${concurrency}`;
+        return [id, Object.freeze({ id, label: `${concurrency} concurrent campaign checks`, concurrency,
+            scheduler: 'continuous-queue-v1', maxCampaigns: 50, maxRows: 500,
+            requestTimeoutMs: 30000, retryLimit: 1, runBudgetMs: 240000 })];
+    })));
+    function verificationMethod(id = 'workers-8') {
+        if (!Object.prototype.hasOwnProperty.call(verificationMethods, id)) throw new Error('Choose a whole number of workers from 1 to 20.');
+        return verificationMethods[id];
+    }
     function parseCsv(text) {
         if (typeof text !== 'string' || text.length > 5000000) throw new Error('Choose a CSV smaller than 5 MB.');
         const rows = []; let row = [], cell = '', quoted = false;
@@ -96,5 +106,5 @@
         if (!/^CP[A-Z0-9]{3,20}$/.test(row.campaignId) || !validMonth(row.month)) return '';
         return `https://go.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=${row.campaignId}&ptb-mod=buy&ptb-ctx=actualize&route=actualize&mos=${row.month}-01`;
     }
-    return { validMonth, parseCsv, importCsv, sheetSource, extractResults, evaluateRow, campaignUrl, missingDMessage };
+    return { validMonth, parseCsv, importCsv, sheetSource, extractResults, evaluateRow, campaignUrl, missingDMessage, verificationMethod };
 });

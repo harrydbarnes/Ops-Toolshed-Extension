@@ -33,13 +33,28 @@
             <label>Your name<select id="person"><option value="">Choose your name</option></select></label>
         </div>
         <label for="search">Search your rows</label><input id="search" type="search" placeholder="D number, campaign, client or supplier">
-        <label for="view">Show</label><select id="view"><option value="all">All my D numbers</option><option value="campaigns">All my campaigns</option><option value="outstanding">Unreconciled</option><option value="reconciled">Reconciled</option><option value="ready">Verified reconciled in Prisma</option><option value="review">Needs review</option></select>
+        <label for="show-by">Show by</label><select id="show-by"><option value="dnumber">D number</option><option value="campaign">Campaign</option></select>
+        <fieldset class="status-filter"><legend>Status</legend><div class="status-chips">
+            <label><input type="checkbox" data-status="outstanding">Unreconciled</label>
+            <label><input type="checkbox" data-status="reconciled">Reconciled</label>
+            <label><input type="checkbox" data-status="mismatch">Yes in sheet, not in Prisma</label>
+            <label><input type="checkbox" data-status="ready">Ready in Prisma</label>
+            <label><input type="checkbox" data-status="review">Needs attention</label>
+        </div><p class="hint">Shows rows matching any selected status. Nothing selected shows all your rows. Prisma statuses use your latest checks.</p>
+        <button id="clear-filters" type="button" class="filter-clear" hidden>Clear filters</button></fieldset>
     </section>
     <div class="checkbar"><p id="summary" role="status" aria-live="polite">Connect a tracker to get started.</p><button id="check-rows" type="button" class="primary" aria-describedby="verification-scope" disabled>Verify Reccie Status</button></div>
     <p id="verification-scope" class="hint">Verifies all rows matching your filters, including rows below “Show more”.</p>
     <p id="message" role="status" aria-live="polite"></p>
     <div id="rows" aria-label="Reccie rows"></div>
     <p class="rule">Ready means Reconciled = Yes and Buy status = Successful for the report month. Checking does not mark the tracker as reccied.</p>
+    <details id="debug"><summary>Debug</summary>
+        <p id="debug-scope" class="hint">The normal verification button uses 8 workers. This slider changes only this debug run. Use the same filters and download each result before starting another run.</p>
+        <label for="debug-workers">Workers: <output id="debug-worker-count" for="debug-workers">8</output></label>
+        <input id="debug-workers" type="range" min="1" max="20" step="1" value="8">
+        <button id="debug-run" type="button" aria-describedby="verification-scope debug-scope" disabled>Run</button>
+        <details id="timing-details" hidden><summary>Verification timings</summary><p class="hint">Local diagnostics for the latest run. Request durations overlap when campaigns run concurrently. No timing data is sent elsewhere.</p><button id="download-timings" type="button" disabled>Download timings (.md)</button><pre id="timing-report"></pre></details>
+    </details>
 </main>
 <script src="extension-page-gate.js" data-scripts="search-highlight.js,reccie-core.js,reccies.js"></script>
 </body>

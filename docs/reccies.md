@@ -23,7 +23,13 @@ Imported report contents, assignment preferences, and results remain in
 `chrome.storage.local`. Forget local tracker data removes them.
 
 The Show menu lists All my D numbers, All my campaigns, Unreconciled, Reconciled,
-Verified reconciled in Prisma and Needs review. Reconciled and Unreconciled use
+Yes in sheet, not in Prisma, Verified reconciled in Prisma and Needs review.
+The mismatch view includes tracker-Yes rows with a completed outstanding Prisma
+result: Reconciled = No and/or Buy status not Successful. Badges explain one or both
+conditions. Unchecked rows, access failures, missing D numbers and other review
+results are excluded because they do not establish a confirmed mismatch. Select
+Reconciled and verify first to check every tracker-Yes row; rechecking a mismatch
+removes it from this view if Prisma now meets the rule. Reconciled and Unreconciled use
 the imported tracker Reccied field; Prisma verification remains independent.
 Campaigns group the selected person's rows by CP number and month, display unique
 D numbers and their count, and retain all assigned D numbers when a campaign
@@ -34,10 +40,23 @@ highlighting and its stylesheet are shared with Campaign History.
 
 The user chooses a name and assignment role, filters the list, then chooses
 **Verify Reccie Status**. Checks are on demand, not scheduled. Requests are grouped by
-campaign and month and limited to 10 campaigns and 500 rows per message. Three
-campaigns may be read concurrently. The background worker resolves the public CP
+campaign and month and limited to 50 campaigns and 500 rows per message. Eight
+workers (by default) pull continuously from the queue, without ten-campaign barriers. LP's
+372-row, 46-campaign baseline therefore fits one queue. The background worker resolves the public CP
 number, then sends the captured complete Actualise query with 110 fields. This
 endpoint uses PUT for a query; it does not change bookings.
+
+Each request has a 30-second timeout. A timeout, network failure or HTTP
+500/502/503/504 receives at most one retry, behind campaigns not yet started and
+at least one second after the failure. When a grid request fails, the retry reuses
+that run's successfully validated campaign lookup. There is no reuse of previous
+grid results. Access errors, rate limits, invalid campaign identities and malformed
+grids are not retried. Final failures remain visibly marked Check failed.
+
+Each queue has a four-minute time budget, including retries. Requests use the
+smaller of 30 seconds and the remaining budget. Once the budget expires, queued
+rows receive a time-limit message and can be checked again. This bounds the longer
+queue; increasing concurrency or extending every request timeout is not necessary.
 
 Exactly one row must match `buySerialNumber` and `month`. Ready requires
 `okToPay === '1'` and `buyStatus === 'SUCCESSFUL'`. Actualised is not a condition.
@@ -61,6 +80,57 @@ It is not necessary for CSV import or the session-backed Google read.
 
 ## Validation boundaries
 
+### Measuring a verification run
+
+Reload the extension, reopen My Reccies, select LP and the relevant assignment,
+choose All my D numbers, clear Search and press Verify Reccie Status. Expand
+Verification timings after completion and choose Download timings (.md), or copy
+its selectable JSON for analysis. The download contains the full report, including
+every batch and failed request, and also works for a saved run after reopening.
+This uses the locally loaded report; read the Google Sheet again first if needed.
+
+The report covers all batches, including rows below Show more. It records elapsed
+wall time, actual fetch attempts, skipped tracker issues, per-campaign queue time,
+lookup/grid timings and failed campaigns. `headersMs` measures fetch until response
+headers; `totalMs` for a request includes downloading and parsing JSON. These are
+client-observed durations, not pure server timings. Campaign durations sum active
+attempt time, including validation and result processing, but exclude time waiting
+for a deferred retry. Each request records its attempt number, start offset within
+the batch, timeout, and error name if it fails. Campaign retryQueueMs records when
+its second attempt starts. Batch durations end before their final storage
+write; run duration includes message round trips and rendering. Concurrent request
+durations overlap and must not be added to estimate elapsed time.
+
+The default limits are eight campaign workers, fifty campaign/month groups and
+500 rows per batch. Retry totals count campaign second attempts; actual request
+counts include every fetch attempt. cacheHits remains zero because previous grid
+results are never reused.
+HTTP success can still produce a failed campaign if the grid is invalid. A completed
+run can contain failed campaign checks; inspect failedCampaigns and each row.
+Diagnostics stay in local extension storage and contain campaign IDs and counts,
+the selected name, assignment, filters, tracker revision and selected sheet row
+numbers. They contain no credentials or raw Prisma responses. Only the latest run is
+retained, associated with its tracker revision; Forget local tracker data removes it.
+Compare a new download with the October 21 baseline: 372 rows, 46 campaigns,
+91 requests, 111.554 seconds and four failed campaigns (42 rows). That older run
+had five ten-campaign batches and no retries. Compare remaining failures as well
+as elapsed time; a retry that recovers rows adds work and may increase duration.
+
+### Debug runs
+
+The normal Verify Reccie Status button uses eight workers. At the very bottom of
+My Reccies, expand Debug to choose a worker count from 1 to 20 with the slider,
+then choose Run. This overrides the concurrency for that debug run only; the next
+normal verification still uses eight. Query, retry and time limits are identical.
+The background accepts only whole-number methods within the supported range.
+
+Verification timings and Download timings (.md) remain inside Debug. Every run,
+including normal verification, creates the same method-labelled report. Keep the
+same tracker and filters and download each result before another run, because
+only the latest report is retained. Worker selection and Run are disabled while
+checking. Run is also disabled when no matching rows are available or the report
+month needs refreshing. The slider defaults to eight when reopening the page.
+
 The original full query was successfully run in the installed extension service-worker
 Console for September 2026. A campaign that was not open returned nine rows and the
 expected reconciled/successful D number. The Google CSV endpoint returned the report
@@ -73,3 +143,7 @@ between Reccies and Help Guides, actual Google reading after optional permission
 CSV fallback, assignment and month persistence, a known complete row and a known
 incomplete row, sign-in failure, feature-off cleanup, Plan/Actualise/Close transitions,
 and absence of Google write traffic. Do not change the real Sheet while testing.
+
+While verification is active, the status message shows a pulsing dot and a fixed-width
+. / .. / ... animation. Both stop on completion or error, with a static indicator
+when reduced motion is requested. Decorative animation is hidden from screen readers.

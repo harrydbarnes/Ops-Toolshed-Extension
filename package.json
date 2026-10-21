@@ -34,7 +34,10 @@
   },
   "homepage": "https://github.com/harrydbarnes/EMC-Toolshed-Extension#readme",
   "overrides": {
-    "babel-preset-current-node-syntax": "$babel-preset-current-node-syntax"
+    "babel-preset-current-node-syntax": "$babel-preset-current-node-syntax",
+    "@istanbuljs/load-nyc-config": {
+      "js-yaml": "^4.1.1"
+    }
   },
   "devDependencies": {
     "@babel/core": "^8.0.6",
