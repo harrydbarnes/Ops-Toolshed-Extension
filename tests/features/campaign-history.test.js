@@ -766,7 +766,7 @@ describe('campaign history feature', () => {
         dom.window.close();
     });
 
-    test('adds History to the overflow menu when Reports is clipped even without a Reports menu row', async () => {
+    test('keeps History with Reports when Prisma clips the module without collapsing it into overflow', async () => {
         const { dom } = createPage({ navigationMarkup: '', overflowMenu: false });
         const { document, campaignHistoryFeature } = dom.window;
         const banner = createPrismaBannerOverflow(document);
@@ -795,15 +795,73 @@ describe('campaign history feature', () => {
             campaignHistoryFeature.apply();
             await flushPromises();
 
-            const historyItem = getHistoryOverflowItem(document);
+            const historyLink = banner.bannerShadow.querySelector('#toolshed-campaign-history-nav');
+            expect(historyLink).not.toBeNull();
+            expect(historyLink.previousElementSibling).toBe(reportsModule);
+            expect(getHistoryOverflowItem(document)).toBeNull();
+            expect(banner.moduleContainer.classList.contains('toolshed-campaign-history-direct-layout'))
+                .toBe(true);
+            expect(banner.bannerShadow.querySelector('#toolshed-campaign-history-shadow-styles')
+                .textContent).toContain('width: max-content !important');
+            expect(nativeMenuItem.nextElementSibling).toBeNull();
+        } finally {
+            dom.window.close();
+        }
+    });
+
+    test('reveals Prisma’s overflow trigger when Reports is collapsed but the native trigger is hidden', async () => {
+        const { dom } = createPage({ navigationMarkup: '', overflowMenu: false });
+        const { document, campaignHistoryFeature } = dom.window;
+        const banner = createPrismaBannerOverflow(document, { overflowVisible: false });
+        const { group } = createPrismaOverflowMenu(document);
+
+        try {
+            await flushPromises();
+            campaignHistoryFeature.apply();
+            await flushPromises();
+
             expect(document.getElementById('toolshed-campaign-history-nav')).toBeNull();
-            expect(historyItem).not.toBeNull();
-            expect(historyItem.previousElementSibling).toBe(nativeMenuItem);
-            expect(historyItem.querySelector('.module-label-text').textContent).toBe('History');
-            expect(historyItem.className).toBe(nativeMenuItem.className);
-            expect(historyItem.querySelector('mo-icon[slot="left"]').style.width).toBe('12px');
-            expect(historyItem.querySelector('mo-icon[slot="left"]').style.flex).toBe('0 0 12px');
-            expect(banner.countLabel.textContent).toBe('2');
+            expect(getHistoryOverflowItem(document)).not.toBeNull();
+            expect(banner.overflowMenu.classList.contains('toolshed-campaign-history-overflow-trigger'))
+                .toBe(true);
+            expect(banner.bannerShadow.querySelector('#toolshed-campaign-history-overflow-spacing-styles')
+                .textContent).toContain('visibility: visible !important');
+            expect(banner.bannerShadow.querySelector('#toolshed-campaign-history-overflow-spacing-styles')
+                .textContent).toContain('width: max-content !important');
+            expect(group.querySelector('#toolshed-campaign-history-overflow-nav')).not.toBeNull();
+        } finally {
+            dom.window.close();
+        }
+    });
+
+    test('corrects the overflow badge after Prisma redraws it when the menu opens', async () => {
+        const { dom } = createPage({ navigationMarkup: '', overflowMenu: false });
+        const { document, campaignHistoryFeature } = dom.window;
+        const banner = createPrismaBannerOverflow(document);
+        const { group } = createPrismaOverflowMenu(document);
+        const campaignsItem = document.createElement('mo-menu-item');
+        campaignsItem.id = 'prsm-cm-spa';
+        campaignsItem.textContent = 'Campaigns';
+        group.prepend(campaignsItem);
+
+        try {
+            await flushPromises();
+            campaignHistoryFeature.apply();
+            await flushPromises();
+
+            expect(Array.from(group.children).filter(item => item.tagName === 'MO-MENU-ITEM')).toHaveLength(3);
+            expect(banner.countLabel.textContent).toBe('3');
+
+            // Prisma redraws its native badge from its two original modules after
+            // the menu opens. The extension must restore the visible row count.
+            banner.countLabel.textContent = '2';
+            banner.overflowMenu.dispatchEvent(new dom.window.MouseEvent('click', {
+                bubbles: true,
+                composed: true
+            }));
+            await wait(100);
+
+            expect(banner.countLabel.textContent).toBe('3');
         } finally {
             dom.window.close();
         }
@@ -895,7 +953,7 @@ describe('campaign history feature', () => {
         dom.window.close();
     });
 
-    test('counts the actual overflow items and collapses hidden tabs only while the three-dot menu is visible', async () => {
+    test('counts actual overflow rows and keeps the trigger available when History is in the menu', async () => {
         const { dom } = createPage({ navigationMarkup: '', overflowMenu: false });
         const { document, campaignHistoryFeature } = dom.window;
         const { group } = createPrismaOverflowMenu(document);
@@ -921,7 +979,8 @@ describe('campaign history feature', () => {
 
         banner.overflowMenu.style.visibility = 'hidden';
         campaignHistoryFeature.apply();
-        expect(banner.bannerShadow.querySelector('#toolshed-campaign-history-overflow-spacing-styles')).toBeNull();
+        expect(banner.overflowMenu.classList.contains('toolshed-campaign-history-overflow-trigger')).toBe(true);
+        expect(banner.bannerShadow.querySelector('#toolshed-campaign-history-overflow-spacing-styles')).not.toBeNull();
 
         banner.overflowMenu.style.visibility = 'visible';
         campaignHistoryFeature.apply();

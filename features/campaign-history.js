@@ -11,6 +11,15 @@
     const OVERFLOW_NAVIGATION_ID = 'toolshed-campaign-history-overflow-nav';
     const SHADOW_NAVIGATION_STYLE_ID = 'toolshed-campaign-history-shadow-styles';
     const OVERFLOW_SPACING_STYLE_ID = 'toolshed-campaign-history-overflow-spacing-styles';
+    const EXTENSION_NAVIGATION_NODE_IDS = new Set([
+        NAVIGATION_ID,
+        OVERFLOW_NAVIGATION_ID,
+        SHADOW_NAVIGATION_STYLE_ID,
+        OVERFLOW_SPACING_STYLE_ID
+    ]);
+    const DIRECT_NAVIGATION_LAYOUT_CLASS = 'toolshed-campaign-history-direct-layout';
+    const OVERFLOW_NAVIGATION_LAYOUT_CLASS = 'toolshed-campaign-history-overflow-layout';
+    const OVERFLOW_MENU_TRIGGER_CLASS = 'toolshed-campaign-history-overflow-trigger';
     const PANEL_ID = 'toolshed-campaign-history-panel';
     const HISTORY_KEY_ATTRIBUTE = 'data-toolshed-history-key';
     const PANEL_TRANSITION_DURATION_MS = 240;
@@ -58,6 +67,7 @@
     let navigationObserver = null;
     let navigationResizeObserver = null;
     let navigationObservedRoots = new Set();
+    let navigationObservedOverflowMenus = new WeakSet();
     let currentNavigationLink = null;
     let navigationReconciliationQueued = false;
     let campaignHistoryUsesOverflow = false;
@@ -936,6 +946,7 @@
                 display: inline-flex;
                 font: inherit;
                 gap: 6px;
+                flex: 0 0 auto;
                 height: 100%;
                 justify-content: center;
                 min-height: 40px;
@@ -943,6 +954,12 @@
                 text-decoration: none;
                 text-transform: none;
                 white-space: nowrap;
+            }
+            #${PRISMA_BANNER_MODULE_CONTAINER_ID}.${DIRECT_NAVIGATION_LAYOUT_CLASS} {
+                max-width: max-content !important;
+                min-width: max-content !important;
+                overflow: visible !important;
+                width: max-content !important;
             }
             #${NAVIGATION_ID} .toolshed-campaign-history-nav-content {
                 align-items: center;
@@ -1031,6 +1048,16 @@
             rect.bottom <= visibleBounds.bottom + edgeTolerance;
     }
 
+    function isNavigationModuleCollapsed(element) {
+        if (!element?.isConnected) return false;
+        const style = window.getComputedStyle?.(element);
+        return element.classList?.contains('hidden') ||
+            element.hasAttribute?.('hidden') ||
+            style?.display === 'none' ||
+            style?.visibility === 'hidden' ||
+            style?.visibility === 'collapse';
+    }
+
     function getNavigationLayoutSignature(element, insertionContainer) {
         const parts = [`${window.innerWidth}x${window.innerHeight}`];
         const describeElement = candidate => {
@@ -1062,12 +1089,32 @@
         return parts.join('|');
     }
 
+    function setBannerNavigationLayout(mode) {
+        const moduleContainer = findPrismaBannerModuleContainer();
+        if (!moduleContainer) return;
+
+        const hasDirectLayout = moduleContainer.classList.contains(DIRECT_NAVIGATION_LAYOUT_CLASS);
+        const hasOverflowLayout = moduleContainer.classList.contains(OVERFLOW_NAVIGATION_LAYOUT_CLASS);
+        const wantsDirectLayout = mode === 'direct';
+        const wantsOverflowLayout = mode === 'overflow';
+
+        if (hasDirectLayout !== wantsDirectLayout) {
+            moduleContainer.classList.toggle(DIRECT_NAVIGATION_LAYOUT_CLASS, wantsDirectLayout);
+        }
+        if (hasOverflowLayout !== wantsOverflowLayout) {
+            moduleContainer.classList.toggle(OVERFLOW_NAVIGATION_LAYOUT_CLASS, wantsOverflowLayout);
+        }
+    }
+
     function hasRelevantNavigationMutation(mutations) {
-        const isExtensionNode = node => node?.nodeType === 1 &&
-            (node.id === NAVIGATION_ID ||
-                node.id === OVERFLOW_NAVIGATION_ID ||
-                node.id === SHADOW_NAVIGATION_STYLE_ID ||
-                node.id === OVERFLOW_SPACING_STYLE_ID);
+        const isExtensionNode = node => {
+            let current = node?.nodeType === 1 ? node : node?.parentNode;
+            for (let depth = 0; current && depth < 12; depth += 1) {
+                if (current.nodeType === 1 && EXTENSION_NAVIGATION_NODE_IDS.has(current.id)) return true;
+                current = current.parentNode || current.host;
+            }
+            return false;
+        };
 
         const isInsideCampaignNavigation = node => {
             let current = node?.host || node;
@@ -1114,9 +1161,8 @@
                 return !isExtensionNode(target);
             }
 
-            const hasNativeChange = nodes.some(node =>
-                node?.nodeType !== 1 || !isExtensionNode(node)
-            );
+            const hasNativeChange = !isExtensionNode(target) &&
+                nodes.some(node => !isExtensionNode(node));
             const removedHistoryItem = Array.from(mutation.removedNodes || []).some(node =>
                 [NAVIGATION_ID, OVERFLOW_NAVIGATION_ID].includes(node?.id) && !node.isConnected
             );
@@ -1133,6 +1179,16 @@
             if (extensionContextInvalidated || !window.document || !settingsReady || !viewEnabled || !isPrismaPage()) return;
             ensureNavigationObserver();
             reconcileNavigationItems();
+        });
+    }
+
+    function scheduleOverflowMenuReconciliation() {
+        [0, 80].forEach(delay => {
+            window.setTimeout(() => {
+                if (extensionContextInvalidated || !settingsReady || !viewEnabled || !isPrismaPage()) return;
+                ensureNavigationObserver();
+                reconcileNavigationItems();
+            }, delay);
         });
     }
 
@@ -1164,6 +1220,15 @@
             });
             navigationObservedRoots.add(root);
         });
+
+        getElementsIncludingShadowDom()
+            .filter(element => String(element.tagName || '').toUpperCase() === 'MO-BANNER-MODULE-OVERFLOW-MENU')
+            .forEach(menu => {
+                if (navigationObservedOverflowMenus.has(menu)) return;
+                menu.addEventListener('click', scheduleOverflowMenuReconciliation, true);
+                menu.addEventListener('keydown', scheduleOverflowMenuReconciliation, true);
+                navigationObservedOverflowMenus.add(menu);
+            });
 
         const ResizeObserverConstructor = window.ResizeObserver ||
             (typeof ResizeObserver !== 'undefined' ? ResizeObserver : null);
@@ -1251,8 +1316,11 @@
                 .sort((left, right) =>
                     getNavigationCandidateSize(left) - getNavigationCandidateSize(right)
                 )[0];
-        if (textElement) textElement.textContent = 'History';
-        else item.textContent = 'History';
+        if (textElement) {
+            if (textElement.textContent !== 'History') textElement.textContent = 'History';
+        } else if (item.textContent !== 'History') {
+            item.textContent = 'History';
+        }
 
         descendants
             .filter(element => String(element.tagName || '').toUpperCase() === 'A')
@@ -1338,8 +1406,13 @@
                 module.classList?.contains('hidden')
             ).length
             : 0;
-        const inferredMenuItemCount = hiddenModuleCount + (campaignHistoryUsesOverflow ? 1 : 0);
-        const itemCount = Math.max(menuItemCount, inferredMenuItemCount);
+        const historyItemExists = getElementsIncludingShadowDom()
+            .some(element => element.id === OVERFLOW_NAVIGATION_ID);
+        const inferredMenuItemCount = hiddenModuleCount +
+            (campaignHistoryUsesOverflow || historyItemExists ? 1 : 0);
+        // Once Prisma mounts the menu, its actual rows are authoritative. Use
+        // collapsed modules only as a fallback while the menu is still lazy.
+        const itemCount = menuItemCount || inferredMenuItemCount;
 
         getElementsIncludingShadowDom()
             .filter(element => String(element.tagName || '').toUpperCase() === 'MO-BANNER-MODULE-OVERFLOW-MENU')
@@ -1368,15 +1441,44 @@
             #${PRISMA_BANNER_MODULE_CONTAINER_ID} > mo-banner-module.hidden {
                 display: none !important;
             }
+            #${PRISMA_BANNER_MODULE_CONTAINER_ID}.${OVERFLOW_NAVIGATION_LAYOUT_CLASS} {
+                max-width: max-content !important;
+                min-width: max-content !important;
+                overflow: visible !important;
+                width: max-content !important;
+            }
+            mo-banner-module-overflow-menu.${OVERFLOW_MENU_TRIGGER_CLASS} {
+                visibility: visible !important;
+            }
         `;
         root.appendChild(style);
     }
 
     function syncOverflowMenuPresentation() {
+        const overflowMenus = getElementsIncludingShadowDom()
+            .filter(element => String(element.tagName || '').toUpperCase() === 'MO-BANNER-MODULE-OVERFLOW-MENU');
+
+        const moduleContainer = findPrismaBannerModuleContainer();
+        const hasDirectBannerHistory = moduleContainer && findNavigationLinks()
+            .some(link => getParentElement(link) === moduleContainer);
+        setBannerNavigationLayout(campaignHistoryUsesOverflow
+            ? 'overflow'
+            : hasDirectBannerHistory ? 'direct' : null);
+        overflowMenus.forEach(menu => {
+            if (campaignHistoryUsesOverflow) {
+                if (!menu.classList.contains(OVERFLOW_MENU_TRIGGER_CLASS)) {
+                    menu.classList.add(OVERFLOW_MENU_TRIGGER_CLASS);
+                }
+                ensureOverflowSpacingStyle(menu);
+            } else if (menu.classList.contains(OVERFLOW_MENU_TRIGGER_CLASS)) {
+                menu.classList.remove(OVERFLOW_MENU_TRIGGER_CLASS);
+            }
+        });
+
         const visibleMenus = getElementsIncludingShadowDom()
             .filter(element =>
                 String(element.tagName || '').toUpperCase() === 'MO-BANNER-MODULE-OVERFLOW-MENU' &&
-                isNavigationItemVisible(element)
+                (isNavigationItemVisible(element) || element.classList?.contains(OVERFLOW_MENU_TRIGGER_CLASS))
             );
         const visibleRoots = new Set(visibleMenus
             .map(menu => menu.getRootNode?.())
@@ -1395,13 +1497,29 @@
     function ensureNavigationLink() {
         const container = findTopNavigationContainer();
         const reportsItem = container ? findTopNavigationItem(container, 'Reports') : null;
-        if (!container || !reportsItem) {
+        const moduleContainer = findPrismaBannerModuleContainer();
+        const isPrismaBannerNavigation = Boolean(moduleContainer && container === moduleContainer);
+        const reportsInOverflowMenu = findOverflowNavigationGroups()
+            .some(group => Boolean(findOverflowReportsItem(group)));
+
+        if (!container) {
             campaignHistoryUsesOverflow = false;
             campaignHistoryBlockedLayoutSignature = '';
             removeTopLevelNavigationLink();
             return false;
         }
-        if (!isNavigationItemVisible(reportsItem)) {
+
+        if (!reportsItem) {
+            campaignHistoryUsesOverflow = isPrismaBannerNavigation && reportsInOverflowMenu;
+            campaignHistoryBlockedLayoutSignature = '';
+            removeTopLevelNavigationLink();
+            return false;
+        }
+
+        const reportsWasCollapsed = isPrismaBannerNavigation
+            ? isNavigationModuleCollapsed(reportsItem)
+            : !isNavigationItemVisible(reportsItem);
+        if (reportsWasCollapsed) {
             campaignHistoryUsesOverflow = true;
             campaignHistoryBlockedLayoutSignature = '';
             removeTopLevelNavigationLink();
@@ -1409,9 +1527,11 @@
         }
 
         const insertionContainer = findNavigationInsertionContainer(container, reportsItem);
-        const layoutSignature = getNavigationLayoutSignature(reportsItem, insertionContainer);
-        if (campaignHistoryUsesOverflow && campaignHistoryBlockedLayoutSignature === layoutSignature) {
-            removeTopLevelNavigationLink();
+        const layoutSignature = isPrismaBannerNavigation
+            ? ''
+            : getNavigationLayoutSignature(reportsItem, insertionContainer);
+        if (!isPrismaBannerNavigation && campaignHistoryUsesOverflow &&
+            campaignHistoryBlockedLayoutSignature === layoutSignature) {
             return false;
         }
 
@@ -1462,9 +1582,9 @@
             insertionContainer.insertBefore(link, reportsItem.nextElementSibling);
         }
 
-        if (!isNavigationItemVisible(link)) {
+        if (!isPrismaBannerNavigation && !isNavigationItemVisible(link)) {
             campaignHistoryUsesOverflow = true;
-            campaignHistoryBlockedLayoutSignature = getNavigationLayoutSignature(reportsItem, insertionContainer);
+            campaignHistoryBlockedLayoutSignature = layoutSignature;
             removeTopLevelNavigationLink();
             return false;
         }
