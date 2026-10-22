@@ -119,6 +119,15 @@ describe('Reccies sidebar',()=>{
             const badge=win.document.getElementById('report-loaded-badge');expect(badge.hidden).toBe(false);expect(badge.closest('summary').id).toBe('source-summary');expect(badge.textContent).toContain('Report loaded');
         }finally{dom.window.close();}
     });
+    test('automatic settings default off, request Google access on opt-in and persist independently',async()=>{
+        const {dom,win,getData}=create({},liveSource);
+        try{
+            await flush();const toggle=win.document.getElementById('auto-mark-tracker');expect(toggle.checked).toBe(false);
+            toggle.checked=true;toggle.dispatchEvent(new win.Event('change'));await flush();expect(getData().reccieAutomation.autoMark).toBe(true);expect(win.chrome.permissions.request).toHaveBeenCalled();
+            const delayed=win.document.getElementById('verify-after-financial');expect(delayed.checked).toBe(false);delayed.checked=true;delayed.dispatchEvent(new win.Event('change'));await flush();expect(getData().reccieAutomation).toEqual({autoMark:true,afterFinancial:true});
+            toggle.checked=false;toggle.dispatchEvent(new win.Event('change'));await flush();expect(getData().reccieAutomation).toEqual({autoMark:false,afterFinancial:true});
+        }finally{dom.window.close();}
+    });
     test('CSV snapshots offer no tracker write action',async()=>{
         const {dom,win}=create();try{await flush();expect(win.document.querySelector('.tracker-mark-yes')).toBeNull();}finally{dom.window.close();}
     });

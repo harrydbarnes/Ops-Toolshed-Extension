@@ -38,7 +38,7 @@ only. Rematching reduces this risk; avoid sorting during a save.
 
 The separate private audit workbook stores actor email, D/campaign/month, original
 and confirmed values, request IDs and outcomes. It is not shared with colleagues.
-No automatic updates, timers or financial-update hooks are enabled.
+Automatic writes and three-minute post-financial-request checks are opt-in per Chrome profile and default off. The same fixed-sheet writer handles both, with client-verified automatic saves distinguished in the audit intent. Google does not query Prisma itself.
 
 ## Pilot verification
 
@@ -68,3 +68,21 @@ No again; no additional restoration edit was made by the agent. The UI now makes
 one automatic receipt-only check after a timeout/connection error, never a repeat
 commit. This recovery change needs an extension reload; its live behaviour has
 not yet been retested.
+
+## Automatic client release: 22 October 2026
+
+Version 3 deployed successfully at 21:07 London time. The only server change adds
+an audit cause bound to the preview token, distinguishing Client verified Prisma
+statuses from Manual confirmation. The allowlist, Google scopes, fixed tracker,
+identity checks, write guards and endpoint URL are unchanged. This release did not
+submit a financial update or change tracker values. Automatic opt-ins remain off
+until the user enables them in their Chrome profile. The actual Send to finance
+menu actions were inspected live; the Confirm-triggered three-minute path still needs a real user
+reconciliation update to prove its complete installed-extension lifecycle.
+
+The trigger was refined after inspecting the actual finance preview: it starts on
+Confirm, not menu selection, and requires an observed reconciliation transition
+and a sendable preview Line ID + month. The inspected April preview had two
+unchanged lines and zero ready to send, so Confirm was never clicked. Cancel closed
+it without submitting financial changes. This trigger refinement is client-only;
+version 3 audit attribution remains unchanged.

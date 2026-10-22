@@ -36,6 +36,13 @@
         <div class="import-row"><label for="csv-file">Or import a report CSV</label><input id="csv-file" type="file" accept=".csv,text/csv"></div>
         <p class="hint">CSV is a snapshot. Refresh or import again after the tracker changes.</p>
         </div>
+        <div class="automation-settings">
+            <label><input id="auto-mark-tracker" type="checkbox"> Automatically mark Yes after Prisma verification</label>
+            <p class="hint">For your assigned rows in connected Main Tracker and Early Recs reports. Requires a fresh, unique Reconciled = Yes and Successful buy status. Never changes Yes back to No.</p>
+            <label><input id="verify-after-financial" type="checkbox"> Verify three minutes after confirming a reconciliation update</label>
+            <p class="hint">Checks changed placements after financial confirmation; gross/date-only and unchanged lines are excluded. Automatic marking uses the setting above. Chrome must be running and Prisma signed in.</p>
+            <p id="automation-status" class="hint" role="status"></p>
+        </div>
     </details>
     <p id="source-status" class="hint"></p>
     <section aria-label="Find your rows" class="filters">

@@ -60,10 +60,6 @@ body::-webkit-scrollbar-thumb:hover {
     text-decoration: underline;
 }
 
-.disabled-version {
-    font-size: 0.8em; /* Make the text slightly smaller */
-}
-
 .features-kill-switch {
     position: absolute;
     top: 31px;
@@ -166,11 +162,8 @@ body::-webkit-scrollbar-thumb:hover {
     margin-bottom: 0;
 }
 
-
 /* Removed specific styles for .button-group.timesheet-group */
 /* The general .button-group styles will now apply to the single group */
-
-
 
 .nav-button, .location-button {
     flex: 1 0 calc(50% - 5px); /* Style to arrange buttons in pairs */
@@ -191,7 +184,6 @@ body::-webkit-scrollbar-thumb:hover {
 .nav-button:active, .location-button:active {
     transform: translateY(2px);
 }
-
 
 .input-group {
     margin-bottom: 10px;
@@ -259,20 +251,6 @@ body::-webkit-scrollbar-thumb:hover {
 
 .section {
     margin-top: 5px;
-}
-
-.collapsible {
-    cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 5px;
-}
-
-.collapsible-content {
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.25s ease-out;
 }
 
 #settingsContent {
@@ -343,14 +321,6 @@ input:checked + .slider:before {
     font-style: italic;
 }
 
-.collapsible i {
-    transition: transform 0.3s ease;
-}
-
-.collapsible.active i {
-    transform: rotate(180deg);
-}
-
 .reminder-text {
     font-size: 0.9em;
     color: #666;
@@ -412,48 +382,6 @@ select:focus {
 .separator {
     margin: 0 5px;
     color: #666;
-}
-
-/* Revised styles for settings link in style.css */
-
-.settings-link-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-top: 0;
-    margin-bottom: 10px;
-    white-space: nowrap; /* Prevent link text from wrapping */
-}
-
-a.settings-page-link {
-    color: #007bff; /* Using a common blue link color, can be adjusted */
-    text-decoration: none;
-    padding: 8px 6px; /* Reduced horizontal padding */
-    border-radius: 4px;
-    font-weight: 500; /* Or bold, depending on desired emphasis */
-    cursor: pointer;
-    display: inline-block;
-    transition: color 0.2s ease-in-out; /* Transition for color change */
-    font-size: 0.95em; /* Slightly smaller font to fit */
-}
-
-a.settings-page-link:hover {
-    color: #0056b3; /* Darken text color on hover */
-    text-decoration: underline; /* Optional: underline on hover for more link affordance */
-}
-
-a.settings-page-link:active {
-    color: #004085;
-    transform: translateY(1px); /* Slight press effect */
-}
-
-.pink-button {
-    background-color: #e83e8c !important;
-    color: white !important;
-}
-
-.pink-button:hover {
-    animation: vibrate 0.3s ease-in-out;
 }
 
 @keyframes vibrate {

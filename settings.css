@@ -190,11 +190,6 @@ section h2 {
     margin-bottom: 0;
 }
 
-.theme-select-wrapper {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
 
 /* Custom Dropdown Styles */
 .custom-dropdown {
@@ -320,10 +315,6 @@ section h2 {
     font-weight: 500;
 }
 
-.theme-select-wrapper .select-container {
-    width: 150px;
-    margin-bottom: 0;
-}
 
 .color-swatch {
     width: 24px;

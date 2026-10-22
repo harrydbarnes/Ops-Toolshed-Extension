@@ -1,0 +1,9 @@
+/* Local monochrome icons; existing state classes control stars and disclosure. */
+.fas, .far, .fa-solid { display:inline-block; width:1em; height:1em; flex-shrink:0; background-color:currentColor; vertical-align:-0.125em; mask-repeat:no-repeat; mask-position:center; mask-size:contain; }
+.fa-search { mask-image:url("assets/icons/approvers/search.svg"); }
+.fas.fa-star { mask-image:url("assets/icons/approvers/star-solid.svg"); }
+.far.fa-star { mask-image:url("assets/icons/approvers/star-outline.svg"); }
+.fa-chevron-down { mask-image:url("assets/icons/approvers/chevron-down.svg"); }
+.fa-chevron-up { mask-image:url("assets/icons/approvers/chevron-up.svg"); }
+.fa-bullhorn { mask-image:url("assets/icons/fontawesome/bullhorn-solid.svg"); }
+.fa-file-excel { mask-image:url("assets/icons/approvers/file-excel.svg"); }

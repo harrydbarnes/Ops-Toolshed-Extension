@@ -87,7 +87,7 @@ function match_(snapshot,item,month) {
 function preview_(input,actor) {
   var rows=validate_(input),snapshot=snapshot_(input.mode),id=Utilities.getUuid(),token=Utilities.getUuid();
   var results=rows.map(function(row){return match_(snapshot,row,input.month);});
-  var record={actor:actor,mode:input.mode,month:input.month,results:results,token:token};
+  var record={actor:actor,mode:input.mode,month:input.month,results:results,token:token,cause:input.cause==='verified'?'Client verified Prisma statuses':'Manual confirmation'};
   CacheService.getScriptCache().put('manual:'+id,JSON.stringify(record),120);
   return {ok:true,requestId:id,token:token,expiresInSeconds:120,mode:input.mode,month:input.month,results:results};
 }
@@ -147,7 +147,7 @@ function commit_(input,actor) {
     if(rule&&(rule.getCriteriaType()!==SpreadsheetApp.DataValidationCriteria.VALUE_IN_LIST||!rule.getCriteriaValues()[0].includes('Yes'))){results[index]=Object.assign(fresh,{state:'skipped',reason:'Tracker validation needs review'});return;}
     results[index]=fresh;eligible.push(index);
   });
-  journal_(changes,eligible.map(function(index){var r=results[index];return [stamp,input.requestId,actor,record.mode,record.month,r.dNumber,r.campaignId,r.before,'Yes','intent','Manual confirmation'];}));
+  journal_(changes,eligible.map(function(index){var r=results[index];return [stamp,input.requestId,actor,record.mode,record.month,r.dNumber,r.campaignId,r.before,'Yes','intent',record.cause||'Manual confirmation'];}));
   var writeError=false;
   try {
     // Audit storage can take time: rematch once more immediately before writing.

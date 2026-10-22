@@ -568,12 +568,6 @@ body.reminder-theme-black #confirmation-popup {
     cursor: pointer;
 }
 
-.toolshed-campaign-date-edit-marker-icon {
-    display: block;
-    flex: 0 0 1em;
-    width: 1em;
-    height: 1em;
-}
 
 /* Keep DST Assurance after GMI Chat on one intrinsic-width, visible row. */
 .workflow-widget-wrapper:has(> .toolshed-dst-assurance),

@@ -1,5 +1,6 @@
 import '../reccie-core.js';
 import { testReccieGoogleConnection } from './reccie-connection-probe.js';
+import {autoMarkVerified,assigned,RECCIE_ALARM,clearAutoReceipt} from './reccie-automation.js';
 import { manualTrackerWrite } from './reccie-writes.js';
 import { buildReccieQuery } from './reccie-query.js';
 import { isFeatureModeActive } from './feature-mode.js';
@@ -185,6 +186,7 @@ async function checkRows(request) {
     const started = performance.now();
     try {
         const method = core.verificationMethod(request.method);
+        const placementIds=request.placementIds?new Set(request.placementIds):null;
         const key = core.trackerKey(request.mode, request.month);
         const tracker = (await chrome.storage.local.get(key))[key];
         if (!tracker || tracker.revision !== request.revision) throw new Error('The report changed. Reload Reccies and check again.');
@@ -202,19 +204,21 @@ async function checkRows(request) {
         if (groups.size > method.maxCampaigns) throw new Error(`Check up to ${method.maxCampaigns} campaigns per batch.`);
         const timing = await runGroups(groups, method, {
             rows: rows.length, skippedRows: Object.keys(results).length,
-            onRecords: (group, records, checkedAt) => { group.forEach(row => { results[row.sourceRow] = { ...core.evaluateRow(row, records), checkedAt }; }); },
+            onRecords: (group, records, checkedAt) => { group.forEach(row => { if(placementIds&&!records.some(record=>record.buySerialNumber===row.dNumber&&record.month===row.month&&placementIds.has(record.placementNumber)))return; results[row.sourceRow] = { ...core.evaluateRow(row, records), checkedAt }; }); },
             onError: (group, error, checkedAt) => { group.forEach(row => { results[row.sourceRow] = {state:'error',message:error.message,checkedAt}; }); }
         }, started);
         assertActive();
-        return await queueWrite(async () => {
+        const updated = await queueWrite(async () => {
             const current = (await chrome.storage.local.get(key))[key];
             if (current?.revision !== tracker.revision) throw new Error('Report refreshed during the check. Results were discarded.');
             current.checks = { ...current.checks, ...results };
+            delete current.lastAutoUpdate;
             timing.totalMs = Math.round(performance.now() - started);
             current.lastCheckTiming = timing;
             await chrome.storage.local.set({ [key]: current, ...(!request.mode || request.mode==='main' ? {[`${key}:${current.month}`]:current} : {}) });
             return current;
         });
+        return await autoMarkVerified(updated,{...request,rowIds:Object.keys(results).map(Number)},{queueWrite,assertActive});
     } finally { checking = false; }
 }
 async function discoverTracker(request, fallbackReason = '', sheetSource = {}) {
@@ -303,3 +307,75 @@ export async function handleReccies(request, sender, sendResponse) {
         sendResponse({ status: 'success', tracker });
     } catch (error) { sendResponse({ status: 'error', message: error.message }); }
 }
+
+// The content event is a scheduling hint, never evidence that a placement is ready.
+export async function scheduleFinancialVerification(request,sender,sendResponse){
+    try{
+        await assertPrismaProfile();const url=new URL(sender?.url),params=new URLSearchParams(url.hash.slice(1));
+        const campaignId=params.get('campaign-id');
+        if(sender.id!==chrome.runtime.id||!sender.tab?.id||(sender.frameId!=null&&sender.frameId!==0)||url.origin!=='https://go.mediaocean.com'||!url.pathname.startsWith('/campaign-management/')||!/^CP[A-Z0-9]{3,20}$/.test(campaignId||'')||params.get('ptb-ctx')!=='actualize')throw Error('Use the Actualise financial update menu.');
+        const settings=(await chrome.storage.local.get('reccieAutomation')).reccieAutomation;
+        if(!settings?.afterFinancial){sendResponse({status:'success',scheduled:false});return;}
+        if(!Array.isArray(request.changes)||!request.changes.length||request.changes.length>24)throw Error('No confirmed reconciliation changes were supplied.');
+        const updates=request.changes.map(change=>{
+            if(!core.validMonth(change.month)||!Array.isArray(change.placementIds)||!change.placementIds.length||change.placementIds.length>1000||change.placementIds.some(id=>!/^P[A-Z0-9]{3,20}$/.test(id)))throw Error('Invalid reconciliation change selection.');
+            return {month:change.month,placementIds:[...new Set(change.placementIds)]};
+        });
+        const due=Date.now()+180000;
+        await queueWrite(async()=>{const jobs=(await chrome.storage.local.get('reccieFinancialJobs')).reccieFinancialJobs||{};
+            for(const update of updates){const id=campaignId+':'+update.month;if(Object.keys(jobs).length>=50&&!jobs[id])throw Error('Too many pending financial checks.');const placementIds=[...new Set([...(jobs[id]?.placementIds||[]),...update.placementIds])];if(placementIds.length>1000)throw Error('Too many pending placement changes for this campaign/month.');jobs[id]={campaignId,month:update.month,placementIds,due};}
+            await chrome.storage.local.set({reccieFinancialJobs:jobs});
+        });
+        for(const update of updates)await chrome.alarms.create(RECCIE_ALARM+campaignId+':'+update.month,{when:due});
+        sendResponse({status:'success',scheduled:true,due});
+    }catch(error){sendResponse({status:'error',message:error.message});}
+}
+export async function restoreReccieAlarms(){
+    const jobs=(await chrome.storage.local.get('reccieFinancialJobs')).reccieFinancialJobs||{};
+    for(const [id,job]of Object.entries(jobs))await chrome.alarms.create(RECCIE_ALARM+id,{when:Math.max(Date.now()+1000,job.due)});
+    const all=await chrome.storage.local.get(null);for(const [key,job]of Object.entries(all))if(key.startsWith('reccieAutoReceipt:')&&job?.requestId&&job.attempts<3)await chrome.alarms.create(RECCIE_ALARM+'receipt:'+job.requestId,{when:Math.max(Date.now()+1000,job.due)});
+}
+export async function runReccieAlarm(alarm){
+    if(!alarm.name.startsWith(RECCIE_ALARM))return;
+    await assertPrismaProfile();
+    if(alarm.name.startsWith(RECCIE_ALARM+'receipt:')){
+        const requestId=alarm.name.slice((RECCIE_ALARM+'receipt:').length),key='reccieAutoReceipt:'+requestId;
+        const saved=(await chrome.storage.local.get(key))[key];
+        if(saved){
+            try{
+                const result=await manualTrackerWrite({operation:'trackerWriteStatus',mode:saved.mode,month:saved.month,requestId},{queueWrite,assertActive});
+                await chrome.storage.local.set({reccieAutomationLastRun:{at:new Date().toISOString(),kind:'receipt',state:result.write.state}});
+                if(result.write.state==='complete'||result.write.state==='not_started'){await clearAutoReceipt(requestId);return;}
+            }catch(error){await chrome.storage.local.set({reccieAutomationLastRun:{at:new Date().toISOString(),kind:'receipt',state:'error',message:error.message}});}
+            saved.attempts++;saved.due=Date.now()+60000;
+            await chrome.storage.local.set({[key]:saved});
+            if(saved.attempts<3)await chrome.alarms.create(alarm.name,{when:saved.due});
+        }
+        return;
+    }
+    const id=alarm.name.slice(RECCIE_ALARM.length),stored=await chrome.storage.local.get(['reccieFinancialJobs','reccieAutomation']);
+    const job=stored.reccieFinancialJobs?.[id];if(!job)return;
+    if(!Array.isArray(job.placementIds)||!job.placementIds.length){await removeJob(id,job.due);return;}
+    if(Date.now()<job.due){await chrome.alarms.create(alarm.name,{when:job.due});return;}
+    if(!stored.reccieAutomation?.afterFinancial){await removeJob(id,job.due);return;}
+    if(checking){await chrome.alarms.create(alarm.name,{when:Date.now()+30000});return;}
+    try{
+        for(const mode of ['main','early']){
+            const key=core.trackerKey(mode,mode==='early'?job.month:undefined),prefKey=mode==='main'?'recciePreferences':`${key}:preferences`;
+            const data=await chrome.storage.local.get([key,prefKey]),tracker=data[key];
+            if(!tracker||tracker.source?.type!=='google')continue;
+            const rows=tracker.rows.filter(row=>row.campaignId===job.campaignId&&(!job.month||row.month===job.month)&&assigned(row,data[prefKey]));
+            let expectedRevision=tracker.revision;
+            for(let offset=0;offset<rows.length;offset+=500){
+                if(!(await chrome.storage.local.get('reccieAutomation')).reccieAutomation?.afterFinancial)break;
+                const current=(await chrome.storage.local.get(key))[key];
+                if(current?.revision!==expectedRevision)throw Error('Report changed before the scheduled check.');
+                const updated=await checkRows({placementIds:job.placementIds,financial:true,mode,month:tracker.month,revision:current.revision,rowIds:rows.slice(offset,offset+500).map(row=>row.sourceRow)});
+                expectedRevision=updated.revision;
+            }
+        }
+        await chrome.storage.local.set({reccieAutomationLastRun:{at:new Date().toISOString(),kind:'financial',campaignId:job.campaignId,state:'complete'}});
+    }catch(error){await chrome.storage.local.set({reccieAutomationLastRun:{at:new Date().toISOString(),kind:'financial',campaignId:job.campaignId,state:'error',message:error.message}});}
+    finally{await removeJob(id,job.due);}
+}
+async function removeJob(id,due){await queueWrite(async()=>{const jobs=(await chrome.storage.local.get('reccieFinancialJobs')).reccieFinancialJobs||{};if(jobs[id]?.due===due){delete jobs[id];await chrome.storage.local.set({reccieFinancialJobs:jobs});}});}

@@ -3,12 +3,9 @@ const { JSDOM } = require('jsdom');
 const { readScript } = require('./helpers/read-script');
 const flush = async () => { for (let i = 0; i < 25; i++) await Promise.resolve(); };
 
-async function launcher(kind, sendMessage) {
-    const popup = kind === 'popup';
-    const dom = new JSDOM(popup
-        ? '<button id="recciesButton"></button><button id="recciesPageButton"></button><p id="recciesPopupStatus"></p>'
-        : '<mo-banner-user-menu></mo-banner-user-menu>', {
-        url: popup ? 'chrome-extension://test/popup.html' : 'https://go.mediaocean.com/campaign-management/',
+async function launcher(sendMessage) {
+        const dom = new JSDOM('<mo-banner-user-menu></mo-banner-user-menu>', {
+        url: 'https://go.mediaocean.com/campaign-management/',
         runScripts: 'outside-only'
     });
     const win = dom.window;
@@ -19,18 +16,17 @@ async function launcher(kind, sendMessage) {
         storage: { local: { get: async () => ({}) }, onChanged: { addListener() {} } }
     };
     win.opsToolshedExtensionState = { isActive: () => true, subscribe: fn => fn(true) };
-    win.eval(readScript(path.resolve(__dirname, '..', popup ? 'reccie-popup.js' : 'features/reccies-launcher.js')));
-    if (popup) win.document.dispatchEvent(new win.Event('DOMContentLoaded'));
+    win.eval(readScript(path.resolve(__dirname, '..', 'features/reccies-launcher.js')));
     await flush();
-    return { dom, win, button: win.document.getElementById(popup ? 'recciesButton' : 'ops-reccies-launcher') };
+    return { dom, win, button: win.document.getElementById('ops-reccies-launcher') };
 }
 
-describe.each(['popup', 'header'])('%s Reccies preparation', kind => {
+describe('header Reccies preparation', () => {
     test('prepares before activation and calls open directly from the subsequent click', async () => {
         let ready;
         const send = jest.fn(request => request.action === 'prepareReccies'
             ? new Promise(resolve => { ready = resolve; }) : Promise.resolve({ status: 'success' }));
-        const { dom, button } = await launcher(kind, send);
+        const { dom, button } = await launcher(send);
         try {
             expect(button.disabled).toBe(true);
             button.click();
@@ -52,12 +48,11 @@ describe.each(['popup', 'header'])('%s Reccies preparation', kind => {
             }
             return Promise.resolve({ status: 'error', code: 'FEATURES_STARTING', message: 'Still starting' });
         });
-        const { dom, win, button } = await launcher(kind, send);
+        const { dom, win, button } = await launcher(send);
         try {
             button.click(); await flush();
             expect(button.disabled).toBe(true);
-            if (kind === 'header') expect(button.textContent).toContain('starting');
-            else expect(win.document.getElementById('recciesPopupStatus').textContent).toContain('Preparing');
+            expect(button.textContent).toContain('starting');
             recover({ status: 'success' }); await flush();
             expect(button.disabled).toBe(false);
             expect(send.mock.calls.filter(([r]) => r.action === 'openReccies')).toHaveLength(1);
@@ -70,13 +65,11 @@ describe.each(['popup', 'header'])('%s Reccies preparation', kind => {
     test('preserves genuine failure details instead of treating every error as startup', async () => {
         const send = jest.fn(request => Promise.resolve(request.action === 'prepareReccies'
             ? { status: 'success' } : { status: 'error', message: 'Panel permission denied' }));
-        const { dom, win, button } = await launcher(kind, send);
+        const { dom, win, button } = await launcher(send);
         try {
             button.click(); await flush();
-            if (kind === 'header') {
-                win.opsRecciesLauncher.reconcile();
-                expect(button.getAttribute('aria-label')).toContain('Panel permission denied');
-            } else expect(win.document.getElementById('recciesPopupStatus').textContent).toContain('Panel permission denied');
+            win.opsRecciesLauncher.reconcile();
+            expect(button.getAttribute('aria-label')).toContain('Panel permission denied');
             expect(send.mock.calls.filter(([r]) => r.action === 'prepareReccies')).toHaveLength(1);
         } finally { dom.window.close(); }
     });

@@ -87,6 +87,7 @@ export const CONTENT_SCRIPT_DEFINITIONS = Object.freeze([
             'features/applearn-replace.js',
             'features/approval-tracking.js',
             'features/reccies-launcher.js',
+            'features/reccies-financial-trigger.js',
             'content.js'
         ],
         css: [

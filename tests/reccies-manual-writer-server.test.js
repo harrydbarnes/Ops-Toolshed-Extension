@@ -84,3 +84,7 @@ test('rechecks validation after audit intent before saving',()=>{
     test.context.SpreadsheetApp.flush.mockImplementationOnce(()=>{}).mockImplementationOnce(()=>{test.flags.validation=true;});
     const result=test.commit(preview);expect(result.results[0].state).toBe('skipped');expect(test.write).not.toHaveBeenCalled();
 });
+
+test('automatic audit cause is distinguished from manual attestation',()=>{
+    const test=setup(),preview=test.preview(undefined,{cause:'verified'});test.commit(preview);expect(test.audit[1][10]).toBe('Client verified Prisma statuses');
+});

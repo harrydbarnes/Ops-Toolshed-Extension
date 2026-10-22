@@ -37,7 +37,7 @@ async function applyReceipt(result,key,mode,month,queueWrite){
     });
     return tracker;
 }
-export async function manualTrackerWrite(request,{queueWrite,assertActive}){
+export async function manualTrackerWrite(request,{queueWrite,assertActive,automatic=false}){
     const mode=request.mode||'main',month=request.month,key=core.trackerKey(mode,month);
     if(!['main','early'].includes(mode)||!core.validMonth(month))throw Error('Manual updates need a Main Tracker or Early Recs report month.');
     if(request.operation==='trackerWriteStatus'){
@@ -58,11 +58,11 @@ export async function manualTrackerWrite(request,{queueWrite,assertActive}){
             if(matches.length!==1||matches[0].issue||matches[0].month!==month)throw Error('Selection contains a missing, duplicate or invalid placement.');
             return {dNumber:matches[0].dNumber,campaignId:matches[0].campaignId};
         });
-        let result=await api('preview',{mode,month,rows});
+        let result=await api('preview',{mode,month,rows,cause:automatic?'verified':'manual'});
         // Google can redirect the first authenticated POST to the service's GET
         // connection response. Only retry this known read-only response shape.
         if(typeof result.manualEnabled==='boolean'&&typeof result.email==='string'&&!result.requestId&&!result.results){
-            result=await api('preview',{mode,month,rows});
+            result=await api('preview',{mode,month,rows,cause:automatic?'verified':'manual'});
         }
         if(typeof result.requestId!=='string'||!/^[a-zA-Z0-9-]{20,80}$/.test(result.requestId)||typeof result.token!=='string'||!Array.isArray(result.results))throw Error('Google returned an incomplete tracker preview. No save was started. Close and try the preview again.');
         if(result.mode!==mode||result.month!==month||result.results.length!==rows.length||result.results.some(item=>item.month!==month||!rows.some(row=>row.dNumber===item.dNumber&&row.campaignId===item.campaignId)))throw Error('Tracker preview does not match the selected placements.');

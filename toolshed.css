@@ -794,13 +794,3 @@ li {
     font-size: 0.8em;
     color: #777;
 }
-
-.stats-list li {
-    background-color: #fff;
-    padding: 10px;
-    border-radius: 5px;
-    margin-bottom: 5px;
-    border: 1px solid #f0f0f0;
-    display: flex;
-    justify-content: space-between;
-}

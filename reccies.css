@@ -77,3 +77,5 @@ details.reccie-is-open > summary::before { transform: rotate(45deg); }
 .tracker-write-dialog label{display:flex;align-items:flex-start;gap:8px}.tracker-write-dialog label input[type=checkbox]{flex:0 0 auto;margin:3px 0 0}
 
 .report-loaded-badge{margin-left:auto;display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:600;color:#216545;background:#e5f4eb;white-space:nowrap}
+
+.automation-settings{border-top:1px solid #eeecf2;margin-top:16px;padding-top:4px}.automation-settings label{display:flex;align-items:flex-start;gap:8px}.automation-settings input[type=checkbox]{width:auto;flex:0 0 auto;margin:3px 0 0}

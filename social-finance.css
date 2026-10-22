@@ -348,9 +348,9 @@ h1 {
 .source-panel-heading span { color: var(--muted); font-size: 12px; line-height: 1.5; }
 .account-mapping .source-panel-heading { grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
 .account-mapping .source-panel-heading > div { display: grid; gap: 5px; }
-.credential-grid, .api-range { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
-.credential-grid label, .api-range label { color: var(--ink); }
-.credential-grid input, .api-range input { width: 100%; }
+.api-range { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+.api-range label { color: var(--ink); }
+.api-range input { width: 100%; }
 .token-field { margin-top: 14px; color: var(--ink); }
 .token-input-shell { position: relative; display: block; margin-top: 7px; }
 .token-field input { width: 100%; padding-right: 42px; }
@@ -368,7 +368,6 @@ h1 {
 @keyframes social-booking-spin { to { transform: rotate(360deg); } }
 .privacy-note { margin: 12px 0 0; padding: 10px 12px; border-radius: 8px; background: #f0f0f3; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .privacy-note code { color: var(--ink); font-size: 10px; }
-.api-enrichment { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); }
 .reference-status { min-height: 18px; margin-top: 10px; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .api-account-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
 .api-account-actions .text-action { color: var(--accent-dark); }
@@ -791,7 +790,7 @@ tbody tr:nth-child(even) { background: #fbfbfc; }
     .workflow-step-button div { min-width: 0; max-width: none; }
     .workflow-progress strong { font-size: 11px; line-height: 1.2; }
     .workflow-progress small { font-size: 9px; line-height: 1.2; }
-    .credential-grid, .api-range { grid-template-columns: 1fr; }
+    .api-range { grid-template-columns: 1fr; }
     .platform-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .platform-option > span { min-width: 0; }
     .upload-readiness strong { white-space: normal; }

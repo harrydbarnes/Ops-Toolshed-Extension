@@ -159,7 +159,7 @@
         try {
             const markdown = '# Reccie verification timings\n\n' +
                 `Method: ${latestTiming.method?.label || `${latestTiming.concurrency} concurrent campaign checks (legacy report)`}${latestTiming.methodConfirmed === false ? ' — NOT CONFIRMED by background worker' : ''}\n\n` +
-                'Local diagnostics. The spreadsheet was not changed. Request durations overlap when campaigns run concurrently.\n\n' +
+                'Local diagnostics. Prisma verification is read-only; trackerUpdates records any enabled automatic saves. Request durations overlap when campaigns run concurrently.\n\n' +
                 '```json\n' + JSON.stringify(latestTiming, null, 2) + '\n```\n';
             const url = URL.createObjectURL(new Blob([markdown], { type: 'text/markdown;charset=utf-8' }));
             const link = document.createElement('a');
@@ -384,7 +384,7 @@
             rowIds: selected.map(row => row.sourceRow).sort((a,b) => a-b) },
             startedAt: new Date().toISOString(), selectedRows: selected.length,
             plannedBatches: batches.length, completedBatches: 0, totalMs: 0, requests: 0,
-            concurrency: method.concurrency, cacheHits: 0, retries: 0, outcome: 'running', batches: [] };
+            concurrency: method.concurrency, cacheHits: 0, retries: 0, outcome: 'running', batches: [], trackerUpdates: [] };
         showTiming(null);
         setBusy(true);
         $('check-rows').setAttribute('aria-busy', 'true');
@@ -392,7 +392,8 @@
         try {
             for (let i = 0; i < batches.length; i++) {
                 message(`Verifying reccie status · ${batches[i].length} ${batches[i].length === 1 ? 'row' : 'rows'} · ${method.concurrency} campaigns at once${batches.length > 1 ? ` · batch ${i + 1} of ${batches.length}` : ''}`, false, true);
-                await send('check', { revision, rowIds: batches[i], method: method.id }); render();
+                await send('check', { revision:tracker.revision, rowIds: batches[i], method: method.id }); render();
+                if(tracker.lastAutoUpdate)timing.trackerUpdates.push(tracker.lastAutoUpdate);
                 timing.completedBatches++;
                 if (tracker.lastCheckTiming) {
                     timing.batches.push(tracker.lastCheckTiming);
@@ -404,9 +405,12 @@
                 if (!timing.methodConfirmed) throw new Error('The background did not confirm this method. Reload Ops Toolshed and reopen Reccies before comparing timings.');
             }
             timing.outcome = 'completed';
+            const automaticSaved=timing.trackerUpdates.reduce((sum,item)=>sum+item.saved,0);
+            const automaticPending=timing.trackerUpdates.some(item=>item.pending);
+            const automaticError=timing.trackerUpdates.find(item=>item.error)?.error;
             const failed = timing.batches.flatMap(item => item.campaignsDetail).filter(item => item.outcome === 'error').length;
             timing.failedCampaigns = failed;
-            message(`Check finished in ${((performance.now() - started) / 1000).toFixed(1)} seconds using ${method.label}. Checked ${selectedCount}; ${rowCount(shownRows())} now shown.${failed ? ` ${failed} campaign checks failed.` : ''} Review each row’s result and check time. The tracker was not changed.`);
+            message(`Check finished in ${((performance.now() - started) / 1000).toFixed(1)} seconds using ${method.label}. Checked ${selectedCount}; ${rowCount(shownRows())} now shown.${failed ? ` ${failed} campaign checks failed.` : ''} Review each row’s result and check time. ${timing.trackerUpdates.length ? `Automatic tracker updates: ${automaticSaved} saved Yes${automaticPending?' · save receipt pending':''}${automaticError?` · ${automaticError}`:''}.` : 'The tracker was not changed.'}`);
         } catch (error) { timing.outcome = 'interrupted'; message(error.message, true); }
         finally {
             $('check-rows').setAttribute('aria-busy', 'false');
@@ -499,6 +503,27 @@
         } catch (error) { output.textContent = error.message; }
         finally { button.disabled = false; }
     });
+    for(const [id,key] of [['auto-mark-tracker','autoMark'],['verify-after-financial','afterFinancial']]){
+        $(id).addEventListener('change',async()=>{
+            const enabled=$(id).checked;$(id).disabled=true;
+            try{
+                if(enabled&&key==='autoMark'&&!await chrome.permissions.request({origins:['https://script.google.com/*','https://script.googleusercontent.com/*']}))throw Error('Google script access was not granted.');
+                const settings=(await chrome.storage.local.get('reccieAutomation')).reccieAutomation||{};
+                settings[key]=enabled;await chrome.storage.local.set({reccieAutomation:settings});
+                $('automation-status').textContent=enabled?'Enabled for this Chrome profile.':'Setting switched off.';
+            }catch(error){$(id).checked=!enabled;$('automation-status').textContent=error.message;}
+            finally{$(id).disabled=false;}
+        });
+    }
+    function showAutomationResult(result){if(result)$('automation-status').textContent=`Last background check: ${result.campaignId||'save receipt'} · ${result.state}${result.message?` · ${result.message}`:''}`;}
+    chrome.storage.local.get('reccieAutomationLastRun').then(data=>showAutomationResult(data.reccieAutomationLastRun)).catch(()=>{});
+    chrome.storage.onChanged?.addListener?.((changes,area)=>{
+        if(area!=='local')return;
+        if(changes.reccieAutomationLastRun)showAutomationResult(changes.reccieAutomationLastRun.newValue);
+        const key=core.trackerKey(mode,$('report-month').value);
+        if(!busy&&changes[key]?.newValue?.month===$('report-month').value){tracker=changes[key].newValue;people();render();}
+    });
+    chrome.storage.local.get('reccieAutomation').then(data=>{ $('auto-mark-tracker').checked=data.reccieAutomation?.autoMark===true;$('verify-after-financial').checked=data.reccieAutomation?.afterFinancial===true; }).catch(()=>{});
     $('debug-workers').addEventListener('input', () => { $('debug-worker-count').value = $('debug-workers').value; });
     $('debug-run').addEventListener('click', () => verifyRows(`workers-${$('debug-workers').value}`));
     (async () => {

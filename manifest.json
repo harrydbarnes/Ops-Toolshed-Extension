@@ -18,14 +18,12 @@
   ],
   "host_permissions": [
     "https://*.mediaocean.com/*",
-    "https://groupmuk-prisma.mediaocean.com/*",
-    "https://go.demo.mediaocean.com/*",
     "https://insidemedia.sharepoint.com/*",
     "https://graph.facebook.com/*"
   ],
   "optional_host_permissions": ["https://docs.google.com/*", "https://script.google.com/*", "https://script.googleusercontent.com/*"],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; object-src 'self'"
+    "extension_pages": "script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'self'"
   },
   "background": {
     "service_worker": "background.js",

@@ -1,0 +1,41 @@
+{
+  "environment": "Node v24.15.0 / jsdom; static synthetic DOM; empty tracker",
+  "results": [
+    {
+      "feature": "reccies-launcher",
+      "route": "/campaign-management/#campaign-id=CPTEST",
+      "iterations": 1000,
+      "callbackMeanMs": 0.06084569999999803,
+      "documentQueriesPerCallback": 3,
+      "scheduledCallbacksPerMinute": 40,
+      "estimatedCallbackMsPerMinute": 2.433827999999921
+    },
+    {
+      "feature": "social-campaign-check",
+      "route": "/campaign-management/#campaign-id=CPTEST",
+      "iterations": 1000,
+      "callbackMeanMs": 0.009357199999998556,
+      "documentQueriesPerCallback": 2,
+      "scheduledCallbacksPerMinute": 40,
+      "estimatedCallbackMsPerMinute": 0.3742879999999422
+    },
+    {
+      "feature": "reccies-launcher",
+      "route": "/home/",
+      "iterations": 1000,
+      "callbackMeanMs": 0.0004765999999981432,
+      "documentQueriesPerCallback": 0,
+      "scheduledCallbacksPerMinute": 40,
+      "estimatedCallbackMsPerMinute": 0.019063999999925727
+    },
+    {
+      "feature": "social-campaign-check",
+      "route": "/home/",
+      "iterations": 1000,
+      "callbackMeanMs": 0.0068687000000027185,
+      "documentQueriesPerCallback": 2,
+      "scheduledCallbacksPerMinute": 40,
+      "estimatedCallbackMsPerMinute": 0.27474800000010874
+    }
+  ]
+}

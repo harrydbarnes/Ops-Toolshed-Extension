@@ -109,7 +109,7 @@ server allowlist, never a list bundled in the extension. Saves record the actor,
 selection and outcomes in a separate private audit workbook. If a save times out or loses its connection, the dialog checks the receipt once
 without repeating the write. **Check last tracker save** also recovers the receipt
 after reopening the page.
-Automatic updates remain disabled. Deployment must enable manual writes before
+Automatic updates default off per Chrome profile. Deployment must enable writes before
 these actions can save; preview errors leave the tracker unchanged.
 
 ## Existing Apps Script
@@ -237,3 +237,39 @@ one animated status renderer and the reduced-motion styling. Reading a report
 scrolls its status into view. A connection-only response to preview is retried
 once as a read-only preview; other incomplete responses remain errors. No write
 is sent until an actual valid preview and explicit confirmation are present.
+
+## Opt-in automatic updates and financial checks
+
+Reccie tracking settings has two independent switches, both off by default:
+Automatically mark Yes after Prisma verification, and Verify three minutes after a
+financial update. Enabling writes requests Google script access from that click.
+Automatic marking applies only to the selected person's assigned rows in connected
+Main/Early Google reports, never CSV or visited-campaign discovery. Only rows in
+the current fresh check qualify: unique D/campaign/month, Reconciled = Yes and
+Successful buy status, no data issue, not already Yes. Checks older than five
+minutes do not qualify. Server preview, rematching and saved-value readback remain
+in place. Disabling opt-in before commit prevents a new save. Audit entries identify
+client-verified automatic saves separately from manual attestation.
+
+The delayed trigger observes reconciliation changes while this tab is open, then
+waits for the native financial preview Confirm action. It intersects observed
+Yes-to-No / No-to-Yes changes with sendable preview Line IDs and Buy date months.
+Opening Send to finance, cancelling the preview, unchanged/not-ready buys and
+updates only to gross/date fields do not schedule checks. Line IDs are mapped to
+D numbers through a fresh Prisma query, not through grid position. Only those
+placement/month pairs can qualify for automatic marking. Yes-to-No results show
+outstanding/mismatch status; the tracker is never automatically changed to No.
+Changes made before the extension observed that tab, on another computer or in
+unrendered rows are not inferred. Use Verify Reccie Status for those placements.
+A fresh background Prisma query is always required before any write, even if the
+confirmed financial push fails or is still processing.
+
+Jobs are persisted in local storage and use Chrome alarms, so closing the sidebar
+or navigating away does not cancel them. Repeated campaign/month requests reset the
+three-minute due time. Chrome must be running and Prisma signed in; sleeping Chrome
+can run the alarm later. Feature-off, a non-Prisma profile and setting-off prevent
+new background actions. A busy verification defers the job. Failures are recorded
+under tracking settings. The extension never submits a financial update itself.
+Unknown save outcomes retain an individual receipt job; recovery reads receipts
+without repeating commits. Up to three automatic receipt checks are made, then the
+saved request remains available for manual recovery.

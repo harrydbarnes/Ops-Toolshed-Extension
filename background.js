@@ -1,3 +1,4 @@
+import {runReccieAlarm,restoreReccieAlarms} from './background/reccies.js';
 import { handleHelpGuidesPanelEvent, messageHandlers } from './background/message-handlers.js';
 import { migrateStats } from './background/stats-manager.js';
 import { setupSocialCheckAlarm, pollSocialCampaigns, SOCIAL_CHECK_ALARM } from './background/social-campaign-check.js';
@@ -135,7 +136,9 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   try {
     await featureModeReady;
     if (!isFeatureModeActive()) return;
-    if (alarm.name === 'timesheetReminder') {
+    if (alarm.name.startsWith('ops-reccie-financial:')) {
+      await runReccieAlarm(alarm);
+    } else if (alarm.name === 'timesheetReminder') {
       await triggerTimesheetNotification();
     } else if (alarm.name === APPROVAL_ALARM_NAME) {
       await pollPendingApprovals();
@@ -531,6 +534,7 @@ async function closeFeatureSurfaces() {
 }
 
 async function restoreFeatureResources() {
+  await restoreReccieAlarms();
   await chrome.sidePanel?.setOptions?.({ path: 'help-guides.html', enabled: true });
   await setupApprovalAlarm();
   await setupSocialCheckAlarm();
