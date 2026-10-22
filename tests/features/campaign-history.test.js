@@ -1188,9 +1188,15 @@ describe('campaign history feature', () => {
                 triggerBaseLeft = width;
                 campaignHistoryFeature.apply();
             };
+            const clickOverflowTrigger = () => {
+                const eventOptions = { bubbles: true, cancelable: true, composed: true };
+                ['pointerdown', 'mousedown', 'focusin', 'pointerup', 'mouseup', 'click'].forEach(type => {
+                    banner.overflowMenu.dispatchEvent(new dom.window.MouseEvent(type, eventOptions));
+                });
+            };
 
-            // At 220px, History alone moves into the menu. The menu opens on hover
-            // and clicking the same trigger keeps it open for selection.
+            // At 220px, History alone moves into the menu. Hover opens after a
+            // short delay, while clicking opens immediately and keeps it open.
             setAvailableWidth(220);
             let menu = document.getElementById('toolshed-campaign-history-overflow-menu');
             expect(menu.hidden).toBe(true);
@@ -1200,13 +1206,37 @@ describe('campaign history feature', () => {
                 cancelable: true,
                 composed: true
             }));
+            expect(menu.hidden).toBe(true);
+            clickOverflowTrigger();
             expect(menu.hidden).toBe(false);
-            expect(Array.from(menu.children).map(item => item.textContent)).toEqual(['History']);
-            banner.overflowMenu.dispatchEvent(new dom.window.MouseEvent('click', {
+            await wait(280);
+            expect(menu.hidden).toBe(false);
+            clickOverflowTrigger();
+            expect(menu.hidden).toBe(true);
+
+            banner.overflowMenu.dispatchEvent(new dom.window.MouseEvent('mouseover', {
                 bubbles: true,
                 cancelable: true,
                 composed: true
             }));
+            banner.overflowMenu.dispatchEvent(new dom.window.MouseEvent('mouseout', {
+                bubbles: true,
+                cancelable: true,
+                composed: true,
+                relatedTarget: document.body
+            }));
+            await wait(280);
+            expect(menu.hidden).toBe(true);
+
+            banner.overflowMenu.dispatchEvent(new dom.window.MouseEvent('mouseover', {
+                bubbles: true,
+                cancelable: true,
+                composed: true
+            }));
+            await wait(280);
+            expect(menu.hidden).toBe(false);
+            expect(Array.from(menu.children).map(item => item.textContent)).toEqual(['History']);
+            clickOverflowTrigger();
             expect(menu.hidden).toBe(false);
             menu.querySelector('#toolshed-campaign-history-overflow-item').click();
             await flushPromises();

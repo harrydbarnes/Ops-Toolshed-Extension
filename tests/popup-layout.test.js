@@ -5,6 +5,7 @@ const popupHtml = fs.readFileSync(path.resolve(__dirname, '../popup.html'), 'utf
 const popupCss = fs.readFileSync(path.resolve(__dirname, '../style.css'), 'utf8');
 const approversHtml = fs.readFileSync(path.resolve(__dirname, '../approvers.html'), 'utf8');
 const settingsHtml = fs.readFileSync(path.resolve(__dirname, '../settings.html'), 'utf8');
+const fontCss = fs.readFileSync(path.resolve(__dirname, '../assets/fonts/fonts.css'), 'utf8');
 
 function getFlexGrow(selector) {
     const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -18,6 +19,7 @@ describe('Popup bottom menu layout', () => {
         expect(popupHtml).not.toMatch(/<link[^>]+href=["']https?:\/\//i);
         expect(popupCss).not.toMatch(/@import\s+url\(["']?https?:\/\//i);
         expect(popupHtml).not.toContain('font-awesome');
+        expect(popupHtml).not.toContain('src="feature-settings-registry.js"');
         expect(popupHtml).toContain('<body class="popup-page">');
         expect(popupHtml.match(/<svg\b/g)).toHaveLength(2);
         expect(popupHtml.match(/assets\/icons\/fontawesome\/(?:gear|file-lines|bullhorn)-solid\.svg/g)).toHaveLength(3);
@@ -27,8 +29,9 @@ describe('Popup bottom menu layout', () => {
         expect(popupCss).toMatch(/\.popup-page img\.menu-icon\s*\{/);
         expect(popupCss).toMatch(/\.popup-page #menu-feedback img\.menu-icon\s*\{[^}]*width:\s*13px;[^}]*height:\s*13px;/s);
         expect(popupCss).toMatch(/\.popup-page svg\.menu-chevron\s*\{/);
-        expect(approversHtml).toContain('family=Montserrat');
-        expect(settingsHtml).toContain('family=Montserrat');
+        expect(approversHtml).toContain('href="assets/fonts/fonts.css"');
+        expect(settingsHtml).toContain('href="assets/fonts/fonts.css"');
+        expect(fontCss).toContain("font-family: 'Montserrat'");
     });
 
     test('gives the combined Release Notes, Roadmap & Stats action enough space', () => {

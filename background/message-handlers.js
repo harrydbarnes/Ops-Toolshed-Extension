@@ -1,6 +1,6 @@
 import { approversData } from '../approvers-data.js';
 import { handleSocialCheck } from './social-campaign-check.js';
-import { handleReccies, openReccies } from './reccies.js';
+import { handleReccies, openReccies, prepareReccies } from './reccies.js';
 import {
     clearDiagnosticEvents,
     disableDiagnostics,
@@ -483,6 +483,7 @@ export const messageHandlers = {
     socialCampaignCheck: handleSocialCheck,
     reccies: handleReccies,
     openReccies,
+    prepareReccies,
     showTimesheetNotification,
     createTimesheetAlarm,
     removeTimesheetAlarm,

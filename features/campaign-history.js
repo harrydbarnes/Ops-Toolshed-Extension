@@ -27,6 +27,7 @@
     ]);
     const OVERFLOW_MENU_TRIGGER_CLASS = 'toolshed-campaign-history-overflow-trigger';
     const NAVIGATION_RESIZE_SETTLE_DELAY_MS = 100;
+    const RESPONSIVE_OVERFLOW_HOVER_DELAY_MS = 250;
     const PANEL_ID = 'toolshed-campaign-history-panel';
     const HISTORY_KEY_ATTRIBUTE = 'data-toolshed-history-key';
     const PANEL_TRANSITION_DURATION_MS = 240;
@@ -83,6 +84,8 @@
     let navigationResizeReconciliationTimer = null;
     let overflowMenuInteractionsInstalled = false;
     let responsiveOverflowCloseTimer = null;
+    let responsiveOverflowHoverTimer = null;
+    let responsiveOverflowPointerDownOnTrigger = false;
     let responsiveOverflowOpenedByHover = false;
     let responsiveOverflowItems = [];
     let responsiveOverflowTriggerAttributes = new WeakMap();
@@ -1914,6 +1917,11 @@
     }
 
     function closeResponsiveOverflowMenu({ restoreFocus = false } = {}) {
+        responsiveOverflowPointerDownOnTrigger = false;
+        if (responsiveOverflowHoverTimer != null) {
+            window.clearTimeout(responsiveOverflowHoverTimer);
+            responsiveOverflowHoverTimer = null;
+        }
         if (responsiveOverflowCloseTimer != null) {
             window.clearTimeout(responsiveOverflowCloseTimer);
             responsiveOverflowCloseTimer = null;
@@ -1928,6 +1936,10 @@
 
     function openResponsiveOverflowMenu(trigger = getOverflowTrigger(), { focusFirst = false, byHover = false } = {}) {
         if (!trigger || !responsiveOverflowItems.length) return false;
+        if (responsiveOverflowHoverTimer != null) {
+            window.clearTimeout(responsiveOverflowHoverTimer);
+            responsiveOverflowHoverTimer = null;
+        }
         if (responsiveOverflowCloseTimer != null) {
             window.clearTimeout(responsiveOverflowCloseTimer);
             responsiveOverflowCloseTimer = null;
@@ -1951,6 +1963,15 @@
         }, 180);
     }
 
+    function scheduleResponsiveOverflowOpen(trigger) {
+        if (responsiveOverflowHoverTimer != null) return;
+        responsiveOverflowHoverTimer = window.setTimeout(() => {
+            responsiveOverflowHoverTimer = null;
+            if (!trigger?.isConnected || !responsiveOverflowItems.length) return;
+            openResponsiveOverflowMenu(trigger, { byHover: true });
+        }, RESPONSIVE_OVERFLOW_HOVER_DELAY_MS);
+    }
+
     function getEventPath(event) {
         return typeof event?.composedPath === 'function'
             ? event.composedPath()
@@ -1969,6 +1990,10 @@
 
     function interceptResponsiveOverflowHover(event) {
         if (eventIsResponsiveOverflowMenu(event)) {
+            if (responsiveOverflowHoverTimer != null) {
+                window.clearTimeout(responsiveOverflowHoverTimer);
+                responsiveOverflowHoverTimer = null;
+            }
             if (responsiveOverflowCloseTimer != null) {
                 window.clearTimeout(responsiveOverflowCloseTimer);
                 responsiveOverflowCloseTimer = null;
@@ -1978,7 +2003,8 @@
         const trigger = getEventOverflowTrigger(event);
         if (!trigger || !responsiveOverflowItems.length) return;
         event.stopImmediatePropagation?.();
-        openResponsiveOverflowMenu(trigger, { byHover: true });
+        const menu = document.getElementById(OVERFLOW_MENU_ID);
+        if (!menu || menu.hidden) scheduleResponsiveOverflowOpen(trigger);
     }
 
     function interceptResponsiveOverflowPointerOut(event) {
@@ -1991,6 +2017,10 @@
         const relatedTarget = event.relatedTarget;
         const popup = document.getElementById(OVERFLOW_MENU_ID);
         if (relatedTarget && (trigger?.contains?.(relatedTarget) || popup?.contains?.(relatedTarget))) return;
+        if (trigger && responsiveOverflowHoverTimer != null) {
+            window.clearTimeout(responsiveOverflowHoverTimer);
+            responsiveOverflowHoverTimer = null;
+        }
         if (responsiveOverflowItems.length) event.stopImmediatePropagation?.();
         scheduleResponsiveOverflowClose();
     }
@@ -1998,6 +2028,7 @@
     function handleResponsiveOverflowPointerDown(event) {
         const trigger = getEventOverflowTrigger(event);
         if (trigger && responsiveOverflowItems.length) {
+            responsiveOverflowPointerDownOnTrigger = true;
             event.stopImmediatePropagation?.();
             return;
         }
@@ -2005,11 +2036,20 @@
         closeResponsiveOverflowMenu();
     }
 
+    function clearResponsiveOverflowPointerDown() {
+        responsiveOverflowPointerDownOnTrigger = false;
+    }
+
     function handleResponsiveOverflowClick(event) {
         const trigger = getEventOverflowTrigger(event);
         if (trigger && responsiveOverflowItems.length) {
             event.preventDefault?.();
             event.stopImmediatePropagation?.();
+            responsiveOverflowPointerDownOnTrigger = false;
+            if (responsiveOverflowHoverTimer != null) {
+                window.clearTimeout(responsiveOverflowHoverTimer);
+                responsiveOverflowHoverTimer = null;
+            }
             const menu = document.getElementById(OVERFLOW_MENU_ID);
             const isOpen = Boolean(menu && !menu.hidden);
             if (isOpen && !responsiveOverflowOpenedByHover) closeResponsiveOverflowMenu();
@@ -2023,6 +2063,14 @@
     function handleResponsiveOverflowFocus(event) {
         const trigger = getEventOverflowTrigger(event);
         if (trigger && responsiveOverflowItems.length) {
+            // Pointer clicks focus the custom element before the click event.
+            // Leave the current hover state alone so the click can keep an
+            // already-open menu open or open a closed menu immediately.
+            if (responsiveOverflowPointerDownOnTrigger) return;
+            if (responsiveOverflowHoverTimer != null) {
+                window.clearTimeout(responsiveOverflowHoverTimer);
+                responsiveOverflowHoverTimer = null;
+            }
             openResponsiveOverflowMenu(trigger, { byHover: false });
         }
     }
@@ -2074,6 +2122,8 @@
         document.addEventListener('mouseout', interceptResponsiveOverflowPointerOut, true);
         document.addEventListener('pointerdown', handleResponsiveOverflowPointerDown, true);
         document.addEventListener('mousedown', handleResponsiveOverflowPointerDown, true);
+        document.addEventListener('pointerup', clearResponsiveOverflowPointerDown, true);
+        document.addEventListener('mouseup', clearResponsiveOverflowPointerDown, true);
         document.addEventListener('click', handleResponsiveOverflowClick, true);
         document.addEventListener('focusin', handleResponsiveOverflowFocus, true);
         document.addEventListener('keydown', handleResponsiveOverflowKeydown, true);

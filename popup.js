@@ -1,8 +1,3 @@
-const featureSettingsRegistry = typeof module !== 'undefined' && module.exports
-    ? require('./feature-settings-registry')
-    : globalThis.OpsToolshedFeatureSettings;
-const FEATURE_SETTING_KEYS = featureSettingsRegistry.KEYS;
-
 function setKillSwitchAppearance(button, featuresDisabled) {
     if (!button) return;
 
@@ -437,7 +432,7 @@ function addClickListener(id, url) {
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
-        FEATURE_SETTING_KEYS,
+        FEATURE_SETTING_KEYS: require('./feature-settings-registry').KEYS,
         initialiseFeaturesKillSwitch,
         handleGenerateUrl,
         generateUrlFromData,

@@ -18,8 +18,9 @@ describe('Features master-mode boundary', () => {
     test('registers every owned content bundle when Features is on', async () => {
         setMasterState(false);
         const mode = require('../background/feature-mode');
-
+        expect(mode.isFeatureModeInitialized()).toBe(false);
         await expect(mode.featureModeReady).resolves.toBe(true);
+        expect(mode.isFeatureModeInitialized()).toBe(true);
         expect(mode.isFeatureModeActive()).toBe(true);
         expect(chrome.scripting.registerContentScripts).toHaveBeenCalledTimes(1);
         const registrations = chrome.scripting.registerContentScripts.mock.calls[0][0];

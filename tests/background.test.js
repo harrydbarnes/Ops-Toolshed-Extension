@@ -8,6 +8,7 @@ jest.mock('../background/feature-mode', () => ({
     MASTER_FEATURE_KEY: 'allFeaturesDisabled',
     featureModeReady: Promise.resolve(true),
     isFeatureModeActive: jest.fn(() => true),
+    isFeatureModeInitialized: jest.fn(() => true),
     isPopupSender: jest.fn(sender => sender?.url === 'mock-url/popup.html' && !sender?.tab),
     reconcileFeatureMode: jest.fn().mockResolvedValue(true),
     refreshFeatureMode: jest.fn().mockResolvedValue(true)
@@ -783,6 +784,42 @@ describe('Background message routing', () => {
             message: 'Ops Toolshed features are off or still starting.'
         });
         featureMode.isFeatureModeActive.mockReturnValue(true);
+    });
+    test('distinguishes a cold Reccies worker from Features being disabled', () => {
+        const listener = loadMessageListener();
+        const mode = require('../background/feature-mode');
+        mode.isFeatureModeActive.mockReturnValue(false);
+        mode.isFeatureModeInitialized.mockReturnValue(false);
+        const cold = jest.fn();
+        listener({ action: 'openReccies' }, {}, cold);
+        expect(cold).toHaveBeenCalledWith(expect.objectContaining({code:'FEATURES_STARTING'}));
+        mode.isFeatureModeInitialized.mockReturnValue(true);
+        const disabled = jest.fn();
+        listener({ action: 'openReccies' }, {}, disabled);
+        expect(disabled).toHaveBeenCalledWith(expect.objectContaining({code:'FEATURES_DISABLED'}));
+        expect(chrome.sidePanel.open).not.toHaveBeenCalled();
+        mode.isFeatureModeActive.mockReturnValue(true);
+    });
+    test('prepares Reccies after readiness, then opens it on the click without awaiting readiness again', async () => {
+        const listener = loadMessageListener();
+        const mode = require('../background/feature-mode');
+        const originalReady = mode.featureModeReady;
+        let finishStartup;
+        mode.featureModeReady = new Promise(resolve => { finishStartup = resolve; });
+        const sender = {id:chrome.runtime.id,url:'https://go.mediaocean.com/campaign-management/',frameId:0,tab:{id:42,windowId:7}};
+        const prepared = jest.fn();
+        listener({action:'prepareReccies'},sender,prepared);
+        expect(prepared).not.toHaveBeenCalled();
+        expect(chrome.sidePanel.open).not.toHaveBeenCalled();
+        finishStartup(true);
+        await waitForResponse(prepared);
+        expect(prepared).toHaveBeenCalledWith({status:'success'});
+        const opened = jest.fn();
+        listener({action:'openReccies'},sender,opened);
+        expect(chrome.sidePanel.open).toHaveBeenCalledWith({windowId:7});
+        await waitForResponse(opened);
+        expect(opened).toHaveBeenCalledWith({status:'success'});
+        mode.featureModeReady = originalReady;
     });
 });
 

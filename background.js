@@ -9,6 +9,7 @@ import {
   AUDIENCE_KEY,
   featureModeReady,
   isFeatureModeActive,
+  isFeatureModeInitialized,
   isPopupSender,
   reconcileFeatureMode,
   refreshFeatureMode
@@ -258,6 +259,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             // user gesture. Even awaiting an already-resolved promise loses it.
             if (action === 'openHelpGuides' || action === 'openReccies') {
                 if (!isFeatureModeActive()) {
+                    if (action === 'openReccies') {
+                        const starting = !isFeatureModeInitialized();
+                        respondOnce({ status: 'error', code: starting ? 'FEATURES_STARTING' : 'FEATURES_DISABLED',
+                            message: starting ? 'Ops Toolshed is starting. Reccies will be ready shortly.' : 'Enable Ops Toolshed features to open Reccies.' });
+                        return;
+                    }
                     respondOnce({ status: 'error', message: 'Ops Toolshed features are off or still starting.' });
                     return;
                 }

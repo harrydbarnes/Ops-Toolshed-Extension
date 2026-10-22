@@ -9,7 +9,7 @@ describe('Live campaign check feedback',()=>{
         const view=new JSDOM(fs.readFileSync(path.resolve(__dirname,'../',page),'utf8'));
         const document=view.window.document;
         expect([...document.querySelectorAll('link[rel="stylesheet"]')].map(link=>link.getAttribute('href'))).toEqual([
-            'https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap','social-finance.css','social-campaign-check.css'
+            'assets/fonts/fonts.css','social-finance.css','social-campaign-check.css'
         ]);
         expect(document.querySelector('main.report-shell').style.maxWidth).toBe('');
         expect(document.querySelector('.report-header .brand img').getAttribute('src')).toBe('icon.png');

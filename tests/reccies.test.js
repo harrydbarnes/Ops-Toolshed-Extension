@@ -74,9 +74,9 @@ describe('Read-only reconciliation rules', () => {
 
 jest.mock('../background/feature-mode', () => ({isFeatureModeActive:jest.fn(()=>true)}));
 describe('Reccies background reads', () => {
-    let handleReccies, openReccies, state, sender, fetchMock;
+    let handleReccies, openReccies, prepareReccies, state, sender, fetchMock;
     beforeEach(() => {
-        ({handleReccies,openReccies} = require('../background/reccies'));
+        ({handleReccies,openReccies,prepareReccies} = require('../background/reccies'));
         const {isFeatureModeActive} = require('../background/feature-mode');
         isFeatureModeActive.mockReturnValue(true);
         state = {};
@@ -371,5 +371,29 @@ describe('Reccies background reads', () => {
         expect(chrome.sidePanel.setOptions).toHaveBeenCalledWith({tabId:42,path:'reccies.html',enabled:true});
         expect(chrome.sidePanel.setOptions).toHaveBeenCalledWith({path:'reccies.html',enabled:true});
         expect(reply).toHaveBeenCalledWith({status:'success'});
+    });
+    test('prepares a disabled global panel without opening it or changing Help Guides',async()=>{
+        chrome.sidePanel.open=jest.fn(async()=>{});chrome.sidePanel.setOptions=jest.fn(async()=>{});
+        const reply=jest.fn();
+        await prepareReccies({}, {id:chrome.runtime.id,url:'https://go.mediaocean.com/campaign-management/',tab:{id:42,windowId:7},frameId:0},reply);
+        expect(chrome.sidePanel.setOptions).toHaveBeenCalledWith({enabled:true});
+        expect(chrome.sidePanel.setOptions).toHaveBeenCalledTimes(1);
+        expect(chrome.sidePanel.open).not.toHaveBeenCalled();
+        expect(reply).toHaveBeenCalledWith({status:'success'});
+    });
+    test('rejects untrusted preparation without changing or opening a panel',async()=>{
+        chrome.sidePanel.open=jest.fn();chrome.sidePanel.setOptions=jest.fn();
+        const reply=jest.fn();
+        await prepareReccies({windowId:7},{id:'foreign',url:'https://evil.test/'},reply);
+        expect(reply).toHaveBeenCalledWith(expect.objectContaining({status:'error'}));
+        expect(chrome.sidePanel.setOptions).not.toHaveBeenCalled();
+        expect(chrome.sidePanel.open).not.toHaveBeenCalled();
+    });
+    test('preparation fails closed when Features is off',async()=>{
+        require('../background/feature-mode').isFeatureModeActive.mockReturnValue(false);
+        chrome.sidePanel.setOptions=jest.fn();const reply=jest.fn();
+        await prepareReccies({windowId:7},sender,reply);
+        expect(reply).toHaveBeenCalledWith(expect.objectContaining({status:'error',code:'FEATURES_DISABLED'}));
+        expect(chrome.sidePanel.setOptions).not.toHaveBeenCalled();
     });
 });

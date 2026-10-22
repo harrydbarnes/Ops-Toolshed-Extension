@@ -5,11 +5,11 @@ There is no Apps Script setup, URL entry, key or full Ops Toolshed installation.
 
 ## Remote session: exact steps
 
-1. Send your colleague ops-toolshed-identity-pilot.zip through your normal internal
+1. Send your colleague ops-toolshed-identity-pilot-install.zip through your normal internal
    file-sharing channel. Have them extract it to a normal local folder.
 2. Use their work Chrome profile, with their normal work Google account signed in.
 3. Open chrome://extensions. Turn on Developer mode (top right), click Load
-   unpacked, then select the extracted **extension** subfolder — the folder with
+   unpacked, then select the extracted folder — the folder with
    manifest.json. Do not select the ZIP or the main Ops Toolshed repository.
 4. Open Chrome's Extensions puzzle menu. Click **Ops Toolshed — Google Identity
    Pilot** (pin it if useful).

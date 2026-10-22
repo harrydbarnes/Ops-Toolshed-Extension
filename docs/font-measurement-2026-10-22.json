@@ -1,0 +1,1291 @@
+{
+  "date": "2026-10-22",
+  "context": "Chrome 156; localhost previews with the same minimal Chrome API stubs; baseline root HTML/CSS from HEAD; current source after font replacement; three repetitions per page per cache mode; no global cache cleared",
+  "samples": [
+    {
+      "stage": "before",
+      "page": "settings",
+      "mode": "uncached",
+      "spanMs": 465.5,
+      "requests": [
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap",
+          "start": 495696.621629,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495696.736389,
+          "bytes": 414,
+          "ms": 114.8
+        },
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap",
+          "start": 495696.621689,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495696.736956,
+          "bytes": 643,
+          "ms": 115.3
+        },
+        {
+          "url": "https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2",
+          "start": 495697.056656,
+          "type": "Font",
+          "status": 200,
+          "bodyBytes": "32292",
+          "end": 495697.087117,
+          "bytes": 32321,
+          "ms": 30.5
+        }
+      ]
+    },
+    {
+      "stage": "before",
+      "page": "settings",
+      "mode": "cached",
+      "spanMs": 39,
+      "requests": [
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap",
+          "start": 495697.58801,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495697.588472,
+          "bytes": 0,
+          "ms": 0.5
+        },
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap",
+          "start": 495697.588661,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495697.589243,
+          "bytes": 0,
+          "ms": 0.6
+        },
+        {
+          "url": "https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2",
+          "start": 495697.626978,
+          "type": "Font",
+          "status": 200,
+          "bodyBytes": "32292",
+          "end": 495697.627047,
+          "bytes": 0,
+          "ms": 0.1
+        }
+      ]
+    },
+    {
+      "stage": "before",
+      "page": "settings",
+      "mode": "uncached",
+      "spanMs": 269.2,
+      "requests": [
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap",
+          "start": 495698.064356,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495698.224026,
+          "bytes": 414,
+          "ms": 159.7
+        },
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap",
+          "start": 495698.064438,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495698.223141,
+          "bytes": 643,
+          "ms": 158.7
+        },
+        {
+          "url": "https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2",
+          "start": 495698.306812,
+          "type": "Font",
+          "status": 200,
+          "bodyBytes": "32292",
+          "end": 495698.333518,
+          "bytes": 32321,
+          "ms": 26.7
+        }
+      ]
+    },
+    {
+      "stage": "before",
+      "page": "settings",
+      "mode": "cached",
+      "spanMs": 64.8,
+      "requests": [
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap",
+          "start": 495698.845518,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495698.845796,
+          "bytes": 0,
+          "ms": 0.3
+        },
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap",
+          "start": 495698.845835,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495698.845915,
+          "bytes": 0,
+          "ms": 0.1
+        },
+        {
+          "url": "https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2",
+          "start": 495698.910272,
+          "type": "Font",
+          "status": 200,
+          "bodyBytes": "32292",
+          "end": 495698.910338,
+          "bytes": 0,
+          "ms": 0.1
+        }
+      ]
+    },
+    {
+      "stage": "before",
+      "page": "settings",
+      "mode": "uncached",
+      "spanMs": 385.2,
+      "requests": [
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap",
+          "start": 495699.350894,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495699.444202,
+          "bytes": 414,
+          "ms": 93.3
+        },
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap",
+          "start": 495699.351162,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495699.445109,
+          "bytes": 643,
+          "ms": 93.9
+        },
+        {
+          "url": "https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2",
+          "start": 495699.711601,
+          "type": "Font",
+          "status": 200,
+          "bodyBytes": "32292",
+          "end": 495699.73614,
+          "bytes": 32321,
+          "ms": 24.5
+        }
+      ]
+    },
+    {
+      "stage": "before",
+      "page": "settings",
+      "mode": "cached",
+      "spanMs": 46.1,
+      "requests": [
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap",
+          "start": 495700.135079,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495700.135201,
+          "bytes": 0,
+          "ms": 0.1
+        },
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap",
+          "start": 495700.135247,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495700.135312,
+          "bytes": 0,
+          "ms": 0.1
+        },
+        {
+          "url": "https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2",
+          "start": 495700.181065,
+          "type": "Font",
+          "status": 200,
+          "bodyBytes": "32292",
+          "end": 495700.181158,
+          "bytes": 0,
+          "ms": 0.1
+        }
+      ]
+    },
+    {
+      "stage": "before",
+      "page": "approvers",
+      "mode": "uncached",
+      "spanMs": 440.3,
+      "requests": [
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap",
+          "start": 495700.609258,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495700.765923,
+          "bytes": 414,
+          "ms": 156.7
+        },
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap",
+          "start": 495700.609447,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495700.770429,
+          "bytes": 643,
+          "ms": 161
+        },
+        {
+          "url": "https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2",
+          "start": 495701.007263,
+          "type": "Font",
+          "status": 200,
+          "bodyBytes": "32292",
+          "end": 495701.036736,
+          "bytes": 32321,
+          "ms": 29.5
+        },
+        {
+          "url": "https://fonts.gstatic.com/s/montserrat/v31/JTUSjIg1_i6t8kCHKm459Wlhyw.woff2",
+          "start": 495701.009964,
+          "type": "Font",
+          "status": 200,
+          "bodyBytes": "37956",
+          "end": 495701.049542,
+          "bytes": 37988,
+          "ms": 39.6
+        }
+      ]
+    },
+    {
+      "stage": "before",
+      "page": "approvers",
+      "mode": "cached",
+      "spanMs": 42,
+      "requests": [
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap",
+          "start": 495701.344321,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495701.344419,
+          "bytes": 0,
+          "ms": 0.1
+        },
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap",
+          "start": 495701.344438,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495701.344475,
+          "bytes": 0,
+          "ms": 0
+        },
+        {
+          "url": "https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2",
+          "start": 495701.386012,
+          "type": "Font",
+          "status": 200,
+          "bodyBytes": "32292",
+          "end": 495701.386111,
+          "bytes": 0,
+          "ms": 0.1
+        },
+        {
+          "url": "https://fonts.gstatic.com/s/montserrat/v31/JTUSjIg1_i6t8kCHKm459Wlhyw.woff2",
+          "start": 495701.386227,
+          "type": "Font",
+          "status": 200,
+          "bodyBytes": "37956",
+          "end": 495701.386296,
+          "bytes": 0,
+          "ms": 0.1
+        }
+      ]
+    },
+    {
+      "stage": "before",
+      "page": "approvers",
+      "mode": "uncached",
+      "spanMs": 384.6,
+      "requests": [
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap",
+          "start": 495701.755058,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495701.853559,
+          "bytes": 414,
+          "ms": 98.5
+        },
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap",
+          "start": 495701.75527,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495701.854374,
+          "bytes": 643,
+          "ms": 99.1
+        },
+        {
+          "url": "https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2",
+          "start": 495702.096971,
+          "type": "Font",
+          "status": 200,
+          "bodyBytes": "32292",
+          "end": 495702.13432,
+          "bytes": 32321,
+          "ms": 37.3
+        },
+        {
+          "url": "https://fonts.gstatic.com/s/montserrat/v31/JTUSjIg1_i6t8kCHKm459Wlhyw.woff2",
+          "start": 495702.100792,
+          "type": "Font",
+          "status": 200,
+          "bodyBytes": "37956",
+          "end": 495702.139682,
+          "bytes": 37988,
+          "ms": 38.9
+        }
+      ]
+    },
+    {
+      "stage": "before",
+      "page": "approvers",
+      "mode": "cached",
+      "spanMs": 42.2,
+      "requests": [
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap",
+          "start": 495702.455051,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495702.455107,
+          "bytes": 0,
+          "ms": 0.1
+        },
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap",
+          "start": 495702.455122,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495702.455155,
+          "bytes": 0,
+          "ms": 0
+        },
+        {
+          "url": "https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2",
+          "start": 495702.497021,
+          "type": "Font",
+          "status": 200,
+          "bodyBytes": "32292",
+          "end": 495702.497081,
+          "bytes": 0,
+          "ms": 0.1
+        },
+        {
+          "url": "https://fonts.gstatic.com/s/montserrat/v31/JTUSjIg1_i6t8kCHKm459Wlhyw.woff2",
+          "start": 495702.497148,
+          "type": "Font",
+          "status": 200,
+          "bodyBytes": "37956",
+          "end": 495702.497249,
+          "bytes": 0,
+          "ms": 0.1
+        }
+      ]
+    },
+    {
+      "stage": "before",
+      "page": "approvers",
+      "mode": "uncached",
+      "spanMs": 324.7,
+      "requests": [
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap",
+          "start": 495702.802613,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495702.89097,
+          "bytes": 414,
+          "ms": 88.4
+        },
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap",
+          "start": 495702.802839,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495702.902732,
+          "bytes": 643,
+          "ms": 99.9
+        },
+        {
+          "url": "https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2",
+          "start": 495702.933113,
+          "type": "Font",
+          "status": 200,
+          "bodyBytes": "32292",
+          "end": 495702.977361,
+          "bytes": 32321,
+          "ms": 44.2
+        },
+        {
+          "url": "https://fonts.gstatic.com/s/montserrat/v31/JTUSjIg1_i6t8kCHKm459Wlhyw.woff2",
+          "start": 495703.100812,
+          "type": "Font",
+          "status": 200,
+          "bodyBytes": "37956",
+          "end": 495703.127343,
+          "bytes": 37988,
+          "ms": 26.5
+        }
+      ]
+    },
+    {
+      "stage": "before",
+      "page": "approvers",
+      "mode": "cached",
+      "spanMs": 30.7,
+      "requests": [
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap",
+          "start": 495703.407253,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495703.407504,
+          "bytes": 0,
+          "ms": 0.3
+        },
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap",
+          "start": 495703.407555,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495703.407638,
+          "bytes": 0,
+          "ms": 0.1
+        },
+        {
+          "url": "https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2",
+          "start": 495703.437757,
+          "type": "Font",
+          "status": 200,
+          "bodyBytes": "32292",
+          "end": 495703.437839,
+          "bytes": 0,
+          "ms": 0.1
+        },
+        {
+          "url": "https://fonts.gstatic.com/s/montserrat/v31/JTUSjIg1_i6t8kCHKm459Wlhyw.woff2",
+          "start": 495703.437942,
+          "type": "Font",
+          "status": 200,
+          "bodyBytes": "37956",
+          "end": 495703.437997,
+          "bytes": 0,
+          "ms": 0.1
+        }
+      ]
+    },
+    {
+      "stage": "before",
+      "page": "toolshed",
+      "mode": "uncached",
+      "spanMs": 142.5,
+      "requests": [
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap",
+          "start": 495703.817768,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495703.923003,
+          "bytes": 414,
+          "ms": 105.2
+        },
+        {
+          "url": "https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2",
+          "start": 495703.936287,
+          "type": "Font",
+          "status": 200,
+          "bodyBytes": "32292",
+          "end": 495703.960272,
+          "bytes": 32321,
+          "ms": 24
+        }
+      ]
+    },
+    {
+      "stage": "before",
+      "page": "toolshed",
+      "mode": "cached",
+      "spanMs": 24,
+      "requests": [
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap",
+          "start": 495704.393446,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495704.393568,
+          "bytes": 0,
+          "ms": 0.1
+        },
+        {
+          "url": "https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2",
+          "start": 495704.417321,
+          "type": "Font",
+          "status": 200,
+          "bodyBytes": "32292",
+          "end": 495704.417413,
+          "bytes": 0,
+          "ms": 0.1
+        }
+      ]
+    },
+    {
+      "stage": "before",
+      "page": "toolshed",
+      "mode": "uncached",
+      "spanMs": 199.3,
+      "requests": [
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap",
+          "start": 495704.624339,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495704.696189,
+          "bytes": 414,
+          "ms": 71.9
+        },
+        {
+          "url": "https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2",
+          "start": 495704.805884,
+          "type": "Font",
+          "status": 200,
+          "bodyBytes": "32292",
+          "end": 495704.823665,
+          "bytes": 32321,
+          "ms": 17.8
+        }
+      ]
+    },
+    {
+      "stage": "before",
+      "page": "toolshed",
+      "mode": "cached",
+      "spanMs": 49.8,
+      "requests": [
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap",
+          "start": 495705.059619,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495705.05971,
+          "bytes": 0,
+          "ms": 0.1
+        },
+        {
+          "url": "https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2",
+          "start": 495705.109383,
+          "type": "Font",
+          "status": 200,
+          "bodyBytes": "32292",
+          "end": 495705.109454,
+          "bytes": 0,
+          "ms": 0.1
+        }
+      ]
+    },
+    {
+      "stage": "before",
+      "page": "toolshed",
+      "mode": "uncached",
+      "spanMs": 133.9,
+      "requests": [
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap",
+          "start": 495705.343787,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495705.427301,
+          "bytes": 414,
+          "ms": 83.5
+        },
+        {
+          "url": "https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2",
+          "start": 495705.460351,
+          "type": "Font",
+          "status": 200,
+          "bodyBytes": "32292",
+          "end": 495705.477691,
+          "bytes": 32321,
+          "ms": 17.3
+        }
+      ]
+    },
+    {
+      "stage": "before",
+      "page": "toolshed",
+      "mode": "cached",
+      "spanMs": 46,
+      "requests": [
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap",
+          "start": 495705.894503,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495705.89462,
+          "bytes": 0,
+          "ms": 0.1
+        },
+        {
+          "url": "https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2",
+          "start": 495705.940324,
+          "type": "Font",
+          "status": 200,
+          "bodyBytes": "32292",
+          "end": 495705.940542,
+          "bytes": 0,
+          "ms": 0.2
+        }
+      ]
+    },
+    {
+      "stage": "after",
+      "page": "settings",
+      "mode": "uncached",
+      "spanMs": 204,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/fonts.css",
+          "start": 495714.386162,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495714.494798,
+          "bytes": 2702,
+          "ms": 108.6
+        },
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/outfit-latin.woff2",
+          "start": 495714.545122,
+          "type": "Font",
+          "status": 200,
+          "end": 495714.590136,
+          "bytes": 32499,
+          "ms": 45
+        }
+      ]
+    },
+    {
+      "stage": "after",
+      "page": "settings",
+      "mode": "cached",
+      "spanMs": 67.7,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/fonts.css",
+          "start": 495715.262629,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495715.262758,
+          "bytes": 0,
+          "ms": 0.1
+        },
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/outfit-latin.woff2",
+          "start": 495715.330315,
+          "type": "Font",
+          "status": 200,
+          "end": 495715.330344,
+          "bytes": 0,
+          "ms": 0
+        }
+      ]
+    },
+    {
+      "stage": "after",
+      "page": "settings",
+      "mode": "uncached",
+      "spanMs": 199,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/fonts.css",
+          "start": 495715.786643,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495715.879495,
+          "bytes": 2702,
+          "ms": 92.9
+        },
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/outfit-latin.woff2",
+          "start": 495715.953656,
+          "type": "Font",
+          "status": 200,
+          "end": 495715.985693,
+          "bytes": 32499,
+          "ms": 32
+        }
+      ]
+    },
+    {
+      "stage": "after",
+      "page": "settings",
+      "mode": "cached",
+      "spanMs": 69.3,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/fonts.css",
+          "start": 495716.578153,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495716.578274,
+          "bytes": 0,
+          "ms": 0.1
+        },
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/outfit-latin.woff2",
+          "start": 495716.647359,
+          "type": "Font",
+          "status": 200,
+          "end": 495716.647408,
+          "bytes": 0,
+          "ms": 0
+        }
+      ]
+    },
+    {
+      "stage": "after",
+      "page": "settings",
+      "mode": "uncached",
+      "spanMs": 464.8,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/fonts.css",
+          "start": 495717.160505,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495717.287179,
+          "bytes": 2702,
+          "ms": 126.7
+        },
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/outfit-latin.woff2",
+          "start": 495717.610185,
+          "type": "Font",
+          "status": 200,
+          "end": 495717.625309,
+          "bytes": 32499,
+          "ms": 15.1
+        }
+      ]
+    },
+    {
+      "stage": "after",
+      "page": "settings",
+      "mode": "cached",
+      "spanMs": 46.1,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/fonts.css",
+          "start": 495717.974532,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495717.97456,
+          "bytes": 0,
+          "ms": 0
+        },
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/outfit-latin.woff2",
+          "start": 495718.020617,
+          "type": "Font",
+          "status": 200,
+          "end": 495718.020663,
+          "bytes": 0,
+          "ms": 0
+        }
+      ]
+    },
+    {
+      "stage": "after",
+      "page": "approvers",
+      "mode": "uncached",
+      "spanMs": 460.3,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/fonts.css",
+          "start": 495718.547532,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495718.692687,
+          "bytes": 2702,
+          "ms": 145.2
+        },
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/outfit-latin.woff2",
+          "start": 495718.958225,
+          "type": "Font",
+          "status": 200,
+          "end": 495718.995544,
+          "bytes": 32499,
+          "ms": 37.3
+        },
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/montserrat-latin.woff2",
+          "start": 495718.9624,
+          "type": "Font",
+          "status": 200,
+          "end": 495719.00784,
+          "bytes": 38163,
+          "ms": 45.4
+        }
+      ]
+    },
+    {
+      "stage": "after",
+      "page": "approvers",
+      "mode": "cached",
+      "spanMs": 46.2,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/fonts.css",
+          "start": 495719.307185,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495719.307296,
+          "bytes": 0,
+          "ms": 0.1
+        },
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/montserrat-latin.woff2",
+          "start": 495719.353297,
+          "type": "Font",
+          "status": 200,
+          "end": 495719.353323,
+          "bytes": 0,
+          "ms": 0
+        },
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/outfit-latin.woff2",
+          "start": 495719.353346,
+          "type": "Font",
+          "status": 200,
+          "end": 495719.35336,
+          "bytes": 0,
+          "ms": 0
+        }
+      ]
+    },
+    {
+      "stage": "after",
+      "page": "approvers",
+      "mode": "uncached",
+      "spanMs": 312.3,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/fonts.css",
+          "start": 495719.678345,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495719.75621,
+          "bytes": 2702,
+          "ms": 77.9
+        },
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/outfit-latin.woff2",
+          "start": 495719.95839,
+          "type": "Font",
+          "status": 200,
+          "end": 495719.983196,
+          "bytes": 32499,
+          "ms": 24.8
+        },
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/montserrat-latin.woff2",
+          "start": 495719.960155,
+          "type": "Font",
+          "status": 200,
+          "end": 495719.99062,
+          "bytes": 38163,
+          "ms": 30.5
+        }
+      ]
+    },
+    {
+      "stage": "after",
+      "page": "approvers",
+      "mode": "cached",
+      "spanMs": 30,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/fonts.css",
+          "start": 495720.225714,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495720.225739,
+          "bytes": 0,
+          "ms": 0
+        },
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/montserrat-latin.woff2",
+          "start": 495720.255548,
+          "type": "Font",
+          "status": 200,
+          "end": 495720.25559,
+          "bytes": 0,
+          "ms": 0
+        },
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/outfit-latin.woff2",
+          "start": 495720.255638,
+          "type": "Font",
+          "status": 200,
+          "end": 495720.255672,
+          "bytes": 0,
+          "ms": 0
+        }
+      ]
+    },
+    {
+      "stage": "after",
+      "page": "approvers",
+      "mode": "uncached",
+      "spanMs": 364.3,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/fonts.css",
+          "start": 495720.542767,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495720.626806,
+          "bytes": 2702,
+          "ms": 84
+        },
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/outfit-latin.woff2",
+          "start": 495720.685851,
+          "type": "Font",
+          "status": 200,
+          "end": 495720.721811,
+          "bytes": 32499,
+          "ms": 36
+        },
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/montserrat-latin.woff2",
+          "start": 495720.894421,
+          "type": "Font",
+          "status": 200,
+          "end": 495720.907109,
+          "bytes": 38163,
+          "ms": 12.7
+        }
+      ]
+    },
+    {
+      "stage": "after",
+      "page": "approvers",
+      "mode": "cached",
+      "spanMs": 39.8,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/fonts.css",
+          "start": 495721.136997,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495721.137031,
+          "bytes": 0,
+          "ms": 0
+        },
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/montserrat-latin.woff2",
+          "start": 495721.176562,
+          "type": "Font",
+          "status": 200,
+          "end": 495721.176666,
+          "bytes": 0,
+          "ms": 0.1
+        },
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/outfit-latin.woff2",
+          "start": 495721.176726,
+          "type": "Font",
+          "status": 200,
+          "end": 495721.176766,
+          "bytes": 0,
+          "ms": 0
+        }
+      ]
+    },
+    {
+      "stage": "after",
+      "page": "toolshed",
+      "mode": "uncached",
+      "spanMs": 172.1,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/fonts.css",
+          "start": 495721.711148,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495721.839769,
+          "bytes": 2702,
+          "ms": 128.6
+        },
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/outfit-latin.woff2",
+          "start": 495721.863635,
+          "type": "Font",
+          "status": 200,
+          "end": 495721.883202,
+          "bytes": 32499,
+          "ms": 19.6
+        }
+      ]
+    },
+    {
+      "stage": "after",
+      "page": "toolshed",
+      "mode": "cached",
+      "spanMs": 36.2,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/fonts.css",
+          "start": 495722.422154,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495722.422182,
+          "bytes": 0,
+          "ms": 0
+        },
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/outfit-latin.woff2",
+          "start": 495722.458208,
+          "type": "Font",
+          "status": 200,
+          "end": 495722.458353,
+          "bytes": 0,
+          "ms": 0.1
+        }
+      ]
+    },
+    {
+      "stage": "after",
+      "page": "toolshed",
+      "mode": "uncached",
+      "spanMs": 108.9,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/fonts.css",
+          "start": 495722.844542,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495722.919784,
+          "bytes": 2702,
+          "ms": 75.2
+        },
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/outfit-latin.woff2",
+          "start": 495722.938823,
+          "type": "Font",
+          "status": 200,
+          "end": 495722.95346,
+          "bytes": 32499,
+          "ms": 14.6
+        }
+      ]
+    },
+    {
+      "stage": "after",
+      "page": "toolshed",
+      "mode": "cached",
+      "spanMs": 46.2,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/fonts.css",
+          "start": 495723.380046,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495723.380086,
+          "bytes": 0,
+          "ms": 0
+        },
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/outfit-latin.woff2",
+          "start": 495723.426211,
+          "type": "Font",
+          "status": 200,
+          "end": 495723.426276,
+          "bytes": 0,
+          "ms": 0.1
+        }
+      ]
+    },
+    {
+      "stage": "after",
+      "page": "toolshed",
+      "mode": "uncached",
+      "spanMs": 152.5,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/fonts.css",
+          "start": 495723.758059,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495723.868849,
+          "bytes": 2702,
+          "ms": 110.8
+        },
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/outfit-latin.woff2",
+          "start": 495723.894295,
+          "type": "Font",
+          "status": 200,
+          "end": 495723.910568,
+          "bytes": 32499,
+          "ms": 16.3
+        }
+      ]
+    },
+    {
+      "stage": "after",
+      "page": "toolshed",
+      "mode": "cached",
+      "spanMs": 28.9,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/fonts.css",
+          "start": 495724.365435,
+          "type": "Stylesheet",
+          "status": 200,
+          "end": 495724.365458,
+          "bytes": 0,
+          "ms": 0
+        },
+        {
+          "url": "http://127.0.0.1:8765/after/assets/fonts/outfit-latin.woff2",
+          "start": 495724.39407,
+          "type": "Font",
+          "status": 200,
+          "end": 495724.394307,
+          "bytes": 0,
+          "ms": 0.2
+        }
+      ]
+    }
+  ],
+  "preflightOutlier": {
+    "stage": "before",
+    "page": "approvers",
+    "mode": "uncached",
+    "spanMs": 10954.2,
+    "requests": [
+      {
+        "url": "https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap",
+        "start": 495677.320581,
+        "type": "Stylesheet",
+        "status": 200,
+        "end": 495677.488982,
+        "bytes": 510,
+        "ms": 168.4
+      },
+      {
+        "url": "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap",
+        "start": 495677.320806,
+        "type": "Stylesheet",
+        "status": 200,
+        "end": 495677.50638,
+        "bytes": 693,
+        "ms": 185.6
+      },
+      {
+        "url": "https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2",
+        "start": 495678.587314,
+        "type": "Font",
+        "status": 200,
+        "bodyBytes": "32292",
+        "end": 495688.274731,
+        "bytes": 32321,
+        "ms": 9687.4
+      },
+      {
+        "url": "https://fonts.gstatic.com/s/montserrat/v31/JTUSjIg1_i6t8kCHKm459Wlhyw.woff2",
+        "start": 495678.588559,
+        "type": "Font",
+        "status": 200,
+        "bodyBytes": "37956",
+        "end": 495688.274602,
+        "bytes": 37988,
+        "ms": 9686
+      }
+    ]
+  },
+  "exploratoryInitial": {
+    "stage": "before",
+    "page": "settings",
+    "mode": "uncached-initial-connection",
+    "spanMs": 4003.6,
+    "requests": [
+      {
+        "url": "https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap",
+        "start": 495372.977667,
+        "type": "Stylesheet",
+        "status": 200,
+        "end": 495373.069039,
+        "bytes": 510,
+        "ms": 91.4
+      },
+      {
+        "url": "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap",
+        "start": 495372.977812,
+        "type": "Stylesheet",
+        "status": 200,
+        "end": 495373.07525,
+        "bytes": 716,
+        "ms": 97.4
+      },
+      {
+        "url": "https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2",
+        "start": 495373.224098,
+        "type": "Font",
+        "status": 200,
+        "bodyBytes": "32292",
+        "end": 495376.98123,
+        "bytes": 32321,
+        "ms": 3757.1
+      }
+    ]
+  },
+  "cacheHeaders": [
+    {
+      "url": "https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap",
+      "cacheControl": "private, max-age=86400, stale-while-revalidate=604800"
+    },
+    {
+      "url": "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap",
+      "cacheControl": "private, max-age=86400, stale-while-revalidate=604800"
+    },
+    {
+      "url": "https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2",
+      "cacheControl": "public, max-age=31536000"
+    },
+    {
+      "url": "https://fonts.gstatic.com/s/montserrat/v31/JTUSjIg1_i6t8kCHKm459Wlhyw.woff2",
+      "cacheControl": "public, max-age=31536000"
+    },
+    {
+      "url": "http://127.0.0.1:8765/after/assets/fonts/fonts.css"
+    },
+    {
+      "url": "http://127.0.0.1:8765/after/assets/fonts/outfit-latin.woff2"
+    },
+    {
+      "url": "http://127.0.0.1:8765/after/assets/fonts/montserrat-latin.woff2"
+    }
+  ]
+}

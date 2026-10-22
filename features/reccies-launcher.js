@@ -1,8 +1,35 @@
 (function() {
     'use strict';
     if (window.top !== window || window.opsRecciesLauncher) return;
-    let button = null, timer = null, tracker = null, preferences = {};
+    let button = null, timer = null, tracker = null, preferences = {}, launch = null;
     const active = () => window.opsToolshedExtensionState?.isActive() && location.hostname === 'go.mediaocean.com' && location.pathname.startsWith('/campaign-management/');
+    function renderLaunch() {
+        if (!button) return;
+        const role = preferences.assignment || 'ops';
+        const count = preferences.person ? (tracker?.rows || []).filter(row => row.reccied.toLowerCase() !== 'yes' &&
+            (role === 'any' ? ['ops','buyer','group'] : [role]).some(key => row[key]?.toLowerCase() === preferences.person.toLowerCase())).length : null;
+        const preparing = !launch?.ready && !!launch?.pending;
+        button.disabled = preparing;
+        button.textContent = preparing ? 'Reccies · starting…' : launch?.message ? 'Reccies · unavailable' : `Reccies${count == null ? '' : ` · ${count}`}`;
+        button.setAttribute('aria-busy', String(preparing));
+        button.setAttribute('aria-label', launch?.message || launch?.hint || (preparing ? 'Preparing Reccies' : count == null ? 'Open read-only Reccies sidebar' : `Open Reccies sidebar: ${count} tracker rows not marked Yes`));
+    }
+    function prepare(recovering = false) {
+        const current = launch, target = button;
+        if (!current || current.pending) return current?.pending;
+        current.pending = Promise.resolve().then(() => chrome.runtime.sendMessage({ action: 'prepareReccies' })).then(result => {
+            if (result?.status !== 'success') throw new Error(result?.message || 'Could not prepare Reccies.');
+            current.ready = true;
+            current.message = '';
+            current.hint = recovering ? 'Reccies is ready. Click to open the sidebar.' : '';
+        }).catch(error => { current.ready = false; current.message = error.message; })
+            .finally(() => {
+                current.pending = null;
+                if (button === target) renderLaunch();
+            });
+        renderLaunch();
+        return current.pending;
+    }
     function reconcile() {
         if (!active()) { button?.remove(); button = null; return; }
         const roots = [document]; let approval, menu;
@@ -16,20 +43,30 @@
         if (!button?.isConnected || button.parentElement !== anchor.parentElement) {
             button?.remove(); button = document.createElement('button');
             button.id = 'ops-reccies-launcher'; button.type = 'button';
+            launch = { ready: false, pending: null, message: '' };
             button.style.cssText = 'display:inline-flex;align-items:center;padding:4px 8px;margin:0 4px;border:0;border-radius:4px;background:transparent;color:inherit;font:inherit;font-size:12px;white-space:nowrap;cursor:pointer;pointer-events:auto';
             button.addEventListener('click', async () => {
+                if (!launch.ready) { prepare(); return; }
+                const target = button, current = launch;
                 try {
                     const result = await chrome.runtime.sendMessage({ action: 'openReccies' });
+                    if (button !== target || launch !== current) return;
+                    if (result?.code === 'FEATURES_STARTING') {
+                        launch.ready = false;
+                        prepare(true);
+                        return;
+                    }
                     if (result?.status !== 'success') throw new Error(result?.message || 'Could not open Reccies.');
-                } catch (error) { button.textContent = 'Reccies · try again'; button.setAttribute('aria-label', error.message); }
+                    launch.message = '';
+                    renderLaunch();
+                } catch (error) { if (button === target && launch === current) { current.message = error.message; renderLaunch(); } }
             });
+            button.addEventListener('pointerenter', () => prepare());
+            button.addEventListener('focus', () => prepare());
             anchor.parentElement.insertBefore(button, anchor);
+            prepare();
         }
-        const role = preferences.assignment || 'ops';
-        const count = preferences.person ? (tracker?.rows || []).filter(row => row.reccied.toLowerCase() !== 'yes' &&
-            (role === 'any' ? ['ops','buyer','group'] : [role]).some(key => row[key]?.toLowerCase() === preferences.person.toLowerCase())).length : null;
-        button.textContent = `Reccies${count == null ? '' : ` · ${count}`}`;
-        button.setAttribute('aria-label', count == null ? 'Open read-only Reccies sidebar' : `Open Reccies sidebar: ${count} tracker rows not marked Yes`);
+        renderLaunch();
     }
     window.opsRecciesLauncher = { reconcile };
     window.opsToolshedExtensionState?.subscribe(enabled => {

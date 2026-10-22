@@ -50,7 +50,7 @@ describe('release metadata', () => {
         try {
             const currentRelease = dom.window.document.querySelector('#release-notes .release');
             const releaseItems = Array.from(currentRelease.querySelectorAll('li'));
-            expect(releaseItems).toHaveLength(39);
+            expect(releaseItems).toHaveLength(41);
             expect(currentRelease.textContent).toContain('Social Booking Checker IDs');
             expect(releaseItems[0].textContent).toContain('My Reccies (read-only preview)');
             expect(releaseItems[0].textContent).toContain('keep the tracker unchanged');
@@ -64,7 +64,14 @@ describe('release metadata', () => {
             expect(sidebarSections).toBeDefined();
             expect(sidebarSections.querySelector('.release-badge').dataset.releaseType).toBe('improved');
             expect(sidebarSections.textContent).toContain('chevrons');
-            const items = releaseItems.slice(4).filter(item => item !== sidebarSections);
+            const offlineFonts = releaseItems.find(item => item.querySelector('strong')?.textContent === 'Offline fonts:');
+            expect(offlineFonts).toBeDefined();
+            expect(offlineFonts.querySelector('.release-badge').dataset.releaseType).toBe('improved');
+            expect(offlineFonts.textContent).toContain('without requests to Google Fonts');
+            const popupStartup = releaseItems.find(item => item.querySelector('strong')?.textContent === 'Popup startup:');
+            expect(popupStartup).toBeDefined();
+            expect(popupStartup.querySelector('.release-badge').dataset.releaseType).toBe('improved');
+            const items = releaseItems.slice(4).filter(item => item !== sidebarSections && item !== offlineFonts && item !== popupStartup);
 
             expect(items).toHaveLength(34);
             expect(items[4].textContent).toContain('Help Guide Library');

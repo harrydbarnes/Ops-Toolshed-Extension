@@ -56,9 +56,12 @@ async function prisma(path, body, requests, attempt, deadline, method) {
         throw failure;
     } finally { timing.totalMs = Math.round(performance.now() - started); }
 }
-export async function openReccies(request, sender, sendResponse) {
-    try {
-        assertActive();
+function getRecciesPanelTarget(request, sender) {
+        if (!isFeatureModeActive()) {
+            const error = new Error('Enable Ops Toolshed features to open Reccies.');
+            error.code = 'FEATURES_DISABLED';
+            throw error;
+        }
         let prismaSender = false;
         try {
             const url = new URL(sender?.url);
@@ -69,6 +72,26 @@ export async function openReccies(request, sender, sendResponse) {
         const windowId = sender.tab?.windowId ?? request.windowId;
         if (!Number.isInteger(windowId)) throw new Error('Could not identify the active Chrome window.');
         const tabId = sender.tab?.id ?? request.tabId;
+        return { windowId, tabId };
+}
+
+export async function prepareReccies(request, sender, sendResponse) {
+    try {
+        getRecciesPanelTarget(request, sender);
+        // Enable the existing global panel without changing its current path or
+        // opening it. Preparation must not replace an open Help Guides panel.
+        await chrome.sidePanel.setOptions({ enabled: true });
+        if (!isFeatureModeActive()) {
+            await chrome.sidePanel.setOptions({ enabled: false });
+            throw Object.assign(new Error('Enable Ops Toolshed features to open Reccies.'), { code: 'FEATURES_DISABLED' });
+        }
+        sendResponse({ status: 'success' });
+    } catch (error) { sendResponse({ status: 'error', message: error.message, ...(error.code ? { code: error.code } : {}) }); }
+}
+
+export async function openReccies(request, sender, sendResponse) {
+    try {
+        const { windowId, tabId } = getRecciesPanelTarget(request, sender);
         // Preserve the original click gesture, as with the Help Guides launcher.
         const opening = chrome.sidePanel.open({ windowId });
         const options = [chrome.sidePanel.setOptions({ path: 'reccies.html', enabled: true })];
@@ -77,7 +100,7 @@ export async function openReccies(request, sender, sendResponse) {
         if (Number.isInteger(tabId)) options.push(chrome.sidePanel.setOptions({ tabId, path: 'reccies.html', enabled: true }));
         await Promise.all([opening, ...options]);
         sendResponse({ status: 'success' });
-    } catch (error) { sendResponse({ status: 'error', message: error.message }); }
+    } catch (error) { sendResponse({ status: 'error', message: error.message, ...(error.code ? { code: error.code } : {}) }); }
 }
 async function storeTracker(request, rows, source, checks = {}, expectedRevision, timing) {
     const key = core.trackerKey(request.mode, request.month);

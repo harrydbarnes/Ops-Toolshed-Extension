@@ -57,6 +57,10 @@ export function isFeatureModeActive() {
     return initialized && active;
 }
 
+export function isFeatureModeInitialized() {
+    return initialized;
+}
+
 export function isPopupSender(sender) {
     const popupUrl = chrome.runtime?.getURL?.('popup.html');
     return Boolean(popupUrl && sender?.url === popupUrl && !sender?.tab);

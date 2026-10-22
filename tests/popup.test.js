@@ -34,7 +34,6 @@ describe('popup DOM initialization', () => {
         };
         window.console.log = jest.fn();
         try {
-            window.eval(readScript(path.resolve(__dirname, '../feature-settings-registry.js')));
             window.eval(readScript(path.resolve(__dirname, '../popup.js')));
             window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
 
@@ -52,6 +51,32 @@ describe('popup DOM initialization', () => {
             expect(createTab).toHaveBeenLastCalledWith({ url: 'chrome-extension://test/toolshed.html' });
             window.document.getElementById('menu-settings').click();
             expect(openOptions).toHaveBeenCalledTimes(1);
+            expect(window.document.getElementById('version-link').textContent).toBe('r1.9');
+        } finally {
+            window.close();
+        }
+    });
+
+    test('wires launcher actions while settings reads are still pending and without the feature catalogue', () => {
+        const dom = new JSDOM(fs.readFileSync(path.resolve(__dirname, '../popup.html'), 'utf8'), {
+            runScripts: 'outside-only', url: 'chrome-extension://test/popup.html'
+        });
+        const { window } = dom;
+        const createTab = jest.fn();
+        window.chrome = {
+            runtime: { getManifest: () => ({ version: '1.9' }), getURL: file => `chrome-extension://test/${file}` },
+            tabs: { create: createTab },
+            storage: { sync: { get: jest.fn() } }
+        };
+        window.console.log = jest.fn();
+        try {
+            expect(window.OpsToolshedFeatureSettings).toBeUndefined();
+            window.eval(readScript(path.resolve(__dirname, '../popup.js')));
+            window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
+            window.document.getElementById('prismaButton').click();
+            expect(createTab).toHaveBeenCalledWith({ url:
+                'https://go.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns'
+            });
             expect(window.document.getElementById('version-link').textContent).toBe('r1.9');
         } finally {
             window.close();

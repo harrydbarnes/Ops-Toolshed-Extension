@@ -505,12 +505,34 @@ describe('Reccies sidebar',()=>{
     });
     test('launches the popup sidebar from a click without awaiting another API first',async()=>{
         const dom=new JSDOM('<button id="recciesButton"></button><button id="recciesPageButton"></button><p id="recciesPopupStatus"></p>',{runScripts:'dangerously'});
-        dom.window.chrome={tabs:{query:jest.fn(async()=>[{id:42,windowId:7}]),create:jest.fn()},runtime:{sendMessage:jest.fn(async()=>({status:'error',message:'Test'})),getURL:path=>`chrome-extension://test/${path}`},storage:{local:{get:jest.fn(async()=>({}))}}};
+        dom.window.chrome={tabs:{query:jest.fn(async()=>[{id:42,windowId:7}]),create:jest.fn()},runtime:{sendMessage:jest.fn(async request=>request.action==='prepareReccies'?{status:'success'}:{status:'error',message:'Test'}),getURL:path=>`chrome-extension://test/${path}`},storage:{local:{get:jest.fn(async()=>({}))}}};
         dom.window.eval(readScript(path.resolve(__dirname,'../reccie-popup.js')));
         dom.window.document.dispatchEvent(new dom.window.Event('DOMContentLoaded'));await flush();
         dom.window.document.getElementById('recciesButton').click();
         expect(dom.window.chrome.runtime.sendMessage).toHaveBeenCalledWith({action:'openReccies',tabId:42,windowId:7});
         await flush();dom.window.close();
+    });
+    test('defers the tracker summary until a render opportunity without delaying the full-page launcher',async()=>{
+        const dom=new JSDOM('<button id="recciesButton"></button><button id="recciesPageButton"></button><p id="recciesPopupStatus"></p>',{runScripts:'outside-only'});
+        const win=dom.window,frames=[],tasks=[];let finishTabQuery;
+        try {
+            await new Promise(resolve=>win.document.addEventListener('DOMContentLoaded',resolve,{once:true}));
+            win.requestAnimationFrame=callback=>frames.push(callback);
+            win.setTimeout=callback=>tasks.push(callback);
+            win.chrome={tabs:{query:jest.fn(()=>new Promise(resolve=>{finishTabQuery=resolve;})),create:jest.fn()},runtime:{sendMessage:jest.fn(async()=>({status:'success'})),getURL:file=>`chrome-extension://test/${file}`},storage:{local:{get:jest.fn(async()=>({reccieTracker:{month:'2026-10',rows:[{ops:'Harry',reccied:'No'},{ops:'Other',reccied:'No'}]},recciePreferences:{person:'Harry',assignment:'ops'}}))}}};
+            win.eval(readScript(path.resolve(__dirname,'../reccie-popup.js')));
+            win.document.dispatchEvent(new win.Event('DOMContentLoaded'));
+            expect(win.chrome.storage.local.get).not.toHaveBeenCalled();
+            win.document.getElementById('recciesPageButton').click();
+            expect(win.chrome.tabs.create).toHaveBeenCalledWith({url:'chrome-extension://test/reccies.html'});
+            frames.shift()();
+            expect(win.chrome.storage.local.get).not.toHaveBeenCalled();
+            tasks.shift()();await flush();
+            expect(win.chrome.storage.local.get).toHaveBeenCalledWith(['reccieTracker','recciePreferences']);
+            expect(win.document.getElementById('recciesButton').disabled).toBe(true);
+            finishTabQuery([{id:42,windowId:7}]);await flush();
+            expect(win.document.getElementById('recciesPopupStatus').textContent).toBe('Harry · 2026-10 · 1 not marked Yes / 1 assigned. Read only.');
+        } finally { win.close(); }
     });
 });
 describe('Reccies header lifecycle',()=>{

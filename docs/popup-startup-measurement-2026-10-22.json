@@ -1,0 +1,2113 @@
+{
+  "date": "2026-10-22",
+  "context": "Chrome 156 localhost popup preview; original popup markup/scripts with synthetic Chrome APIs; cache bypassed; not a real toolbar popup or a click-to-document trace",
+  "samples": [
+    {
+      "stage": "before",
+      "apiDelay": 0,
+      "rows": 0,
+      "syntheticStorageBytes": 86,
+      "marks": [
+        {
+          "name": "popup-probe-start",
+          "ms": 283.10000002384186
+        },
+        {
+          "name": "popup-dom-ready",
+          "ms": 400.89999997615814
+        },
+        {
+          "name": "popup-window-loaded",
+          "ms": 773.8999999761581
+        }
+      ],
+      "paints": [
+        {
+          "name": "first-paint",
+          "ms": 352
+        },
+        {
+          "name": "first-contentful-paint",
+          "ms": 352
+        }
+      ],
+      "apiRequests": [
+        {
+          "name": "sync-get",
+          "start": 401.10000002384186,
+          "callbackStart": 404.39999997615814,
+          "end": 404.60000002384186
+        },
+        {
+          "name": "sync-get",
+          "start": 401.30000001192093,
+          "callbackStart": 404.60000002384186,
+          "end": 404.69999998807907
+        },
+        {
+          "name": "tabs-query",
+          "start": 401.5,
+          "callbackStart": 404.69999998807907,
+          "end": 404.69999998807907
+        },
+        {
+          "name": "local-get",
+          "start": 401.5,
+          "callbackStart": 404.69999998807907,
+          "end": 404.80000001192093
+        }
+      ],
+      "pendingAtFirstSample": 0,
+      "longTasks": [
+        {
+          "start": 404.80000001192093,
+          "duration": 269
+        }
+      ],
+      "resources": [
+        {
+          "name": "http://127.0.0.1:8766/probe.js?apiDelay=0&rows=0",
+          "duration": 214.69999998807907,
+          "bytes": 2975
+        },
+        {
+          "name": "http://127.0.0.1:8766/style.css",
+          "duration": 227.9000000357628,
+          "bytes": 14137
+        },
+        {
+          "name": "http://127.0.0.1:8766/icon.png",
+          "duration": 227.10000002384186,
+          "bytes": 3497
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/gear-solid.svg",
+          "duration": 232.4000000357628,
+          "bytes": 1643
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/file-lines-solid.svg",
+          "duration": 312.89999997615814,
+          "bytes": 1015
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/bullhorn-solid.svg",
+          "duration": 313.0999999642372,
+          "bytes": 1065
+        },
+        {
+          "name": "http://127.0.0.1:8766/feature-settings-registry.js",
+          "duration": 336.0999999642372,
+          "bytes": 28594
+        },
+        {
+          "name": "http://127.0.0.1:8766/popup.js",
+          "duration": 336.10000002384186,
+          "bytes": 21446
+        },
+        {
+          "name": "http://127.0.0.1:8766/reccie-popup.js",
+          "duration": 335.60000002384186,
+          "bytes": 2359
+        }
+      ],
+      "title": "Ops Toolshed",
+      "status": "Connect your tracker to see your assignments."
+    },
+    {
+      "stage": "before",
+      "apiDelay": 3000,
+      "rows": 0,
+      "syntheticStorageBytes": 86,
+      "marks": [
+        {
+          "name": "popup-probe-start",
+          "ms": 167.29999995231628
+        },
+        {
+          "name": "popup-dom-ready",
+          "ms": 280.19999998807907
+        },
+        {
+          "name": "popup-window-loaded",
+          "ms": 435
+        }
+      ],
+      "paints": [
+        {
+          "name": "first-paint",
+          "ms": 232
+        },
+        {
+          "name": "first-contentful-paint",
+          "ms": 232
+        }
+      ],
+      "apiRequests": [
+        {
+          "name": "sync-get",
+          "start": 280.19999998807907,
+          "callbackStart": 3296.899999976158,
+          "end": 3297.2999999523163
+        },
+        {
+          "name": "sync-get",
+          "start": 280.7999999523163,
+          "callbackStart": 3297.2999999523163,
+          "end": 3297.399999976158
+        },
+        {
+          "name": "tabs-query",
+          "start": 280.89999997615814,
+          "callbackStart": 3297.399999976158,
+          "end": 3297.399999976158
+        },
+        {
+          "name": "local-get",
+          "start": 280.89999997615814,
+          "callbackStart": 3297.399999976158,
+          "end": 3297.5
+        }
+      ],
+      "pendingAtFirstSample": 4,
+      "longTasks": [
+        {
+          "start": 283.89999997615814,
+          "duration": 82
+        }
+      ],
+      "resources": [
+        {
+          "name": "http://127.0.0.1:8766/probe.js?apiDelay=3000&rows=0",
+          "duration": 113.10000002384186,
+          "bytes": 2981
+        },
+        {
+          "name": "http://127.0.0.1:8766/style.css",
+          "duration": 117.19999998807907,
+          "bytes": 14137
+        },
+        {
+          "name": "http://127.0.0.1:8766/icon.png",
+          "duration": 126.60000002384186,
+          "bytes": 3497
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/gear-solid.svg",
+          "duration": 145.69999998807907,
+          "bytes": 1643
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/file-lines-solid.svg",
+          "duration": 196,
+          "bytes": 1015
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/bullhorn-solid.svg",
+          "duration": 197.69999998807907,
+          "bytes": 1065
+        },
+        {
+          "name": "http://127.0.0.1:8766/feature-settings-registry.js",
+          "duration": 213.60000002384186,
+          "bytes": 28594
+        },
+        {
+          "name": "http://127.0.0.1:8766/reccie-popup.js",
+          "duration": 219.80000001192093,
+          "bytes": 2359
+        },
+        {
+          "name": "http://127.0.0.1:8766/popup.js",
+          "duration": 219.5999999642372,
+          "bytes": 21446
+        }
+      ],
+      "title": "Ops Toolshed",
+      "status": "Connect your tracker to see your assignments."
+    },
+    {
+      "stage": "before",
+      "apiDelay": 0,
+      "rows": 20000,
+      "syntheticStorageBytes": 3275728,
+      "marks": [
+        {
+          "name": "popup-probe-start",
+          "ms": 163.39999997615814
+        },
+        {
+          "name": "popup-dom-ready",
+          "ms": 283.10000002384186
+        },
+        {
+          "name": "popup-window-loaded",
+          "ms": 383.19999998807907
+        }
+      ],
+      "paints": [
+        {
+          "name": "first-paint",
+          "ms": 228
+        },
+        {
+          "name": "first-contentful-paint",
+          "ms": 228
+        }
+      ],
+      "apiRequests": [
+        {
+          "name": "sync-get",
+          "start": 283.30000001192093,
+          "callbackStart": 287.5,
+          "end": 287.69999998807907
+        },
+        {
+          "name": "sync-get",
+          "start": 283.5,
+          "callbackStart": 287.69999998807907,
+          "end": 287.80000001192093
+        },
+        {
+          "name": "tabs-query",
+          "start": 283.80000001192093,
+          "callbackStart": 287.80000001192093,
+          "end": 287.80000001192093
+        },
+        {
+          "name": "local-get",
+          "start": 283.80000001192093,
+          "callbackStart": 305.19999998807907,
+          "end": 317.39999997615814
+        }
+      ],
+      "pendingAtFirstSample": 0,
+      "longTasks": [],
+      "resources": [
+        {
+          "name": "http://127.0.0.1:8766/probe.js?apiDelay=0&rows=20000",
+          "duration": 115,
+          "bytes": 2987
+        },
+        {
+          "name": "http://127.0.0.1:8766/style.css",
+          "duration": 122.89999997615814,
+          "bytes": 14137
+        },
+        {
+          "name": "http://127.0.0.1:8766/icon.png",
+          "duration": 130.0999999642372,
+          "bytes": 3497
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/gear-solid.svg",
+          "duration": 132.19999998807907,
+          "bytes": 1643
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/bullhorn-solid.svg",
+          "duration": 214,
+          "bytes": 1065
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/file-lines-solid.svg",
+          "duration": 213.80000001192093,
+          "bytes": 1015
+        },
+        {
+          "name": "http://127.0.0.1:8766/feature-settings-registry.js",
+          "duration": 218.19999998807907,
+          "bytes": 28594
+        },
+        {
+          "name": "http://127.0.0.1:8766/popup.js",
+          "duration": 234.69999998807907,
+          "bytes": 21446
+        },
+        {
+          "name": "http://127.0.0.1:8766/reccie-popup.js",
+          "duration": 237.80000001192093,
+          "bytes": 2359
+        }
+      ],
+      "title": "Ops Toolshed",
+      "status": "Test person · 2026-10 · 6666 not marked Yes / 10000 assigned. Read only."
+    },
+    {
+      "stage": "before",
+      "apiDelay": 0,
+      "rows": 0,
+      "syntheticStorageBytes": 86,
+      "marks": [
+        {
+          "name": "popup-probe-start",
+          "ms": 153.69999998807907
+        },
+        {
+          "name": "popup-dom-ready",
+          "ms": 282.7999999523163
+        },
+        {
+          "name": "popup-window-loaded",
+          "ms": 389.7999999523163
+        }
+      ],
+      "paints": [
+        {
+          "name": "first-paint",
+          "ms": 220
+        },
+        {
+          "name": "first-contentful-paint",
+          "ms": 220
+        }
+      ],
+      "apiRequests": [
+        {
+          "name": "sync-get",
+          "start": 282.89999997615814,
+          "callbackStart": 286.7999999523163,
+          "end": 286.89999997615814
+        },
+        {
+          "name": "sync-get",
+          "start": 283.0999999642372,
+          "callbackStart": 286.89999997615814,
+          "end": 287
+        },
+        {
+          "name": "tabs-query",
+          "start": 283.2999999523163,
+          "callbackStart": 287,
+          "end": 287
+        },
+        {
+          "name": "local-get",
+          "start": 283.2999999523163,
+          "callbackStart": 287,
+          "end": 287
+        }
+      ],
+      "pendingAtFirstSample": 0,
+      "longTasks": [],
+      "resources": [
+        {
+          "name": "http://127.0.0.1:8766/probe.js?apiDelay=0&rows=0",
+          "duration": 105.39999997615814,
+          "bytes": 2975
+        },
+        {
+          "name": "http://127.0.0.1:8766/style.css",
+          "duration": 112,
+          "bytes": 14137
+        },
+        {
+          "name": "http://127.0.0.1:8766/icon.png",
+          "duration": 116.19999998807907,
+          "bytes": 3497
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/gear-solid.svg",
+          "duration": 121.5,
+          "bytes": 1643
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/file-lines-solid.svg",
+          "duration": 207.39999997615814,
+          "bytes": 1015
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/bullhorn-solid.svg",
+          "duration": 208.39999997615814,
+          "bytes": 1065
+        },
+        {
+          "name": "http://127.0.0.1:8766/feature-settings-registry.js",
+          "duration": 211,
+          "bytes": 28594
+        },
+        {
+          "name": "http://127.0.0.1:8766/popup.js",
+          "duration": 222.9000000357628,
+          "bytes": 21446
+        },
+        {
+          "name": "http://127.0.0.1:8766/reccie-popup.js",
+          "duration": 222.5,
+          "bytes": 2359
+        }
+      ],
+      "title": "Ops Toolshed",
+      "status": "Connect your tracker to see your assignments."
+    },
+    {
+      "stage": "before",
+      "apiDelay": 3000,
+      "rows": 0,
+      "syntheticStorageBytes": 86,
+      "marks": [
+        {
+          "name": "popup-probe-start",
+          "ms": 180.39999997615814
+        },
+        {
+          "name": "popup-dom-ready",
+          "ms": 341.30000001192093
+        },
+        {
+          "name": "popup-window-loaded",
+          "ms": 416.69999998807907
+        }
+      ],
+      "paints": [
+        {
+          "name": "first-paint",
+          "ms": 256
+        },
+        {
+          "name": "first-contentful-paint",
+          "ms": 256
+        }
+      ],
+      "apiRequests": [
+        {
+          "name": "sync-get",
+          "start": 341.39999997615814,
+          "callbackStart": 3352.300000011921,
+          "end": 3352.800000011921
+        },
+        {
+          "name": "sync-get",
+          "start": 342,
+          "callbackStart": 3352.899999976158,
+          "end": 3353.399999976158
+        },
+        {
+          "name": "tabs-query",
+          "start": 342.30000001192093,
+          "callbackStart": 3353.399999976158,
+          "end": 3353.5
+        },
+        {
+          "name": "local-get",
+          "start": 342.39999997615814,
+          "callbackStart": 3353.5,
+          "end": 3353.5
+        }
+      ],
+      "pendingAtFirstSample": 4,
+      "longTasks": [],
+      "resources": [
+        {
+          "name": "http://127.0.0.1:8766/probe.js?apiDelay=3000&rows=0",
+          "duration": 121.29999995231628,
+          "bytes": 2981
+        },
+        {
+          "name": "http://127.0.0.1:8766/style.css",
+          "duration": 128.80000001192093,
+          "bytes": 14137
+        },
+        {
+          "name": "http://127.0.0.1:8766/icon.png",
+          "duration": 137.60000002384186,
+          "bytes": 3497
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/gear-solid.svg",
+          "duration": 142.4000000357628,
+          "bytes": 1643
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/file-lines-solid.svg",
+          "duration": 250.5999999642372,
+          "bytes": 1015
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/bullhorn-solid.svg",
+          "duration": 259.5999999642372,
+          "bytes": 1065
+        },
+        {
+          "name": "http://127.0.0.1:8766/feature-settings-registry.js",
+          "duration": 260.19999998807907,
+          "bytes": 28594
+        },
+        {
+          "name": "http://127.0.0.1:8766/popup.js",
+          "duration": 266.0999999642372,
+          "bytes": 21446
+        },
+        {
+          "name": "http://127.0.0.1:8766/reccie-popup.js",
+          "duration": 265.69999998807907,
+          "bytes": 2359
+        }
+      ],
+      "title": "Ops Toolshed",
+      "status": "Connect your tracker to see your assignments."
+    },
+    {
+      "stage": "before",
+      "apiDelay": 0,
+      "rows": 20000,
+      "syntheticStorageBytes": 3275728,
+      "marks": [
+        {
+          "name": "popup-probe-start",
+          "ms": 158
+        },
+        {
+          "name": "popup-dom-ready",
+          "ms": 270.19999998807907
+        },
+        {
+          "name": "popup-window-loaded",
+          "ms": 422.30000001192093
+        }
+      ],
+      "paints": [
+        {
+          "name": "first-paint",
+          "ms": 204
+        },
+        {
+          "name": "first-contentful-paint",
+          "ms": 204
+        }
+      ],
+      "apiRequests": [
+        {
+          "name": "sync-get",
+          "start": 270.19999998807907,
+          "callbackStart": 277.0999999642372,
+          "end": 277.30000001192093
+        },
+        {
+          "name": "sync-get",
+          "start": 270.39999997615814,
+          "callbackStart": 277.30000001192093,
+          "end": 277.39999997615814
+        },
+        {
+          "name": "tabs-query",
+          "start": 270.5999999642372,
+          "callbackStart": 277.39999997615814,
+          "end": 277.39999997615814
+        },
+        {
+          "name": "local-get",
+          "start": 270.5999999642372,
+          "callbackStart": 293.69999998807907,
+          "end": 299.89999997615814
+        }
+      ],
+      "pendingAtFirstSample": 0,
+      "longTasks": [
+        {
+          "start": 300.19999998807907,
+          "duration": 65
+        }
+      ],
+      "resources": [
+        {
+          "name": "http://127.0.0.1:8766/probe.js?apiDelay=0&rows=20000",
+          "duration": 96.29999995231628,
+          "bytes": 2987
+        },
+        {
+          "name": "http://127.0.0.1:8766/style.css",
+          "duration": 104.30000001192093,
+          "bytes": 14137
+        },
+        {
+          "name": "http://127.0.0.1:8766/icon.png",
+          "duration": 103.5,
+          "bytes": 3497
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/gear-solid.svg",
+          "duration": 105.59999996423721,
+          "bytes": 1643
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/file-lines-solid.svg",
+          "duration": 169.10000002384186,
+          "bytes": 1015
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/bullhorn-solid.svg",
+          "duration": 185.30000001192093,
+          "bytes": 1065
+        },
+        {
+          "name": "http://127.0.0.1:8766/feature-settings-registry.js",
+          "duration": 191.10000002384186,
+          "bytes": 28594
+        },
+        {
+          "name": "http://127.0.0.1:8766/popup.js",
+          "duration": 191.29999995231628,
+          "bytes": 21446
+        },
+        {
+          "name": "http://127.0.0.1:8766/reccie-popup.js",
+          "duration": 201.10000002384186,
+          "bytes": 2359
+        }
+      ],
+      "title": "Ops Toolshed",
+      "status": "Test person · 2026-10 · 6666 not marked Yes / 10000 assigned. Read only."
+    },
+    {
+      "stage": "before",
+      "apiDelay": 0,
+      "rows": 0,
+      "syntheticStorageBytes": 86,
+      "marks": [
+        {
+          "name": "popup-probe-start",
+          "ms": 171.10000002384186
+        },
+        {
+          "name": "popup-dom-ready",
+          "ms": 273.19999998807907
+        },
+        {
+          "name": "popup-window-loaded",
+          "ms": 379.39999997615814
+        }
+      ],
+      "paints": [
+        {
+          "name": "first-paint",
+          "ms": 220
+        },
+        {
+          "name": "first-contentful-paint",
+          "ms": 220
+        }
+      ],
+      "apiRequests": [
+        {
+          "name": "sync-get",
+          "start": 273.30000001192093,
+          "callbackStart": 278.30000001192093,
+          "end": 278.60000002384186
+        },
+        {
+          "name": "sync-get",
+          "start": 273.5,
+          "callbackStart": 278.69999998807907,
+          "end": 278.80000001192093
+        },
+        {
+          "name": "tabs-query",
+          "start": 273.69999998807907,
+          "callbackStart": 278.80000001192093,
+          "end": 278.80000001192093
+        },
+        {
+          "name": "local-get",
+          "start": 273.69999998807907,
+          "callbackStart": 278.80000001192093,
+          "end": 278.80000001192093
+        }
+      ],
+      "pendingAtFirstSample": 0,
+      "longTasks": [],
+      "resources": [
+        {
+          "name": "http://127.0.0.1:8766/probe.js?apiDelay=0&rows=0",
+          "duration": 106.5,
+          "bytes": 2975
+        },
+        {
+          "name": "http://127.0.0.1:8766/style.css",
+          "duration": 114.80000001192093,
+          "bytes": 14137
+        },
+        {
+          "name": "http://127.0.0.1:8766/icon.png",
+          "duration": 128.19999998807907,
+          "bytes": 3497
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/gear-solid.svg",
+          "duration": 128.5,
+          "bytes": 1643
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/file-lines-solid.svg",
+          "duration": 187.0999999642372,
+          "bytes": 1015
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/bullhorn-solid.svg",
+          "duration": 187.30000001192093,
+          "bytes": 1065
+        },
+        {
+          "name": "http://127.0.0.1:8766/feature-settings-registry.js",
+          "duration": 199.30000001192093,
+          "bytes": 28594
+        },
+        {
+          "name": "http://127.0.0.1:8766/reccie-popup.js",
+          "duration": 203.89999997615814,
+          "bytes": 2359
+        },
+        {
+          "name": "http://127.0.0.1:8766/popup.js",
+          "duration": 203.69999998807907,
+          "bytes": 21446
+        }
+      ],
+      "title": "Ops Toolshed",
+      "status": "Connect your tracker to see your assignments."
+    },
+    {
+      "stage": "before",
+      "apiDelay": 3000,
+      "rows": 0,
+      "syntheticStorageBytes": 86,
+      "marks": [
+        {
+          "name": "popup-probe-start",
+          "ms": 182.70000004768372
+        },
+        {
+          "name": "popup-dom-ready",
+          "ms": 330.60000002384186
+        },
+        {
+          "name": "popup-window-loaded",
+          "ms": 415.30000001192093
+        }
+      ],
+      "paints": [
+        {
+          "name": "first-paint",
+          "ms": 256
+        },
+        {
+          "name": "first-contentful-paint",
+          "ms": 256
+        }
+      ],
+      "apiRequests": [
+        {
+          "name": "sync-get",
+          "start": 330.60000002384186,
+          "callbackStart": 3331.100000023842,
+          "end": 3331.5
+        },
+        {
+          "name": "sync-get",
+          "start": 330.9000000357628,
+          "callbackStart": 3331.5,
+          "end": 3331.800000011921
+        },
+        {
+          "name": "tabs-query",
+          "start": 331,
+          "callbackStart": 3331.900000035763,
+          "end": 3332
+        },
+        {
+          "name": "local-get",
+          "start": 331,
+          "callbackStart": 3332.100000023842,
+          "end": 3332.2000000476837
+        }
+      ],
+      "pendingAtFirstSample": 4,
+      "longTasks": [],
+      "resources": [
+        {
+          "name": "http://127.0.0.1:8766/probe.js?apiDelay=3000&rows=0",
+          "duration": 122.10000002384186,
+          "bytes": 2981
+        },
+        {
+          "name": "http://127.0.0.1:8766/style.css",
+          "duration": 126.30000001192093,
+          "bytes": 14137
+        },
+        {
+          "name": "http://127.0.0.1:8766/icon.png",
+          "duration": 134.19999998807907,
+          "bytes": 3497
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/gear-solid.svg",
+          "duration": 142.39999997615814,
+          "bytes": 1643
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/file-lines-solid.svg",
+          "duration": 227.29999995231628,
+          "bytes": 1015
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/bullhorn-solid.svg",
+          "duration": 231.69999998807907,
+          "bytes": 1065
+        },
+        {
+          "name": "http://127.0.0.1:8766/feature-settings-registry.js",
+          "duration": 250.9000000357628,
+          "bytes": 28594
+        },
+        {
+          "name": "http://127.0.0.1:8766/popup.js",
+          "duration": 264.39999997615814,
+          "bytes": 21446
+        },
+        {
+          "name": "http://127.0.0.1:8766/reccie-popup.js",
+          "duration": 264.19999998807907,
+          "bytes": 2359
+        }
+      ],
+      "title": "Ops Toolshed",
+      "status": "Connect your tracker to see your assignments."
+    },
+    {
+      "stage": "before",
+      "apiDelay": 0,
+      "rows": 20000,
+      "syntheticStorageBytes": 3275728,
+      "marks": [
+        {
+          "name": "popup-probe-start",
+          "ms": 177.5
+        },
+        {
+          "name": "popup-dom-ready",
+          "ms": 296.89999997615814
+        },
+        {
+          "name": "popup-window-loaded",
+          "ms": 456.5
+        }
+      ],
+      "paints": [
+        {
+          "name": "first-paint",
+          "ms": 220
+        },
+        {
+          "name": "first-contentful-paint",
+          "ms": 220
+        }
+      ],
+      "apiRequests": [
+        {
+          "name": "sync-get",
+          "start": 300.30000001192093,
+          "callbackStart": 317.39999997615814,
+          "end": 317.60000002384186
+        },
+        {
+          "name": "sync-get",
+          "start": 301.39999997615814,
+          "callbackStart": 317.80000001192093,
+          "end": 318.10000002384186
+        },
+        {
+          "name": "tabs-query",
+          "start": 301.60000002384186,
+          "callbackStart": 318.10000002384186,
+          "end": 318.10000002384186
+        },
+        {
+          "name": "local-get",
+          "start": 301.60000002384186,
+          "callbackStart": 333.30000001192093,
+          "end": 341.80000001192093
+        }
+      ],
+      "pendingAtFirstSample": 0,
+      "longTasks": [
+        {
+          "start": 342,
+          "duration": 55
+        }
+      ],
+      "resources": [
+        {
+          "name": "http://127.0.0.1:8766/probe.js?apiDelay=0&rows=20000",
+          "duration": 122.90000003576279,
+          "bytes": 2987
+        },
+        {
+          "name": "http://127.0.0.1:8766/style.css",
+          "duration": 130.10000002384186,
+          "bytes": 14137
+        },
+        {
+          "name": "http://127.0.0.1:8766/icon.png",
+          "duration": 163.80000001192093,
+          "bytes": 3497
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/gear-solid.svg",
+          "duration": 164.80000001192093,
+          "bytes": 1643
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/file-lines-solid.svg",
+          "duration": 223.39999997615814,
+          "bytes": 1015
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/bullhorn-solid.svg",
+          "duration": 223.39999997615814,
+          "bytes": 1065
+        },
+        {
+          "name": "http://127.0.0.1:8766/feature-settings-registry.js",
+          "duration": 238.30000001192093,
+          "bytes": 28594
+        },
+        {
+          "name": "http://127.0.0.1:8766/popup.js",
+          "duration": 238.39999997615814,
+          "bytes": 21446
+        },
+        {
+          "name": "http://127.0.0.1:8766/reccie-popup.js",
+          "duration": 237.70000004768372,
+          "bytes": 2359
+        }
+      ],
+      "title": "Ops Toolshed",
+      "status": "Test person · 2026-10 · 6666 not marked Yes / 10000 assigned. Read only."
+    },
+    {
+      "stage": "after",
+      "apiDelay": 0,
+      "rows": 0,
+      "syntheticStorageBytes": 86,
+      "marks": [
+        {
+          "name": "popup-probe-start",
+          "ms": 249.10000002384186
+        },
+        {
+          "name": "popup-dom-ready",
+          "ms": 416.69999998807907
+        },
+        {
+          "name": "popup-window-loaded",
+          "ms": 749.6999999880791
+        }
+      ],
+      "paints": [
+        {
+          "name": "first-paint",
+          "ms": 320
+        },
+        {
+          "name": "first-contentful-paint",
+          "ms": 320
+        }
+      ],
+      "apiRequests": [
+        {
+          "name": "sync-get",
+          "start": 416.80000001192093,
+          "callbackStart": 420.69999998807907,
+          "end": 420.9000000357628
+        },
+        {
+          "name": "sync-get",
+          "start": 417,
+          "callbackStart": 420.9000000357628,
+          "end": 420.9000000357628
+        },
+        {
+          "name": "tabs-query",
+          "start": 417.30000001192093,
+          "callbackStart": 420.9000000357628,
+          "end": 421
+        },
+        {
+          "name": "local-get",
+          "start": 710.6000000238419,
+          "callbackStart": 728.6000000238419,
+          "end": 728.6999999880791
+        }
+      ],
+      "pendingAtFirstSample": 0,
+      "longTasks": [
+        {
+          "start": 427.4000000357628,
+          "duration": 281
+        }
+      ],
+      "resources": [
+        {
+          "name": "http://127.0.0.1:8766/probe.js?apiDelay=0&rows=0",
+          "duration": 185.30000001192093,
+          "bytes": 2975
+        },
+        {
+          "name": "http://127.0.0.1:8766/style.css",
+          "duration": 215.80000001192093,
+          "bytes": 14137
+        },
+        {
+          "name": "http://127.0.0.1:8766/icon.png",
+          "duration": 222.19999998807907,
+          "bytes": 3497
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/gear-solid.svg",
+          "duration": 222.30000001192093,
+          "bytes": 1643
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/file-lines-solid.svg",
+          "duration": 276.60000002384186,
+          "bytes": 1015
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/bullhorn-solid.svg",
+          "duration": 276.89999997615814,
+          "bytes": 1065
+        },
+        {
+          "name": "http://127.0.0.1:8766/popup.js",
+          "duration": 283.19999998807907,
+          "bytes": 21261
+        },
+        {
+          "name": "http://127.0.0.1:8766/reccie-popup.js",
+          "duration": 312.80000001192093,
+          "bytes": 2770
+        }
+      ],
+      "title": "Ops Toolshed",
+      "status": "Connect your tracker to see your assignments."
+    },
+    {
+      "stage": "after",
+      "apiDelay": 3000,
+      "rows": 0,
+      "syntheticStorageBytes": 86,
+      "marks": [
+        {
+          "name": "popup-probe-start",
+          "ms": 190.0999999642372
+        },
+        {
+          "name": "popup-dom-ready",
+          "ms": 291.7999999523163
+        },
+        {
+          "name": "popup-window-loaded",
+          "ms": 400.5999999642372
+        }
+      ],
+      "paints": [
+        {
+          "name": "first-paint",
+          "ms": 248
+        },
+        {
+          "name": "first-contentful-paint",
+          "ms": 248
+        }
+      ],
+      "apiRequests": [
+        {
+          "name": "sync-get",
+          "start": 291.89999997615814,
+          "callbackStart": 3308.7999999523163,
+          "end": 3309.699999988079
+        },
+        {
+          "name": "sync-get",
+          "start": 292.39999997615814,
+          "callbackStart": 3309.7999999523163,
+          "end": 3310
+        },
+        {
+          "name": "tabs-query",
+          "start": 292.89999997615814,
+          "callbackStart": 3310,
+          "end": 3310.099999964237
+        },
+        {
+          "name": "local-get",
+          "start": 356.39999997615814,
+          "callbackStart": 3358.5,
+          "end": 3358.699999988079
+        }
+      ],
+      "pendingAtFirstSample": 4,
+      "longTasks": [
+        {
+          "start": 298,
+          "duration": 58
+        }
+      ],
+      "resources": [
+        {
+          "name": "http://127.0.0.1:8766/probe.js?apiDelay=3000&rows=0",
+          "duration": 115.10000002384186,
+          "bytes": 2981
+        },
+        {
+          "name": "http://127.0.0.1:8766/style.css",
+          "duration": 132.5999999642372,
+          "bytes": 14137
+        },
+        {
+          "name": "http://127.0.0.1:8766/icon.png",
+          "duration": 132.39999997615814,
+          "bytes": 3497
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/gear-solid.svg",
+          "duration": 136.20000004768372,
+          "bytes": 1643
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/file-lines-solid.svg",
+          "duration": 208.30000001192093,
+          "bytes": 1015
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/bullhorn-solid.svg",
+          "duration": 209.60000002384186,
+          "bytes": 1065
+        },
+        {
+          "name": "http://127.0.0.1:8766/popup.js",
+          "duration": 220,
+          "bytes": 21261
+        },
+        {
+          "name": "http://127.0.0.1:8766/reccie-popup.js",
+          "duration": 220.29999995231628,
+          "bytes": 2770
+        }
+      ],
+      "title": "Ops Toolshed",
+      "status": "Connect your tracker to see your assignments."
+    },
+    {
+      "stage": "after",
+      "apiDelay": 0,
+      "rows": 20000,
+      "syntheticStorageBytes": 3275728,
+      "marks": [
+        {
+          "name": "popup-probe-start",
+          "ms": 155.89999997615814
+        },
+        {
+          "name": "popup-dom-ready",
+          "ms": 261.5
+        },
+        {
+          "name": "popup-window-loaded",
+          "ms": 332.30000001192093
+        }
+      ],
+      "paints": [
+        {
+          "name": "first-paint",
+          "ms": 188
+        },
+        {
+          "name": "first-contentful-paint",
+          "ms": 188
+        }
+      ],
+      "apiRequests": [
+        {
+          "name": "sync-get",
+          "start": 261.60000002384186,
+          "callbackStart": 264.60000002384186,
+          "end": 264.69999998807907
+        },
+        {
+          "name": "sync-get",
+          "start": 261.80000001192093,
+          "callbackStart": 264.69999998807907,
+          "end": 264.80000001192093
+        },
+        {
+          "name": "tabs-query",
+          "start": 261.89999997615814,
+          "callbackStart": 264.80000001192093,
+          "end": 264.80000001192093
+        },
+        {
+          "name": "local-get",
+          "start": 327.89999997615814,
+          "callbackStart": 352.19999998807907,
+          "end": 365.89999997615814
+        }
+      ],
+      "pendingAtFirstSample": 0,
+      "longTasks": [],
+      "resources": [
+        {
+          "name": "http://127.0.0.1:8766/probe.js?apiDelay=0&rows=20000",
+          "duration": 103.69999998807907,
+          "bytes": 2987
+        },
+        {
+          "name": "http://127.0.0.1:8766/style.css",
+          "duration": 112.19999998807907,
+          "bytes": 14137
+        },
+        {
+          "name": "http://127.0.0.1:8766/icon.png",
+          "duration": 116.10000002384186,
+          "bytes": 3497
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/gear-solid.svg",
+          "duration": 119.09999996423721,
+          "bytes": 1643
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/file-lines-solid.svg",
+          "duration": 184.19999998807907,
+          "bytes": 1015
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/bullhorn-solid.svg",
+          "duration": 190,
+          "bytes": 1065
+        },
+        {
+          "name": "http://127.0.0.1:8766/popup.js",
+          "duration": 190.69999998807907,
+          "bytes": 21261
+        },
+        {
+          "name": "http://127.0.0.1:8766/reccie-popup.js",
+          "duration": 197.0999999642372,
+          "bytes": 2770
+        }
+      ],
+      "title": "Ops Toolshed",
+      "status": "Test person · 2026-10 · 6666 not marked Yes / 10000 assigned. Read only."
+    },
+    {
+      "stage": "after",
+      "apiDelay": 0,
+      "rows": 0,
+      "syntheticStorageBytes": 86,
+      "marks": [
+        {
+          "name": "popup-probe-start",
+          "ms": 174.39999997615814
+        },
+        {
+          "name": "popup-dom-ready",
+          "ms": 280.0999999642372
+        },
+        {
+          "name": "popup-window-loaded",
+          "ms": 385.0999999642372
+        }
+      ],
+      "paints": [
+        {
+          "name": "first-paint",
+          "ms": 220
+        },
+        {
+          "name": "first-contentful-paint",
+          "ms": 220
+        }
+      ],
+      "apiRequests": [
+        {
+          "name": "sync-get",
+          "start": 280.0999999642372,
+          "callbackStart": 285.80000001192093,
+          "end": 286.0999999642372
+        },
+        {
+          "name": "sync-get",
+          "start": 280.39999997615814,
+          "callbackStart": 286.0999999642372,
+          "end": 286.19999998807907
+        },
+        {
+          "name": "tabs-query",
+          "start": 280.5,
+          "callbackStart": 286.39999997615814,
+          "end": 286.39999997615814
+        },
+        {
+          "name": "local-get",
+          "start": 362.89999997615814,
+          "callbackStart": 368.0999999642372,
+          "end": 368.19999998807907
+        }
+      ],
+      "pendingAtFirstSample": 0,
+      "longTasks": [],
+      "resources": [
+        {
+          "name": "http://127.0.0.1:8766/probe.js?apiDelay=0&rows=0",
+          "duration": 117.69999998807907,
+          "bytes": 2975
+        },
+        {
+          "name": "http://127.0.0.1:8766/style.css",
+          "duration": 124.30000001192093,
+          "bytes": 14137
+        },
+        {
+          "name": "http://127.0.0.1:8766/icon.png",
+          "duration": 133.30000001192093,
+          "bytes": 3497
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/gear-solid.svg",
+          "duration": 134.39999997615814,
+          "bytes": 1643
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/file-lines-solid.svg",
+          "duration": 202.30000001192093,
+          "bytes": 1015
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/bullhorn-solid.svg",
+          "duration": 210.19999998807907,
+          "bytes": 1065
+        },
+        {
+          "name": "http://127.0.0.1:8766/popup.js",
+          "duration": 220.30000001192093,
+          "bytes": 21261
+        },
+        {
+          "name": "http://127.0.0.1:8766/reccie-popup.js",
+          "duration": 223.69999998807907,
+          "bytes": 2770
+        }
+      ],
+      "title": "Ops Toolshed",
+      "status": "Connect your tracker to see your assignments."
+    },
+    {
+      "stage": "after",
+      "apiDelay": 3000,
+      "rows": 0,
+      "syntheticStorageBytes": 86,
+      "marks": [
+        {
+          "name": "popup-probe-start",
+          "ms": 189.69999998807907
+        },
+        {
+          "name": "popup-dom-ready",
+          "ms": 305.89999997615814
+        },
+        {
+          "name": "popup-window-loaded",
+          "ms": 400.69999998807907
+        }
+      ],
+      "paints": [
+        {
+          "name": "first-paint",
+          "ms": 264
+        },
+        {
+          "name": "first-contentful-paint",
+          "ms": 264
+        }
+      ],
+      "apiRequests": [
+        {
+          "name": "sync-get",
+          "start": 306,
+          "callbackStart": 3312.399999976158,
+          "end": 3313.800000011921
+        },
+        {
+          "name": "sync-get",
+          "start": 306.39999997615814,
+          "callbackStart": 3313.899999976158,
+          "end": 3314.5
+        },
+        {
+          "name": "tabs-query",
+          "start": 306.80000001192093,
+          "callbackStart": 3314.5,
+          "end": 3314.5
+        },
+        {
+          "name": "local-get",
+          "start": 367.19999998807907,
+          "callbackStart": 3375.100000023842,
+          "end": 3375.399999976158
+        }
+      ],
+      "pendingAtFirstSample": 4,
+      "longTasks": [
+        {
+          "start": 316.80000001192093,
+          "duration": 50
+        }
+      ],
+      "resources": [
+        {
+          "name": "http://127.0.0.1:8766/probe.js?apiDelay=3000&rows=0",
+          "duration": 136.5,
+          "bytes": 2981
+        },
+        {
+          "name": "http://127.0.0.1:8766/style.css",
+          "duration": 145,
+          "bytes": 14137
+        },
+        {
+          "name": "http://127.0.0.1:8766/icon.png",
+          "duration": 146.4000000357628,
+          "bytes": 3497
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/gear-solid.svg",
+          "duration": 154.69999998807907,
+          "bytes": 1643
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/file-lines-solid.svg",
+          "duration": 215.30000001192093,
+          "bytes": 1015
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/bullhorn-solid.svg",
+          "duration": 221.39999997615814,
+          "bytes": 1065
+        },
+        {
+          "name": "http://127.0.0.1:8766/popup.js",
+          "duration": 243.79999995231628,
+          "bytes": 21261
+        },
+        {
+          "name": "http://127.0.0.1:8766/reccie-popup.js",
+          "duration": 243.29999995231628,
+          "bytes": 2770
+        }
+      ],
+      "title": "Ops Toolshed",
+      "status": "Connect your tracker to see your assignments."
+    },
+    {
+      "stage": "after",
+      "apiDelay": 0,
+      "rows": 20000,
+      "syntheticStorageBytes": 3275728,
+      "marks": [
+        {
+          "name": "popup-probe-start",
+          "ms": 154.9000000357628
+        },
+        {
+          "name": "popup-dom-ready",
+          "ms": 256.9000000357628
+        },
+        {
+          "name": "popup-window-loaded",
+          "ms": 372.5
+        }
+      ],
+      "paints": [
+        {
+          "name": "first-paint",
+          "ms": 228
+        },
+        {
+          "name": "first-contentful-paint",
+          "ms": 228
+        }
+      ],
+      "apiRequests": [
+        {
+          "name": "sync-get",
+          "start": 257,
+          "callbackStart": 260.9000000357628,
+          "end": 261.2000000476837
+        },
+        {
+          "name": "sync-get",
+          "start": 257.30000001192093,
+          "callbackStart": 261.2000000476837,
+          "end": 261.30000001192093
+        },
+        {
+          "name": "tabs-query",
+          "start": 257.60000002384186,
+          "callbackStart": 261.30000001192093,
+          "end": 261.30000001192093
+        },
+        {
+          "name": "local-get",
+          "start": 333.60000002384186,
+          "callbackStart": 362.60000002384186,
+          "end": 369.10000002384186
+        }
+      ],
+      "pendingAtFirstSample": 0,
+      "longTasks": [],
+      "resources": [
+        {
+          "name": "http://127.0.0.1:8766/probe.js?apiDelay=0&rows=20000",
+          "duration": 106.10000002384186,
+          "bytes": 2987
+        },
+        {
+          "name": "http://127.0.0.1:8766/style.css",
+          "duration": 112.19999998807907,
+          "bytes": 14137
+        },
+        {
+          "name": "http://127.0.0.1:8766/icon.png",
+          "duration": 119.5,
+          "bytes": 3497
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/gear-solid.svg",
+          "duration": 119.80000001192093,
+          "bytes": 1643
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/file-lines-solid.svg",
+          "duration": 187.30000001192093,
+          "bytes": 1015
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/bullhorn-solid.svg",
+          "duration": 194.60000002384186,
+          "bytes": 1065
+        },
+        {
+          "name": "http://127.0.0.1:8766/popup.js",
+          "duration": 206.60000002384186,
+          "bytes": 21261
+        },
+        {
+          "name": "http://127.0.0.1:8766/reccie-popup.js",
+          "duration": 206.19999998807907,
+          "bytes": 2770
+        }
+      ],
+      "title": "Ops Toolshed",
+      "status": "Test person · 2026-10 · 6666 not marked Yes / 10000 assigned. Read only."
+    },
+    {
+      "stage": "after",
+      "apiDelay": 0,
+      "rows": 0,
+      "syntheticStorageBytes": 86,
+      "marks": [
+        {
+          "name": "popup-probe-start",
+          "ms": 156
+        },
+        {
+          "name": "popup-dom-ready",
+          "ms": 271.80000001192093
+        },
+        {
+          "name": "popup-window-loaded",
+          "ms": 370.60000002384186
+        }
+      ],
+      "paints": [
+        {
+          "name": "first-paint",
+          "ms": 228
+        },
+        {
+          "name": "first-contentful-paint",
+          "ms": 228
+        }
+      ],
+      "apiRequests": [
+        {
+          "name": "sync-get",
+          "start": 271.9000000357628,
+          "callbackStart": 278.4000000357628,
+          "end": 278.5
+        },
+        {
+          "name": "sync-get",
+          "start": 272.4000000357628,
+          "callbackStart": 278.69999998807907,
+          "end": 278.69999998807907
+        },
+        {
+          "name": "tabs-query",
+          "start": 272.69999998807907,
+          "callbackStart": 278.69999998807907,
+          "end": 278.69999998807907
+        },
+        {
+          "name": "local-get",
+          "start": 338.30000001192093,
+          "callbackStart": 350.4000000357628,
+          "end": 350.60000002384186
+        }
+      ],
+      "pendingAtFirstSample": 0,
+      "longTasks": [],
+      "resources": [
+        {
+          "name": "http://127.0.0.1:8766/probe.js?apiDelay=0&rows=0",
+          "duration": 116.19999998807907,
+          "bytes": 2975
+        },
+        {
+          "name": "http://127.0.0.1:8766/style.css",
+          "duration": 120.79999995231628,
+          "bytes": 14137
+        },
+        {
+          "name": "http://127.0.0.1:8766/icon.png",
+          "duration": 129.39999997615814,
+          "bytes": 3497
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/gear-solid.svg",
+          "duration": 134.89999997615814,
+          "bytes": 1643
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/file-lines-solid.svg",
+          "duration": 203.5,
+          "bytes": 1015
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/bullhorn-solid.svg",
+          "duration": 209.89999997615814,
+          "bytes": 1065
+        },
+        {
+          "name": "http://127.0.0.1:8766/popup.js",
+          "duration": 210.30000001192093,
+          "bytes": 21261
+        },
+        {
+          "name": "http://127.0.0.1:8766/reccie-popup.js",
+          "duration": 217.80000001192093,
+          "bytes": 2770
+        }
+      ],
+      "title": "Ops Toolshed",
+      "status": "Connect your tracker to see your assignments."
+    },
+    {
+      "stage": "after",
+      "apiDelay": 3000,
+      "rows": 0,
+      "syntheticStorageBytes": 86,
+      "marks": [
+        {
+          "name": "popup-probe-start",
+          "ms": 194.30000001192093
+        },
+        {
+          "name": "popup-dom-ready",
+          "ms": 318.5
+        },
+        {
+          "name": "popup-window-loaded",
+          "ms": 410.19999998807907
+        }
+      ],
+      "paints": [
+        {
+          "name": "first-paint",
+          "ms": 240
+        },
+        {
+          "name": "first-contentful-paint",
+          "ms": 240
+        }
+      ],
+      "apiRequests": [
+        {
+          "name": "sync-get",
+          "start": 318.5,
+          "callbackStart": 3332.199999988079,
+          "end": 3333.100000023842
+        },
+        {
+          "name": "sync-get",
+          "start": 318.80000001192093,
+          "callbackStart": 3333.199999988079,
+          "end": 3333.399999976158
+        },
+        {
+          "name": "tabs-query",
+          "start": 318.89999997615814,
+          "callbackStart": 3333.399999976158,
+          "end": 3333.5
+        },
+        {
+          "name": "local-get",
+          "start": 366.10000002384186,
+          "callbackStart": 3378.899999976158,
+          "end": 3379
+        }
+      ],
+      "pendingAtFirstSample": 4,
+      "longTasks": [],
+      "resources": [
+        {
+          "name": "http://127.0.0.1:8766/probe.js?apiDelay=3000&rows=0",
+          "duration": 136.9000000357628,
+          "bytes": 2981
+        },
+        {
+          "name": "http://127.0.0.1:8766/style.css",
+          "duration": 148.10000002384186,
+          "bytes": 14137
+        },
+        {
+          "name": "http://127.0.0.1:8766/icon.png",
+          "duration": 146.89999997615814,
+          "bytes": 3497
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/gear-solid.svg",
+          "duration": 153,
+          "bytes": 1643
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/file-lines-solid.svg",
+          "duration": 246,
+          "bytes": 1015
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/bullhorn-solid.svg",
+          "duration": 251.80000001192093,
+          "bytes": 1065
+        },
+        {
+          "name": "http://127.0.0.1:8766/popup.js",
+          "duration": 253.5999999642372,
+          "bytes": 21261
+        },
+        {
+          "name": "http://127.0.0.1:8766/reccie-popup.js",
+          "duration": 261.5999999642372,
+          "bytes": 2770
+        }
+      ],
+      "title": "Ops Toolshed",
+      "status": "Connect your tracker to see your assignments."
+    },
+    {
+      "stage": "after",
+      "apiDelay": 0,
+      "rows": 20000,
+      "syntheticStorageBytes": 3275728,
+      "marks": [
+        {
+          "name": "popup-probe-start",
+          "ms": 170.30000001192093
+        },
+        {
+          "name": "popup-dom-ready",
+          "ms": 269.5999999642372
+        },
+        {
+          "name": "popup-window-loaded",
+          "ms": 398.89999997615814
+        }
+      ],
+      "paints": [
+        {
+          "name": "first-paint",
+          "ms": 240
+        },
+        {
+          "name": "first-contentful-paint",
+          "ms": 240
+        }
+      ],
+      "apiRequests": [
+        {
+          "name": "sync-get",
+          "start": 269.5999999642372,
+          "callbackStart": 274.69999998807907,
+          "end": 275.19999998807907
+        },
+        {
+          "name": "sync-get",
+          "start": 269.80000001192093,
+          "callbackStart": 275.30000001192093,
+          "end": 275.30000001192093
+        },
+        {
+          "name": "tabs-query",
+          "start": 270,
+          "callbackStart": 275.30000001192093,
+          "end": 275.30000001192093
+        },
+        {
+          "name": "local-get",
+          "start": 318.5,
+          "callbackStart": 357.5,
+          "end": 362.69999998807907
+        }
+      ],
+      "pendingAtFirstSample": 0,
+      "longTasks": [],
+      "resources": [
+        {
+          "name": "http://127.0.0.1:8766/probe.js?apiDelay=0&rows=20000",
+          "duration": 134.5,
+          "bytes": 2987
+        },
+        {
+          "name": "http://127.0.0.1:8766/style.css",
+          "duration": 138.89999997615814,
+          "bytes": 14137
+        },
+        {
+          "name": "http://127.0.0.1:8766/icon.png",
+          "duration": 138.70000004768372,
+          "bytes": 3497
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/gear-solid.svg",
+          "duration": 142.70000004768372,
+          "bytes": 1643
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/file-lines-solid.svg",
+          "duration": 204,
+          "bytes": 1015
+        },
+        {
+          "name": "http://127.0.0.1:8766/assets/icons/fontawesome/bullhorn-solid.svg",
+          "duration": 210.39999997615814,
+          "bytes": 1065
+        },
+        {
+          "name": "http://127.0.0.1:8766/popup.js",
+          "duration": 217.39999997615814,
+          "bytes": 21261
+        },
+        {
+          "name": "http://127.0.0.1:8766/reccie-popup.js",
+          "duration": 217,
+          "bytes": 2770
+        }
+      ],
+      "title": "Ops Toolshed",
+      "status": "Test person · 2026-10 · 6666 not marked Yes / 10000 assigned. Read only."
+    }
+  ],
+  "discardedDoubleFrameCandidate": [
+    {
+      "stage": "double-frame-candidate",
+      "apiDelay": 0,
+      "rows": 0,
+      "paints": [
+        {
+          "name": "first-paint",
+          "ms": 256
+        },
+        {
+          "name": "first-contentful-paint",
+          "ms": 256
+        }
+      ],
+      "localRead": {
+        "name": "local-get",
+        "start": 1323.0999999642372,
+        "callbackStart": 1326.5,
+        "end": 1326.800000011921
+      }
+    },
+    {
+      "stage": "double-frame-candidate",
+      "apiDelay": 3000,
+      "rows": 0,
+      "paints": [
+        {
+          "name": "first-paint",
+          "ms": 224
+        },
+        {
+          "name": "first-contentful-paint",
+          "ms": 224
+        }
+      ],
+      "localRead": {
+        "name": "local-get",
+        "start": 1323.199999988079,
+        "callbackStart": 4338.199999988079,
+        "end": 4338.5
+      }
+    },
+    {
+      "stage": "double-frame-candidate",
+      "apiDelay": 0,
+      "rows": 20000,
+      "paints": [
+        {
+          "name": "first-paint",
+          "ms": 252
+        },
+        {
+          "name": "first-contentful-paint",
+          "ms": 252
+        }
+      ],
+      "localRead": {
+        "name": "local-get",
+        "start": 1368.5,
+        "callbackStart": 1386.7999999523163,
+        "end": 1393.5
+      }
+    },
+    {
+      "stage": "double-frame-candidate",
+      "apiDelay": 0,
+      "rows": 0,
+      "paints": [
+        {
+          "name": "first-paint",
+          "ms": 264
+        },
+        {
+          "name": "first-contentful-paint",
+          "ms": 264
+        }
+      ],
+      "localRead": {
+        "name": "local-get",
+        "start": 1346.199999988079,
+        "callbackStart": 1350.199999988079,
+        "end": 1350.300000011921
+      }
+    },
+    {
+      "stage": "double-frame-candidate",
+      "apiDelay": 3000,
+      "rows": 0,
+      "paints": [
+        {
+          "name": "first-paint",
+          "ms": 228
+        },
+        {
+          "name": "first-contentful-paint",
+          "ms": 228
+        }
+      ],
+      "localRead": {
+        "name": "local-get",
+        "start": 1350,
+        "callbackStart": 4353.900000035763,
+        "end": 4354
+      }
+    },
+    {
+      "stage": "double-frame-candidate",
+      "apiDelay": 0,
+      "rows": 20000,
+      "paints": [
+        {
+          "name": "first-paint",
+          "ms": 252
+        },
+        {
+          "name": "first-contentful-paint",
+          "ms": 252
+        }
+      ],
+      "localRead": {
+        "name": "local-get",
+        "start": 1352.1000000238419,
+        "callbackStart": 1374.199999988079,
+        "end": 1402.8999999761581
+      }
+    },
+    {
+      "stage": "double-frame-candidate",
+      "apiDelay": 0,
+      "rows": 0,
+      "paints": [
+        {
+          "name": "first-paint",
+          "ms": 288
+        },
+        {
+          "name": "first-contentful-paint",
+          "ms": 288
+        }
+      ],
+      "localRead": {
+        "name": "local-get",
+        "start": 1337.5,
+        "callbackStart": 1339.8999999761581,
+        "end": 1340
+      }
+    },
+    {
+      "stage": "double-frame-candidate",
+      "apiDelay": 3000,
+      "rows": 0,
+      "paints": [
+        {
+          "name": "first-paint",
+          "ms": 268
+        },
+        {
+          "name": "first-contentful-paint",
+          "ms": 268
+        }
+      ],
+      "localRead": {
+        "name": "local-get",
+        "start": 434.4000000357628,
+        "callbackStart": 3437.400000035763,
+        "end": 3437.5
+      }
+    },
+    {
+      "stage": "double-frame-candidate",
+      "apiDelay": 0,
+      "rows": 20000,
+      "paints": [
+        {
+          "name": "first-paint",
+          "ms": 328
+        },
+        {
+          "name": "first-contentful-paint",
+          "ms": 328
+        }
+      ],
+      "localRead": {
+        "name": "local-get",
+        "start": 1425.699999988079,
+        "callbackStart": 1447,
+        "end": 1454.300000011921
+      }
+    }
+  ]
+}
