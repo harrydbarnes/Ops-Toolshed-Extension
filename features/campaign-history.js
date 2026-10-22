@@ -9,17 +9,24 @@
     const PRISMA_BANNER_MODULE_CONTAINER_ID = 'mo-banner-module-container';
     const PRISMA_OVERFLOW_MENU_TAG = 'MO-BANNER-MODULE-OVERFLOW-MENU-CONTENT';
     const OVERFLOW_NAVIGATION_ID = 'toolshed-campaign-history-overflow-nav';
+    const OVERFLOW_MENU_ID = 'toolshed-campaign-history-overflow-menu';
+    const RESPONSIVE_HISTORY_ITEM_ID = 'toolshed-campaign-history-overflow-item';
     const SHADOW_NAVIGATION_STYLE_ID = 'toolshed-campaign-history-shadow-styles';
     const OVERFLOW_SPACING_STYLE_ID = 'toolshed-campaign-history-overflow-spacing-styles';
+    const OVERFLOW_COLLAPSED_CLASS = 'toolshed-campaign-history-overflow-collapsed';
+    const OVERFLOW_VISIBLE_CLASS = 'toolshed-campaign-history-overflow-visible';
+    const OVERFLOW_OFFSET_PROPERTY = '--toolshed-campaign-history-overflow-offset-x';
     const EXTENSION_NAVIGATION_NODE_IDS = new Set([
         NAVIGATION_ID,
         OVERFLOW_NAVIGATION_ID,
+        OVERFLOW_MENU_ID,
+        RESPONSIVE_HISTORY_ITEM_ID,
+        'toolshed-campaign-history-panel',
         SHADOW_NAVIGATION_STYLE_ID,
         OVERFLOW_SPACING_STYLE_ID
     ]);
-    const DIRECT_NAVIGATION_LAYOUT_CLASS = 'toolshed-campaign-history-direct-layout';
-    const OVERFLOW_NAVIGATION_LAYOUT_CLASS = 'toolshed-campaign-history-overflow-layout';
     const OVERFLOW_MENU_TRIGGER_CLASS = 'toolshed-campaign-history-overflow-trigger';
+    const NAVIGATION_RESIZE_SETTLE_DELAY_MS = 100;
     const PANEL_ID = 'toolshed-campaign-history-panel';
     const HISTORY_KEY_ATTRIBUTE = 'data-toolshed-history-key';
     const PANEL_TRANSITION_DURATION_MS = 240;
@@ -67,9 +74,18 @@
     let navigationObserver = null;
     let navigationResizeObserver = null;
     let navigationObservedRoots = new Set();
+    let navigationObservedResizeTargets = new WeakSet();
+    let navigationObservedResizeWidths = new WeakMap();
     let navigationObservedOverflowMenus = new WeakSet();
+    let navigationMeasuredWidths = new WeakMap();
     let currentNavigationLink = null;
     let navigationReconciliationQueued = false;
+    let navigationResizeReconciliationTimer = null;
+    let overflowMenuInteractionsInstalled = false;
+    let responsiveOverflowCloseTimer = null;
+    let responsiveOverflowOpenedByHover = false;
+    let responsiveOverflowItems = [];
+    let responsiveOverflowTriggerAttributes = new WeakMap();
     let campaignHistoryUsesOverflow = false;
     let campaignHistoryBlockedLayoutSignature = '';
 
@@ -955,12 +971,6 @@
                 text-transform: none;
                 white-space: nowrap;
             }
-            #${PRISMA_BANNER_MODULE_CONTAINER_ID}.${DIRECT_NAVIGATION_LAYOUT_CLASS} {
-                max-width: max-content !important;
-                min-width: max-content !important;
-                overflow: visible !important;
-                width: max-content !important;
-            }
             #${NAVIGATION_ID} .toolshed-campaign-history-nav-content {
                 align-items: center;
                 display: inline-flex;
@@ -1079,6 +1089,9 @@
             ].join(':');
         };
 
+        const stableLayoutRoot = getElementsIncludingShadowDom()
+            .find(candidate => candidate.id === 'mo-body-container') || document.documentElement;
+        if (stableLayoutRoot) parts.push(describeElement(stableLayoutRoot));
         for (let current = element; current; current = getParentElement(current)) {
             parts.push(describeElement(current));
         }
@@ -1089,28 +1102,16 @@
         return parts.join('|');
     }
 
-    function setBannerNavigationLayout(mode) {
-        const moduleContainer = findPrismaBannerModuleContainer();
-        if (!moduleContainer) return;
-
-        const hasDirectLayout = moduleContainer.classList.contains(DIRECT_NAVIGATION_LAYOUT_CLASS);
-        const hasOverflowLayout = moduleContainer.classList.contains(OVERFLOW_NAVIGATION_LAYOUT_CLASS);
-        const wantsDirectLayout = mode === 'direct';
-        const wantsOverflowLayout = mode === 'overflow';
-
-        if (hasDirectLayout !== wantsDirectLayout) {
-            moduleContainer.classList.toggle(DIRECT_NAVIGATION_LAYOUT_CLASS, wantsDirectLayout);
-        }
-        if (hasOverflowLayout !== wantsOverflowLayout) {
-            moduleContainer.classList.toggle(OVERFLOW_NAVIGATION_LAYOUT_CLASS, wantsOverflowLayout);
-        }
-    }
-
     function hasRelevantNavigationMutation(mutations) {
         const isExtensionNode = node => {
             let current = node?.nodeType === 1 ? node : node?.parentNode;
             for (let depth = 0; current && depth < 12; depth += 1) {
-                if (current.nodeType === 1 && EXTENSION_NAVIGATION_NODE_IDS.has(current.id)) return true;
+                if (current.nodeType === 1 && (
+                    EXTENSION_NAVIGATION_NODE_IDS.has(current.id) ||
+                    current.classList?.contains(OVERFLOW_COLLAPSED_CLASS) ||
+                    current.classList?.contains(OVERFLOW_VISIBLE_CLASS) ||
+                    current.classList?.contains(OVERFLOW_MENU_TRIGGER_CLASS)
+                )) return true;
                 current = current.parentNode || current.host;
             }
             return false;
@@ -1182,6 +1183,19 @@
         });
     }
 
+    function scheduleSettledNavigationReconciliation() {
+        scheduleNavigationReconciliation();
+        if (navigationResizeReconciliationTimer) {
+            window.clearTimeout(navigationResizeReconciliationTimer);
+        }
+        navigationResizeReconciliationTimer = window.setTimeout(() => {
+            navigationResizeReconciliationTimer = null;
+            if (extensionContextInvalidated || !window.document || !settingsReady || !viewEnabled || !isPrismaPage()) return;
+            ensureNavigationObserver();
+            reconcileNavigationItems();
+        }, NAVIGATION_RESIZE_SETTLE_DELAY_MS);
+    }
+
     function scheduleOverflowMenuReconciliation() {
         [0, 80].forEach(delay => {
             window.setTimeout(() => {
@@ -1233,15 +1247,38 @@
         const ResizeObserverConstructor = window.ResizeObserver ||
             (typeof ResizeObserver !== 'undefined' ? ResizeObserver : null);
         if (ResizeObserverConstructor && !navigationResizeObserver) {
-            navigationResizeObserver = new ResizeObserverConstructor(() => scheduleNavigationReconciliation());
+            navigationResizeObserver = new ResizeObserverConstructor(entries => {
+                const widthChanged = Array.from(entries || []).some(entry => {
+                    const target = entry.target;
+                    const width = Number(entry.contentRect?.width) ||
+                        Number(target?.clientWidth) ||
+                        Number(target?.getBoundingClientRect?.().width) || 0;
+                    const previousWidth = navigationObservedResizeWidths.get(target);
+                    navigationObservedResizeWidths.set(target, width);
+                    return previousWidth == null || Math.abs(width - previousWidth) > 0.5;
+                });
+                if (widthChanged) scheduleNavigationReconciliation();
+            });
         }
         if (navigationResizeObserver) {
-            getElementsIncludingShadowDom()
-                .filter(element =>
-                    String(element.tagName || '').toUpperCase() === 'MO-BANNER' ||
-                    element.id === PRISMA_BANNER_MODULE_CONTAINER_ID
-                )
-                .forEach(element => navigationResizeObserver.observe(element));
+            // The banner's module slot can shrink as its flex siblings take
+            // space even while the app root stays the same width. Observe that
+            // slot as well as the stable app root so overflow follows the real
+            // width available to Campaigns, Reports, and History. Reconciliation
+            // is idempotent, and the observer only schedules for width changes.
+            const appLayoutTargets = getElementsIncludingShadowDom()
+                .filter(element => element.id === 'mo-body-container');
+            const navigationWidthTargets = [
+                ...(appLayoutTargets.length ? appLayoutTargets : [document.documentElement]),
+                findPrismaBannerModuleContainer()
+            ];
+            Array.from(new Set(navigationWidthTargets))
+                .filter(Boolean)
+                .forEach(element => {
+                    if (navigationObservedResizeTargets.has(element)) return;
+                    navigationResizeObserver.observe(element);
+                    navigationObservedResizeTargets.add(element);
+                });
         }
     }
 
@@ -1252,7 +1289,13 @@
         navigationResizeObserver?.disconnect();
         navigationResizeObserver = null;
         navigationObservedRoots = new Set();
+        navigationObservedResizeTargets = new WeakSet();
+        navigationObservedResizeWidths = new WeakMap();
         navigationReconciliationQueued = false;
+        if (navigationResizeReconciliationTimer) {
+            window.clearTimeout(navigationResizeReconciliationTimer);
+            navigationResizeReconciliationTimer = null;
+        }
     }
 
     function findNavigationLinks() {
@@ -1390,7 +1433,7 @@
         });
     }
 
-    function updateOverflowMenuItemCount() {
+    function updateLegacyOverflowMenuItemCount() {
         const groups = findOverflowNavigationGroups();
         const menuItemCount = groups.reduce((total, group) => total + getDirectChildren(group)
             .filter(item => String(item.tagName || '').toUpperCase() === 'MO-MENU-ITEM').length, 0);
@@ -1431,24 +1474,30 @@
             });
     }
 
-    function ensureOverflowSpacingStyle(menu) {
-        const root = menu?.getRootNode?.();
+    function ensureOverflowSpacingStyle(menuOrContainer) {
+        const root = menuOrContainer?.getRootNode?.();
         if (!root?.host || !root.querySelector || root.querySelector(`#${OVERFLOW_SPACING_STYLE_ID}`)) return;
 
         const style = document.createElement('style');
         style.id = OVERFLOW_SPACING_STYLE_ID;
         style.textContent = `
-            #${PRISMA_BANNER_MODULE_CONTAINER_ID} > mo-banner-module.hidden {
+            #${PRISMA_BANNER_MODULE_CONTAINER_ID} > mo-banner-module.${OVERFLOW_COLLAPSED_CLASS},
+            #${PRISMA_BANNER_MODULE_CONTAINER_ID} > #${NAVIGATION_ID}.${OVERFLOW_COLLAPSED_CLASS} {
                 display: none !important;
+                visibility: hidden !important;
             }
-            #${PRISMA_BANNER_MODULE_CONTAINER_ID}.${OVERFLOW_NAVIGATION_LAYOUT_CLASS} {
-                max-width: max-content !important;
-                min-width: max-content !important;
-                overflow: visible !important;
-                width: max-content !important;
+            #${PRISMA_BANNER_MODULE_CONTAINER_ID} > mo-banner-module.${OVERFLOW_VISIBLE_CLASS} {
+                display: flex !important;
+                visibility: visible !important;
+            }
+            #${PRISMA_BANNER_MODULE_CONTAINER_ID} > #${NAVIGATION_ID}.${OVERFLOW_VISIBLE_CLASS} {
+                display: inline-flex !important;
+                visibility: visible !important;
             }
             mo-banner-module-overflow-menu.${OVERFLOW_MENU_TRIGGER_CLASS} {
+                display: block !important;
                 visibility: visible !important;
+                transform: translateX(var(${OVERFLOW_OFFSET_PROPERTY}, 0px)) !important;
             }
         `;
         root.appendChild(style);
@@ -1458,12 +1507,6 @@
         const overflowMenus = getElementsIncludingShadowDom()
             .filter(element => String(element.tagName || '').toUpperCase() === 'MO-BANNER-MODULE-OVERFLOW-MENU');
 
-        const moduleContainer = findPrismaBannerModuleContainer();
-        const hasDirectBannerHistory = moduleContainer && findNavigationLinks()
-            .some(link => getParentElement(link) === moduleContainer);
-        setBannerNavigationLayout(campaignHistoryUsesOverflow
-            ? 'overflow'
-            : hasDirectBannerHistory ? 'direct' : null);
         overflowMenus.forEach(menu => {
             if (campaignHistoryUsesOverflow) {
                 if (!menu.classList.contains(OVERFLOW_MENU_TRIGGER_CLASS)) {
@@ -1491,7 +1534,7 @@
             });
 
         visibleMenus.forEach(ensureOverflowSpacingStyle);
-        updateOverflowMenuItemCount();
+        updateLegacyOverflowMenuItemCount();
     }
 
     function ensureNavigationLink() {
@@ -1527,10 +1570,8 @@
         }
 
         const insertionContainer = findNavigationInsertionContainer(container, reportsItem);
-        const layoutSignature = isPrismaBannerNavigation
-            ? ''
-            : getNavigationLayoutSignature(reportsItem, insertionContainer);
-        if (!isPrismaBannerNavigation && campaignHistoryUsesOverflow &&
+        const layoutSignature = getNavigationLayoutSignature(reportsItem, insertionContainer);
+        if (campaignHistoryUsesOverflow &&
             campaignHistoryBlockedLayoutSignature === layoutSignature) {
             return false;
         }
@@ -1582,7 +1623,7 @@
             insertionContainer.insertBefore(link, reportsItem.nextElementSibling);
         }
 
-        if (!isPrismaBannerNavigation && !isNavigationItemVisible(link)) {
+        if (!isNavigationItemVisible(link)) {
             campaignHistoryUsesOverflow = true;
             campaignHistoryBlockedLayoutSignature = layoutSignature;
             removeTopLevelNavigationLink();
@@ -1594,7 +1635,552 @@
         return true;
     }
 
+    function createPrismaHistoryNavigationLink(insertionContainer) {
+        let link = findNavigationLinks()
+            .find(candidate => getParentElement(candidate) === insertionContainer);
+        if (link) {
+            currentNavigationLink = link;
+            return link;
+        }
+
+        findNavigationLinks().forEach(existingLink => existingLink.remove());
+        ensureShadowNavigationStyles(insertionContainer);
+        link = document.createElement('a');
+        link.id = NAVIGATION_ID;
+        link.className = 'toolshed-campaign-history-nav';
+        link.setAttribute('href', '#');
+        link.setAttribute('role', 'button');
+        link.setAttribute('aria-label', 'Open campaign history');
+        link.setAttribute('aria-controls', PANEL_ID);
+
+        const content = document.createElement('span');
+        content.className = 'toolshed-campaign-history-nav-content';
+        content.appendChild(createTextElement('span', 'toolshed-campaign-history-nav-label', 'History'));
+        content.appendChild(createSvgIcon('history'));
+        link.appendChild(content);
+        link.addEventListener('click', event => {
+            event.preventDefault();
+            event.stopPropagation();
+            toggleHistoryPanel();
+        });
+        link.addEventListener('keydown', event => {
+            if (event.key !== ' ') return;
+            event.preventDefault();
+            toggleHistoryPanel();
+        });
+
+        insertionContainer.appendChild(link);
+        currentNavigationLink = link;
+        return link;
+    }
+
+    function measureNavigationElementWidth(element, label = '') {
+        if (!element?.isConnected) return 0;
+        const cached = navigationMeasuredWidths.get(element);
+        if (cached?.label === label && cached.width > 0) return cached.width;
+
+        const measuredRect = element.getBoundingClientRect?.();
+        const currentWidth = Number(measuredRect?.width) || 0;
+        const currentStyle = window.getComputedStyle?.(element);
+        if (currentWidth > 0 && currentStyle?.display !== 'none') {
+            navigationMeasuredWidths.set(element, { label, width: currentWidth });
+            return currentWidth;
+        }
+
+        const hadCollapsedClass = element.classList?.contains(OVERFLOW_COLLAPSED_CLASS);
+        const hadVisibleClass = element.classList?.contains(OVERFLOW_VISIBLE_CLASS);
+        const originalStyle = element.getAttribute?.('style');
+        try {
+            element.classList?.remove(OVERFLOW_COLLAPSED_CLASS);
+            element.classList?.add(OVERFLOW_VISIBLE_CLASS);
+            element.style?.setProperty('position', 'absolute', 'important');
+            element.style?.setProperty('visibility', 'hidden', 'important');
+            element.style?.setProperty('width', 'max-content', 'important');
+            element.style?.setProperty('flex', '0 0 auto', 'important');
+            element.style?.setProperty('left', '0', 'important');
+            element.style?.setProperty('top', '0', 'important');
+            const rect = element.getBoundingClientRect?.();
+            const width = Number(rect?.width) || Number(element.scrollWidth) || 0;
+            if (width > 0) navigationMeasuredWidths.set(element, { label, width });
+            return width;
+        } finally {
+            element.classList?.toggle(OVERFLOW_COLLAPSED_CLASS, Boolean(hadCollapsedClass));
+            element.classList?.toggle(OVERFLOW_VISIBLE_CLASS, Boolean(hadVisibleClass));
+            if (originalStyle == null) element.removeAttribute?.('style');
+            else element.setAttribute?.('style', originalStyle);
+        }
+    }
+
+    function getPrismaModuleNavigationRecord(module, index) {
+        const moduleElements = getElementsIncludingShadowDom(module.shadowRoot || module);
+        const link = moduleElements.find(element =>
+            String(element.tagName || '').toUpperCase() === 'A' &&
+            (element.classList?.contains('module-label') || hasExactLabel(element, 'Campaigns') || hasExactLabel(element, 'Reports'))
+        );
+        const labelElement = moduleElements.find(element => element.classList?.contains('module-label-text'));
+        const label = normalizeWhitespace(
+            getTextFromElement(labelElement || link) ||
+            module.getAttribute?.('aria-label') ||
+            module.getAttribute?.('data-module-id') ||
+            module.id.replace(/^mo-banner-module-/, '')
+        );
+        const moduleId = normalizeSearchText(module.getAttribute?.('data-module-id') || module.id);
+        return {
+            element: module,
+            index,
+            id: moduleId,
+            label,
+            href: link?.href || link?.getAttribute?.('href') || '#',
+            width: measureNavigationElementWidth(module, label),
+            kind: 'module'
+        };
+    }
+
+    function getResponsiveNavigationGap(container) {
+        const style = window.getComputedStyle?.(container);
+        const gap = Number.parseFloat(style?.columnGap || style?.gap || '0');
+        return Number.isFinite(gap) && gap > 0 ? gap : 0;
+    }
+
+    function getResponsiveNavigationUsedWidth(records, gap) {
+        const visibleRecords = records.filter(record =>
+            !record.element.classList?.contains(OVERFLOW_COLLAPSED_CLASS)
+        );
+        return visibleRecords.reduce((total, record) => total + record.width, 0) +
+            Math.max(0, visibleRecords.length - 1) * gap;
+    }
+
+    function getResponsiveNavigationCollapseOrder(records, historyRecord) {
+        const campaigns = records.find(record => /(?:^|\b)campaigns(?:\b|$)/i.test(record.label));
+        const reports = records.find(record => /(?:^|\b)reports(?:\b|$)/i.test(record.label));
+        const known = new Set([campaigns, reports].filter(Boolean));
+        return [
+            historyRecord,
+            reports,
+            campaigns,
+            ...records.filter(record => !known.has(record)).reverse()
+        ].filter(Boolean);
+    }
+
+    function getResponsiveNavigationMenuItems(records, historyRecord) {
+        const items = [];
+        if (historyRecord.element.classList.contains(OVERFLOW_COLLAPSED_CLASS)) {
+            items.push({
+                id: RESPONSIVE_HISTORY_ITEM_ID,
+                kind: 'history',
+                label: 'History',
+                href: '#'
+            });
+        }
+
+        const hiddenModules = records.filter(record =>
+            record.element.classList?.contains(OVERFLOW_COLLAPSED_CLASS)
+        );
+        const rank = record => {
+            if (/(?:^|\b)reports(?:\b|$)/i.test(record.label)) return 0;
+            if (/(?:^|\b)campaigns(?:\b|$)/i.test(record.label)) return 1;
+            return 2 + record.index;
+        };
+        hiddenModules.sort((left, right) => rank(left) - rank(right) || left.index - right.index);
+        hiddenModules.forEach(record => items.push({
+            id: '',
+            kind: 'module',
+            label: record.label,
+            href: record.href || '#'
+        }));
+        return items;
+    }
+
+    function getOverflowTrigger() {
+        return getElementsIncludingShadowDom()
+            .find(element => String(element.tagName || '').toUpperCase() === 'MO-BANNER-MODULE-OVERFLOW-MENU') || null;
+    }
+
+    function updateOverflowMenuItemCount(itemCount) {
+        getElementsIncludingShadowDom()
+            .filter(element => String(element.tagName || '').toUpperCase() === 'MO-BANNER-MODULE-OVERFLOW-MENU')
+            .forEach(menu => {
+                getElementsIncludingShadowDom(menu.shadowRoot || menu)
+                    .filter(element => element.classList?.contains('overflow-label-layout'))
+                    .forEach(layout => {
+                        const countLabel = getDirectChildren(layout)
+                            .find(child => /^\d+$/.test(String(child.textContent || '').trim()));
+                        if (countLabel && countLabel.textContent !== String(itemCount)) {
+                            countLabel.textContent = String(itemCount);
+                        }
+                    });
+            });
+    }
+
+    function ensureResponsiveOverflowMenuMarkup(items) {
+        let menu = document.getElementById(OVERFLOW_MENU_ID);
+        if (!items.length) {
+            closeResponsiveOverflowMenu();
+            menu?.remove();
+            return null;
+        }
+
+        if (!menu) {
+            menu = document.createElement('div');
+            menu.id = OVERFLOW_MENU_ID;
+            menu.className = 'toolshed-campaign-history-overflow-menu';
+            menu.setAttribute('role', 'menu');
+            menu.setAttribute('aria-label', 'Campaign navigation');
+            menu.hidden = true;
+            document.body.appendChild(menu);
+        }
+
+        const signature = JSON.stringify(items.map(item => [item.kind, item.label, item.href]));
+        if (menu.dataset.toolshedItemsSignature !== signature) {
+            menu.replaceChildren();
+            items.forEach(item => {
+                const link = document.createElement('a');
+                link.className = 'module-label toolshed-campaign-history-overflow-item';
+                link.setAttribute('role', 'menuitem');
+                link.setAttribute('tabindex', '-1');
+                link.href = item.href || '#';
+                link.textContent = item.label;
+                if (item.id) link.id = item.id;
+                if (item.kind === 'history') {
+                    link.setAttribute('aria-label', 'Open campaign history');
+                    link.addEventListener('click', event => {
+                        event.preventDefault();
+                        closeResponsiveOverflowMenu();
+                        toggleHistoryPanel();
+                    });
+                } else {
+                    link.addEventListener('click', closeResponsiveOverflowMenu);
+                }
+                menu.appendChild(link);
+            });
+            menu.dataset.toolshedItemsSignature = signature;
+        }
+        return menu;
+    }
+
+    function positionResponsiveOverflowMenu(trigger, menu) {
+        if (!trigger || !menu || menu.hidden) return;
+        const triggerRect = trigger.getBoundingClientRect();
+        const menuRect = menu.getBoundingClientRect();
+        const menuWidth = menuRect.width || menu.offsetWidth || 200;
+        const menuHeight = menuRect.height || menu.offsetHeight || menu.children.length * 40 + 8;
+        const left = Math.max(8, Math.min(triggerRect.left, window.innerWidth - menuWidth - 8));
+        let top = triggerRect.bottom;
+        if (top + menuHeight > window.innerHeight - 8) {
+            top = Math.max(8, triggerRect.top - menuHeight);
+        }
+        menu.style.left = `${left}px`;
+        menu.style.top = `${top}px`;
+    }
+
+    function configureResponsiveOverflowTrigger(trigger) {
+        if (!responsiveOverflowTriggerAttributes.has(trigger)) {
+            responsiveOverflowTriggerAttributes.set(trigger, {
+                ariaHaspopup: trigger.getAttribute('aria-haspopup'),
+                ariaControls: trigger.getAttribute('aria-controls'),
+                ariaExpanded: trigger.getAttribute('aria-expanded')
+            });
+        }
+        trigger.setAttribute('aria-haspopup', 'menu');
+        trigger.setAttribute('aria-controls', OVERFLOW_MENU_ID);
+    }
+
+    function restoreResponsiveOverflowTrigger(trigger) {
+        const original = responsiveOverflowTriggerAttributes.get(trigger);
+        if (!original) return;
+        [
+            ['aria-haspopup', original.ariaHaspopup],
+            ['aria-controls', original.ariaControls],
+            ['aria-expanded', original.ariaExpanded]
+        ].forEach(([name, value]) => {
+            if (value == null) trigger.removeAttribute(name);
+            else trigger.setAttribute(name, value);
+        });
+        responsiveOverflowTriggerAttributes.delete(trigger);
+    }
+
+    function closeResponsiveOverflowMenu({ restoreFocus = false } = {}) {
+        if (responsiveOverflowCloseTimer != null) {
+            window.clearTimeout(responsiveOverflowCloseTimer);
+            responsiveOverflowCloseTimer = null;
+        }
+        const menu = document.getElementById(OVERFLOW_MENU_ID);
+        if (menu) menu.hidden = true;
+        const trigger = getOverflowTrigger();
+        trigger?.setAttribute('aria-expanded', 'false');
+        responsiveOverflowOpenedByHover = false;
+        if (restoreFocus) trigger?.focus?.();
+    }
+
+    function openResponsiveOverflowMenu(trigger = getOverflowTrigger(), { focusFirst = false, byHover = false } = {}) {
+        if (!trigger || !responsiveOverflowItems.length) return false;
+        if (responsiveOverflowCloseTimer != null) {
+            window.clearTimeout(responsiveOverflowCloseTimer);
+            responsiveOverflowCloseTimer = null;
+        }
+        const menu = ensureResponsiveOverflowMenuMarkup(responsiveOverflowItems);
+        if (!menu) return false;
+        menu.hidden = false;
+        positionResponsiveOverflowMenu(trigger, menu);
+        configureResponsiveOverflowTrigger(trigger);
+        trigger.setAttribute('aria-expanded', 'true');
+        responsiveOverflowOpenedByHover = Boolean(byHover);
+        if (focusFirst) menu.querySelector('[role="menuitem"]')?.focus();
+        return true;
+    }
+
+    function scheduleResponsiveOverflowClose() {
+        if (responsiveOverflowCloseTimer != null) window.clearTimeout(responsiveOverflowCloseTimer);
+        responsiveOverflowCloseTimer = window.setTimeout(() => {
+            responsiveOverflowCloseTimer = null;
+            closeResponsiveOverflowMenu();
+        }, 180);
+    }
+
+    function getEventPath(event) {
+        return typeof event?.composedPath === 'function'
+            ? event.composedPath()
+            : [event?.target].filter(Boolean);
+    }
+
+    function getEventOverflowTrigger(event) {
+        return getEventPath(event).find(element =>
+            String(element?.tagName || '').toUpperCase() === 'MO-BANNER-MODULE-OVERFLOW-MENU'
+        ) || null;
+    }
+
+    function eventIsResponsiveOverflowMenu(event) {
+        return getEventPath(event).some(element => element?.id === OVERFLOW_MENU_ID);
+    }
+
+    function interceptResponsiveOverflowHover(event) {
+        if (eventIsResponsiveOverflowMenu(event)) {
+            if (responsiveOverflowCloseTimer != null) {
+                window.clearTimeout(responsiveOverflowCloseTimer);
+                responsiveOverflowCloseTimer = null;
+            }
+            return;
+        }
+        const trigger = getEventOverflowTrigger(event);
+        if (!trigger || !responsiveOverflowItems.length) return;
+        event.stopImmediatePropagation?.();
+        openResponsiveOverflowMenu(trigger, { byHover: true });
+    }
+
+    function interceptResponsiveOverflowPointerOut(event) {
+        const path = getEventPath(event);
+        const trigger = path.find(element =>
+            String(element?.tagName || '').toUpperCase() === 'MO-BANNER-MODULE-OVERFLOW-MENU'
+        );
+        const menu = path.find(element => element?.id === OVERFLOW_MENU_ID);
+        if (!trigger && !menu) return;
+        const relatedTarget = event.relatedTarget;
+        const popup = document.getElementById(OVERFLOW_MENU_ID);
+        if (relatedTarget && (trigger?.contains?.(relatedTarget) || popup?.contains?.(relatedTarget))) return;
+        if (responsiveOverflowItems.length) event.stopImmediatePropagation?.();
+        scheduleResponsiveOverflowClose();
+    }
+
+    function handleResponsiveOverflowPointerDown(event) {
+        const trigger = getEventOverflowTrigger(event);
+        if (trigger && responsiveOverflowItems.length) {
+            event.stopImmediatePropagation?.();
+            return;
+        }
+        if (eventIsResponsiveOverflowMenu(event)) return;
+        closeResponsiveOverflowMenu();
+    }
+
+    function handleResponsiveOverflowClick(event) {
+        const trigger = getEventOverflowTrigger(event);
+        if (trigger && responsiveOverflowItems.length) {
+            event.preventDefault?.();
+            event.stopImmediatePropagation?.();
+            const menu = document.getElementById(OVERFLOW_MENU_ID);
+            const isOpen = Boolean(menu && !menu.hidden);
+            if (isOpen && !responsiveOverflowOpenedByHover) closeResponsiveOverflowMenu();
+            else openResponsiveOverflowMenu(trigger, { byHover: false });
+            responsiveOverflowOpenedByHover = false;
+            return;
+        }
+        if (!eventIsResponsiveOverflowMenu(event)) closeResponsiveOverflowMenu();
+    }
+
+    function handleResponsiveOverflowFocus(event) {
+        const trigger = getEventOverflowTrigger(event);
+        if (trigger && responsiveOverflowItems.length) {
+            openResponsiveOverflowMenu(trigger, { byHover: false });
+        }
+    }
+
+    function handleResponsiveOverflowKeydown(event) {
+        const trigger = getEventOverflowTrigger(event);
+        const menu = document.getElementById(OVERFLOW_MENU_ID);
+        if (trigger && responsiveOverflowItems.length) {
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                event.stopImmediatePropagation?.();
+                openResponsiveOverflowMenu(trigger, { focusFirst: true });
+            } else if (event.key === 'Escape' && menu && !menu.hidden) {
+                event.preventDefault();
+                event.stopImmediatePropagation?.();
+                closeResponsiveOverflowMenu({ restoreFocus: true });
+            }
+            return;
+        }
+
+        if (!menu || menu.hidden || !menu.contains(event.target)) {
+            if (event.key === 'Escape') closeResponsiveOverflowMenu();
+            return;
+        }
+        const links = Array.from(menu.querySelectorAll('[role="menuitem"]'));
+        if (!links.length) return;
+        const currentIndex = links.indexOf(document.activeElement);
+        let nextIndex = -1;
+        if (event.key === 'ArrowDown') nextIndex = (currentIndex + 1 + links.length) % links.length;
+        else if (event.key === 'ArrowUp') nextIndex = (currentIndex - 1 + links.length) % links.length;
+        else if (event.key === 'Home') nextIndex = 0;
+        else if (event.key === 'End') nextIndex = links.length - 1;
+        else if (event.key === 'Escape') {
+            event.preventDefault();
+            closeResponsiveOverflowMenu({ restoreFocus: true });
+            return;
+        }
+        if (nextIndex >= 0) {
+            event.preventDefault();
+            links[nextIndex].focus();
+        }
+    }
+
+    function ensureResponsiveOverflowInteractions() {
+        if (overflowMenuInteractionsInstalled || !document) return;
+        document.addEventListener('pointerover', interceptResponsiveOverflowHover, true);
+        document.addEventListener('mouseover', interceptResponsiveOverflowHover, true);
+        document.addEventListener('pointerout', interceptResponsiveOverflowPointerOut, true);
+        document.addEventListener('mouseout', interceptResponsiveOverflowPointerOut, true);
+        document.addEventListener('pointerdown', handleResponsiveOverflowPointerDown, true);
+        document.addEventListener('mousedown', handleResponsiveOverflowPointerDown, true);
+        document.addEventListener('click', handleResponsiveOverflowClick, true);
+        document.addEventListener('focusin', handleResponsiveOverflowFocus, true);
+        document.addEventListener('keydown', handleResponsiveOverflowKeydown, true);
+        overflowMenuInteractionsInstalled = true;
+    }
+
+    function getResponsiveOverflowTriggerOffset(container, trigger, visibleRecords) {
+        const containerRect = container.getBoundingClientRect?.();
+        const triggerRect = trigger.getBoundingClientRect?.();
+        if (!containerRect || !triggerRect || triggerRect.width <= 0) return 0;
+        const visibleRights = visibleRecords
+            .map(record => Number(record.element.getBoundingClientRect?.().right) || 0)
+            .filter(right => right > 0);
+        const desiredLeft = visibleRights.length
+            ? Math.max(...visibleRights)
+            : containerRect.left;
+        return desiredLeft - triggerRect.left;
+    }
+
+    function reconcilePrismaBannerNavigation(moduleContainer) {
+        const insertionContainer = moduleContainer;
+        const modules = getDirectChildren(moduleContainer)
+            .filter(element => String(element.tagName || '').toUpperCase() === 'MO-BANNER-MODULE');
+        if (!modules.length) return false;
+        const availableWidth = Number(moduleContainer.clientWidth) ||
+            Number(moduleContainer.getBoundingClientRect?.().width) || 0;
+        if (availableWidth <= 0) return false;
+
+        ensureShadowNavigationStyles(insertionContainer);
+        const trigger = getOverflowTrigger();
+        ensureOverflowSpacingStyle(trigger || insertionContainer);
+        const historyLink = createPrismaHistoryNavigationLink(insertionContainer);
+        const moduleRecords = modules.map(getPrismaModuleNavigationRecord);
+        const historyRecord = {
+            element: historyLink,
+            index: moduleRecords.length,
+            id: 'campaign-history',
+            label: 'History',
+            href: '#',
+            width: measureNavigationElementWidth(historyLink, 'History'),
+            kind: 'history'
+        };
+        const allRecords = [...moduleRecords, historyRecord];
+        if (allRecords.every(record => record.width <= 0)) return false;
+
+        const gap = getResponsiveNavigationGap(moduleContainer);
+        let usedWidth = getResponsiveNavigationUsedWidth(allRecords, gap);
+        const collapseOrder = getResponsiveNavigationCollapseOrder(moduleRecords, historyRecord);
+        collapseOrder.forEach(record => {
+            if (usedWidth <= availableWidth + 0.5) return;
+            if (record.element.classList.contains(OVERFLOW_COLLAPSED_CLASS)) return;
+            record.element.classList.remove(OVERFLOW_VISIBLE_CLASS);
+            record.element.classList.add(OVERFLOW_COLLAPSED_CLASS);
+            usedWidth = getResponsiveNavigationUsedWidth(allRecords, gap);
+        });
+
+        const expandOrder = [...collapseOrder].reverse();
+        expandOrder.forEach(record => {
+            if (!record.element.classList.contains(OVERFLOW_COLLAPSED_CLASS)) return;
+            const currentCount = allRecords.filter(candidate =>
+                !candidate.element.classList.contains(OVERFLOW_COLLAPSED_CLASS)
+            ).length;
+            const addedGap = currentCount > 0 ? gap : 0;
+            if (usedWidth + record.width + addedGap > availableWidth - 8) return;
+            record.element.classList.remove(OVERFLOW_COLLAPSED_CLASS);
+            record.element.classList.add(OVERFLOW_VISIBLE_CLASS);
+            usedWidth = getResponsiveNavigationUsedWidth(allRecords, gap);
+        });
+
+        // Keep Prisma's built-in hidden state from overriding the measured,
+        // priority-based layout while this feature owns these module slots.
+        allRecords.forEach(record => {
+            if (record.element.classList.contains(OVERFLOW_COLLAPSED_CLASS)) {
+                record.element.classList.remove(OVERFLOW_VISIBLE_CLASS);
+                if (record.kind === 'module') record.element.classList.add('hidden');
+            } else {
+                record.element.classList.add(OVERFLOW_VISIBLE_CLASS);
+                if (record.kind === 'module') record.element.classList.remove('hidden');
+            }
+        });
+
+        campaignHistoryUsesOverflow = historyLink.classList.contains(OVERFLOW_COLLAPSED_CLASS);
+        campaignHistoryBlockedLayoutSignature = '';
+        responsiveOverflowItems = getResponsiveNavigationMenuItems(moduleRecords, historyRecord);
+        ensureResponsiveOverflowInteractions();
+        ensureResponsiveOverflowMenuMarkup(responsiveOverflowItems);
+
+        if (trigger) {
+            if (responsiveOverflowItems.length) {
+                trigger.classList.add(OVERFLOW_MENU_TRIGGER_CLASS);
+                configureResponsiveOverflowTrigger(trigger);
+                updateOverflowMenuItemCount(responsiveOverflowItems.length);
+                const visibleRecords = allRecords.filter(record =>
+                    !record.element.classList.contains(OVERFLOW_COLLAPSED_CLASS)
+                );
+                const offset = getResponsiveOverflowTriggerOffset(moduleContainer, trigger, visibleRecords);
+                if (Math.abs(offset) > 0.5) trigger.style.setProperty(OVERFLOW_OFFSET_PROPERTY, `${offset}px`);
+                else trigger.style.removeProperty(OVERFLOW_OFFSET_PROPERTY);
+                if (document.getElementById(OVERFLOW_MENU_ID) && !document.getElementById(OVERFLOW_MENU_ID).hidden) {
+                    positionResponsiveOverflowMenu(trigger, document.getElementById(OVERFLOW_MENU_ID));
+                }
+            } else {
+                if (trigger.classList.contains(OVERFLOW_MENU_TRIGGER_CLASS)) {
+                    trigger.classList.remove(OVERFLOW_MENU_TRIGGER_CLASS);
+                }
+                if (trigger.style.getPropertyValue(OVERFLOW_OFFSET_PROPERTY)) {
+                    trigger.style.removeProperty(OVERFLOW_OFFSET_PROPERTY);
+                }
+                closeResponsiveOverflowMenu();
+                restoreResponsiveOverflowTrigger(trigger);
+            }
+        }
+
+        removeOverflowNavigationItems();
+        return true;
+    }
+
     function reconcileNavigationItems() {
+        const moduleContainer = findPrismaBannerModuleContainer();
+        if (moduleContainer && reconcilePrismaBannerNavigation(moduleContainer)) return;
+
         if (ensureNavigationLink()) {
             removeOverflowNavigationItems();
         } else {
@@ -1617,9 +2203,29 @@
             .forEach(element => element.remove());
     }
 
+    function resetResponsiveOverflowNavigation() {
+        responsiveOverflowItems = [];
+        closeResponsiveOverflowMenu();
+        getElementsIncludingShadowDom().forEach(element => {
+            if (String(element.tagName || '').toUpperCase() === 'MO-BANNER-MODULE' &&
+                (element.classList?.contains(OVERFLOW_COLLAPSED_CLASS) ||
+                    element.classList?.contains(OVERFLOW_VISIBLE_CLASS))) {
+                element.classList.remove('hidden');
+            }
+            element.classList?.remove(OVERFLOW_COLLAPSED_CLASS, OVERFLOW_VISIBLE_CLASS);
+            if (element.classList?.contains(OVERFLOW_MENU_TRIGGER_CLASS)) {
+                element.classList.remove(OVERFLOW_MENU_TRIGGER_CLASS);
+                element.style?.removeProperty(OVERFLOW_OFFSET_PROPERTY);
+                restoreResponsiveOverflowTrigger(element);
+            }
+        });
+        document.getElementById(OVERFLOW_MENU_ID)?.remove();
+    }
+
     function removeNavigationLink() {
         campaignHistoryUsesOverflow = false;
         campaignHistoryBlockedLayoutSignature = '';
+        resetResponsiveOverflowNavigation();
         removeTopLevelNavigationLink();
         removeOverflowNavigationItems();
         syncOverflowMenuPresentation();
@@ -2526,7 +3132,8 @@
             if (currentPanel.contains(event.target)) return;
             if (activeContextMenu && activeContextMenu.contains(event.target)) return;
             if (event.composedPath?.().some(target =>
-                target?.id === NAVIGATION_ID || target?.id === OVERFLOW_NAVIGATION_ID
+                target?.id === NAVIGATION_ID || target?.id === OVERFLOW_NAVIGATION_ID ||
+                target?.id === RESPONSIVE_HISTORY_ITEM_ID || target?.id === OVERFLOW_MENU_ID
             )) return;
             const navLinks = findNavigationLinks();
             if (navLinks.some(link => link.contains(event.target))) return;
@@ -2617,7 +3224,7 @@
         document.addEventListener('keydown', handleDocumentKeydown);
         window.addEventListener('hashchange', handleRouteChange);
         window.addEventListener('popstate', handleRouteChange);
-        window.addEventListener('resize', scheduleNavigationReconciliation);
+        window.addEventListener('resize', scheduleSettledNavigationReconciliation);
         window.addEventListener('pagehide', removeNavigationObserver);
         window.addEventListener('pageshow', handlePageShow);
         document.addEventListener('visibilitychange', handleVisibilityChange);

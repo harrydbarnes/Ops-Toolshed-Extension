@@ -50,7 +50,7 @@ describe('release metadata', () => {
         try {
             const currentRelease = dom.window.document.querySelector('#release-notes .release');
             const releaseItems = Array.from(currentRelease.querySelectorAll('li'));
-            expect(releaseItems).toHaveLength(38);
+            expect(releaseItems).toHaveLength(39);
             expect(currentRelease.textContent).toContain('Social Booking Checker IDs');
             expect(releaseItems[0].textContent).toContain('My Reccies (read-only preview)');
             expect(releaseItems[0].textContent).toContain('keep the tracker unchanged');
@@ -66,7 +66,7 @@ describe('release metadata', () => {
             expect(sidebarSections.textContent).toContain('chevrons');
             const items = releaseItems.slice(4).filter(item => item !== sidebarSections);
 
-            expect(items).toHaveLength(33);
+            expect(items).toHaveLength(34);
             expect(items[4].textContent).toContain('Help Guide Library');
             expect(items[5].textContent).toContain('Loading Facts');
             expect(items[0].textContent).toContain('Campaign Approval Tracking');
@@ -92,10 +92,11 @@ describe('release metadata', () => {
             expect(items[22].textContent).toContain('already-approved campaign');
             expect(items[23].textContent).toContain('clear idle state');
             expect(items[24].textContent).toContain('Redistribute action');
-            expect(items[26].textContent).toContain('permanent Moe chat bubble');
-            expect(items[27].textContent).toContain('Loading Time Stats');
-            expect(items[28].textContent).toContain('Order Email Copy');
-            expect(items[29].textContent).toContain('retired Loading Fact Review');
+            expect(items[25].textContent).toContain('Campaign History Navigation');
+            expect(items[27].textContent).toContain('permanent Moe chat bubble');
+            expect(items[28].textContent).toContain('Loading Time Stats');
+            expect(items[29].textContent).toContain('Order Email Copy');
+            expect(items[30].textContent).toContain('retired Loading Fact Review');
             expect(items[6].textContent).toContain('Getting Started');
             expect(items[7].textContent).toContain('Feature Previews');
         } finally {

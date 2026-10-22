@@ -1520,6 +1520,48 @@ div[slot="right"].ai-style-change-1 {
     outline-offset: -2px;
 }
 
+.toolshed-campaign-history-overflow-menu {
+    position: fixed;
+    z-index: 2147483647;
+    box-sizing: border-box;
+    min-width: 176px;
+    max-width: min(320px, calc(100vw - 16px));
+    padding: 4px 0;
+    overflow: hidden;
+    border: 1px solid #d8dde5;
+    border-radius: 4px;
+    background: #fff;
+    box-shadow: 0 8px 20px rgba(20, 30, 50, 0.2);
+    color: #252a32;
+    font: 14px/1.4 Arial, sans-serif;
+    text-align: left;
+}
+
+.toolshed-campaign-history-overflow-menu[hidden] {
+    display: none !important;
+}
+
+.toolshed-campaign-history-overflow-item {
+    display: flex;
+    box-sizing: border-box;
+    align-items: center;
+    width: 100%;
+    min-height: 40px;
+    padding: 0 16px;
+    color: inherit !important;
+    cursor: pointer;
+    text-decoration: none !important;
+    white-space: nowrap;
+}
+
+.toolshed-campaign-history-overflow-item:hover,
+.toolshed-campaign-history-overflow-item:focus-visible {
+    outline: none;
+    background: #f1f4f8;
+    color: inherit !important;
+    text-decoration: none !important;
+}
+
 #toolshed-campaign-history-panel {
     --toolshed-history-motion-duration: 240ms;
     --toolshed-history-ink: #243447;
