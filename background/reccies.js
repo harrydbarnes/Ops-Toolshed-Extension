@@ -1,4 +1,5 @@
 import '../reccie-core.js';
+import { testReccieGoogleConnection } from './reccie-connection-probe.js';
 import { buildReccieQuery } from './reccie-query.js';
 import { isFeatureModeActive } from './feature-mode.js';
 
@@ -240,6 +241,10 @@ export async function handleReccies(request, sender, sendResponse) {
     try {
         if (!ownPage(sender)) throw new Error('Tracker data is available only in Ops Toolshed.');
         await assertPrismaProfile();
+        if (request.operation === 'testGoogleConnection') {
+            sendResponse({status:'success', connection:await testReccieGoogleConnection()});
+            return;
+        }
         let tracker;
         core.trackerKey(request.mode,request.month);
         if (request.mode === 'automatic' && ['refresh','import'].includes(request.operation)) throw new Error('Automatic uses visited campaigns, not a sheet import.');

@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Google identity pilot</title><link rel="stylesheet" href="popup.css"></head>
+<body><h1>Google identity pilot</h1>
+<p>Read-only test. No tracker or Prisma access. Keep this popup open while it runs.</p>
+<label for="expected">Your work Google email</label><input id="expected" type="email" placeholder="you@wppmedia.com"><p class="hint">Used here to compare the result. This entry is not sent to the script or saved.</p>
+<button id="open" type="button">Open Google service</button><button id="run" type="button">Test Google connection</button>
+<p id="status" role="status" aria-live="polite"></p><pre id="result"></pre>
+<button id="download" type="button" disabled>Download result (.json)</button>
+<script src="config.js"></script><script src="popup.js"></script></body></html>

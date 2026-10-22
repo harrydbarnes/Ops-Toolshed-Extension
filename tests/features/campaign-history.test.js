@@ -918,6 +918,77 @@ describe('campaign history feature', () => {
         }
     });
 
+    test('collapses rendered navigation overflow when cached module widths are too small', async () => {
+        const { dom } = createPage({ navigationMarkup: '', overflowMenu: false });
+        const { document, campaignHistoryFeature } = dom.window;
+        const banner = createPrismaBannerOverflow(document, {
+            availableWidth: 200,
+            moduleWidths: { campaigns: 50, reports: 40 }
+        });
+
+        try {
+            await flushPromises();
+            campaignHistoryFeature.apply();
+            await flushPromises();
+
+            const historyLink = banner.bannerShadow.querySelector('#toolshed-campaign-history-nav');
+            const campaigns = banner.moduleContainer.querySelector('#mo-banner-module-prsm-cm-spa');
+            const reports = banner.moduleContainer.querySelector('#mo-banner-module-prsm-cvr');
+            const layoutItems = [campaigns, reports, historyLink];
+            const renderedWidths = new Map([
+                [campaigns, 50],
+                [reports, 40],
+                [historyLink, 40]
+            ]);
+            const installFlexRects = () => {
+                layoutItems.forEach((item, index) => {
+                    item.getBoundingClientRect = () => {
+                        const collapsed = item.classList.contains('toolshed-campaign-history-overflow-collapsed');
+                        const left = layoutItems.slice(0, index).reduce((total, previous) =>
+                            total + (previous.classList.contains('toolshed-campaign-history-overflow-collapsed')
+                                ? 0
+                                : renderedWidths.get(previous)), 0);
+                        const width = collapsed ? 0 : renderedWidths.get(item);
+                        return {
+                            x: left,
+                            y: 0,
+                            left,
+                            top: 0,
+                            right: left + width,
+                            bottom: 40,
+                            width,
+                            height: 40,
+                            toJSON: () => ({ left, top: 0, right: left + width, bottom: 40, width, height: 40 })
+                        };
+                    };
+                });
+            };
+
+            installFlexRects();
+            campaignHistoryFeature.apply();
+            await flushPromises();
+
+            expect(historyLink.classList.contains('toolshed-campaign-history-overflow-collapsed')).toBe(false);
+
+            // The slot shrinks after Prisma finishes its flex reflow, while the
+            // extension's earlier measurements still report the smaller widths.
+            renderedWidths.set(campaigns, 121);
+            renderedWidths.set(reports, 86);
+            renderedWidths.set(historyLink, 88);
+            campaignHistoryFeature.apply();
+            await flushPromises();
+
+            expect(historyLink.classList.contains('toolshed-campaign-history-overflow-collapsed')).toBe(true);
+            expect(reports.classList.contains('toolshed-campaign-history-overflow-collapsed')).toBe(true);
+            expect(campaigns.classList.contains('toolshed-campaign-history-overflow-collapsed')).toBe(false);
+            expect(banner.countLabel.textContent).toBe('2');
+            expect(Array.from(document.getElementById('toolshed-campaign-history-overflow-menu').children)
+                .map(item => item.textContent)).toEqual(['History', 'Reports']);
+        } finally {
+            dom.window.close();
+        }
+    });
+
     test('corrects the overflow badge after Prisma redraws it when the menu opens', async () => {
         const { dom } = createPage({ navigationMarkup: '', overflowMenu: false });
         const { document, campaignHistoryFeature } = dom.window;
@@ -1094,10 +1165,27 @@ describe('campaign history feature', () => {
             expect(historyLink.classList.contains('toolshed-campaign-history-overflow-collapsed')).toBe(false);
             expect(banner.overflowMenu.classList.contains('toolshed-campaign-history-overflow-trigger')).toBe(false);
 
+            let triggerBaseLeft = 0;
+            banner.overflowMenu.getBoundingClientRect = () => {
+                const offset = Number.parseFloat(banner.overflowMenu.style
+                    .getPropertyValue('--toolshed-campaign-history-overflow-offset-x')) || 0;
+                const left = triggerBaseLeft + offset;
+                return {
+                    x: left,
+                    y: 0,
+                    left,
+                    top: 0,
+                    right: left + 32,
+                    bottom: 40,
+                    width: 32,
+                    height: 40,
+                    toJSON: () => ({ left, top: 0, right: left + 32, bottom: 40, width: 32, height: 40 })
+                };
+            };
             const setAvailableWidth = width => {
                 setClientSize(banner.moduleContainer, width, 40);
                 setElementRect(banner.moduleContainer, { left: 0, top: 0, width, height: 40 });
-                setElementRect(banner.overflowMenu, { left: width, top: 0, width: 32, height: 40 });
+                triggerBaseLeft = width;
                 campaignHistoryFeature.apply();
             };
 
@@ -1133,6 +1221,9 @@ describe('campaign history feature', () => {
             expect(menu.querySelector('mo-menu, [aria-haspopup]')).toBeNull();
             expect(banner.overflowMenu.style.getPropertyValue('--toolshed-campaign-history-overflow-offset-x'))
                 .toBe('-35px');
+            expect(banner.overflowMenu.getBoundingClientRect().left)
+                .toBe(banner.moduleContainer.querySelector('#mo-banner-module-prsm-cm-spa')
+                    .getBoundingClientRect().right);
 
             setAvailableWidth(80);
             expect(banner.countLabel.textContent).toBe('3');
@@ -1140,6 +1231,8 @@ describe('campaign history feature', () => {
                 .toEqual(['History', 'Reports', 'Campaigns']);
             expect(banner.overflowMenu.style.getPropertyValue('--toolshed-campaign-history-overflow-offset-x'))
                 .toBe('-80px');
+            expect(banner.overflowMenu.getBoundingClientRect().left)
+                .toBe(banner.moduleContainer.getBoundingClientRect().left);
 
             setAvailableWidth(320);
             expect(historyLink.classList.contains('toolshed-campaign-history-overflow-collapsed')).toBe(false);

@@ -486,6 +486,19 @@
         finally {setBusy(false);}
     });
     $('check-rows').addEventListener('click', () => verifyRows());
+    $('test-google-connection').addEventListener('click', async () => {
+        const button = $('test-google-connection'), output = $('google-connection-result');
+        button.disabled = true;
+        output.textContent = 'Testing Google connection…';
+        try {
+            const allowed = await chrome.permissions.request({origins:['https://script.google.com/*','https://script.googleusercontent.com/*']});
+            if (!allowed) throw new Error('Google script access was not granted.');
+            const response = await chrome.runtime.sendMessage({action:'reccies',operation:'testGoogleConnection'});
+            if (response?.status !== 'success' || !response.connection) throw new Error(response?.message || 'Reload Ops Toolshed before running this test.');
+            output.textContent = JSON.stringify(response.connection, null, 2);
+        } catch (error) { output.textContent = error.message; }
+        finally { button.disabled = false; }
+    });
     $('debug-workers').addEventListener('input', () => { $('debug-worker-count').value = $('debug-workers').value; });
     $('debug-run').addEventListener('click', () => verifyRows(`workers-${$('debug-workers').value}`));
     (async () => {

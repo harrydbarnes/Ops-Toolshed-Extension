@@ -1791,6 +1791,20 @@
         return items;
     }
 
+    function hasResponsiveNavigationOverflow(moduleContainer, records, availableWidth) {
+        const containerRect = moduleContainer.getBoundingClientRect?.();
+        if (!containerRect) return false;
+
+        const containerLeft = Number(containerRect.left) || 0;
+        const containerRight = containerLeft + availableWidth;
+        return records.some(record => {
+            if (record.element.classList?.contains(OVERFLOW_COLLAPSED_CLASS)) return false;
+            const rect = record.element.getBoundingClientRect?.();
+            if (!rect || (rect.width <= 0 && rect.height <= 0)) return false;
+            return rect.left < containerLeft - 0.5 || rect.right > containerRight + 0.5;
+        });
+    }
+
     function getOverflowTrigger() {
         return getElementsIncludingShadowDom()
             .find(element => String(element.tagName || '').toUpperCase() === 'MO-BANNER-MODULE-OVERFLOW-MENU') || null;
@@ -2068,6 +2082,13 @@
 
     function getResponsiveOverflowTriggerOffset(container, trigger, visibleRecords) {
         const containerRect = container.getBoundingClientRect?.();
+        // The current rect includes our previous translateX value. Clear that
+        // owned transform before measuring so repeated resize reconciliations
+        // calculate from the trigger's natural flex position instead of
+        // accumulating offsets from earlier viewport widths.
+        if (trigger.style?.getPropertyValue(OVERFLOW_OFFSET_PROPERTY)) {
+            trigger.style.removeProperty(OVERFLOW_OFFSET_PROPERTY);
+        }
         const triggerRect = trigger.getBoundingClientRect?.();
         if (!containerRect || !triggerRect || triggerRect.width <= 0) return 0;
         const visibleRights = visibleRecords
@@ -2128,6 +2149,16 @@
             record.element.classList.add(OVERFLOW_VISIBLE_CLASS);
             usedWidth = getResponsiveNavigationUsedWidth(allRecords, gap);
         });
+
+        // Prisma can reflow its module slots after the width was first measured.
+        // Check the rendered bounds as well so a stale cached width cannot leave
+        // a link clipped or underneath the three-dot trigger.
+        for (const record of collapseOrder) {
+            if (!hasResponsiveNavigationOverflow(insertionContainer, allRecords, availableWidth)) break;
+            if (record.element.classList.contains(OVERFLOW_COLLAPSED_CLASS)) continue;
+            record.element.classList.remove(OVERFLOW_VISIBLE_CLASS);
+            record.element.classList.add(OVERFLOW_COLLAPSED_CLASS);
+        }
 
         // Keep Prisma's built-in hidden state from overriding the measured,
         // priority-based layout while this feature owns these module slots.

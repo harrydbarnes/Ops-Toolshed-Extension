@@ -67,6 +67,9 @@
     <div id="rows" aria-label="Reccie rows"></div>
     <p class="rule">Ready means Reconciled = Yes and Buy status = Successful for the report month. Checking does not mark the tracker as reccied.</p>
     <details id="debug"><summary>Debug</summary>
+        <button id="test-google-connection" type="button">Test Google connection</button>
+        <p class="hint">Private read-only test for Harry’s account. Checks Google identity from the extension background; does not read or update the tracker.</p>
+        <pre id="google-connection-result" role="status" aria-live="polite"></pre>
         <button id="forget-report" type="button" class="quiet" aria-describedby="forget-hint">Clear saved report data</button>
         <p id="forget-hint" class="hint">Clears this report’s saved rows, Prisma results, filters and timings from this Chrome profile. The Google Sheet, Prisma and Campaign History stay unchanged.</p>
 

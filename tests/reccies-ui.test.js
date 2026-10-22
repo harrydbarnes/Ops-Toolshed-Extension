@@ -36,6 +36,22 @@ function create(preferences={}) {
     return {dom,win,getData:()=>data};
 }
 describe('Reccies sidebar',()=>{
+    test('runs the private identity test through the worker only after site permission',async()=>{
+        const {dom,win}=create();
+        try {
+            await flush();
+            win.chrome.runtime.sendMessage.mockResolvedValue({status:'success',connection:{readOnly:true,email:'test@example.com',transport:'extension-service-worker'}});
+            win.document.getElementById('test-google-connection').click(); await flush();
+            expect(win.chrome.permissions.request).toHaveBeenCalledWith({origins:['https://script.google.com/*','https://script.googleusercontent.com/*']});
+            expect(win.chrome.runtime.sendMessage).toHaveBeenLastCalledWith({action:'reccies',operation:'testGoogleConnection'});
+            expect(win.document.getElementById('google-connection-result').textContent).toContain('extension-service-worker');
+            win.chrome.permissions.request.mockResolvedValue(false);
+            win.chrome.runtime.sendMessage.mockClear();
+            win.document.getElementById('test-google-connection').click(); await flush();
+            expect(win.chrome.runtime.sendMessage).not.toHaveBeenCalled();
+            expect(win.document.getElementById('google-connection-result').textContent).toContain('not granted');
+        } finally { dom.window.close(); }
+    });
     test('switches modes without network discovery and keeps assignment preferences separate',async()=>{
         const {dom,win,getData}=create();
         try {

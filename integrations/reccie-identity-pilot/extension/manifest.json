@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Ops Toolshed — Google Identity Pilot",
+  "version": "0.1.1",
+  "description": "Read-only Google identity and background transport test. No tracker or Prisma access.",
+  "permissions": [],
+  "host_permissions": ["https://script.google.com/*", "https://script.googleusercontent.com/*"],
+  "background": {"service_worker": "worker.js"},
+  "action": {"default_popup": "popup.html"}
+}
