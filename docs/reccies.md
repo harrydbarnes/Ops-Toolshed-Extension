@@ -1,8 +1,20 @@
-# Reccies read-only preview
+# Reccies
 
-Open **Reccies** in the Prisma header, or **My Reccies** in the extension popup.
+Open **Reccies** in the Prisma header.
 The same page works in Chrome's sidebar and in a full tab. The global panel is
 available when opening a placement in another tab; Help Guides shares the panel.
+
+The header launcher prepares Reccies when it appears and on pointer
+entry or keyboard focus. While initial preparation is pending, the sidebar
+button shows a starting/preparing state. Preparation enables the existing panel
+without opening it or replacing an open Help Guides page. The extension popup does not include Reccies controls.
+
+If Chrome has put the background worker to sleep again and an opening click
+arrives before it is ready, the launcher prepares it and returns to ready. Click
+again to open the sidebar: Chrome requires a fresh user gesture, so the extension
+does not replay the original click automatically. Other opening errors retain
+their actual error text in the header button accessibility label.
+Preparation respects Features off and does not use keepalive polling.
 
 ## Tracker reads
 
@@ -79,9 +91,26 @@ statuses require review. Failed access replaces the previous result with an erro
 Results show their check time independently from the tracker read time. A tracker
 refresh clears previous checks. Results from an older report revision are discarded.
 
-There is no Google Sheets write endpoint, write action, mark-as-reccied button,
-Apps Script execution, or automatic tracker update in this preview. Existing Yes
-values remain unchanged, even if Prisma disagrees.
+## Manual tracker updates
+
+For live Google Sheet reports from the Ops Reccie Tracker, individual cards offer
+**Mark Yes in tracker**. Campaign actions include only the D numbers matching your
+current filters, with a maximum of 100 per save. CSV imports and Automatic discovery
+remain read-only.
+
+The preview reads the live tracker, lists eligible and skipped placements, and
+requires confirmation that you have reconciled them. It changes only Reccied to
+Yes; it does not alter Prisma or require a successful Prisma check for this manual
+attestation. The server rematches D number, campaign ID and report month, skips
+ambiguous or changed rows, and confirms saved values before updating local cards.
+
+Google identifies the signed-in user. Access is controlled remotely by a private
+server allowlist, never a list bundled in the extension. Saves record the actor,
+selection and outcomes in a separate private audit workbook. If a save times out or loses its connection, the dialog checks the receipt once
+without repeating the write. **Check last tracker save** also recovers the receipt
+after reopening the page.
+Automatic updates remain disabled. Deployment must enable manual writes before
+these actions can save; preview errors leave the tracker unchanged.
 
 ## Existing Apps Script
 
@@ -152,7 +181,7 @@ from its signed-in Sheets tab. These do not by themselves prove the newly implem
 Google background fetch or the sidebar's installed Chrome behaviour.
 
 After reloading the unpacked extension and Prisma, verify: header placement and hit
-target, header and popup sidebar opening, opening a campaign in another tab, switching
+target, header sidebar opening, opening a campaign in another tab, switching
 between Reccies and Help Guides, actual Google reading after optional permission,
 CSV fallback, assignment and month persistence, a known complete row and a known
 incomplete row, sign-in failure, feature-off cleanup, Plan/Actualise/Close transitions,
@@ -189,7 +218,7 @@ checks, and reports campaign-level failures even if no D numbers were known.
 
 Main, Early and Automatic snapshots are stored separately; Early and Automatic
 are also scoped by current month. Each mode has separate filters and diagnostics.
-Main remains the default on reopening, and its header/popup count stays tied to
+Main remains the default on reopening, and its header count stays tied to
 Main Tracker assignments. Clear saved report data in Debug removes only the selected local report and its
 preferences/timing. No mode writes to Sheets or runs Apps Script.
 
@@ -200,3 +229,11 @@ refreshes Prisma results without requiring a reset.
 Show by and Tracker Reccie status use adjacent pill selectors, sharing the Features
 settings appearance with Reccie source. Arrow keys change the active choice;
 selection, saved filters and verification rules are unchanged.
+
+## Activity feedback
+
+Verification, report reads, live write previews, saves and receipt checks share
+one animated status renderer and the reduced-motion styling. Reading a report
+scrolls its status into view. A connection-only response to preview is retried
+once as a read-only preview; other incomplete responses remain errors. No write
+is sent until an actual valid preview and explicit confirmation are present.

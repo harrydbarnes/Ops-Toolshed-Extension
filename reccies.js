@@ -2,6 +2,10 @@
     'use strict';
     const core = window.reccieCore, $ = id => document.getElementById(id);
     let tracker = null, busy = false, limit = 40, latestTiming = null, mode = 'main', mainMonth = '';
+    const manualWrites = window.reccieManualWrites?.create({
+        context:()=>({tracker,mode,month:$('report-month').value}),busy:()=>busy,setBusy,message,
+        updated:(saved,context)=>{if(mode===context.mode&&$('report-month').value===context.month){tracker=saved;render();}}
+    });
     const observed = () => tracker?.source?.type === 'automatic' || mode === 'automatic';
     const storageKey = suffix => mode === 'main' ? (suffix === 'preferences' ? 'recciePreferences' : 'reccieLastRunTiming') : `${core.trackerKey(mode, $('report-month').value)}:${suffix}`;
     const labels = { ready: 'Verified ready', outstanding: 'Outstanding', review: 'Needs attention', error: 'Check failed' };
@@ -142,18 +146,7 @@
         const status = $('message');
         status.classList.toggle('error', error);
         status.classList.toggle('is-verifying', verifying);
-        if (!verifying) { status.textContent = value; return; }
-        const dot = text('span', '', 'reccie-status-dot');
-        dot.setAttribute('aria-hidden', 'true');
-        const split = value.lastIndexOf(' ');
-        const body = text('span', value.slice(0, split + 1), 'reccie-status-text');
-        const tail = text('span', value.slice(split + 1), 'reccie-status-tail');
-        const dots = text('span', '', 'reccie-status-dots');
-        dots.setAttribute('aria-hidden', 'true');
-        for (let index = 0; index < 3; index++) dots.append(text('span', '.'));
-        tail.append(dots);
-        body.append(tail);
-        status.replaceChildren(dot, body);
+        window.reccieStatus.render(status, value, verifying);
     }
     function showTiming(report) {
         latestTiming = report || null;
@@ -190,6 +183,7 @@
         $('clear-filters').disabled = value;
         $('debug-workers').disabled = value;
         $('debug-run').disabled = $('check-rows').disabled;
+        document.querySelectorAll('.tracker-mark-yes').forEach(button=>{button.disabled=value;});
         segmentBindings.forEach(sync=>sync());
     }
     async function send(operation, args = {}) {
@@ -255,6 +249,7 @@
     }
     function render() {
         renderMode();
+        manualWrites?.refresh();
         const shown = shownRows(), mine = myRows();
         const grouped = $('show-by').value === 'campaign';
         const entries = grouped ? campaignGroups(shown) : shown;
@@ -292,6 +287,7 @@
                 bottom.append(highlighted('span', `${row.campaignId} · ${row.month}`));
                 const url = core.campaignUrl(row);
                 if (url) { const link = text('a', 'Open in Prisma ↗'); link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer'; bottom.append(link); }
+                const mark=manualWrites?.button(entry,true);if(mark)bottom.append(mark);
                 card.append(bottom); list.append(card); return;
             }
             const result = tracker.checks?.[row.sourceRow];
@@ -314,18 +310,20 @@
             bottom.append(highlighted('span', `${row.campaignId} · ${row.month}\nChecked: ${dateLabel(result?.checkedAt)}`));
             const url = core.campaignUrl(row);
             if (url) { const link = text('a', 'Open in Prisma ↗'); link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer'; bottom.append(link); }
+            const mark=manualWrites?.button([row],false);if(mark)bottom.append(mark);
             card.append(bottom); list.append(card);
         });
         if (entries.length > limit) { const more = text('button', grouped ? 'Show more campaigns' : 'Show more rows', 'more'); more.type = 'button'; more.onclick = () => { limit += 40; render(); }; list.append(more); }
         setBusy(busy);
     }
     async function loadReport(operation, args) {
-        setBusy(true); message('Reading report…');
+        setBusy(true); message('Reading report', false, true);
+        $('message').scrollIntoView?.({behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'center'});
         try {
             await send(operation, { ...args, month: $('report-month').value });
             showTiming(null);
             people(); render(); setDisclosureOpen($('source-details'), false);
-            message(observed() ? 'Visited-campaign discovery finished. Review the coverage and results below.' : 'Report loaded. Choose your name, then verify the reconciliation status.');
+            message(observed() ? 'Visited-campaign discovery finished. Review the coverage and results below.' : '');
             if (observed()) showTiming(tracker.lastCheckTiming);
         } catch (error) { message(error.message, true); }
         finally { setBusy(false); }
@@ -434,10 +432,12 @@
     }
     function renderMode() {
         const automatic = observed();
-        document.querySelector('header .intro').textContent = automatic ? 'Placements from visited campaigns, checked against Prisma. The spreadsheet stays unchanged.' : 'Your Reccie Tracker rows, checked against Prisma. The spreadsheet stays unchanged.';
+        document.querySelector('header .intro').textContent = automatic ? 'Placements from visited campaigns, checked against Prisma. The spreadsheet stays unchanged.' : 'Your Reccie Tracker rows, checked against Prisma. Preview and confirm any tracker updates.';
+        document.querySelector('header .readonly').textContent = manualWrites?.available() ? 'Manual tracker updates' : 'Read only';
         $('mode-description').textContent = mode === 'main' ? 'Monthly tracker assignments.' : mode === 'early' ? `Early Reccie report for ${core.currentMonth()}. Current-month dates determine whether the tab can be used.` : `Current-month placements from campaigns visited this month in this Chrome profile. Not proof of who booked them. Visit campaigns with History logging on, then discover.`;
         $('sheet-connection').hidden = mode === 'automatic';
         $('source-details').hidden = mode === 'automatic';
+        $('report-loaded-badge').hidden = !tracker || automatic;
         $('forget-report').disabled = busy || !tracker;
         $('discover-campaigns').hidden = mode === 'main';
         $('discover-campaigns').textContent = mode === 'early' ? 'Use visited campaigns fallback' : 'Discover / refresh visited campaigns';

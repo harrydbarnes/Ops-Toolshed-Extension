@@ -12,8 +12,8 @@
 <body>
 <main>
     <header>
-        <div class="titleline"><h1>My Reccies</h1><span class="readonly">Read only</span></div>
-        <p class="intro">Your Reccie Tracker rows, checked against Prisma. The spreadsheet stays unchanged.</p>
+        <div class="titleline"><h1>My Reccies</h1><span class="readonly">Manual tracker updates</span></div>
+        <p class="intro">Your Reccie Tracker rows, checked against Prisma. Preview and confirm any tracker updates.</p>
     </header>
     <fieldset class="mode-switch" id="mode-switch"><legend id="source-label">Reccie source</legend>
         <div class="segmented-control" id="source-segments" role="group" aria-labelledby="source-label"></div>
@@ -25,7 +25,7 @@
     <button id="discover-campaigns" type="button" hidden>Discover visited campaigns</button>
     <details id="coverage-details" hidden><summary>Campaign coverage</summary><div id="coverage-issues"></div></details>
     <details id="source-details" open>
-        <summary id="source-summary">Reccie tracking settings</summary>
+        <summary id="source-summary"><span>Reccie tracking settings</span><span id="report-loaded-badge" class="report-loaded-badge" hidden><span aria-hidden="true">✓</span> Report loaded</span></summary>
         <div id="sheet-connection">
         <label for="sheet-url">Google Sheet tab URL</label>
         <input id="sheet-url" type="url" placeholder="https://docs.google.com/spreadsheets/d/…/edit?gid=…" autocomplete="off">
@@ -65,7 +65,8 @@
     <p id="verification-scope" class="hint">Verifies all rows matching your filters, including rows below “Show more”.</p>
     <p id="message" role="status" aria-live="polite"></p>
     <div id="rows" aria-label="Reccie rows"></div>
-    <p class="rule">Ready means Reconciled = Yes and Buy status = Successful for the report month. Checking does not mark the tracker as reccied.</p>
+    <p class="rule">Ready means Reconciled = Yes and Buy status = Successful for the report month. Checking does not mark the tracker as reccied; use Mark Yes in tracker to preview and confirm an update.</p>
+    <button id="last-tracker-save" type="button" hidden>Check last tracker save</button>
     <details id="debug"><summary>Debug</summary>
         <button id="test-google-connection" type="button">Test Google connection</button>
         <p class="hint">Private read-only test for Harry’s account. Checks Google identity from the extension background; does not read or update the tracker.</p>
@@ -80,6 +81,6 @@
         <details id="timing-details" hidden><summary>Verification timings</summary><p class="hint">Local diagnostics for the latest run. Request durations overlap when campaigns run concurrently. No timing data is sent elsewhere.</p><button id="download-timings" type="button" disabled>Download timings (.md)</button><pre id="timing-report"></pre></details>
     </details>
 </main>
-<script src="extension-page-gate.js" data-scripts="search-highlight.js,reccie-core.js,reccies.js"></script>
+<script src="extension-page-gate.js" data-scripts="search-highlight.js,reccie-core.js,reccie-status.js,reccie-writes-ui.js,reccies.js"></script>
 </body>
 </html>

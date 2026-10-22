@@ -50,10 +50,10 @@ describe('release metadata', () => {
         try {
             const currentRelease = dom.window.document.querySelector('#release-notes .release');
             const releaseItems = Array.from(currentRelease.querySelectorAll('li'));
-            expect(releaseItems).toHaveLength(41);
+            expect(releaseItems).toHaveLength(42);
             expect(currentRelease.textContent).toContain('Social Booking Checker IDs');
-            expect(releaseItems[0].textContent).toContain('My Reccies (read-only preview)');
-            expect(releaseItems[0].textContent).toContain('keep the tracker unchanged');
+            expect(releaseItems[0].textContent).toContain('My Reccies:');
+            expect(releaseItems[0].textContent).toContain('Verification keeps the tracker unchanged');
             expect(releaseItems[0].querySelector('.release-badge').dataset.releaseType).toBe('new');
             expect(releaseItems[1].textContent).toContain('Purchase Order Reference Autofill');
             expect(releaseItems[1].querySelector('.release-badge').dataset.releaseType).toBe('new');
@@ -71,7 +71,10 @@ describe('release metadata', () => {
             const popupStartup = releaseItems.find(item => item.querySelector('strong')?.textContent === 'Popup startup:');
             expect(popupStartup).toBeDefined();
             expect(popupStartup.querySelector('.release-badge').dataset.releaseType).toBe('improved');
-            const items = releaseItems.slice(4).filter(item => item !== sidebarSections && item !== offlineFonts && item !== popupStartup);
+            const recciesStartup = releaseItems.find(item => item.querySelector('strong')?.textContent === 'Reccies sidebar startup:');
+            expect(recciesStartup).toBeDefined();
+            expect(recciesStartup.querySelector('.release-badge').dataset.releaseType).toBe('fixed');
+            const items = releaseItems.slice(4).filter(item => item !== sidebarSections && item !== offlineFonts && item !== popupStartup && item !== recciesStartup);
 
             expect(items).toHaveLength(34);
             expect(items[4].textContent).toContain('Help Guide Library');

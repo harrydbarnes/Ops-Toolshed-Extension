@@ -5,7 +5,7 @@
 /* Keep selectable timing diagnostics within the sidebar at narrow widths. */
 #timing-report{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}
 #debug-workers{padding:0;border:0;accent-color:#5b4ba8}#debug-worker-count{font-variant-numeric:tabular-nums}
-#message.is-verifying{display:flex;align-items:center;gap:9px}
+.reccie-status-active,#message.is-verifying{display:flex;align-items:center;gap:9px}
 .reccie-status-text{min-width:0}.reccie-status-tail{display:inline-block;white-space:nowrap}
 .reccie-status-dot{flex:0 0 8px;width:8px;height:8px;border-radius:50%;background:currentColor;animation:reccie-status-pulse 1.5s ease-in-out infinite}
 .reccie-status-dots{display:inline-block;width:3ch;white-space:nowrap}
@@ -66,3 +66,14 @@ details.reccie-is-open > summary::before { transform: rotate(45deg); }
     details > summary::before,
     .reccie-details-content { transition: none; }
 }
+.tracker-write-dialog { box-sizing: border-box; width: min(560px, calc(100vw - 24px)); max-height: calc(100vh - 32px); overflow: auto; padding: 22px; border: 1px solid #c7c4de; border-radius: 14px; background: #fff; color: #242044; }
+.tracker-write-dialog::backdrop { background: rgb(20 15 45 / 45%); }
+.tracker-write-dialog h2 { margin-top: 0; font-size: 19px; }
+.tracker-write-dialog input[type=checkbox] { width: auto; margin-right: 6px; }
+.tracker-write-rows { max-height: 240px; overflow: auto; padding-left: 20px; }
+.tracker-write-controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.tracker-mark-yes { white-space: normal; }
+
+.tracker-write-dialog label{display:flex;align-items:flex-start;gap:8px}.tracker-write-dialog label input[type=checkbox]{flex:0 0 auto;margin:3px 0 0}
+
+.report-loaded-badge{margin-left:auto;display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:600;color:#216545;background:#e5f4eb;white-space:nowrap}

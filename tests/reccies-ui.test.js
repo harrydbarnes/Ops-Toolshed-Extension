@@ -17,10 +17,11 @@ function setGrouping(win,value) {
     win.document.getElementById('show-by').value=value;
     win.document.getElementById('show-by').dispatchEvent(new win.Event('change'));
 }
-function create(preferences={}) {
+function create(preferences={},source) {
     const dom = new JSDOM(html,{url:'https://extension.test/reccies.html',runScripts:'dangerously',pretendToBeVisual:true});
     const win=dom.window;
     let data={reccieTracker:initial(),recciePreferences:{person:'Harry',assignment:'ops',showBy:'dnumber',trackerStatus:'outstanding',statuses:[],...preferences}};
+    if(source)data.reccieTracker.source=source;
     if ('statuses' in preferences && !('trackerStatus' in preferences)) data.recciePreferences.trackerStatus='any';
     win.reccieCore=core;
     win.chrome={storage:{local:{get:jest.fn(async()=>data),set:jest.fn(async values=>Object.assign(data,values))}},permissions:{request:jest.fn(async()=>true)},runtime:{sendMessage:jest.fn(async request=>{
@@ -32,10 +33,95 @@ function create(preferences={}) {
         return {status:'success',tracker:data.reccieTracker};
     })}};
     win.eval(readScript(path.resolve(__dirname,'../search-highlight.js')));
+    win.HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','');};
+    win.HTMLDialogElement.prototype.close=function(){this.removeAttribute('open');};
+    win.eval(readScript(path.resolve(__dirname,'../reccie-status.js')));
+    win.eval(readScript(path.resolve(__dirname,'../reccie-writes-ui.js')));
     win.eval(readScript(path.resolve(__dirname,'../reccies.js')));
     return {dom,win,getData:()=>data};
 }
 describe('Reccies sidebar',()=>{
+    const liveSource={type:'google',url:'https://docs.google.com/spreadsheets/d/1QxX7yZvfh75ENyvPG7xD_5ldLuoLwUsTZ6z0edkpORU/edit?gid=405487495'};
+    const writeId='01234567-89ab-cdef-0123-456789abcdef';
+    const clickDialog=(win,label)=>[...win.document.querySelectorAll('dialog button')].find(button=>button.textContent===label).click();
+    test('manual save requires live preview and confirmation; cards update only after confirmed receipt',async()=>{
+        const {dom,win,getData}=create({},liveSource);
+        try{
+            await flush();const original=getData().reccieTracker,updated=structuredClone(original);updated.rows[0].reccied='Yes';updated.revision='saved';let finish;
+            win.chrome.runtime.sendMessage.mockImplementation(async request=>{
+                if(request.operation==='previewTrackerWrite')return {status:'success',write:{requestId:writeId,results:[{dNumber:'D03120200',state:'eligible',before:'No'}]}};
+                if(request.operation==='commitTrackerWrite')return new Promise(resolve=>{finish=()=>resolve({status:'success',tracker:updated,write:{requestId:writeId,state:'complete',results:[{dNumber:'D03120200',state:'updated',confirmed:true}]}});});
+                return {status:'success',tracker:original};
+            });
+            win.document.querySelector('.tracker-mark-yes').click();await flush();
+            expect(win.document.querySelector('dialog').textContent).toContain('1 D number will be marked Yes');
+            expect(win.document.getElementById('tracker-write-title').textContent).toBe('Update Tracker Status');
+            const save=[...win.document.querySelectorAll('dialog button')].find(button=>button.textContent==='Confirm Update(s)');expect(save.disabled).toBe(true);
+            const check=win.document.querySelector('dialog input');check.checked=true;check.dispatchEvent(new win.Event('change'));save.click();await flush();
+            expect(win.document.querySelector('.status-lines').textContent).toContain('Tracker Reccied: No');
+            expect(win.document.querySelector('dialog .reccie-status-dot')).not.toBeNull();
+            expect(win.document.querySelector('dialog').textContent).toContain('Saving to the tracker');
+            finish();await flush();expect(win.document.getElementById('summary').textContent).toContain('0 D numbers shown');
+            expect(win.document.querySelector('dialog').textContent).toContain('1 saved Yes');
+            clickDialog(win,'Close');expect(win.document.querySelector('dialog')).toBeNull();
+        }finally{dom.window.close();}
+    });
+    test('campaign preview includes only matching unreconciled D numbers and cancel never commits',async()=>{
+        const {dom,win,getData}=create({showBy:'campaign'},liveSource);
+        try{
+            await flush();getData().reccieTracker.rows[2].ops='Harry';win.document.getElementById('search').dispatchEvent(new win.Event('input'));
+            win.chrome.runtime.sendMessage.mockResolvedValue({status:'success',write:{requestId:writeId,results:[{dNumber:'D03120200',state:'eligible',before:'No'},{dNumber:'D03144020',state:'eligible',before:'No'}]}});
+            const button=win.document.querySelector('.tracker-mark-yes');expect(button.textContent).toContain('2 matching D numbers');button.click();await flush();
+            expect(win.chrome.runtime.sendMessage).toHaveBeenLastCalledWith({action:'reccies',operation:'previewTrackerWrite',mode:'main',month:'2026-09',revision:'test',rowIds:[2,4]});
+            clickDialog(win,'Cancel');expect(win.chrome.runtime.sendMessage.mock.calls.some(([r])=>r.operation==='commitTrackerWrite')).toBe(false);
+        }finally{dom.window.close();}
+    });
+    test('unconfirmed save offers receipt recovery without automatically repeating the write',async()=>{
+        const {dom,win}=create({},liveSource);
+        try{
+            await flush();win.chrome.runtime.sendMessage.mockImplementation(async request=>{
+                if(request.operation==='previewTrackerWrite')return {status:'success',write:{requestId:writeId,results:[{dNumber:'D03120200',state:'eligible',before:'No'}]}};
+                if(request.operation==='commitTrackerWrite')throw Error('Connection lost');
+                return {status:'success',write:{requestId:writeId,state:'pending',results:[]}};
+            });
+            win.document.querySelector('.tracker-mark-yes').click();await flush();const check=win.document.querySelector('dialog input');check.checked=true;check.dispatchEvent(new win.Event('change'));clickDialog(win,'Confirm Update(s)');await flush();
+            expect(win.document.querySelector('dialog').textContent).toContain('Save is still in progress');expect(win.chrome.runtime.sendMessage.mock.calls.filter(([r])=>r.operation==='trackerWriteStatus')).toHaveLength(1);clickDialog(win,'Check save result');await flush();
+            expect(win.chrome.runtime.sendMessage.mock.calls.filter(([r])=>r.operation==='commitTrackerWrite')).toHaveLength(1);
+            expect(win.chrome.runtime.sendMessage).toHaveBeenLastCalledWith(expect.objectContaining({operation:'trackerWriteStatus',requestId:writeId}));
+        }finally{dom.window.close();}
+    });
+    test('a timed-out save checks its receipt once and confirms success without resending',async()=>{
+        const {dom,win}=create({},liveSource);
+        try{
+            await flush();win.chrome.runtime.sendMessage.mockImplementation(async request=>{
+                if(request.operation==='previewTrackerWrite')return {status:'success',write:{requestId:writeId,results:[{dNumber:'D03120200',state:'eligible',before:'No'}]}};
+                if(request.operation==='commitTrackerWrite')throw Error('signal timed out');
+                return {status:'success',write:{requestId:writeId,state:'complete',results:[{dNumber:'D03120200',state:'updated',confirmed:true}]}};
+            });
+            win.document.querySelector('.tracker-mark-yes').click();await flush();const check=win.document.querySelector('dialog input');check.checked=true;check.dispatchEvent(new win.Event('change'));clickDialog(win,'Confirm Update(s)');await flush();
+            expect(win.document.querySelector('dialog').textContent).toContain('1 saved Yes');
+            expect(win.chrome.runtime.sendMessage.mock.calls.filter(([r])=>r.operation==='commitTrackerWrite')).toHaveLength(1);
+            expect(win.chrome.runtime.sendMessage.mock.calls.filter(([r])=>r.operation==='trackerWriteStatus')).toHaveLength(1);
+        }finally{dom.window.close();}
+    });
+    test('report reading animates and scrolls its status into view, then clears activity',async()=>{
+        const {dom,win,getData}=create({},liveSource);
+        try{
+            await flush();let finish;win.Element.prototype.scrollIntoView=jest.fn();
+            win.chrome.runtime.sendMessage.mockImplementation(()=>new Promise(resolve=>{finish=()=>resolve({status:'success',tracker:getData().reccieTracker});}));
+            win.document.getElementById('sheet-url').value=liveSource.url;
+            win.document.getElementById('refresh-sheet').click();await flush();
+            const status=win.document.getElementById('message');
+            expect(status.textContent).toContain('Reading report');expect(status.querySelector('.reccie-status-dot')).not.toBeNull();
+            expect(status.scrollIntoView).toHaveBeenCalledWith(expect.objectContaining({block:'center'}));
+            finish();await flush();expect(status.querySelector('.reccie-status-dot')).toBeNull();
+            expect(status.textContent).toBe('');
+            const badge=win.document.getElementById('report-loaded-badge');expect(badge.hidden).toBe(false);expect(badge.closest('summary').id).toBe('source-summary');expect(badge.textContent).toContain('Report loaded');
+        }finally{dom.window.close();}
+    });
+    test('CSV snapshots offer no tracker write action',async()=>{
+        const {dom,win}=create();try{await flush();expect(win.document.querySelector('.tracker-mark-yes')).toBeNull();}finally{dom.window.close();}
+    });
     test('runs the private identity test through the worker only after site permission',async()=>{
         const {dom,win}=create();
         try {
@@ -61,8 +147,9 @@ describe('Reccies sidebar',()=>{
             doc.querySelector('#source-segments [data-value=automatic]').click(); await flush();
             expect(win.chrome.runtime.sendMessage).toHaveBeenLastCalledWith({action:'reccies',operation:'load',mode:'automatic',month:core.currentMonth()});
             expect(doc.getElementById('source-details').hidden).toBe(true);
+            expect(doc.getElementById('report-loaded-badge').hidden).toBe(true);
             expect(doc.getElementById('sheet-connection').hidden).toBe(true);
-            expect(doc.getElementById('source-summary').textContent).toBe('Reccie tracking settings');
+            expect(doc.getElementById('source-summary').firstElementChild.textContent).toBe('Reccie tracking settings');
             expect(doc.getElementById('forget-report').closest('details').id).toBe('debug');
             expect(doc.getElementById('assignment-fields').hidden).toBe(true);
             expect(doc.getElementById('tracker-status').hidden).toBe(true);
@@ -117,7 +204,7 @@ describe('Reccies sidebar',()=>{
         try {
             await flush();expect(win.document.getElementById('forget-report').closest('details').id).toBe('debug');
             expect(win.document.getElementById('sheet-connection').hidden).toBe(false);
-            expect(win.document.getElementById('source-summary').textContent).toBe('Reccie tracking settings');
+            expect(win.document.getElementById('source-summary').firstElementChild.textContent).toBe('Reccie tracking settings');
             expect(win.document.getElementById('forget-report').textContent).toBe('Clear saved report data');
             expect(win.document.getElementById('debug').open).toBe(false);
             expect(win.document.querySelectorAll('[data-status]:checked')).toHaveLength(0);
@@ -503,38 +590,8 @@ describe('Reccies sidebar',()=>{
             expect(dom.window.document.getElementById('verification-scope').textContent).toContain('all rows matching your filters');
         } finally { dom.window.close(); }
     });
-    test('launches the popup sidebar from a click without awaiting another API first',async()=>{
-        const dom=new JSDOM('<button id="recciesButton"></button><button id="recciesPageButton"></button><p id="recciesPopupStatus"></p>',{runScripts:'dangerously'});
-        dom.window.chrome={tabs:{query:jest.fn(async()=>[{id:42,windowId:7}]),create:jest.fn()},runtime:{sendMessage:jest.fn(async request=>request.action==='prepareReccies'?{status:'success'}:{status:'error',message:'Test'}),getURL:path=>`chrome-extension://test/${path}`},storage:{local:{get:jest.fn(async()=>({}))}}};
-        dom.window.eval(readScript(path.resolve(__dirname,'../reccie-popup.js')));
-        dom.window.document.dispatchEvent(new dom.window.Event('DOMContentLoaded'));await flush();
-        dom.window.document.getElementById('recciesButton').click();
-        expect(dom.window.chrome.runtime.sendMessage).toHaveBeenCalledWith({action:'openReccies',tabId:42,windowId:7});
-        await flush();dom.window.close();
-    });
-    test('defers the tracker summary until a render opportunity without delaying the full-page launcher',async()=>{
-        const dom=new JSDOM('<button id="recciesButton"></button><button id="recciesPageButton"></button><p id="recciesPopupStatus"></p>',{runScripts:'outside-only'});
-        const win=dom.window,frames=[],tasks=[];let finishTabQuery;
-        try {
-            await new Promise(resolve=>win.document.addEventListener('DOMContentLoaded',resolve,{once:true}));
-            win.requestAnimationFrame=callback=>frames.push(callback);
-            win.setTimeout=callback=>tasks.push(callback);
-            win.chrome={tabs:{query:jest.fn(()=>new Promise(resolve=>{finishTabQuery=resolve;})),create:jest.fn()},runtime:{sendMessage:jest.fn(async()=>({status:'success'})),getURL:file=>`chrome-extension://test/${file}`},storage:{local:{get:jest.fn(async()=>({reccieTracker:{month:'2026-10',rows:[{ops:'Harry',reccied:'No'},{ops:'Other',reccied:'No'}]},recciePreferences:{person:'Harry',assignment:'ops'}}))}}};
-            win.eval(readScript(path.resolve(__dirname,'../reccie-popup.js')));
-            win.document.dispatchEvent(new win.Event('DOMContentLoaded'));
-            expect(win.chrome.storage.local.get).not.toHaveBeenCalled();
-            win.document.getElementById('recciesPageButton').click();
-            expect(win.chrome.tabs.create).toHaveBeenCalledWith({url:'chrome-extension://test/reccies.html'});
-            frames.shift()();
-            expect(win.chrome.storage.local.get).not.toHaveBeenCalled();
-            tasks.shift()();await flush();
-            expect(win.chrome.storage.local.get).toHaveBeenCalledWith(['reccieTracker','recciePreferences']);
-            expect(win.document.getElementById('recciesButton').disabled).toBe(true);
-            finishTabQuery([{id:42,windowId:7}]);await flush();
-            expect(win.document.getElementById('recciesPopupStatus').textContent).toBe('Harry · 2026-10 · 1 not marked Yes / 1 assigned. Read only.');
-        } finally { win.close(); }
-    });
 });
+
 describe('Reccies header lifecycle',()=>{
     test('requeries replaced header roots, avoids duplicates, and removes its control when disabled',async()=>{
         const dom=new JSDOM('<mo-banner-user-menu></mo-banner-user-menu>',{url:'https://go.mediaocean.com/campaign-management/',runScripts:'dangerously'});

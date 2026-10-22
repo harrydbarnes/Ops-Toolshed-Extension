@@ -1,0 +1,9 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Guarded write pilot</title><link rel="stylesheet" href="popup.css"></head>
+<body><h1>Guarded write pilot</h1><p>Your access is checked on the server using your signed-in Google account.</p>
+<button id="access" type="button">Check my access</button>
+<section id="write-test" hidden><p>This one-shot test changes <strong>D03120200 / September 2026</strong> from No to Yes and back to No. It does not mark it permanently reconciled.</p>
+<button id="prepare" type="button">Prepare write test</button><p id="preview"></p>
+<label><input id="confirm" type="checkbox" disabled>I am ready to test and restore this placement.</label>
+<button id="run" type="button" disabled>Run No → Yes → No test</button></section>
+<p id="status" role="status" aria-live="polite"></p><pre id="result"></pre><button id="download" type="button" disabled>Download result (.json)</button>
+<script src="popup.js"></script></body></html>

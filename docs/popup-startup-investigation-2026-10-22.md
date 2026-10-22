@@ -96,6 +96,40 @@ endpoint is called. It is development tooling and should not ship in a release.
 
 ## Remaining diagnosis
 
+### Registry history clarified
+
+`feature-settings-registry.js` remains a live dependency of Settings, the feature
+explorer, documentation generation and tests. It owns shared defaults, storage
+keys and the feature catalogue; the file was not removed.
+
+Git history shows its introduction in `fcb1933` on 10 September 2026. Before that
+commit, the popup used a hard-coded `FEATURE_SETTING_KEYS` array to back up and
+disable each feature. That same commit removed the per-feature iteration in
+favour of the master `allFeaturesDisabled` flag, while also introducing the
+popup's registry import. The imported key list subsequently only supported its
+testing export. Commit `e861022` later added the richer catalogue used by the
+feature explorer and Settings previews. Removing the popup's script tag leaves
+all those real consumers intact; the CommonJS test export still reads the shared
+key list from the registry.
+
+### Reccies launch preparation
+
+The separate Reccies launch race now has preparation messages from both launchers.
+They wait for background feature-mode readiness before enabling initial sidebar
+activation and warm readiness on pointer entry/focus. Preparation enables the
+existing panel without changing its path or opening it, so it does not replace
+Help Guides. Actual opening still happens synchronously from the click path.
+Cold-worker responses distinguish `FEATURES_STARTING` from `FEATURES_DISABLED`.
+If an idle worker is still starting on an opening click, the launcher returns to
+ready and requires a fresh click rather than asynchronously replaying the gesture.
+
+Regression tests cover pending preparation, immediate click-to-open, cold-worker
+recovery without automatic replay, genuine errors, untrusted senders and Features
+off. These checks do not establish a live first-click success rate after Chrome
+idling and do not resolve the unrelated toolbar-to-popup blank interval.
+
+### Toolbar delay
+
 The leading unresolved area is the interval **before the popup document begins**:
 Chrome toolbar handling, renderer scheduling/startup and local resource I/O.
 These are candidates, not confirmed causes. Normal-page previews do not exercise
@@ -134,3 +168,15 @@ the still-unreproduced click delay.
   focused-rerun results are recorded separately in its measurement report.
 - Local fonts retained, release notes updated, build metadata refreshed/staged.
   No commit or push was made.
+
+Subsequent Reccies readiness validation on 22 October:
+
+- Feature-contract gate before edits: 16 suites / 291 tests passed.
+- Focused background, feature-mode, Reccies and UI checks: 162 tests passed;
+  the six new popup/header readiness tests passed too.
+- Feature-contract gate after edits: 16 suites / 293 tests passed.
+- Full current-checkout suite: **106 suites / 1,208 tests / one snapshot passed**,
+  exiting normally in 279.201 seconds. The shared checkout also contains work
+  committed by another operation during this task; no commit was made here.
+- Syntax check: 229 JavaScript files passed. Whitespace check passed.
+- Actual Chrome reload and signed-in Prisma sidebar smoke test remain unverified.

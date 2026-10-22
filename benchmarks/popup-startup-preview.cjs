@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const root = path.resolve(__dirname, '..');
 const allowed = new Set([
-    'popup.html', 'popup.js', 'reccie-popup.js', 'feature-settings-registry.js',
+    'popup.html', 'popup.js', 'feature-settings-registry.js',
     'style.css', 'icon.png', 'assets/icons/fontawesome/gear-solid.svg',
     'assets/icons/fontawesome/file-lines-solid.svg', 'assets/icons/fontawesome/bullhorn-solid.svg'
 ]);

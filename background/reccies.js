@@ -1,5 +1,6 @@
 import '../reccie-core.js';
 import { testReccieGoogleConnection } from './reccie-connection-probe.js';
+import { manualTrackerWrite } from './reccie-writes.js';
 import { buildReccieQuery } from './reccie-query.js';
 import { isFeatureModeActive } from './feature-mode.js';
 
@@ -57,22 +58,22 @@ async function prisma(path, body, requests, attempt, deadline, method) {
     } finally { timing.totalMs = Math.round(performance.now() - started); }
 }
 function getRecciesPanelTarget(request, sender) {
-        if (!isFeatureModeActive()) {
-            const error = new Error('Enable Ops Toolshed features to open Reccies.');
-            error.code = 'FEATURES_DISABLED';
-            throw error;
-        }
-        let prismaSender = false;
-        try {
-            const url = new URL(sender?.url);
-            prismaSender = sender.id === chrome.runtime.id && sender.tab?.id &&
-                (sender.frameId == null || sender.frameId === 0) && url.origin === 'https://go.mediaocean.com' && url.pathname.startsWith('/campaign-management/');
-        } catch (_) { /* Only extension pages or the signed-in Prisma top frame may open this panel. */ }
-        if (!ownPage(sender) && !prismaSender) throw new Error('Open Reccies from Ops Toolshed or Prisma.');
-        const windowId = sender.tab?.windowId ?? request.windowId;
-        if (!Number.isInteger(windowId)) throw new Error('Could not identify the active Chrome window.');
-        const tabId = sender.tab?.id ?? request.tabId;
-        return { windowId, tabId };
+    if (!isFeatureModeActive()) {
+        const error = new Error('Enable Ops Toolshed features to open Reccies.');
+        error.code = 'FEATURES_DISABLED';
+        throw error;
+    }
+    let prismaSender = false;
+    try {
+        const url = new URL(sender?.url);
+        prismaSender = sender.id === chrome.runtime.id && sender.tab?.id &&
+            (sender.frameId == null || sender.frameId === 0) && url.origin === 'https://go.mediaocean.com' && url.pathname.startsWith('/campaign-management/');
+    } catch (_) { /* Only extension pages or the signed-in Prisma top frame may open this panel. */ }
+    if (!ownPage(sender) && !prismaSender) throw new Error('Open Reccies from Ops Toolshed or Prisma.');
+    const windowId = sender.tab?.windowId ?? request.windowId;
+    if (!Number.isInteger(windowId)) throw new Error('Could not identify the active Chrome window.');
+    const tabId = sender.tab?.id ?? request.tabId;
+    return { windowId, tabId };
 }
 
 export async function prepareReccies(request, sender, sendResponse) {
@@ -264,6 +265,11 @@ export async function handleReccies(request, sender, sendResponse) {
     try {
         if (!ownPage(sender)) throw new Error('Tracker data is available only in Ops Toolshed.');
         await assertPrismaProfile();
+        if (['previewTrackerWrite','commitTrackerWrite','trackerWriteStatus'].includes(request.operation)) {
+            const result = await manualTrackerWrite(request,{queueWrite,assertActive});
+            sendResponse({status:'success',...result});
+            return;
+        }
         if (request.operation === 'testGoogleConnection') {
             sendResponse({status:'success', connection:await testReccieGoogleConnection()});
             return;

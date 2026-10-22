@@ -15,6 +15,11 @@ function getFlexGrow(selector) {
 }
 
 describe('Popup bottom menu layout', () => {
+    test('omits the Reccies section and its popup script', () => {
+        expect(popupHtml).not.toMatch(/recciesPopupTitle|recciesPopupStatus|recciesButton|recciesPageButton|reccie-popup\.js/);
+        expect(popupHtml).not.toContain('Open Reccies sidebar');
+        expect(popupHtml).not.toContain('Open full page');
+    });
     test('loads its startup styles and icons without network requests', () => {
         expect(popupHtml).not.toMatch(/<link[^>]+href=["']https?:\/\//i);
         expect(popupCss).not.toMatch(/@import\s+url\(["']?https?:\/\//i);

@@ -12,7 +12,7 @@
         button.disabled = preparing;
         button.textContent = preparing ? 'Reccies · starting…' : launch?.message ? 'Reccies · unavailable' : `Reccies${count == null ? '' : ` · ${count}`}`;
         button.setAttribute('aria-busy', String(preparing));
-        button.setAttribute('aria-label', launch?.message || launch?.hint || (preparing ? 'Preparing Reccies' : count == null ? 'Open read-only Reccies sidebar' : `Open Reccies sidebar: ${count} tracker rows not marked Yes`));
+        button.setAttribute('aria-label', preparing ? 'Preparing Reccies' : launch?.message || launch?.hint || (count == null ? 'Open read-only Reccies sidebar' : `Open Reccies sidebar: ${count} tracker rows not marked Yes`));
     }
     function prepare(recovering = false) {
         const current = launch, target = button;
