@@ -12,6 +12,41 @@ describe('automatic tracker updates',()=>{
         manualTrackerWrite.mockReset().mockImplementation(async request=>request.operation==='previewTrackerWrite'?{write:{requestId:'01234567-89ab-cdef-0123-456789abcdef'}}:{tracker,write:{state:'complete',results:[{state:'updated',confirmed:true}]}});
     });
     const run=()=>autoMarkVerified(tracker,{mode:'main',month:'2026-09',rowIds:[2]},context);
+    test('pending batch preserves remaining stable identities without repeating commit',async()=>{
+        const seed=tracker.rows[0];
+        tracker.rows=Array.from({length:101},(_,index)=>({...seed,sourceRow:index+2,dNumber:`D${3100000+index}`}));
+        tracker.checks=Object.fromEntries(tracker.rows.map(row=>[row.sourceRow,{state:'ready',reconciled:'1',buyStatus:'SUCCESSFUL',checkedAt:new Date().toISOString()}]));
+        manualTrackerWrite.mockImplementation(async request=>request.operation==='previewTrackerWrite'?{write:{requestId:'pending-batch'}}:{write:{state:'pending',results:[]}});
+        await autoMarkVerified(tracker,{mode:'main',month:'2026-09',rowIds:tracker.rows.map(row=>row.sourceRow)},context);
+        expect(state['reccieAutoReceipt:pending-batch'].remaining).toEqual([{dNumber:'D3100100',campaignId:seed.campaignId,month:seed.month}]);
+        expect(manualTrackerWrite.mock.calls.filter(([request])=>request.operation==='commitTrackerWrite')).toHaveLength(1);
+    });
+    test.each(['dNumber', 'campaignId', 'month'])('different %s values do not count as duplicate tracker rows', async field => {
+        tracker.rows.push({ ...tracker.rows[0], sourceRow: 3, [field]: 'different' });
+        await run();
+        expect(manualTrackerWrite.mock.calls[0][0].rowIds).toEqual([2]);
+    });
+    test('duplicate keys include unselected and unassigned rows', async () => {
+        tracker.rows.push({ ...tracker.rows[0], sourceRow: 3, ops: 'Other' });
+        await run();
+        expect(manualTrackerWrite).not.toHaveBeenCalled();
+    });
+    test('key fields are compared separately, without delimiter collisions', async () => {
+        tracker.rows[0].dNumber = 'D/a'; tracker.rows[0].campaignId = 'b';
+        tracker.rows.push({ ...tracker.rows[0], sourceRow: 3, dNumber: 'D', campaignId: 'a/b' });
+        await run();
+        expect(manualTrackerWrite.mock.calls[0][0].rowIds).toEqual([2]);
+    });
+    test('preserves strict field equality for missing and non-matching values', async () => {
+        tracker.rows[0].month = undefined;
+        tracker.rows.push({ ...tracker.rows[0], sourceRow: 3, month: null });
+        await run();
+        expect(manualTrackerWrite.mock.calls[0][0].rowIds).toEqual([2]);
+        manualTrackerWrite.mockClear();
+        tracker.rows[0].month = NaN;
+        await run();
+        expect(manualTrackerWrite).not.toHaveBeenCalled();
+    });
     test('requires opt-in and uses preview/commit with an automatic audit cause',async()=>{
         state.reccieAutomation.autoMark=false;await run();expect(manualTrackerWrite).not.toHaveBeenCalled();
         state.reccieAutomation.autoMark=true;const result=await run();expect(result.lastAutoUpdate.saved).toBe(1);

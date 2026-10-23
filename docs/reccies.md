@@ -130,6 +130,7 @@ choose All my D numbers, clear Search and press Verify Reccie Status. Expand
 Verification timings after completion and choose Download timings (.md), or copy
 its selectable JSON for analysis. The download contains the full report, including
 every batch and failed request, and also works for a saved run after reopening.
+Full run diagnostics remain available after automatic saves change the local tracker revision.
 This uses the locally loaded report; read the Google Sheet again first if needed.
 
 The report covers all batches, including rows below Show more. It records elapsed
@@ -185,7 +186,7 @@ target, header sidebar opening, opening a campaign in another tab, switching
 between Reccies and Help Guides, actual Google reading after optional permission,
 CSV fallback, assignment and month persistence, a known complete row and a known
 incomplete row, sign-in failure, feature-off cleanup, Plan/Actualise/Close transitions,
-and absence of Google write traffic. Do not change the real Sheet while testing.
+and absence of Google write traffic with automatic marking disabled. Do not change the real Sheet while testing.
 
 While verification is active, the status message shows a pulsing dot and a fixed-width
 . / .. / ... animation. Both stop on completion or error, with a static indicator
@@ -220,7 +221,7 @@ Main, Early and Automatic snapshots are stored separately; Early and Automatic
 are also scoped by current month. Each mode has separate filters and diagnostics.
 Main remains the default on reopening, and its header count stays tied to
 Main Tracker assignments. Clear saved report data in Debug removes only the selected local report and its
-preferences/timing. No mode writes to Sheets or runs Apps Script.
+preferences/timing. Main and Early can write through the authenticated Apps Script service when explicitly confirmed or opted in, as described below. Automatic discovery remains read-only.
 
 Sheet setup is under **Reccie tracking settings**. The **Clear saved report data**
 reset is inside the collapsed **Debug** section in every mode. Routine verification

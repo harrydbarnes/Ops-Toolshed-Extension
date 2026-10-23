@@ -17,7 +17,7 @@ function setGrouping(win,value) {
     win.document.getElementById('show-by').value=value;
     win.document.getElementById('show-by').dispatchEvent(new win.Event('change'));
 }
-function create(preferences={},source) {
+function create(preferences={},source,uiEnabled) {
     const dom = new JSDOM(html,{url:'https://extension.test/reccies.html',runScripts:'dangerously',pretendToBeVisual:true});
     const win=dom.window;
     let data={reccieTracker:initial(),recciePreferences:{person:'Harry',assignment:'ops',showBy:'dnumber',trackerStatus:'outstanding',statuses:[],...preferences}};
@@ -36,6 +36,10 @@ function create(preferences={},source) {
     win.HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','');};
     win.HTMLDialogElement.prototype.close=function(){this.removeAttribute('open');};
     win.eval(readScript(path.resolve(__dirname,'../reccie-status.js')));
+    if(uiEnabled!==undefined){
+        win.chrome.storage.sync={get:jest.fn(async()=>({recciesV2Enabled:uiEnabled}))};
+        win.eval(readScript(path.resolve(__dirname,'../reccies-ui.js')));
+    }
     win.eval(readScript(path.resolve(__dirname,'../reccie-writes-ui.js')));
     win.eval(readScript(path.resolve(__dirname,'../reccies.js')));
     return {dom,win,getData:()=>data};
@@ -413,6 +417,26 @@ describe('Reccies sidebar',()=>{
             expect(doc.getElementById('message').classList.contains('is-verifying')).toBe(false);
             expect(doc.getElementById('rows').getAttribute('aria-busy')).toBe('false');
         } finally { dom.window.close(); }
+    });
+    test('retains full run diagnostics against the revision produced by automatic saves',async()=>{
+        const {dom,win,getData}=create({},liveSource);
+        try {
+            await flush();
+            const data=getData(), originalSend=win.chrome.runtime.sendMessage.getMockImplementation();
+            win.chrome.runtime.sendMessage.mockImplementation(async request=>{
+                const result=await originalSend(request);
+                if(request.operation==='check') {
+                    result.tracker.revision='after-automatic-save';
+                    result.tracker.lastAutoUpdate={saved:1,pending:0,error:''};
+                }
+                return result;
+            });
+            win.document.getElementById('check-rows').click();
+            await flush();await flush();
+            expect(data.reccieLastRunTiming).toMatchObject({revision:'after-automatic-save',report:{
+                outcome:'completed',selection:{trackerRevision:'test'},trackerUpdates:[{saved:1}]
+            }});
+        } finally {dom.window.close();}
     });
     test('checks 372 rows across more than ten campaigns in one queue and retains downloadable diagnostics',async()=>{
         const {dom,win,getData}=create();

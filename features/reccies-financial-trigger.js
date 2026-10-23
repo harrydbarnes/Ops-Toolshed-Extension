@@ -1,7 +1,7 @@
 (function(){
     'use strict';
     if(window.opsReccieFinancialTrigger)return;window.opsReccieFinancialTrigger=true;
-    const candidates=new Map(),changes=new Map();let observer=null,scanTimer=null;
+    const candidates=new Map(),changes=new Map(),pending=new Set();let observer=null,scanTimer=null;
     const active=()=>window.opsToolshedExtensionState?.isActive();
     const context=()=>{const p=new URLSearchParams(location.hash.slice(1));return {campaignId:p.get('campaign-id'),month:p.get('mos')?.slice(0,7),actualise:p.get('ptb-ctx')==='actualize'};};
     function visibleRows(){
@@ -26,8 +26,9 @@
         observer?.disconnect();const grid=document.getElementById('grid-container_hot');
         if(grid){observer=new MutationObserver(queueScan);observer.observe(grid,{childList:true,subtree:true,attributes:true,attributeFilter:['data-row-status-value']});}
     }
-    document.addEventListener('click',event=>{
+    function handleAction(event){
         if(!event.isTrusted||!active()||!context().actualise)return;
+        if(event.type==='keydown'&&!['Enter',' '].includes(event.key))return;
         const path=event.composedPath();
         if(path.some(node=>node?.matches?.('td[id^="okToPay-"]'))){captureBefore();return;}
         const confirm=path.find(node=>node?.id==='confirm-button');
@@ -42,12 +43,19 @@
         }
         const groups=new Map();
         for(const [id,row]of changes){
-            if(row.campaignId!==ctx.campaignId||!eligible.has(`${row.month}/${row.placementId}`))continue;
+            if(row.campaignId!==ctx.campaignId||pending.has(id)||!eligible.has(`${row.month}/${row.placementId}`))continue;
             if(!groups.has(row.month))groups.set(row.month,[]);groups.get(row.month).push(row.placementId);
-            candidates.set(id,row);changes.delete(id);
         }
-        if(groups.size)chrome.runtime.sendMessage({action:'reccieFinancialUpdate',changes:[...groups].map(([month,placementIds])=>({month,placementIds}))}).catch(()=>{});
-    },true);
+        if(groups.size){
+            const selected=[...changes].filter(([id,row])=>!pending.has(id)&&row.campaignId===ctx.campaignId&&groups.get(row.month)?.includes(row.placementId));
+            selected.forEach(([id])=>pending.add(id));
+            chrome.runtime.sendMessage({action:'reccieFinancialUpdate',changes:[...groups].map(([month,placementIds])=>({month,placementIds}))}).then(result=>{
+                if(result?.status==='success'&&result.scheduled!==false)for(const [id,row]of selected){if(changes.get(id)===row){candidates.set(id,row);changes.delete(id);}}
+            }).catch(()=>{}).finally(()=>selected.forEach(([id])=>pending.delete(id)));
+        }
+    }
+    document.addEventListener('click',handleAction,true);
+    document.addEventListener('keydown',handleAction,true);
     window.opsToolshedExtensionState?.subscribe?.(enabled=>{if(!enabled){observer?.disconnect();candidates.clear();changes.clear();if(scanTimer!==null)clearTimeout(scanTimer);scanTimer=null;}});
     window.addEventListener('hashchange',()=>{observer?.disconnect();});
 })();

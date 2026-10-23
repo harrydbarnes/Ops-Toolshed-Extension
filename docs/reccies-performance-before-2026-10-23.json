@@ -1,0 +1,41 @@
+{
+  "source": "1b78159",
+  "environment": "Node v24.15.0, jsdom; synthetic data; not Chrome latency",
+  "header": [
+    {
+      "rows": 1000,
+      "medianCallbackMs": 0.09700400000000173
+    },
+    {
+      "rows": 20000,
+      "medianCallbackMs": 0.7608770000000004
+    }
+  ],
+  "eligibility": [
+    {
+      "rows": 1000,
+      "selectedRows": 1000,
+      "medianSelectionMs": 7.872600000000148
+    },
+    {
+      "rows": 5000,
+      "selectedRows": 5000,
+      "medianSelectionMs": 167.92089999999962
+    },
+    {
+      "rows": 5000,
+      "selectedRows": 100,
+      "medianSelectionMs": 16.036599999999908
+    }
+  ],
+  "bookingScan": [
+    {
+      "rows": 100,
+      "medianScanMs": 4.44399999999996
+    },
+    {
+      "rows": 1000,
+      "medianScanMs": 34.89000000000033
+    }
+  ]
+}

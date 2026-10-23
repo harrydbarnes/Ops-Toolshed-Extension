@@ -19,7 +19,7 @@ export const renderApprovers = (approvers, context) => {
         return;
     }
 
-    approvers.forEach(approver => {
+    approvers.forEach((approver, index) => {
         const card = document.createElement('div');
         card.className = `approver-card ${selectedApprovers.has(approver.id) ? 'selected' : ''}`;
         card.dataset.approverId = approver.id;
@@ -31,9 +31,19 @@ export const renderApprovers = (approvers, context) => {
         header.className = 'approver-card-header';
 
         const h4 = document.createElement('h4');
-        h4.textContent = `${approver.firstName} ${approver.lastName}`;
+        const selectButton = document.createElement('button');
+        selectButton.type = 'button';
+        selectButton.className = 'approver-select';
+        selectButton.id = `approver-name-${index}`;
+        selectButton.textContent = `${approver.firstName} ${approver.lastName}`;
+        selectButton.setAttribute('aria-pressed', String(selectedApprovers.has(approver.id)));
+        h4.appendChild(selectButton);
 
-        const star = document.createElement('i');
+        const star = document.createElement('button');
+        star.type = 'button';
+        star.setAttribute('aria-label', 'Favourite');
+        star.setAttribute('aria-describedby', selectButton.id);
+        star.setAttribute('aria-pressed', String(isFavorited));
         star.className = `favorite-star ${isFavorited ? 'fas fa-star favorited' : 'far fa-star'}`;
 
         header.appendChild(h4);
@@ -105,6 +115,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let selectedApprovers = new Set();
     let favoriteApprovers = new Set();
+    let footerHideTimer;
 
     // Internal wrapper to bridge the exported function
     const renderApproversWrapper = (approvers) => {
@@ -117,18 +128,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const updateSelectedCount = () => {
+        clearTimeout(footerHideTimer);
         const footerActions = document.querySelector('.footer-actions');
         selectedCount.textContent = `${selectedApprovers.size} approver${selectedApprovers.size === 1 ? '' : 's'} selected`;
 
         const isVisible = footerActions.classList.contains('visible');
 
         if (selectedApprovers.size > 0 && !isVisible) {
+            footerActions.classList.remove('hiding');
             footerActions.classList.remove('hidden');
             footerActions.classList.add('visible');
         } else if (selectedApprovers.size === 0 && isVisible) {
             footerActions.classList.remove('visible');
             footerActions.classList.add('hiding');
-            setTimeout(() => {
+            footerHideTimer = setTimeout(() => {
                 footerActions.classList.add('hidden');
                 footerActions.classList.remove('hiding');
             }, 250); // Corresponds to the animation duration
@@ -198,7 +211,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const saveFavorites = () => {
-        chrome.storage.local.set({ favoriteApprovers: [...favoriteApprovers] });
+        return chrome.storage.local.set({ favoriteApprovers: [...favoriteApprovers] });
     };
 
     // Event Listeners
@@ -224,7 +237,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     clientsContainer.addEventListener('click', toggleFilterButton);
     companyUserIdsContainer.addEventListener('click', toggleFilterButton);
 
-    approversList.addEventListener('click', (e) => {
+    approversList.addEventListener('click', async (e) => {
         const card = e.target.closest('.approver-card');
         if (!card) return;
 
@@ -232,6 +245,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const starIcon = e.target;
 
         if (starIcon.classList.contains('favorite-star')) {
+            if (starIcon.disabled) return;
+            const wasFavorited = favoriteApprovers.has(approverId);
             // Toggle favorite state in the Set
             if (favoriteApprovers.has(approverId)) {
                 favoriteApprovers.delete(approverId);
@@ -242,7 +257,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                 starIcon.classList.add('favorited', 'fas');
                 starIcon.classList.remove('far');
             }
-            saveFavorites();
+            starIcon.setAttribute('aria-pressed', String(!wasFavorited));
+            starIcon.disabled = true;
+            try {
+                await saveFavorites();
+            } catch {
+                if (wasFavorited) favoriteApprovers.add(approverId);
+                else favoriteApprovers.delete(approverId);
+                starIcon.classList.toggle('favorited', wasFavorited);
+                starIcon.classList.toggle('fas', wasFavorited);
+                starIcon.classList.toggle('far', !wasFavorited);
+                starIcon.setAttribute('aria-pressed', String(wasFavorited));
+                showToast('Could not save favourites. Please try again.');
+                return;
+            } finally {
+                starIcon.disabled = false;
+            }
 
             // Trigger pop animation
             starIcon.classList.add('popping');
@@ -263,6 +293,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 selectedApprovers.add(approverId);
             }
             card.classList.toggle('selected');
+            card.querySelector('.approver-select').setAttribute('aria-pressed', String(selectedApprovers.has(approverId)));
             updateSelectedCount();
         }
     });
@@ -271,37 +302,56 @@ document.addEventListener('DOMContentLoaded', async () => {
      * Shows a toast notification with a given message.
      * @param {string} message The message to display in the toast notification.
      */
+    let toastTimer;
+    let toastHideTimer;
     const showToast = (message) => {
+        clearTimeout(toastTimer);
+        clearTimeout(toastHideTimer);
+        toastNotification.classList.remove('hide');
         const toastMessage = toastNotification.querySelector('.toast-message');
         if (toastMessage) {
             toastMessage.textContent = message;
         }
         toastNotification.classList.add('show');
-        setTimeout(() => {
+        toastTimer = setTimeout(() => {
             toastNotification.classList.remove('show');
             toastNotification.classList.add('hide');
-            setTimeout(() => {
+            toastHideTimer = setTimeout(() => {
                 toastNotification.classList.remove('hide');
             }, 500);
         }, 3000);
     };
 
-    copyButton.addEventListener('click', () => {
-        const emails = [...selectedApprovers].map(id => approversData.find(a => a.id === id).email);
-        navigator.clipboard.writeText(emails.join('; ')).then(() => {
-            showToast('Copied to clipboard!');
-        });
-    });
-
-    copySaveButton.addEventListener('click', () => {
-        const emails = [...selectedApprovers].map(id => approversData.find(a => a.id === id).email);
-        navigator.clipboard.writeText(emails.join('; ')).then(() => {
-            showToast('Favourites updated and copied to clipboard!');
-        });
-        selectedApprovers.forEach(id => favoriteApprovers.add(id));
-        saveFavorites();
-        filterApprovers();
-    });
+    const copySelected = async (save) => {
+        const ids = [...selectedApprovers];
+        if (!ids.length) return;
+        copyButton.disabled = copySaveButton.disabled = true;
+        try {
+            const emails = ids.map(id => approversData.find(a => a.id === id).email);
+            try {
+                await navigator.clipboard.writeText(emails.join('; '));
+            } catch {
+                showToast('Could not copy approvers. Please try again.');
+                return;
+            }
+            if (save) {
+                const nextFavorites = new Set([...favoriteApprovers, ...ids]);
+                try {
+                    await chrome.storage.local.set({ favoriteApprovers: [...nextFavorites] });
+                } catch {
+                    showToast('Copied to clipboard, but could not save favourites. Please try again.');
+                    return;
+                }
+                favoriteApprovers = nextFavorites;
+                filterApprovers();
+            }
+            showToast(save ? 'Favourites updated and copied to clipboard!' : 'Copied to clipboard!');
+        } finally {
+            copyButton.disabled = copySaveButton.disabled = false;
+        }
+    };
+    copyButton.addEventListener('click', () => copySelected(false));
+    copySaveButton.addEventListener('click', () => copySelected(true));
 
     // Initial Population
     businessUnits.forEach(unit => {

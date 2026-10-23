@@ -9,6 +9,8 @@ function collectJavaScriptFiles(directory) {
     return fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
         const filePath = path.join(directory, entry.name);
         if (entry.isDirectory()) {
+            // Packaged copies are already checked at their original source paths.
+            if (directory === path.join(root, 'artifacts') && entry.name.startsWith('extension-')) return [];
             return ignoredDirectories.has(entry.name) ? [] : collectJavaScriptFiles(filePath);
         }
         return entry.isFile() && /\.(?:js|cjs|mjs)$/.test(entry.name) ? [filePath] : [];

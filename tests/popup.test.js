@@ -243,6 +243,10 @@ describe('generateUrlFromData', () => {
     });
 
     // Test various valid date formats
+    test.each(['00/26', '13/26', '00/2026', '13/2026', '2026-00', '2026-13', '2026-13-15'])('rejects invalid month %s', input => {
+        expect(generateUrlFromData(campaignId, input)).toBeNull();
+    });
+
     const testCases = [
         { input: 'July 25', expected: '2025-07-01' },
         { input: '07/25', expected: '2025-07-01' },

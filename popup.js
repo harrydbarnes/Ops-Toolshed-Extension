@@ -377,6 +377,9 @@ function generateUrlFromData(campaignId, campaignDateStr) {
     dateToUse.setDate(1);
 
     if (campaignDateStr) {
+        const numericMonth = campaignDateStr.match(/^(\d{1,2})\/\d{2}(?:\d{2})?$/)?.[1]
+            ?? campaignDateStr.match(/^\d{4}-(\d{1,2})(?:-\d{1,2})?$/)?.[1];
+        if (numericMonth !== undefined && (Number(numericMonth) < 1 || Number(numericMonth) > 12)) return null;
         let parsedDate;
         const currentYear = new Date().getFullYear();
         const currentCentury = Math.floor(currentYear / 100) * 100;

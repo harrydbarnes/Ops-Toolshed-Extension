@@ -1,0 +1,41 @@
+{
+  "source": "working tree",
+  "environment": "Node v24.15.0, jsdom; synthetic data; not Chrome latency",
+  "header": [
+    {
+      "rows": 1000,
+      "medianCallbackMs": 0.044278000000001615
+    },
+    {
+      "rows": 20000,
+      "medianCallbackMs": 0.03833100000000059
+    }
+  ],
+  "eligibility": [
+    {
+      "rows": 1000,
+      "selectedRows": 1000,
+      "medianSelectionMs": 1.6286000000000058
+    },
+    {
+      "rows": 5000,
+      "selectedRows": 5000,
+      "medianSelectionMs": 5.243200000000115
+    },
+    {
+      "rows": 5000,
+      "selectedRows": 100,
+      "medianSelectionMs": 3.695900000000165
+    }
+  ],
+  "bookingScan": [
+    {
+      "rows": 100,
+      "medianScanMs": 1.5925999999999476
+    },
+    {
+      "rows": 1000,
+      "medianScanMs": 16.094900000000052
+    }
+  ]
+}

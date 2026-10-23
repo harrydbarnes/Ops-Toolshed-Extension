@@ -29,7 +29,11 @@
             const controls=node('div');controls.className='tracker-write-controls';controls.append(close,check,save);
             dialog.append(title,intro,status,list,label,controls);document.body.append(dialog);
             let working=false,preview=null,requestId=statusOnly?latest?.requestId:null;
-            function closeDialog(){if(working)return;if(typeof dialog.close==='function')dialog.close();dialog.remove();opening=false;options.setBusy(false);}
+            function closeDialog(){
+                if(working)return;
+                const finish=()=>{if(typeof dialog.close==='function')dialog.close();dialog.remove();opening=false;options.setBusy(false);};
+                if(!window.reccieUi?.closeDialog(dialog,finish))finish();
+            }
             function work(value){working=value;close.disabled=value;check.disabled=value;confirm.disabled=value;save.disabled=value||!confirm.checked||!preview?.results?.some(r=>['eligible','already_yes'].includes(r.state));}
             function display(results){list.replaceChildren(...(results||[]).map(r=>node('li',`${r.dNumber}: ${r.state==='eligible'?`${r.before||'Blank'} → Yes`:r.state==='already_yes'?'Already Yes':r.state==='updated'?'Saved Yes':r.reason||r.state}`)));}
             function receipt(response){

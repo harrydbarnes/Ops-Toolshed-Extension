@@ -286,6 +286,8 @@ body.approvers-page {
 }
 
 .favorite-star {
+    border: 0;
+    background: transparent;
     margin-left: 10px;
     cursor: pointer;
     color: #ccc;
@@ -293,6 +295,22 @@ body.approvers-page {
     transition: color 0.3s, transform 0.2s ease-in-out;
     padding: 5px;
     border-radius: 50%;
+}
+
+.approver-select {
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+}
+
+.approver-select:focus-visible,
+.favorite-star:focus-visible {
+    outline: 2px solid #E6007E;
+    outline-offset: 4px;
 }
 
 .favorite-star:hover {

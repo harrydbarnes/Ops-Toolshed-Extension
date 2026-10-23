@@ -50,7 +50,7 @@ describe('release metadata', () => {
         try {
             const currentRelease = dom.window.document.querySelector('#release-notes .release');
             const releaseItems = Array.from(currentRelease.querySelectorAll('li'));
-            expect(releaseItems).toHaveLength(42);
+            expect(releaseItems).toHaveLength(46);
             expect(currentRelease.textContent).toContain('Social Booking Checker IDs');
             expect(releaseItems[0].textContent).toContain('My Reccies:');
             expect(releaseItems[0].textContent).toContain('Verification keeps the tracker unchanged');
@@ -74,7 +74,14 @@ describe('release metadata', () => {
             const recciesStartup = releaseItems.find(item => item.querySelector('strong')?.textContent === 'Reccies sidebar startup:');
             expect(recciesStartup).toBeDefined();
             expect(recciesStartup.querySelector('.release-badge').dataset.releaseType).toBe('fixed');
-            const items = releaseItems.slice(4).filter(item => item !== sidebarSections && item !== offlineFonts && item !== popupStartup && item !== recciesStartup);
+            const performance = releaseItems.find(item => item.querySelector('strong')?.textContent === 'Reccies performance:');
+            expect(performance.textContent).toContain('large trackers');
+            expect(performance.querySelector('.release-badge').dataset.releaseType).toBe('improved');
+            const quickFixTitles = ['Approver Finder:', 'Approver Finder actions:', 'Campaign month validation:'];
+            const quickFixItems = releaseItems.filter(item => quickFixTitles.includes(item.querySelector('strong')?.textContent));
+            expect(quickFixItems).toHaveLength(3);
+            expect(quickFixItems.map(item => item.querySelector('.release-badge').dataset.releaseType)).toEqual(['improved', 'fixed', 'fixed']);
+            const items = releaseItems.slice(4).filter(item => item !== performance && item !== sidebarSections && item !== offlineFonts && item !== popupStartup && item !== recciesStartup && !quickFixItems.includes(item));
 
             expect(items).toHaveLength(34);
             expect(items[4].textContent).toContain('Help Guide Library');

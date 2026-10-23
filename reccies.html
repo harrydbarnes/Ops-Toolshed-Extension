@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="reccies.css">
     <link rel="stylesheet" href="search-highlight.css">
     <link rel="stylesheet" href="segmented-control.css">
+    <link rel="stylesheet" href="reccies-v2.css">
 </head>
 <body>
 <main>
@@ -45,6 +46,7 @@
         </div>
     </details>
     <p id="source-status" class="hint"></p>
+    <p id="background-progress" class="hint" role="status" aria-live="polite" hidden></p>
     <section aria-label="Find your rows" class="filters">
         <div class="filter-pair" id="assignment-fields">
             <label>Assignment<select id="assignment"><option value="ops">Ops assigned</option><option value="buyer">Buyer</option><option value="group">Group</option><option value="any">Any assignment</option></select></label>
@@ -88,6 +90,6 @@
         <details id="timing-details" hidden><summary>Verification timings</summary><p class="hint">Local diagnostics for the latest run. Request durations overlap when campaigns run concurrently. No timing data is sent elsewhere.</p><button id="download-timings" type="button" disabled>Download timings (.md)</button><pre id="timing-report"></pre></details>
     </details>
 </main>
-<script src="extension-page-gate.js" data-scripts="search-highlight.js,reccie-core.js,reccie-status.js,reccie-writes-ui.js,reccies.js"></script>
+<script src="extension-page-gate.js" data-scripts="search-highlight.js,reccie-core.js,reccie-status.js,reccies-ui.js,reccie-writes-ui.js,reccies.js"></script>
 </body>
 </html>

@@ -24,12 +24,12 @@
             const next=event.key==='Home' ? 0 : event.key==='End' ? buttons.length-1 : (index+(event.key==='ArrowRight'?1:-1)+buttons.length)%buttons.length;
             buttons[next].click(); buttons[next].focus();
         }));
-        segmentBindings.push(()=>buttons.forEach(button=>{
+        segmentBindings.push(()=>{buttons.forEach(button=>{
             const selected=button.dataset.value===read();
             button.classList.toggle('is-selected',selected);
             button.setAttribute('aria-pressed',String(selected));
             button.tabIndex=selected ? 0 : -1; button.disabled=disabled();
-        }));
+        });window.reccieUi?.updateSegments(container);});
     }
     ['show-by','tracker-status'].forEach(id=>{
         const select=$(id);
@@ -61,6 +61,7 @@
         disclosureStates.set(details, { content, frame: 0, timer: 0, token: 0, targetOpen: null, animating: false, transitionEnd: null });
     }
     function revealDebugSection(details) {
+        if (window.reccieUi?.reveal(details)) return;
         if (details.id !== 'debug') return;
         const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
         details.scrollIntoView?.({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'end' });
@@ -185,6 +186,7 @@
         $('debug-run').disabled = $('check-rows').disabled;
         document.querySelectorAll('.tracker-mark-yes').forEach(button=>{button.disabled=value;});
         segmentBindings.forEach(sync=>sync());
+        window.reccieUi?.updateFilters();
     }
     async function send(operation, args = {}) {
         const context = mode === 'main' ? {} : {mode, month:$('report-month').value};
@@ -288,7 +290,7 @@
                 const url = core.campaignUrl(row);
                 if (url) { const link = text('a', 'Open in Prisma ↗'); link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer'; bottom.append(link); }
                 const mark=manualWrites?.button(entry,true);if(mark)bottom.append(mark);
-                card.append(bottom); list.append(card); return;
+                card.append(bottom); window.reccieUi?.decorateCard(card,entry,tracker.checks,observed(),true); list.append(card); return;
             }
             const result = tracker.checks?.[row.sourceRow];
             const state = row.issue ? 'review' : result?.state;
@@ -299,8 +301,8 @@
             card.append(top, highlighted('p', row.client || row.campaignId, 'supplier'), highlighted('p', row.campaignName, 'campaign-name'), highlighted('p', row.supplier, 'supplier'));
             if (row.order) card.append(highlighted('p', row.order, 'campaign-name'));
             const statuses = text('div', '', 'status-lines');
-            statuses.append(text('p', observed() ? 'Tracker status: unavailable for visited-campaign placements.' : `Tracker Reccied: ${row.reccied || 'Blank'}`));
-            if (result?.reconciled != null) statuses.append(text('p', `Prisma Reconciled: ${result.reconciled === '1' ? 'Yes' : result.reconciled === '0' ? 'No' : 'Unknown'} · Buy: ${result.buyStatus || 'Unknown'}`));
+            statuses.append(text('p', observed() ? 'Tracker status: unavailable for visited-campaign placements.' : `Tracker Reccied: ${row.reccied || 'Blank'}`, 'tracker-status-line'));
+            if (result?.reconciled != null) statuses.append(text('p', `Prisma Reconciled: ${result.reconciled === '1' ? 'Yes' : result.reconciled === '0' ? 'No' : 'Unknown'} · Buy: ${result.buyStatus || 'Unknown'}`, 'prisma-status-line'));
             if (row.issue || result?.message) statuses.append(text('p', row.issue || (result.message === 'D number not found for this month' ? core.missingDMessage : result.message)));
             if (result?.state === 'ready') statuses.append(text('p', observed() ? 'Meets the Prisma rule. Tracker assignment is unknown.' : row.reccied.toLowerCase() === 'yes' ? 'Matches the tracker’s Yes.' : 'Ready to mark manually in the tracker.'));
             if (result?.state === 'outstanding' && row.reccied.toLowerCase() === 'yes') statuses.append(text('p', 'Tracker says Yes, but Prisma does not meet the rule. Review manually.'));
@@ -311,7 +313,7 @@
             const url = core.campaignUrl(row);
             if (url) { const link = text('a', 'Open in Prisma ↗'); link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer'; bottom.append(link); }
             const mark=manualWrites?.button([row],false);if(mark)bottom.append(mark);
-            card.append(bottom); list.append(card);
+            card.append(bottom); window.reccieUi?.decorateCard(card,[row],tracker.checks,observed(),false); list.append(card);
         });
         if (entries.length > limit) { const more = text('button', grouped ? 'Show more campaigns' : 'Show more rows', 'more'); more.type = 'button'; more.onclick = () => { limit += 40; render(); }; list.append(more); }
         setBusy(busy);
@@ -418,7 +420,7 @@
             timing.totalMs = Math.round(performance.now() - started);
             showTiming(timing);
             setBusy(false);
-            try { await chrome.storage.local.set({ [storageKey('timing')]: { revision, report: timing } }); }
+            try { await chrome.storage.local.set({ [storageKey('timing')]: { revision: tracker?.revision, report: timing } }); }
             catch (_) { /* A diagnostics persistence failure must not hide check results. */ }
         }
     }
@@ -515,7 +517,13 @@
             finally{$(id).disabled=false;}
         });
     }
-    function showAutomationResult(result){if(result)$('automation-status').textContent=`Last background check: ${result.campaignId||'save receipt'} · ${result.state}${result.message?` · ${result.message}`:''}`;}
+    function showAutomationResult(result){
+        if(!result)return;
+        const active=['checking','saving','recovering'].includes(result.state);
+        const text=`Background Reccies · ${result.campaignId||'tracker update'} · ${result.state}${result.message?` · ${result.message}`:''}${result.due?` · due ${new Date(result.due).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`:''}`;
+        $('automation-status').textContent=text;
+        const progress=$('background-progress');progress.hidden=false;window.reccieStatus.render(progress,text,active);
+    }
     chrome.storage.local.get('reccieAutomationLastRun').then(data=>showAutomationResult(data.reccieAutomationLastRun)).catch(()=>{});
     chrome.storage.onChanged?.addListener?.((changes,area)=>{
         if(area!=='local')return;
@@ -526,6 +534,7 @@
     chrome.storage.local.get('reccieAutomation').then(data=>{ $('auto-mark-tracker').checked=data.reccieAutomation?.autoMark===true;$('verify-after-financial').checked=data.reccieAutomation?.afterFinancial===true; }).catch(()=>{});
     $('debug-workers').addEventListener('input', () => { $('debug-worker-count').value = $('debug-workers').value; });
     $('debug-run').addEventListener('click', () => verifyRows(`workers-${$('debug-workers').value}`));
+    document.addEventListener('reccies-ui-change', () => render());
     (async () => {
         try {
             const stored = await chrome.storage.local.get(['reccieTracker','recciePreferences','reccieLastRunTiming']);

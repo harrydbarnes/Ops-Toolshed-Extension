@@ -10,6 +10,7 @@ const utilsScript = readScript(path.resolve(__dirname, '../utils.js'));
 const registryScript = readScript(path.resolve(__dirname, '../feature-settings-registry.js'));
 
 const FEATURE_TOGGLE_KEYS = {
+    recciesV2Toggle: 'recciesV2Enabled',
     legacyPrismaRedirectToggle: 'legacyPrismaRedirectEnabled',
     logoToggle: 'logoReplaceEnabled',
     appLearnReplaceToggle: 'appLearnReplaceEnabled',

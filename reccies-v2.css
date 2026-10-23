@@ -1,0 +1,95 @@
+/* V2 changes presentation only. V1 retains reccies.css and the same controls. */
+@font-face{font-family:Reccies Outfit;src:url('assets/fonts/outfit-latin.woff2') format('woff2');font-style:normal;font-weight:100 900;font-display:swap}
+html[data-reccies-ui=v2]{--rec-ink:#17191c;--rec-muted:#62666d;--rec-line:#e5e7e9;--rec-pink:#b61459;--rec-pink-soft:#fff1f6;--rec-pink-edge:#e8a5c1;font:14px/1.5 'Reccies Outfit',system-ui,sans-serif;color:var(--rec-ink);background:#f2f4f7}
+html[data-reccies-ui=v2] main{max-width:820px;min-height:100vh;padding:24px;background:#fff}
+html[data-reccies-ui=v2] header{margin-bottom:16px}
+html[data-reccies-ui=v2] h1{font-size:24px;font-weight:500;margin:0;letter-spacing:-.025em}
+html[data-reccies-ui=v2] .intro{font-size:13px;max-width:none;margin:8px 0;color:var(--rec-muted)}
+html[data-reccies-ui=v2] .readonly{background:transparent;color:var(--rec-muted);font-size:12px;padding:0;white-space:normal;text-align:right}
+html[data-reccies-ui=v2] .hint,html[data-reccies-ui=v2] .rule{font-size:13px;color:var(--rec-muted)}
+html[data-reccies-ui=v2] a{color:var(--rec-ink)}
+html[data-reccies-ui=v2] button,html[data-reccies-ui=v2] input,html[data-reccies-ui=v2] select{border-color:#cfd2d6;border-radius:6px;font-weight:400;color:var(--rec-ink);min-height:36px}
+html[data-reccies-ui=v2] label{font-size:13px;font-weight:400}
+html[data-reccies-ui=v2] button.primary{background:var(--rec-pink);border-color:var(--rec-pink);color:#fff;font-weight:500}
+html[data-reccies-ui=v2] button.primary:hover:not(:disabled){background:#971047}
+html[data-reccies-ui=v2] :is(button,input,select,a,summary):focus-visible{outline-color:var(--rec-pink)}
+html[data-reccies-ui=v2] :is(input[type=checkbox],input[type=range]){accent-color:var(--rec-pink)}
+html[data-reccies-ui=v2] :is(details,.filters){padding:0;border:0;border-radius:0;background:transparent}
+html[data-reccies-ui=v2] details{padding-bottom:12px;border-bottom:1px solid var(--rec-line)}
+html[data-reccies-ui=v2] summary{min-height:36px;font-size:14px;font-weight:400;gap:10px;border-radius:6px}
+html[data-reccies-ui=v2] summary:hover{background:#f5f6f7}
+html[data-reccies-ui=v2] .report-loaded-badge{background:transparent;padding:0;font-size:13px;font-weight:400}
+html[data-reccies-ui=v2] .reccies-sheet-input{display:flex;align-items:stretch;border:1px solid #cfd2d6;border-radius:6px;overflow:hidden;margin:5px 0 10px}
+html[data-reccies-ui=v2] .reccies-sheet-input:focus-within{outline:2px solid var(--rec-pink);outline-offset:2px}
+html[data-reccies-ui=v2] .reccies-sheet-input input{flex:1;min-width:0;width:0;border:0;border-radius:0;margin:0;outline:0}
+html[data-reccies-ui=v2] .reccies-sheet-input button{min-width:62px;border:0;border-left:1px solid var(--rec-line);border-radius:0;background:#f5f6f7;color:var(--rec-pink)}
+html[data-reccies-ui=v2] .import-row{border:0;margin-top:12px}
+html[data-reccies-ui=v2] input[type=file]{font-size:13px}
+html[data-reccies-ui=v2] .automation-settings{border-color:var(--rec-line)}
+html[data-reccies-ui=v2] .automation-settings label{display:grid;grid-template-columns:16px minmax(0,1fr);align-items:start;gap:10px;font-size:14px}
+html[data-reccies-ui=v2] .automation-settings input[type=checkbox]{display:block;width:16px;height:16px;min-height:16px;padding:0;margin:3px 0 0}
+html[data-reccies-ui=v2] .filters{margin:16px 0 0}
+html[data-reccies-ui=v2] #assignment-fields label:first-child{order:2}
+html[data-reccies-ui=v2] #search{background:#f8f9fa}
+html[data-reccies-ui=v2] .mode-switch{margin:16px 0 8px}
+html[data-reccies-ui=v2] .mode-switch legend{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+html[data-reccies-ui=v2] .segmented-control{position:relative;isolation:isolate;border:0;padding:4px;gap:4px;border-radius:8px;background:#f0f1f2;min-height:40px}
+html[data-reccies-ui=v2] .segmented-control button{position:relative;z-index:1;background:transparent;box-shadow:none;border:0;border-radius:5px;min-height:32px;font-size:13px;font-weight:400;line-height:1.3;padding:5px 6px;overflow-wrap:normal}
+html[data-reccies-ui=v2] .segmented-control button.is-selected{background:transparent;color:var(--rec-pink);box-shadow:none}
+.reccies-segment-indicator{display:none}
+html[data-reccies-ui=v2] .reccies-segment-indicator{display:block;position:absolute;left:0;top:4px;bottom:4px;z-index:0;border:1px solid var(--rec-pink-edge);border-radius:5px;background:var(--rec-pink-soft);pointer-events:none;transition:transform 220ms cubic-bezier(.22,.8,.25,1),width 220ms cubic-bezier(.22,.8,.25,1)}
+html[data-reccies-ui=v2] .view-controls{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+html[data-reccies-ui=v2] .view-controls:has(#tracker-status-control[hidden]){grid-template-columns:minmax(0,200px)}
+html[data-reccies-ui=v2] .control-label{font-size:13px;font-weight:400;color:var(--rec-muted)}
+html[data-reccies-ui=v2] .status-chips{gap:6px;align-items:center}
+html[data-reccies-ui=v2] .status-chips label{position:relative;flex:none;min-height:32px;padding:5px 8px;border:1px solid #cfd2d6;border-radius:5px;font-size:13px;white-space:nowrap;font-weight:400}
+html[data-reccies-ui=v2] .status-chips label:focus-within{outline:2px solid var(--rec-pink);outline-offset:2px}
+html[data-reccies-ui=v2] .status-chips label input{position:absolute;width:1px;height:1px;min-height:0;overflow:hidden;clip-path:inset(50%);padding:0}
+html[data-reccies-ui=v2] .status-chips label.is-selected{background:var(--rec-pink-soft);border-color:var(--rec-pink-edge);color:var(--rec-pink)}
+html[data-reccies-ui=v2] .prisma-filter-clear{width:30px;min-width:30px;min-height:30px;height:30px;flex:none;margin-left:auto;padding:0;border:0;background:transparent;font-size:22px;line-height:1}
+html[data-reccies-ui=v2] .checkbar{flex-direction:column-reverse;align-items:stretch;margin:16px 0 8px}
+html[data-reccies-ui=v2] #check-rows{font-size:14px;width:100%}
+html[data-reccies-ui=v2] #summary{margin-top:8px}
+html[data-reccies-ui=v2] #verification-scope{font-size:13px;margin:0 0 12px}
+html[data-reccies-ui=v2] #message{color:var(--rec-muted)}
+html[data-reccies-ui=v2] #rows{display:grid;grid-template-columns:1fr;gap:12px}
+html[data-reccies-ui=v2] .reccie-card{min-width:0;padding:14px;margin:0;background:#fcfcfd;border:1px solid var(--rec-line);border-radius:8px}
+html[data-reccies-ui=v2] .card-top{flex-wrap:wrap;gap:6px 10px;align-items:start}
+html[data-reccies-ui=v2] .card-top strong,html[data-reccies-ui=v2] .campaign-title{font-size:16px;font-weight:500}
+html[data-reccies-ui=v2] .supplier{font-size:13px;font-weight:400}
+html[data-reccies-ui=v2] .campaign-name{font-size:14px;color:var(--rec-ink)}
+html[data-reccies-ui=v2] .badge{background:transparent;border-radius:0;padding:0;font-size:13px;font-weight:400;white-space:normal}
+html[data-reccies-ui=v2] .badge.ready{color:#236340}
+html[data-reccies-ui=v2] :is(.badge.outstanding,.badge.mismatch){color:#835410;background:transparent}
+html[data-reccies-ui=v2] .mismatch-warning{max-width:100%}
+html[data-reccies-ui=v2] .mismatch-detail{font-size:13px;color:#835410}
+html[data-reccies-ui=v2] .status-lines{font-size:13px;color:var(--rec-muted);margin:6px 0}
+.v2-evidence,.v2-placements{display:none}
+html[data-reccies-ui=v2] .v2-evidence{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--rec-muted);margin:10px 0 6px}
+html[data-reccies-ui=v2] .v2-evidence span{white-space:nowrap}
+html[data-reccies-ui=v2] .v2-evidence strong{color:var(--rec-ink);font-weight:500}
+html[data-reccies-ui=v2] .status-lines :is(.tracker-status-line,.prisma-status-line){display:none}
+html[data-reccies-ui=v2] .v2-placements{display:grid;gap:10px;margin:12px 0}
+html[data-reccies-ui=v2] .v2-placement{border-top:1px solid var(--rec-line);padding-top:8px}
+html[data-reccies-ui=v2] .v2-placement-id{font-size:14px;font-weight:500;margin:0}
+html[data-reccies-ui=v2] .card-bottom{display:flex;flex-wrap:wrap;align-items:center;font-size:13px;gap:10px;margin-top:12px}
+html[data-reccies-ui=v2] .card-bottom>span{flex-basis:100%;color:var(--rec-muted);font-size:13px;white-space:pre-line}
+html[data-reccies-ui=v2] .card-bottom a{font-size:13px;padding:4px 0;margin:0}
+html[data-reccies-ui=v2] .tracker-mark-yes{margin-left:auto;font-size:13px;padding:5px 8px;min-height:32px}
+html[data-reccies-ui=v2] #background-progress:not([hidden]){padding:12px;background:#f5f6f7;border-radius:6px}
+html[data-reccies-ui=v2] .tracker-write-dialog{width:min(430px,calc(100vw - 32px));padding:20px;border:1px solid var(--rec-line);border-radius:8px;color:var(--rec-ink);transform-origin:center;animation:reccies-dialog-in 160ms cubic-bezier(.2,.8,.2,1) both}
+html[data-reccies-ui=v2] .tracker-write-dialog::backdrop{background:rgb(24 27 34 / 35%);animation:reccies-backdrop-in 160ms ease-out both}
+html[data-reccies-ui=v2] .tracker-write-dialog h2{font-size:20px;font-weight:500}
+html[data-reccies-ui=v2] .tracker-write-dialog label{font-size:14px;font-weight:400;gap:10px}
+html[data-reccies-ui=v2] .tracker-write-dialog label input{height:16px;width:16px;min-height:16px;padding:0;margin:3px 0 0}
+html[data-reccies-ui=v2] .tracker-write-controls{justify-content:flex-end}
+html[data-reccies-ui=v2] .tracker-write-controls button:first-child{order:0}
+html[data-reccies-ui=v2] .tracker-write-controls button:last-child{background:var(--rec-pink);border-color:var(--rec-pink);color:#fff}
+html[data-reccies-ui=v2] .tracker-write-dialog.is-closing{animation:reccies-dialog-out 120ms ease-out both;pointer-events:none}
+html[data-reccies-ui=v2] .tracker-write-dialog.is-closing::backdrop{animation:reccies-backdrop-out 120ms ease-out both}
+@keyframes reccies-dialog-in{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+@keyframes reccies-dialog-out{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(.96)}}
+@keyframes reccies-backdrop-in{from{background:rgb(24 27 34 / 0%)}to{background:rgb(24 27 34 / 35%)}}
+@keyframes reccies-backdrop-out{from{background:rgb(24 27 34 / 35%)}to{background:rgb(24 27 34 / 0%)}}
+@media(max-width:360px){html[data-reccies-ui=v2] main{padding:16px}html[data-reccies-ui=v2] .view-controls{grid-template-columns:1fr}html[data-reccies-ui=v2] .segmented-control button{font-size:12px}}
+@media(prefers-reduced-motion:reduce){html[data-reccies-ui=v2] .reccies-segment-indicator,html[data-reccies-ui=v2] .tracker-write-dialog,html[data-reccies-ui=v2] .tracker-write-dialog::backdrop{transition:none;animation:none}}

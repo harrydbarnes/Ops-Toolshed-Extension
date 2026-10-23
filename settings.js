@@ -1123,6 +1123,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupToggle('swapAccountsToggle', 'swapAccountsEnabled', 'Switch Accounts setting saved:', settings);
     setupToggle('rememberAccountSwitchUrlToggle', 'rememberAccountSwitchUrlEnabled', 'Remember page after account switch setting saved:', settings);
     setupToggle('bannerUsernameToggle', 'bannerUsernameEnabled', 'Prisma banner username setting saved:', settings);
+    setupToggle('recciesV2Toggle', 'recciesV2Enabled', 'Reccies V2 appearance saved:', settings);
     setupToggle('seeCommentsOnLockedBuysToggle', 'alwaysShowCommentsEnabled', 'See Comments on Locked Buys setting saved:', settings);
     setupToggle('orderIdCopyToggle', 'orderIdCopyEnabled', 'Order ID Copy setting saved:', settings);
     setupToggle('maxCampaignBudgetToggle', 'maxCampaignBudgetEnabled', 'Max Campaign Budget setting saved:', settings);
