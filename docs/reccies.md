@@ -274,3 +274,7 @@ under tracking settings. The extension never submits a financial update itself.
 Unknown save outcomes retain an individual receipt job; recovery reads receipts
 without repeating commits. Up to three automatic receipt checks are made, then the
 saved request remains available for manual recovery.
+
+### Reccies appearance
+
+Settings → Features → Appearance → Reccies V2 appearance is on by default. Switch it off for the original layout. Both appearances use the same reports, assignments, filters, verification and write handlers. The quick × beside Prisma chips clears only Prisma selections and is hidden when it would require another row; Clear filters remains available. Existing automatic-write preferences are unchanged and remain opt-in.

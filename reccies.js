@@ -304,7 +304,7 @@
             statuses.append(text('p', observed() ? 'Tracker status: unavailable for visited-campaign placements.' : `Tracker Reccied: ${row.reccied || 'Blank'}`, 'tracker-status-line'));
             if (result?.reconciled != null) statuses.append(text('p', `Prisma Reconciled: ${result.reconciled === '1' ? 'Yes' : result.reconciled === '0' ? 'No' : 'Unknown'} · Buy: ${result.buyStatus || 'Unknown'}`, 'prisma-status-line'));
             if (row.issue || result?.message) statuses.append(text('p', row.issue || (result.message === 'D number not found for this month' ? core.missingDMessage : result.message)));
-            if (result?.state === 'ready') statuses.append(text('p', observed() ? 'Meets the Prisma rule. Tracker assignment is unknown.' : row.reccied.toLowerCase() === 'yes' ? 'Matches the tracker’s Yes.' : 'Ready to mark manually in the tracker.'));
+            if (result?.state === 'ready') statuses.append(text('p', observed() ? 'Meets the Prisma rule. Tracker assignment is unknown.' : row.reccied.toLowerCase() === 'yes' ? 'Matches the tracker’s Yes.' : 'Ready to mark manually in the tracker.', 'ready-guidance'));
             if (result?.state === 'outstanding' && row.reccied.toLowerCase() === 'yes') statuses.append(text('p', 'Tracker says Yes, but Prisma does not meet the rule. Review manually.'));
             card.append(statuses);
             if (row.comments) card.append(text('p', row.comments, 'comment'));

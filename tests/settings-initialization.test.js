@@ -6,6 +6,7 @@ const EXPECTED_DEFAULTS = {
     autoCopyUrlMode: 'short',
     metaFinanceToolMode: 'social',
     logoReplaceEnabled: true,
+    recciesV2Enabled: true,
     appLearnReplaceEnabled: true,
     blockAppLearnPopupsEnabled: true,
     helpGuidesEnabled: true,

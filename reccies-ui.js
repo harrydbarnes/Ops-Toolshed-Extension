@@ -10,6 +10,9 @@
     read.before(readHome);
     const joined = document.createElement('div'); joined.className = 'reccies-sheet-input';
     const chips = document.querySelector('.status-chips');
+    const sourceMetadata = document.createElement('p'); sourceMetadata.className = 'v2-source-metadata hint';
+    $('source-details').append(sourceMetadata);
+    chips.setAttribute('aria-describedby', 'filter-hint');
     const quickClear = document.createElement('button');
     quickClear.type = 'button'; quickClear.id = 'clear-prisma-filters'; quickClear.className = 'prisma-filter-clear';
     quickClear.textContent = '×'; quickClear.hidden = true;
@@ -27,6 +30,8 @@
     const mismatchText = [...mismatchLabel.childNodes].find(node => node.nodeType === Node.TEXT_NODE);
     const originalMismatch = mismatchText?.textContent;
     function updateFilters() {
+        sourceMetadata.textContent = $('source-status').textContent;
+        chips.title = $('filter-hint').textContent;
         const inputs = [...chips.querySelectorAll('[data-status]')];
         const labels = [...chips.querySelectorAll('label')].filter(label => !label.hidden);
         const gap = parseFloat(window.getComputedStyle(chips).gap) || 7;
@@ -91,6 +96,10 @@
             bottom.before(placements);
         } else {
             const row = rows[0], result = checks?.[row.sourceRow];
+            const metadata = document.createElement('p'); metadata.className = 'v2-entity-meta';
+            metadata.textContent = [row.client, row.supplier].filter(Boolean).join(' · ');
+            card.querySelectorAll(':scope > .supplier').forEach(node => node.classList.add('v2-original-entity'));
+            card.querySelector('.campaign-name').after(metadata);
             card.querySelector('.status-lines').before(evidence(row, result, observed));
             const badge = card.querySelector('.card-top > .badge');
             if (badge && !row.issue && result?.state === 'ready') badge.textContent = 'Ready in Prisma';

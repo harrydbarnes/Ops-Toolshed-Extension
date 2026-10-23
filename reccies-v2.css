@@ -4,7 +4,7 @@ html[data-reccies-ui=v2]{--rec-ink:#17191c;--rec-muted:#62666d;--rec-line:#e5e7e
 html[data-reccies-ui=v2] main{max-width:820px;min-height:100vh;padding:24px;background:#fff}
 html[data-reccies-ui=v2] header{margin-bottom:16px}
 html[data-reccies-ui=v2] h1{font-size:24px;font-weight:500;margin:0;letter-spacing:-.025em}
-html[data-reccies-ui=v2] .intro{font-size:13px;max-width:none;margin:8px 0;color:var(--rec-muted)}
+html[data-reccies-ui=v2] .intro{display:none}
 html[data-reccies-ui=v2] .readonly{background:transparent;color:var(--rec-muted);font-size:12px;padding:0;white-space:normal;text-align:right}
 html[data-reccies-ui=v2] .hint,html[data-reccies-ui=v2] .rule{font-size:13px;color:var(--rec-muted)}
 html[data-reccies-ui=v2] a{color:var(--rec-ink)}
@@ -65,6 +65,9 @@ html[data-reccies-ui=v2] .mismatch-warning{max-width:100%}
 html[data-reccies-ui=v2] .mismatch-detail{font-size:13px;color:#835410}
 html[data-reccies-ui=v2] .status-lines{font-size:13px;color:var(--rec-muted);margin:6px 0}
 .v2-evidence,.v2-placements{display:none}
+.v2-source-metadata,.v2-entity-meta{display:none}
+html[data-reccies-ui=v2] .v2-source-metadata,html[data-reccies-ui=v2] .v2-entity-meta{display:block;font-size:13px;color:var(--rec-muted)}
+html[data-reccies-ui=v2] :is(#source-status,#filter-hint,.v2-original-entity,.ready-guidance){display:none}
 html[data-reccies-ui=v2] .v2-evidence{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--rec-muted);margin:10px 0 6px}
 html[data-reccies-ui=v2] .v2-evidence span{white-space:nowrap}
 html[data-reccies-ui=v2] .v2-evidence strong{color:var(--rec-ink);font-weight:500}
@@ -92,4 +95,4 @@ html[data-reccies-ui=v2] .tracker-write-dialog.is-closing::backdrop{animation:re
 @keyframes reccies-backdrop-in{from{background:rgb(24 27 34 / 0%)}to{background:rgb(24 27 34 / 35%)}}
 @keyframes reccies-backdrop-out{from{background:rgb(24 27 34 / 35%)}to{background:rgb(24 27 34 / 0%)}}
 @media(max-width:360px){html[data-reccies-ui=v2] main{padding:16px}html[data-reccies-ui=v2] .view-controls{grid-template-columns:1fr}html[data-reccies-ui=v2] .segmented-control button{font-size:12px}}
-@media(prefers-reduced-motion:reduce){html[data-reccies-ui=v2] .reccies-segment-indicator,html[data-reccies-ui=v2] .tracker-write-dialog,html[data-reccies-ui=v2] .tracker-write-dialog::backdrop{transition:none;animation:none}}
+@media(prefers-reduced-motion:reduce){html[data-reccies-ui=v2] .reccies-segment-indicator,html[data-reccies-ui=v2] .tracker-write-dialog,html[data-reccies-ui=v2] .tracker-write-dialog::backdrop,html[data-reccies-ui=v2] .tracker-write-dialog.is-closing,html[data-reccies-ui=v2] .tracker-write-dialog.is-closing::backdrop{transition:none;animation:none}}

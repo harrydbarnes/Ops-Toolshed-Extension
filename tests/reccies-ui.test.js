@@ -151,8 +151,8 @@ describe('Reccies sidebar',()=>{
             expect(win.document.getElementById('google-connection-result').textContent).toContain('not granted');
         } finally { dom.window.close(); }
     });
-    test('switches modes without network discovery and keeps assignment preferences separate',async()=>{
-        const {dom,win,getData}=create();
+    test.each([undefined,true])('switches modes without network discovery and keeps assignment preferences separate (V2 %s)',async uiEnabled=>{
+        const {dom,win,getData}=create({},undefined,uiEnabled);
         try {
             await flush(); const doc=win.document, main=getData().reccieTracker;
             const auto={...initial(),revision:'automatic',month:core.currentMonth(),source:{type:'automatic',eligibleCampaigns:2,attemptedCampaigns:2,successfulCampaigns:1,issues:[{campaignId:'CPFAIL',message:'Access denied <img src=x>'}]},rows:[{...base,ops:'',buyer:'',group:'',reccied:'',month:core.currentMonth()}],checks:{2:{state:'ready',reconciled:'1',buyStatus:'SUCCESSFUL'}}};
@@ -182,6 +182,40 @@ describe('Reccies sidebar',()=>{
             expect(doc.getElementById('sheet-hint').textContent).toContain('Early Reccie report');
             expect(doc.getElementById('discover-campaigns').textContent).toContain('fallback');
         } finally {dom.window.close();}
+    });
+    test('V2 keeps live controls, compact evidence and clears only Prisma filters when the x fits',async()=>{
+        const {dom,win,getData}=create({trackerStatus:'any',statuses:['ready']},liveSource,true);
+        try{
+            await flush();const doc=win.document;
+            expect(doc.documentElement.dataset.recciesUi).toBe('v2');
+            expect(doc.querySelector('.reccies-sheet-input #sheet-url')).not.toBeNull();
+            expect(doc.querySelector('.reccies-sheet-input #refresh-sheet').textContent).toBe('Read');
+            expect(doc.getElementById('csv-file')).not.toBeNull();
+            const chips=doc.querySelector('.status-chips');
+            Object.defineProperty(chips,'clientWidth',{configurable:true,value:600});
+            chips.querySelectorAll('label').forEach(label=>{label.getBoundingClientRect=()=>({width:100});});
+            win.reccieUi.updateFilters();expect(doc.getElementById('clear-prisma-filters').hidden).toBe(false);
+            Object.defineProperty(chips,'clientWidth',{configurable:true,value:250});
+            win.reccieUi.updateFilters();expect(doc.getElementById('clear-prisma-filters').hidden).toBe(true);
+            Object.defineProperty(chips,'clientWidth',{configurable:true,value:600});
+            doc.getElementById('search').value='Campaign';win.reccieUi.updateFilters();
+            doc.getElementById('clear-prisma-filters').click();await flush();
+            expect(doc.getElementById('search').value).toBe('Campaign');
+            expect(doc.getElementById('tracker-status').value).toBe('any');
+            expect(getData().recciePreferences.statuses).toEqual([]);
+            expect(doc.querySelector('.v2-evidence').textContent).toContain('Tracker No');
+            expect(doc.querySelector('.reccies-segment-indicator')).not.toBeNull();
+        }finally{dom.window.close();}
+    });
+    test('V2 off restores the original read control and does not alter saved filters',async()=>{
+        const {dom,win,getData}=create({trackerStatus:'outstanding'},undefined,false);
+        try{
+            await flush();expect(win.document.documentElement.dataset.recciesUi).toBe('v1');
+            expect(win.document.querySelector('.reccies-sheet-input')).toBeNull();
+            expect(win.document.getElementById('refresh-sheet').textContent).toBe('Read Google Sheet');
+            expect(win.document.querySelector('.v2-evidence')).toBeNull();
+            expect(getData().recciePreferences.trackerStatus).toBe('outstanding');
+        }finally{dom.window.close();}
     });
     test('uses Settings pill styles for side-by-side filters, persists clicks and supports arrow keys',async()=>{
         const {dom,win,getData}=create();
