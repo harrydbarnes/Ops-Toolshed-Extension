@@ -60,7 +60,9 @@ describe('workflow widget alignment', () => {
         const rules = Array.from(dom.window.document.styleSheets[0].cssRules);
         const gmiRule = rules.find(rule => rule.selectorText === '.gmi-chat-button');
 
-        expect(gmiRule.style.getPropertyValue('margin-left')).toBe('6px');
+        expect(gmiRule.style.getPropertyValue('margin-left')).toBe('');
+        const wrapperRule = rules.find(rule => rule.selectorText === '.approver-widget-placement-enabled.gmi-chat-enabled .workflow-widget-wrapper');
+        expect(wrapperRule.style.getPropertyValue('gap')).toBe('6px');
         const dstRule = rules.find(rule => rule.selectorText === '.toolshed-dst-assurance');
         expect(gmiRule.style.getPropertyValue('display')).toBe('inline-flex');
         expect(gmiRule.style.getPropertyValue('align-items')).toBe('center');

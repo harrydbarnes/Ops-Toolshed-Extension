@@ -438,8 +438,6 @@ body.reminder-theme-black #confirmation-popup {
     /* 1. Force margin to zero */
     margin-bottom: 0 !important;
 
-    /* Keep the chat action clear of Prisma's workflow icon. */
-    margin-left: 6px !important;
 
     /* 2. Fix "Ghost" spacing caused by baseline alignment */
     vertical-align: middle !important;
@@ -509,6 +507,7 @@ body.reminder-theme-black #confirmation-popup {
     max-width: none;
     width: max-content;
     flex-shrink: 0;
+    gap: 6px;
 }
 
 /* Preserve native plan labels and status badges when injected controls widen
