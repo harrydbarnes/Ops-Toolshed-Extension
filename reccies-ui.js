@@ -5,6 +5,46 @@
     const reduced = () => window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
     const enabled = () => root.dataset.recciesUi === 'v2';
     const tracks = new Map();
+    let contentKey = '', contentTransition = null, listAnimation = null;
+    let focused = false, focusAnimation = null;
+    const controls = document.createElement('div'); controls.id = 'reccies-controls';
+    document.querySelector('.mode-switch').before(controls);
+    for (const selector of ['.mode-switch','#mode-description','#discover-campaigns','#coverage-details','#source-details','#source-status','.filters']) {
+        controls.append(document.querySelector(selector));
+    }
+    const focusBar = document.createElement('div'); focusBar.className = 'reccies-focus-controls';
+    const focusButton = document.createElement('button'); focusButton.id = 'reccies-focus-toggle'; focusButton.type = 'button';
+    focusButton.setAttribute('aria-controls', controls.id); focusBar.append(focusButton); $('rows').before(focusBar);
+    function setFocused(value, animate = true) {
+        const start = controls.hidden ? 0 : controls.getBoundingClientRect().height;
+        focusAnimation?.cancel(); focusAnimation = null;
+        focused = enabled() && value;
+        focusButton.textContent = focused ? 'Show settings' : 'Collapse settings';
+        focusButton.setAttribute('aria-expanded', String(!focused));
+        controls.hidden = false; controls.inert = focused;
+        if (!enabled() || reduced() || !animate || typeof controls.animate !== 'function') { controls.hidden = focused; return; }
+        const animation = controls.animate([{height:start+'px',opacity:focused?1:0},{height:focused?'0px':controls.scrollHeight+'px',opacity:focused?0:1}], {duration:160,easing:'ease-out'});
+        focusAnimation = animation;
+        animation.onfinish = () => { if(focusAnimation!==animation)return;controls.hidden=focused;focusAnimation=null;animation.cancel(); };
+    }
+    focusButton.addEventListener('click', () => setFocused(!focused));
+    function transitionContent(update, key) {
+        const changed = contentKey && key !== contentKey;
+        contentKey = key;
+        contentTransition?.skipTransition?.(); contentTransition = null;
+        listAnimation?.cancel(); listAnimation = null;
+        if (enabled() && changed && !reduced() && typeof document.startViewTransition === 'function') {
+            const transition = document.startViewTransition(update);
+            contentTransition = transition;
+            // Rapid selections may skip the snapshot; its ready rejection is expected.
+            transition.ready?.catch(() => {});
+            transition.finished.catch(() => {}).finally(() => { if(contentTransition===transition)contentTransition=null; });
+        } else {
+            update();
+            if (enabled() && changed && !reduced() && typeof $('rows').animate === 'function') listAnimation = $('rows').animate([{opacity:0.35},{opacity:1}],{duration:160,easing:'ease-out'});
+        }
+        return true;
+    }
     const url = $('sheet-url'), read = $('refresh-sheet');
     const readHome = document.createComment('Original read button position');
     read.before(readHome);
@@ -55,6 +95,8 @@
     function refreshLayout() { tracks.forEach((_, track) => updateSegments(track)); updateFilters(); }
     function apply(value) {
         root.dataset.recciesUi = value === false ? 'v1' : 'v2';
+        focusButton.hidden = !enabled();
+        setFocused(focused, false);
         if (enabled()) {
             if (!joined.isConnected) { url.before(joined); joined.append(url, read); }
             read.textContent = 'Read'; read.setAttribute('aria-label', 'Read Google Sheet');
@@ -87,6 +129,15 @@
         if (!enabled()) return;
         const bottom = card.querySelector('.card-bottom');
         if (grouped) {
+            const metadata = document.createElement('div'); metadata.className = 'v2-campaign-metadata';
+            const identity = document.createElement('div'); identity.className = 'v2-campaign-identity';
+            const count = card.querySelector(':scope > .supplier');
+            const reference = document.createElement('span'); reference.textContent = rows[0].campaignId || 'No campaign ID';
+            identity.append(reference, ' · ', count); metadata.append(identity);
+            const link = bottom.querySelector('a'); if (link) metadata.append(link);
+            card.querySelector('.card-top').after(metadata);
+            bottom.querySelector(':scope > span')?.remove();
+            if (!bottom.childElementCount) bottom.hidden = true;
             const placements = document.createElement('div'); placements.className = 'v2-placements';
             rows.forEach(row => {
                 const item = document.createElement('div'); item.className = 'v2-placement';
@@ -131,7 +182,7 @@
         const timer = setTimeout(complete, 180);
         return true;
     }
-    window.reccieUi = {enabled, updateSegments, updateFilters, decorateCard, reveal, closeDialog};
+    window.reccieUi = {enabled, updateSegments, updateFilters, decorateCard, reveal, closeDialog, transitionContent};
     apply(true);
     Promise.resolve(chrome.storage.sync?.get({recciesV2Enabled:true})).then(settings => apply(settings?.recciesV2Enabled)).catch(() => {});
     chrome.storage.onChanged?.addListener((changes, area) => {

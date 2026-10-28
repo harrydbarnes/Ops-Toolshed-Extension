@@ -4,6 +4,8 @@ jest.mock('../background/social-campaign-check', () => ({
     pollSocialCampaigns: jest.fn().mockResolvedValue(),
     handleSocialCheck: jest.fn()
 }));
+// Workday owns separate opt-in registrations, covered in annual-leave-background.test.js.
+jest.mock('../background/annual-leave', () => ({ initializeAnnualLeave: jest.fn() }));
 jest.mock('../background/feature-mode', () => ({
     MASTER_FEATURE_KEY: 'allFeaturesDisabled',
     featureModeReady: Promise.resolve(true),

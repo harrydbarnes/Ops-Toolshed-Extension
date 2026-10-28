@@ -655,9 +655,24 @@ li {
 }
 
 /* --- Heatmap Styles --- */
+.stats-ranking { list-style: none; padding: 0; margin: 0; }
+.stats-ranking li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid #eee; font-size: 13px; }
+.stats-ranking li span { overflow-wrap: anywhere; min-width: 0; }
+.stats-ranking li strong { white-space: nowrap; color: #c90f58; }
+.stats-info-button { display: inline-grid; flex: 0 0 auto; place-items: center; width: 24px; height: 24px; border: 0; padding: 0; border-radius: var(--md-sys-shape-corner-full, 9999px); background: var(--md-sys-color-secondary-container, #f9dce9); color: var(--md-sys-color-on-secondary-container, #6f123e); font-family: var(--md-sys-typescale-label-small-font, inherit); font-size: var(--md-sys-typescale-label-small-size, 0.6875rem); font-weight: var(--md-sys-typescale-label-small-weight, 700); line-height: 1; cursor: pointer; vertical-align: middle; margin-left: 6px; }
+.stats-info-button:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.campaign-insights-summary { margin: 8px 0 14px; color: #555; font-size: 13px; line-height: 1.5; }
+.campaign-insights-footer { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 20px; margin: -6px 0 20px; color: #555; font-size: 12px; line-height: 1.5; }
+.campaign-insights-footer p { margin: 0; }
+.campaign-insights-details summary { cursor: pointer; color: #6f123e; }
+.campaign-insights-details p { max-width: 65ch; padding-top: 8px; }
+.heatmap-weekends { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: -10px 0 20px; color: #555; font-size: 11px; }
+.heatmap-weekends[hidden] { display: none; }
+.heatmap-weekend-item { display: inline-flex; align-items: center; gap: 5px; }
+.stats-info-tooltip { position: fixed; z-index: 2147483647; width: 320px; max-width: calc(100vw - 32px); box-sizing: border-box; background: #252535; color: white; padding: 12px 14px; border-radius: 8px; font-size: 13px; line-height: 1.5; box-shadow: 0 4px 16px #0003; pointer-events: none; }
 .heatmap-container {
     display: grid;
-    grid-template-rows: repeat(7, 12px);
+    grid-template-rows: repeat(5, 12px);
     grid-auto-flow: column;
     gap: 2px;
     margin-bottom: 20px;

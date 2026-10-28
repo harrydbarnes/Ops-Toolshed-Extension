@@ -1,10 +1,13 @@
 import {runReccieAlarm,restoreReccieAlarms} from './background/reccies.js';
+import { initializeAnnualLeave } from './background/annual-leave.js';
 import { handleHelpGuidesPanelEvent, messageHandlers } from './background/message-handlers.js';
 import { migrateStats } from './background/stats-manager.js';
 import { setupSocialCheckAlarm, pollSocialCampaigns, SOCIAL_CHECK_ALARM } from './background/social-campaign-check.js';
 import { setupApprovalAlarm, pollPendingApprovals, ALARM_NAME as APPROVAL_ALARM_NAME } from './background/approval-polling.js';
 import { expireDiagnosticsIfNeeded, recordDiagnosticEvent } from './background/diagnostics-manager.js';
 import { getLegacyPrismaRedirect } from './background/prisma-url.js';
+import { recordTimesheetActivity, clearTimesheetActivity } from './background/timesheet-activity.js';
+initializeAnnualLeave();
 import {
   MASTER_FEATURE_KEY,
   AUDIENCE_KEY,
@@ -126,7 +129,7 @@ async function triggerTimesheetNotification() {
             iconUrl: 'icon.png',
             title: 'Timesheet Reminder',
             message: 'Don\'t forget to submit your timesheet!',
-            buttons: [{ title: 'Open My Timesheets' }, { title: 'Snooze for 15 minutes' }],
+            buttons: [{ title: 'Open Timesheet Helper' }, { title: 'Snooze for 15 minutes' }],
             priority: 2
         });
     }
@@ -155,7 +158,7 @@ chrome.notifications.onButtonClicked.addListener(async (notificationId, buttonIn
   if (!isFeatureModeActive()) return;
   if (notificationId === 'timesheetReminder') {
     if (buttonIndex === 0) {
-      chrome.tabs.create({ url: 'https://groupmuk-aura.mediaocean.com/viewport-home/#osAppId=rod-time&osPspId=rod-time&route=time/display/myTimesheets/ToDo' });
+      chrome.tabs.create({ url: chrome.runtime.getURL('timesheet-helper.html') });
     } else if (buttonIndex === 1) {
       try {
         await chrome.alarms.create('timesheetReminder', { delayInMinutes: 15 });
@@ -223,6 +226,8 @@ const DIAGNOSTIC_CONTROL_ACTIONS = new Set([
 ]);
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    // Workday has its own optional integration and sender validation.
+    if (['annualLeave:open', 'annualLeave:save'].includes(request?.action)) return false;
     if (request?.target === 'offscreen') return false;
 
     let hasResponded = false;
@@ -258,6 +263,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             }
 
             const { action } = request;
+            if (action === 'clearTimesheetActivity' && sender?.url === chrome.runtime.getURL('timesheet-helper.html')) {
+                await clearTimesheetActivity(request.days);
+                respondOnce({ status: 'ok' });
+                return;
+            }
             // A side panel opened from a content-script click needs the original
             // user gesture. Even awaiting an already-resolved promise loses it.
             if (action === 'openHelpGuides' || action === 'openReccies') {
@@ -279,6 +289,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             await featureModeReady;
             if (!isFeatureModeActive() && !isPopupSender(sender) && !DIAGNOSTIC_CONTROL_ACTIONS.has(action)) {
                 respondOnce({ status: 'error', message: 'Ops Toolshed features are off.' });
+                return;
+            }
+            if (action === 'timesheetActivity') {
+                await recordTimesheetActivity(request, sender);
+                respondOnce({ status: 'ok' });
                 return;
             }
             const handler = Object.prototype.hasOwnProperty.call(messageHandlers, action)

@@ -56,6 +56,7 @@ export const CONTENT_SCRIPT_DEFINITIONS = Object.freeze([
             'features/campaign.js',
             'search-highlight.js',
             'features/campaign-history.js',
+            'features/timesheet-activity.js',
             'features/product-code-limit-warning.js',
             'features/campaign-tab-title.js',
             'features/plan-to-buy-redirect.js',

@@ -875,13 +875,14 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     } 
 
-    function initializeSegmentedControl(controlId, storageKey, defaultValue, initialSettings) {
+    function initializeSegmentedControl(controlId, storageKey, defaultValue, initialSettings, codec = {}) {
         const control = document.getElementById(controlId);
         if (!control) return;
 
         const buttons = Array.from(control.querySelectorAll('button[data-value]'));
         const updateUI = (value) => {
-            const validValue = buttons.some(button => button.dataset.value === value) ? value : defaultValue;
+            const uiValue = codec.toUi ? codec.toUi(value) : value;
+            const validValue = buttons.some(button => button.dataset.value === uiValue) ? uiValue : defaultValue;
             buttons.forEach(button => {
                 const selected = button.dataset.value === validValue;
                 button.classList.toggle('is-selected', selected);
@@ -893,7 +894,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         const selectValue = (value) => {
             if (control.classList.contains('is-disabled')) return;
             updateUI(value);
-            chrome.storage.sync.set({ [storageKey]: value }, () => {
+            chrome.storage.sync.set({ [storageKey]: codec.toStored ? codec.toStored(value) : value }, () => {
                 console.log(`${storageKey} saved:`, value);
             });
         };
@@ -941,6 +942,10 @@ document.addEventListener('DOMContentLoaded', async function() {
     initializeSegmentedControl('reminderThemeSegmented', 'reminderTheme', 'pink', settings);
     initializeSegmentedControl('autoCopyUrlModeSegmented', 'autoCopyUrlMode', 'short', settings);
     initializeSegmentedControl('metaFinanceToolSegmented', 'metaFinanceToolMode', 'social', settings);
+    initializeSegmentedControl('recciesAppearanceSegmented', 'recciesV2Enabled', 'v2', settings, {
+        toUi: value => value === false || value === 'v1' ? 'v1' : 'v2',
+        toStored: value => value === 'v2'
+    });
 
     const logoToggle = document.getElementById('logoToggle');
     if (logoToggle) {
@@ -1123,7 +1128,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupToggle('swapAccountsToggle', 'swapAccountsEnabled', 'Switch Accounts setting saved:', settings);
     setupToggle('rememberAccountSwitchUrlToggle', 'rememberAccountSwitchUrlEnabled', 'Remember page after account switch setting saved:', settings);
     setupToggle('bannerUsernameToggle', 'bannerUsernameEnabled', 'Prisma banner username setting saved:', settings);
-    setupToggle('recciesV2Toggle', 'recciesV2Enabled', 'Reccies V2 appearance saved:', settings);
+
     setupToggle('seeCommentsOnLockedBuysToggle', 'alwaysShowCommentsEnabled', 'See Comments on Locked Buys setting saved:', settings);
     setupToggle('orderIdCopyToggle', 'orderIdCopyEnabled', 'Order ID Copy setting saved:', settings);
     setupToggle('maxCampaignBudgetToggle', 'maxCampaignBudgetEnabled', 'Max Campaign Budget setting saved:', settings);
@@ -1381,6 +1386,11 @@ document.addEventListener('DOMContentLoaded', async function() {
                 detail: changes.reminderTheme.newValue === 'black' ? 'black' : 'pink'
             }));
         }
+        if (changes.recciesV2Enabled) {
+            document.getElementById('recciesAppearanceSegmented')?.dispatchEvent(new CustomEvent('segmented-control:set-value', {
+                detail: changes.recciesV2Enabled.newValue !== false
+            }));
+        }
         if (changes.metaFinanceToolMode) {
             document.getElementById('metaFinanceToolSegmented')?.dispatchEvent(new CustomEvent('segmented-control:set-value', {
                 detail: changes.metaFinanceToolMode.newValue === 'legacy' ? 'legacy' : 'social'
@@ -1411,7 +1421,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                     [
                         ['uiThemeSegmented', FEATURE_SETTINGS_DEFAULTS.uiTheme],
                         ['autoCopyUrlModeSegmented', FEATURE_SETTINGS_DEFAULTS.autoCopyUrlMode],
-                        ['metaFinanceToolSegmented', FEATURE_SETTINGS_DEFAULTS.metaFinanceToolMode]
+                        ['metaFinanceToolSegmented', FEATURE_SETTINGS_DEFAULTS.metaFinanceToolMode],
+                        ['recciesAppearanceSegmented', FEATURE_SETTINGS_DEFAULTS.recciesV2Enabled]
                     ].forEach(([controlId, value]) => {
                         document.getElementById(controlId)?.dispatchEvent(new CustomEvent('segmented-control:set-value', {
                             detail: value

@@ -31,6 +31,18 @@ describe('manual Reccies worker writes',()=>{
         await expect(preview()).rejects.toThrow('No save was started');expect(fetchMock).toHaveBeenCalledTimes(2);
         await expect(commit()).rejects.toThrow('expired');
     });
+    test('rejects a preview that duplicates one selected placement and omits another',async()=>{
+        const item={dNumber:'D03120200',campaignId:'CP3G9KS',month:'2026-09',state:'eligible',before:'No'};
+        fetchMock.mockResolvedValue(response({requestId,mode:'main',month:'2026-09',token:'secret-token',results:[item,{...item}]}));
+        await expect(manual({operation:'previewTrackerWrite',mode:'main',month:'2026-09',revision:'original',rowIds:[2,3]},context)).rejects.toThrow('preview does not match');
+        await expect(commit()).rejects.toThrow('expired');
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+    test('accepts a complete preview in a different order',async()=>{
+        const results=['D03120201','D03120200'].map(dNumber=>({dNumber,campaignId:'CP3G9KS',month:'2026-09',state:'eligible',before:'No'}));
+        fetchMock.mockResolvedValue(response({requestId,mode:'main',month:'2026-09',token:'secret-token',results}));
+        await expect(manual({operation:'previewTrackerWrite',mode:'main',month:'2026-09',revision:'original',rowIds:[2,3]},context)).resolves.toMatchObject({write:{results}});
+    });
     test('only confirmed receipt rows update local tracker and counts; failed rows stay No',async()=>{
         await preview();fetchMock.mockResolvedValue(response({requestId,mode:'main',month:'2026-09',state:'complete',results:[{dNumber:'D03120200',campaignId:'CP3G9KS',month:'2026-09',state:'updated',after:'Yes',confirmed:true},{dNumber:'D03120201',campaignId:'CP3G9KS',month:'2026-09',state:'failed',after:null,confirmed:false}]}));
         const result=await commit();expect(result.tracker.rows.map(r=>r.reccied)).toEqual(['Yes','No']);expect(result.tracker.checks[2].state).toBe('ready');expect(state.reccieTracker.revision).not.toBe('original');

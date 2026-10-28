@@ -12,7 +12,8 @@ const gatedPages = [
     'onboarding-tour.html',
     'onboarding-tour-v2.html',
     'help-guides.html',
-    'social-finance.html'
+    'social-finance.html',
+    'timesheet-helper.html'
 ];
 
 function createPage({ disabled = false, storageError = false, allowWhenDisabled = false } = {}) {
@@ -91,7 +92,7 @@ describe('extension page gate', () => {
         dom.window.close();
     });
 
-    test('loads only the gate directly on every non-popup extension page', () => {
+    test('loads only the gate directly on the listed extension pages', () => {
         gatedPages.forEach(page => {
             const html = fs.readFileSync(path.resolve(__dirname, `../${page}`), 'utf8');
             const directSources = Array.from(html.matchAll(/<script[^>]+src="([^"]+)"/g), match => match[1]);
@@ -99,6 +100,12 @@ describe('extension page gate', () => {
             expect(html).toContain('data-scripts=');
             expect(html).toContain('<style>html { visibility: hidden; }</style>');
         });
+    });
+
+    test('gates Timesheet Helper and loads its calculation before its interface', () => {
+        const html = fs.readFileSync(path.resolve(__dirname, '../timesheet-helper.html'), 'utf8');
+        expect(html).toContain('data-scripts="timesheet-allocation.js,timesheet-helper.js"');
+        expect(html).not.toContain('data-allow-when-disabled="true"');
     });
 
     test('opts Settings into loading while the master feature mode is off', () => {

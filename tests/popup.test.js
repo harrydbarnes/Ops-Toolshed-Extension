@@ -57,6 +57,75 @@ describe('popup DOM initialization', () => {
         }
     });
 
+    test('shows month examples after a hover delay and dismisses them', () => {
+        jest.useFakeTimers();
+        const dom = new JSDOM(fs.readFileSync(path.resolve(__dirname, '../popup.html'), 'utf8'), {
+            runScripts: 'outside-only', url: 'chrome-extension://test/popup.html'
+        });
+        const { window } = dom;
+        window.chrome = {
+            runtime: { getManifest: () => ({ version: '1.9' }), getURL: file => file },
+            tabs: { create: jest.fn() },
+            storage: { sync: { get: (keys, callback) => callback({}) }, onChanged: { addListener: jest.fn() } }
+        };
+        try {
+            window.eval(readScript(path.resolve(__dirname, '../popup.js')));
+            window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
+            const input = window.document.getElementById('campaignDate');
+            const tip = window.document.getElementById('campaign-month-tooltip');
+            input.dispatchEvent(new window.MouseEvent('mouseenter'));
+            jest.advanceTimersByTime(499);
+            expect(tip.hidden).toBe(true);
+            jest.advanceTimersByTime(1);
+            expect(tip.hidden).toBe(false);
+            expect(input.getAttribute('aria-describedby')).toBe(tip.id);
+            window.document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape' }));
+            expect(tip.hidden).toBe(true);
+            expect(input.hasAttribute('aria-describedby')).toBe(false);
+            input.dispatchEvent(new window.Event('focus'));
+            expect(tip.hidden).toBe(false);
+            input.dispatchEvent(new window.Event('blur'));
+            expect(tip.hidden).toBe(true);
+            input.dispatchEvent(new window.MouseEvent('mouseenter'));
+            input.dispatchEvent(new window.MouseEvent('mouseleave'));
+            jest.advanceTimersByTime(500);
+            expect(tip.hidden).toBe(true);
+        } finally { window.close(); jest.useRealTimers(); }
+    });
+
+    test('routes D and O numbers from the combined field and ignores the month', () => {
+        const dom = new JSDOM(fs.readFileSync(path.resolve(__dirname, '../popup.html'), 'utf8'), {
+            runScripts: 'outside-only', url: 'chrome-extension://test/popup.html'
+        });
+        const { window } = dom;
+        const sendMessage = jest.fn((message, callback) => callback({ status: 'error', message: 'test' }));
+        window.chrome = {
+            runtime: { getManifest: () => ({ version: '1.9' }), getURL: file => file, sendMessage },
+            tabs: { create: jest.fn() },
+            storage: { sync: { get: (keys, callback) => callback({}) }, onChanged: { addListener: jest.fn() } }
+        };
+        try {
+            window.eval(readScript(path.resolve(__dirname, '../popup.js')));
+            window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
+            const input = window.document.getElementById('campaignId');
+            const month = window.document.getElementById('campaignDate');
+            month.value = 'invalid';
+            for (const [value, expected] of [['d12345678-r1', 'D12345678'], ['o-ab123', 'O-AB123']]) {
+                input.value = value;
+                input.dispatchEvent(new window.Event('input'));
+                expect(month.disabled).toBe(true);
+                window.document.getElementById('generateUrl').click();
+                expect(sendMessage).toHaveBeenLastCalledWith({ action: 'performDNumberSearch', dNumber: expected }, expect.any(Function));
+            }
+            input.value = 'D123';
+            window.document.getElementById('generateUrl').click();
+            expect(window.document.getElementById('campaignIdError').textContent).toMatch(/Invalid format/);
+            input.value = 'CP3HFCC';
+            input.dispatchEvent(new window.Event('input'));
+            expect(month.disabled).toBe(false);
+        } finally { window.close(); }
+    });
+
     test('wires launcher actions while settings reads are still pending and without the feature catalogue', () => {
         const dom = new JSDOM(fs.readFileSync(path.resolve(__dirname, '../popup.html'), 'utf8'), {
             runScripts: 'outside-only', url: 'chrome-extension://test/popup.html'
@@ -98,7 +167,7 @@ describe('popup DOM initialization', () => {
         window.document.getElementById('generateUrl').click();
 
         const error = window.document.getElementById('campaignIdError');
-        expect(error.textContent).toBe('Please enter a Campaign ID.');
+        expect(error.textContent).toBe('Please enter a Campaign ID or D/O number.');
         expect(error.classList.contains('hidden')).toBe(false);
         dom.window.close();
     });

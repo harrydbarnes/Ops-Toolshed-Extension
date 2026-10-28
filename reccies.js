@@ -250,6 +250,11 @@
         await chrome.storage.local.set({ [storageKey('preferences')]: { person: $('person').value, assignment: $('assignment').value, showBy: $('show-by').value, trackerStatus: $('tracker-status').value, statuses: selectedStatuses() } });
     }
     function render() {
+        const key = JSON.stringify([mode, $('report-month').value, $('show-by').value, $('tracker-status').value, selectedStatuses(), $('person').value, $('assignment').value]);
+        if (window.reccieUi?.transitionContent(renderContent, key)) return;
+        renderContent();
+    }
+    function renderContent() {
         renderMode();
         manualWrites?.refresh();
         const shown = shownRows(), mine = myRows();

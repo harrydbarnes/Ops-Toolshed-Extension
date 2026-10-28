@@ -35,6 +35,8 @@
             <button id="prismaButton" class="nav-button">Prisma</button>
             <button id="metaHandbookButton" class="nav-button">Meta Handbook</button>
             <button id="timesheetsButton" class="nav-button">My Timesheets</button>
+            <button id="timesheetHelperButton" class="nav-button">Timesheet Helper</button>
+            <button id="annualLeaveButton" class="nav-button">Annual Leave</button>
             <button id="approvalsButton" class="nav-button">Timesheet Approvals</button>
             <button id="officeHoursButton" class="nav-button">myOffice Days</button>
             <button id="tpoSharepointButton" class="nav-button">TPO Sharepoint</button>
@@ -45,27 +47,20 @@
         </div>
 
         <div class="campaign-actions-grid">
-            <!-- Row 1: Campaign ID and a spacer -->
+            <!-- Row 1: Campaign search and approvers -->
             <div class="input-group">
-                <input type="text" id="campaignId" placeholder="Enter Campaign ID">
+                <input type="text" id="campaignId" placeholder="Campaign ID / D / O" aria-label="Campaign ID or D or O number">
             </div>
             <button id="prismaApproversButton" class="primary-button">Prisma Approvers</button>
 
-            <!-- Row 2: Campaign Date and D Number -->
+            <!-- Row 2: Optional month and open action -->
             <div class="input-group">
-                <input type="text" id="campaignDate" placeholder="Enter Campaign month and year (optional)">
+                <input type="text" id="campaignDate" placeholder="Month e.g. 07/25" aria-label="Campaign month, optional, for example 07/25">
             </div>
-            <div class="input-group">
-                <input type="text" id="dNumber" placeholder="Enter D or O Number">
-            </div>
-
-            <!-- Row 3: Buttons -->
             <button id="generateUrl" class="primary-button">Open Campaign</button>
-            <button id="openCampaignDNumber" class="primary-button">Open Campaign</button>
 
-            <!-- Row 4: Error Message -->
+            <!-- Validation message -->
             <p id="campaignIdError" class="error-message hidden"></p>
-            <p id="dNumberError" class="error-message hidden"></p>
         </div>
 
         <div class="section">
@@ -100,6 +95,10 @@
         </div>
     </div>
 
+    <div id="campaign-month-tooltip" class="campaign-month-tooltip" role="tooltip" hidden>
+        <strong>Campaign month</strong>
+        <span>Examples: 07/25, July 2025 or 2025-07. Leave blank for the current month.</span>
+    </div>
     <script src="popup.js"></script>
 </body>
 </html>

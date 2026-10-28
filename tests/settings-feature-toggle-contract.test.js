@@ -10,7 +10,6 @@ const utilsScript = readScript(path.resolve(__dirname, '../utils.js'));
 const registryScript = readScript(path.resolve(__dirname, '../feature-settings-registry.js'));
 
 const FEATURE_TOGGLE_KEYS = {
-    recciesV2Toggle: 'recciesV2Enabled',
     legacyPrismaRedirectToggle: 'legacyPrismaRedirectEnabled',
     logoToggle: 'logoReplaceEnabled',
     appLearnReplaceToggle: 'appLearnReplaceEnabled',
@@ -361,4 +360,26 @@ test('loading facts appearance toggle restores a saved Old UI preference', async
     try {
         expect(window.document.getElementById('loadingFactsUI').checked).toBe(false);
     } finally { dom.window.close(); }
+});
+
+
+test('Reccies appearance selector preserves the boolean preference, keyboard choice and sync updates',async()=>{
+    const {dom,window,syncStore}=await createSettingsPage();
+    try{
+        const control=window.document.getElementById('recciesAppearanceSegmented');
+        const v1=control.querySelector('[data-value=v1]'),v2=control.querySelector('[data-value=v2]');
+        expect(v2.getAttribute('aria-pressed')).toBe('true');expect(FEATURE_SETTINGS_DEFAULTS.recciesV2Enabled).toBe(true);
+        v1.click();expect(syncStore.recciesV2Enabled).toBe(false);expect(v1.getAttribute('aria-pressed')).toBe('true');
+        v1.dispatchEvent(new window.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));
+        expect(syncStore.recciesV2Enabled).toBe(true);expect(window.document.activeElement).toBe(v2);
+        const changed=window.chrome.storage.onChanged.addListener.mock.calls[0][0];changed({recciesV2Enabled:{newValue:false}},'sync');
+        expect(v1.getAttribute('aria-pressed')).toBe('true');
+        window.document.getElementById('resetFeatureSettingsButton').click();
+        [...window.document.querySelectorAll('button')].find(button=>button.textContent==='Restore defaults').click();
+        expect(syncStore.recciesV2Enabled).toBe(true);expect(v2.getAttribute('aria-pressed')).toBe('true');
+    }finally{dom.window.close();}
+});
+test('Reccies appearance restores an existing V1 choice',async()=>{
+    const {dom,window}=await createSettingsPage([],{recciesV2Enabled:false});
+    try{expect(window.document.querySelector('#recciesAppearanceSegmented [data-value=v1]').getAttribute('aria-pressed')).toBe('true');}finally{dom.window.close();}
 });

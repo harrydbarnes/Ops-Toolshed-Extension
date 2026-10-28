@@ -28,6 +28,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     const resetButton = document.getElementById('reset-stats-button');
 
     let previousTotalPlacements = null;
+    const weeklyInfo = document.getElementById('weekly-productivity-info');
+    if (weeklyInfo) {
+        const tooltip = document.createElement('div');
+        tooltip.id = 'weekly-productivity-tooltip';
+        tooltip.className = 'stats-info-tooltip';
+        tooltip.setAttribute('role', 'tooltip');
+        tooltip.textContent = 'Totals for each weekday across all recorded weeks, including this week — not last week or a weekly average. Actions include placement save clicks, reconciliations and unique campaigns visited each day. Repeat visits on different days count again. Legacy totals without dates are excluded. Most Active Month counts placement saves only.';
+        tooltip.hidden = true;
+        document.body.append(tooltip);
+        const hide = () => { tooltip.hidden = true; weeklyInfo.removeAttribute('aria-describedby'); };
+        const show = () => {
+            tooltip.hidden = false;
+            weeklyInfo.setAttribute('aria-describedby', tooltip.id);
+            const rect = weeklyInfo.getBoundingClientRect();
+            const width = tooltip.getBoundingClientRect().width;
+            tooltip.style.left = `${Math.max(8, Math.min(window.innerWidth - width - 8, rect.left + rect.width / 2 - width / 2))}px`;
+            const height = tooltip.getBoundingClientRect().height;
+            tooltip.style.top = `${rect.bottom + 8 + height <= window.innerHeight - 8 ? rect.bottom + 8 : Math.max(8, rect.top - height - 8)}px`;
+        };
+        weeklyInfo.addEventListener('mouseenter', show);
+        weeklyInfo.addEventListener('mouseleave', hide);
+        weeklyInfo.addEventListener('focus', show);
+        weeklyInfo.addEventListener('blur', hide);
+        weeklyInfo.addEventListener('click', show);
+        document.addEventListener('keydown', event => { if (event.key === 'Escape') hide(); });
+        window.addEventListener('scroll', hide, true);
+        window.addEventListener('resize', hide);
+        window.addEventListener('hashchange', hide);
+        tabContainer?.addEventListener('click', hide);
+    }
 
     // --- Tab Switching Logic ---
     if (tabContainer) {
@@ -217,6 +247,46 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    function renderCampaignInsights(entries) {
+        const snapshots = Array.isArray(entries) ? entries : [];
+        const money = value => typeof value === 'number' && Number.isFinite(value) && value >= 0;
+        const format = value => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value);
+        const budgets = snapshots.filter(entry => money(entry.budget));
+        const bookings = snapshots.filter(entry => money(entry.booked));
+        document.getElementById('average-campaign-budget').textContent = budgets.length ? format(budgets.reduce((sum, entry) => sum + entry.budget, 0) / budgets.length) : '—';
+        document.getElementById('total-campaign-booked').textContent = bookings.length ? format(bookings.reduce((sum, entry) => sum + entry.booked, 0)) : '—';
+        document.getElementById('campaign-insights-coverage').textContent = snapshots.length
+            ? `${snapshots.length} campaigns · Budgets ${budgets.length}/${snapshots.length} · Booked ${bookings.length}/${snapshots.length}`
+            : 'Visit campaigns in Prisma to start collecting insights.';
+        for (const [field, id] of [['clientName', 'top-clients'], ['supplier', 'top-suppliers']]) {
+            const counts = new Map();
+            snapshots.forEach(entry => {
+                const names = String(entry[field] || '').split(field === 'supplier' ? '|' : /$^/);
+                const unique = new Map(names.map(name => [name.trim().toLowerCase(), name.trim()]).filter(([key]) => key));
+                unique.forEach((name, key) => {
+                    const existing = counts.get(key);
+                    counts.set(key, { name: existing?.name || name, count: (existing?.count || 0) + 1 });
+                });
+            });
+            const list = document.getElementById(id);
+            list.replaceChildren();
+            [...counts.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)).slice(0, 5).forEach(entry => {
+                const row = document.createElement('li');
+                const name = document.createElement('span');
+                name.textContent = entry.name;
+                const count = document.createElement('strong');
+                count.textContent = `${entry.count} campaign${entry.count === 1 ? '' : 's'}`;
+                row.append(name, count);
+                list.append(row);
+            });
+            if (!list.children.length) {
+                const empty = document.createElement('li');
+                empty.textContent = 'Visit campaigns in Prisma to build your top five.';
+                list.append(empty);
+            }
+        }
+    }
+
     function renderHeatmap(dailyStats) {
         const heatmapContainer = document.getElementById('heatmap');
         if (!heatmapContainer) return;
@@ -232,6 +302,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Logic to start on the Monday 52 weeks ago
         const today = new Date();
+        today.setHours(0, 0, 0, 0);
         const startDate = new Date(today);
         startDate.setDate(today.getDate() - (52 * 7));
 
@@ -243,10 +314,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Map daily stats to date strings
         const statsMap = dailyStats || {};
+        const weekendContainer = document.getElementById('heatmap-weekends');
+        weekendContainer.replaceChildren();
+        weekendContainer.hidden = true;
+        heatmapContainer.style.gridTemplateRows = 'repeat(5, 12px)';
 
         // Calculate number of days from startDate to today (inclusive)
         const timeDiff = today.getTime() - startDate.getTime();
-        const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+        const daysDiff = Math.round(timeDiff / (1000 * 3600 * 24));
         // Add 1 to include today
         const totalDays = daysDiff + 1;
 
@@ -262,7 +337,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             const stat = statsMap[dateStr];
             const placements = stat ? (stat.placements || 0) : 0;
             const reconciliations = stat ? (stat.reconciliations || 0) : 0;
-            const activityCount = placements + reconciliations;
+            const campaigns = (stat?.visitedCampaigns || []).length;
+            const activityCount = placements + reconciliations + campaigns;
+            const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+            if (isWeekend && activityCount <= 0) continue;
 
             // Determine level (0-4) based on Activity
             let level = 0;
@@ -273,13 +351,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const dayEl = document.createElement('div');
             dayEl.className = 'heatmap-day';
+            dayEl.dataset.date = dateStr;
+            if (!isWeekend) {
+                dayEl.style.gridColumn = String(Math.floor(i / 7) + 1);
+                dayEl.style.gridRow = String(date.getDay());
+            }
             dayEl.dataset.level = level;
 
             // Format for display: dd.mm.yy
             const yy = String(year).slice(-2);
             const displayDate = `${day}.${month}.${yy}`;
             // Store text for tooltip
-            dayEl.dataset.tooltipText = `${displayDate}: ${activityCount} actions`;
+            dayEl.dataset.tooltipText = `${displayDate}: ${activityCount} actions (${placements} placements, ${reconciliations} reconciliations, ${campaigns} campaigns)${stat?.loadingTime > 0 ? ` · ${formatCompactLoadingTime(stat.loadingTime)} waiting` : ''}`;
 
             // JS Tooltip Events
             dayEl.addEventListener('mouseover', (e) => {
@@ -298,7 +381,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                 tooltip.style.display = 'none';
             });
 
-            heatmapContainer.appendChild(dayEl);
+            if (isWeekend) {
+                if (weekendContainer.hidden) {
+                    const heading = document.createElement('strong');
+                    heading.textContent = 'Weekend activity';
+                    weekendContainer.append(heading);
+                    weekendContainer.hidden = false;
+                }
+                const item = document.createElement('span');
+                item.className = 'heatmap-weekend-item';
+                const label = document.createElement('span');
+                label.textContent = date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+                dayEl.setAttribute('aria-label', dayEl.dataset.tooltipText);
+                item.append(dayEl, label);
+                weekendContainer.append(item);
+            } else heatmapContainer.appendChild(dayEl);
         }
     }
 
@@ -568,7 +665,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function displayStats() {
-        chrome.storage.local.get(['legacyStats', 'dailyStats', 'statsStartDate', 'appLearnPopupsBlocked'], (data) => {
+        chrome.storage.local.get(['legacyStats', 'dailyStats', 'statsStartDate', 'appLearnPopupsBlocked', 'campaignStatsSnapshots'], (data) => {
             const legacyStats = data.legacyStats || {
                 visitedCampaigns: [],
                 totalLoadingTime: 0,
@@ -610,6 +707,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // Render Visualizations
             renderLoadingAreaBreakdown(dailyStats);
+            renderCampaignInsights(data.campaignStatsSnapshots);
             renderHeatmap(dailyStats);
             renderCharts(dailyStats);
             renderFunStats(dailyStats, totalLoadingTime, totalPlacements);
@@ -673,6 +771,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         chrome.storage.local.set({
             'legacyStats': { visitedCampaigns: [], totalLoadingTime: 0, placementsAdded: 0, reconciliations: 0 },
             'dailyStats': {},
+            'campaignStatsSnapshots': [],
             'appLearnPopupsBlocked': 0,
             'statsStartDate': new Date().toISOString()
         }, () => {
@@ -689,7 +788,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- Real-Time Update Listener ---
     chrome.storage.onChanged.addListener((changes, namespace) => {
-        if (namespace === 'local' && (changes.legacyStats || changes.dailyStats || changes.appLearnPopupsBlocked)) {
+        if (namespace === 'local' && (changes.legacyStats || changes.dailyStats || changes.appLearnPopupsBlocked || changes.campaignStatsSnapshots)) {
             displayStats();
         }
     });

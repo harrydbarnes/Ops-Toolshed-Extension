@@ -277,4 +277,6 @@ saved request remains available for manual recovery.
 
 ### Reccies appearance
 
-Settings → Features → Appearance → Reccies V2 appearance is on by default. Switch it off for the original layout. Both appearances use the same reports, assignments, filters, verification and write handlers. The quick × beside Prisma chips clears only Prisma selections and is hidden when it would require another row; Clear filters remains available. Existing automatic-write preferences are unchanged and remain opt-in.
+Settings → Features → Appearance → Reccies appearance offers V1 and V2, with V2 selected by default. Choose V1 for the original layout. Both appearances use the same reports, assignments, filters, verification and write handlers. The quick × beside Prisma chips clears only Prisma selections and is hidden when it would require another row; Clear filters remains available. Existing automatic-write preferences are unchanged and remain opt-in.
+
+V2 result transitions respect reduced motion. Collapse settings hides source, connection and filter controls for the current sidebar instance only; selected filters remain active and Verify stays available. Show settings restores the controls. A newly opened sidebar starts expanded. Campaign headers retain month-specific Prisma URLs while omitting the month beside the CP reference.

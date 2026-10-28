@@ -21,7 +21,7 @@
     "https://insidemedia.sharepoint.com/*",
     "https://graph.facebook.com/*"
   ],
-  "optional_host_permissions": ["https://docs.google.com/*", "https://script.google.com/*", "https://script.googleusercontent.com/*"],
+  "optional_host_permissions": ["https://docs.google.com/*", "https://script.google.com/*", "https://script.googleusercontent.com/*", "https://wd3.myworkday.com/*"],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'self'"
   },

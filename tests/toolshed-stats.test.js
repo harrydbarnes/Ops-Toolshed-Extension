@@ -81,7 +81,75 @@ describe('Toolshed Stats UI', () => {
         expect(document.getElementById('loading-area-context').textContent).toContain('3 mins 50s tracked');
 
         // Check Heatmap presence (at least one day should be generated)
-        expect(document.getElementById('heatmap').children.length).toBeGreaterThan(300);
+        expect(document.getElementById('heatmap').children.length).toBeGreaterThan(250);
+        expect([...document.querySelectorAll('.heatmap-day')].every(cell => ![0, 6].includes(new Date(`${cell.dataset.date}T00:00:00`).getDay()))).toBe(true);
+    });
+
+    test('ranks campaigns safely and shows only available financial coverage', async () => {
+        await chrome.storage.local.set({ campaignStatsSnapshots: [
+            { key: 'a', clientName: '<img src=x>', supplier: 'Meta | META | Google', budget: 100, booked: 80 },
+            { key: 'b', clientName: '<img src=x>', supplier: 'Google', budget: 300, booked: 0 },
+            { key: 'c', clientName: 'Other', supplier: '', budget: null, booked: null }
+        ] });
+        require('../toolshed.js');
+        document.dispatchEvent(new Event('DOMContentLoaded'));
+        await new Promise(r => setTimeout(r, 30));
+        expect(document.getElementById('average-campaign-budget').textContent).toBe('£200.00');
+        expect(document.getElementById('total-campaign-booked').textContent).toBe('£80.00');
+        expect(document.querySelector('#top-clients li').textContent).toBe('<img src=x>2 campaigns');
+        expect(document.querySelector('#top-clients img')).toBeNull();
+        expect(document.querySelector('#top-suppliers li').textContent).toBe('Google2 campaigns');
+        expect(document.getElementById('campaign-insights-coverage').textContent).toBe('3 campaigns · Budgets 2/3 · Booked 2/3');
+        const details = document.querySelector('.campaign-insights-details');
+        expect(details.open).toBe(false);
+        expect(details.textContent).toContain('rather than lifetime booking transactions');
+    });
+
+    test('includes an active weekend without showing empty weekends or future dates', async () => {
+        const saturday = new Date();
+        saturday.setHours(0, 0, 0, 0);
+        saturday.setDate(saturday.getDate() - ((saturday.getDay() + 1) % 7));
+        const key = `${saturday.getFullYear()}-${String(saturday.getMonth() + 1).padStart(2, '0')}-${String(saturday.getDate()).padStart(2, '0')}`;
+        const previousSaturday = new Date(saturday);
+        previousSaturday.setDate(previousSaturday.getDate() - 7);
+        const waitingOnlyKey = `${previousSaturday.getFullYear()}-${String(previousSaturday.getMonth() + 1).padStart(2, '0')}-${String(previousSaturday.getDate()).padStart(2, '0')}`;
+        await chrome.storage.local.set({ dailyStats: { [key]: { visitedCampaigns: ['a'] }, [waitingOnlyKey]: { loadingTime: 10 } } });
+        require('../toolshed.js');
+        document.dispatchEvent(new Event('DOMContentLoaded'));
+        await new Promise(r => setTimeout(r, 30));
+        const weekendCells = [...document.querySelectorAll('.heatmap-day')].filter(cell => [0, 6].includes(new Date(`${cell.dataset.date}T00:00:00`).getDay()));
+        expect(weekendCells.map(cell => cell.dataset.date)).toEqual([key]);
+        expect(document.getElementById('heatmap').style.gridTemplateRows).toBe('repeat(5, 12px)');
+        expect(document.querySelector('#heatmap .heatmap-day[data-date="' + key + '"]')).toBeNull();
+        expect(weekendCells[0].closest('#heatmap-weekends')).not.toBeNull();
+        expect(document.getElementById('heatmap-weekends').hidden).toBe(false);
+        expect(weekendCells[0].parentElement.textContent).toContain('Sat');
+        expect(weekendCells[0].dataset.level).toBe('1');
+        expect(weekendCells[0].dataset.tooltipText).toContain('1 actions');
+        expect([...document.querySelectorAll('.heatmap-day')].every(cell => new Date(`${cell.dataset.date}T00:00:00`) <= new Date())).toBe(true);
+    });
+
+    test('explains all-weeks productivity on focus and dismisses with Escape', async () => {
+        require('../toolshed.js');
+        document.dispatchEvent(new Event('DOMContentLoaded'));
+        const button = document.getElementById('weekly-productivity-info');
+        button.focus();
+        const tooltip = document.getElementById('weekly-productivity-tooltip');
+        expect(tooltip.hidden).toBe(false);
+        expect(tooltip.textContent).toContain('across all recorded weeks');
+        expect(button.getAttribute('aria-describedby')).toBe(tooltip.id);
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+        expect(tooltip.hidden).toBe(true);
+        expect(button.hasAttribute('aria-describedby')).toBe(false);
+        await new Promise(r => setTimeout(r, 30));
+    });
+
+    test('keeps insight explanations collapsed and matches the Features info icon styling', () => {
+        expect(document.querySelector('.campaign-insights-details').open).toBe(false);
+        expect(document.querySelector('.campaign-insights-summary').classList.contains('stat-summary')).toBe(false);
+        expect(css).toMatch(/\.stats-info-button\s*{[^}]*width: 24px;[^}]*height: 24px;[^}]*border: 0;/s);
+        expect(css).toContain('var(--md-sys-color-secondary-container, #f9dce9)');
+        expect(css).toContain('var(--md-sys-color-on-secondary-container, #6f123e)');
     });
 
     test('updates the area breakdown in real time when daily stats change', async () => {
@@ -152,11 +220,11 @@ describe('Toolshed Stats UI', () => {
         expect(document.getElementById('release-notes').classList).toContain('active');
     });
 
-    test('lists the planned Timesheet Helper, Meta Spend Check and Recy Sheet features', () => {
+    test('lists the planned Meta Spend Check and Recy Sheet features', () => {
         const roadmapItems = Array.from(document.querySelectorAll('#roadmap li'))
             .map(item => item.textContent.trim());
 
-        expect(roadmapItems).toContain('Timesheet Helper');
+        expect(roadmapItems).not.toContain('Timesheet Helper');
         expect(roadmapItems).toContain('Meta Spend Check');
         expect(roadmapItems).toContain('Recy Sheet Campaign List');
         expect(roadmapItems).toContain('Campaign history with the ability to search visited campaigns by supplier');

@@ -8,6 +8,9 @@
     });
 
     chrome.storage.onChanged.addListener((changes, area) => {
+        if (area === 'local' && changes.campaignStatsSnapshots && !changes.campaignStatsSnapshots.newValue?.length) {
+            lastSnapshotFingerprint = '';
+        }
         if (area === 'sync' && changes.statsCollectorEnabled) {
             isEnabled = changes.statsCollectorEnabled.newValue !== false;
             if (!isEnabled) {
@@ -48,8 +51,36 @@
 
     // --- 1. Track Unique Campaign IDs ---
     let lastTrackedCampaignId = '';
+    let lastSnapshotFingerprint = '';
+    function trackCampaignSnapshot() {
+        if (!isEnabled || getVisibleSpinners().length) return;
+        const id = new URLSearchParams(window.location.hash.slice(1)).get('campaign-id');
+        const snapshot = window.campaignHistoryFeature?.getCampaignSnapshot?.();
+        if (!id || !snapshot?.key || snapshot.campaignId !== id) return;
+        const renderedId = document.querySelector('.buy-details-wrapper, .buy-details-background')?.textContent?.match(/\bCP[A-Z0-9-]+\b/i)?.[0];
+        if (!renderedId || renderedId.toLowerCase() !== id.toLowerCase()) return;
+        const exactMoney = selector => {
+            const text = (document.querySelector(selector)?.textContent?.trim() || '')
+                .replace(/\s+(?:budget|buy total \(billable amount\))$/i, '');
+            // Never infer money from rounded K/M labels or mix currencies.
+            if (!/^(?:£|GBP\s*)\s*(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?$/.test(text)) return null;
+            return Number(text.replace(/GBP|£|,|\s/g, ''));
+        };
+        const budgetType = document.querySelector('[data-cy="budget-type-label"]')?.textContent?.trim();
+        const value = {
+            key: snapshot.key, clientName: snapshot.clientName || '',
+            supplier: snapshot.supplier || '',
+            budget: /total client cost/i.test(budgetType || '') ? exactMoney('[data-cy="budget-amount"]') : null,
+            booked: /total client cost/i.test(budgetType || '') ? exactMoney('[data-cy="budget-purchased"]') : null
+        };
+        const fingerprint = JSON.stringify(value);
+        if (fingerprint === lastSnapshotFingerprint) return;
+        lastSnapshotFingerprint = fingerprint;
+        trackStat('CAMPAIGN_SNAPSHOT', value);
+    }
     function trackCampaignId() {
         if (!isEnabled) return;
+        trackCampaignSnapshot();
         const campaignIdMatch = window.location.href.match(/campaign-id=([^&]+)/);
         const campaignId = campaignIdMatch?.[1] ? decodeURIComponent(campaignIdMatch[1]) : '';
         if (!campaignId) {
@@ -118,6 +149,7 @@
             return;
         }
         const hasVisibleSpinner = getVisibleSpinners(state).length > 0;
+        if (!hasVisibleSpinner) trackCampaignSnapshot();
         const currentArea = getPrismaArea();
 
         if (hasVisibleSpinner && loadingSpinnerStartTime === null) {
@@ -144,6 +176,10 @@
     // --- 3. Track Click Events (Save Placements & Reconciliations) ---
     function handleClickEvents(event) {
         if (!isEnabled) return;
+        // The exact amounts may appear only after opening Prisma's budget popover.
+        if (event.target.closest('#campaign-budget-overview-container')) {
+            window.setTimeout(trackCampaignSnapshot, 500);
+        }
 
         // Track Placement Saves
         if (event.target.id === 'btn-save' || event.target.id === 'btn-save-and-add-another') {

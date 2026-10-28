@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Annual Leave · Ops Toolshed</title>
+    <link rel="stylesheet" href="annual-leave.css">
+    <script src="annual-leave-calendar.js" defer></script>
+    <script src="annual-leave.js" defer></script>
+</head>
+<body>
+    <main>
+        <header><a href="toolshed.html">Ops Toolshed</a><h1>Annual Leave</h1>
+            <p>Request leave in Workday, then prepare your work and personal calendars.</p>
+            <ol class="how-it-works"><li>Request leave in Workday.</li><li>Check your dates and calendar details here.</li><li>Open the files and save or send them in your calendar apps.</li></ol>
+            <p class="hint">Downloading files does not add events or send invitations automatically.</p></header>
+        <section class="connection" aria-labelledby="workday-heading">
+            <div><h2 id="workday-heading">Workday helper</h2><p id="connection-status" role="status">Checking connection…</p></div>
+            <button id="connect" type="button" disabled>Enable Workday helper</button>
+        </section>
+        <p class="hint">Use <strong>Preview calendar files</strong> inside Request Absence, or <strong>Calendar files</strong> beside submitted annual leave under <strong>Manage Absence → Requests</strong>. Dates are saved before submission, and requested leave is treated as approved.</p>
+        <form id="leave-form">
+            <details id="calendar-setup" open>
+                <summary><span>Calendar setup</span><span id="setup-summary">Set up once, reuse for every request</span></summary>
+                <section aria-labelledby="settings-heading">
+                    <h2 id="settings-heading">Your calendar defaults</h2>
+                    <p class="hint">Save your titles and work invitees here. You can change them whenever you need.</p>
+                    <div class="fields"><label>Your name<input id="name" required maxlength="200" autocomplete="name"></label><label>Your work email <span class="hint">· required for a team invite</span><input id="organizer" type="email" autocomplete="email" placeholder="you@company.com"></label></div>
+                    <div class="fields titles"><label>Team invite title<input id="teamTitle" required maxlength="200"></label><label>Your work blocker title<input id="busyTitle" required maxlength="200"></label><label>Personal calendar title<input id="personalTitle" required maxlength="200"></label></div>
+                    <p class="hint">Titles support <code>{firstName}</code> and <code>{name}</code>. For example, <code>{firstName} - AL</code>.</p>
+                    <label for="recipients">Work invite email list <span class="hint">· required for a team invite</span></label>
+                    <textarea id="recipients" rows="2" spellcheck="false" placeholder="colleague@company.com, team@company.com"></textarea>
+                    <p class="hint">Separate addresses with commas, semicolons or new lines. Only the team invite includes these recipients.</p>
+                    <button id="save" type="button">Save calendar setup</button><span id="save-status" role="status"></span>
+                </section>
+            </details>
+            <section class="review" aria-labelledby="review-heading">
+                <h2 id="review-heading">Review and prepare</h2>
+                <p id="review-request-status" class="hint" role="status">Enter dates manually, or capture them from Workday.</p>
+                <p id="review-dates" class="summary" aria-live="polite">Add leave dates to prepare your calendar files.</p>
+                <p id="review-work">Team invite: Free · Work blocker: Busy · Personal: Free</p>
+                <p id="review-recipients" class="hint">Add your work invitees in Calendar setup.</p>
+                <p class="hint">Free means the entry does not block availability. Busy marks you unavailable. Check dates and recipients before continuing below.</p>
+            </section>
+            <section aria-labelledby="dates-heading">
+                <h2 id="dates-heading">Leave dates</h2>
+                <p id="draft-status">Enter dates manually, or capture them from Workday.</p>
+                <label for="dates">Exact dates <span class="hint">· one per line, YYYY-MM-DD</span></label>
+                <textarea id="dates" rows="5" required spellcheck="false" placeholder="2026-12-21&#10;2026-12-22&#10;2026-12-23"></textarea>
+                <div class="date-range"><label>From<input id="range-start" type="date"></label><label>Through<input id="range-end" type="date"></label><button id="add-range" type="button">Add date range</button></div>
+                <p class="hint">Ranges include weekends. Remove any dates you do not want. Choose AM or PM below for a half day; check it matches your Workday request.</p>
+                <div id="day-parts" aria-label="Full or half day for each date"></div>
+                <p id="date-summary" class="summary" aria-live="polite">No dates selected.</p>
+                <button id="clear-draft" type="button" class="secondary">Clear saved leave dates</button>
+            </section>
+            <section aria-labelledby="export-heading">
+                <h2 id="export-heading">Prepare your calendars</h2>
+                <p>Open the Outlook files in your work account, check the details, then save or send. Downloading does not add events or send invitations.</p>
+                <label for="work-block">Outlook date block</label>
+                <select id="work-block" aria-describedby="work-block-hint"></select>
+                <p id="work-block-hint" class="hint">Each Outlook file covers the selected block. Repeat both work downloads for each block, including separate half days. The personal file includes all dates.</p>
+                <div class="export-row"><div><h3>1. Notify your team — Free</h3><p id="team-preview">Free · Saved invitees</p><p class="hint">Open in work Outlook, check the recipients and send. Your work email and at least one invitee are required.</p></div><div class="actions"><button type="button" data-export="team">Download Outlook invite</button><button id="copy-work" type="button" class="secondary">Copy Outlook details</button></div></div>
+                <div class="export-row"><div><h3>2. Block your work calendar — Busy</h3><p id="busy-preview">Busy · No invitees</p><p class="hint">Open in work Outlook and save to your calendar as Busy.</p></div><button type="button" data-export="busy">Download Outlook blocker</button></div>
+                <div class="export-row"><div><h3>3. Add to your personal calendar — Free</h3><p id="personal-preview">Free · Apple Calendar or Google Calendar</p><p class="hint">Import the file, or copy the prompt for your assistant. You can use this step alone; no work email or invitees are needed.</p></div><div class="actions"><button type="button" data-export="personal">Download personal .ics</button><button id="copy-prompt" type="button" class="secondary">Copy assistant prompt</button></div></div>
+                <div id="download-checklist" class="download-checklist" hidden><strong>Next steps for the files you downloaded</strong><ol><li>Open the team invite in work Outlook, review the recipients and send it.</li><li>Open the work blocker in Outlook and save it as Busy.</li><li>Import the personal file into Apple or Google Calendar, or use the copied assistant prompt.</li></ol><p class="hint">Repeat steps 1 and 2 for each selected Outlook date block. Use the fallback below if an invite opens as a received invitation.</p></div>
+                <p class="hint">Apple Calendar: open the personal .ics and choose your calendar. Google Calendar on the web: Settings → Import &amp; export → Import. Check that availability remains Free after importing. Recipient calendar preferences may override invitation availability.</p>
+                <details id="work-fallback"><summary>Outlook file opens as a received invitation?</summary><p>Use Copy Outlook details to create a new event in your work Outlook calendar with your saved title, dates, time and invitees. Set it to Free before sending.</p><textarea id="work-brief" rows="6" readonly aria-label="Outlook event details"></textarea></details>
+                <details><summary>Personal assistant prompt</summary><textarea id="prompt" rows="5" readonly aria-label="Personal assistant prompt"></textarea></details>
+                <details><summary>Download all files as a ZIP</summary><p class="hint">The ZIP includes each Outlook date block and a personal calendar file. Extract it before opening the files.</p><button id="download-all" type="button" class="secondary">Download ZIP</button></details>
+                <p class="hint">Reimporting can create duplicates in some calendar apps. If leave changes or is cancelled, update or remove the existing events yourself.</p>
+            </section>
+        </form>
+        <p id="status" role="status" aria-live="polite"></p>
+    </main>
+</body>
+</html>

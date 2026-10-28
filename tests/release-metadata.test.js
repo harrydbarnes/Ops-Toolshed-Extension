@@ -49,11 +49,31 @@ describe('release metadata', () => {
 
         try {
             const currentRelease = dom.window.document.querySelector('#release-notes .release');
-            const releaseItems = Array.from(currentRelease.querySelectorAll('li'));
+            const allItems = Array.from(currentRelease.querySelectorAll('li'));
+            expect(allItems).toHaveLength(50);
+            const statsInsights = allItems.find(item => item.querySelector('strong')?.textContent === 'Stats Insights:');
+            expect(statsInsights).toBeDefined();
+            expect(statsInsights.querySelector('.release-badge').dataset.releaseType).toBe('improved');
+            const popupSearch = allItems.find(item => item.querySelector('strong')?.textContent === 'Popup campaign search:');
+            expect(popupSearch).toBeDefined();
+            const timesheet = allItems.find(item => item.querySelector('strong')?.textContent === 'Timesheet Helper:');
+            expect(timesheet).toBeDefined();
+            expect(timesheet.querySelector('.release-badge').dataset.releaseType).toBe('new');
+            expect(timesheet.textContent).toContain('review proportional estimates');
+            expect(timesheet.textContent).toContain('Read visible rows');
+            const annualLeave = allItems.find(item => item.querySelector('strong')?.textContent === 'Annual Leave Calendar Helper:');
+            expect(annualLeave).toBeDefined();
+            expect(annualLeave.querySelector('.release-badge').dataset.releaseType).toBe('new');
+            expect(annualLeave.textContent).toContain('Apple or Google Calendar');
+            expect(annualLeave.textContent).toContain('AM/PM');
+            const releaseItems = allItems.filter(item => item !== annualLeave && item !== timesheet && item !== statsInsights && item !== popupSearch);
             expect(releaseItems).toHaveLength(46);
             expect(currentRelease.textContent).toContain('Social Booking Checker IDs');
             expect(releaseItems[0].textContent).toContain('My Reccies:');
             expect(releaseItems[0].textContent).toContain('Verification keeps the tracker unchanged');
+            expect(releaseItems[0].textContent).toContain('V1/V2 selector');
+            expect(releaseItems[0].textContent).toContain('preview and confirmation');
+            expect(releaseItems[0].textContent).toContain('save receipts');
             expect(releaseItems[0].querySelector('.release-badge').dataset.releaseType).toBe('new');
             expect(releaseItems[1].textContent).toContain('Purchase Order Reference Autofill');
             expect(releaseItems[1].querySelector('.release-badge').dataset.releaseType).toBe('new');

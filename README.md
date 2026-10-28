@@ -136,3 +136,51 @@ npm test
 npm run update-build
 git add build-info.js
 ```
+## Timesheet Helper
+
+Open **Timesheet Helper** from the toolbar popup or the timesheet reminder. Select a week and, with the matching Production timesheet open, choose **Read open Production week** to add visible account rows and non-zero hours. Existing draft values are preserved; check any conflicts and rows Production has not rendered. You can also add rows and enter hours manually.
+
+Prisma activity recording is optional and off by default. While enabled, the helper samples the focused campaign after interaction, stops after 60 seconds without interaction, and saves daily client and product totals locally. Map observed Prisma codes to the correct Production rows using the read-only client-code workbook, including the correct team code. Enter meetings, leave and actual total hours, then preview and apply an estimate for a day. Unmapped or missing activity is never guessed. Check Friday's suggested office closure and set the applicable summer dates each year.
+
+Review the draft against Production before copying a summary or a row's hours. Production's own Save and Submit controls remain your responsibility. You can pause recording and clear a week's activity in the helper.
+
+## Annual Leave calendars
+
+Open **Annual Leave** from the Ops Toolshed toolbar popup. Enable the optional
+Workday helper, allow access to WPP Workday, then refresh your Workday tab once.
+Set your **Calendar setup** once at the top; it collapses after a complete setup is
+saved. Select dates in **Request Absence** and use **Preview calendar files** at
+the left of its footer. The helper also supports selecting dates on your own
+**Manage Absence** calendar before choosing **Request Absence**; its preview appears
+beside that action when the selected dates match Workday's day count. The
+helper saves your dates on Continue and Submit, so the toolbar's Annual Leave tool
+can recover them even if Workday's confirmation disappears. The on-page calendar
+action stays available during submission and distinguishes saved dates from a
+confirmed successful request. Requests are treated as approved once submitted.
+
+For leave you already requested, open **Manage Absence → Requests** and choose
+**Calendar files** beside the relevant full-day Annual Leave request. There is no
+need to submit it again. The helper verifies the displayed dates against the
+request's total; ambiguous ranges and fractional days need manual entry.
+
+Save your name, title templates (for example, `{firstName} - AL`), work email and
+work invitees. Review the exact dates and choose Full day, AM or PM for each date.
+Follow the numbered actions: download and send the Free team invite in Outlook,
+download and save the separate Busy Outlook blocker, and import the Free personal
+`.ics` into Apple or Google Calendar, or copy the assistant prompt. You can use the
+personal action alone without work email or invitees. Each Outlook download covers
+the selected date block; repeat both work actions for each block. The personal file
+includes all dates. An optional ZIP contains all the files together. Downloading
+does not create events or send invitations.
+
+The exact dates stay editable and gaps between dates are preserved. The automatic
+helper reads the Workday calendar selection for yourself; use manual dates for
+date-range mode, individually edited day amounts, or an unrecognised Workday
+layout/confirmation. A captured half-day request requires an explicit AM or PM
+choice. AM is 9am–1pm and PM is 2pm–5:30pm UK time, including daylight saving;
+full days remain all-day events. Google Calendar imports
+files through **Settings → Import & export** on the web; Apple Calendar can open
+the file directly. Check availability after import. Calendar defaults and the most
+recent leave dates stay on this device; **Clear saved leave dates** removes the
+captured dates. Changes and cancellations need manual calendar updates, and repeat
+imports may duplicate events depending on the calendar app.

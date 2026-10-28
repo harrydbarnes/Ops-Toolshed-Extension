@@ -24,6 +24,20 @@ describe('Stats Manager', () => {
         global.Date = RealDate;
     });
 
+    test('campaign snapshots replace money rather than accumulating repeated visits and preserve unknown amounts', async () => {
+        const save = value => handleTrackStat({ type: 'CAMPAIGN_SNAPSHOT', value }, {}, () => {});
+        await Promise.all([
+            save({ key: 'a', clientName: 'Client', budget: 100, booked: 50 }),
+            save({ key: 'a', budget: 200, booked: 0 }),
+            save({ key: 'a', budget: null, booked: null }),
+            save({ key: 'b', budget: -1, booked: '500' })
+        ]);
+        const entries = chrome.storage.local.__getStore().campaignStatsSnapshots;
+        expect(entries).toHaveLength(2);
+        expect(entries.find(entry => entry.key === 'a')).toMatchObject({ clientName: 'Client', budget: 200, booked: 0 });
+        expect(entries.find(entry => entry.key === 'b')).toMatchObject({ budget: null, booked: null });
+    });
+
     test('migrateStats should move prismaUserStats to legacyStats', async () => {
         const oldStats = {
             visitedCampaigns: ['c1'],

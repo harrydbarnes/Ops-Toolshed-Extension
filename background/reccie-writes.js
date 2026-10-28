@@ -65,7 +65,7 @@ export async function manualTrackerWrite(request,{queueWrite,assertActive,automa
             result=await api('preview',{mode,month,rows,cause:automatic?'verified':'manual'});
         }
         if(typeof result.requestId!=='string'||!/^[a-zA-Z0-9-]{20,80}$/.test(result.requestId)||typeof result.token!=='string'||!Array.isArray(result.results))throw Error('Google returned an incomplete tracker preview. No save was started. Close and try the preview again.');
-        if(result.mode!==mode||result.month!==month||result.results.length!==rows.length||result.results.some(item=>item.month!==month||!rows.some(row=>row.dNumber===item.dNumber&&row.campaignId===item.campaignId)))throw Error('Tracker preview does not match the selected placements.');
+        if(result.mode!==mode||result.month!==month||result.results.length!==rows.length||result.results.some(item=>item.month!==month)||rows.some(row=>rows.filter(other=>row.dNumber===other.dNumber&&row.campaignId===other.campaignId).length!==1||result.results.filter(item=>row.dNumber===item.dNumber&&row.campaignId===item.campaignId).length!==1))throw Error('Tracker preview does not match the selected placements.');
         const current=(await chrome.storage.local.get(key))[key];
         if(current?.revision!==request.revision)throw Error('The report changed while loading the preview. Preview again.');
         for(const [id,item]of pending)if(item.expires<Date.now())pending.delete(id);

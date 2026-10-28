@@ -48,6 +48,49 @@ describe('Reccies sidebar',()=>{
     const liveSource={type:'google',url:'https://docs.google.com/spreadsheets/d/1QxX7yZvfh75ENyvPG7xD_5ldLuoLwUsTZ6z0edkpORU/edit?gid=405487495'};
     const writeId='01234567-89ab-cdef-0123-456789abcdef';
     const clickDialog=(win,label)=>[...win.document.querySelectorAll('dialog button')].find(button=>button.textContent===label).click();
+    test('V2 focus hides only this sidebar controls and keeps filters, verification and results',async()=>{
+        const {dom,win,getData}=create({trackerStatus:'any'},liveSource,true);
+        try{
+            await flush();const doc=win.document,button=doc.getElementById('reccies-focus-toggle'),preferences=structuredClone(getData().recciePreferences);
+            const writes=win.chrome.storage.local.set.mock.calls.length;
+            button.click();expect(doc.getElementById('reccies-controls').hidden).toBe(true);
+            expect(button.getAttribute('aria-expanded')).toBe('false');expect(button.textContent).toBe('Show settings');
+            expect(doc.getElementById('check-rows').closest('#reccies-controls')).toBeNull();
+            expect(doc.querySelectorAll('.reccie-card')).toHaveLength(2);
+            expect(getData().recciePreferences).toEqual(preferences);expect(win.chrome.storage.local.set.mock.calls).toHaveLength(writes);
+            button.click();expect(doc.getElementById('reccies-controls').hidden).toBe(false);expect(button.getAttribute('aria-expanded')).toBe('true');
+            const fresh=create({},liveSource,true);try{await flush();expect(fresh.win.document.getElementById('reccies-controls').hidden).toBe(false);}finally{fresh.dom.window.close();}
+        }finally{dom.window.close();}
+    });
+    test('V2 campaign header places campaign ID beside count and Prisma link without the report month',async()=>{
+        const {dom,win}=create({trackerStatus:'any',showBy:'campaign'},liveSource,true);
+        try{
+            await flush();const card=win.document.querySelector('.campaign-card'),meta=card.querySelector('.v2-campaign-metadata');
+            expect(meta.textContent).toContain('CP3G9KS · 2 D numbers');expect(meta.querySelector('a').textContent).toContain('Open in Prisma');
+            expect(meta.querySelector('a').href).toContain('mos=2026-09-01');
+            expect(card.querySelector('.card-bottom a')).toBeNull();expect(card.textContent).not.toContain('2026-09');
+            expect(card.querySelectorAll('.v2-placement')).toHaveLength(2);
+        }finally{dom.window.close();}
+    });
+    test('V2 crossfades changed result views and respects reduced motion',async()=>{
+        const {dom,win}=create({trackerStatus:'any'},undefined,true);
+        try{
+            await flush();const doc=win.document;
+            doc.startViewTransition=jest.fn(update=>{update();return{ready:Promise.reject(Error('Transition skipped')),finished:Promise.resolve(),skipTransition:jest.fn()};});
+            doc.querySelector('#show-by-segments [data-value=campaign]').click();expect(doc.startViewTransition).toHaveBeenCalledTimes(1);
+            doc.querySelector('#tracker-status-segments [data-value=outstanding]').click();expect(doc.startViewTransition).toHaveBeenCalledTimes(2);
+            win.matchMedia=()=>({matches:true});doc.querySelector('#show-by-segments [data-value=dnumber]').click();
+            expect(doc.startViewTransition).toHaveBeenCalledTimes(2);expect(doc.querySelector('.card-top strong').textContent).toBe('D03120200');
+        }finally{dom.window.close();}
+    });
+    test('V2 uses a quick fade fallback when View Transitions are unavailable',async()=>{
+        const {dom,win}=create({trackerStatus:'any'},undefined,true);
+        try{
+            await flush();const rows=win.document.getElementById('rows');rows.animate=jest.fn(()=>({cancel:jest.fn()}));
+            setGrouping(win,'campaign');expect(rows.animate).toHaveBeenCalledWith(expect.any(Array),expect.objectContaining({duration:160}));
+            expect(win.document.querySelector('.campaign-card')).not.toBeNull();
+        }finally{dom.window.close();}
+    });
     test('manual save requires live preview and confirmation; cards update only after confirmed receipt',async()=>{
         const {dom,win,getData}=create({},liveSource);
         try{

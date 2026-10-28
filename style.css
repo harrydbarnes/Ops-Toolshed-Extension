@@ -625,3 +625,43 @@ select:focus {
     height: 20px;
     background-color: #e5e7eb;
 }
+
+/* Matches the Waiting time by area breakdown tooltip in Stats. */
+.campaign-month-tooltip {
+    position: fixed;
+    z-index: 1000;
+    width: min(200px, calc(100vw - 32px));
+    box-sizing: border-box;
+    padding: 10px 11px;
+    color: #fff;
+    background: #06088d;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 7px;
+    box-shadow: 0 8px 24px rgba(6, 8, 80, 0.22);
+    font-size: 0.68rem;
+    line-height: 1.35;
+    pointer-events: none;
+    animation: campaign-tooltip-appear 140ms ease both;
+}
+.campaign-month-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 18px;
+    border: 6px solid transparent;
+    border-top-color: #06088d;
+}
+.campaign-month-tooltip strong {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.72rem;
+    letter-spacing: 0.01em;
+}
+.campaign-month-tooltip span { color: rgba(255, 255, 255, 0.78); }
+@keyframes campaign-tooltip-appear {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .campaign-month-tooltip { animation: none; }
+}

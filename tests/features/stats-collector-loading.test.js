@@ -39,6 +39,26 @@ describe('loading-time collection', () => {
         return element;
     }
 
+    test('captures exact GBP totals once, rejects rounded money and stale campaign headers', () => {
+        const { dom, window } = createCollector('https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP123');
+        window.document.body.innerHTML = '<div class="buy-details-wrapper">CP123 | Campaign</div><div data-cy="budget-type-label">Total client cost</div><div data-cy="budget-amount">£1,000.00 budget</div><div data-cy="budget-purchased">£800.00 buy total (billable amount)</div>';
+        window.campaignHistoryFeature = { getCampaignSnapshot: () => ({ key: 'campaign:cp123', campaignId: 'CP123', clientName: 'Client', supplier: 'Meta' }) };
+        window.statsCollector.checkLoadingState();
+        window.statsCollector.checkLoadingState();
+        let snapshots = window.chrome.runtime.sendMessage.mock.calls.map(call => call[0]).filter(message => message.type === 'CAMPAIGN_SNAPSHOT');
+        expect(snapshots).toHaveLength(1);
+        expect(snapshots[0].value).toMatchObject({ budget: 1000, booked: 800 });
+        window.document.querySelector('[data-cy="budget-amount"]').textContent = '£1k';
+        window.statsCollector.checkLoadingState();
+        snapshots = window.chrome.runtime.sendMessage.mock.calls.map(call => call[0]).filter(message => message.type === 'CAMPAIGN_SNAPSHOT');
+        expect(snapshots[1].value.budget).toBeNull();
+        window.document.querySelector('.buy-details-wrapper').textContent = 'CP999 | Old campaign';
+        window.document.querySelector('[data-cy="budget-amount"]').textContent = '£999.00';
+        window.statsCollector.checkLoadingState();
+        expect(window.chrome.runtime.sendMessage.mock.calls.filter(call => call[0].type === 'CAMPAIGN_SNAPSHOT')).toHaveLength(2);
+        dom.window.close();
+    });
+
     test('counts a short campaign spinner and finishes when it disappears', () => {
         const { dom, window, setNow } = createCollector();
         const spinner = makeVisible(window.document.createElement('i'));

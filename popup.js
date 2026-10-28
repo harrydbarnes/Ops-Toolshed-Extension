@@ -106,6 +106,10 @@ function initialiseFeaturesKillSwitch() {
 
 document.addEventListener('DOMContentLoaded', function() {
     initialiseFeaturesKillSwitch();
+    setupCampaignMonthTooltip();
+    document.getElementById('annualLeaveButton')?.addEventListener('click', () => {
+        chrome.tabs.create({ url: chrome.runtime.getURL('annual-leave.html') });
+    });
 
     const versionLink = document.getElementById('version-link');
     const manifest = chrome.runtime.getManifest();
@@ -139,17 +143,19 @@ document.addEventListener('DOMContentLoaded', function() {
     const generateUrlButton = document.getElementById('generateUrl');
     if(generateUrlButton) generateUrlButton.addEventListener('click', handleGenerateUrl);
 
-    const openCampaignDNumberButton = document.getElementById('openCampaignDNumber');
-    if (openCampaignDNumberButton) {
-        openCampaignDNumberButton.addEventListener('click', handleOpenCampaignDNumber);
-    }
-
-    const dNumberInput = document.getElementById('dNumber');
-    if (dNumberInput) {
-        dNumberInput.addEventListener('keydown', function(event) {
+    const campaignInput = document.getElementById('campaignId');
+    const campaignDateInput = document.getElementById('campaignDate');
+    if (campaignInput) {
+        campaignInput.addEventListener('input', () => {
+            if (campaignDateInput) {
+                campaignDateInput.disabled = /^[DO]/i.test(campaignInput.value.trim());
+                if (campaignDateInput.disabled) campaignDateInput.dispatchEvent(new Event('tooltipdismiss'));
+            }
+        });
+        campaignInput.addEventListener('keydown', event => {
             if (event.key === 'Enter') {
-                event.preventDefault(); // Stop default form submission
-                handleOpenCampaignDNumber();
+                event.preventDefault();
+                handleGenerateUrl();
             }
         });
     }
@@ -213,6 +219,7 @@ document.addEventListener('DOMContentLoaded', function() {
     addClickListener('prismaButton', 'https://go.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns');
     addClickListener('metaHandbookButton', 'https://insidemedia.sharepoint.com/sites/GRM-UK-GMS/SitePages/Prisma-x-Meta-Integration-Support.aspx');
     addClickListener('timesheetsButton', 'https://groupmuk-aura.mediaocean.com/viewport-home/#osAppId=rod-time&osPspId=rod-time&route=time/display/myTimesheets/ToDo');
+    addClickListener('timesheetHelperButton', 'timesheet-helper.html');
     addClickListener('approvalsButton', 'https://groupmuk-aura.mediaocean.com/viewport-home/#osAppId=rod-time&osPspId=rod-time&route=time/display/myTimesheetApprovals/AwaitingMe');
     addClickListener('officeHoursButton', 'https://myofficedays.netlify.app/');
     addClickListener('approversListButton', 'https://insidemedia.sharepoint.com/:x:/s/TPO-SharePoint/EYxRbLkQU_xLpMSvnQQFIt4Bug1w9CJupONy6sIdr6IuFw?email=harry.barnes%40wppmedia.com&e=Mi9JPh');
@@ -279,9 +286,42 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Removed setLogoToggleState, setMetaReminderToggleState, setTimesheetReminderToggleState functions
 
+function setupCampaignMonthTooltip() {
+    const input = document.getElementById('campaignDate');
+    const tooltip = document.getElementById('campaign-month-tooltip');
+    if (!input || !tooltip) return;
+    let timer;
+    const hide = () => {
+        clearTimeout(timer);
+        timer = undefined;
+        tooltip.hidden = true;
+        input.removeAttribute('aria-describedby');
+    };
+    const show = () => {
+        if (input.disabled) return;
+        tooltip.hidden = false;
+        input.setAttribute('aria-describedby', tooltip.id);
+        const rect = input.getBoundingClientRect();
+        const tip = tooltip.getBoundingClientRect();
+        tooltip.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - tip.width - 8))}px`;
+        tooltip.style.top = `${Math.max(8, rect.top - tip.height - 10)}px`;
+    };
+    input.addEventListener('mouseenter', () => {
+        if (input.disabled || !tooltip.hidden || timer) return;
+        timer = setTimeout(() => { timer = undefined; show(); }, 500);
+    });
+    input.addEventListener('mouseleave', hide);
+    input.addEventListener('focus', () => { hide(); show(); });
+    input.addEventListener('blur', hide);
+    input.addEventListener('tooltipdismiss', hide);
+    document.addEventListener('keydown', event => { if (event.key === 'Escape') hide(); });
+    window.addEventListener('scroll', hide, true);
+    window.addEventListener('resize', hide);
+}
+
 function handleOpenCampaignDNumber() {
-    const dNumberInput = document.getElementById('dNumber');
-    const dNumberError = document.getElementById('dNumberError');
+    const dNumberInput = document.getElementById('campaignId');
+    const dNumberError = document.getElementById('campaignIdError');
     if (!dNumberInput || !dNumberError) return;
 
     // Get value, trim whitespace, and convert to uppercase
@@ -335,12 +375,17 @@ function handleGenerateUrl() {
     const campaignId = campaignIdInput.value.trim();
     const campaignDateStr = campaignDateInput.value.trim();
 
+    if (/^[DO]/i.test(campaignId)) {
+        handleOpenCampaignDNumber();
+        return;
+    }
+
     if (!campaignId) {
         if (campaignIdError) {
-            campaignIdError.textContent = 'Please enter a Campaign ID.';
+            campaignIdError.textContent = 'Please enter a Campaign ID or D/O number.';
             campaignIdError.classList.remove('hidden');
         } else {
-            alert('Please enter a Campaign ID.');
+            alert('Please enter a Campaign ID or D/O number.');
         }
         return;
     }

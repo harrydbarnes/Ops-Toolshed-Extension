@@ -26,6 +26,28 @@ export async function migrateStats() {
 export function handleTrackStat(request, sender, sendResponse) {
     // Queue updates to avoid race conditions
     updatePromise = updatePromise.then(async () => {
+        if (request.type === 'CAMPAIGN_SNAPSHOT') {
+            const value = request.value;
+            if (!value || typeof value.key !== 'string' || !value.key || value.key.length > 1000) {
+                sendResponse({ status: 'error', message: 'Invalid campaign snapshot' });
+                return;
+            }
+            const { campaignStatsSnapshots = [] } = await chrome.storage.local.get('campaignStatsSnapshots');
+            const entries = Array.isArray(campaignStatsSnapshots) ? campaignStatsSnapshots : [];
+            const previous = entries.find(entry => entry.key === value.key);
+            const money = (number, fallback) => typeof number === 'number' && Number.isFinite(number) && number >= 0 ? number : fallback ?? null;
+            const snapshot = {
+                key: value.key,
+                clientName: String(value.clientName || previous?.clientName || '').slice(0, 220),
+                supplier: String(value.supplier || previous?.supplier || '').slice(0, 2000),
+                budget: money(value.budget, previous?.budget),
+                booked: money(value.booked, previous?.booked),
+                updatedAt: Date.now()
+            };
+            await chrome.storage.local.set({ campaignStatsSnapshots: [snapshot, ...entries.filter(entry => entry.key !== value.key)].slice(0, 2000) });
+            sendResponse({ status: 'success' });
+            return;
+        }
         const d = new Date();
         const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         const data = await chrome.storage.local.get(['dailyStats', 'statsStartDate']);

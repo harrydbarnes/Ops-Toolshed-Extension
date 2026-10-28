@@ -46,10 +46,13 @@
             <section id="appearance-settings">
                 <h2>Appearance</h2>
                 <div class="toggle-container">
-                    <span>Reccies V2 appearance:</span>
-                    <label class="toggle"><input type="checkbox" id="recciesV2Toggle"><span class="slider"></span></label>
+                    <span>Reccies appearance:</span>
+                    <div class="segmented-control" id="recciesAppearanceSegmented" role="group" aria-label="Reccies appearance">
+                        <button type="button" data-value="v1" aria-pressed="false">V1</button>
+                        <button type="button" data-value="v2" aria-pressed="true">V2</button>
+                    </div>
                 </div>
-                <p class="settings-feature-mode-help">On by default. Refreshed layout and motion; turn off to use the original Reccies appearance.</p>
+                <p class="settings-feature-mode-help">V2 is selected by default. Choose V1 for the original Reccies appearance.</p>
                 <div class="toggle-container">
                     <span>Popup UI Theme:</span>
                     <div class="segmented-control" id="uiThemeSegmented" role="group" aria-label="Popup UI Theme">
