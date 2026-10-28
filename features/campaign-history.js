@@ -2950,16 +2950,19 @@
         });
     }
 
+    let lastVisitedFormatter;
+
     function formatLastVisited(timestamp) {
         if (!Number.isFinite(timestamp) || timestamp <= 0) return 'Visit time unavailable';
         try {
-            return `Last visited ${new Intl.DateTimeFormat(undefined, {
+            lastVisitedFormatter ||= new Intl.DateTimeFormat(undefined, {
                 day: 'numeric',
                 month: 'short',
                 year: 'numeric',
                 hour: '2-digit',
                 minute: '2-digit'
-            }).format(new Date(timestamp))}`;
+            });
+            return `Last visited ${lastVisitedFormatter.format(new Date(timestamp))}`;
         } catch (_error) {
             return 'Last visited recently';
         }
@@ -3163,8 +3166,10 @@
         }
 
         updateHistoryPagination(panel, filteredEntries.length, true);
+        const results = document.createDocumentFragment();
         getVisibleHistoryEntries(panel, filteredEntries)
-            .forEach(entry => resultList.appendChild(createHistoryResult(entry, input.value)));
+            .forEach(entry => results.appendChild(createHistoryResult(entry, input.value)));
+        resultList.appendChild(results);
         if (pageTransitionDirection) {
             animateHistoryPage(resultList, pageTransitionDirection);
         }
@@ -3214,7 +3219,10 @@
         const handleOutsideClick = event => {
             const currentPanel = document.getElementById(PANEL_ID);
             if (!currentPanel || currentPanel.hidden || currentPanel.classList.contains('is-closing')) return;
-            if (currentPanel.contains(event.target)) return;
+            // Expand replaces its SVG while the click is still bubbling. The
+            // original target can be detached, but the dispatch path still
+            // records that this interaction started inside the panel.
+            if (currentPanel.contains(event.target) || event.composedPath?.().includes(currentPanel)) return;
             if (activeContextMenu && activeContextMenu.contains(event.target)) return;
             if (event.composedPath?.().some(target =>
                 target?.id === NAVIGATION_ID || target?.id === OVERFLOW_NAVIGATION_ID ||

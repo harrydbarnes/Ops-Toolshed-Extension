@@ -469,8 +469,12 @@ describe('campaign history feature', () => {
         });
         expandButton.dispatchEvent(pointerDown);
         expect(pointerDown.defaultPrevented).toBe(true);
-        expandButton.click();
+        await wait(20); // Install the outside-click listener before clicking the icon.
+        expandButton.querySelector('svg path').dispatchEvent(new dom.window.MouseEvent('click', {
+            bubbles: true
+        }));
         expect(panel.classList).toContain('is-expanded');
+        expect(panel.classList).not.toContain('is-closing');
         expect(panel.getAttribute('aria-modal')).toBe('true');
         expect(expandButton.getAttribute('aria-label')).toBe('Minimise campaign history');
         expect(expandButton.querySelector('.toolshed-campaign-history-button-label').textContent)

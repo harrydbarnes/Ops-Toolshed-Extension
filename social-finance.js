@@ -13,6 +13,18 @@
     const WRIKE_REFERENCE_STORAGE_KEY = 'socialBookingWrikeReferences';
     const CAMPAIGN_COLUMN_WIDTH_STORAGE_KEY = 'socialBookingCampaignColumnWidths';
     const SAVED_TOKEN_MASK = '••••••••••••';
+    let reviewSaveQueue = Promise.resolve();
+
+    function persistReviewChange(collection, storageKey, change) {
+        const pending = reviewSaveQueue.catch(() => undefined).then(async () => {
+            const next = { ...state[collection] };
+            change(next);
+            await writeLocalStorage({ [storageKey]: next });
+            state[collection] = next;
+        });
+        reviewSaveQueue = pending;
+        return pending;
+    }
 
     function byId(id) { return document.getElementById(id); }
     function currency(value, currencyCode = '') {
@@ -526,9 +538,10 @@
     }
 
     async function saveAccountMapping(accountId, mapping) {
-        if (mapping.client || mapping.product) state.accountMappings[accountId] = mapping;
-        else delete state.accountMappings[accountId];
-        await writeLocalStorage({ [ACCOUNT_MAPPING_STORAGE_KEY]: state.accountMappings });
+        await persistReviewChange('accountMappings', ACCOUNT_MAPPING_STORAGE_KEY, next => {
+            if (mapping.client || mapping.product) next[accountId] = mapping;
+            else delete next[accountId];
+        });
         if (state.report) renderReport();
     }
 
@@ -1515,9 +1528,10 @@
 
     async function saveWrikeReference(metaKey, value) {
         const normalized = String(value || '').trim();
-        if (normalized) state.wrikeReferences[metaKey] = normalized;
-        else delete state.wrikeReferences[metaKey];
-        await writeLocalStorage({ [WRIKE_REFERENCE_STORAGE_KEY]: state.wrikeReferences });
+        await persistReviewChange('wrikeReferences', WRIKE_REFERENCE_STORAGE_KEY, next => {
+            if (normalized) next[metaKey] = normalized;
+            else delete next[metaKey];
+        });
         renderSocialActionList();
     }
 
@@ -1975,7 +1989,10 @@
                 const mapping = mappingFromValue(select.value);
                 const saved = state.accountMappings[accountId];
                 if (typeof saved?.integrationExpected === 'boolean') mapping.integrationExpected = saved.integrationExpected;
-                saveAccountMapping(accountId, mapping).catch(error => setStatus(elements.prismaScopeStatus, error.message, 'error'));
+                saveAccountMapping(accountId, mapping).catch(error => {
+                    renderPrismaScope();
+                    setStatus(elements.prismaScopeStatus, error.message, 'error');
+                });
                 return;
             }
             const integrationSelect = event.target.closest('select[data-integration-account-id]');
@@ -1990,7 +2007,10 @@
                     return;
                 }
                 if (integrationSelect.value !== '') mapping.integrationExpected = integrationSelect.value === 'true';
-                saveAccountMapping(accountId, mapping).catch(error => setStatus(elements.prismaScopeStatus, error.message, 'error'));
+                saveAccountMapping(accountId, mapping).catch(error => {
+                    renderPrismaScope();
+                    setStatus(elements.prismaScopeStatus, error.message, 'error');
+                });
             }
         };
         const handleMappingCampaigns = event => {
@@ -2050,7 +2070,10 @@
         elements.socialActionBody.addEventListener('change', event => {
             const input = event.target.closest('input[data-wrike-meta-key]');
             if (!input) return;
-            saveWrikeReference(input.dataset.wrikeMetaKey, input.value).catch(error => setStatus(elements.socialActionStatus, error.message, 'error'));
+            saveWrikeReference(input.dataset.wrikeMetaKey, input.value).catch(error => {
+                renderSocialActionList();
+                setStatus(elements.socialActionStatus, error.message, 'error');
+            });
         });
         elements.copySocialActions.addEventListener('click', () => copySocialActions().catch(error => setStatus(elements.socialActionStatus, error.message, 'error')));
         elements.downloadSocialActions.addEventListener('click', downloadSocialActions);

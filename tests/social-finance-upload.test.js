@@ -12,6 +12,16 @@ function dropFile(window, dropZone, file) {
     dropZone.dispatchEvent(event);
 }
 
+function failNextSave(window) {
+    const storage = window.chrome.storage.local;
+    const save = storage.set;
+    storage.set = jest.fn(save).mockImplementationOnce((_values, callback) => {
+        window.chrome.runtime.lastError = { message: 'Storage unavailable' };
+        callback();
+        delete window.chrome.runtime.lastError;
+    });
+}
+
 describe('Social Booking Checker report uploads', () => {
     let dom;
     let document;
@@ -271,6 +281,58 @@ describe('Social Booking Checker report uploads', () => {
         expect(dom.window.__storedExtensionData.socialBookingMetaPrismaMappings['111']).toEqual({ client: 'Boots', product: 'Opticians' });
     });
 
+    test('retains the saved account mapping after a failed save and permits retry', async () => {
+        for (const kind of ['meta', 'prisma']) {
+            dropFile(dom.window, document.querySelector(`#${kind}DropZone`), {
+                name: `${kind}.csv`, size: 10, type: 'text/csv', text: async () => kind
+            });
+        }
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        const select = document.querySelector('select[data-mapping-account-id="111"]');
+        const previous = select.value;
+        const proposed = select.options[1].value;
+        failNextSave(dom.window);
+        select.value = proposed;
+        select.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        expect(document.querySelector('#prismaScopeStatus').textContent).toContain('Storage unavailable');
+        document.querySelector('#selectAllAccounts').click();
+        const restored = document.querySelector('select[data-mapping-account-id="111"]');
+        expect(restored.value).toBe(previous);
+        restored.value = proposed;
+        restored.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        expect(dom.window.__storedExtensionData.socialBookingMetaPrismaMappings['111'])
+            .toEqual({ client: 'Boots', product: 'Opticians' });
+    });
+
+    test('persists rapid mapping edits in order instead of racing whole-collection writes', async () => {
+        for (const kind of ['meta', 'prisma']) {
+            dropFile(dom.window, document.querySelector(`#${kind}DropZone`), {
+                name: `${kind}.csv`, size: 10, type: 'text/csv', text: async () => kind
+            });
+        }
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        const completions = [];
+        const originalSave = dom.window.chrome.storage.local.set;
+        dom.window.chrome.storage.local.set = (values, callback) => {
+            completions.push(() => originalSave(values, callback));
+        };
+        const select = document.querySelector('select[data-mapping-account-id="111"]');
+        select.value = select.options[1].value;
+        select.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+        select.value = '';
+        select.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        expect(completions).toHaveLength(1);
+        completions.shift()();
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        expect(completions).toHaveLength(1);
+        completions.shift()();
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        expect(dom.window.__storedExtensionData.socialBookingMetaPrismaMappings).toEqual({});
+    });
+
     test('locks the analysis and summary to months shared by Meta and Prisma', async () => {
         const rows = [
             { accountId: '111', campaignId: '1', month: '2026-05', account: 'Boots', campaignName: 'May campaign', evidence: 'Needs update', classification: 'Spend update needed', metaSpend: 10, prismaPlanned: 5, variance: 5, issues: [], owner: '' },
@@ -498,6 +560,15 @@ describe('Social Booking Checker report uploads', () => {
         document.querySelector('#runComparison').click();
 
         expect(document.querySelector('#socialActionBody').textContent).toContain('Get Wrike reference');
+        failNextSave(dom.window);
+        let rejectedInput = document.querySelector('[data-wrike-meta-key]');
+        rejectedInput.value = 'https://wrike.example/task/unsaved';
+        rejectedInput.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        expect(document.querySelector('#socialActionStatus').textContent).toContain('Storage unavailable');
+        document.querySelector('#copySocialActions').click();
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        expect(dom.window.navigator.clipboard.writeText).toHaveBeenLastCalledWith(expect.not.stringContaining('/unsaved'));
         const wrikeInput = document.querySelector('[data-wrike-meta-key]');
         wrikeInput.value = 'https://wrike.example/task/123';
         wrikeInput.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
