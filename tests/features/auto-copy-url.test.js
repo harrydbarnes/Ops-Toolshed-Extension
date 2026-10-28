@@ -55,7 +55,8 @@ describe('Auto Copy Campaign URL Feature', () => {
             }
         };
 
-        window.utils = { showToast };
+        window.eval(readScript(path.resolve(__dirname, '../../utils.js')));
+        window.utils.showToast = showToast;
 
         document.querySelectorAll('mo-icon, mo-button, mo-input').forEach(element => {
             element.getBoundingClientRect = () => ({

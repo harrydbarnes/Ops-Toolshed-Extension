@@ -180,6 +180,56 @@ describe('Content Script Main Logic', () => {
         expect(window.logoFeature.shouldReplaceLogoOnThisPage()).toBe(true);
     });
 
+    test.each(['throw', 'reject'])('isolates %s initialization failures, retries them, and retains successful instances', async mode => {
+        let failing = true;
+        const appLearnFeature = { initialize: jest.fn(() => {
+            if (!failing) return;
+            if (mode === 'throw') throw new Error('Temporary initialization failure');
+            return Promise.reject(new Error('Temporary initialization failure'));
+        }) };
+        const helpGuidesLauncherFeature = { initialize: jest.fn(), ensureLauncher: jest.fn() };
+        const page = setupJSDOM('https://go.mediaocean.com/campaign-management/#route=campaigns', [], {
+            synchronousStorage: true,
+            featureMocks: { appLearnFeature, helpGuidesLauncherFeature, logoFeature: { shouldReplaceLogoOnThisPage: () => false } }
+        });
+        for (let i = 0; i < 8; i++) await Promise.resolve();
+        expect(helpGuidesLauncherFeature.initialize).toHaveBeenCalledTimes(1);
+        const observer = page.mutationObservers.find(instance => instance.__callback.toString().includes('scheduleDynamicUiReconciliation'));
+        expect(observer).toBeDefined();
+        failing = false;
+        const reconcile = () => {
+            observer.__trigger([{ type: 'childList', target: page.document.body, addedNodes: [] }]);
+            jest.runOnlyPendingTimers();
+        };
+        reconcile();
+        for (let i = 0; i < 8; i++) await Promise.resolve();
+        expect(appLearnFeature.initialize.mock.calls.length).toBeGreaterThan(1);
+        const completedCalls = appLearnFeature.initialize.mock.calls.length;
+        reconcile();
+        expect(appLearnFeature.initialize).toHaveBeenCalledTimes(completedCalls);
+        expect(helpGuidesLauncherFeature.initialize).toHaveBeenCalledTimes(1);
+    });
+
+    test('does not initialize a pending collaborator twice', async () => {
+        let complete;
+        const pending = new Promise(resolve => { complete = resolve; });
+        const appLearnFeature = { initialize: jest.fn(() => pending) };
+        const page = setupJSDOM('https://go.mediaocean.com/campaign-management/#route=campaigns', [], {
+            synchronousStorage: true,
+            featureMocks: { appLearnFeature, logoFeature: { shouldReplaceLogoOnThisPage: () => false } }
+        });
+        for (let i = 0; i < 8; i++) await Promise.resolve();
+        const observer = page.mutationObservers.find(instance => instance.__callback.toString().includes('scheduleDynamicUiReconciliation'));
+        observer.__trigger([{ type: 'childList', target: page.document.body, addedNodes: [] }]);
+        jest.runOnlyPendingTimers();
+        expect(appLearnFeature.initialize).toHaveBeenCalledTimes(1);
+        complete();
+        for (let i = 0; i < 8; i++) await Promise.resolve();
+        observer.__trigger([{ type: 'childList', target: page.document.body, addedNodes: [] }]);
+        jest.runOnlyPendingTimers();
+        expect(appLearnFeature.initialize).toHaveBeenCalledTimes(1);
+    });
+
     test('starts campaign features only on campaign routes and keeps Actualise/Orders route gates narrow', async () => {
         const featureNames = [
             'appLearnFeature',
@@ -212,7 +262,7 @@ describe('Content Script Main Logic', () => {
             apply: jest.fn(),
             applyTransparency: jest.fn(),
             ensureLauncher: jest.fn(),
-            handleOrderViewToggle: jest.fn(),
+            reconcile: jest.fn(),
             isNewOrderUi: jest.fn(() => false),
             handleApproverPasting: jest.fn(),
             handleManageFavouritesButton: jest.fn(),
@@ -221,7 +271,6 @@ describe('Content Script Main Logic', () => {
             handleAutoCopy: jest.fn(),
             checkSelection: jest.fn(),
             syncAll: jest.fn(),
-            checkAndAddCopyButtons: jest.fn(),
             injectBannerButton: jest.fn(),
             checkLiveWorkflowWidget: jest.fn()
         }]));
@@ -356,7 +405,7 @@ describe('Content Script Main Logic', () => {
         };
         window.actualiseShortcutFeature = { apply: jest.fn() };
         window.actualiseExportAllFeature = { apply: jest.fn() };
-        window.orderViewToggleFeature = { handleOrderViewToggle: jest.fn() };
+        window.orderViewToggleFeature = { reconcile: jest.fn() };
         const fastApply = window.actualiseNavbarFeature.apply;
         const deferredApply = jest.spyOn(
             window.campaignFeature,
@@ -393,7 +442,7 @@ describe('Content Script Main Logic', () => {
         window.actualiseNavbarFeature = { apply: jest.fn() };
         window.actualiseShortcutFeature = { apply: jest.fn() };
         window.actualiseExportAllFeature = { apply: jest.fn() };
-        window.orderViewToggleFeature = { handleOrderViewToggle: jest.fn() };
+        window.orderViewToggleFeature = { reconcile: jest.fn() };
         const actualiseApply = window.actualiseNavbarFeature.apply;
         const navigationApply = jest.spyOn(
             window.campaignFeature,
@@ -449,9 +498,9 @@ describe('Content Script Main Logic', () => {
 
         window.orderViewToggleFeature = {
             isNewOrderUi: jest.fn(() => false),
-            handleOrderViewToggle: jest.fn()
+            reconcile: jest.fn()
         };
-        window.orderIdCopyFeature = { checkAndAddCopyButtons: jest.fn() };
+        window.orderIdCopyFeature = { reconcile: jest.fn() };
         window.actualiseNavbarFeature = { apply: jest.fn() };
         window.actualiseExportAllFeature = { apply: jest.fn() };
         const staleOrderView = document.createElement('div');
@@ -464,8 +513,8 @@ describe('Content Script Main Logic', () => {
         observer.__trigger([{ type: 'childList', target: document.body, addedNodes: [] }]);
         jest.runOnlyPendingTimers();
 
-        expect(window.orderViewToggleFeature.handleOrderViewToggle).toHaveBeenCalledTimes(1);
-        expect(window.orderIdCopyFeature.checkAndAddCopyButtons).toHaveBeenCalledTimes(1);
+        expect(window.orderViewToggleFeature.reconcile).toHaveBeenCalledTimes(1);
+        expect(window.orderIdCopyFeature.reconcile).toHaveBeenCalledTimes(1);
         expect(window.actualiseNavbarFeature.apply).not.toHaveBeenCalled();
         expect(window.actualiseExportAllFeature.apply).not.toHaveBeenCalled();
     });
@@ -481,9 +530,9 @@ describe('Content Script Main Logic', () => {
 
         window.orderViewToggleFeature = {
             isNewOrderUi: jest.fn(() => true),
-            handleOrderViewToggle: jest.fn()
+            reconcile: jest.fn()
         };
-        window.orderIdCopyFeature = { checkAndAddCopyButtons: jest.fn() };
+        window.orderIdCopyFeature = { reconcile: jest.fn() };
         const staleLegacyCell = document.createElement('td');
         staleLegacyCell.className = 'order-id-copy-cell';
         document.body.appendChild(staleLegacyCell);
@@ -494,11 +543,11 @@ describe('Content Script Main Logic', () => {
         observer.__trigger([{ type: 'childList', target: document.body, addedNodes: [] }]);
         jest.runOnlyPendingTimers();
 
-        expect(window.orderViewToggleFeature.handleOrderViewToggle).toHaveBeenCalledTimes(1);
-        expect(window.orderIdCopyFeature.checkAndAddCopyButtons).toHaveBeenCalledTimes(1);
+        expect(window.orderViewToggleFeature.reconcile).toHaveBeenCalledTimes(1);
+        expect(window.orderIdCopyFeature.reconcile).toHaveBeenCalledTimes(1);
     });
 
-    test('keeps clean new Order UI mutations on the narrow optimized path', async () => {
+    test('delegates clean new Order UI mutations to the feature owner', async () => {
         const { window, document, mutationObservers } = setupJSDOM(
             'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=buy&ptb-ctx=orderSummary&showOrders=true',
             [],
@@ -509,10 +558,10 @@ describe('Content Script Main Logic', () => {
 
         window.orderViewToggleFeature = {
             isNewOrderUi: jest.fn(() => true),
-            handleOrderViewToggle: jest.fn()
+            reconcile: jest.fn()
         };
         window.orderIdCopyFeature = {
-            checkAndAddCopyButtons: jest.fn(),
+            reconcile: jest.fn(),
             reconcileEmailCopyButtons: jest.fn()
         };
         const observer = mutationObservers.find(instance =>
@@ -526,9 +575,10 @@ describe('Content Script Main Logic', () => {
         observer.__trigger([{ type: 'childList', target: recipientCell, addedNodes: [] }]);
         jest.runOnlyPendingTimers();
 
-        expect(window.orderViewToggleFeature.handleOrderViewToggle).toHaveBeenCalledTimes(1);
-        expect(window.orderIdCopyFeature.checkAndAddCopyButtons).not.toHaveBeenCalled();
-        expect(window.orderIdCopyFeature.reconcileEmailCopyButtons).toHaveBeenCalledTimes(1);
+        expect(window.orderViewToggleFeature.reconcile).toHaveBeenCalledTimes(1);
+        expect(window.orderIdCopyFeature.reconcile).toHaveBeenCalledTimes(1);
+        expect(window.orderIdCopyFeature.reconcileEmailCopyButtons).not.toHaveBeenCalled();
+        expect(window.orderViewToggleFeature.isNewOrderUi).not.toHaveBeenCalled();
     });
 
     test('runs New Order UI reconciliation on the Buy route where its native header is rendered', async () => {
@@ -542,7 +592,7 @@ describe('Content Script Main Logic', () => {
 
         window.orderViewToggleFeature = {
             isNewOrderUi: jest.fn(() => true),
-            handleOrderViewToggle: jest.fn()
+            reconcile: jest.fn()
         };
         const observer = mutationObservers.find(instance =>
             instance.__callback.toString().includes('scheduleDynamicUiReconciliation')
@@ -551,7 +601,7 @@ describe('Content Script Main Logic', () => {
         observer.__trigger([{ type: 'childList', target: document.body, addedNodes: [] }]);
         jest.runOnlyPendingTimers();
 
-        expect(window.orderViewToggleFeature.handleOrderViewToggle).toHaveBeenCalledTimes(1);
+        expect(window.orderViewToggleFeature.reconcile).toHaveBeenCalledTimes(1);
     });
 
     test('cleans campaign budget styles immediately when the SPA URL changes to the dashboard', () => {

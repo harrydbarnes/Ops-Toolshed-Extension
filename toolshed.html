@@ -40,7 +40,7 @@
                     <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Reccies Sidebar Sections:</strong> Debug includes a private, read-only Google connection test for testing account identity from the extension background. Collapsible sections now open and close smoothly, with smaller chevrons that rotate to show their state. Opening Debug scrolls its controls into view.</span></li>
                     <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Help Guide Library:</strong> Replaces temporary PDFs with all 26 AppLearn guides from SharePoint, including Amazon DST, Facebook Workflow 3 and MQS Invoice Queries. Guides load the current PDF when opened, with an Open in SharePoint fallback.</span></li>
                     <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Loading Facts:</strong> Quieter rounded styling near the bottom of the page, appearing after a short wait, with feedback in a menu. Facts stay visible through the Campaigns homepage spinner-to-skeleton transition. Choose New UI or Old UI with a slider toggle in Settings.</span></li>
-                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Stats Insights:</strong> Adds top clients and suppliers by unique campaign, average campaign budget and total booked snapshots with coverage details. Keeps the heatmap to weekdays with a dated strip for weekend activity, tucks figure explanations into expandable details and explains all-weeks productivity totals with the same information icon as Features settings.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Stats Insights:</strong> Filter activity by week or month with a compact Reccies-style selector. Monthly trends show confirmed placement saves, unique campaigns, reconciliation clicks and waiting time, with equal-day month comparisons. Placement logging waits for an explicit success message, separates creations, updates and unclassified saves, and deduplicates acknowledgements; historical save clicks remain separately labelled. Top clients, suppliers and exact GBP budget/booked snapshots retain clear coverage details. The weekday heatmap keeps weekend activity in a dated strip, explanations are expandable and the productivity information icon matches Features settings.</span></li>
                     <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Getting Started:</strong> Shorter setup with optional preferences and a searchable feature explorer. The guided tour resumes your progress, lets you skip chapters and keeps your current campaign open when finished.</span></li>
                     <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Feature Previews:</strong> Settings previews now open on hover, click or keyboard focus, close with Escape, and show a wider Prisma screenshot below each feature description. Features awaiting a suitable capture are clearly labelled.</span></li>
                     <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>New Prisma Address:</strong> Campaign enhancements and extension shortcuts now work on go.mediaocean.com.</span></li>
@@ -53,13 +53,19 @@
                     <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Popup startup:</strong> Removes the unused feature catalogue from popup startup and schedules the Reccies summary after an initial rendering opportunity.</span></li>
                     <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Offline fonts:</strong> Extension pages now bundle Outfit and Montserrat locally, keeping their typography available without requests to Google Fonts. Approvers icons also load locally, removing its external stylesheet dependency.</span></li>
                     <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Approver Finder:</strong> Select approvers and toggle favourites using keyboard-accessible buttons with clear focus and selection states.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Setup recovery:</strong> Annual Leave explains invalid saved calendar settings, and Feature Explorer recovers its current settings after a temporary storage failure.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Feature startup:</strong> A failing enhancement no longer interrupts the remaining features. Failed initialization can retry while pending and successful instances are protected from duplicate initialization. Live Campaign Checks and Meta Access show reload guidance when their settings cannot be loaded.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Product Code Warnings:</strong> Checks can recover after a temporary request failure in both existing campaigns and Add Campaign.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Saved feedback and settings:</strong> Loading Fact feedback, Help Guides favourites and disablement, and finishing either onboarding tour confirm that their changes were saved before reporting success, with retry guidance when saving fails.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Moe Chat recovery:</strong> Media selection can retry after a temporary error opening its dropdown without sending the first prompt twice.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Internal request checks:</strong> Diagnostics administration is restricted to Settings, and offscreen alarm playback accepts only internal requests for the bundled alarm.</span></li>
                     <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Approver Finder actions:</strong> Copy controls remain visible after rapid reselection. Copy and favourite-save failures show clear feedback, and success is confirmed only after saving finishes.</span></li>
                     <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Campaign month validation:</strong> Rejects months outside 1–12 instead of silently opening a different reporting period.</span></li>
                     <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Reccies sidebar startup:</strong> Header and popup launchers prepare the sidebar before activation and distinguish startup from opening errors. If Chrome is still waking, the launcher returns to ready for a fresh click without replaying an expired click.</span></li>
                     <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Help Guides:</strong> The Prisma launcher opens its side panel on the first click, including while its startup state is loading.</span></li>
                     <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Approver paste and clipboard:</strong> Restores Order ID copying in affected Prisma tabs. Paste Approvers enters addresses through Prisma's recipient search instead of trying an unsupported OS paste. Favourites and campaign or Order copy actions reject synthetic page clicks.</span></li>
                     <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Approval polling:</strong> A campaign submitted or resubmitted during a status check now remains tracked until its own latest check completes.</span></li>
-                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Prisma Sign-in Assistant:</strong> Recognises the renamed WPP Media UK organisation, selects it reliably from an empty dropdown, and closes the picker before submitting. Retries when Prisma enables Submit and only acts on the active sign-in tab.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Prisma Sign-in Assistant:</strong> Recognises the renamed WPP Media UK organisation, selects it reliably from an empty dropdown, closes the picker before submitting, and automatically clicks Sign In after two seconds with a native progress bar on session timeout logout pages.</span></li>
                     <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Campaign Name Copy:</strong> Clicking the title works across Prisma header states and copies the full campaign name.</span></li>
                     <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Plan Navigation:</strong> Clicking Prisma’s Plan tab on the new address now stays in Plan instead of returning to Buy.</span></li>
                     <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Legacy Prisma Links:</strong> Old campaign links continue to redirect while Features is off. The redirect switch remains in Settings under Navigation.</span></li>
@@ -75,7 +81,7 @@
                     <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Settings:</strong> No longer shows retired Loading Fact Review, Scheduled Chat Launcher, or Direct Moe Chat controls; the remaining Moe launcher placement adjustments stay active. Loading Facts uses its dedicated tab instead of a redundant Fact stats button, and the sign-in fields now align.</span></li>
                     <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Loading Facts:</strong> Keeps the New UI toast width stable while Prisma replaces or temporarily hides its loading indicator.</span></li>
                     <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Social Booking Checker IDs:</strong> Block scientific-notation campaign and account IDs before comparisons or mapping, with guidance to use a fresh CSV and import IDs as text in Excel.</span></li>
-                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Other minor fixes, such as ...</strong> keeping Order Email Copy tooltips clear of the grid, retaining Reccies run diagnostics after automatic tracker saves, and rejecting incomplete or duplicate tracker write previews.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Other minor fixes, such as ...</strong> retaining clean Prisma Media titles while campaigns load, modern Prisma URL route compatibility across navigation features, and recognising truncated Amazon fee suppliers in DST Assurance.</span></li>
                 </ul>
             </div>
             <div class="release">
@@ -229,6 +235,15 @@
             </div>
 
             <!-- Lifetime Totals -->
+            <div class="stats-period-control" role="group" aria-label="Stats date range">
+                <span class="stats-period-indicator" aria-hidden="true"></span>
+                <button type="button" data-stats-period="this-week" aria-pressed="false">This week</button>
+                <button type="button" data-stats-period="last-week" aria-pressed="false">Last week</button>
+                <button type="button" data-stats-period="this-month" aria-pressed="false">This month</button>
+                <button type="button" data-stats-period="last-month" aria-pressed="false">Last month</button>
+                <button type="button" data-stats-period="all" aria-pressed="true">All time</button>
+            </div>
+            <p id="stats-period-context" class="campaign-insights-summary" aria-live="polite"></p>
             <div class="stats-overview">
                 <div class="stat-card-overview">
                     <div class="stat-icon-wrapper">📂</div>
@@ -251,7 +266,8 @@
                     <div class="stat-icon-wrapper">➕</div>
                     <div class="stat-details">
                         <span class="stat-value" id="placements-added-stat">0</span>
-                        <span class="stat-label">Placements Added</span>
+                        <span class="stat-label">Placements Created</span>
+                        <span class="stat-subtext">Confirmed saves</span>
                     </div>
                 </div>
 
@@ -259,10 +275,16 @@
                     <div class="stat-icon-wrapper">✅</div>
                     <div class="stat-details">
                         <span class="stat-value" id="reconciliations-stat">0</span>
-                        <span class="stat-label">Reconciliations</span>
+                        <span class="stat-label">Reconciliation Clicks</span>
                     </div>
                 </div>
 
+            </div>
+
+            <div class="stats-save-summary">
+                <span><strong id="placements-updated-stat">0</strong> placements updated</span>
+                <span><strong id="placement-saves-other-stat">0</strong> other confirmed saves</span>
+                <details><summary>About these counts</summary><p id="stats-counts-note"></p></details>
             </div>
 
             <section class="loading-area-section" aria-labelledby="loading-area-title">
@@ -271,6 +293,21 @@
                     <span id="loading-area-context">Area tracking starts with this update</span>
                 </div>
                 <div id="loading-area-breakdown" class="loading-area-grid" aria-live="polite"></div>
+            </section>
+
+            <section class="stats-section stats-monthly-section" aria-labelledby="stats-monthly-title">
+                <div class="stats-monthly-header">
+                    <h3 id="stats-monthly-title">Monthly Trends</h3>
+                    <label>Show <select id="stats-monthly-metric">
+                        <option value="saves">Confirmed saves</option>
+                        <option value="campaigns">Campaigns visited</option>
+                        <option value="reconciliations">Reconciliation clicks</option>
+                        <option value="waiting">Waiting time</option>
+                    </select></label>
+                </div>
+                <p id="stats-monthly-context" class="campaign-insights-summary"></p>
+                <div id="stats-monthly-chart" class="stats-monthly-chart" role="list" aria-label="Monthly totals"></div>
+                <p id="stats-monthly-comparison" class="campaign-insights-summary"></p>
             </section>
 
             <!-- Heatmap -->
@@ -302,14 +339,14 @@
                         <span class="fun-icon">📈</span>
                         <div class="fun-content">
                             <span id="beat-your-week" class="fun-value">-</span>
-                            <span class="fun-label">vs Previous Week</span>
+                            <span class="fun-label">Confirmed saves · last 7 days vs previous 7</span>
                         </div>
                     </div>
                     <div class="fun-stat">
                         <span class="fun-icon">🔥</span>
                         <div class="fun-content">
                             <span id="streak-counter" class="fun-value"></span>
-                            <span class="fun-label">Current Streak</span>
+                            <span class="fun-label">Current confirmed-save streak · all time</span>
                         </div>
                     </div>
                 </div>
@@ -317,7 +354,7 @@
 
             <section class="stats-section" aria-labelledby="campaign-insights-title">
                 <h3 id="campaign-insights-title">Campaign Insights</h3>
-                <p class="campaign-insights-summary">Top five by unique campaigns.</p>
+                <p class="campaign-insights-summary">Top five by unique campaigns. Latest recorded figures · not filtered by period.</p>
                 <div class="stats-grid">
                     <div class="stats-card"><h3>Top Clients</h3><ol id="top-clients" class="stats-ranking"></ol></div>
                     <div class="stats-card"><h3>Top Suppliers</h3><ol id="top-suppliers" class="stats-ranking"></ol></div>
@@ -337,7 +374,7 @@
                 <span class="fun-icon">&#128737;&#65039;</span>
                 <div class="fun-content">
                     <span id="applearn-popups-blocked-stat" class="fun-value">0</span>
-                    <span class="fun-label">AppLearn Popups Blocked</span>
+                    <span class="fun-label">AppLearn Popups Blocked · all time</span>
                 </div>
             </div>
 

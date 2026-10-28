@@ -433,7 +433,7 @@ describe('Background message routing', () => {
         const listener = loadMessageListener();
         const sendResponse = jest.fn();
 
-        listener({ action: 'removeTimesheetAlarm' }, {}, sendResponse);
+        listener({ action: 'removeTimesheetAlarm' }, { id: chrome.runtime.id, url: chrome.runtime.getURL('settings.html') }, sendResponse);
         await waitForResponse(sendResponse);
 
         expect(chrome.alarms.clear).toHaveBeenCalledWith('timesheetReminder');
@@ -1075,6 +1075,18 @@ describe('Help Guides native side panel lifecycle', () => {
             open: true
         });
         expect(chrome.storage.session.__getStore().openHelpGuideTabIds).toEqual([42]);
+    });
+
+    test('persists panel state even when the page receiver is unavailable', async () => {
+        chrome.tabs.sendMessage.mockRejectedValueOnce(new Error('Receiving end does not exist'));
+        const debug = jest.spyOn(console, 'debug').mockImplementation(() => {});
+        try {
+            await chrome.sidePanel.onOpened.listener({ path: 'help-guides.html', tabId: 42, windowId: 7 });
+            expect(chrome.storage.session.__getStore().openHelpGuideTabIds).toEqual([42]);
+            expect(debug).toHaveBeenCalledWith(expect.stringContaining('not delivered'), 42);
+        } finally {
+            debug.mockRestore();
+        }
     });
 });
 

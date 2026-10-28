@@ -276,43 +276,36 @@ async function mainContentScriptInit() {
     const isMediaoceanPage = hostname.includes('mediaocean.com');
     const initialRoute = getDynamicRouteContext();
     const initializedFeatureInstances = new WeakSet();
+    const pendingFeatureInitializations = new WeakSet();
 
     function initializeFeature(feature, shouldInitialize, featureName) {
         if (!shouldInitialize || !feature || typeof feature.initialize !== 'function') return;
-        if (initializedFeatureInstances.has(feature)) return;
-        initializedFeatureInstances.add(feature);
+        if (initializedFeatureInstances.has(feature) || pendingFeatureInitializations.has(feature)) return;
+        pendingFeatureInitializations.add(feature);
         const startedAt = window.opsDiagnostics?.now?.() ?? Date.now();
+        const recordOutcome = (outcome, error) => window.opsDiagnostics?.record?.({
+            source: featureName,
+            operation: 'initialize',
+            outcome,
+            trigger: 'startup',
+            ...(outcome === 'error' ? { failureKind: window.opsDiagnostics?.classifyFailure?.(error) || 'unexpected' } : {}),
+            durationMs: (window.opsDiagnostics?.now?.() ?? Date.now()) - startedAt
+        });
+        const succeed = () => {
+            pendingFeatureInitializations.delete(feature);
+            initializedFeatureInstances.add(feature);
+            recordOutcome('success');
+        };
+        const fail = error => {
+            pendingFeatureInitializations.delete(feature);
+            recordOutcome('error', error);
+        };
         try {
             const result = feature.initialize();
-            const recordSuccess = () => window.opsDiagnostics?.record?.({
-                source: featureName,
-                operation: 'initialize',
-                outcome: 'success',
-                trigger: 'startup',
-                durationMs: (window.opsDiagnostics?.now?.() ?? Date.now()) - startedAt
-            });
-            if (result?.then) {
-                result.then(recordSuccess, error => window.opsDiagnostics?.record?.({
-                    source: featureName,
-                    operation: 'initialize',
-                    outcome: 'error',
-                    trigger: 'startup',
-                    failureKind: window.opsDiagnostics?.classifyFailure?.(error) || 'unexpected',
-                    durationMs: (window.opsDiagnostics?.now?.() ?? Date.now()) - startedAt
-                }));
-            } else {
-                recordSuccess();
-            }
+            if (result?.then) Promise.resolve(result).then(succeed, fail);
+            else succeed();
         } catch (error) {
-            window.opsDiagnostics?.record?.({
-                source: featureName,
-                operation: 'initialize',
-                outcome: 'error',
-                trigger: 'startup',
-                failureKind: window.opsDiagnostics?.classifyFailure?.(error) || 'unexpected',
-                durationMs: (window.opsDiagnostics?.now?.() ?? Date.now()) - startedAt
-            });
-            throw error;
+            fail(error);
         }
     }
 
@@ -424,13 +417,7 @@ async function mainContentScriptInit() {
             initializeEligibleFeatures(route);
 
             if (hasDirtyFeature('orders') && (route.isBuy || route.isOrderSummary) && window.orderViewToggleFeature) {
-                const hasNewOrderUi = window.orderViewToggleFeature.isNewOrderUi?.() === true;
-                const hasStaleOrderViewControls = Boolean(document.querySelector(
-                    '.order-view-toggle, #cm-buy-sidebar-order-revisions-header.order-view-toggle-active'
-                ));
-                if (hasNewOrderUi || hasStaleOrderViewControls) {
-                    window.orderViewToggleFeature.handleOrderViewToggle();
-                }
+                window.orderViewToggleFeature.reconcile?.();
             }
             if (
                 hasDirtyFeature('actualise') &&
@@ -450,6 +437,7 @@ async function mainContentScriptInit() {
             }
             if (hasDirtyFeature('campaign') && route.isCampaignWorkspace) {
                 window.campaignFeature?.syncPrintNavigationSections?.();
+                window.campaignTabTitleFeature?.applyCampaignTitle?.();
             }
             if (hasDirtyFeature('campaign') && route.isCampaignWorkspace && window.maxCampaignBudgetFeature) {
                 window.maxCampaignBudgetFeature.apply();
@@ -495,6 +483,7 @@ async function mainContentScriptInit() {
                     window.campaignFeature.handleCampaignManagementFeatures();
                     if (route.isActualise) window.campaignFeature.handleAlwaysShowComments();
                     window.campaignFeature.handleCampaignNavigationOptimisation();
+                    window.campaignTabTitleFeature?.applyCampaignTitle?.();
                 }
                 if (hasDirtyFeature('approvals')) {
                     window.approverPastingFeature?.handleApproverPasting?.();
@@ -523,17 +512,7 @@ async function mainContentScriptInit() {
 
             if (hasDirtyFeature('orders') && route.isOrderSummary) {
                 window.orderGridScrollSyncFeature?.syncAll();
-                const hasNewOrderUi = window.orderViewToggleFeature?.isNewOrderUi?.() === true;
-                const hasStaleLegacyOrderIdControls = Boolean(document.querySelector('.order-id-copy-cell'));
-                if (!hasNewOrderUi || hasStaleLegacyOrderIdControls) {
-                    // The feature performs a targeted new/legacy UI check before
-                    // any legacy cell scan and removes stale legacy controls.
-                    window.orderIdCopyFeature?.checkAndAddCopyButtons();
-                } else {
-                    // Recipient rows arrive after the sidebar and are recycled
-                    // by Prisma. Reconcile emails without scanning legacy IDs.
-                    window.orderIdCopyFeature?.reconcileEmailCopyButtons?.();
-                }
+                window.orderIdCopyFeature?.reconcile?.();
             }
         } else if (isAura && window.logoFeature.shouldReplaceLogoOnThisPage()) {
             if (hasDirtyFeature('logo')) {

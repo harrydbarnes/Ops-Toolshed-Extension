@@ -37,7 +37,7 @@ async function applyReceipt(result,key,mode,month,queueWrite){
     });
     return tracker;
 }
-export async function manualTrackerWrite(request,{queueWrite,assertActive,automatic=false}){
+export async function dispatchTrackerWrite(request,{queueWrite,assertActive,automatic=false}){
     const mode=request.mode||'main',month=request.month,key=core.trackerKey(mode,month);
     if(!['main','early'].includes(mode)||!core.validMonth(month))throw Error('Manual updates need a Main Tracker or Early Recs report month.');
     if(request.operation==='trackerWriteStatus'){

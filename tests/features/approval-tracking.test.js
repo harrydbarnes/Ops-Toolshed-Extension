@@ -196,6 +196,23 @@ describe('Approval Polling Service', () => {
         });
     });
 
+    test('a tab without a receiver does not block other approval notifications or persistence', async () => {
+        await trackCampaignApproval({ campaignId: 'CP1', campaignName: 'Approved campaign' });
+        global.fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ budgetApprovalStatus: 'APPROVED' }) });
+        chrome.tabs.sendMessage.mockRejectedValueOnce(new Error('Receiving end does not exist'));
+        const debug = jest.spyOn(console, 'debug').mockImplementation(() => {});
+        try {
+            await pollPendingApprovals();
+            expect(chrome.tabs.sendMessage).toHaveBeenCalledTimes(2);
+            expect(sentMessages[0].tabId).toBe(102);
+            expect(localStorageData[PENDING_APPROVAL_KEY].CP1).toBeUndefined();
+            expect(localStorageData[APPROVED_CAMPAIGNS_KEY]).toEqual([expect.objectContaining({ campaignId: 'CP1' })]);
+            expect(debug).toHaveBeenCalledWith(expect.stringContaining('not delivered'), 101);
+        } finally {
+            debug.mockRestore();
+        }
+    });
+
     test('pollPendingApprovals keeps campaign pending when API returns SUBMITTED', async () => {
         localStorageData[PENDING_APPROVAL_KEY] = {
             'CP3GQJ6': {

@@ -139,7 +139,7 @@ describe('new order UI optimisation', () => {
         expect(document.querySelector('.order-view-toggle')).not.toBeNull();
 
         document.querySelector('mo-menu').remove();
-        page.dom.window.orderViewToggleFeature.handleOrderViewToggle();
+        page.dom.window.orderViewToggleFeature.reconcile();
 
         expect(document.querySelector('.order-view-toggle')).toBeNull();
         expect(document.getElementById('cm-buy-sidebar-order-revisions-header').classList)

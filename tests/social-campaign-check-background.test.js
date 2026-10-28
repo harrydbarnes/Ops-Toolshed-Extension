@@ -24,6 +24,28 @@ describe('Opt-in background campaign checks',()=>{
         jest.spyOn(api,'createClient').mockReturnValue({getCampaignSnapshot:getSnapshot,verifyAccountAccess,getCampaignCandidates:getCandidates,getCampaignCreation:getCreation});
     });
     afterEach(()=>{jest.restoreAllMocks();delete global.fetch;});
+    test('validation and disabled-feature failures both reject the returned promise', async () => {
+        const failure = jest.fn();
+        await manager.checkSocialCampaign('invalid').catch(failure);
+        expect(failure).toHaveBeenCalledWith(expect.objectContaining({ message: 'Choose a valid Prisma CP number.' }));
+        failure.mockClear();
+        isFeatureModeActive.mockReturnValue(false);
+        await manager.checkSocialCampaign('CPTEST').catch(failure);
+        expect(failure).toHaveBeenCalledWith(expect.any(Error));
+        expect(fetch).not.toHaveBeenCalled();
+    });
+    test('failed placement coverage reads retain the comparison with an explicit unverified warning', async () => {
+        const original = fetch.getMockImplementation();
+        fetch.mockImplementation(async (url, options) => {
+            if (url.includes('/accounts/88/campaigns/99')) throw new Error('private response body');
+            return original(url, options);
+        });
+        const record = await manager.checkSocialCampaign('CPTEST');
+        expect(record.results).toHaveLength(1);
+        expect(record.results[0].coverage).toBe(false);
+        expect(record.results[0].warnings).toContain('Linked Prisma placement coverage is incomplete or unverified. Differences may relate to other bookings.');
+        expect(JSON.stringify(record)).not.toContain('private response body');
+    });
     test('one unavailable link does not discard other current results and monitoring remains opt-in',async()=>{
         const original=fetch.getMockImplementation();
         const multi={total:2,nodes:[...grid.nodes,{fields:fields({id:'2',placementNumber:'P2',placementType:'1',providerTypeId:'3',adserverInstanceId:'123',accountCode:'88',campaignIdOnExternalProvider:'100',placementCurrencyCode:'GBP',budgetPayableAmount:'100',flightStart:'2026-06-01',flightEnd:'2026-06-30'})}]};
@@ -129,6 +151,19 @@ describe('Opt-in background campaign checks',()=>{
         await manager.pollSocialCampaigns();expect(chrome.notifications.create).toHaveBeenCalledTimes(2);
         await manager.setSocialMonitoring('CPTEST',false);await manager.pollSocialCampaigns();expect(chrome.notifications.create).toHaveBeenCalledTimes(2);
     });
+    test('scheduled check failures are saved and alerted once while later monitors still run', async () => {
+        await manager.checkSocialCampaign('CPTEST');
+        await manager.setSocialMonitoring('CPTEST', true);
+        storage.socialCampaignChecks.CPNEXT = { ...storage.socialCampaignChecks.CPTEST, campaignId: 'CPNEXT' };
+        getSnapshot.mockRejectedValue(new Error('Meta private provider body'));
+        await manager.pollSocialCampaigns();
+        expect(storage.socialCampaignChecks.CPTEST.error).toContain('Meta check failed');
+        expect(storage.socialCampaignChecks.CPNEXT.error).toBeTruthy();
+        expect(chrome.notifications.create).toHaveBeenCalledTimes(2);
+        expect(JSON.stringify(storage.socialCampaignChecks)).not.toContain('private provider body');
+        await manager.pollSocialCampaigns();
+        expect(chrome.notifications.create).toHaveBeenCalledTimes(2);
+    });
     test('failed checks preserve and label the last successful result, without retaining provider error secrets',async()=>{
         const original=await manager.checkSocialCampaign('CPTEST');
         getSnapshot.mockRejectedValue(new Error('Meta token secret failed'));
@@ -147,7 +182,7 @@ describe('Opt-in background campaign checks',()=>{
     });
     test('feature shutdown and non-Prisma audience prevent API requests',async()=>{
         isFeatureModeActive.mockReturnValue(false);
-        expect(()=>manager.checkSocialCampaign('CPTEST')).toThrow(/Enable Prisma/);
+        await expect(manager.checkSocialCampaign('CPTEST')).rejects.toThrow(/Enable Prisma/);
         isFeatureModeActive.mockReturnValue(true);chrome.storage.sync.get.mockResolvedValue({onboardingAudience:'non-prisma'});
         await expect(manager.checkSocialCampaign('CPTEST')).rejects.toThrow(/Enable Prisma/);
         expect(fetch).not.toHaveBeenCalled();await manager.setupSocialCheckAlarm();expect(chrome.alarms.clear).toHaveBeenCalledWith(manager.SOCIAL_CHECK_ALARM);
@@ -155,6 +190,12 @@ describe('Opt-in background campaign checks',()=>{
     test('rejects callers outside the approved extension page and Prisma tab',async()=>{
         const send=jest.fn();await manager.handleSocialCheck({operation:'check',campaignId:'CPTEST'},{id:'foreign',url:'https://example.com/'},send);
         expect(send).toHaveBeenCalledWith(expect.objectContaining({status:'error'}));expect(fetch).not.toHaveBeenCalled();
+    });
+    test.each([undefined, '', 'not a URL', 'https://[invalid'])('rejects malformed caller URL %s before any network request', async url => {
+        const send = jest.fn();
+        await manager.handleSocialCheck({ operation: 'check', campaignId: 'CPTEST' }, { id: 'test-id', url }, send);
+        expect(send).toHaveBeenCalledWith(expect.objectContaining({ status: 'error', message: 'Campaign checks require Prisma or the Live campaign checks page.' }));
+        expect(fetch).not.toHaveBeenCalled();
     });
     test('Prisma overlays can only check or monitor the campaign open in their own tab',async()=>{
         const sender={id:'test-id',url:'https://go.mediaocean.com/campaign-management/#campaign-id=CPTEST',tab:{id:5}};

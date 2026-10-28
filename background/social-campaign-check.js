@@ -67,9 +67,9 @@ export async function setSocialMonitoring(id, monitor) {
     }
     return { status: 'success' };
 }
-export function checkSocialCampaign(id, scheduled = false) {
+export async function checkSocialCampaign(id, scheduled = false) {
     enabled();
-    if (!validId(id)) return Promise.reject(new Error('Choose a valid Prisma CP number.'));
+    if (!validId(id)) throw new Error('Choose a valid Prisma CP number.');
     if (inFlight.has(id)) return inFlight.get(id);
     const promise = performCheck(id, scheduled).finally(() => inFlight.delete(id));
     inFlight.set(id, promise);
@@ -254,11 +254,11 @@ export async function handleSocialCheck(request, sender, sendResponse) {
     try {
         await allowed();
         let ownPage = false;
-        try {
+        if (URL.canParse(sender.url)) {
             const source = new URL(sender.url);
             const expected = new URL(chrome.runtime.getURL('social-campaign-check.html'));
             ownPage = sender.id === chrome.runtime.id && source.protocol === expected.protocol && source.host === expected.host && source.pathname === expected.pathname;
-        } catch (_) { /* Not an extension page. */ }
+        }
         // Content-script sender.url describes its document at injection time.
         // Prisma changes the campaign hash without reinjecting that document.
         const isPrismaUrl = value => {

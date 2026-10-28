@@ -222,6 +222,16 @@
         return normalizeWhitespace(element.textContent || '');
     }
 
+    function getFrameElements(frame, visited) {
+        try {
+            const frameDocument = frame.contentDocument;
+            return frameDocument ? getElementsIncludingShadowDom(frameDocument, visited) : [];
+        } catch (_error) {
+            // Cross-origin frames are expected in the Mediaocean shell.
+            return [];
+        }
+    }
+
     function getElementsIncludingShadowDom(root = document, visited = new Set()) {
         if (!root || visited.has(root)) return [];
         visited.add(root);
@@ -242,13 +252,7 @@
                 result.push(...getElementsIncludingShadowDom(element.shadowRoot, visited));
             }
             if (element.tagName === 'IFRAME') {
-                try {
-                    if (element.contentDocument) {
-                        result.push(...getElementsIncludingShadowDom(element.contentDocument, visited));
-                    }
-                } catch (_error) {
-                    // Cross-origin frames are expected in the Mediaocean shell.
-                }
+                result.push(...getFrameElements(element, visited));
             }
         });
 
@@ -2363,14 +2367,13 @@
     }
 
     async function copyToClipboard(text, action) {
-        if (!text) return false;
+        if (!text || !chrome.runtime?.sendMessage) return false;
         try {
-            if (chrome.runtime?.sendMessage) {
-                const response = await chrome.runtime.sendMessage({ action, text });
-                return response?.status === 'success';
-            }
-        } catch (_error) {}
-        return false;
+            const response = await chrome.runtime.sendMessage({ action, text });
+            return response?.status === 'success';
+        } catch (_error) {
+            return false;
+        }
     }
 
     function createContextMenuItem(label, iconName, onClick) {
@@ -2691,6 +2694,7 @@
             if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return 0;
         } catch (_error) {
             // Fall back to the normal transition when matchMedia is unavailable.
+            return PANEL_TRANSITION_DURATION_MS;
         }
         return PANEL_TRANSITION_DURATION_MS;
     }

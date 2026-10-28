@@ -18,16 +18,19 @@ function createPage({
     storageApi = 'promise',
     submitDisabled = false,
     submitAriaDisabled = false,
-    optionOrganisation = ORGANISATION
+    optionOrganisation = ORGANISATION,
+    url = 'https://go.mediaocean.com/campaign-management/'
 } = {}) {
     const customOrganisationName = customSelectedOrganisation.replace(/\s+United Kingdom$/, '');
     const body = stage === 'username'
         ? `<main><p>Enter username to continue</p><label>Username <input id="username" type="email" name="username"></label><label><input id="remember" type="checkbox" name="rememberMe"> Remember me</label><button type="button">Next</button></main>`
         : stage === 'organisation'
             ? `<main><p>Select your organisation to sign in</p><select id="organisation"><option value="">Select</option><option value="wpp">${ORGANISATION}</option></select><button type="button">Submit</button></main>`
-            : `<main><p>Select your organisation to sign in</p><div id="organisation-selection-list" class="organisation-selection"><div class="mo-select__control"><div class="mo-select__value-container"><div class="mo-select__single-value"><div class="org-name-single-value">${customOrganisationName}</div><div class="mo-caption">United Kingdom</div></div><input id="react-select-2-input" aria-autocomplete="list" type="text"></div></div></div><button id="buttonSubmit" type="submit"${submitDisabled ? ' disabled' : ''}${submitAriaDisabled ? ' aria-disabled="true"' : ''}>SUBMIT</button></main>`;
+            : stage === 'session-timeout'
+                ? `<main><div class="card"><h1>prisma</h1><p>You've been signed out because your session was inactive for too long. <a href="https://go.mediaocean.com/login" id="signInLink">Sign in</a> again to continue working.</p></div></main>`
+                : `<main><p>Select your organisation to sign in</p><div id="organisation-selection-list" class="organisation-selection"><div class="mo-select__control"><div class="mo-select__value-container"><div class="mo-select__single-value"><div class="org-name-single-value">${customOrganisationName}</div><div class="mo-caption">United Kingdom</div></div><input id="react-select-2-input" aria-autocomplete="list" type="text"></div></div></div><button id="buttonSubmit" type="submit"${submitDisabled ? ' disabled' : ''}${submitAriaDisabled ? ' aria-disabled="true"' : ''}>SUBMIT</button></main>`;
     const dom = new JSDOM(`<!doctype html><html><body>${body}</body></html>`, {
-        url: 'https://go.mediaocean.com/campaign-management/',
+        url,
         runScripts: 'dangerously'
     });
     const { window } = dom;
@@ -326,6 +329,28 @@ describe('Prisma sign-in assistant', () => {
         username.dispatchEvent(new window.Event('input', { bubbles: true }));
 
         expect(localStore.prismaLoginAssistantEmail).toBe('person@example.com');
+        closePage(dom);
+    });
+
+    test('shows a subtle progress bar and clicks Sign In after two seconds on session timeout page', async () => {
+        const { dom, window } = createPage({
+            stage: 'session-timeout',
+            enabled: true,
+            url: 'https://go.mediaocean.com/ideskos-viewport/federate/logout?federatedLogout=true'
+        });
+        const link = window.document.getElementById('signInLink');
+        const linkClick = jest.fn();
+        link.addEventListener('click', linkClick);
+
+        await settle();
+
+        const progressBar = window.document.getElementById('ops-toolshed-session-timeout-bar');
+        expect(progressBar).not.toBeNull();
+        expect(linkClick).not.toHaveBeenCalled();
+
+        await new Promise(resolve => setTimeout(resolve, 2050));
+        expect(linkClick).toHaveBeenCalledTimes(1);
+
         closePage(dom);
     });
 });

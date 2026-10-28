@@ -366,14 +366,17 @@
     }
 
     function handleAlwaysShowComments() {
-        const href = window.location.href;
-        // Check for specific URL components
+        const hostname = window.location.hostname;
+        const isPrismaHost = hostname.includes('prisma.mediaocean.com') ||
+            hostname === 'go.demo.mediaocean.com' ||
+            hostname === 'go.mediaocean.com';
+        if (!isPrismaHost || !window.location.pathname.startsWith('/campaign-management')) {
+            return;
+        }
+
         const params = new URLSearchParams(window.location.hash.substring(1));
-        if (!['groupmuk-prisma.mediaocean.com', 'go.mediaocean.com'].includes(window.location.hostname) ||
-            window.location.pathname.replace(/\/+$/, '') !== '/campaign-management' ||
-            params.get('osAppId') !== 'prsm-cm-spa' ||
-            params.get('osPspId') !== 'prsm-cm-buy' ||
-            params.get('route') !== 'actualize') {
+        const isActualise = params.get('ptb-ctx') === 'actualize' || params.get('route') === 'actualize';
+        if (!isActualise) {
             return;
         }
 

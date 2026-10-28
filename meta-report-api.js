@@ -61,6 +61,8 @@
         return Math.min(16000, (1000 * (2 ** attempt)) + Math.floor(random() * 250));
     }
 
+    // Remote methods always return promises; validation and request failures reject.
+    // Client construction validates configuration synchronously.
     function createClient(options = {}) {
         const fetchImpl = options.fetchImpl || (typeof fetch === 'function' ? fetch.bind(globalThis) : null);
         const sleep = options.sleep || (milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds)));
@@ -99,11 +101,25 @@
                         ...(typeof AbortSignal.timeout === 'function' ? { signal: AbortSignal.timeout(30000) } : {}),
                         headers: { Authorization: `Bearer ${token}` }
                     });
-                    payload = await response.json();
                 } catch (error) {
-                    if (attempt >= maxRetries) throw new Error(`Could not reach Meta: ${error.message}`);
+                    if (attempt >= maxRetries) {
+                        const failure = new Error('Could not reach Meta.', { cause: error });
+                        failure.source = 'meta';
+                        failure.kind = 'network';
+                        throw failure;
+                    }
                     await sleep(retryDelay(response, attempt, random));
                     continue;
+                }
+
+                try {
+                    payload = await response.json();
+                } catch (error) {
+                    const failure = new Error(`Meta returned an invalid JSON response (HTTP ${response.status}).`, { cause: error });
+                    failure.source = 'meta';
+                    failure.kind = 'invalid-response';
+                    failure.status = response.status;
+                    throw failure;
                 }
 
                 const metaCode = Number(payload && payload.error && payload.error.code);
@@ -116,6 +132,7 @@
                     const error = new Error(safeErrorMessage(payload, response.status));
                     error.metaCode = metaCode;
                     error.source = 'meta';
+                    error.status = response.status;
                     throw error;
                 }
                 return payload;
@@ -180,7 +197,7 @@
             return { accountId: id, name: account.name || '' };
         }
 
-        function getCampaigns(accountId) {
+        async function getCampaigns(accountId) {
             return requestAll(`${accountPath(accountId)}/campaigns`, {
                 fields: [
                     'id', 'name', 'start_time', 'stop_time', 'status', 'configured_status', 'effective_status',
@@ -191,7 +208,7 @@
             });
         }
 
-        function getAdSets(accountId) {
+        async function getAdSets(accountId) {
             return requestAll(`${accountPath(accountId)}/adsets`, {
                 fields: [
                     'id', 'campaign_id', 'name', 'start_time', 'end_time', 'status', 'configured_status',
@@ -202,13 +219,13 @@
             });
         }
 
-        function getAccountMetadata(accountId) {
+        async function getAccountMetadata(accountId) {
             return request(accountPath(accountId), {
                 fields: 'id,name,currency,timezone_name,timezone_offset_hours_utc'
             });
         }
 
-        function getInsights(accountId, startDate, endDate) {
+        async function getInsights(accountId, startDate, endDate) {
             const since = requireDate(startDate, 'Start date');
             const until = requireDate(endDate, 'End date');
             if (since > until) throw new Error('Start date must be on or before end date.');
@@ -220,7 +237,7 @@
             });
         }
 
-        function getDailyInsights(accountId, startDate, endDate) {
+        async function getDailyInsights(accountId, startDate, endDate) {
             const since = requireDate(startDate, 'Start date');
             const until = requireDate(endDate, 'End date');
             if (since > until) throw new Error('Start date must be on or before end date.');

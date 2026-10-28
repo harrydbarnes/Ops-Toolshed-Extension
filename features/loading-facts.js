@@ -289,15 +289,16 @@
         });
     }
 
-    function setStorageData(area, values) {
+    async function setStorageData(area, values) {
         const storageArea = getStorageArea(area);
-        if (!storageArea?.set) return;
+        if (!storageArea?.set) return false;
 
         try {
-            const result = storageArea.set(values);
-            if (result?.catch) result.catch(() => {});
+            await storageArea.set(values);
+            return true;
         } catch (_error) {
-            // Loading facts remain available if storage is unavailable.
+            // Fact selection can continue, but feedback must not claim it was saved.
+            return false;
         }
     }
 
@@ -672,11 +673,11 @@
         }
 
         async rateFact(fact, rating) {
-            if (!fact || !['remove', 'notSure'].includes(rating)) return;
+            if (!fact || !['remove', 'notSure'].includes(rating)) return false;
 
             const data = await getStorageData('local', 'loadingFactRatings');
             const ratings = { ...(data.loadingFactRatings || {}), [fact]: rating };
-            setStorageData('local', { loadingFactRatings: ratings });
+            return setStorageData('local', { loadingFactRatings: ratings });
         }
 
         cancelDelayedShow() {
@@ -780,7 +781,14 @@
             const handleRating = async (rating) => {
                 notSureButton.disabled = true;
                 removeButton.disabled = true;
-                await this.rateFact(fact, rating);
+                const saved = await this.rateFact(fact, rating);
+                if (!saved) {
+                    notSureButton.disabled = false;
+                    removeButton.disabled = false;
+                    span.textContent = 'Could not save feedback. Try again.';
+                    toast.setAttribute('aria-label', 'Loading fact feedback could not be saved');
+                    return;
+                }
                 toast.classList.add(`loading-fact-toast--${rating}`);
                 toast.setAttribute('aria-label', rating === 'remove'
                     ? 'Loading fact removed'

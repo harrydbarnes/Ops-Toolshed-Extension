@@ -1,10 +1,12 @@
 (function() {
     'use strict';
 
-    let isEnabled = true;
+    let isEnabled = false;
+    let isInitialized = false;
 
     chrome.storage.sync.get('statsCollectorEnabled', (data) => {
         isEnabled = data.statsCollectorEnabled !== false;
+        if (isInitialized) { trackCampaignId(); checkLoadingState(); }
     });
 
     chrome.storage.onChanged.addListener((changes, area) => {
@@ -14,8 +16,13 @@
         if (area === 'sync' && changes.statsCollectorEnabled) {
             isEnabled = changes.statsCollectorEnabled.newValue !== false;
             if (!isEnabled) {
+                cancelPendingSave();
                 loadingSpinnerStartTime = null;
                 loadingSpinnerArea = '';
+            } else if (isInitialized) {
+                lastTrackedCampaignId = '';
+                trackCampaignId();
+                checkLoadingState();
             }
         }
     });
@@ -55,10 +62,11 @@
     function trackCampaignSnapshot() {
         if (!isEnabled || getVisibleSpinners().length) return;
         const id = new URLSearchParams(window.location.hash.slice(1)).get('campaign-id');
-        const snapshot = window.campaignHistoryFeature?.getCampaignSnapshot?.();
-        if (!id || !snapshot?.key || snapshot.campaignId !== id) return;
+        if (!id) return;
         const renderedId = document.querySelector('.buy-details-wrapper, .buy-details-background')?.textContent?.match(/\bCP[A-Z0-9-]+\b/i)?.[0];
         if (!renderedId || renderedId.toLowerCase() !== id.toLowerCase()) return;
+        const snapshot = window.campaignHistoryFeature?.getCampaignSnapshot?.();
+        if (!snapshot?.key || snapshot.campaignId !== id) return;
         const exactMoney = selector => {
             const text = (document.querySelector(selector)?.textContent?.trim() || '')
                 .replace(/\s+(?:budget|buy total \(billable amount\))$/i, '');
@@ -173,6 +181,70 @@
         recordLoadingSegment();
     }
 
+    // Observe native placement acknowledgements only while a user save is pending.
+    // A closed form, spinner disappearance or generic "Success" is not proof.
+    const NATIVE_NOTICE = '.toast-success, .toast-error, .alert-success, .alert-danger, [role="alert"], [role="status"]';
+    let pendingSave = null;
+    let saveObserver = null;
+    let saveTimeout = null;
+    function cancelPendingSave() {
+        saveObserver?.disconnect();
+        saveObserver = null;
+        clearTimeout(saveTimeout);
+        saveTimeout = null;
+        pendingSave = null;
+    }
+
+    function beginPlacementSave(button) {
+        if (button.disabled || button.getAttribute('aria-disabled') === 'true' || pendingSave) return;
+        const campaignId = new URLSearchParams(location.hash.slice(1)).get('campaign-id');
+        if (!campaignId) return;
+        const form = button.closest('[role="dialog"], .modal, form');
+        const heading = form?.querySelector('h1, h2, h3, .modal-title')?.textContent || form?.getAttribute('aria-label') || '';
+        const mode = /^(?:add|new|create) placement\b/i.test(heading.trim()) ? 'created'
+            : /^edit placement\b/i.test(heading.trim()) ? 'updated' : 'other';
+        const baseline = new WeakMap();
+        document.querySelectorAll(NATIVE_NOTICE).forEach(node => baseline.set(node, node.textContent));
+        pendingSave = { campaignId, mode, id: crypto.randomUUID(), baseline };
+        saveObserver = new MutationObserver(records => {
+            if (!pendingSave || !isEnabled) return;
+            if (new URLSearchParams(location.hash.slice(1)).get('campaign-id') !== pendingSave.campaignId) {
+                cancelPendingSave();
+                return;
+            }
+            const notices = new Set();
+            records.forEach(record => {
+                const root = record.target.nodeType === Node.ELEMENT_NODE ? record.target : record.target.parentElement;
+                const parent = root?.closest?.(NATIVE_NOTICE);
+                if (parent) notices.add(parent);
+                record.addedNodes.forEach(node => {
+                    if (node.nodeType !== Node.ELEMENT_NODE) return;
+                    if (node.matches(NATIVE_NOTICE)) notices.add(node);
+                    node.querySelectorAll(NATIVE_NOTICE).forEach(notice => notices.add(notice));
+                });
+            });
+            for (const notice of notices) {
+                if (notice.closest('[id^="toolshed"], [id^="ops-toolshed"], .otf-toast') || notice.hidden || notice.getAttribute('aria-hidden') === 'true' || getComputedStyle(notice).display === 'none' || getComputedStyle(notice).visibility === 'hidden') continue;
+                const text = notice.textContent.replace(/\s+/g, ' ').trim();
+                if (pendingSave.baseline.get(notice) === notice.textContent) continue;
+                if (notice.matches('.toast-error, .alert-danger') || /\bplacement\b.*\b(?:failed|error|could not|cannot|unable)\b|\b(?:failed|unable)\b.*\bplacement\b/i.test(text)) {
+                    cancelPendingSave();
+                    return;
+                }
+                const match = text.match(/^placement(?:\s+[A-Z0-9-]+)?\s+(?:(?:has been|was)\s+)?(?:(successfully)\s+)?(created|added|updated|saved)(?:\s+(successfully))?[.!]?$/i);
+                if (!match || (!match[1] && !match[3] && !notice.matches('.toast-success, .alert-success'))) continue;
+                const verb = match[2].toLowerCase();
+                const kind = ['created', 'added'].includes(verb) ? 'created' : verb === 'updated' ? 'updated' : pendingSave.mode;
+                const value = { eventId: pendingSave.id, kind };
+                cancelPendingSave();
+                trackStat('PLACEMENT_CONFIRMED', value);
+                return;
+            }
+        });
+        saveObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+        saveTimeout = setTimeout(cancelPendingSave, 20000);
+    }
+
     // --- 3. Track Click Events (Save Placements & Reconciliations) ---
     function handleClickEvents(event) {
         if (!isEnabled) return;
@@ -182,10 +254,8 @@
         }
 
         // Track Placement Saves
-        if (event.target.id === 'btn-save' || event.target.id === 'btn-save-and-add-another') {
-            console.log('[Stats Collector] Save button clicked.');
-            trackStat('PLACEMENT_ADDED', 1);
-        }
+        const saveButton = event.target.closest('#btn-save, #btn-save-and-add-another');
+        if (saveButton) beginPlacementSave(saveButton);
 
         // Track Reconciliations (Ok to Pay = Yes)
         if (event.target.id === 'ok-to-pay-yes-button') {
@@ -203,7 +273,6 @@
     }
 
     // --- Main Initialization ---
-    let isInitialized = false;
     let unsubscribeLoadingMonitor = null;
 
     function startLoadingMeasurements() {
@@ -212,6 +281,7 @@
     }
 
     function stopLoadingMeasurements() {
+        cancelPendingSave();
         finishActiveLoadingMeasurement();
         unsubscribeLoadingMonitor?.();
         unsubscribeLoadingMonitor = null;
@@ -223,11 +293,13 @@
         startLoadingMeasurements();
 
         // Use event delegation for buttons
-        document.body.addEventListener('click', handleClickEvents);
+        document.body.addEventListener('click', handleClickEvents, true);
         window.addEventListener('pagehide', stopLoadingMeasurements);
         window.addEventListener('pageshow', startLoadingMeasurements);
-        window.addEventListener('hashchange', () => checkLoadingState());
-        window.addEventListener('popstate', () => checkLoadingState());
+        const handleRouteChange = () => { cancelPendingSave(); trackCampaignId(); checkLoadingState(); };
+        window.addEventListener('hashchange', handleRouteChange);
+        window.addEventListener('popstate', handleRouteChange);
+        trackCampaignId();
 
         isInitialized = true;
         console.log("Stats Collector Initialized");

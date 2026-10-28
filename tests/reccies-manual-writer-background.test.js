@@ -7,7 +7,7 @@ describe('manual Reccies worker writes',()=>{
     const row=(id,d)=>({sourceRow:id,dNumber:d,campaignId:'CP3G9KS',month:'2026-09',reccied:'No',issue:''});
     const response=data=>({ok:true,url:'https://script.googleusercontent.com/echo',headers:{get:()=> 'application/json'},json:async()=>({ok:true,service:'ops-toolshed-reccies-writer',protocol:1,...data})});
     beforeEach(()=>{
-        jest.resetModules();({manualTrackerWrite:manual}=require('../background/reccie-writes'));
+        jest.resetModules();({dispatchTrackerWrite:manual}=require('../background/reccie-writes'));
         state={reccieTracker:{revision:'original',month:'2026-09',source:{type:'google',url},rows:[row(2,'D03120200'),row(3,'D03120201')],checks:{2:{state:'ready'}}}};
         chrome.permissions={contains:jest.fn(async()=>true)};
         chrome.storage.local.get=jest.fn(async()=>structuredClone(state));chrome.storage.local.set=jest.fn(async values=>Object.assign(state,structuredClone(values)));

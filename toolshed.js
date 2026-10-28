@@ -28,13 +28,58 @@ document.addEventListener('DOMContentLoaded', async () => {
     const resetButton = document.getElementById('reset-stats-button');
 
     let previousTotalPlacements = null;
+    let selectedPeriod = 'all';
+    const periodControl = document.querySelector('.stats-period-control');
+    const dateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    const confirmedSaves = day => (Number(day?.placementsCreated) || 0) + (Number(day?.placementsUpdated) || 0) + (Number(day?.placementSavesOther) || 0);
+    function periodRange() {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const start = new Date(today);
+        const end = new Date(today);
+        if (selectedPeriod === 'all') return { start: null, end };
+        if (selectedPeriod.endsWith('week')) {
+            start.setDate(start.getDate() - (start.getDay() + 6) % 7);
+            if (selectedPeriod === 'last-week') {
+                start.setDate(start.getDate() - 7);
+                end.setTime(start.getTime());
+                end.setDate(end.getDate() + 6);
+            }
+        } else {
+            start.setDate(1);
+            if (selectedPeriod === 'last-month') {
+                end.setDate(0);
+                start.setMonth(start.getMonth() - 1);
+            }
+        }
+        return { start, end };
+    }
+    const inRange = (key, range) => /^\d{4}-\d{2}-\d{2}$/.test(key) && (!range.start || key >= dateKey(range.start)) && key <= dateKey(range.end);
+    function positionPeriodIndicator() {
+        const button = periodControl?.querySelector('[aria-pressed="true"]');
+        const indicator = periodControl?.querySelector('.stats-period-indicator');
+        if (!button || !indicator) return;
+        indicator.style.width = `${button.offsetWidth}px`;
+        indicator.style.transform = `translateX(${button.offsetLeft}px)`;
+    }
+    periodControl?.addEventListener('click', event => {
+        const button = event.target.closest('[data-stats-period]');
+        if (!button) return;
+        selectedPeriod = button.dataset.statsPeriod;
+        periodControl.querySelectorAll('button').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+        positionPeriodIndicator();
+        displayStats();
+    });
+    window.addEventListener('resize', positionPeriodIndicator);
+    document.getElementById('stats-monthly-metric')?.addEventListener('change', displayStats);
+    positionPeriodIndicator();
     const weeklyInfo = document.getElementById('weekly-productivity-info');
     if (weeklyInfo) {
         const tooltip = document.createElement('div');
         tooltip.id = 'weekly-productivity-tooltip';
         tooltip.className = 'stats-info-tooltip';
         tooltip.setAttribute('role', 'tooltip');
-        tooltip.textContent = 'Totals for each weekday across all recorded weeks, including this week — not last week or a weekly average. Actions include placement save clicks, reconciliations and unique campaigns visited each day. Repeat visits on different days count again. Legacy totals without dates are excluded. Most Active Month counts placement saves only.';
+        tooltip.textContent = 'Totals for each weekday within the selected period, not a weekly average. All time combines all recorded weeks. Actions include confirmed placement saves, reconciliation clicks and unique campaigns visited each day. Historical placement save clicks and undated legacy totals are excluded. Most Active Month counts confirmed saves in the selected period.';
         tooltip.hidden = true;
         document.body.append(tooltip);
         const hide = () => { tooltip.hidden = true; weeklyInfo.removeAttribute('aria-describedby'); };
@@ -83,6 +128,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             activeButton.classList.add('active');
             activeContent.classList.add('active');
+            positionPeriodIndicator();
 
             if (updateUrl && window.location.hash !== `#${tabId}`) {
                 window.history.pushState({}, document.title, `#${tabId}`);
@@ -287,7 +333,63 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    function renderHeatmap(dailyStats) {
+    function renderMonthlyTrends(dailyStats, allDailyStats, range) {
+        const metric = document.getElementById('stats-monthly-metric').value;
+        const latest = new Date(range.end.getFullYear(), range.end.getMonth(), 1);
+        const first = range.start ? new Date(range.start.getFullYear(), range.start.getMonth(), 1) : new Date(latest.getFullYear(), latest.getMonth() - 11, 1);
+        const rows = [];
+        for (let month = new Date(first); month <= latest; month.setMonth(month.getMonth() + 1)) {
+            const prefix = dateKey(month).slice(0, 7);
+            const days = Object.entries(dailyStats).filter(([key]) => key.startsWith(prefix)).map(([, day]) => day);
+            const created = days.reduce((sum, day) => sum + (day.placementsCreated || 0), 0);
+            const updated = days.reduce((sum, day) => sum + (day.placementsUpdated || 0), 0);
+            const other = days.reduce((sum, day) => sum + (day.placementSavesOther || 0), 0);
+            const campaigns = new Set(days.flatMap(day => day.visitedCampaigns || [])).size;
+            const reconciliations = days.reduce((sum, day) => sum + (day.reconciliations || 0), 0);
+            const waiting = days.reduce((sum, day) => sum + (day.loadingTime || 0), 0);
+            rows.push({ label: month.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }), value: { saves: created + updated + other, campaigns, reconciliations, waiting }[metric], created, updated, other, campaigns, reconciliations, waiting });
+        }
+        const chart = document.getElementById('stats-monthly-chart');
+        const largest = Math.max(1, ...rows.map(row => row.value));
+        chart.replaceChildren();
+        rows.forEach(row => {
+            const item = document.createElement('div');
+            item.className = 'stats-monthly-row';
+            item.setAttribute('role', 'listitem');
+            item.tabIndex = 0;
+            const detail = `${row.label}: ${row.created} created, ${row.updated} updated, ${row.other} other confirmed saves; ${row.campaigns} unique campaigns; ${row.reconciliations} reconciliation clicks; ${formatCompactLoadingTime(row.waiting)} waiting`;
+            item.setAttribute('aria-label', detail);
+            item.title = detail;
+            const label = document.createElement('span');
+            label.textContent = row.label;
+            const meter = document.createElement('span');
+            meter.className = 'stats-monthly-meter';
+            meter.setAttribute('aria-hidden', 'true');
+            const fill = document.createElement('span');
+            fill.style.width = `${row.value / largest * 100}%`;
+            meter.append(fill);
+            const value = document.createElement('strong');
+            value.textContent = metric === 'waiting' ? formatCompactLoadingTime(row.value) : row.value.toLocaleString('en-GB');
+            item.append(label, meter, value);
+            chart.append(item);
+        });
+        document.getElementById('stats-monthly-context').textContent = range.start ? 'Selected dates · monthly totals may cover part of a month' : 'Latest 12 months · current month is partial';
+        const comparison = document.getElementById('stats-monthly-comparison');
+        comparison.textContent = '';
+        if (selectedPeriod === 'all' || selectedPeriod === 'this-month') {
+            const today = range.end;
+            const previousEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+            previousEnd.setDate(Math.min(today.getDate(), previousEnd.getDate()));
+            const currentStart = new Date(today.getFullYear(), today.getMonth(), 1);
+            const previousStart = new Date(previousEnd.getFullYear(), previousEnd.getMonth(), 1);
+            const currentEnd = new Date(currentStart);
+            currentEnd.setDate(previousEnd.getDate());
+            const sum = (start, end) => Object.entries(allDailyStats).filter(([key]) => inRange(key, { start, end })).reduce((total, [, day]) => total + confirmedSaves(day), 0);
+            comparison.textContent = `Confirmed saves: ${sum(currentStart, currentEnd)} vs ${sum(previousStart, previousEnd)} over the first ${previousEnd.getDate()} days of this and last month.`;
+        }
+    }
+
+    function renderHeatmap(dailyStats, range) {
         const heatmapContainer = document.getElementById('heatmap');
         if (!heatmapContainer) return;
         heatmapContainer.innerHTML = '';
@@ -301,10 +403,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Logic to start on the Monday 52 weeks ago
-        const today = new Date();
+        const today = new Date(range.end);
         today.setHours(0, 0, 0, 0);
         const startDate = new Date(today);
         startDate.setDate(today.getDate() - (52 * 7));
+        if (range.start) startDate.setTime(range.start.getTime());
 
         // Adjust to previous Monday (0=Sun, 1=Mon, ..., 6=Sat)
         // We want Mon(1) to be offset 0, Tue(2) offset 1... Sun(0) offset 6.
@@ -333,9 +436,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             const month = String(date.getMonth() + 1).padStart(2, '0');
             const day = String(date.getDate()).padStart(2, '0');
             const dateStr = `${year}-${month}-${day}`;
+            if (!inRange(dateStr, range)) continue;
 
             const stat = statsMap[dateStr];
-            const placements = stat ? (stat.placements || 0) : 0;
+            const placements = confirmedSaves(stat);
             const reconciliations = stat ? (stat.reconciliations || 0) : 0;
             const campaigns = (stat?.visitedCampaigns || []).length;
             const activityCount = placements + reconciliations + campaigns;
@@ -416,7 +520,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const dayIndex = date.getDay();
             const stat = dailyStats[dateStr];
 
-            const placements = stat.placements || 0;
+            const placements = confirmedSaves(stat);
             const reconciliations = stat.reconciliations || 0;
             const campaigns = (stat.visitedCampaigns || []).length;
 
@@ -484,8 +588,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Parse YYYY-MM-DD as local date
             const date = parseDateStr(dateStr);
             const month = date.toLocaleString('default', { month: 'long', year: 'numeric' });
-            if (dailyStats[dateStr].placements) {
-                monthCounts[month] = (monthCounts[month] || 0) + dailyStats[dateStr].placements;
+            if (confirmedSaves(dailyStats[dateStr])) {
+                monthCounts[month] = (monthCounts[month] || 0) + confirmedSaves(dailyStats[dateStr]);
             }
         });
 
@@ -555,7 +659,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const day = String(d.getDate()).padStart(2, '0');
                 const ds = `${year}-${month}-${day}`;
                 if (dailyStats[ds]) {
-                    count += dailyStats[ds].placements || 0;
+                    count += confirmedSaves(dailyStats[ds]);
                 }
             }
             return count;
@@ -600,9 +704,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // Determine anchor date
             let anchorDate = null;
-            if (dailyStats[todayStr] && dailyStats[todayStr].placements > 0) {
+            if (confirmedSaves(dailyStats[todayStr]) > 0) {
                 anchorDate = new Date(now);
-            } else if (dailyStats[yesterdayStr] && dailyStats[yesterdayStr].placements > 0) {
+            } else if (confirmedSaves(dailyStats[yesterdayStr]) > 0) {
                 anchorDate = new Date(yesterday);
             }
 
@@ -615,7 +719,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const ds = getDS(d);
 
                     const stat = dailyStats[ds];
-                    const placements = stat ? (stat.placements || 0) : 0;
+                    const placements = confirmedSaves(stat);
 
                     if (placements > 0) {
                         streak++;
@@ -666,17 +770,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function displayStats() {
         chrome.storage.local.get(['legacyStats', 'dailyStats', 'statsStartDate', 'appLearnPopupsBlocked', 'campaignStatsSnapshots'], (data) => {
-            const legacyStats = data.legacyStats || {
+            const range = periodRange();
+            const legacyStats = (selectedPeriod === 'all' ? data.legacyStats : null) || {
                 visitedCampaigns: [],
                 totalLoadingTime: 0,
                 placementsAdded: 0,
                 reconciliations: 0
             };
-            const dailyStats = data.dailyStats || {};
+            const allDailyStats = Object.fromEntries(Object.entries(data.dailyStats || {}).filter(([key]) => inRange(key, { start: null, end: new Date() })));
+            const dailyStats = Object.fromEntries(Object.entries(allDailyStats).filter(([key]) => inRange(key, range)));
+            const formatDate = date => date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+            document.getElementById('stats-period-context').textContent = range.start
+                ? `${formatDate(range.start)} – ${formatDate(range.end)} · dated activity only`
+                : 'All time · includes undated legacy activity';
 
             // Calculate Totals
             let totalLoadingTime = legacyStats.totalLoadingTime || 0;
             let totalPlacements = legacyStats.placementsAdded || 0;
+            let totalCreated = 0;
+            let totalUpdated = 0;
+            let totalOther = 0;
             let totalReconciliations = legacyStats.reconciliations || 0;
 
             // For campaigns, we try to merge
@@ -685,6 +798,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             Object.values(dailyStats).forEach(stat => {
                 totalLoadingTime += stat.loadingTime || 0;
                 totalPlacements += stat.placements || 0;
+                totalCreated += stat.placementsCreated || 0;
+                totalUpdated += stat.placementsUpdated || 0;
+                totalOther += stat.placementSavesOther || 0;
                 totalReconciliations += stat.reconciliations || 0;
                 if (stat.visitedCampaigns) {
                     stat.visitedCampaigns.forEach(c => allCampaigns.add(c));
@@ -701,21 +817,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (campaignsVisitedEl) campaignsVisitedEl.textContent = allCampaigns.size;
             if (loadingTimeEl) loadingTimeEl.innerHTML = formatLoadingTime(totalLoadingTime);
-            if (placementsAddedEl) placementsAddedEl.textContent = totalPlacements;
+            if (placementsAddedEl) placementsAddedEl.textContent = totalCreated;
+            document.getElementById('placements-updated-stat').textContent = totalUpdated;
+            document.getElementById('placement-saves-other-stat').textContent = totalOther;
+            document.getElementById('stats-counts-note').textContent = `Historical save clicks in this period: ${totalPlacements}. These are not confirmed creations and are excluded from the charts. Confirmed counts start with this update and require an explicit placement success message after a save. Other confirmed saves have no reliable create/update classification. Reconciliations count clicks, not confirmed outcomes. Undated legacy activity is included only in All time.`;
             if (reconciliationsEl) reconciliationsEl.textContent = totalReconciliations;
             if (appLearnPopupsBlockedEl) appLearnPopupsBlockedEl.textContent = Number(data.appLearnPopupsBlocked) || 0;
 
             // Render Visualizations
             renderLoadingAreaBreakdown(dailyStats);
             renderCampaignInsights(data.campaignStatsSnapshots);
-            renderHeatmap(dailyStats);
+            renderMonthlyTrends(dailyStats, allDailyStats, range);
+            renderHeatmap(dailyStats, range);
             renderCharts(dailyStats);
-            renderFunStats(dailyStats, totalLoadingTime, totalPlacements);
+            renderFunStats(allDailyStats, totalLoadingTime, Object.values(allDailyStats).reduce((sum, day) => sum + confirmedSaves(day), 0));
 
             // Start Date
             const statsTitle = document.querySelector('#stats h2');
 
-            const earliestRecordedDate = Object.keys(dailyStats)
+            const earliestRecordedDate = Object.keys(allDailyStats)
                 .filter(date => /^\d{4}-\d{2}-\d{2}$/.test(date))
                 .sort()[0];
             const statsStartDate = data.statsStartDate
@@ -738,9 +858,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
                 sinceSpan.textContent = `(since ${dateString})`;
 
-                const totalDays = Math.max(1, Math.floor((new Date() - startDate) / (1000 * 60 * 60 * 24)));
+                const totalDays = Math.max(1, Math.round((range.end - (range.start || startDate)) / (1000 * 60 * 60 * 24)) + 1);
 
                  // Calculate average loading time
+                 if (avgLoadingTimeEl) avgLoadingTimeEl.textContent = '';
                  if (avgLoadingTimeEl && totalLoadingTime > 0) {
                      const avg = totalLoadingTime / totalDays;
                      avgLoadingTimeEl.innerHTML = `Avg per day: ${formatLoadingTime(avg)}`;
@@ -772,6 +893,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             'legacyStats': { visitedCampaigns: [], totalLoadingTime: 0, placementsAdded: 0, reconciliations: 0 },
             'dailyStats': {},
             'campaignStatsSnapshots': [],
+            'statsSaveReceipts': [],
             'appLearnPopupsBlocked': 0,
             'statsStartDate': new Date().toISOString()
         }, () => {

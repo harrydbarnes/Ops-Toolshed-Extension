@@ -28,6 +28,7 @@
     let searchQuery = '';
     let sortMode = 'alpha';
     let favourites = new Set();
+    let favouriteSavePending = false;
     let recentGuideIds = [];
     let currentGuide = null;
     let viewerFallbackTimer = null;
@@ -140,20 +141,20 @@
     function storageSet(area, values) {
         return new Promise(resolve => {
             if (!area?.set) {
-                resolve();
+                resolve(false);
                 return;
             }
             let settled = false;
-            const finish = () => {
+            const finish = saved => {
                 if (settled) return;
                 settled = true;
-                resolve();
+                resolve(saved);
             };
             try {
-                const result = area.set(values, finish);
-                if (result?.then) result.then(finish, finish);
+                const result = area.set(values, () => finish(!globalThis.chrome?.runtime?.lastError));
+                if (result?.then) result.then(() => finish(true), () => finish(false));
             } catch {
-                finish();
+                finish(false);
             }
         });
     }
@@ -618,11 +619,30 @@
         viewTransitionTimer = window.setTimeout(callback, viewTransitionDuration);
     }
 
-    function toggleFavourite() {
-        if (!currentGuide) return;
-        if (favourites.has(currentGuide.id)) favourites.delete(currentGuide.id);
-        else favourites.add(currentGuide.id);
-        storageSet(globalThis.chrome?.storage?.sync, { helpGuideFavouriteIds: [...favourites] });
+    async function saveFavourite(guide) {
+        if (favouriteSavePending) return false;
+        favouriteSavePending = true;
+        const controls = [elements.favourite, ...document.querySelectorAll('.guide-card-favourite')];
+        controls.forEach(control => { control.disabled = true; });
+        const updated = new Set(favourites);
+        if (updated.has(guide.id)) updated.delete(guide.id);
+        else updated.add(guide.id);
+        try {
+            const saved = await storageSet(globalThis.chrome?.storage?.sync, { helpGuideFavouriteIds: [...updated] });
+            if (!saved) {
+                showPanelToast('Could not save your favourites. Try again.');
+                return false;
+            }
+            favourites = updated;
+            return true;
+        } finally {
+            favouriteSavePending = false;
+            controls.forEach(control => { control.disabled = false; });
+        }
+    }
+
+    async function toggleFavourite() {
+        if (!currentGuide || !await saveFavourite(currentGuide)) return;
         updateFavouriteButton();
     }
 
@@ -631,11 +651,10 @@
         toggleFavouriteFromCard(guide, shell);
     }
 
-    function toggleFavouriteFromCard(guide, shell) {
+    async function toggleFavouriteFromCard(guide, shell) {
         const removing = favourites.has(guide.id);
-        if (removing) favourites.delete(guide.id);
-        else favourites.add(guide.id);
-        storageSet(globalThis.chrome?.storage?.sync, { helpGuideFavouriteIds: [...favourites] });
+        if (!await saveFavourite(guide)) return;
+        updateFavouriteButton();
         shell.classList.add(removing ? 'is-removing-favourite' : 'is-adding-favourite');
         const timer = window.setTimeout(() => {
             favouriteAnimationTimers.delete(timer);
@@ -690,7 +709,8 @@
         }
     }
 
-    function handleDisableFeature() {
+    async function handleDisableFeature() {
+        if (elements.disableFeature.disabled) return;
         if (!disableConfirmationActive) {
             disableConfirmationActive = true;
             elements.disableFeature.classList.add('is-confirming');
@@ -699,7 +719,12 @@
         }
 
         elements.disableFeature.disabled = true;
-        storageSet(globalThis.chrome?.storage?.sync, { helpGuidesEnabled: false });
+        const saved = await storageSet(globalThis.chrome?.storage?.sync, { helpGuidesEnabled: false });
+        if (!saved) {
+            elements.disableFeature.disabled = false;
+            showPanelToast('Could not turn off Help Guides. Try again.');
+            return;
+        }
         showPanelToast('You can turn this on again in the Ops Toolshed settings', {
             duration: 2200,
             onComplete: closeSidePanel

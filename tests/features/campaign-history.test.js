@@ -236,6 +236,23 @@ function createPage({
 }
 
 describe('campaign history feature', () => {
+    test('campaign metadata survives an inaccessible embedded frame', async () => {
+        const { dom } = createPage();
+        let frame;
+        try {
+            await flushPromises();
+            frame = dom.window.document.createElement('iframe');
+            dom.window.document.body.append(frame);
+            const inaccessible = jest.fn(() => { throw new dom.window.DOMException('Blocked cross-origin frame', 'SecurityError'); });
+            Object.defineProperty(frame, 'contentDocument', { configurable: true, get: inaccessible });
+            const snapshot = dom.window.campaignHistoryFeature.getCampaignSnapshot();
+            expect(snapshot.campaignName).toBe('TCCC ZeroZero July Burst');
+            expect(inaccessible).toHaveBeenCalled();
+        } finally {
+            if (frame) delete frame.contentDocument;
+            dom.window.close();
+        }
+    });
     test.each(['throw', 'promise', 'callback'])('stops quietly after extension invalidation via %s', async mode => {
         const { dom } = createPage({ settings: { campaignHistoryLoggingEnabled: false } });
         try {
@@ -1655,6 +1672,12 @@ describe('campaign history feature', () => {
             .find(el => el.textContent.includes('Copy campaign name'));
         trustedClick(copyNameItem);
         expect(window.chrome.runtime.sendMessage).toHaveBeenCalledWith({ action: 'copyCampaignHeaderToClipboard', text: 'Test Target Campaign' });
+        await flushPromises();
+        expect(copyNameItem.textContent).toContain('Copied name!');
+        window.chrome.runtime.sendMessage.mockRejectedValueOnce(new Error('Extension context invalidated'));
+        trustedClick(copyNameItem);
+        await flushPromises();
+        expect(copyNameItem.textContent).toContain('Failed to copy');
 
         // 7. Test dismissal via Escape key
         card.dispatchEvent(new window.MouseEvent('contextmenu', {

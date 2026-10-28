@@ -105,6 +105,12 @@
         });
     }
 
+    function reconcile() {
+        if (isNewOrderUi() || document.querySelector(
+            `.${TOGGLE_CLASS}, #${HEADER_ID}.order-view-toggle-active`
+        )) handleOrderViewToggle();
+    }
+
     function handleOrderViewToggle() {
         if (!settingsLoaded || !featureEnabled) {
             removeOrderViewToggle();
@@ -156,6 +162,7 @@
     });
 
     window.orderViewToggleFeature = {
+        reconcile,
         handleOrderViewToggle,
         initialize,
         isNewOrderUi,

@@ -10,6 +10,40 @@ function response(status, payload, headers = {}) {
 }
 
 describe('Meta report API client', () => {
+    test('malformed responses preserve HTTP status and parse cause without network retries', async () => {
+        const parseError = new SyntaxError('Private response body');
+        const malformed = response(200, {});
+        malformed.json.mockRejectedValue(parseError);
+        const fetchImpl = jest.fn().mockResolvedValue(malformed), sleep = jest.fn();
+        const client = createClient({ accessToken: 'secret', fetchImpl, sleep });
+        await expect(client.getCampaigns('123')).rejects.toMatchObject({
+            source: 'meta', kind: 'invalid-response', status: 200, cause: parseError,
+            message: 'Meta returned an invalid JSON response (HTTP 200).'
+        });
+        expect(fetchImpl).toHaveBeenCalledTimes(1);
+        expect(sleep).not.toHaveBeenCalled();
+    });
+
+    test('transport failures retain their cause and classification after bounded retries', async () => {
+        const cause = new TypeError('Network unavailable');
+        const fetchImpl = jest.fn().mockRejectedValue(cause), sleep = jest.fn().mockResolvedValue();
+        const client = createClient({ accessToken: 'secret', fetchImpl, sleep, maxRetries: 1 });
+        await expect(client.getCampaigns('123')).rejects.toMatchObject({ source: 'meta', kind: 'network', cause });
+        expect(fetchImpl).toHaveBeenCalledTimes(2);
+        expect(sleep).toHaveBeenCalledTimes(1);
+    });
+    test.each([
+        ['getCampaigns', ['']], ['getAdSets', ['']], ['getAccountMetadata', ['']],
+        ['getInsights', ['123', 'bad', 'bad']], ['getDailyInsights', ['123', 'bad', 'bad']],
+        ['getCampaignSnapshot', ['bad']], ['getCampaignCandidates', ['']], ['verifyAccountAccess', ['bad']]
+    ])('%s rejects invalid input through its promise without making requests', async (method, args) => {
+        const fetchImpl = jest.fn();
+        const client = createClient({ accessToken: 'secret', fetchImpl });
+        const failure = jest.fn();
+        await client[method](...args).catch(failure);
+        expect(failure).toHaveBeenCalledWith(expect.any(Error));
+        expect(fetchImpl).not.toHaveBeenCalled();
+    });
     test('creation evidence is scoped to the exact campaign and ignores child/unrelated events',async()=>{
         const fetchImpl=jest.fn().mockResolvedValue(response(200,{data:[{object_id:'7',event_type:'create_campaign_group',actor_name:'Wrong'},{object_id:'99',event_type:'update_campaign_name'},{object_id:'99',event_type:'create_campaign_group',actor_name:'Operator',application_name:'Mediaocean',application_id:'123',event_time:'2026-06-01'}]}));
         const event=await createClient({accessToken:'secret',fetchImpl}).getCampaignCreation({id:'99',account_id:'88',created_time:'2026-06-01T12:00:00Z'});

@@ -22,6 +22,25 @@ function setup(enabled = false) {
 }
 
 describe('Diagnostics content bridge', () => {
+    test.each(['throw', 'reject'])('recording cannot interrupt features when messaging fails via %s', async mode => {
+        const page = setup(true);
+        try {
+            page.window.chrome.runtime.sendMessage.mockImplementation(() => {
+                const error = new Error('Extension context invalidated');
+                if (mode === 'throw') throw error;
+                return Promise.reject(error);
+            });
+            expect(() => page.window.opsDiagnostics.record({ source: 'test', operation: 'run' })).not.toThrow();
+            await Promise.resolve();
+            page.window.chrome.runtime.sendMessage.mockResolvedValue({ status: 'success' });
+            page.window.opsDiagnostics.record({ source: 'test', operation: 'recovered' });
+            expect(page.window.chrome.runtime.sendMessage).toHaveBeenLastCalledWith(expect.objectContaining({
+                event: expect.objectContaining({ operation: 'recovered' })
+            }));
+        } finally {
+            page.dom.window.close();
+        }
+    });
     test('does not send events while disabled', () => {
         const page = setup(false);
 

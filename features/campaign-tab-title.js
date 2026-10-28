@@ -3,7 +3,7 @@
 
     const SETTING_KEY = 'campaignTabTitleEnabled';
     const PRISMA_TITLE_PREFIX = 'Prisma Media - ';
-    const CAMPAIGN_HOSTS = new Set(['groupmuk-prisma.mediaocean.com', 'go.mediaocean.com']);
+    const PRISMA_DEFAULT_TITLE = 'Prisma Media';
     const CAMPAIGN_PATH = '/campaign-management';
     // Prisma's header reacts poorly when a long campaign value is read and
     // written back as the document title during its initial render. Keep this
@@ -20,36 +20,71 @@
     let titleObserver = null;
     let observedTitleElement = null;
 
-    function getCampaignId() {
-        if (!CAMPAIGN_HOSTS.has(window.location.hostname)) return '';
-        if (window.location.pathname.replace(/\/+$/, '') !== CAMPAIGN_PATH) return '';
+    function isPrismaHost(hostname = window.location.hostname) {
+        return hostname.includes('prisma.mediaocean.com') ||
+            hostname === 'go.demo.mediaocean.com' ||
+            hostname === 'go.mediaocean.com';
+    }
 
-        const params = new URLSearchParams(window.location.hash.substring(1));
-        if (params.get('osAppId') !== 'prsm-cm-spa' ||
-            params.get('osPspId') !== 'prsm-cm-plan-to-buy') return '';
-        return params.get('campaign-id') || '';
+    function getCampaignId() {
+        if (!isPrismaHost()) return '';
+        if (!window.location.pathname.startsWith(CAMPAIGN_PATH)) return '';
+
+        const hash = window.location.hash.replace(/^#/, '');
+        const params = new URLSearchParams(hash);
+        const pspId = params.get('osPspId') || '';
+        if (pspId === 'cm-dashboard' || window.location.href.includes('cm-dashboard')) return '';
+
+        const campaignId = params.get('campaign-id') ||
+            window.location.href.match(/(?:^#|[&?])campaign-id=([^&]+)/)?.[1] || '';
+        return decodeURIComponent(campaignId);
     }
 
     function isCampaignRoute() {
         return Boolean(getCampaignId());
     }
 
+    function isPlaceholderTitle(title) {
+        const text = String(title || '').trim();
+        if (!text) return true;
+        if (/^prisma media(?:\s*-\s*)?$/i.test(text)) return true;
+        const stripped = text.replace(/^prisma media\s*-\s*/i, '').trim();
+        if (!stripped) return true;
+        if (/^prsm[-_]cm/i.test(stripped)) return true;
+        if (/^cm[-_]dashboard/i.test(stripped)) return true;
+        return false;
+    }
+
     function getCampaignTitle(title) {
-        if (!title.startsWith(PRISMA_TITLE_PREFIX)) return title;
-        const campaignTitle = title.substring(PRISMA_TITLE_PREFIX.length).trim() || title;
-        return campaignTitle.length <= MAX_CAMPAIGN_TAB_TITLE_LENGTH ? campaignTitle : '';
+        const text = String(title || '').trim();
+        if (!text.startsWith(PRISMA_TITLE_PREFIX)) {
+            return isPlaceholderTitle(text) ? '' : (text.length <= MAX_CAMPAIGN_TAB_TITLE_LENGTH ? text : '');
+        }
+        const candidate = text.substring(PRISMA_TITLE_PREFIX.length).trim();
+        if (isPlaceholderTitle(candidate)) return '';
+        return candidate.length <= MAX_CAMPAIGN_TAB_TITLE_LENGTH ? candidate : '';
     }
 
     function getHeaderCampaignName(campaignId) {
         const pageDocument = window.document;
         if (!pageDocument?.querySelector) return '';
-        const nameElement = pageDocument.querySelector('.mo-page-header .mo-campaign-name-wrapper');
-        const pageHeader = nameElement?.closest('.mo-page-header');
-        if (!nameElement || !pageHeader || !pageHeader.textContent.includes(campaignId)) return '';
-        const campaignName = nameElement.textContent.trim();
-        // Very long names can be repeatedly re-rendered by Prisma while the
-        // header is settling. Do not turn that volatile UI value into a tab
-        // title; leave Prisma's native title untouched for that campaign.
+        const nameElement = pageDocument.querySelector('.mo-page-header .mo-campaign-name-wrapper') ||
+            pageDocument.querySelector('.mo-campaign-name-wrapper') ||
+            pageDocument.querySelector('[id$="-campaign-name"]');
+        if (!nameElement) return '';
+
+        const pageHeader = nameElement.closest('.mo-page-header, [class*="campaign-header"], .buy-details-wrapper');
+        const headerText = pageHeader?.textContent || '';
+        const numericCampaignId = String(campaignId || '').replace(/^CP/i, '');
+        if (campaignId && headerText && !headerText.includes(campaignId) && !headerText.includes(numericCampaignId)) {
+            if (/(?:^|\b)(?:CP[A-Z0-9]+|\d{5,})\b/i.test(headerText)) {
+                return '';
+            }
+        }
+
+        const campaignName = (nameElement.getAttribute('data-full-text') || nameElement.textContent || '').trim();
+        if (!campaignName || isPlaceholderTitle(campaignName)) return '';
+
         return campaignName.length <= MAX_CAMPAIGN_TAB_TITLE_LENGTH ? campaignName : null;
     }
 
@@ -92,19 +127,27 @@
             stopCampaignNameObserver();
             return;
         }
+
         const prefixedCampaignTitle = getCampaignTitle(currentTitle);
-        const campaignTitle = headerCampaignName ||
-            (prefixedCampaignTitle !== currentTitle ? prefixedCampaignTitle : '');
+        const campaignTitle = headerCampaignName || prefixedCampaignTitle;
 
-        if (!headerCampaignName) watchForCampaignName();
-        if (!campaignTitle || campaignTitle === currentTitle) return;
+        if (!campaignTitle) {
+            watchForCampaignName();
+            if (isPlaceholderTitle(currentTitle) && currentTitle !== PRISMA_DEFAULT_TITLE) {
+                appliedCampaignTitle = PRISMA_DEFAULT_TITLE;
+                document.title = PRISMA_DEFAULT_TITLE;
+            }
+            return;
+        }
 
-        if (currentTitle && currentTitle !== appliedCampaignTitle) {
+        if (headerCampaignName) stopCampaignNameObserver();
+        if (campaignTitle === currentTitle) return;
+
+        if (currentTitle && currentTitle !== appliedCampaignTitle && !isPlaceholderTitle(currentTitle)) {
             originalCampaignTitle = currentTitle;
         }
         appliedCampaignTitle = campaignTitle;
         document.title = campaignTitle;
-        if (headerCampaignName) stopCampaignNameObserver();
     }
 
     function restorePrismaTitle() {

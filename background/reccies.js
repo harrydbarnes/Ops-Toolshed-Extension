@@ -1,7 +1,7 @@
 import '../reccie-core.js';
 import { testReccieGoogleConnection } from './reccie-connection-probe.js';
 import {autoMarkVerified,assigned,RECCIE_ALARM,clearAutoReceipt} from './reccie-automation.js';
-import { manualTrackerWrite } from './reccie-writes.js';
+import { dispatchTrackerWrite } from './reccie-writes.js';
 import { buildReccieQuery } from './reccie-query.js';
 import { isFeatureModeActive } from './feature-mode.js';
 
@@ -65,11 +65,11 @@ function getRecciesPanelTarget(request, sender) {
         throw error;
     }
     let prismaSender = false;
-    try {
+    if (URL.canParse(sender?.url)) {
         const url = new URL(sender?.url);
         prismaSender = sender.id === chrome.runtime.id && sender.tab?.id &&
             (sender.frameId == null || sender.frameId === 0) && url.origin === 'https://go.mediaocean.com' && url.pathname.startsWith('/campaign-management/');
-    } catch (_) { /* Only extension pages or the signed-in Prisma top frame may open this panel. */ }
+    }
     if (!ownPage(sender) && !prismaSender) throw new Error('Open Reccies from Ops Toolshed or Prisma.');
     const windowId = sender.tab?.windowId ?? request.windowId;
     if (!Number.isInteger(windowId)) throw new Error('Could not identify the active Chrome window.');
@@ -270,7 +270,7 @@ export async function handleReccies(request, sender, sendResponse) {
         if (!ownPage(sender)) throw new Error('Tracker data is available only in Ops Toolshed.');
         await assertPrismaProfile();
         if (['previewTrackerWrite','commitTrackerWrite','trackerWriteStatus'].includes(request.operation)) {
-            const result = await manualTrackerWrite(request,{queueWrite,assertActive});
+            const result = await dispatchTrackerWrite(request,{queueWrite,assertActive});
             sendResponse({status:'success',...result});
             return;
         }
@@ -350,7 +350,7 @@ export async function runReccieAlarm(alarm){
             if(checking){await chrome.alarms.create(alarm.name,{when:Date.now()+30000});return;}
             try{
                 await chrome.storage.local.set({reccieAutomationLastRun:{at:new Date().toISOString(),kind:'receipt',state:'recovering',message:'Checking the existing save receipt; the save is not sent again.'}});
-                const result=await manualTrackerWrite({operation:'trackerWriteStatus',mode:saved.mode,month:saved.month,requestId},{queueWrite,assertActive});
+                const result=await dispatchTrackerWrite({operation:'trackerWriteStatus',mode:saved.mode,month:saved.month,requestId},{queueWrite,assertActive});
                 await chrome.storage.local.set({reccieAutomationLastRun:{at:new Date().toISOString(),kind:'receipt',state:result.write.state}});
                 if(result.write.state==='complete'){
                     const trackerKey=core.trackerKey(saved.mode,saved.month),prefKey=saved.mode==='main'?'recciePreferences':`${trackerKey}:preferences`;

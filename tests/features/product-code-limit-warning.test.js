@@ -138,6 +138,36 @@ function createAddCampaignPage(estimateCodes = [201, 210], featureEnabled = null
 }
 
 describe('Product Code Limit Warning Feature', () => {
+    test('retries the current campaign assessment after a transient request failure', async () => {
+        const dom = createPage(250);
+        try {
+            dom.window.fetch.mockRejectedValueOnce(new Error('Temporary outage'));
+            await dom.window.productCodeLimitWarningFeature.refresh();
+            expect(dom.window.document.querySelector('.toolshed-product-code-limit-warning-product-campaign')).toBeNull();
+            await dom.window.productCodeLimitWarningFeature.refresh();
+            expect(dom.window.document.querySelector('.toolshed-product-code-limit-warning-product-campaign')).not.toBeNull();
+        } finally { dom.window.close(); }
+    });
+
+    test('retries an Add Campaign assessment instead of caching its failed request', async () => {
+        const dom = createAddCampaignPage(Array.from({ length: 250 }, (_, index) => index + 1));
+        try {
+            const original = dom.window.fetch.getMockImplementation();
+            let failAssessment = true;
+            dom.window.fetch.mockImplementation(url => {
+                if (!String(url).includes('/agency-service/secure/user') && failAssessment) {
+                    failAssessment = false;
+                    return Promise.reject(new Error('Temporary outage'));
+                }
+                return original(url);
+            });
+            await dom.window.productCodeLimitWarningFeature.refresh();
+            const frameDocument = dom.window.document.querySelector('iframe').contentDocument;
+            expect(frameDocument.querySelector('.toolshed-product-code-limit-warning-add-campaign')).toBeNull();
+            await dom.window.productCodeLimitWarningFeature.refresh();
+            expect(frameDocument.querySelector('.toolshed-product-code-limit-warning-add-campaign')).not.toBeNull();
+        } finally { dom.window.close(); }
+    });
     afterEach(() => {
         jest.restoreAllMocks();
     });

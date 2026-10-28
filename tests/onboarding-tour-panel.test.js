@@ -113,6 +113,41 @@ describe('Onboarding side-panel journey', () => {
         dom.window.close();
     });
 
+    test.each(['throw', 'reject'])('failed completion persistence via %s keeps the tour open for retry', async mode => {
+        const { dom, chrome } = setup();
+        try {
+            await Promise.resolve();
+            await Promise.resolve();
+            chrome.storage.local.set.mockImplementationOnce(() => {
+                if (mode === 'throw') throw new Error('Storage unavailable');
+                return Promise.reject(new Error('Storage unavailable'));
+            });
+            await dom.window.onboardingTourPanel.finishTour(true);
+            expect(chrome.sidePanel.close).not.toHaveBeenCalled();
+            expect(chrome.tabs.update).not.toHaveBeenCalled();
+            expect(dom.window.document.getElementById('tour-status').textContent).toContain('Could not save');
+            expect(dom.window.document.getElementById('skip-tour').disabled).toBe(false);
+            await dom.window.onboardingTourPanel.finishTour(true);
+            expect(chrome.sidePanel.close).toHaveBeenCalledTimes(1);
+        } finally { dom.window.close(); }
+    });
+
+    test('waits for completion persistence before closing and ignores duplicate Finish clicks', async () => {
+        const { dom, chrome } = setup();
+        try {
+            await Promise.resolve();
+            await Promise.resolve();
+            let save;
+            chrome.storage.local.set.mockImplementationOnce(() => new Promise(resolve => { save = resolve; }));
+            const finishing = dom.window.onboardingTourPanel.finishTour(true);
+            await dom.window.onboardingTourPanel.finishTour(true);
+            expect(chrome.sidePanel.close).not.toHaveBeenCalled();
+            save();
+            await finishing;
+            expect(chrome.sidePanel.close).toHaveBeenCalledTimes(1);
+        } finally { dom.window.close(); }
+    });
+
     test('finishing returns Prisma home, closes the tour and does not open Help Guides', async () => {
         const campaignUrl = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP3GH64&route=online';
         const { dom, chrome } = setup({}, campaignUrl);
