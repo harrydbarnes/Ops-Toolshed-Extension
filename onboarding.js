@@ -14,6 +14,7 @@
         swapAccountsEnabled: true,
         rememberAccountSwitchUrlEnabled: true,
         loadingFactsEnabled: true,
+        loadingFactsUI: 'new',
         prismaReminderFrequency: 'daily',
         metaReminderEnabled: true,
         iasReminderEnabled: true,
@@ -22,6 +23,7 @@
     const stepCopy = [
         ['Choose your defaults', 'Start with the tools you’ll notice every day.', 'We’ve picked a practical starting set for navigating campaigns, keeping account context visible, and finding help without leaving Prisma.'],
         ['Fine-tune your workflow', 'Choose the shortcuts that fit your day.', 'Set up useful copy actions, reminders and account switching before you open Prisma.'],
+        ['Loading facts', 'Choose how loading facts look.', 'Preview both styles and pick the one you prefer. You can change this later in Settings.'],
         ['See it in Prisma', 'Your setup is ready.', 'Open Prisma and follow the focused side-panel guide to see the most useful areas in context.']
     ];
     let activeStep = 0;

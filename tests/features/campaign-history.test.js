@@ -350,6 +350,10 @@ describe('campaign history feature', () => {
             .toMatch(/top:\s*max\(56px,\s*5vh\)/i);
         expect(cssRule(contentCss, '#toolshed-campaign-history-panel.is-expanded'))
             .toMatch(/left:\s*5vw/i);
+        expect(cssRule(contentCss, '#toolshed-campaign-history-panel.is-expanded .toolshed-campaign-history-result'))
+            .toMatch(/content-visibility:\s*auto/i);
+        expect(cssRule(contentCss, '.toolshed-campaign-history-result'))
+            .not.toMatch(/content-visibility:\s*auto/i);
         expect(cssRule(contentCss, '.toolshed-campaign-history-match'))
             .toMatch(/background:\s*var\(--toolshed-history-highlight,\s*#f3e7ad\)/i);
         expect(cssRule(contentCss, '.toolshed-campaign-history-result button'))
@@ -516,6 +520,8 @@ describe('campaign history feature', () => {
         expect(panel.style.left).toBe(`${collapsedRect.left}px`);
         expect(panel.style.width).toBe(`${collapsedRect.width}px`);
         expect(panel.style.right).toBe('auto');
+        expect(panel.style.height).toBe('');
+        expect(panel.style.maxHeight).toBe('');
 
         document.querySelector('.toolshed-campaign-history-close').click();
         expect(panel.hidden).toBe(false);
@@ -607,7 +613,19 @@ describe('campaign history feature', () => {
         ]);
         expect(resultList.classList).toContain('is-page-transitioning-previous');
 
+        const expansionLayouts = [];
+        Object.defineProperty(panel, 'offsetWidth', {
+            configurable: true,
+            get() {
+                if (panel.classList.contains('is-expanded')) {
+                    expansionLayouts.push({ count: getCampaignNames().length, transition: panel.style.transition });
+                }
+                return 640;
+            }
+        });
         panel.querySelector('.toolshed-campaign-history-expand').click();
+        expect(expansionLayouts[0]).toEqual({ count: 7, transition: 'none' });
+        expect(panel.style.transition).toBe('');
         expect(panel.classList).toContain('is-expanded');
         expect(pagination.hidden).toBe(true);
         expect(getCampaignNames()).toHaveLength(7);

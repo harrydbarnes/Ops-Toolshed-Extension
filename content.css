@@ -1808,6 +1808,11 @@ div[slot="right"].ai-style-change-1 {
     border-bottom: 1px solid #e8edf2;
 }
 
+#toolshed-campaign-history-panel.is-expanded .toolshed-campaign-history-result {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 110px;
+}
+
 .toolshed-campaign-history-result:last-child {
     border-bottom: 0;
 }

@@ -16,7 +16,7 @@
         </header>
 
         <section class="onboarding-stage" aria-labelledby="stage-title">
-            <div class="onboarding-progress" aria-label="Onboarding progress"><strong id="progress-count">1 of 3</strong><span class="progress-rail" aria-hidden="true"><span id="progress-fill"></span></span><span id="progress-label">Choose your defaults</span></div>
+            <div class="onboarding-progress" aria-label="Onboarding progress"><strong id="progress-count">1 of 4</strong><span class="progress-rail" aria-hidden="true"><span id="progress-fill"></span></span><span id="progress-label">Choose your defaults</span></div>
             <div class="stage-copy">
                 <h1 id="stage-title" tabindex="-1">Start with the tools you’ll notice every day.</h1>
                 <p id="stage-description" class="stage-description">We’ve picked a practical starting set for navigating campaigns, keeping account context visible, and finding help without leaving Prisma.</p>
@@ -54,7 +54,6 @@
                             <div class="setting-choice featured-choice"><div><strong>Workflow preferences</strong><span>Choose the shortcuts and reminders that help you stay in flow.</span></div><div class="segmented-choice" role="group" aria-label="Popup colour"><button type="button" data-setting-choice="uiTheme" data-value="pink" aria-pressed="true">Pink</button><button type="button" data-setting-choice="uiTheme" data-value="black" aria-pressed="false">Black</button></div></div>
                             <label class="setting-choice"><span><strong>Campaign name quick copy</strong><small>Copy the campaign name directly from the header.</small></span><input type="checkbox" data-setting="campaignNameQuickCopyEnabled" checked><i aria-hidden="true"></i></label>
                             <label class="setting-choice"><span><strong>Campaign IDs quick copy</strong><small>Copy Campaign ID and CL/PR/CA header values.</small></span><input type="checkbox" data-setting="campaignHeaderQuickCopyEnabled" checked><i aria-hidden="true"></i></label>
-                            <label class="setting-choice"><span><strong>Loading facts</strong><small>Replace some waiting time with short facts.</small></span><input type="checkbox" data-setting="loadingFactsEnabled" checked><i aria-hidden="true"></i></label>
                             <label class="setting-choice"><span><strong>Meta reconciliation reminder</strong><small>Prompt the checks needed before reconciliation.</small></span><input type="checkbox" data-setting="metaReminderEnabled" checked><i aria-hidden="true"></i></label>
                             <label class="setting-choice"><span><strong>IAS booking reminder</strong><small>Show the IAS setup reminder on matching pages.</small></span><input type="checkbox" data-setting="iasReminderEnabled" checked><i aria-hidden="true"></i></label>
                             <label class="setting-choice"><span><strong>Timesheet reminder</strong><small>Receive the weekly Aura timesheet notification.</small></span><input type="checkbox" data-setting="timesheetReminderEnabled" checked><i aria-hidden="true"></i></label>
@@ -65,6 +64,21 @@
                 </section>
 
                 <section class="onboarding-page" data-page="2" hidden>
+                    <label class="setting-choice facts-toggle"><span><strong>Loading facts</strong><small>Show short facts while Prisma loads.</small></span><input type="checkbox" data-setting="loadingFactsEnabled" checked><i aria-hidden="true"></i></label>
+                    <div class="facts-choices" role="group" aria-label="Loading facts appearance">
+                        <button class="facts-option" type="button" data-setting-choice="loadingFactsUI" data-value="new" aria-pressed="true">
+                            <span class="facts-preview facts-preview-new" aria-hidden="true"><span class="facts-preview-message">The first webcam was created to monitor a coffee pot at Cambridge University.</span><span class="facts-preview-menu">•••</span></span>
+                            <span class="facts-option-label"><strong>New UI</strong><small>A subtle message with feedback in a menu.</small></span>
+                        </button>
+                        <button class="facts-option" type="button" data-setting-choice="loadingFactsUI" data-value="old" aria-pressed="false">
+                            <span class="facts-preview facts-preview-old" aria-hidden="true"><span class="facts-old-icon">⏳</span><span><b>DID YOU KNOW?</b><span class="facts-preview-message">The first webcam was created to monitor a coffee pot at Cambridge University.</span></span><span class="facts-old-actions">? &nbsp;×</span></span>
+                            <span class="facts-option-label"><strong>Old UI</strong><small>A dark floating message with visible feedback buttons.</small></span>
+                        </button>
+                    </div>
+                    <p class="facts-note">Your appearance choice is kept even if loading facts are turned off.</p>
+                </section>
+
+                <section class="onboarding-page" data-page="3" hidden>
                     <div class="ready-layout">
                         <div><h2>Your choices, saved.</h2><p>Take a short guided tour in Prisma, or explore every feature by workflow. You can return to either at any time.</p><a class="explorer-link" href="feature-explorer.html">Explore all features</a><div id="setup-summary" class="setup-summary" aria-live="polite"></div></div>
                         <aside class="tour-preview"><strong>A short tour, at your pace</strong><p>See key features where you use them, without stepping through every individual control.</p></aside>

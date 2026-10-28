@@ -2786,20 +2786,36 @@
         };
     }
 
-    function animatePanelGeometry(panel, expanded, prepareCollapsedPanel) {
+    function animatePanelGeometry(panel, expanded, preparePanel) {
         clearPanelGeometryCleanup();
         const currentRect = panel.getBoundingClientRect();
         setInlinePanelGeometry(panel, currentRect);
 
         let targetRect;
         if (expanded) {
-            panel.classList.add('is-expanded');
+            const previousTransition = panel.style.getPropertyValue('transition');
+            const previousPriority = panel.style.getPropertyPriority('transition');
+            panel.style.setProperty('transition', 'none');
+            try {
+                panel.classList.add('is-expanded');
+                preparePanel?.();
+                // Commit the full list at the current size before starting motion.
+                // Otherwise list construction and its first layout interrupt the
+                // opening frames, while minimising only lays out four results.
+                void panel.offsetWidth;
+            } finally {
+                if (previousTransition) {
+                    panel.style.setProperty('transition', previousTransition, previousPriority);
+                } else {
+                    panel.style.removeProperty('transition');
+                }
+            }
             targetRect = getExpandedPanelGeometry();
         } else {
             targetRect = measureCollapsedPanelGeometry(
                 panel,
                 currentRect,
-                prepareCollapsedPanel
+                preparePanel
             );
         }
 
@@ -2810,19 +2826,31 @@
 
         const duration = getPanelTransitionDuration();
         if (duration === 0) {
-            clearInlinePanelGeometry(panel);
+            if (expanded) {
+                clearInlinePanelGeometry(panel);
+            } else {
+                panel.style.removeProperty('height');
+                panel.style.removeProperty('max-height');
+            }
             return;
         }
 
         panelGeometryCleanupTimer = window.setTimeout(() => {
             panelGeometryCleanupTimer = null;
-            if (!panel.hidden && expanded) {
-                clearInlinePanelGeometry(panel);
+            if (!panel.hidden) {
+                if (expanded) {
+                    clearInlinePanelGeometry(panel);
+                } else {
+                    panel.style.removeProperty('height');
+                    panel.style.removeProperty('max-height');
+                }
             }
             // Keep the measured collapsed geometry in place. Removing the
             // pixel-based left/width values here lets the CSS right anchor
             // reflow after the transition, which causes a visible jump at the
-            // end of minimising.
+            // end of minimising. Height is removed so the collapsed panel
+            // naturally wraps its results without leaving an empty gap, and
+            // adapts when searching or paginating.
         }, duration + 40);
     }
 
@@ -2920,8 +2948,7 @@
         const searchInput = panel?.querySelector('#toolshed-campaign-history-search-input');
         const shouldRestoreSearchFocus = document.activeElement === searchInput;
         const expanded = !panel.classList.contains('is-expanded');
-        setExpanded(panel, expanded, expanded ? null : () => renderHistoryResults());
-        if (expanded) renderHistoryResults();
+        setExpanded(panel, expanded, () => renderHistoryResults());
         if (shouldRestoreSearchFocus) searchInput.focus();
     }
 
