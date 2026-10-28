@@ -111,6 +111,10 @@
     }
 
     function trySessionTimeoutStage() {
+        if (!isActiveDocument() || !settings.enabled) {
+            cleanupTimeoutProgress();
+            return;
+        }
         if (timeoutLinkProcessed) return;
         const link = findTimeoutSignInLink();
         if (!link) return;

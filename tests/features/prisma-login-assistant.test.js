@@ -353,4 +353,43 @@ describe('Prisma sign-in assistant', () => {
 
         closePage(dom);
     });
+
+    test('does not trigger timeout automation when disabled', async () => {
+        const { dom, window } = createPage({
+            stage: 'session-timeout',
+            enabled: false,
+            url: 'https://go.mediaocean.com/ideskos-viewport/federate/logout?federatedLogout=true'
+        });
+        const link = window.document.getElementById('signInLink');
+        const linkClick = jest.fn();
+        link.addEventListener('click', linkClick);
+
+        await settle();
+
+        const progressBar = window.document.getElementById('ops-toolshed-session-timeout-bar');
+        expect(progressBar).toBeNull();
+        expect(linkClick).not.toHaveBeenCalled();
+
+        closePage(dom);
+    });
+
+    test('does not trigger timeout automation when document is not focused', async () => {
+        const { dom, window } = createPage({
+            stage: 'session-timeout',
+            enabled: true,
+            focused: false,
+            url: 'https://go.mediaocean.com/ideskos-viewport/federate/logout?federatedLogout=true'
+        });
+        const link = window.document.getElementById('signInLink');
+        const linkClick = jest.fn();
+        link.addEventListener('click', linkClick);
+
+        await settle();
+
+        const progressBar = window.document.getElementById('ops-toolshed-session-timeout-bar');
+        expect(progressBar).toBeNull();
+        expect(linkClick).not.toHaveBeenCalled();
+
+        closePage(dom);
+    });
 });
