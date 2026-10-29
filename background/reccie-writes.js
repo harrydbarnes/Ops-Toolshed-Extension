@@ -7,7 +7,14 @@ const pending=new Map();
 const receiptKey=(mode,month)=>`reccieManualSave:${mode}:${month}`;
 async function api(operation,body){
     if(!await chrome.permissions.contains({origins}))throw Error('Allow Google script access to update the tracker.');
-    const response=await fetch(endpoint,{method:'POST',credentials:'include',redirect:'follow',cache:'no-store',signal:AbortSignal.timeout(25000),headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify({operation,...body})});
+    let response;
+    try {
+        response=await fetch(endpoint,{method:'POST',credentials:'include',redirect:'follow',cache:'no-store',signal:AbortSignal.timeout(25000),headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify({operation,...body})});
+    } catch (cause) {
+        const error = new Error('Could not confirm the tracker request. Check the save receipt before retrying.', { cause });
+        error.code = 'TRANSPORT_UNCERTAIN';
+        throw error;
+    }
     if(!response.ok||!['https://script.google.com','https://script.googleusercontent.com'].includes(new URL(response.url).origin)||!(response.headers.get('content-type')||'').includes('application/json'))throw Error('Google returned a sign-in or access page. Open the tracker in your work Google account and try again.');
     const data=await response.json();
     if(data.service!=='ops-toolshed-reccies-writer'||data.protocol!==1)throw Error('The tracker update service is not ready. No confirmed update is available.');

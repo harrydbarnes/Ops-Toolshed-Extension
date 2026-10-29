@@ -57,7 +57,7 @@ describe('manual Reccies worker writes',()=>{
         await expect(manual({operation:'previewTrackerWrite',mode:'main',month:'2026-09',revision:'original',rowIds:[999]},context)).rejects.toThrow('Selection');expect(fetchMock).not.toHaveBeenCalled();
     });
     test('unknown network result never updates cache or retries commit automatically; status can recover',async()=>{
-        await preview();fetchMock.mockRejectedValueOnce(Error('Connection lost'));await expect(commit()).rejects.toThrow('lost');expect(state.reccieTracker.rows[0].reccied).toBe('No');expect(fetchMock).toHaveBeenCalledTimes(2);
+        await preview();fetchMock.mockRejectedValueOnce(Error('Connection lost'));await expect(commit()).rejects.toMatchObject({code:'TRANSPORT_UNCERTAIN'});expect(state.reccieTracker.rows[0].reccied).toBe('No');expect(fetchMock).toHaveBeenCalledTimes(2);
         fetchMock.mockResolvedValue(response({requestId,mode:'main',month:'2026-09',state:'complete',results:[{dNumber:'D03120200',campaignId:'CP3G9KS',month:'2026-09',state:'already_yes',after:'Yes',confirmed:true}]}));
         await manual({operation:'trackerWriteStatus',mode:'main',month:'2026-09',requestId},context);expect(state.reccieTracker.rows[0].reccied).toBe('Yes');expect(JSON.parse(fetchMock.mock.calls[2][1].body).operation).toBe('status');
     });

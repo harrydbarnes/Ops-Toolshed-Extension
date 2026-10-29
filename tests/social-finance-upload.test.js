@@ -26,15 +26,27 @@ describe('Social Booking Checker report uploads', () => {
     let dom;
     let document;
 
-    beforeEach(async () => {
+    async function setupReviewPage(failingKey = null, failureMode = 'callback') {
         dom = new JSDOM(html, { runScripts: 'outside-only', url: 'https://extension.test/social-finance.html' });
         document = dom.window.document;
-        const stored = {};
+        const stored = failingKey ? {
+            socialBookingMetaPrismaMappings: { saved: { client: 'Existing', product: 'Mapping' } },
+            socialBookingManualCampaignMatches: { saved: { prismaKey: 'existing' } },
+            socialBookingRejectedCampaignMatches: { saved: ['rejected'] },
+            socialBookingWrikeReferences: { saved: 'wrike-existing' }
+        } : {};
         dom.window.__storedExtensionData = stored;
         dom.window.chrome = {
             runtime: {},
             storage: { local: {
-                get: (key, callback) => callback({ [key]: stored[key] }),
+                get: (key, callback) => {
+                    if (key === failingKey && !dom.window.__allowReviewReads) {
+                        if (failureMode === 'reject') return Promise.reject(new Error('Read failed'));
+                        dom.window.chrome.runtime.lastError = { message: 'Read failed' };
+                        callback({});
+                        delete dom.window.chrome.runtime.lastError;
+                    } else callback({ [key]: stored[key] });
+                },
                 set: (value, callback) => { Object.assign(stored, value); callback(); },
                 remove: (key, callback) => { delete stored[key]; callback(); }
             } }
@@ -76,9 +88,63 @@ describe('Social Booking Checker report uploads', () => {
         if (document.readyState === 'loading') {
             await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve, { once: true }));
         }
-    });
+    }
+
+    beforeEach(async () => { await setupReviewPage(); });
 
     afterEach(() => dom.window.close());
+
+    test.each(['socialBookingManualCampaignMatches', 'socialBookingRejectedCampaignMatches', 'socialBookingWrikeReferences', 'socialBookingMetaPrismaMappings'].flatMap(key => [
+        [key, 'callback'], [key, 'reject']
+    ]))
+    ('blocks comparison until failed %s reads recover (%s), preserving other saved decisions', async (failingKey, failureMode) => {
+        dom.window.close();
+        await setupReviewPage(failingKey, failureMode);
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        const compare = jest.fn(() => ({ rows: [], summary: {}, warnings: [], validationErrors: [], coverage: { isComplete: true, metaMonths: [], prismaMonths: [], sharedMonths: [], gaps: [] } }));
+        dom.window.socialFinanceEngine.compare = compare;
+        dom.window.socialFinanceEngine.summarizeRows = jest.fn(() => ({ total: 0, missingOrUnlinked: 0, needsUpdate: 0, monitor: 0, investigate: 0, outsideScope: 0, unmatchedSpend: 0 }));
+        for (const kind of ['meta', 'prisma']) dropFile(dom.window, document.querySelector(`#${kind}DropZone`), { name: `${kind}.csv`, size: 10, type: 'text/csv', text: async () => kind });
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        document.querySelector('#runComparison').click();
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        expect(compare).not.toHaveBeenCalled();
+        expect(document.querySelector('#validationMessages').textContent).toContain('could not be loaded');
+        expect(dom.window.__storedExtensionData.socialBookingWrikeReferences).toEqual({ saved: 'wrike-existing' });
+        if (failingKey === 'socialBookingMetaPrismaMappings') {
+            expect(dom.window.__storedExtensionData.socialBookingMetaPrismaMappings).toEqual({ saved: { client: 'Existing', product: 'Mapping' } });
+        }
+        dom.window.__allowReviewReads = true;
+        document.querySelector('#runComparison').click();
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        expect(compare).toHaveBeenCalledTimes(1);
+        expect(compare.mock.calls[0][2].manualMatches).toEqual({ saved: { prismaKey: 'existing' } });
+        expect(compare.mock.calls[0][2].accountMappings.saved).toEqual({ client: 'Existing', product: 'Mapping' });
+    });
+
+    test('PR209 review preserves integration choice across pending mapping saves', async () => {
+        dom.window.socialFinanceEngine.extractPrismaReferenceData.mockReturnValue({
+            accounts: [{ id: '111', clients: ['Boots'], rows: 2, months: ['2026-06-01'] }],
+            clientProducts: [
+                {client:'Boots', product:'Opticians', accountIds:['111'],campaignIds:['9']},
+                {client:'Boots', product:'Pharmacy', accountIds:['111'],campaignIds:['10']}
+            ], errors: []
+        });
+        for (const kind of ['meta','prisma']) dropFile(dom.window, document.querySelector(`#${kind}DropZone`), {name:`${kind}.csv`,size:10,type:'text/csv',text:async()=>kind});
+        const flush = () => new Promise(resolve => dom.window.setTimeout(resolve,0));
+        await flush();
+        let select=document.querySelector('[data-mapping-account-id="111"]');
+        select.value=select.options[1].value;
+        select.dispatchEvent(new dom.window.Event('change',{bubbles:true})); await flush();
+        const saves=[]; const save=dom.window.chrome.storage.local.set;
+        dom.window.chrome.storage.local.set=(values,callback)=>saves.push(()=>save(values,callback));
+        const integration=document.querySelector('[data-integration-account-id="111"]');
+        integration.value='false'; integration.dispatchEvent(new dom.window.Event('change',{bubbles:true}));
+        select=document.querySelector('[data-mapping-account-id="111"]');
+        select.value=select.options[2].value; select.dispatchEvent(new dom.window.Event('change',{bubbles:true}));
+        await flush(); saves.shift()(); await flush(); saves.shift()(); await flush();
+        expect(dom.window.__storedExtensionData.socialBookingMetaPrismaMappings['111']).toMatchObject({product:'Pharmacy',integrationExpected:false});
+    });
 
     test('loads a dropped Meta CSV through the existing account-scope flow', async () => {
         const file = { name: 'meta-report.csv', size: 2048, type: 'text/csv', text: jest.fn().mockResolvedValue('Campaign ID,Amount spent\n123,10') };

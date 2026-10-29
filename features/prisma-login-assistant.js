@@ -61,8 +61,7 @@
         const text = pageText();
         const matchesText = text.includes('signed out because your session was inactive') ||
             (text.includes('signed out') && text.includes('session was inactive'));
-        const matchesUrl = window.location?.href ? window.location.href.includes('/federate/logout') : false;
-        return matchesText || matchesUrl;
+        return matchesText;
     }
 
     function findTimeoutSignInLink() {
@@ -86,10 +85,24 @@
         injectToastStyles();
         const container = document.createElement('div');
         container.className = TIMEOUT_BAR_CONTAINER_CLASS;
-        container.setAttribute('aria-hidden', 'true');
+        const status = document.createElement('div');
+        status.className = 'ops-toolshed-timeout-status';
+        status.setAttribute('role', 'status');
+        status.setAttribute('aria-label', 'Logging you back in');
+        status.append('Logging you back in');
+        const dots = document.createElement('span');
+        dots.className = 'ops-toolshed-timeout-dots';
+        dots.setAttribute('aria-hidden', 'true');
+        dots.textContent = '...';
+        status.appendChild(dots);
+        container.appendChild(status);
+        const track = document.createElement('div');
+        track.className = 'ops-toolshed-timeout-track';
+        track.setAttribute('aria-hidden', 'true');
         const bar = document.createElement('div');
         bar.id = TIMEOUT_BAR_ID;
-        container.appendChild(bar);
+        track.appendChild(bar);
+        container.appendChild(track);
 
         // Insert container right after the link's enclosing paragraph or block container
         const parentBlock = link.closest('p, div') || link.parentElement;
@@ -125,6 +138,10 @@
         timeoutTimerId = setTimeout(() => {
             timeoutTimerId = null;
             if (timeoutLinkProcessed) return;
+            if (!settings.enabled || !isActiveDocument() || !isSessionTimeoutPage() || !link.isConnected) {
+                cleanupTimeoutProgress();
+                return;
+            }
             timeoutLinkProcessed = true;
             link.click();
         }, 2000);
@@ -196,7 +213,18 @@
             #${TOAST_ID} button { border: 0; border-radius: 5px; padding: 7px 12px; background: #fff; color: #102c72; font: inherit; font-weight: 700; cursor: pointer; }
             #${TOAST_ID} button.ops-toolshed-login-dismiss { margin-left: auto; padding: 2px 7px; background: transparent; color: #fff; font-size: 20px; line-height: 1; }
 
-            .${TIMEOUT_BAR_CONTAINER_CLASS} {
+            .${TIMEOUT_BAR_CONTAINER_CLASS} { margin: 12px 0 6px; }
+            .ops-toolshed-timeout-status { color: #102c72; font-size: 12px; margin-bottom: 6px; }
+            .ops-toolshed-timeout-dots { display: inline-block; overflow: hidden; vertical-align: bottom; width: 1ch; animation: ops-toolshed-timeout-dots 1.2s steps(1, end) infinite; }
+            @keyframes ops-toolshed-timeout-dots {
+                0% { width: 1ch; }
+                33.333% { width: 2ch; }
+                66.666% { width: 3ch; }
+            }
+            @media (prefers-reduced-motion: reduce) {
+                .ops-toolshed-timeout-dots { animation: none; width: 3ch; }
+            }
+            .ops-toolshed-timeout-track {
                 display: block;
                 width: 100%;
                 max-width: 100%;
@@ -204,7 +232,6 @@
                 background: rgba(16, 44, 114, 0.12);
                 border-radius: 2px;
                 overflow: hidden;
-                margin: 12px 0 6px 0;
                 position: relative;
             }
             #${TIMEOUT_BAR_ID} {

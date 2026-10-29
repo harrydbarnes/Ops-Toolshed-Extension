@@ -13,6 +13,37 @@
     const WRIKE_REFERENCE_STORAGE_KEY = 'socialBookingWrikeReferences';
     const CAMPAIGN_COLUMN_WIDTH_STORAGE_KEY = 'socialBookingCampaignColumnWidths';
     const SAVED_TOKEN_MASK = '••••••••••••';
+    const reviewCollections = {
+        accountMappings: { key: ACCOUNT_MAPPING_STORAGE_KEY },
+        manualMatches: { key: MANUAL_MATCH_STORAGE_KEY },
+        candidateRejections: { key: CANDIDATE_REJECTION_STORAGE_KEY },
+        wrikeReferences: { key: WRIKE_REFERENCE_STORAGE_KEY }
+    };
+    function loadReviewCollection(name) {
+        const entry = reviewCollections[name];
+        if (entry.loaded) return Promise.resolve(true);
+        if (entry.pending) return entry.pending;
+        entry.pending = (async () => {
+            await Promise.resolve();
+            try {
+                if (!localExtensionStorage()) throw new Error('Local extension storage is unavailable.');
+                const stored = await readLocalStorage(entry.key);
+                const value = stored[entry.key];
+                state[name] = value && typeof value === 'object' ? value : {};
+                entry.loaded = true;
+                return true;
+            } catch {
+                return false;
+            } finally {
+                entry.pending = null;
+            }
+        })();
+        return entry.pending;
+    }
+    async function ensureReviewCollections(names) {
+        const results = await Promise.all(names.map(loadReviewCollection));
+        if (results.some(result => !result)) throw new Error('Saved review decisions or account mappings could not be loaded. Try again.');
+    }
     let reviewSaveQueue = Promise.resolve();
 
     function persistReviewChange(collection, storageKey, change) {
@@ -82,10 +113,23 @@
     function readLocalStorage(key) {
         const storage = localExtensionStorage();
         if (!storage) return Promise.resolve({});
-        return new Promise((resolve, reject) => storage.get(key, result => {
-            const error = window.chrome.runtime && window.chrome.runtime.lastError;
-            if (error) reject(new Error(error.message)); else resolve(result || {});
-        }));
+        return new Promise((resolve, reject) => {
+            let settled = false;
+            const finish = (error, result) => {
+                if (settled) return;
+                settled = true;
+                if (error) reject(error); else resolve(result || {});
+            };
+            try {
+                const result = storage.get(key, value => {
+                    const error = window.chrome.runtime?.lastError;
+                    finish(error ? new Error(error.message) : null, value);
+                });
+                result?.then?.(value => finish(null, value), error => finish(error));
+            } catch (error) {
+                finish(error);
+            }
+        });
     }
 
     function writeLocalStorage(value) {
@@ -537,8 +581,12 @@
             : '<span class="minor">Every selected Meta account is shown above as a matched Prisma account.</span>';
     }
 
-    async function saveAccountMapping(accountId, mapping) {
+    async function saveAccountMapping(accountId, mapping, { preserveIntegration = false } = {}) {
+        await ensureReviewCollections(['accountMappings']);
         await persistReviewChange('accountMappings', ACCOUNT_MAPPING_STORAGE_KEY, next => {
+            if (preserveIntegration && typeof next[accountId]?.integrationExpected === 'boolean') {
+                mapping = { ...mapping, integrationExpected: next[accountId].integrationExpected };
+            }
             if (mapping.client || mapping.product) next[accountId] = mapping;
             else delete next[accountId];
         });
@@ -587,6 +635,7 @@
     }
 
     function applyUniqueAccountMappingSuggestions() {
+        if (!reviewCollections.accountMappings.loaded) return;
         const scopes = state.prismaReference?.clientProducts || [];
         let changed = false;
         state.metaAccounts.forEach(account => {
@@ -602,36 +651,18 @@
     }
 
     async function restoreAccountMappings() {
-        try {
-            const stored = await readLocalStorage(ACCOUNT_MAPPING_STORAGE_KEY);
-            const mappings = stored[ACCOUNT_MAPPING_STORAGE_KEY];
-            state.accountMappings = mappings && typeof mappings === 'object' ? mappings : {};
-            renderPrismaScope();
-        } catch (error) {
-            setStatus(elements.prismaScopeStatus, error.message, 'error');
-        }
+        if (await loadReviewCollection('accountMappings')) renderPrismaScope();
+        else setStatus(elements.prismaScopeStatus, 'Saved account mappings could not be loaded. Try again.', 'error');
     }
 
     async function restoreManualMatches() {
-        try {
-            const stored = await readLocalStorage(MANUAL_MATCH_STORAGE_KEY);
-            const matches = stored[MANUAL_MATCH_STORAGE_KEY];
-            state.manualMatches = matches && typeof matches === 'object' ? matches : {};
-        } catch (_) {
-            state.manualMatches = {};
-        }
+        if (!await loadReviewCollection('manualMatches')) renderMessages(['Saved review decisions could not be loaded. Try again.']);
     }
 
     async function restoreReviewData() {
-        try {
-            const [rejections, wrikeReferences] = await Promise.all([readLocalStorage(CANDIDATE_REJECTION_STORAGE_KEY), readLocalStorage(WRIKE_REFERENCE_STORAGE_KEY)]);
-            state.candidateRejections = rejections[CANDIDATE_REJECTION_STORAGE_KEY] && typeof rejections[CANDIDATE_REJECTION_STORAGE_KEY] === 'object' ? rejections[CANDIDATE_REJECTION_STORAGE_KEY] : {};
-            state.wrikeReferences = wrikeReferences[WRIKE_REFERENCE_STORAGE_KEY] && typeof wrikeReferences[WRIKE_REFERENCE_STORAGE_KEY] === 'object' ? wrikeReferences[WRIKE_REFERENCE_STORAGE_KEY] : {};
-            if (state.report) renderReport();
-        } catch (_) {
-            state.candidateRejections = {};
-            state.wrikeReferences = {};
-        }
+        const results = await Promise.all(['candidateRejections', 'wrikeReferences'].map(loadReviewCollection));
+        if (results.some(result => !result)) renderMessages(['Saved review decisions could not be loaded. Try again.']);
+        if (state.report) renderReport();
     }
 
     async function restoreCampaignColumnWidths() {
@@ -1527,6 +1558,7 @@
     }
 
     async function saveWrikeReference(metaKey, value) {
+        await ensureReviewCollections(['wrikeReferences']);
         const normalized = String(value || '').trim();
         await persistReviewChange('wrikeReferences', WRIKE_REFERENCE_STORAGE_KEY, next => {
             if (normalized) next[metaKey] = normalized;
@@ -1635,6 +1667,8 @@
     }
 
     async function applyManualMatches() {
+        try { await ensureReviewCollections(['manualMatches', 'candidateRejections']); }
+        catch (error) { setStatus(elements.manualMatchStatus, error.message, 'error'); return; }
         const selections = Array.from(elements.manualMatchBody.querySelectorAll('input[type="radio"][data-manual-meta-key]:checked'));
         const selectedPrismaKeys = selections.map(select => select.value).filter(Boolean);
         if (new Set(selectedPrismaKeys).size !== selectedPrismaKeys.length) {
@@ -1673,6 +1707,7 @@
 
     async function clearManualMatches() {
         try {
+            await ensureReviewCollections(['manualMatches', 'candidateRejections']);
             await Promise.all([removeLocalStorage(MANUAL_MATCH_STORAGE_KEY), removeLocalStorage(CANDIDATE_REJECTION_STORAGE_KEY)]);
             state.manualMatches = {};
             state.candidateRejections = {};
@@ -1842,6 +1877,12 @@
     }
 
     function runComparison() {
+        if (Object.values(reviewCollections).some(entry => !entry.loaded)) {
+            ensureReviewCollections(Object.keys(reviewCollections))
+                .then(() => runComparison())
+                .catch(error => renderMessages([error.message]));
+            return;
+        }
         const errors = [];
         if (!state.metaText) errors.push('Upload a Meta Ads Report or sync the imported accounts through Meta.');
         if (!state.prismaText) errors.push('Choose the Prisma booking CSV.');
@@ -1987,9 +2028,7 @@
             if (select) {
                 const accountId = select.dataset.mappingAccountId;
                 const mapping = mappingFromValue(select.value);
-                const saved = state.accountMappings[accountId];
-                if (typeof saved?.integrationExpected === 'boolean') mapping.integrationExpected = saved.integrationExpected;
-                saveAccountMapping(accountId, mapping).catch(error => {
+                saveAccountMapping(accountId, mapping, { preserveIntegration: true }).catch(error => {
                     renderPrismaScope();
                     setStatus(elements.prismaScopeStatus, error.message, 'error');
                 });

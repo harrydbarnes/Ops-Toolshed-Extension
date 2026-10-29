@@ -332,6 +332,17 @@ describe('Prisma sign-in assistant', () => {
         closePage(dom);
     });
 
+    test('PR209 review leaves an intentional logout signed out', async () => {
+        const {dom,window}=createPage({stage:'session-timeout',enabled:true,url:'https://go.mediaocean.com/ideskos-viewport/federate/logout?federatedLogout=true'});
+        const paragraph=window.document.querySelector('p');
+        paragraph.firstChild.textContent='You have successfully signed out. ';
+        const link=window.document.getElementById('signInLink');
+        const click=jest.fn(event=>event.preventDefault()); link.addEventListener('click',click);
+        await settle();
+        await new Promise(resolve=>setTimeout(resolve,2050));
+        try { expect(click).not.toHaveBeenCalled(); } finally {closePage(dom);}
+    });
+
     test('shows a subtle progress bar and clicks Sign In after two seconds on session timeout page', async () => {
         const { dom, window } = createPage({
             stage: 'session-timeout',
@@ -346,6 +357,12 @@ describe('Prisma sign-in assistant', () => {
 
         const progressBar = window.document.getElementById('ops-toolshed-session-timeout-bar');
         expect(progressBar).not.toBeNull();
+        const status = window.document.querySelector('.ops-toolshed-timeout-status');
+        expect(status.getAttribute('role')).toBe('status');
+        expect(status.getAttribute('aria-label')).toBe('Logging you back in');
+        expect(status.textContent).toBe('Logging you back in...');
+        expect(status.compareDocumentPosition(progressBar) & window.Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(window.document.querySelector('.ops-toolshed-timeout-dots').getAttribute('aria-hidden')).toBe('true');
         expect(linkClick).not.toHaveBeenCalled();
 
         await new Promise(resolve => setTimeout(resolve, 2050));
@@ -370,6 +387,18 @@ describe('Prisma sign-in assistant', () => {
         expect(progressBar).toBeNull();
         expect(linkClick).not.toHaveBeenCalled();
 
+        closePage(dom);
+    });
+
+    test('does not follow the timeout link if the tab loses focus during the countdown', async () => {
+        const { dom, window } = createPage({ stage: 'session-timeout', enabled: true });
+        const link = window.document.getElementById('signInLink');
+        const clicked = jest.fn(event => event.preventDefault());
+        link.addEventListener('click', clicked);
+        await settle();
+        window.document.hasFocus.mockReturnValue(false);
+        await new Promise(resolve => setTimeout(resolve, 2050));
+        expect(clicked).not.toHaveBeenCalled();
         closePage(dom);
     });
 

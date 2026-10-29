@@ -42,7 +42,7 @@ export async function autoMarkVerified(tracker,request,context){
             let result;
             try{result=await dispatchTrackerWrite({operation:'commitTrackerWrite',mode,month:request.month,revision:current.revision,requestId},{...context,automatic:true});}
             catch(failure){
-                if(!/timed? ?out|timeout|fetch|network|connection/i.test(failure.message))throw failure;
+                if(failure.code!=='TRANSPORT_UNCERTAIN')throw failure;
                 result=await dispatchTrackerWrite({operation:'trackerWriteStatus',mode,month:request.month,requestId},context);
             }
             if(result.tracker)current=result.tracker;

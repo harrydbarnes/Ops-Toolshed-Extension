@@ -3,6 +3,71 @@
     if (typeof module === 'object' && module.exports) module.exports = api;
     if (root) root.socialFinanceEngine = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+    /**
+     * Public finance records retain source currency; amounts are never converted.
+     * These contracts describe shared matching/report fields; records also carry
+     * delivery, workflow and source-row evidence used by the review UI.
+     *
+     * @typedef {{headers: string[], rows: Object<string, string>[]}} ParsedFinanceCsv
+     *
+     * @typedef {Object} MetaFinanceRecord
+     * @property {string} key Account/campaign/month aggregation key.
+     * @property {string} accountId IDs remain strings to preserve precision.
+     * @property {string} campaignId
+     * @property {Date} month First day of the reporting month.
+     * @property {string} campaignName
+     * @property {string} currency Empty when the source does not establish currency.
+     * @property {number} spend Summed source spend; missing/unparseable values contribute zero.
+     * @property {number|null} budget Null means unavailable, not a zero budget.
+     * @property {number|null} budgetRemaining
+     * @property {number|null} adSetBudget
+     * @property {Date|null} start Earliest available schedule start.
+     * @property {Date|null} end Latest available schedule end.
+     * @property {Date|null} firstDelivery
+     * @property {Date|null} lastDelivery
+     * @property {{date: string, spend: number, impressions: number, reach: number}[]} dailySpend
+     * @property {number[]} sourceRows One-based CSV row numbers, including the header.
+     *
+     * @typedef {Object} PrismaFinanceRecord
+     * @property {string} key Account/campaign/month aggregation key.
+     * @property {string} accountId
+     * @property {string} campaignId
+     * @property {Date} month First day of the reporting month.
+     * @property {string} campaignName
+     * @property {string} currency
+     * @property {number} planned Aggregated money excludes duplicate booking/month keys.
+     * @property {number} orderAmount Optional source amounts aggregate to zero when unavailable.
+     * @property {number} integratedSpend
+     * @property {number} nonIntegratedSpend
+     * @property {number} opportunity
+     * @property {Date|null} start
+     * @property {Date|null} end
+     * @property {string[]} bookingKeys
+     * @property {number[]} sourceRows
+     *
+     * @typedef {Object} FinanceCandidate
+     * @property {string} key Stable key used when rejecting a suggestion.
+     * @property {string} prismaKey Empty for an unaggregated source row.
+     * @property {number} score Rounded evidence score from 0 to 100; not a probability.
+     * @property {string[]} reasons Evidence contributing to the score.
+     * @property {boolean} hasCorroboratingEvidence
+     * @property {'Strong candidate'|'Possible candidate'|'Low evidence'} level
+     *
+     * @typedef {Object} FinanceReportRow
+     * @property {string} accountId
+     * @property {string} campaignId
+     * @property {string} month Reporting month as YYYY-MM.
+     * @property {number|null} metaSpend Null for a Prisma-only report row.
+     * @property {number|null} metaBudget
+     * @property {number|null} prismaPlanned Null when no booking is matched.
+     * @property {number|null} variance Null when currencies prevent comparison.
+     * @property {string} classification
+     * @property {string} evidence
+     * @property {string[]} issues
+     * @property {FinanceCandidate[]} candidates
+     * @property {FinanceCandidate[]} candidatePool
+     */
+
     const META_ALIASES = {
         accountId: ['account id', 'account_id'],
         businessId: ['business id', 'business_id', 'business manager id', 'business manager id.'],
@@ -77,6 +142,10 @@
         updatedTime: ['placement updated time', 'booking updated time', 'last updated', 'updated time', 'updated date']
     };
 
+    /** Parse quoted CSV without coercing IDs or amounts.
+     * @param {string} text
+     * @returns {ParsedFinanceCsv}
+     */
     function parseCsv(text) {
         const source = String(text || '').replace(/^\uFEFF/, '');
         const matrix = [];
@@ -308,6 +377,10 @@
         return `${accountId}|${campaignId}`;
     }
 
+    /** Aggregate Meta rows by account, campaign and reporting month.
+     * @param {ParsedFinanceCsv} parsed
+     * @returns {{columns: Object<string, string>, records: MetaFinanceRecord[], errors: string[]}}
+     */
     function aggregateMeta(parsed) {
         const columns = resolveColumns(parsed.headers, META_ALIASES);
         const errors = [];
@@ -494,6 +567,12 @@
         };
     }
 
+    /** Aggregate usable linked bookings; retain unlinked source rows for review.
+     * Source rows have nullable optional money fields, while aggregate totals are numbers.
+     * @param {ParsedFinanceCsv} parsed
+     * @param {{requireStandardTemplate?: boolean}} [options]
+     * @returns {{columns: Object<string, string>, records: PrismaFinanceRecord[], allRows: Object[], unintegratedRows: Object[], errors: string[]}}
+     */
     function aggregatePrisma(parsed, options = {}) {
         const columns = resolveColumns(parsed.headers, PRISMA_ALIASES);
         const errors = [];
@@ -764,6 +843,12 @@
         return `${row.accountId || ''}|prisma-row-${row.sourceRow || 0}|${toIsoDate(row.month)}`;
     }
 
+    /** Rank suggestions for human review; a suggestion does not establish a match.
+     * @param {MetaFinanceRecord} meta
+     * @param {Object[]} prismaRows Aggregated bookings or unintegrated source rows.
+     * @param {{mapping?: Object, allowUnintegrated?: boolean, rejectedKeys?: string[], monthClosed?: boolean, limit?: number, asOfDate?: Date|string}} [options]
+     * @returns {FinanceCandidate[]} Sorted by descending score; at most three by default.
+     */
     function findCandidates(meta, prismaRows, options = {}) {
         const mappingConfirmed = typeof options.mapping?.integrationExpected === 'boolean';
         const sameMonth = prismaRows.filter(row => {
@@ -1226,6 +1311,15 @@
         };
     }
 
+    /** Build the review report without mutating saved mappings or manual decisions.
+     * Invalid input returns empty rows and validationErrors before comparison.
+     * Report schedule/delivery dates are ISO strings (empty when unavailable),
+     * unlike the Date values on normalized aggregation records.
+     * @param {ParsedFinanceCsv} metaParsed
+     * @param {ParsedFinanceCsv} prismaParsed
+     * @param {{tolerance?: number, asOfDate?: Date|string, closedWorkingDay?: number, accountIdScope?: string[], accountMappings?: Object, manualMatches?: Object, rejectedCandidates?: Object, populationConfirmed?: boolean}} [options]
+     * @returns {{rows: FinanceReportRow[], summary: Object, validationErrors: string[], warnings: string[]}}
+     */
     function compare(metaParsed, prismaParsed, options = {}) {
         const meta = aggregateMeta(metaParsed);
         const prisma = aggregatePrisma(prismaParsed);
@@ -1438,6 +1532,12 @@
         return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
     }
 
+    /** Export report rows with CRLF separators and a header, without a BOM.
+     * Null/undefined values become empty cells; arrays become semicolon-separated
+     * evidence. Formula-like text is prefixed to keep spreadsheet imports inert.
+     * @param {FinanceReportRow[]} rows
+     * @returns {string}
+     */
     function reportToCsv(rows) {
         const headers = [
             'Account ID', 'Meta account name', 'Campaign ID', 'Campaign name', 'Month', 'Meta delivery status',

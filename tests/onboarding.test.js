@@ -36,6 +36,7 @@ function setup(initial = {}) {
         tabs: { update: jest.fn() },
         windows: { WINDOW_ID_CURRENT: -2 }
     };
+    dom.window.eval(readScript(path.resolve(__dirname, '../loading-facts-preview.js')));
     dom.window.eval(script);
     return { dom, sync, local, chrome: dom.window.chrome };
 }

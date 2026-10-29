@@ -305,7 +305,7 @@ export async function handleReccies(request, sender, sendResponse) {
         }
         else throw new Error('Unknown Reccies action.');
         sendResponse({ status: 'success', tracker });
-    } catch (error) { sendResponse({ status: 'error', message: error.message }); }
+    } catch (error) { sendResponse({ status: 'error', message: error.message, ...(error.code ? { code: error.code } : {}) }); }
 }
 
 // The content event is a scheduling hint, never evidence that a placement is ready.
