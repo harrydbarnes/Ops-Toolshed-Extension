@@ -81,6 +81,27 @@ body.reminder-theme-black #confirmation-popup {
     cursor: not-allowed;
 }
 
+/* The countdown fills the button while the existing seconds remain visible. */
+.reminder-close-button.reminder-countdown:disabled {
+    background-image: linear-gradient(to right, #07009a 50%, #666666 50%);
+    background-size: 200% 100%;
+    background-position: right center;
+    color: #fff;
+    animation: reminder-button-fill var(--reminder-countdown-duration) linear forwards;
+}
+
+@keyframes reminder-button-fill {
+    to { background-position: left center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .reminder-close-button.reminder-countdown:disabled {
+        animation: none;
+        background-image: none;
+        color: #666;
+    }
+}
+
 /* Dimming Overlay */
 .reminder-overlay {
     position: fixed;

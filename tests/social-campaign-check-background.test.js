@@ -75,6 +75,35 @@ describe('Opt-in background campaign checks',()=>{
         const record=await manager.checkSocialCampaign('CPTEST');
         expect(record.results[0].warnings.join(' ')).toContain('could not be searched');expect(record.results[0].warnings.join(' ')).not.toContain('secret');
     });
+    test('a failed candidate does not discard later spending candidates or the linked comparison', async () => {
+        getCandidates.mockResolvedValue([
+            { id: '100', account_id: '88', name: 'Campaign' },
+            { id: '102', account_id: '88', name: 'Campaign' }
+        ]);
+        getSnapshot.mockImplementation(async id => {
+            if (id === '99') return snapshot;
+            if (id === '100') throw new Error('private provider response');
+            return { ...snapshot, campaign: { ...snapshot.campaign, id }, dailySpend: [{ date_start: '2026-06-15', date_stop: '2026-06-15', spend: '10' }] };
+        });
+        const record = await manager.checkSocialCampaign('CPTEST');
+        expect(record.results[0].campaignId).toBe('99');
+        expect(record.results[0].candidates.map(item => item.campaignId)).toEqual(['102']);
+        expect(record.results[0].warnings).toContain('A possible campaign could not be checked. Candidate search is incomplete.');
+        expect(record.linkFailures).toEqual([]);
+        expect(JSON.stringify(record)).not.toContain('private provider response');
+    });
+    test('an expired token during candidate review aborts without publishing a partial success', async () => {
+        getCandidates.mockResolvedValue([{ id: '100', account_id: '88', name: 'Campaign' }]);
+        getSnapshot.mockImplementation(async id => {
+            if (id === '99') return snapshot;
+            throw Object.assign(new Error('private token response'), { metaCode: 190, source: 'meta' });
+        });
+        await expect(manager.checkSocialCampaign('CPTEST')).rejects.toThrow('expired or is invalid');
+        const saved = storage.socialCampaignChecks.CPTEST;
+        expect(saved.results).toBeUndefined();
+        expect(saved.checkedAt).toBeUndefined();
+        expect(JSON.stringify(saved)).not.toContain('private token response');
+    });
     test('reads explicit Prisma origin only from identity-verified booking details',async()=>{
         const original=fetch.getMockImplementation();
         fetch.mockImplementation(async(url,options)=>url.includes('/placement/placementId/')?{ok:true,json:async()=>({id:1,campaignId:1234,externalEntityOrigin:'PRISMA'})}:original(url,options));

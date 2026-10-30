@@ -175,7 +175,9 @@ function showTestReminderPopup({ popupId, overlayId, content, closeButtonId, has
     if (closeButton) { 
         if (hasCountdown && countdownSeconds > 0) { 
             // Disable the button and start the countdown immediately for test popups. 
-            closeButton.disabled = true; 
+            closeButton.disabled = true;
+            closeButton.style.setProperty('--reminder-countdown-duration', `${countdownSeconds}s`);
+            closeButton.classList.add('reminder-countdown');
             let secondsLeft = countdownSeconds; 
             closeButton.textContent = `Got it! (${secondsLeft}s)`; 
  
@@ -186,6 +188,8 @@ function showTestReminderPopup({ popupId, overlayId, content, closeButtonId, has
                 } else { 
                     clearInterval(countdownInterval); 
                     closeButton.textContent = 'Got it!'; 
+                    closeButton.classList.remove('reminder-countdown');
+                    closeButton.style.removeProperty('--reminder-countdown-duration');
                     closeButton.disabled = false; 
                 } 
             }, 1000); 

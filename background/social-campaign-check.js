@@ -75,6 +75,106 @@ export async function checkSocialCampaign(id, scheduled = false) {
     inFlight.set(id, promise);
     return promise;
 }
+async function readLinkedMetaSnapshot(group, client, verifiedAccounts) {
+    let snapshot;
+    let accountVerified = verifiedAccounts.has(group.accountId);
+    try {
+        if (!accountVerified) {
+            await client.verifyAccountAccess(group.accountId);
+            verifiedAccounts.add(group.accountId);
+            accountVerified = true;
+        }
+        snapshot = await client.getCampaignSnapshot(group.campaignId);
+    } catch (error) {
+        // Meta code 100 can mean missing access OR a missing object; do not infer assignment alone.
+        if ([10,100,200].includes(error.metaCode)) {
+            error.accountAccessMessage = accountVerified
+                ? `Token can read Meta ad account ${group.accountId}, but campaign ${group.campaignId} or its reporting data is unavailable. Check the campaign ID and token permissions for ads/reporting.`
+                : error.metaCode === 100
+                    ? `Token cannot read Meta ad account ${group.accountId}, linked to Prisma ${group.bookings.map(item => item.placementNumber).join(', ')}. Check the Prisma account ID and assign this ad account to the token's system user in Meta Business Settings.`
+                    : `Meta denied token access to ad account ${group.accountId}, linked to Prisma ${group.bookings.map(item => item.placementNumber).join(', ')}. Check the system user's ad account assignment and the app/token ads_read permissions in Meta Business Settings.`;
+        }
+        throw error;
+    }
+    return snapshot;
+}
+
+async function collectPrismaEvidence(group, campaign, originDetails) {
+    let links = null;
+    const provider = group.bookings[0].providerId;
+    if (/^\d+$/.test(provider)) {
+        try { links = await prisma(`/campaign-service/secure/campaign/${campaign.id}/placement/${provider}/accounts/${group.accountId}/campaigns/${group.campaignId}`); } catch (_) { /* Coverage stays explicitly unverified. */ }
+    }
+    const readDetail = async placementId => {
+        if (!/^\d+$/.test(placementId)) return null;
+        if (!originDetails.has(placementId)) {
+            try {
+                const detail = await prisma(`/campaign-service/secure/campaign/${campaign.id}/placement/placementId/${placementId}`);
+                originDetails.set(placementId, String(detail.id) === placementId && String(detail.campaignId) === String(campaign.id) ? detail : null);
+            } catch (_) { originDetails.set(placementId, null); }
+        }
+        return originDetails.get(placementId);
+    };
+    const prismaOrigins = [];
+    for (const booking of group.bookings) {
+        const placementId = booking.packageId || booking.placementId;
+        const parent = await readDetail(placementId), detail = await readDetail(booking.placementId);
+        prismaOrigins.push({ placementNumber: booking.placementNumber, origin: /^[A-Z_]{1,40}$/.test(parent?.externalEntityOrigin || '') ? parent.externalEntityOrigin : null, sourceId: placementId });
+        if (detail && String(detail.externalCampaignId) === group.campaignId && detail.campaignBudgetCurrencyCode === booking.currency && detail.flightStart === booking.start && typeof detail.isPlacementTrafficked === 'boolean' && ['increment_budget','replace_budget'].includes(detail.budgetControl) && detail.budgetOptimization === 'LIFETIME' && detail.budgetCost != null && Number(detail.budgetCost) === booking.budget) {
+            booking.integration = { control:detail.budgetControl, trafficked:detail.isPlacementTrafficked };
+        }
+    }
+    return { links, prismaOrigins };
+}
+
+// Optional discovery never replaces the linked comparison. Each candidate has
+// its own failure boundary; invalid tokens still abort the entire check.
+async function appendDeliveryCandidates(result, group, snapshot, client, candidateLists) {
+    let matches;
+    try {
+        if (!candidateLists.has(group.accountId)) {
+            candidateLists.set(group.accountId, await client.getCampaignCandidates(group.accountId));
+        }
+        matches = candidateLists.get(group.accountId)
+            .map(candidate => ({ candidate, evidence: globalThis.socialCampaignCore.candidateEvidence(snapshot.campaign, candidate) }))
+            .filter(item => item.evidence);
+    } catch (error) {
+        if (error.metaCode === 190) throw error;
+        result.warnings.push('Possible delivering campaigns could not be searched. The linked comparison is unchanged.');
+        return;
+    }
+    if (matches.length > 5) result.warnings.push('More than five possible matches exist. Only the first five were checked; review Meta manually.');
+    for (const { candidate, evidence } of matches.slice(0, 5)) {
+        try {
+            const possible = await client.getCampaignSnapshot(String(candidate.id));
+            const comparison = globalThis.socialCampaignCore.compare({ ...group, campaignId: String(candidate.id) }, possible, null);
+            // Require spend inside a booking flight; never adopt a suggestion.
+            if (!possible.dailySpend.some(day => Number(day.spend) > 0 && group.bookings.some(booking => day.date_start >= booking.start && day.date_start <= booking.end))) continue;
+            result.candidates.push({ ...comparison, evidence });
+        } catch (error) {
+            if (error.metaCode === 190) throw error;
+            result.warnings.push('A possible campaign could not be checked. Candidate search is incomplete.');
+        }
+    }
+}
+
+async function compareLinkedCampaign(group, snapshot, evidence, previous, client, candidateLists) {
+    const { links, prismaOrigins } = evidence;
+    const result = globalThis.socialCampaignCore.compare(group, snapshot, links, previous);
+    result.prismaOrigins = prismaOrigins;
+    result.creation = null;
+    try { result.creation = await client.getCampaignCreation(snapshot.campaign); }
+    catch (error) { if (error.metaCode === 190) throw error; }
+    result.deliveryReview = globalThis.socialCampaignCore.deliveryReview(result, snapshot.campaign);
+    result.candidates = [];
+    if (result.deliveryReview) {
+        result.warnings.push(result.deliveryReview.message);
+        await appendDeliveryCandidates(result, group, snapshot, client, candidateLists);
+    }
+    result.checkedAt = new Date().toISOString();
+    return result;
+}
+
 async function performCheck(id, scheduled) {
     await allowed();
     const revision = revisions.get(id) || 0;
@@ -97,82 +197,10 @@ async function performCheck(id, scheduled) {
             for (const group of groups) {
                 enabled();
                 try {
-                let snapshot;
-                let accountVerified = verifiedAccounts.has(group.accountId);
-                try {
-                    if (!accountVerified) {
-                        await client.verifyAccountAccess(group.accountId);
-                        verifiedAccounts.add(group.accountId);
-                        accountVerified = true;
-                    }
-                    snapshot = await client.getCampaignSnapshot(group.campaignId);
-                } catch (error) {
-                    // Meta code 100 can mean missing access OR a missing object; do not infer assignment alone.
-                    if ([10,100,200].includes(error.metaCode)) {
-                        error.accountAccessMessage = accountVerified
-                            ? `Token can read Meta ad account ${group.accountId}, but campaign ${group.campaignId} or its reporting data is unavailable. Check the campaign ID and token permissions for ads/reporting.`
-                            : error.metaCode === 100
-                                ? `Token cannot read Meta ad account ${group.accountId}, linked to Prisma ${group.bookings.map(item => item.placementNumber).join(', ')}. Check the Prisma account ID and assign this ad account to the token's system user in Meta Business Settings.`
-                                : `Meta denied token access to ad account ${group.accountId}, linked to Prisma ${group.bookings.map(item => item.placementNumber).join(', ')}. Check the system user's ad account assignment and the app/token ads_read permissions in Meta Business Settings.`;
-                    }
-                    throw error;
-                }
-                let links = null;
-                const provider = group.bookings[0].providerId;
-                if (/^\d+$/.test(provider)) {
-                    try { links = await prisma(`/campaign-service/secure/campaign/${data.campaign.id}/placement/${provider}/accounts/${group.accountId}/campaigns/${group.campaignId}`); } catch (_) { /* Coverage stays explicitly unverified. */ }
-                }
-                const readDetail = async placementId => {
-                    if (!/^\d+$/.test(placementId)) return null;
-                    if (!originDetails.has(placementId)) {
-                        try {
-                            const detail = await prisma(`/campaign-service/secure/campaign/${data.campaign.id}/placement/placementId/${placementId}`);
-                            originDetails.set(placementId, String(detail.id) === placementId && String(detail.campaignId) === String(data.campaign.id) ? detail : null);
-                        } catch (_) { originDetails.set(placementId, null); }
-                    }
-                    return originDetails.get(placementId);
-                };
-                const prismaOrigins = [];
-                for (const booking of group.bookings) {
-                    const placementId = booking.packageId || booking.placementId;
-                    const parent = await readDetail(placementId), detail = await readDetail(booking.placementId);
-                    prismaOrigins.push({ placementNumber: booking.placementNumber, origin: /^[A-Z_]{1,40}$/.test(parent?.externalEntityOrigin || '') ? parent.externalEntityOrigin : null, sourceId: placementId });
-                    if (detail && String(detail.externalCampaignId) === group.campaignId && detail.campaignBudgetCurrencyCode === booking.currency && detail.flightStart === booking.start && typeof detail.isPlacementTrafficked === 'boolean' && ['increment_budget','replace_budget'].includes(detail.budgetControl) && detail.budgetOptimization === 'LIFETIME' && detail.budgetCost != null && Number(detail.budgetCost) === booking.budget) {
-                        booking.integration = { control:detail.budgetControl, trafficked:detail.isPlacementTrafficked };
-                    }
-                }
-                const result = globalThis.socialCampaignCore.compare(group, snapshot, links, old.results?.find(item => item.campaignId === group.campaignId));
-                result.prismaOrigins = prismaOrigins;
-                result.creation = null;
-                try { result.creation = await client.getCampaignCreation(snapshot.campaign); }
-                catch (error) { if (error.metaCode === 190) throw error; }
-                result.deliveryReview = globalThis.socialCampaignCore.deliveryReview(result, snapshot.campaign);
-                result.candidates = [];
-                if (result.deliveryReview) {
-                    result.warnings.push(result.deliveryReview.message);
-                    try {
-                        if (!candidateLists.has(group.accountId)) candidateLists.set(group.accountId, await client.getCampaignCandidates(group.accountId));
-                        const matches = candidateLists.get(group.accountId).map(candidate => ({candidate,evidence:globalThis.socialCampaignCore.candidateEvidence(snapshot.campaign,candidate)})).filter(item => item.evidence);
-                        if (matches.length > 5) result.warnings.push('More than five possible matches exist. Only the first five were checked; review Meta manually.');
-                        for (const {candidate,evidence} of matches.slice(0,5)) {
-                            try {
-                                const possible = await client.getCampaignSnapshot(String(candidate.id));
-                                const comparison = globalThis.socialCampaignCore.compare({...group,campaignId:String(candidate.id)}, possible, null);
-                                // Show only candidates with spend during these bookings; never adopt them as the linked campaign.
-                                if (!possible.dailySpend.some(day => Number(day.spend) > 0 && group.bookings.some(booking => day.date_start >= booking.start && day.date_start <= booking.end))) continue;
-                                result.candidates.push({...comparison,evidence});
-                            } catch (error) {
-                                if (error.metaCode === 190) throw error;
-                                result.warnings.push('A possible campaign could not be checked. Candidate search is incomplete.');
-                            }
-                        }
-                    } catch (error) {
-                        if (error.metaCode === 190) throw error;
-                        result.warnings.push('Possible delivering campaigns could not be searched. The linked comparison is unchanged.');
-                    }
-                }
-                result.checkedAt = new Date().toISOString();
-                results.push(result);
+                    const snapshot = await readLinkedMetaSnapshot(group, client, verifiedAccounts);
+                    const evidence = await collectPrismaEvidence(group, data.campaign, originDetails);
+                    const previous = old.results?.find(item => item.campaignId === group.campaignId);
+                    results.push(await compareLinkedCampaign(group, snapshot, evidence, previous, client, candidateLists));
                 } catch (error) {
                     if (error.metaCode === 190 || !isFeatureModeActive()) throw error;
                     linkFailures.push({ campaignId:group.campaignId, accountId:group.accountId, placements:group.bookings.map(item => item.placementNumber), message:checkErrorMessage(error), checkedAt:old.results?.find(item => item.campaignId === group.campaignId && item.accountId === group.accountId)?.checkedAt || (old.results?.some(item => item.campaignId === group.campaignId && item.accountId === group.accountId) ? old.checkedAt : old.linkFailures?.find(item => item.campaignId === group.campaignId && item.accountId === group.accountId)?.checkedAt || null) });

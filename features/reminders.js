@@ -191,6 +191,8 @@
 
         if (countdownSeconds > 0) {
             closeButton.disabled = true;
+            closeButton.style.setProperty('--reminder-countdown-duration', `${countdownSeconds}s`);
+            closeButton.classList.add('reminder-countdown');
             let secondsLeft = countdownSeconds;
             closeButton.textContent = `Got it! (${secondsLeft}s)`;
             countdownInterval = setInterval(() => {
@@ -200,6 +202,8 @@
                 } else {
                     clearInterval(countdownInterval);
                     closeButton.textContent = 'Got it!';
+                    closeButton.classList.remove('reminder-countdown');
+                    closeButton.style.removeProperty('--reminder-countdown-duration');
                     closeButton.disabled = false;
                 }
             }, 1000);
