@@ -93,7 +93,7 @@ describe('campaign tab title', () => {
         expect(dom.window.document.title).toBe(campaignName);
     });
 
-    test('compacts long campaign names within the safe title length', async () => {
+    test('truncates long campaign names once without fighting Prisma', async () => {
         const longTitle = `Prisma Media - ${'B'.repeat(100)}`;
         ({ dom } = setup({ title: longTitle }));
         const pageHeader = dom.window.document.createElement('div');
@@ -103,6 +103,9 @@ describe('campaign tab title', () => {
         await new Promise(resolve => dom.window.setTimeout(resolve, 0));
 
         expect(dom.window.document.title).toBe('B'.repeat(98) + '…');
+        dom.window.document.title = longTitle;
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        expect(dom.window.document.title).toBe(longTitle);
     });
 
     test('keeps title as Prisma Media during initial loading when Prisma title is prsm-cm-plan-to-buy', () => {

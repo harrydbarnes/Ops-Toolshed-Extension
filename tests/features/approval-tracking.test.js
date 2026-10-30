@@ -533,6 +533,26 @@ const { readScript } = require('../helpers/read-script');
         expect(localData[PENDING_APPROVAL_KEY].CP3GQJ6).toBeUndefined();
     });
 
+    test.each(['pending', 'watching', 'approved'])('distinguishes the %s campaign footer from approval', async (state) => {
+        const campaign = { campaignId: 'CP3GQJ6', campaignName: 'Test', submittedAt: Date.now(), watchingSubmission: state === 'watching' };
+        localData[PENDING_APPROVAL_KEY] = state === 'approved' ? {} : { CP3GQJ6: campaign };
+        localData[APPROVED_CAMPAIGNS_KEY] = state === 'approved' ? [campaign] : [];
+        document.querySelector('.workflow-widget-wrapper').textContent = state === 'watching' ? 'NOT SUBMITTED' : 'SUBMITTED';
+        const style = document.createElement('style');
+        style.textContent = approvalCss;
+        document.head.appendChild(style);
+        window.approvalTrackingFeature.initialize();
+        await new Promise(r => setTimeout(r, 15));
+        document.querySelector('.toolshed-approval-banner-button').click();
+        await new Promise(r => setTimeout(r, 15));
+
+        const note = document.querySelector('.toolshed-approval-already-tracked-note');
+        expect(note.textContent).toBe(state === 'approved'
+            ? '✓ Campaign CP3GQJ6 is marked Approved'
+            : state === 'watching' ? '◷ Watching campaign CP3GQJ6 for submission' : '◷ Currently tracking campaign CP3GQJ6');
+        expect(window.getComputedStyle(note).color).toBe(state === 'approved' ? 'rgb(22, 163, 74)' : 'rgb(100, 116, 139)');
+    });
+
     test('keeps a manually watched draft visible when the workflow says NOT SUBMITTED', async () => {
         localData[PENDING_APPROVAL_KEY] = {
             CP3GQJ6: { campaignId: 'CP3GQJ6', campaignName: 'Draft', watchingSubmission: true, watchedAt: Date.now(), submittedAt: null }

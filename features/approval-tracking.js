@@ -688,11 +688,12 @@
             } else {
                 const note = document.createElement('div');
                 note.className = 'toolshed-approval-already-tracked-note';
+                note.classList.toggle('is-approved', isAlreadyApproved);
                 note.textContent = isAlreadyApproved
                     ? `✓ Campaign ${currentCampaignId} is marked Approved`
                     : pendingMap[currentCampaignId]?.watchingSubmission
-                        ? `✓ Watching campaign ${currentCampaignId} for submission`
-                        : `✓ Currently tracking campaign ${currentCampaignId}`;
+                        ? `◷ Watching campaign ${currentCampaignId} for submission`
+                        : `◷ Currently tracking campaign ${currentCampaignId}`;
                 footer.appendChild(note);
             }
             panel.appendChild(footer);

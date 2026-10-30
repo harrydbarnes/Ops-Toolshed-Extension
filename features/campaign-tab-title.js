@@ -5,7 +5,7 @@
     const PRISMA_TITLE_PREFIX = 'Prisma Media - ';
     const PRISMA_DEFAULT_TITLE = 'Prisma Media';
     const CAMPAIGN_PATH = '/campaign-management';
-    // Keep the rendered title within Prisma's safe length, including an ellipsis.
+    // Include the ellipsis within the 99-character limit.
     const MAX_CAMPAIGN_TAB_TITLE_LENGTH = 99;
 
     let enabled = true;
@@ -14,6 +14,7 @@
     let activeCampaignId = '';
     let originalCampaignTitle = '';
     let appliedCampaignTitle = '';
+    let longTitleAttempted = false;
     let campaignNameObserver = null;
     let titleObserver = null;
     let observedTitleElement = null;
@@ -53,10 +54,11 @@
         return false;
     }
 
-    function compactTitle(text) {
-        return text.length <= MAX_CAMPAIGN_TAB_TITLE_LENGTH
-            ? text
-            : text.slice(0, MAX_CAMPAIGN_TAB_TITLE_LENGTH - 1).trimEnd() + '…';
+    function compactTitle(value) {
+        if (value.length <= MAX_CAMPAIGN_TAB_TITLE_LENGTH) return value;
+        let prefix = value.slice(0, MAX_CAMPAIGN_TAB_TITLE_LENGTH - 1);
+        if (/[\uD800-\uDBFF]$/.test(prefix)) prefix = prefix.slice(0, -1);
+        return prefix.trimEnd() + '…';
     }
 
     function getCampaignTitle(title) {
@@ -89,7 +91,7 @@
         const campaignName = (nameElement.getAttribute('data-full-text') || nameElement.textContent || '').trim();
         if (!campaignName || isPlaceholderTitle(campaignName)) return '';
 
-        return compactTitle(campaignName);
+        return campaignName;
     }
 
     function stopCampaignNameObserver() {
@@ -116,6 +118,7 @@
         if (campaignId === activeCampaignId) return;
         stopCampaignNameObserver();
         activeCampaignId = campaignId;
+        longTitleAttempted = false;
         originalCampaignTitle = '';
         appliedCampaignTitle = '';
     }
@@ -133,7 +136,11 @@
         }
 
         const prefixedCampaignTitle = getCampaignTitle(currentTitle);
-        const campaignTitle = headerCampaignName || prefixedCampaignTitle;
+        const rawCampaignTitle = headerCampaignName || prefixedCampaignTitle;
+        const isLongTitle = rawCampaignTitle.length > MAX_CAMPAIGN_TAB_TITLE_LENGTH ||
+            (currentTitle.startsWith(PRISMA_TITLE_PREFIX) && currentTitle.slice(PRISMA_TITLE_PREFIX.length).trim().length > MAX_CAMPAIGN_TAB_TITLE_LENGTH);
+        if (isLongTitle && longTitleAttempted) return;
+        const campaignTitle = compactTitle(rawCampaignTitle);
 
         if (!campaignTitle) {
             watchForCampaignName();
@@ -151,6 +158,7 @@
             originalCampaignTitle = currentTitle;
         }
         appliedCampaignTitle = campaignTitle;
+        if (isLongTitle) longTitleAttempted = true;
         document.title = campaignTitle;
     }
 
