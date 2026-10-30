@@ -5,14 +5,12 @@
     const PRISMA_TITLE_PREFIX = 'Prisma Media - ';
     const PRISMA_DEFAULT_TITLE = 'Prisma Media';
     const CAMPAIGN_PATH = '/campaign-management';
-    // Prisma's header reacts poorly when a long campaign value is read and
-    // written back as the document title during its initial render. Keep this
-    // deliberately compact so normal tabs retain the feature while verbose
-    // booking names stay on Prisma's native title.
+    // Keep the rendered title within Prisma's safe length, including an ellipsis.
     const MAX_CAMPAIGN_TAB_TITLE_LENGTH = 99;
 
     let enabled = true;
     let initialized = false;
+    let settingsReady = null;
     let activeCampaignId = '';
     let originalCampaignTitle = '';
     let appliedCampaignTitle = '';
@@ -55,14 +53,20 @@
         return false;
     }
 
+    function compactTitle(text) {
+        return text.length <= MAX_CAMPAIGN_TAB_TITLE_LENGTH
+            ? text
+            : text.slice(0, MAX_CAMPAIGN_TAB_TITLE_LENGTH - 1).trimEnd() + '…';
+    }
+
     function getCampaignTitle(title) {
         const text = String(title || '').trim();
         if (!text.startsWith(PRISMA_TITLE_PREFIX)) {
-            return isPlaceholderTitle(text) ? '' : (text.length <= MAX_CAMPAIGN_TAB_TITLE_LENGTH ? text : '');
+            return isPlaceholderTitle(text) ? '' : compactTitle(text);
         }
         const candidate = text.substring(PRISMA_TITLE_PREFIX.length).trim();
         if (isPlaceholderTitle(candidate)) return '';
-        return candidate.length <= MAX_CAMPAIGN_TAB_TITLE_LENGTH ? candidate : '';
+        return compactTitle(candidate);
     }
 
     function getHeaderCampaignName(campaignId) {
@@ -85,7 +89,7 @@
         const campaignName = (nameElement.getAttribute('data-full-text') || nameElement.textContent || '').trim();
         if (!campaignName || isPlaceholderTitle(campaignName)) return '';
 
-        return campaignName.length <= MAX_CAMPAIGN_TAB_TITLE_LENGTH ? campaignName : null;
+        return compactTitle(campaignName);
     }
 
     function stopCampaignNameObserver() {
@@ -190,13 +194,20 @@
     }
 
     function initialize() {
-        if (initialized) return;
+        if (!settingsReady) {
+            settingsReady = new Promise((resolve, reject) => {
+                chrome.storage.sync.get(SETTING_KEY, data => {
+                    try {
+                        if (chrome.runtime?.lastError) throw new Error(chrome.runtime.lastError.message);
+                        enabled = data[SETTING_KEY] !== false;
+                        refreshTitle();
+                        resolve();
+                    } catch (error) { reject(error); }
+                });
+            }).catch(error => { settingsReady = null; throw error; });
+        }
+        if (initialized) return settingsReady;
         initialized = true;
-
-        chrome.storage.sync.get(SETTING_KEY, data => {
-            enabled = data[SETTING_KEY] !== false;
-            refreshTitle();
-        });
 
         // Prisma frequently adds styles and metadata to <head> while a
         // campaign loads. Watching the whole head made every one of those
@@ -229,6 +240,7 @@
             enabled = changes[SETTING_KEY].newValue !== false;
             refreshTitle();
         });
+        return settingsReady;
     }
 
     window.campaignTabTitleFeature = {

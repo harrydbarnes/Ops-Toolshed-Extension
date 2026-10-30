@@ -210,6 +210,22 @@ describe('Content Script Main Logic', () => {
         expect(helpGuidesLauncherFeature.initialize).toHaveBeenCalledTimes(1);
     });
 
+    test('retries failed initialization without another native mutation', async () => {
+        const appLearnFeature = { initialize: jest.fn().mockImplementationOnce(() => {
+            throw new Error('temporary startup failure');
+        }) };
+        setupJSDOM('https://go.mediaocean.com/campaign-management/#route=campaigns', [], {
+            synchronousStorage: true,
+            featureMocks: { appLearnFeature, logoFeature: { shouldReplaceLogoOnThisPage: () => false } }
+        });
+        for (let i = 0; i < 8; i++) await Promise.resolve();
+        jest.advanceTimersByTime(1500);
+        for (let i = 0; i < 8; i++) await Promise.resolve();
+        expect(appLearnFeature.initialize).toHaveBeenCalledTimes(2);
+        jest.advanceTimersByTime(5000);
+        expect(appLearnFeature.initialize).toHaveBeenCalledTimes(2);
+    });
+
     test('does not initialize a pending collaborator twice', async () => {
         let complete;
         const pending = new Promise(resolve => { complete = resolve; });
@@ -424,6 +440,44 @@ describe('Content Script Main Logic', () => {
 
         jest.advanceTimersByTime(300);
         expect(deferredApply).toHaveBeenCalledTimes(1);
+    });
+
+    test('continues reconciling after another feature throws', async () => {
+        const { window, document, mutationObservers } = setupJSDOM(
+            'https://go.mediaocean.com/campaign-management/#osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=buy',
+            [], { synchronousStorage: true }
+        );
+        await Promise.resolve();
+        jest.runOnlyPendingTimers();
+        const observer = mutationObservers.find(instance =>
+            instance.__callback.toString().includes('scheduleDynamicUiReconciliation'));
+        window.orderViewToggleFeature = { reconcile: jest.fn(() => { throw new Error('transient'); }) };
+        const titleApply = jest.fn();
+        window.campaignTabTitleFeature = { applyCampaignTitle: titleApply };
+        observer.__trigger([{ type: 'childList', target: document.body, addedNodes: [] }]);
+        jest.advanceTimersByTime(320);
+        expect(window.orderViewToggleFeature.reconcile).toHaveBeenCalled();
+        expect(titleApply).toHaveBeenCalled();
+    });
+
+    test('reconciles campaign text updates without inserting a new element', async () => {
+        const { window, document, mutationObservers } = setupJSDOM(
+            'https://go.mediaocean.com/campaign-management/#osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=buy',
+            [], { synchronousStorage: true }
+        );
+        await Promise.resolve();
+        jest.runOnlyPendingTimers();
+        const observer = mutationObservers.find(instance =>
+            instance.__callback.toString().includes('scheduleDynamicUiReconciliation'));
+        const name = document.createElement('span');
+        name.className = 'mo-campaign-name-wrapper';
+        name.textContent = 'Updated campaign';
+        document.body.append(name);
+        const apply = jest.fn();
+        window.campaignTabTitleFeature = { applyCampaignTitle: apply };
+        observer.__trigger([{ type: 'characterData', target: name.firstChild }]);
+        jest.advanceTimersByTime(320);
+        expect(apply).toHaveBeenCalled();
     });
 
     test('does not run campaign or Actualise reconciliation on the Campaigns dashboard', async () => {

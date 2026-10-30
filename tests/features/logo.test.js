@@ -6,7 +6,7 @@ const utilsScript = readScript(path.resolve(__dirname, '../../utils.js'));
 const logoScript = readScript(path.resolve(__dirname, '../../features/logo.js'));
 const prismaLogoPath = 'M9.23616 0C4.13364 0 0 3.78471 0 8.455C0 13.1253 4.13364 16.91 9.23616 16.91';
 
-function setupLogoFeature() {
+function setupLogoFeature(largePage = false) {
     const dom = new JSDOM(`<!doctype html><html><body>
         <div id="prisma-shell"></div>
     </body></html>`, {
@@ -35,6 +35,9 @@ function setupLogoFeature() {
         }
     };
 
+    if (largePage) {
+        window.document.body.insertAdjacentHTML('beforeend', '<div></div>'.repeat(1700));
+    }
     window.eval(utilsScript);
     window.eval(logoScript);
     return { window, document: window.document, shadowRoot, storageListeners };
@@ -60,6 +63,14 @@ describe('Prisma logo replacement', () => {
 
         expect(shadowRoot.querySelector('.custom-prisma-logo')).toBeNull();
         expect(shadowRoot.querySelector('.current-prisma-brand svg')).not.toBeNull();
+    });
+
+    test('finds and restores the banner logo even with a large campaign grid', () => {
+        const environment = setupLogoFeature(true);
+        window = environment.window;
+        expect(environment.shadowRoot.querySelector('.custom-prisma-logo')).not.toBeNull();
+        window.logoFeature.setLogoReplaceEnabled(false);
+        expect(environment.shadowRoot.querySelector('svg')).not.toBeNull();
     });
 
     test('uses a bounded shadow-root walk instead of the global recursive helper', () => {

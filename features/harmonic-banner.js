@@ -3,63 +3,136 @@
     const storageKey = 'harmonicAdviceAcknowledgedAt';
     const week = 7 * 24 * 60 * 60 * 1000;
     const observed = new WeakSet();
+    const pendingStyles = new WeakSet();
+    const stylesReady = new WeakSet();
     let acknowledgedAt = 0;
     let ready = false;
     let dismissedThisPage = false;
 
     const isCurrent = () => Number.isFinite(acknowledgedAt) && acknowledgedAt > 0 && Date.now() >= acknowledgedAt && Date.now() - acknowledgedAt < week;
 
+    function waitForStyles(banner) {
+        if (stylesReady.has(banner)) return false;
+        const links = [...(banner.parentElement?.querySelectorAll('link[rel="stylesheet"][href^="chrome-extension:"]') || [])];
+        const pending = links.filter(link => !link.sheet);
+        if (!pending.length) return false;
+        if (pendingStyles.has(banner)) return true;
+        pendingStyles.add(banner);
+        let remaining = pending.length;
+        let finished = false;
+        let timeout;
+        const finish = () => {
+            if (finished) return;
+            finished = true;
+            clearTimeout(timeout);
+            pending.forEach(link => {
+                link.removeEventListener('load', onSettled);
+                link.removeEventListener('error', onSettled);
+            });
+            stylesReady.add(banner);
+            if (banner.isConnected) processBanner(banner);
+        };
+        const onSettled = () => { if (--remaining <= 0) finish(); };
+        pending.forEach(link => {
+            link.addEventListener('load', onSettled, { once: true });
+            link.addEventListener('error', onSettled, { once: true });
+        });
+        timeout = setTimeout(finish, 2000);
+        return true;
+    }
+
     function processBanner(banner) {
         if (!ready) return;
+        if (dismissedThisPage) return;
         if (isCurrent()) {
             if (banner.style.getPropertyValue('display') !== 'none' || banner.style.getPropertyPriority('display') !== 'important') {
                 banner.style.setProperty('display', 'none', 'important');
             }
             return;
         }
-        if (dismissedThisPage) return;
         const action = banner.querySelector('.action');
         const dismiss = action?.querySelector('[data-testid="dismiss"]');
         if (!dismiss) return;
+        if (waitForStyles(banner)) {
+            if (banner.style.getPropertyValue('display') !== 'none' || banner.style.getPropertyPriority('display') !== 'important') {
+                banner.style.setProperty('display', 'none', 'important');
+            }
+            return;
+        }
         if (banner.style.getPropertyValue('display') !== 'block' || banner.style.getPropertyPriority('display') !== 'important') {
             banner.style.setProperty('display', 'block', 'important');
         }
         if (action.querySelector('[data-ops-harmonic-ack]')) return;
+        action.style.setProperty('display', 'flex');
+        action.style.setProperty('flex-direction', 'column');
+        action.style.setProperty('align-items', 'center');
+        action.style.setProperty('gap', '8px');
+        action.style.setProperty('flex-shrink', '0');
         const label = document.createElement('label');
         label.setAttribute('data-ops-harmonic-ack', '');
-        label.style.cssText = 'display:flex;align-items:center;gap:8px;margin:8px 0;color:inherit;font-size:14px;';
+        label.style.cssText = 'display:flex;align-items:flex-start;gap:6px;margin:0;max-width:160px;color:inherit;font-size:12px;line-height:1.3;text-align:center;';
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.disabled = true;
         const text = document.createElement('span');
-        const acknowledgement = 'I acknowledge that I will follow this guidance.';
-        let secondsLeft = 3;
-        text.textContent = `${acknowledgement} (${secondsLeft}s)`;
+        const acknowledgement = 'I agree to follow this guidance.';
+        text.textContent = acknowledgement;
         label.append(checkbox, text);
-        const countdown = setInterval(() => {
-            if (!label.isConnected) {
-                clearInterval(countdown);
+        action.insertBefore(label, dismiss);
+        dismiss.disabled = true;
+        dismiss.style.setProperty('background-image', 'linear-gradient(to right, var(--primary-brand-color, #000050) 50%, #8c8c9c 50%)');
+        dismiss.style.setProperty('background-size', '200% 100%');
+        dismiss.style.setProperty('background-position', '100% 0');
+        dismiss.style.setProperty('transition', 'background-position 3s linear, opacity 200ms ease');
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            if (dismiss.isConnected) dismiss.style.setProperty('background-position', '0 0');
+        }));
+        const countdown = setTimeout(() => {
+            checkbox.disabled = false;
+            dismiss.disabled = false;
+            dismiss.style.removeProperty('background-image');
+            dismiss.style.removeProperty('background-size');
+            dismiss.style.removeProperty('background-position');
+        }, 3000);
+        let completing = false;
+        dismiss.addEventListener('click', event => {
+            if (completing || !event.isTrusted) return;
+            clearTimeout(countdown);
+            dismissedThisPage = true;
+            if (!checkbox.checked) {
+                banner.style.removeProperty('display');
                 return;
             }
-            secondsLeft--;
-            if (secondsLeft > 0) {
-                text.textContent = `${acknowledgement} (${secondsLeft}s)`;
-            } else {
-                clearInterval(countdown);
-                checkbox.disabled = false;
-                text.textContent = acknowledgement;
-            }
-        }, 1000);
-        action.insertBefore(label, dismiss);
-        dismiss.addEventListener('click', event => {
-            if (!event.isTrusted) return;
-            clearInterval(countdown);
-            dismissedThisPage = true;
-            banner.style.removeProperty('display');
-            if (!checkbox.checked) return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            dismiss.disabled = true;
             const now = Date.now();
             chrome.storage.local.set({ [storageKey]: now }, () => {
-                if (!chrome.runtime.lastError) acknowledgedAt = now;
+                if (chrome.runtime.lastError) {
+                    dismissedThisPage = false;
+                    dismiss.disabled = false;
+                    text.textContent = 'Could not save acknowledgement. Please try again.';
+                    return;
+                }
+                acknowledgedAt = now;
+                label.style.transition = 'opacity 180ms ease';
+                label.style.opacity = '0';
+                dismiss.style.opacity = '0';
+                setTimeout(() => {
+                    checkbox.hidden = true;
+                    text.textContent = 'Dismissing shortly. You will have to acknowledge this weekly.';
+                    label.style.opacity = '1';
+                    setTimeout(() => {
+                        banner.style.transition = 'opacity 250ms ease';
+                        banner.style.opacity = '0';
+                        setTimeout(() => {
+                            banner.style.removeProperty('display');
+                            completing = true;
+                            dismiss.disabled = false;
+                            dismiss.click();
+                        }, 250);
+                    }, 1800);
+                }, 180);
             });
         }, true);
     }

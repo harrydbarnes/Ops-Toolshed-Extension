@@ -9,6 +9,16 @@ const helpGuidesHtml = fs.readFileSync(path.resolve(__dirname, '../help-guides.h
 
 describe('Manifest content-script order', () => {
 
+    test('registered content scripts and styles are valid UTF-8', () => {
+        const { TextDecoder } = require('util');
+        const decoder = new TextDecoder('utf-8', { fatal: true });
+        for (const registration of CONTENT_SCRIPT_DEFINITIONS) {
+            for (const file of [...(registration.js || []), ...(registration.css || [])]) {
+                expect(() => decoder.decode(fs.readFileSync(path.resolve(__dirname, '..', file)))).not.toThrow();
+            }
+        }
+    });
+
     test('grants Chrome host permission for every dynamic Mediaocean registration', () => {
         expect(manifest.host_permissions).toContain('https://*.mediaocean.com/*');
         CONTENT_SCRIPT_DEFINITIONS.forEach(registration => {

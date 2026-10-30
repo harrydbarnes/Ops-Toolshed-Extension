@@ -214,7 +214,7 @@
             #${TOAST_ID} button.ops-toolshed-login-dismiss { margin-left: auto; padding: 2px 7px; background: transparent; color: #fff; font-size: 20px; line-height: 1; }
 
             .${TIMEOUT_BAR_CONTAINER_CLASS} { margin: 12px 0 6px; }
-            .ops-toolshed-timeout-status { color: #102c72; font-size: 12px; margin-bottom: 6px; }
+            .ops-toolshed-timeout-status { color: #102c72; font-size: 12px; margin-bottom: 6px; text-align: center; }
             .ops-toolshed-timeout-dots { display: inline-block; overflow: hidden; vertical-align: bottom; width: 1ch; animation: ops-toolshed-timeout-dots 1.2s steps(1, end) infinite; }
             @keyframes ops-toolshed-timeout-dots {
                 0% { width: 1ch; }
