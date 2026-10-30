@@ -68,9 +68,12 @@
         action.style.setProperty('align-items', 'center');
         action.style.setProperty('gap', '8px');
         action.style.setProperty('flex-shrink', '0');
+        action.style.setProperty('width', 'min(235px, 40vw)');
+        action.style.setProperty('align-self', 'stretch');
+        action.style.setProperty('justify-content', 'center');
         const label = document.createElement('label');
         label.setAttribute('data-ops-harmonic-ack', '');
-        label.style.cssText = 'display:flex;align-items:flex-start;gap:6px;margin:0;max-width:160px;color:inherit;font-size:12px;line-height:1.3;text-align:center;';
+        label.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:6px;margin:0;max-width:100%;color:inherit;font-size:12px;line-height:1.3;text-align:center;';
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.disabled = true;
@@ -120,6 +123,8 @@
                 dismiss.style.opacity = '0';
                 setTimeout(() => {
                     checkbox.hidden = true;
+                    dismiss.hidden = true;
+                    dismiss.style.setProperty('display', 'none', 'important');
                     text.textContent = 'Dismissing shortly. You will have to acknowledge this weekly.';
                     label.style.opacity = '1';
                     setTimeout(() => {
@@ -131,7 +136,7 @@
                             dismiss.disabled = false;
                             dismiss.click();
                         }, 250);
-                    }, 1800);
+                    }, 5000);
                 }, 180);
             });
         }, true);
