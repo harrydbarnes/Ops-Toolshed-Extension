@@ -670,6 +670,43 @@ describe('Loading Facts behaviour', () => {
 });
 
 
+test.each(['throw', 'reject', 'unavailable'])('failed feedback persistence via %s offers a retry instead of claiming removal', async failure => {
+    const dom = new JSDOM('<span id="spinner"></span>', { runScripts: 'outside-only' });
+    const w = dom.window;
+    try {
+        w.setTimeout = jest.fn(() => 1);
+        w.requestAnimationFrame = fn => fn();
+        w.utils = { isElementVisible: () => true };
+        const set = jest.fn().mockImplementation(() => {
+            if (failure === 'throw') throw new Error('Storage unavailable');
+            return Promise.reject(new Error('Storage unavailable'));
+        });
+        w.chrome = { storage: {
+            local: { get: async () => ({}), ...(failure === 'unavailable' ? {} : { set }) }
+        } };
+        w.eval(loadingFactsScript);
+        const f = w.loadingFactsFeature;
+        const spinner = w.document.getElementById('spinner');
+        spinner.getBoundingClientRect = () => ({ left: 400, bottom: 250, width: 20, height: 20 });
+        f.observedSpinner = spinner;
+        f.isIntersecting = true;
+        f.getProcessedFact = jest.fn().mockResolvedValue('A fact to review');
+        await f.showToast(spinner, true);
+        const toast = w.document.getElementById(f.toastId);
+        const remove = toast.querySelector('.loading-fact-action--remove');
+        remove.click();
+        for (let i = 0; i < 12; i++) await Promise.resolve();
+        expect(toast.textContent).toContain('Could not save feedback. Try again.');
+        expect(remove.disabled).toBe(false);
+        expect(toast.classList.contains('loading-fact-toast--remove')).toBe(false);
+        w.chrome.storage.local.set = jest.fn().mockResolvedValue();
+        remove.click();
+        for (let i = 0; i < 12; i++) await Promise.resolve();
+        expect(toast.textContent).toContain('This fact won’t be shown again.');
+        expect(toast.classList.contains('loading-fact-toast--remove')).toBe(true);
+    } finally { w.close(); }
+});
+
 test('new loading UI defaults on, delays appearance, and cancels short loads', async () => {
     const dom = new JSDOM('<span id="spinner"></span>', { runScripts: 'outside-only' });
     const w = dom.window;

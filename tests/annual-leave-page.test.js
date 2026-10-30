@@ -35,6 +35,12 @@ describe('Annual Leave page controls', () => {
         $('dates').dispatchEvent(new window.Event('input', { bubbles: true }));
     }
     afterEach(() => dom?.window.close());
+    test('opens saved invalid setup and explains what needs correcting', async () => {
+        await setup({ annualLeaveSettings: { name: 'Harry Barnes', organizer: 'invalid-email' } });
+        expect($('calendar-setup').open).toBe(true);
+        expect($('setup-summary').textContent).toContain('Complete Calendar setup:');
+        expect($('setup-summary').textContent).toContain('email');
+    });
     test('saves defaults and produces the correct three downloadable files', async () => {
         await setup(); fill(); $('save').click(); await flush();
         expect(store.annualLeaveSettings.teamTitle).toBe('{firstName} - AL');

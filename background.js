@@ -11,13 +11,15 @@ initializeAnnualLeave();
 import {
   MASTER_FEATURE_KEY,
   AUDIENCE_KEY,
-  featureModeReady,
+  initializeFeatureMode,
   isFeatureModeActive,
   isFeatureModeInitialized,
   isPopupSender,
   reconcileFeatureMode,
   refreshFeatureMode
 } from './background/feature-mode.js';
+
+const featureModeReady = initializeFeatureMode();
 
 chrome.sidePanel?.onOpened?.addListener(info => isFeatureModeActive() && handleHelpGuidesPanelEvent(info, true)
   .catch(error => console.error('Failed to sync opened Help Guides panel:', error)));

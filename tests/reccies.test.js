@@ -351,6 +351,11 @@ describe('Reccies background reads', () => {
         expect((await call(handleReccies,sender,request)).status).toBe('error');
         expect(state.reccieTracker.revision).toBe(revision);
     });
+    test.each([undefined, '', 'not a URL', 'https://[invalid'])('rejects malformed panel sender URL %s without opening a panel', async url => {
+        const response = await call(prepareReccies, { id: chrome.runtime.id, url, tab: { id: 42, windowId: 7 }, frameId: 0 }, {});
+        expect(response).toMatchObject({ status: 'error', message: 'Open Reccies from Ops Toolshed or Prisma.' });
+        expect(chrome.sidePanel.setOptions).not.toHaveBeenCalled();
+    });
     test('rejects content-page tracker requests and feature-off checks',async()=>{
         expect((await call(handleReccies,{id:chrome.runtime.id,url:'https://go.mediaocean.com/campaign-management/'},{operation:'import',csv,month:'2026-09'})).status).toBe('error');
         require('../background/feature-mode').isFeatureModeActive.mockReturnValue(false);

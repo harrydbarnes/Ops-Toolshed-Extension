@@ -9,8 +9,19 @@
         function available(context){try{return context.tracker?.source?.type==='google'&&['main','early'].includes(context.mode)&&context.tracker.month===context.month&&window.reccieCore.sheetSource(context.tracker.source.url).spreadsheetId===trackerId;}catch(_){return false;}}
         function remember(requestId,context){latest={requestId,mode:context.mode,month:context.month};recover.hidden=false;}
         async function request(operation,args,context){
-            const response=await chrome.runtime.sendMessage({action:'reccies',operation,mode:context.mode,month:context.month,revision:context.tracker?.revision,...args});
-            if(response?.status!=='success')throw Error(response?.message||'Could not reach tracker update service.');
+            let response;
+            try {
+                response=await chrome.runtime.sendMessage({action:'reccies',operation,mode:context.mode,month:context.month,revision:context.tracker?.revision,...args});
+            } catch (cause) {
+                const error=Error('Could not confirm the tracker response.', {cause});
+                error.code='TRANSPORT_UNCERTAIN';
+                throw error;
+            }
+            if(response?.status!=='success'){
+                const error=Error(response?.message||'Could not reach tracker update service.');
+                if(response?.code)error.code=response.code;
+                throw error;
+            }
             return response;
         }
         async function open(rows,statusOnly){
@@ -54,7 +65,7 @@
                 try{receipt(await request('commitTrackerWrite',{requestId},context));}
                 catch(error){
                     label.hidden=save.hidden=true;close.textContent='Close';
-                    if(/timed? ?out|timeout|network|fetch|connection/i.test(error.message)){
+                    if(error.code==='TRANSPORT_UNCERTAIN'){
                         showStatus('Google is taking longer than expected. Checking the save receipt',true);
                         await checkResult();
                     }else showStatus(`${error.message} The save may still be running. Use Check save result before trying another update.`);

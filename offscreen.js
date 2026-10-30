@@ -8,10 +8,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return false;
     }
 
-    if (message.action === 'playAlarm') {
+    if (message?.action === 'playAlarm') {
+        if (message.target !== 'offscreen') return false;
+        const alarmUrl = chrome.runtime.getURL('alarm.mp3');
+        if (!isInternalExtensionSender || message.sound !== alarmUrl) {
+            sendResponse({ status: 'error', message: 'Unauthorized alarm request.' });
+            return false;
+        }
         (async () => {
             try {
-                const audio = new Audio(message.sound);
+                const audio = new Audio(alarmUrl);
                 await audio.play();
             } catch (error) {
                 console.error('Error playing audio in offscreen document:', error);

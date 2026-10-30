@@ -137,12 +137,15 @@ describe('Reccies sidebar',()=>{
             expect(win.chrome.runtime.sendMessage).toHaveBeenLastCalledWith(expect.objectContaining({operation:'trackerWriteStatus',requestId:writeId}));
         }finally{dom.window.close();}
     });
-    test('a timed-out save checks its receipt once and confirms success without resending',async()=>{
+    test.each(['transport rejection','coded background response'])('an uncertain save (%s) checks its receipt once without resending',async failureMode=>{
         const {dom,win}=create({},liveSource);
         try{
             await flush();win.chrome.runtime.sendMessage.mockImplementation(async request=>{
                 if(request.operation==='previewTrackerWrite')return {status:'success',write:{requestId:writeId,results:[{dNumber:'D03120200',state:'eligible',before:'No'}]}};
-                if(request.operation==='commitTrackerWrite')throw Error('signal timed out');
+                if(request.operation==='commitTrackerWrite'){
+                    if(failureMode==='coded background response')return {status:'error',code:'TRANSPORT_UNCERTAIN',message:'Arbitrary service wording'};
+                    throw Error('Arbitrary transport wording');
+                }
                 return {status:'success',write:{requestId:writeId,state:'complete',results:[{dNumber:'D03120200',state:'updated',confirmed:true}]}};
             });
             win.document.querySelector('.tracker-mark-yes').click();await flush();const check=win.document.querySelector('dialog input');check.checked=true;check.dispatchEvent(new win.Event('change'));clickDialog(win,'Confirm Update(s)');await flush();

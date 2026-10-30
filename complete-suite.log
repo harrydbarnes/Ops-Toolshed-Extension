@@ -1,0 +1,10 @@
+npm notice run ops-toolshed-extension@1.9.0 test:diagnose
+npm notice run node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --coverage=false --detectOpenHandles --silent=false
+(node:43104) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+Test Suites: 127 passed, 127 total
+Tests:       1535 passed, 1535 total
+Snapshots:   1 passed, 1 total
+Time:        294.133 s
+Ran all test suites.

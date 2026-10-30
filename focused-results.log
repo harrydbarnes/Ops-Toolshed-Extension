@@ -1,0 +1,8 @@
+(node:46340) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+Test Suites: 2 passed, 2 total
+Tests:       32 passed, 32 total
+Snapshots:   0 total
+Time:        18.251 s
+Ran all test suites within paths "tests/content.test.js", "tests/features/order-view-toggle.test.js".

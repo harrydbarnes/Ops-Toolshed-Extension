@@ -43,99 +43,34 @@ describe('release metadata', () => {
         }
     });
 
-    test('keeps the current release focused on Reccies, Campaign Approval Tracking, Campaign History, and current fixes', () => {
+    test('documents the current release capabilities without fixing editorial positions', () => {
         const toolshed = fs.readFileSync(path.join(root, 'toolshed.html'), 'utf8');
         const dom = new JSDOM(toolshed);
-
         try {
-            const currentRelease = dom.window.document.querySelector('#release-notes .release');
-            const allItems = Array.from(currentRelease.querySelectorAll('li'));
-            expect(allItems).toHaveLength(50);
-            const statsInsights = allItems.find(item => item.querySelector('strong')?.textContent === 'Stats Insights:');
-            expect(statsInsights).toBeDefined();
-            expect(statsInsights.querySelector('.release-badge').dataset.releaseType).toBe('improved');
-            const popupSearch = allItems.find(item => item.querySelector('strong')?.textContent === 'Popup campaign search:');
-            expect(popupSearch).toBeDefined();
-            const timesheet = allItems.find(item => item.querySelector('strong')?.textContent === 'Timesheet Helper:');
-            expect(timesheet).toBeDefined();
-            expect(timesheet.querySelector('.release-badge').dataset.releaseType).toBe('new');
-            expect(timesheet.textContent).toContain('review proportional estimates');
-            expect(timesheet.textContent).toContain('Read visible rows');
-            const annualLeave = allItems.find(item => item.querySelector('strong')?.textContent === 'Annual Leave Calendar Helper:');
-            expect(annualLeave).toBeDefined();
-            expect(annualLeave.querySelector('.release-badge').dataset.releaseType).toBe('new');
-            expect(annualLeave.textContent).toContain('Apple or Google Calendar');
-            expect(annualLeave.textContent).toContain('AM/PM');
-            const releaseItems = allItems.filter(item => item !== annualLeave && item !== timesheet && item !== statsInsights && item !== popupSearch);
-            expect(releaseItems).toHaveLength(46);
-            expect(currentRelease.textContent).toContain('Social Booking Checker IDs');
-            expect(releaseItems[0].textContent).toContain('My Reccies:');
-            expect(releaseItems[0].textContent).toContain('Verification keeps the tracker unchanged');
-            expect(releaseItems[0].textContent).toContain('V1/V2 selector');
-            expect(releaseItems[0].textContent).toContain('preview and confirmation');
-            expect(releaseItems[0].textContent).toContain('save receipts');
-            expect(releaseItems[0].querySelector('.release-badge').dataset.releaseType).toBe('new');
-            expect(releaseItems[1].textContent).toContain('Purchase Order Reference Autofill');
-            expect(releaseItems[1].querySelector('.release-badge').dataset.releaseType).toBe('new');
-            expect(releaseItems[2].textContent).toContain('Order Email Copy');
-            expect(releaseItems[2].querySelector('.release-badge').dataset.releaseType).toBe('new');
-            expect(releaseItems[3].textContent).toContain('Live Meta Campaign Checks');
-            const sidebarSections = releaseItems.find(item => item.querySelector('strong')?.textContent === 'Reccies Sidebar Sections:');
-            expect(sidebarSections).toBeDefined();
-            expect(sidebarSections.querySelector('.release-badge').dataset.releaseType).toBe('improved');
-            expect(sidebarSections.textContent).toContain('chevrons');
-            const offlineFonts = releaseItems.find(item => item.querySelector('strong')?.textContent === 'Offline fonts:');
-            expect(offlineFonts).toBeDefined();
-            expect(offlineFonts.querySelector('.release-badge').dataset.releaseType).toBe('improved');
-            expect(offlineFonts.textContent).toContain('without requests to Google Fonts');
-            const popupStartup = releaseItems.find(item => item.querySelector('strong')?.textContent === 'Popup startup:');
-            expect(popupStartup).toBeDefined();
-            expect(popupStartup.querySelector('.release-badge').dataset.releaseType).toBe('improved');
-            const recciesStartup = releaseItems.find(item => item.querySelector('strong')?.textContent === 'Reccies sidebar startup:');
-            expect(recciesStartup).toBeDefined();
-            expect(recciesStartup.querySelector('.release-badge').dataset.releaseType).toBe('fixed');
-            const performance = releaseItems.find(item => item.querySelector('strong')?.textContent === 'Reccies performance:');
-            expect(performance.textContent).toContain('large trackers');
-            expect(performance.querySelector('.release-badge').dataset.releaseType).toBe('improved');
-            const quickFixTitles = ['Approver Finder:', 'Approver Finder actions:', 'Campaign month validation:'];
-            const quickFixItems = releaseItems.filter(item => quickFixTitles.includes(item.querySelector('strong')?.textContent));
-            expect(quickFixItems).toHaveLength(3);
-            expect(quickFixItems.map(item => item.querySelector('.release-badge').dataset.releaseType)).toEqual(['improved', 'fixed', 'fixed']);
-            const items = releaseItems.slice(4).filter(item => item !== performance && item !== sidebarSections && item !== offlineFonts && item !== popupStartup && item !== recciesStartup && !quickFixItems.includes(item));
-
-            expect(items).toHaveLength(34);
-            expect(items[4].textContent).toContain('Help Guide Library');
-            expect(items[5].textContent).toContain('Loading Facts');
-            expect(items[0].textContent).toContain('Campaign Approval Tracking');
-            expect(items[1].textContent).toContain('Campaign History');
-            expect(items[2].textContent).toContain('Diagnostics Mode');
-            expect(items[3].textContent).toContain('Prisma Link Migration');
-            expect(items[3].querySelector('.release-badge').dataset.releaseType).toBe('new');
-            expect(items[8].textContent).toContain('New Prisma Address');
-            expect(items[8].querySelector('.release-badge').dataset.releaseType).toBe('improved');
-            expect(items[9].textContent).toContain('four campaigns per page');
-            expect(items[10].textContent).toContain('Campaign Approval Tracking');
-            expect(items[11].textContent).toContain('Moe Chat');
-            expect(items[12].textContent).toContain('Features Off');
-            expect(items[13].textContent).toContain('Company-wide setup');
-            expect(items[14].textContent).toContain('Help Guides');
-            expect(items[15].textContent).toContain('Approver paste and clipboard');
-            expect(items[16].textContent).toContain('Approval polling');
-            expect(items[17].textContent).toContain('Prisma Sign-in Assistant');
-            expect(items[18].textContent).toContain('Campaign Name Copy');
-            expect(items[19].textContent).toContain('Plan Navigation');
-            expect(items[20].textContent).toContain('Legacy Prisma Links');
-            expect(items[21].textContent).toContain('Not Submitted');
-            expect(items[22].textContent).toContain('already-approved campaign');
-            expect(items[23].textContent).toContain('clear idle state');
-            expect(items[24].textContent).toContain('Redistribute action');
-            expect(items[25].textContent).toContain('Campaign History Navigation');
-            expect(items[27].textContent).toContain('permanent Moe chat bubble');
-            expect(items[28].textContent).toContain('Loading Time Stats');
-            expect(items[29].textContent).toContain('Order Email Copy');
-            expect(items[30].textContent).toContain('retired Loading Fact Review');
-            expect(items[6].textContent).toContain('Getting Started');
-            expect(items[7].textContent).toContain('Feature Previews');
+            const release = dom.window.document.querySelector('#release-notes .release');
+            const items = Array.from(release.querySelectorAll('li'));
+            const required = [
+                ['My Reccies:', 'new', ['Verification keeps the tracker unchanged', 'preview and confirmation', 'save receipts']],
+                ['Timesheet Helper:', 'new', ['review proportional estimates', 'Read visible rows']],
+                ['Annual Leave Calendar Helper:', 'new', ['Apple or Google Calendar', 'AM/PM']],
+                ['Stats Insights:', 'improved', []],
+                ['Setup recovery:', 'improved', []],
+                ['Feature startup:', 'fixed', []],
+                ['Product Code Warnings:', 'fixed', []],
+                ['Saved feedback and settings:', 'fixed', []],
+                ['Moe Chat recovery:', 'fixed', []],
+                ['Internal request checks:', 'fixed', []]
+            ];
+            for (const [title, type, details] of required) {
+                const matches = items.filter(item => item.querySelector('strong')?.textContent === title);
+                expect(matches).toHaveLength(1);
+                expect(matches[0].querySelector('.release-badge').dataset.releaseType).toBe(type);
+                for (const detail of details) expect(matches[0].textContent).toContain(detail);
+            }
+            const texts = items.map(item => item.textContent.trim());
+            expect(new Set(texts).size).toBe(texts.length);
+            expect(items.filter(item => item.querySelector('strong')?.textContent.startsWith('Other minor fixes')))
+                .toHaveLength(1);
         } finally {
             dom.window.close();
         }

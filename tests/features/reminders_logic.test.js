@@ -13,6 +13,22 @@ describe('Reminders Feature Logic', () => {
         document = env.document;
     });
 
+    test('renders the IAS reminder with its established instructions and dismissal', () => {
+        document.body.textContent = '001148 Flat Unit type';
+        window.remindersFeature.checkForIASConditions();
+        const popup = document.getElementById('ias-reminder-popup');
+        expect(popup.querySelector('h3').textContent).toBe('⚠️ IAS Booking Reminder ⚠️');
+        expect([...popup.querySelectorAll('li')].map(item => item.textContent)).toEqual([
+            'With correct rate for media type', 'Check the plan', 'Ensure what is planned is what goes live'
+        ]);
+        document.getElementById('ias-reminder-popup-close').click();
+        expect(document.getElementById('ias-reminder-popup')).toBeNull();
+        expect(window.chrome.storage.local.set).toHaveBeenCalledWith(
+            { iasReminderLastShown: expect.any(Number) }, expect.any(Function)
+        );
+        window.close();
+    });
+
     test('should match OR logic (default)', () => {
         const reminder = {
             id: '1',

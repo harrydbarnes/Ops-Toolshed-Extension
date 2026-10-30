@@ -104,22 +104,6 @@ describe('Content Script Main Logic', () => {
             window.setInterval = callback => window.__intervalCallbacks.push(callback);
         `);
 
-        const mutationCallbackMap = new Map();
-        const mutationObservers = [];
-        window.MutationObserver = jest.fn(function(callback) {
-            const instance = {
-                observe: jest.fn(() => mutationCallbackMap.set(instance, callback)),
-                disconnect: jest.fn(() => mutationCallbackMap.delete(instance)),
-                __callback: callback,
-                __trigger: (mutations) => {
-                    const cb = mutationCallbackMap.get(instance);
-                    if (cb) cb(mutations, instance);
-                }
-            };
-            mutationObservers.push(instance);
-            return instance;
-        });
-
         // Load all scripts into the JSDOM environment
         scriptsToLoad.forEach(scriptContent => {
             const scriptEl = document.createElement('script');
@@ -141,10 +125,24 @@ describe('Content Script Main Logic', () => {
         return {
             window,
             document,
-            intervalCallbacks: window.__intervalCallbacks,
-            mutationObservers
+            intervalCallbacks: window.__intervalCallbacks
         };
     };
+
+    async function mutateDom(records) {
+        for (const record of records) {
+            if (record.type === 'characterData') {
+                record.target.data += ' updated';
+            } else if (record.addedNodes?.length) {
+                record.target.append(...record.addedNodes);
+            } else {
+                record.target.append(document.createElement('span'));
+            }
+        }
+        // Native MutationObserver callbacks run at the microtask checkpoint.
+        await Promise.resolve();
+        await Promise.resolve();
+    }
 
     beforeEach(() => {
         if (typeof resetMocks === 'function') resetMocks();
@@ -180,6 +178,69 @@ describe('Content Script Main Logic', () => {
         expect(window.logoFeature.shouldReplaceLogoOnThisPage()).toBe(true);
     });
 
+    test.each(['throw', 'reject'])('isolates %s initialization failures, retries them, and retains successful instances', async mode => {
+        let failing = true;
+        const appLearnFeature = { initialize: jest.fn(() => {
+            if (!failing) return;
+            if (mode === 'throw') throw new Error('Temporary initialization failure');
+            return Promise.reject(new Error('Temporary initialization failure'));
+        }) };
+        const helpGuidesLauncherFeature = { initialize: jest.fn(), ensureLauncher: jest.fn() };
+        const page = setupJSDOM('https://go.mediaocean.com/campaign-management/#route=campaigns', [], {
+            synchronousStorage: true,
+            featureMocks: { appLearnFeature, helpGuidesLauncherFeature, logoFeature: { shouldReplaceLogoOnThisPage: () => false } }
+        });
+        for (let i = 0; i < 8; i++) await Promise.resolve();
+        expect(helpGuidesLauncherFeature.initialize).toHaveBeenCalledTimes(1);
+        failing = false;
+        const reconcile = async () => {
+            await mutateDom([{ type: 'childList', target: page.document.body, addedNodes: [] }]);
+            jest.runOnlyPendingTimers();
+        };
+        await reconcile();
+        for (let i = 0; i < 8; i++) await Promise.resolve();
+        expect(appLearnFeature.initialize.mock.calls.length).toBeGreaterThan(1);
+        const completedCalls = appLearnFeature.initialize.mock.calls.length;
+        await reconcile();
+        expect(appLearnFeature.initialize).toHaveBeenCalledTimes(completedCalls);
+        expect(helpGuidesLauncherFeature.initialize).toHaveBeenCalledTimes(1);
+    });
+
+    test('retries failed initialization without another native mutation', async () => {
+        const appLearnFeature = { initialize: jest.fn().mockImplementationOnce(() => {
+            throw new Error('temporary startup failure');
+        }) };
+        setupJSDOM('https://go.mediaocean.com/campaign-management/#route=campaigns', [], {
+            synchronousStorage: true,
+            featureMocks: { appLearnFeature, logoFeature: { shouldReplaceLogoOnThisPage: () => false } }
+        });
+        for (let i = 0; i < 8; i++) await Promise.resolve();
+        jest.advanceTimersByTime(1500);
+        for (let i = 0; i < 8; i++) await Promise.resolve();
+        expect(appLearnFeature.initialize).toHaveBeenCalledTimes(2);
+        jest.advanceTimersByTime(5000);
+        expect(appLearnFeature.initialize).toHaveBeenCalledTimes(2);
+    });
+
+    test('does not initialize a pending collaborator twice', async () => {
+        let complete;
+        const pending = new Promise(resolve => { complete = resolve; });
+        const appLearnFeature = { initialize: jest.fn(() => pending) };
+        const page = setupJSDOM('https://go.mediaocean.com/campaign-management/#route=campaigns', [], {
+            synchronousStorage: true,
+            featureMocks: { appLearnFeature, logoFeature: { shouldReplaceLogoOnThisPage: () => false } }
+        });
+        for (let i = 0; i < 8; i++) await Promise.resolve();
+        await mutateDom([{ type: 'childList', target: page.document.body, addedNodes: [] }]);
+        jest.runOnlyPendingTimers();
+        expect(appLearnFeature.initialize).toHaveBeenCalledTimes(1);
+        complete();
+        for (let i = 0; i < 8; i++) await Promise.resolve();
+        await mutateDom([{ type: 'childList', target: page.document.body, addedNodes: [] }]);
+        jest.runOnlyPendingTimers();
+        expect(appLearnFeature.initialize).toHaveBeenCalledTimes(1);
+    });
+
     test('starts campaign features only on campaign routes and keeps Actualise/Orders route gates narrow', async () => {
         const featureNames = [
             'appLearnFeature',
@@ -212,7 +273,7 @@ describe('Content Script Main Logic', () => {
             apply: jest.fn(),
             applyTransparency: jest.fn(),
             ensureLauncher: jest.fn(),
-            handleOrderViewToggle: jest.fn(),
+            reconcile: jest.fn(),
             isNewOrderUi: jest.fn(() => false),
             handleApproverPasting: jest.fn(),
             handleManageFavouritesButton: jest.fn(),
@@ -221,7 +282,6 @@ describe('Content Script Main Logic', () => {
             handleAutoCopy: jest.fn(),
             checkSelection: jest.fn(),
             syncAll: jest.fn(),
-            checkAndAddCopyButtons: jest.fn(),
             injectBannerButton: jest.fn(),
             checkLiveWorkflowWidget: jest.fn()
         }]));
@@ -336,7 +396,7 @@ describe('Content Script Main Logic', () => {
     });
 
     test('coalesces repeated Prisma mutation batches into one fast and one deferred reconciliation', async () => {
-        const { window, document, mutationObservers } = setupJSDOM(
+        const { window, document } = setupJSDOM(
             'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=buy&ptb-ctx=actualize&route=actualize',
             [],
             { synchronousStorage: true }
@@ -344,11 +404,6 @@ describe('Content Script Main Logic', () => {
         await Promise.resolve();
         jest.runOnlyPendingTimers();
 
-        const observer = mutationObservers.find(instance =>
-            instance.__callback.toString().includes('scheduleDynamicUiReconciliation') ||
-            instance.__callback.toString().includes('orderViewToggleFeature')
-        );
-        expect(observer).toBeDefined();
 
         window.actualiseNavbarFeature = {
             isInitialized: jest.fn(() => true),
@@ -356,7 +411,7 @@ describe('Content Script Main Logic', () => {
         };
         window.actualiseShortcutFeature = { apply: jest.fn() };
         window.actualiseExportAllFeature = { apply: jest.fn() };
-        window.orderViewToggleFeature = { handleOrderViewToggle: jest.fn() };
+        window.orderViewToggleFeature = { reconcile: jest.fn() };
         const fastApply = window.actualiseNavbarFeature.apply;
         const deferredApply = jest.spyOn(
             window.campaignFeature,
@@ -364,7 +419,7 @@ describe('Content Script Main Logic', () => {
         ).mockClear();
         const mutation = [{ type: 'childList', target: document.body, addedNodes: [] }];
 
-        for (let index = 0; index < 20; index += 1) observer.__trigger(mutation);
+        for (let index = 0; index < 20; index += 1) await mutateDom(mutation);
 
         expect(fastApply).not.toHaveBeenCalled();
         expect(deferredApply).not.toHaveBeenCalled();
@@ -377,8 +432,42 @@ describe('Content Script Main Logic', () => {
         expect(deferredApply).toHaveBeenCalledTimes(1);
     });
 
+    test('continues reconciling after another feature throws', async () => {
+        const { window, document } = setupJSDOM(
+            'https://go.mediaocean.com/campaign-management/#osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=buy',
+            [], { synchronousStorage: true }
+        );
+        await Promise.resolve();
+        jest.runOnlyPendingTimers();
+        window.orderViewToggleFeature = { reconcile: jest.fn(() => { throw new Error('transient'); }) };
+        const titleApply = jest.fn();
+        window.campaignTabTitleFeature = { applyCampaignTitle: titleApply };
+        await mutateDom([{ type: 'childList', target: document.body, addedNodes: [] }]);
+        jest.advanceTimersByTime(320);
+        expect(window.orderViewToggleFeature.reconcile).toHaveBeenCalled();
+        expect(titleApply).toHaveBeenCalled();
+    });
+
+    test('reconciles campaign text updates without inserting a new element', async () => {
+        const { window, document } = setupJSDOM(
+            'https://go.mediaocean.com/campaign-management/#osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=buy',
+            [], { synchronousStorage: true }
+        );
+        await Promise.resolve();
+        jest.runOnlyPendingTimers();
+        const name = document.createElement('span');
+        name.className = 'mo-campaign-name-wrapper';
+        name.textContent = 'Updated campaign';
+        document.body.append(name);
+        const apply = jest.fn();
+        window.campaignTabTitleFeature = { applyCampaignTitle: apply };
+        await mutateDom([{ type: 'characterData', target: name.firstChild }]);
+        jest.advanceTimersByTime(320);
+        expect(apply).toHaveBeenCalled();
+    });
+
     test('does not run campaign or Actualise reconciliation on the Campaigns dashboard', async () => {
-        const { window, document, mutationObservers } = setupJSDOM(
+        const { window, document } = setupJSDOM(
             'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns',
             [],
             { synchronousStorage: true }
@@ -386,21 +475,17 @@ describe('Content Script Main Logic', () => {
         await Promise.resolve();
         jest.runOnlyPendingTimers();
 
-        const observer = mutationObservers.find(instance =>
-            instance.__callback.toString().includes('scheduleDynamicUiReconciliation') ||
-            instance.__callback.toString().includes('orderViewToggleFeature')
-        );
         window.actualiseNavbarFeature = { apply: jest.fn() };
         window.actualiseShortcutFeature = { apply: jest.fn() };
         window.actualiseExportAllFeature = { apply: jest.fn() };
-        window.orderViewToggleFeature = { handleOrderViewToggle: jest.fn() };
+        window.orderViewToggleFeature = { reconcile: jest.fn() };
         const actualiseApply = window.actualiseNavbarFeature.apply;
         const navigationApply = jest.spyOn(
             window.campaignFeature,
             'handleCampaignNavigationOptimisation'
         ).mockClear();
 
-        observer.__trigger([{ type: 'childList', target: document.body, addedNodes: [] }]);
+        await mutateDom([{ type: 'childList', target: document.body, addedNodes: [] }]);
         jest.runOnlyPendingTimers();
 
         expect(actualiseApply).not.toHaveBeenCalled();
@@ -408,7 +493,7 @@ describe('Content Script Main Logic', () => {
     });
 
     test('runs campaign controls on Plan without invoking Actualise-only controls', async () => {
-        const { window, document, mutationObservers } = setupJSDOM(
+        const { window, document } = setupJSDOM(
             'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=plan&ptb-ctx=rfpSummary',
             [],
             { synchronousStorage: true }
@@ -424,11 +509,8 @@ describe('Content Script Main Logic', () => {
             window.campaignFeature,
             'handleCampaignNavigationOptimisation'
         ).mockClear();
-        const observer = mutationObservers.find(instance =>
-            instance.__callback.toString().includes('scheduleDynamicUiReconciliation')
-        );
 
-        observer.__trigger([{ type: 'childList', target: document.body, addedNodes: [] }]);
+        await mutateDom([{ type: 'childList', target: document.body, addedNodes: [] }]);
         jest.runOnlyPendingTimers();
 
         expect(window.actualiseShortcutFeature.apply).toHaveBeenCalledTimes(1);
@@ -439,7 +521,7 @@ describe('Content Script Main Logic', () => {
     });
 
     test('reconciles legacy Order ID copy and removes stale New Order UI controls on an old Order Summary', async () => {
-        const { window, document, mutationObservers } = setupJSDOM(
+        const { window, document } = setupJSDOM(
             'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=buy&ptb-ctx=orderSummary&showOrders=true',
             [],
             { synchronousStorage: true }
@@ -449,29 +531,26 @@ describe('Content Script Main Logic', () => {
 
         window.orderViewToggleFeature = {
             isNewOrderUi: jest.fn(() => false),
-            handleOrderViewToggle: jest.fn()
+            reconcile: jest.fn()
         };
-        window.orderIdCopyFeature = { checkAndAddCopyButtons: jest.fn() };
+        window.orderIdCopyFeature = { reconcile: jest.fn() };
         window.actualiseNavbarFeature = { apply: jest.fn() };
         window.actualiseExportAllFeature = { apply: jest.fn() };
         const staleOrderView = document.createElement('div');
         staleOrderView.className = 'order-view-toggle';
         document.body.appendChild(staleOrderView);
-        const observer = mutationObservers.find(instance =>
-            instance.__callback.toString().includes('scheduleDynamicUiReconciliation')
-        );
 
-        observer.__trigger([{ type: 'childList', target: document.body, addedNodes: [] }]);
+        await mutateDom([{ type: 'childList', target: document.body, addedNodes: [] }]);
         jest.runOnlyPendingTimers();
 
-        expect(window.orderViewToggleFeature.handleOrderViewToggle).toHaveBeenCalledTimes(1);
-        expect(window.orderIdCopyFeature.checkAndAddCopyButtons).toHaveBeenCalledTimes(1);
+        expect(window.orderViewToggleFeature.reconcile).toHaveBeenCalledTimes(1);
+        expect(window.orderIdCopyFeature.reconcile).toHaveBeenCalledTimes(1);
         expect(window.actualiseNavbarFeature.apply).not.toHaveBeenCalled();
         expect(window.actualiseExportAllFeature.apply).not.toHaveBeenCalled();
     });
 
     test('reconciles New Order UI controls and lets Order ID copy remove stale legacy controls', async () => {
-        const { window, document, mutationObservers } = setupJSDOM(
+        const { window, document } = setupJSDOM(
             'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=buy&ptb-ctx=orderSummary&showOrders=true',
             [],
             { synchronousStorage: true }
@@ -481,25 +560,22 @@ describe('Content Script Main Logic', () => {
 
         window.orderViewToggleFeature = {
             isNewOrderUi: jest.fn(() => true),
-            handleOrderViewToggle: jest.fn()
+            reconcile: jest.fn()
         };
-        window.orderIdCopyFeature = { checkAndAddCopyButtons: jest.fn() };
+        window.orderIdCopyFeature = { reconcile: jest.fn() };
         const staleLegacyCell = document.createElement('td');
         staleLegacyCell.className = 'order-id-copy-cell';
         document.body.appendChild(staleLegacyCell);
-        const observer = mutationObservers.find(instance =>
-            instance.__callback.toString().includes('scheduleDynamicUiReconciliation')
-        );
 
-        observer.__trigger([{ type: 'childList', target: document.body, addedNodes: [] }]);
+        await mutateDom([{ type: 'childList', target: document.body, addedNodes: [] }]);
         jest.runOnlyPendingTimers();
 
-        expect(window.orderViewToggleFeature.handleOrderViewToggle).toHaveBeenCalledTimes(1);
-        expect(window.orderIdCopyFeature.checkAndAddCopyButtons).toHaveBeenCalledTimes(1);
+        expect(window.orderViewToggleFeature.reconcile).toHaveBeenCalledTimes(1);
+        expect(window.orderIdCopyFeature.reconcile).toHaveBeenCalledTimes(1);
     });
 
-    test('keeps clean new Order UI mutations on the narrow optimized path', async () => {
-        const { window, document, mutationObservers } = setupJSDOM(
+    test('delegates clean new Order UI mutations to the feature owner', async () => {
+        const { window, document } = setupJSDOM(
             'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=buy&ptb-ctx=orderSummary&showOrders=true',
             [],
             { synchronousStorage: true }
@@ -509,30 +585,28 @@ describe('Content Script Main Logic', () => {
 
         window.orderViewToggleFeature = {
             isNewOrderUi: jest.fn(() => true),
-            handleOrderViewToggle: jest.fn()
+            reconcile: jest.fn()
         };
         window.orderIdCopyFeature = {
-            checkAndAddCopyButtons: jest.fn(),
+            reconcile: jest.fn(),
             reconcileEmailCopyButtons: jest.fn()
         };
-        const observer = mutationObservers.find(instance =>
-            instance.__callback.toString().includes('scheduleDynamicUiReconciliation')
-        );
 
         const recipientCell = document.createElement('td');
         recipientCell.id = 'orderRecipients-0';
         recipientCell.textContent = 'one@example.com';
         document.body.appendChild(recipientCell);
-        observer.__trigger([{ type: 'childList', target: recipientCell, addedNodes: [] }]);
+        await mutateDom([{ type: 'childList', target: recipientCell, addedNodes: [] }]);
         jest.runOnlyPendingTimers();
 
-        expect(window.orderViewToggleFeature.handleOrderViewToggle).toHaveBeenCalledTimes(1);
-        expect(window.orderIdCopyFeature.checkAndAddCopyButtons).not.toHaveBeenCalled();
-        expect(window.orderIdCopyFeature.reconcileEmailCopyButtons).toHaveBeenCalledTimes(1);
+        expect(window.orderViewToggleFeature.reconcile).toHaveBeenCalledTimes(1);
+        expect(window.orderIdCopyFeature.reconcile).toHaveBeenCalledTimes(1);
+        expect(window.orderIdCopyFeature.reconcileEmailCopyButtons).not.toHaveBeenCalled();
+        expect(window.orderViewToggleFeature.isNewOrderUi).not.toHaveBeenCalled();
     });
 
     test('runs New Order UI reconciliation on the Buy route where its native header is rendered', async () => {
-        const { window, document, mutationObservers } = setupJSDOM(
+        const { window, document } = setupJSDOM(
             'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=buy&ptb-ctx=digital&route=online',
             [],
             { synchronousStorage: true }
@@ -542,16 +616,13 @@ describe('Content Script Main Logic', () => {
 
         window.orderViewToggleFeature = {
             isNewOrderUi: jest.fn(() => true),
-            handleOrderViewToggle: jest.fn()
+            reconcile: jest.fn()
         };
-        const observer = mutationObservers.find(instance =>
-            instance.__callback.toString().includes('scheduleDynamicUiReconciliation')
-        );
 
-        observer.__trigger([{ type: 'childList', target: document.body, addedNodes: [] }]);
+        await mutateDom([{ type: 'childList', target: document.body, addedNodes: [] }]);
         jest.runOnlyPendingTimers();
 
-        expect(window.orderViewToggleFeature.handleOrderViewToggle).toHaveBeenCalledTimes(1);
+        expect(window.orderViewToggleFeature.reconcile).toHaveBeenCalledTimes(1);
     });
 
     test('cleans campaign budget styles immediately when the SPA URL changes to the dashboard', () => {
@@ -576,7 +647,7 @@ describe('Content Script Main Logic', () => {
     });
 
     test('does not reconcile Prisma features for extension-owned DOM churn', async () => {
-        const { window, document, mutationObservers } = setupJSDOM(
+        const { window, document } = setupJSDOM(
             'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=buy&route=online',
             false,
             [],
@@ -585,20 +656,17 @@ describe('Content Script Main Logic', () => {
         await Promise.resolve();
         jest.runOnlyPendingTimers();
         const navigation = jest.spyOn(window.campaignFeature, 'handleCampaignNavigationOptimisation').mockClear();
-        const observer = mutationObservers.find(instance =>
-            instance.__callback.toString().includes('scheduleDynamicUiReconciliation')
-        );
         const extensionNode = document.createElement('div');
         extensionNode.className = 'toolshed-feature-preview';
 
-        observer.__trigger([{ type: 'childList', target: document.body, addedNodes: [extensionNode] }]);
+        await mutateDom([{ type: 'childList', target: document.body, addedNodes: [extensionNode] }]);
         jest.runOnlyPendingTimers();
 
         expect(navigation).not.toHaveBeenCalled();
     });
 
     test('reconciles mapped dirty groups for a known native region', async () => {
-        const { window, document, mutationObservers } = setupJSDOM(
+        const { window, document } = setupJSDOM(
             'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=plan&ptb-ctx=rfpSummary',
             false,
             [],
@@ -617,13 +685,10 @@ describe('Content Script Main Logic', () => {
         ).mockImplementation(() => {});
         window.actualiseNavbarFeature = { apply: jest.fn() };
         window.actualiseShortcutFeature = { apply: jest.fn() };
-        const observer = mutationObservers.find(instance =>
-            instance.__callback.toString().includes('markDirtyFeaturesFromMutations')
-        );
         const nativeWorkflowRegion = document.createElement('div');
         nativeWorkflowRegion.className = 'workflow-widget-wrapper';
 
-        observer.__trigger([{
+        await mutateDom([{
             type: 'childList',
             target: document.body,
             addedNodes: [nativeWorkflowRegion]
@@ -637,7 +702,7 @@ describe('Content Script Main Logic', () => {
     });
 
     test('reconciles campaign history and approval recipients when the Workflow sidebar is mounted', async () => {
-        const { window, document, mutationObservers } = setupJSDOM(
+        const { window, document } = setupJSDOM(
             'https://groupmuk-prisma.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=CP123&ptb-mod=buy&route=online',
             false,
             [],
@@ -651,13 +716,10 @@ describe('Content Script Main Logic', () => {
             window.approverPastingFeature,
             'handleSubmittedRecipientDisplay'
         ).mockImplementation(() => {});
-        const observer = mutationObservers.find(instance =>
-            instance.__callback.toString().includes('markDirtyFeaturesFromMutations')
-        );
         const workflowSidebar = document.createElement('mo-side-panel');
         workflowSidebar.className = 'workflow-sidebar';
 
-        observer.__trigger([{
+        await mutateDom([{
             type: 'childList',
             target: document.body,
             addedNodes: [workflowSidebar]

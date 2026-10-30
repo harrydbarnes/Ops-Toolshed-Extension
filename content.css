@@ -81,6 +81,27 @@ body.reminder-theme-black #confirmation-popup {
     cursor: not-allowed;
 }
 
+/* The countdown fills the button while the existing seconds remain visible. */
+.reminder-close-button.reminder-countdown:disabled {
+    background-image: linear-gradient(to right, #07009a 50%, #666666 50%);
+    background-size: 200% 100%;
+    background-position: right center;
+    color: #fff;
+    animation: reminder-button-fill var(--reminder-countdown-duration) linear forwards;
+}
+
+@keyframes reminder-button-fill {
+    to { background-position: left center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .reminder-close-button.reminder-countdown:disabled {
+        animation: none;
+        background-image: none;
+        color: #666;
+    }
+}
+
 /* Dimming Overlay */
 .reminder-overlay {
     position: fixed;
@@ -438,8 +459,6 @@ body.reminder-theme-black #confirmation-popup {
     /* 1. Force margin to zero */
     margin-bottom: 0 !important;
 
-    /* Keep the chat action clear of Prisma's workflow icon. */
-    margin-left: 6px !important;
 
     /* 2. Fix "Ghost" spacing caused by baseline alignment */
     vertical-align: middle !important;
@@ -509,6 +528,7 @@ body.reminder-theme-black #confirmation-popup {
     max-width: none;
     width: max-content;
     flex-shrink: 0;
+    gap: 6px;
 }
 
 /* Preserve native plan labels and status badges when injected controls widen
@@ -1807,6 +1827,11 @@ div[slot="right"].ai-style-change-1 {
 .toolshed-campaign-history-result {
     margin: 0;
     border-bottom: 1px solid #e8edf2;
+}
+
+#toolshed-campaign-history-panel.is-expanded .toolshed-campaign-history-result {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 110px;
 }
 
 .toolshed-campaign-history-result:last-child {

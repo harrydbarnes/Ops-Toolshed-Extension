@@ -77,6 +77,11 @@
         if (!validMonth(month)) throw new Error('Choose a valid report month.');
         return `reccieTracker:${mode}:${month}`;
     }
+    /**
+     * @param {unknown} value Booking date from the tracker export.
+     * @returns {string|null} YYYY-MM for a valid date, '' for absent input,
+     * or null for malformed input. Only absent dates may be inferred.
+     */
     function bookingMonth(value) {
         const text = clean(value);
         if (!text) return '';
@@ -88,6 +93,21 @@
         const date = new Date(Date.UTC(Number(year), Number(month)-1, Number(day)));
         return date.getUTCFullYear()===Number(year) && date.getUTCMonth()===Number(month)-1 && date.getUTCDate()===Number(day) ? `${year}-${String(month).padStart(2,'0')}` : null;
     }
+    /**
+     * @typedef {Object} TrackerRow
+     * @property {string} dNumber
+     * @property {string} campaignId
+     * @property {string} month
+     * @property {string} bookingEndDate
+     * @property {string} [issue]
+     * @property {boolean} [monthInferred]
+     */
+    /**
+     * @param {string} csv Tracker report text.
+     * @param {string} month Current report month in YYYY-MM format.
+     * @returns {{rows: TrackerRow[], reason: string}|{rows: TrackerRow[], excludedRows: number, ambiguousRows: number}}
+     * Empty-report results carry a reason; filtered results carry row counts.
+     */
     function earlyRows(csv, month) {
         if (month !== currentMonth()) throw new Error('Early Recs uses the current month.');
         const headers = parseCsv(csv)[0]?.map(value=>clean(value).toLowerCase()) || [];
@@ -133,6 +153,19 @@
         if (Number(data.total) > 0 && !data.nodes.length) throw new Error('Prisma returned a count without row data. Nothing was verified.');
         return rows;
     }
+    /**
+     * @typedef {Object} ReconciliationRecord
+     * @property {string} buySerialNumber
+     * @property {string} month
+     * @property {string} [okToPay]
+     * @property {string} [buyStatus]
+     */
+    /**
+     * @param {TrackerRow} row Imported tracker identity and validation state.
+     * @param {ReconciliationRecord[]} records Verified Prisma grid records.
+     * @returns {{state: 'review', message: string, reconciled?: string, buyStatus?: string}|{state: 'ready'|'outstanding', reconciled: string, buyStatus: string}}
+     * Review results are not permission to write the tracker.
+     */
     function evaluateRow(row, records) {
         if (row.issue) return { state: 'review', message: row.issue };
         const matches = records.filter(record => record.buySerialNumber === row.dNumber && record.month === row.month);

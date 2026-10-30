@@ -7,7 +7,7 @@ describe('manual Reccies worker writes',()=>{
     const row=(id,d)=>({sourceRow:id,dNumber:d,campaignId:'CP3G9KS',month:'2026-09',reccied:'No',issue:''});
     const response=data=>({ok:true,url:'https://script.googleusercontent.com/echo',headers:{get:()=> 'application/json'},json:async()=>({ok:true,service:'ops-toolshed-reccies-writer',protocol:1,...data})});
     beforeEach(()=>{
-        jest.resetModules();({manualTrackerWrite:manual}=require('../background/reccie-writes'));
+        jest.resetModules();({dispatchTrackerWrite:manual}=require('../background/reccie-writes'));
         state={reccieTracker:{revision:'original',month:'2026-09',source:{type:'google',url},rows:[row(2,'D03120200'),row(3,'D03120201')],checks:{2:{state:'ready'}}}};
         chrome.permissions={contains:jest.fn(async()=>true)};
         chrome.storage.local.get=jest.fn(async()=>structuredClone(state));chrome.storage.local.set=jest.fn(async values=>Object.assign(state,structuredClone(values)));
@@ -57,7 +57,7 @@ describe('manual Reccies worker writes',()=>{
         await expect(manual({operation:'previewTrackerWrite',mode:'main',month:'2026-09',revision:'original',rowIds:[999]},context)).rejects.toThrow('Selection');expect(fetchMock).not.toHaveBeenCalled();
     });
     test('unknown network result never updates cache or retries commit automatically; status can recover',async()=>{
-        await preview();fetchMock.mockRejectedValueOnce(Error('Connection lost'));await expect(commit()).rejects.toThrow('lost');expect(state.reccieTracker.rows[0].reccied).toBe('No');expect(fetchMock).toHaveBeenCalledTimes(2);
+        await preview();fetchMock.mockRejectedValueOnce(Error('Connection lost'));await expect(commit()).rejects.toMatchObject({code:'TRANSPORT_UNCERTAIN'});expect(state.reccieTracker.rows[0].reccied).toBe('No');expect(fetchMock).toHaveBeenCalledTimes(2);
         fetchMock.mockResolvedValue(response({requestId,mode:'main',month:'2026-09',state:'complete',results:[{dNumber:'D03120200',campaignId:'CP3G9KS',month:'2026-09',state:'already_yes',after:'Yes',confirmed:true}]}));
         await manual({operation:'trackerWriteStatus',mode:'main',month:'2026-09',requestId},context);expect(state.reccieTracker.rows[0].reccied).toBe('Yes');expect(JSON.parse(fetchMock.mock.calls[2][1].body).operation).toBe('status');
     });

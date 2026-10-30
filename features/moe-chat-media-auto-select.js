@@ -222,6 +222,7 @@
             trigger?.click?.();
         } catch (_error) {
             // The chat may be replaced while the dropdown is opening.
+            openingControls.delete(control);
         }
     }
 

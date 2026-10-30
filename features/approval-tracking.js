@@ -323,6 +323,79 @@
         }
     `;
 
+    function createCampaignRow(item, { approved, timeText, statusText, anchor }) {
+        const li = document.createElement('li');
+        li.className = 'toolshed-approval-item';
+
+        const link = document.createElement('a');
+        link.className = 'toolshed-approval-item-link';
+        if (item.url) link.href = item.url;
+        link.target = '_blank';
+
+        const nameEl = document.createElement('span');
+        nameEl.className = 'toolshed-approval-item-name';
+        nameEl.textContent = truncateString(item.campaignName || item.campaignId, 36);
+        nameEl.title = item.campaignName || item.campaignId;
+        link.appendChild(nameEl);
+
+        const meta = document.createElement('div');
+        meta.className = 'toolshed-approval-item-meta';
+
+        const idSpan = document.createElement('span');
+        idSpan.className = 'toolshed-approval-item-cpid';
+        idSpan.textContent = item.campaignId;
+        meta.appendChild(idSpan);
+
+        if (timeText) {
+            const timeSpan = document.createElement('span');
+            timeSpan.className = 'toolshed-approval-item-time';
+            timeSpan.textContent = timeText;
+            meta.appendChild(timeSpan);
+        }
+
+        if (approved) {
+            const hintSpan = document.createElement('span');
+            hintSpan.className = 'toolshed-approval-item-link-hint';
+            hintSpan.textContent = '↗';
+            meta.appendChild(hintSpan);
+        }
+
+        link.appendChild(meta);
+        link.addEventListener('click', function() {
+            closeCurrentPanel();
+        });
+        li.appendChild(link);
+
+        const statusCol = document.createElement('div');
+        statusCol.className = 'toolshed-approval-item-status-col';
+
+        const statusBadge = document.createElement('span');
+        statusBadge.className = approved ? 'toolshed-approval-badge-approved' : 'toolshed-approval-badge-pending';
+        statusBadge.textContent = statusText;
+        statusCol.appendChild(statusBadge);
+
+        const dismissBtn = document.createElement('button');
+        dismissBtn.type = 'button';
+        dismissBtn.className = 'toolshed-approval-item-dismiss';
+        dismissBtn.textContent = '✕';
+        dismissBtn.title = approved ? 'Remove from approved list' : 'Stop tracking this campaign';
+        dismissBtn.addEventListener('click', async function(e) {
+            e.stopPropagation();
+            await safeSendMessage({
+                action: approved ? 'dismissApprovedCampaign' : 'dismissPendingCampaign',
+                campaignId: item.campaignId
+            });
+            await updateBannerIndicator();
+            if (isExtensionContextValid()) {
+                renderApprovalPanel(anchor);
+            }
+        });
+        statusCol.appendChild(dismissBtn);
+
+        li.appendChild(statusCol);
+        return li;
+    }
+
     async function renderApprovalPanel(anchor, options) {
         const skipEntrance = Boolean(options && options.skipEntrance);
         const reuseCurrent = Boolean(
@@ -480,74 +553,12 @@
                 list.className = 'toolshed-approval-list';
 
                 approvedList.forEach(function(item) {
-                    const li = document.createElement('li');
-                    li.className = 'toolshed-approval-item';
-
-                    const link = document.createElement('a');
-                    link.className = 'toolshed-approval-item-link';
-                    if (item.url) link.href = item.url;
-                    link.target = '_blank';
-
-                    const nameEl = document.createElement('span');
-                    nameEl.className = 'toolshed-approval-item-name';
-                    nameEl.textContent = truncateString(item.campaignName || item.campaignId, 36);
-                    nameEl.title = item.campaignName || item.campaignId;
-                    link.appendChild(nameEl);
-
-                    const meta = document.createElement('div');
-                    meta.className = 'toolshed-approval-item-meta';
-
-                    const idSpan = document.createElement('span');
-                    idSpan.className = 'toolshed-approval-item-cpid';
-                    idSpan.textContent = item.campaignId;
-                    meta.appendChild(idSpan);
-
-                    if (item.approvedAt) {
-                        const timeSpan = document.createElement('span');
-                        timeSpan.className = 'toolshed-approval-item-time';
-                        timeSpan.textContent = `Approved ${formatRelativeTime(item.approvedAt)}`;
-                        meta.appendChild(timeSpan);
-                    }
-
-                    const hintSpan = document.createElement('span');
-                    hintSpan.className = 'toolshed-approval-item-link-hint';
-                    hintSpan.textContent = '↗';
-                    meta.appendChild(hintSpan);
-
-                    link.appendChild(meta);
-                    link.addEventListener('click', function() {
-                        closeCurrentPanel();
-                    });
-                    li.appendChild(link);
-
-                    const statusCol = document.createElement('div');
-                    statusCol.className = 'toolshed-approval-item-status-col';
-
-                    const statusBadge = document.createElement('span');
-                    statusBadge.className = 'toolshed-approval-badge-approved';
-                    statusBadge.textContent = '✓ Approved';
-                    statusCol.appendChild(statusBadge);
-
-                    const dismissBtn = document.createElement('button');
-                    dismissBtn.type = 'button';
-                    dismissBtn.className = 'toolshed-approval-item-dismiss';
-                    dismissBtn.textContent = '✕';
-                    dismissBtn.title = 'Remove from approved list';
-                    dismissBtn.addEventListener('click', async function(e) {
-                        e.stopPropagation();
-                        await safeSendMessage({
-                            action: 'dismissApprovedCampaign',
-                            campaignId: item.campaignId
-                        });
-                        await updateBannerIndicator();
-                        if (isExtensionContextValid()) {
-                            renderApprovalPanel(anchor);
-                        }
-                    });
-                    statusCol.appendChild(dismissBtn);
-
-                    li.appendChild(statusCol);
-                    list.appendChild(li);
+                    list.appendChild(createCampaignRow(item, {
+                        approved: true,
+                        timeText: item.approvedAt ? `Approved ${formatRelativeTime(item.approvedAt)}` : '',
+                        statusText: '✓ Approved',
+                        anchor
+                    }));
                 });
 
                 approvedSection.appendChild(list);
@@ -578,69 +589,14 @@
 
                 group.keys.forEach(function(cId) {
                     const item = pendingMap[cId];
-                    const li = document.createElement('li');
-                    li.className = 'toolshed-approval-item';
-
-                    const link = document.createElement('a');
-                    link.className = 'toolshed-approval-item-link';
-                    if (item.url) link.href = item.url;
-                    link.target = '_blank';
-
-                    const nameEl = document.createElement('span');
-                    nameEl.className = 'toolshed-approval-item-name';
-                    nameEl.textContent = truncateString(item.campaignName || item.campaignId, 36);
-                    nameEl.title = item.campaignName || item.campaignId;
-                    link.appendChild(nameEl);
-
-                    const meta = document.createElement('div');
-                    meta.className = 'toolshed-approval-item-meta';
-
-                    const idSpan = document.createElement('span');
-                    idSpan.className = 'toolshed-approval-item-cpid';
-                    idSpan.textContent = item.campaignId;
-                    meta.appendChild(idSpan);
-
-                    const timeSpan = document.createElement('span');
-                    timeSpan.className = 'toolshed-approval-item-time';
-                    timeSpan.textContent = group.watching
-                        ? `Watching since ${formatRelativeTime(item.watchedAt)} • Checking every 5m`
-                        : `Submitted ${formatRelativeTime(item.submittedAt)} • Checking every 5m`;
-                    meta.appendChild(timeSpan);
-
-                    link.appendChild(meta);
-                    link.addEventListener('click', function() {
-                        closeCurrentPanel();
-                    });
-                    li.appendChild(link);
-
-                    const statusCol = document.createElement('div');
-                    statusCol.className = 'toolshed-approval-item-status-col';
-
-                    const statusBadge = document.createElement('span');
-                    statusBadge.className = 'toolshed-approval-badge-pending';
-                    statusBadge.textContent = group.watching ? '⏳ Awaiting submission' : '⏳ Submitted';
-                    statusCol.appendChild(statusBadge);
-
-                    const dismissBtn = document.createElement('button');
-                    dismissBtn.type = 'button';
-                    dismissBtn.className = 'toolshed-approval-item-dismiss';
-                    dismissBtn.textContent = '✕';
-                    dismissBtn.title = 'Stop tracking this campaign';
-                    dismissBtn.addEventListener('click', async function(e) {
-                        e.stopPropagation();
-                        await safeSendMessage({
-                            action: 'dismissPendingCampaign',
-                            campaignId: item.campaignId
-                        });
-                        await updateBannerIndicator();
-                        if (isExtensionContextValid()) {
-                            renderApprovalPanel(anchor);
-                        }
-                    });
-                    statusCol.appendChild(dismissBtn);
-
-                    li.appendChild(statusCol);
-                    list.appendChild(li);
+                    list.appendChild(createCampaignRow(item, {
+                        approved: false,
+                        timeText: group.watching
+                            ? `Watching since ${formatRelativeTime(item.watchedAt)} • Checking every 5m`
+                            : `Submitted ${formatRelativeTime(item.submittedAt)} • Checking every 5m`,
+                        statusText: group.watching ? '⏳ Awaiting submission' : '⏳ Submitted',
+                        anchor
+                    }));
                 });
 
                 pendingSection.appendChild(list);
@@ -688,11 +644,12 @@
             } else {
                 const note = document.createElement('div');
                 note.className = 'toolshed-approval-already-tracked-note';
+                note.classList.toggle('is-approved', isAlreadyApproved);
                 note.textContent = isAlreadyApproved
                     ? `✓ Campaign ${currentCampaignId} is marked Approved`
                     : pendingMap[currentCampaignId]?.watchingSubmission
-                        ? `✓ Watching campaign ${currentCampaignId} for submission`
-                        : `✓ Currently tracking campaign ${currentCampaignId}`;
+                        ? `◷ Watching campaign ${currentCampaignId} for submission`
+                        : `◷ Currently tracking campaign ${currentCampaignId}`;
                 footer.appendChild(note);
             }
             panel.appendChild(footer);

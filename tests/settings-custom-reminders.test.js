@@ -72,6 +72,41 @@ describe('Custom reminder settings', () => {
         jest.useRealTimers();
     });
 
+    test('restores a custom reminder after a failed save without mutating stored data', async () => {
+        const reminder = { id: 'custom_1', name: 'Example', urlPattern: '*mediaocean.com*', textTrigger: ['Example'], enabled: true, popupMessage: '<p>Example</p>' };
+        const { window, document, store } = await setupSettings([reminder]);
+        const toggle = document.querySelector('#customRemindersList input[data-reminder-id="custom_1"]');
+        window.chrome.storage.sync.set.mockImplementationOnce((_value, callback) => {
+            window.chrome.runtime.lastError = { message: 'Storage unavailable' };
+            callback();
+            window.chrome.runtime.lastError = null;
+        });
+        toggle.click();
+        expect(toggle.checked).toBe(true);
+        expect(store.customReminders[0].enabled).toBe(true);
+        expect(document.querySelector('#toast-notification .toast-message').textContent).toContain('Could not save');
+        toggle.click();
+        expect(store.customReminders[0].enabled).toBe(false);
+    });
+
+    test.each(['callback', 'reject'])('restores a custom reminder after a failed %s read', async failure => {
+        const reminder = { id: 'custom_1', name: 'Example', urlPattern: '*mediaocean.com*', textTrigger: ['Example'], enabled: true, popupMessage: '<p>Example</p>' };
+        const { window, document, store } = await setupSettings([reminder]);
+        const toggle = document.querySelector('#customRemindersList input[data-reminder-id="custom_1"]');
+        window.chrome.storage.sync.get.mockImplementationOnce((_value, callback) => {
+            if (failure === 'reject') return Promise.reject(new Error('Storage unavailable'));
+            window.chrome.runtime.lastError = { message: 'Storage unavailable' };
+            callback({});
+            window.chrome.runtime.lastError = null;
+        });
+        toggle.click();
+        await Promise.resolve();
+        expect(toggle.checked).toBe(true);
+        expect(toggle.disabled).toBe(false);
+        expect(store.customReminders[0].enabled).toBe(true);
+        expect(document.querySelector('#toast-notification .toast-message').textContent).toContain('Could not save');
+    });
+
     test('deep-links tabs and keeps the selected tab across navigation', async () => {
         const { window, document } = await setupSettings(
             [],

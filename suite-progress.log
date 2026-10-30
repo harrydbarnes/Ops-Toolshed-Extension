@@ -1,0 +1,254 @@
+START C:\Dev\EMC-Tools-Extension\tests\features\campaign-history.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\campaign-history.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\social-finance-upload.test.js
+END C:\Dev\EMC-Tools-Extension\tests\social-finance-upload.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\reccies-ui.test.js
+END C:\Dev\EMC-Tools-Extension\tests\reccies-ui.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\dst-assurance.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\dst-assurance.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\background.test.js
+END C:\Dev\EMC-Tools-Extension\tests\background.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\campaign-navigation-ui.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\campaign-navigation-ui.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\content.test.js
+END C:\Dev\EMC-Tools-Extension\tests\content.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\social-finance-engine.test.js
+END C:\Dev\EMC-Tools-Extension\tests\social-finance-engine.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\help-guides-launcher.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\help-guides-launcher.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\loading-facts.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\loading-facts.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\approval-tracking.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\approval-tracking.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\help-guides.test.js
+END C:\Dev\EMC-Tools-Extension\tests\help-guides.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\social-campaign-check.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\social-campaign-check.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\approver-pasting.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\approver-pasting.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\reccies.test.js
+END C:\Dev\EMC-Tools-Extension\tests\reccies.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\social-campaign-check-background.test.js
+END C:\Dev\EMC-Tools-Extension\tests\social-campaign-check-background.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\settings-feature-toggle-contract.test.js
+END C:\Dev\EMC-Tools-Extension\tests\settings-feature-toggle-contract.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\actualise-navbar.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\actualise-navbar.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\toolshed-stats.test.js
+END C:\Dev\EMC-Tools-Extension\tests\toolshed-stats.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\order-id-copy.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\order-id-copy.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\prisma-login-assistant.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\prisma-login-assistant.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\product-code-limit-warning.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\product-code-limit-warning.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\social-finance-ui.test.js
+END C:\Dev\EMC-Tools-Extension\tests\social-finance-ui.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\workday-annual-leave.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\workday-annual-leave.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\actualise-month-assurance.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\actualise-month-assurance.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\popup.test.js
+END C:\Dev\EMC-Tools-Extension\tests\popup.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\max-campaign-budget.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\max-campaign-budget.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\banner-username.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\banner-username.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\meta-report-api.test.js
+END C:\Dev\EMC-Tools-Extension\tests\meta-report-api.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\moe-chat-media-auto-select.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\moe-chat-media-auto-select.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\social-campaign-core.test.js
+END C:\Dev\EMC-Tools-Extension\tests\social-campaign-core.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\actualise-export-all.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\actualise-export-all.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\settings-custom-reminders.test.js
+END C:\Dev\EMC-Tools-Extension\tests\settings-custom-reminders.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\stats-collector-loading.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\stats-collector-loading.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\annual-leave-page.test.js
+END C:\Dev\EMC-Tools-Extension\tests\annual-leave-page.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\reminders_logic.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\reminders_logic.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\placement-counter.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\placement-counter.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\stats-manager.test.js
+END C:\Dev\EMC-Tools-Extension\tests\stats-manager.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\actualise-scroll-restore.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\actualise-scroll-restore.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\auto-copy-url.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\auto-copy-url.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\social-campaign-check-ui.test.js
+END C:\Dev\EMC-Tools-Extension\tests\social-campaign-check-ui.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\reccies-manual-writer-server.test.js
+END C:\Dev\EMC-Tools-Extension\tests\reccies-manual-writer-server.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\onboarding.test.js
+END C:\Dev\EMC-Tools-Extension\tests\onboarding.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\onboarding-tour-panel.test.js
+END C:\Dev\EMC-Tools-Extension\tests\onboarding-tour-panel.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\loading-monitor.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\loading-monitor.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\actualise-shortcut.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\actualise-shortcut.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\onboarding-tour-v2.test.js
+END C:\Dev\EMC-Tools-Extension\tests\onboarding-tour-v2.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\manifest-script-order.test.js
+END C:\Dev\EMC-Tools-Extension\tests\manifest-script-order.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\workflow-centering.test.js
+END C:\Dev\EMC-Tools-Extension\tests\workflow-centering.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\swap-accounts.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\swap-accounts.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\diagnostics-manager.test.js
+END C:\Dev\EMC-Tools-Extension\tests\diagnostics-manager.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\offscreen.test.js
+END C:\Dev\EMC-Tools-Extension\tests\offscreen.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\onboarding-tour.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\onboarding-tour.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\reccies-manual-writer-background.test.js
+END C:\Dev\EMC-Tools-Extension\tests\reccies-manual-writer-background.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\feedback-modal.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\feedback-modal.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\reccies-launcher-readiness.test.js
+END C:\Dev\EMC-Tools-Extension\tests\reccies-launcher-readiness.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\reccies-automation.test.js
+END C:\Dev\EMC-Tools-Extension\tests\reccies-automation.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\annual-leave-calendar.test.js
+END C:\Dev\EMC-Tools-Extension\tests\annual-leave-calendar.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\actualise-month-bridge.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\actualise-month-bridge.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\settings-feature-previews.test.js
+END C:\Dev\EMC-Tools-Extension\tests\settings-feature-previews.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\reccies-write-pilot.test.js
+END C:\Dev\EMC-Tools-Extension\tests\reccies-write-pilot.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\campaign-tab-title.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\campaign-tab-title.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\order-view-toggle.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\order-view-toggle.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\feature-explorer.test.js
+END C:\Dev\EMC-Tools-Extension\tests\feature-explorer.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\release-metadata.test.js
+END C:\Dev\EMC-Tools-Extension\tests\release-metadata.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\campaign-po-autofill.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\campaign-po-autofill.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\security\reminders_xss.test.js
+END C:\Dev\EMC-Tools-Extension\tests\security\reminders_xss.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\timesheet-helper.test.js
+END C:\Dev\EMC-Tools-Extension\tests\timesheet-helper.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\reccies-financial-jobs.test.js
+END C:\Dev\EMC-Tools-Extension\tests\reccies-financial-jobs.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\plan-to-buy-redirect.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\plan-to-buy-redirect.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\feature-mode.test.js
+END C:\Dev\EMC-Tools-Extension\tests\feature-mode.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\background-feature-off.test.js
+END C:\Dev\EMC-Tools-Extension\tests\background-feature-off.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\reccies-identity-pilot.test.js
+END C:\Dev\EMC-Tools-Extension\tests\reccies-identity-pilot.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\settings-campaign-navigation.test.js
+END C:\Dev\EMC-Tools-Extension\tests\settings-campaign-navigation.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\meta-finance-tool-selection.test.js
+END C:\Dev\EMC-Tools-Extension\tests\meta-finance-tool-selection.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\settings-initialization.test.js
+END C:\Dev\EMC-Tools-Extension\tests\settings-initialization.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\extension-page-gate.test.js
+END C:\Dev\EMC-Tools-Extension\tests\extension-page-gate.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\diagnostics.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\diagnostics.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\stats-confirmed-saves.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\stats-confirmed-saves.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\annual-leave-background.test.js
+END C:\Dev\EMC-Tools-Extension\tests\annual-leave-background.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\approvers-interactions.test.js
+END C:\Dev\EMC-Tools-Extension\tests\approvers-interactions.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\background-diagnostics-access.test.js
+END C:\Dev\EMC-Tools-Extension\tests\background-diagnostics-access.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\reccies-financial-trigger.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\reccies-financial-trigger.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\order-grid-scroll-sync.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\order-grid-scroll-sync.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\social-finance-real-engine.test.js
+END C:\Dev\EMC-Tools-Extension\tests\social-finance-real-engine.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\harmonic-banner.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\harmonic-banner.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\applearn-replace.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\applearn-replace.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\reccies-apps-script-roundtrip.test.js
+END C:\Dev\EMC-Tools-Extension\tests\reccies-apps-script-roundtrip.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\d-number-search.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\d-number-search.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\meta-access.test.js
+END C:\Dev\EMC-Tools-Extension\tests\meta-access.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\settings-feature-search.test.js
+END C:\Dev\EMC-Tools-Extension\tests\settings-feature-search.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\gmi-chat.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\gmi-chat.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\confetti_logic.test.js
+END C:\Dev\EMC-Tools-Extension\tests\confetti_logic.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\logo.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\logo.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\campaign-add-sections.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\campaign-add-sections.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\applearn-popup-guard.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\applearn-popup-guard.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\utils-wait-for-result.test.js
+END C:\Dev\EMC-Tools-Extension\tests\utils-wait-for-result.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\reccies-write-pilot-client.test.js
+END C:\Dev\EMC-Tools-Extension\tests\reccies-write-pilot-client.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\reccies-connection-probe.test.js
+END C:\Dev\EMC-Tools-Extension\tests\reccies-connection-probe.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\frame-execution.test.js
+END C:\Dev\EMC-Tools-Extension\tests\frame-execution.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\campaign-budget-route.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\campaign-budget-route.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\security\approvers_xss.test.js
+END C:\Dev\EMC-Tools-Extension\tests\security\approvers_xss.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\reminder-popup-styles.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\reminder-popup-styles.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\loading-spinner-utils.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\loading-spinner-utils.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\popup-layout.test.js
+END C:\Dev\EMC-Tools-Extension\tests\popup-layout.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\babel-toolchain.test.js
+END C:\Dev\EMC-Tools-Extension\tests\babel-toolchain.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\approver-training-modal.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\approver-training-modal.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\settings-loading-facts-review.test.js
+END C:\Dev\EMC-Tools-Extension\tests\settings-loading-facts-review.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\settings-auto-copy-url.test.js
+END C:\Dev\EMC-Tools-Extension\tests\settings-auto-copy-url.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\settings-applearn-popup.test.js
+END C:\Dev\EMC-Tools-Extension\tests\settings-applearn-popup.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\runtime-package.test.js
+END C:\Dev\EMC-Tools-Extension\tests\runtime-package.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\utils-click-element.test.js
+END C:\Dev\EMC-Tools-Extension\tests\utils-click-element.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\local-fonts.test.js
+END C:\Dev\EMC-Tools-Extension\tests\local-fonts.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\timesheet-activity.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\timesheet-activity.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\format_time.test.js
+END C:\Dev\EMC-Tools-Extension\tests\format_time.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\coverage-runtime-entrypoints.test.js
+END C:\Dev\EMC-Tools-Extension\tests\coverage-runtime-entrypoints.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\settings.test.js
+END C:\Dev\EMC-Tools-Extension\tests\settings.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\reccies-apps-script-probe.test.js
+END C:\Dev\EMC-Tools-Extension\tests\reccies-apps-script-probe.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\dom-lifecycle.test.js
+END C:\Dev\EMC-Tools-Extension\tests\dom-lifecycle.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\approvers-search-clear.test.js
+END C:\Dev\EMC-Tools-Extension\tests\approvers-search-clear.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\timesheet-allocation.test.js
+END C:\Dev\EMC-Tools-Extension\tests\timesheet-allocation.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\timesheet-activity.test.js
+END C:\Dev\EMC-Tools-Extension\tests\timesheet-activity.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\prisma-url.test.js
+END C:\Dev\EMC-Tools-Extension\tests\prisma-url.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\manifest-web-accessible-resources.test.js
+END C:\Dev\EMC-Tools-Extension\tests\manifest-web-accessible-resources.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\features\feedback-modal-styles.test.js
+END C:\Dev\EMC-Tools-Extension\tests\features\feedback-modal-styles.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\prisma-observer-benchmark.test.js
+END C:\Dev\EMC-Tools-Extension\tests\prisma-observer-benchmark.test.js failures=0
+START C:\Dev\EMC-Tools-Extension\tests\jsdom-environment.test.js
+END C:\Dev\EMC-Tools-Extension\tests\jsdom-environment.test.js failures=0

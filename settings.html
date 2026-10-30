@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="style.css"> <!-- Added link to shared style.css -->
     <link rel="stylesheet" href="settings.css">
     <link rel="stylesheet" href="segmented-control.css">
+    <link rel="stylesheet" href="loading-facts-preview.css">
     <link rel="stylesheet" href="content.css">
     <!-- It's good practice to link a specific CSS for the settings page if major styling differences are expected -->
     <!-- <link rel="stylesheet" href="settings.css"> -->
@@ -97,15 +98,18 @@
                     <label class="toggle"><input type="checkbox" id="loadingFactsToggle"><span class="slider"></span></label>
                 </div>
                 <div class="toggle-container">
-                    <span>Use new Loading Facts appearance:</span>
-                    <label class="toggle"><input type="checkbox" id="loadingFactsUI" aria-label="Use new Loading Facts appearance"><span class="slider"></span></label>
+                    <span>Loading Facts appearance:</span>
+                    <div class="segmented-control" id="loadingFactsUI" role="group" aria-label="Loading Facts appearance">
+                        <button type="button" data-value="new" aria-pressed="true">New UI</button>
+                        <button type="button" data-value="old" aria-pressed="false">Old UI</button>
+                    </div>
                 </div>
                 <div class="toggle-container">
                     <span>Help Guides launcher:</span>
                     <label class="toggle"><input type="checkbox" id="helpGuidesToggle"><span class="slider"></span></label>
                 </div>
                 <div class="toggle-container">
-                    <span>Assist Prisma sign-in on active tabs:</span>
+                    <span>Assist Prisma sign-in & timeout re-login on active tabs:</span>
                     <label class="toggle"><input type="checkbox" id="prismaLoginAssistantToggle"><span class="slider"></span></label>
                 </div>
                 <div id="prisma-login-assistant-options" class="prisma-login-assistant-options" hidden aria-live="polite">
@@ -117,7 +121,7 @@
                         Organisation
                         <input id="prismaLoginAssistantOrganisation" type="text" value="WPP Media UK Agency Owner United Kingdom">
                     </label>
-                    <p>Saved only in this browser. The assistant never signs in when Prisma is in a background tab.</p>
+                    <p>Saved only in this browser. Automatically clicks Sign In on session timeout screens after 2 seconds, fills your email, and selects your organisation. Never signs in on background tabs.</p>
                 </div>
                 <div class="toggle-container">
                     <span>Count Placements Selected:</span>
@@ -144,7 +148,7 @@
                     <label class="toggle"><input type="checkbox" id="approvalToastNotificationToggle"><span class="slider"></span></label>
                 </div>
                 <div class="toggle-container">
-                    <span>Actualise bulk export:</span>
+                    <span>Actualise bulk export <em>(requested by Issy)</em>:</span>
                     <label class="toggle"><input type="checkbox" id="actualiseBulkExportToggle"><span class="slider"></span></label>
                 </div>
             </section>
@@ -291,11 +295,11 @@
                     <label class="toggle"><input type="checkbox" id="budgetWidgetOptimisedToggle"><span class="slider"></span></label>
                 </div>
                 <div class="toggle-container">
-                    <span>New Order UI Optimisation:</span>
+                    <span>Latest / All easy-access toggle in New Order UI:</span>
                     <label class="toggle"><input type="checkbox" id="newOrderUiOptimisationToggle"><span class="slider"></span></label>
                 </div>
                 <div class="toggle-container">
-                    <span>See Comments on Locked Buys:</span>
+                    <span>See Comments on Locked Buys <em>(requested by LP)</em>:</span>
                     <label class="toggle"><input type="checkbox" id="seeCommentsOnLockedBuysToggle"><span class="slider"></span></label>
                 </div>
                 <div class="toggle-container">
@@ -314,7 +318,7 @@
             <section id="fixes-settings">
                 <h2>Fixes</h2>
                 <div class="toggle-container"><span>Block broken AppLearn login popups:</span><label class="toggle"><input type="checkbox" id="blockAppLearnPopupsToggle"><span class="slider"></span></label></div>
-                <div class="toggle-container"><span>Preserve horizontal scroll position in Actualise:</span><label class="toggle"><input type="checkbox" id="actualiseScrollRestoreToggle"><span class="slider"></span></label></div>
+                <div class="toggle-container"><span>Preserve horizontal scroll position in Actualise <em>(requested by Frank)</em>:</span><label class="toggle"><input type="checkbox" id="actualiseScrollRestoreToggle"><span class="slider"></span></label></div>
                 <div class="toggle-container"><span>Keep Order Summary headers aligned while scrolling:</span><label class="toggle"><input type="checkbox" id="orderGridScrollSyncToggle"><span class="slider"></span></label></div>
             </section>
 
@@ -516,7 +520,7 @@
             <a href="#" id="open-feedback-modal">Have an idea? Let the chef know here!</a>
         </div>
     </div>
-    <script src="extension-page-gate.js" data-allow-when-disabled="true" data-scripts="feature-settings-registry.js,build-info.js,utils.js,features/feedback-modal.js,features/loading-facts.js,settings.js"></script>
+    <script src="extension-page-gate.js" data-allow-when-disabled="true" data-scripts="feature-settings-registry.js,build-info.js,utils.js,features/feedback-modal.js,features/loading-facts.js,loading-facts-preview.js,settings.js"></script>
 
     <div id="build-info" class="build-info"></div>
 

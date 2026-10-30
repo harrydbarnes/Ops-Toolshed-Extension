@@ -57,7 +57,8 @@ describe('Toolshed Stats UI', () => {
         // Loading Time: 180 + 180 = 360s -> 6 mins &<br> 0s
         expect(document.getElementById('loading-time-stat').textContent).toContain('6 mins');
         // Placements: 100 + 10 = 110
-        expect(document.getElementById('placements-added-stat').textContent).toBe('110');
+        expect(document.getElementById('placements-added-stat').textContent).toBe('0');
+        expect(document.getElementById('stats-counts-note').textContent).toContain('Historical save clicks in this period: 110');
         expect(document.getElementById('applearn-popups-blocked-stat').textContent).toBe('7');
 
         // Existing daily stats should restore the missing collection start date.
@@ -83,6 +84,99 @@ describe('Toolshed Stats UI', () => {
         // Check Heatmap presence (at least one day should be generated)
         expect(document.getElementById('heatmap').children.length).toBeGreaterThan(250);
         expect([...document.querySelectorAll('.heatmap-day')].every(cell => ![0, 6].includes(new Date(`${cell.dataset.date}T00:00:00`).getDay()))).toBe(true);
+    });
+
+    test('date selectors filter confirmed totals and waiting, while excluding legacy clicks and future dates', async () => {
+        const NativeDate = Date;
+        global.Date = class extends NativeDate { constructor(...args) { super(...(args.length ? args : ['2026-10-28T12:00:00'])); } static now() { return new NativeDate('2026-10-28T12:00:00').getTime(); } };
+        try {
+            await chrome.storage.local.set({ legacyStats: { visitedCampaigns: ['legacy'], totalLoadingTime: 100, placementsAdded: 500 }, dailyStats: {
+                '2026-09-30': { placementsCreated: 9, visitedCampaigns: ['older'], loadingTime: 20 },
+                '2026-10-25': { placementsUpdated: 7, visitedCampaigns: ['previous'], loadingTime: 15 },
+                '2026-10-26': { placements: 40, placementsCreated: 2, visitedCampaigns: ['a'], loadingTime: 5 },
+                '2026-10-28': { placementsCreated: 3, placementsUpdated: 1, visitedCampaigns: ['a', 'b'], loadingTime: 6 },
+                '2026-10-29': { placementsCreated: 999, loadingTime: 999 }
+            } });
+            require('../toolshed.js');
+            document.dispatchEvent(new Event('DOMContentLoaded'));
+            await new Promise(r => setTimeout(r, 30));
+            const select = async value => {
+                document.querySelector(`[data-stats-period="${value}"]`).click();
+                await new Promise(r => setTimeout(r, 30));
+            };
+            await select('this-week');
+            expect(document.getElementById('placements-added-stat').textContent).toBe('5');
+            expect(document.getElementById('placements-updated-stat').textContent).toBe('1');
+            expect(document.getElementById('campaigns-visited-stat').textContent).toBe('2');
+            expect(document.getElementById('loading-time-stat').textContent).toBe('11s');
+            expect(document.getElementById('stats-counts-note').textContent).toContain('Historical save clicks in this period: 40');
+            expect(document.getElementById('stats-period-context').textContent).toContain('26 Oct 2026 – 28 Oct 2026');
+            expect(document.querySelector('[data-stats-period="this-week"]').getAttribute('aria-pressed')).toBe('true');
+            expect(document.querySelectorAll('#heatmap .heatmap-day')).toHaveLength(3);
+            expect(document.querySelector('#stats-monthly-chart strong').textContent).toBe('6');
+            document.getElementById('stats-monthly-metric').value = 'campaigns';
+            document.getElementById('stats-monthly-metric').dispatchEvent(new Event('change'));
+            await new Promise(r => setTimeout(r, 30));
+            expect(document.querySelector('#stats-monthly-chart strong').textContent).toBe('2');
+            await select('last-week');
+            expect(document.getElementById('placements-updated-stat').textContent).toBe('7');
+            expect(document.getElementById('stats-period-context').textContent).toContain('19 Oct 2026 – 25 Oct 2026');
+            await select('this-month');
+            expect(document.getElementById('placements-added-stat').textContent).toBe('5');
+            expect(document.getElementById('placements-updated-stat').textContent).toBe('8');
+            expect(document.getElementById('stats-period-context').textContent).toContain('1 Oct 2026 – 28 Oct 2026');
+            await select('last-month');
+            expect(document.getElementById('placements-added-stat').textContent).toBe('9');
+            expect(document.getElementById('stats-period-context').textContent).toContain('1 Sept 2026 – 30 Sept 2026');
+            await select('all');
+            expect(document.getElementById('placements-added-stat').textContent).toBe('14');
+            expect(document.getElementById('stats-counts-note').textContent).toContain('Historical save clicks in this period: 540');
+            expect(document.querySelectorAll('.stats-monthly-row')).toHaveLength(12);
+            expect(document.querySelector('.stats-monthly-row strong').textContent).toBe('0');
+        } finally { global.Date = NativeDate; }
+    });
+
+    test('last week and last month cross New Year without losing boundary days', async () => {
+        const NativeDate = Date;
+        global.Date = class extends NativeDate { constructor(...args) { super(...(args.length ? args : ['2027-01-04T12:00:00'])); } };
+        try {
+            await chrome.storage.local.set({ dailyStats: {
+                '2026-12-27': { placementsCreated: 99 },
+                '2026-12-28': { placementsCreated: 2 },
+                '2027-01-03': { placementsCreated: 3 },
+                '2027-01-04': { placementsCreated: 100 }
+            } });
+            require('../toolshed.js'); document.dispatchEvent(new Event('DOMContentLoaded'));
+            await new Promise(r => setTimeout(r, 30));
+            document.querySelector('[data-stats-period="last-week"]').click();
+            await new Promise(r => setTimeout(r, 30));
+            expect(document.getElementById('stats-period-context').textContent).toContain('28 Dec 2026 – 3 Jan 2027');
+            expect(document.getElementById('placements-added-stat').textContent).toBe('5');
+            expect(document.querySelectorAll('.stats-monthly-row')).toHaveLength(2);
+            document.querySelector('[data-stats-period="last-month"]').click();
+            await new Promise(r => setTimeout(r, 30));
+            expect(document.getElementById('stats-period-context').textContent).toContain('1 Dec 2026 – 31 Dec 2026');
+            expect(document.getElementById('placements-added-stat').textContent).toBe('101');
+        } finally { global.Date = NativeDate; }
+    });
+
+    test('month comparisons use equally elapsed days across leap February', async () => {
+        const NativeDate = Date;
+        global.Date = class extends NativeDate { constructor(...args) { super(...(args.length ? args : ['2024-03-31T12:00:00'])); } };
+        try {
+            await chrome.storage.local.set({ dailyStats: {
+                '2024-02-29': { placementsCreated: 2 },
+                '2024-03-29': { placementsCreated: 4 },
+                '2024-03-30': { placementsCreated: 100 }
+            } });
+            require('../toolshed.js'); document.dispatchEvent(new Event('DOMContentLoaded'));
+            await new Promise(r => setTimeout(r, 30));
+            expect(document.getElementById('stats-monthly-comparison').textContent).toBe('Confirmed saves: 4 vs 2 over the first 29 days of this and last month.');
+            document.querySelector('[data-stats-period="last-month"]').click();
+            await new Promise(r => setTimeout(r, 30));
+            expect(document.getElementById('stats-period-context').textContent).toContain('1 Feb 2024 – 29 Feb 2024');
+            expect(document.querySelector('#stats-monthly-chart strong').textContent).toBe('2');
+        } finally { global.Date = NativeDate; }
     });
 
     test('ranks campaigns safely and shows only available financial coverage', async () => {
@@ -136,7 +230,7 @@ describe('Toolshed Stats UI', () => {
         button.focus();
         const tooltip = document.getElementById('weekly-productivity-tooltip');
         expect(tooltip.hidden).toBe(false);
-        expect(tooltip.textContent).toContain('across all recorded weeks');
+        expect(tooltip.textContent).toContain('within the selected period');
         expect(button.getAttribute('aria-describedby')).toBe(tooltip.id);
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
         expect(tooltip.hidden).toBe(true);
@@ -197,8 +291,10 @@ describe('Toolshed Stats UI', () => {
         const areaSection = document.querySelector('.loading-area-section');
         const heatmapSection = document.getElementById('heatmap').closest('.stats-section');
 
-        expect(overview.nextElementSibling).toBe(areaSection);
-        expect(areaSection.nextElementSibling).toBe(heatmapSection);
+        expect(overview.nextElementSibling.classList.contains('stats-save-summary')).toBe(true);
+        expect(overview.nextElementSibling.nextElementSibling).toBe(areaSection);
+        expect(areaSection.nextElementSibling.classList.contains('stats-monthly-section')).toBe(true);
+        expect(areaSection.nextElementSibling.nextElementSibling).toBe(heatmapSection);
         expect(css).toMatch(/\.loading-area-grid\s*{[^}]*grid-template-columns:\s*repeat\(6,/s);
     });
 

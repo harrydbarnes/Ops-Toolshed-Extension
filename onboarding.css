@@ -248,3 +248,13 @@ button:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid
     .connection-list > div, .permission-list > div { grid-template-columns: 1fr; gap: 8px; }
 }
 [hidden] { display: none !important; }
+
+.facts-toggle { max-width: 760px; margin-bottom: 18px; }
+.facts-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.facts-option { display: grid; gap: 16px; padding: 16px; text-align: left; border: 2px solid var(--line); border-radius: var(--radius); background: white; cursor: pointer; }
+.facts-option[aria-pressed="true"] { border-color: var(--accent); background: #fff8fb; }
+.facts-option:hover { border-color: var(--accent-dark); }
+.facts-option-label { display: grid; gap: 4px; }
+.facts-option-label small, .facts-note { color: var(--muted); line-height: 1.4; }
+.facts-note { font-size: 13px; }
+@media (max-width: 650px) { .facts-choices { grid-template-columns: 1fr; } }

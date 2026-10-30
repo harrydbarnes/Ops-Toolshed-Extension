@@ -105,6 +105,12 @@
         });
     }
 
+    function reconcile() {
+        if (isNewOrderUi() || document.querySelector(
+            `.${TOGGLE_CLASS}, #${HEADER_ID}.order-view-toggle-active`
+        )) handleOrderViewToggle();
+    }
+
     function handleOrderViewToggle() {
         if (!settingsLoaded || !featureEnabled) {
             removeOrderViewToggle();
@@ -141,10 +147,19 @@
     }
 
     function initialize() {
-        chrome.storage.sync.get([SETTING_KEY], data => {
-            featureEnabled = data[SETTING_KEY] !== false;
-            settingsLoaded = true;
-            handleOrderViewToggle();
+        return new Promise((resolve, reject) => {
+            chrome.storage.sync.get([SETTING_KEY], data => {
+                try {
+                    if (chrome.runtime?.lastError) throw new Error(chrome.runtime.lastError.message);
+                    featureEnabled = data[SETTING_KEY] !== false;
+                    settingsLoaded = true;
+                    handleOrderViewToggle();
+                    resolve();
+                } catch (error) {
+                    settingsLoaded = false;
+                    reject(error);
+                }
+            });
         });
     }
 
@@ -156,6 +171,7 @@
     });
 
     window.orderViewToggleFeature = {
+        reconcile,
         handleOrderViewToggle,
         initialize,
         isNewOrderUi,

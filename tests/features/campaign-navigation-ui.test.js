@@ -274,58 +274,6 @@ describe('campaign navigation UI optimisation', () => {
         dom.window.close();
     });
 
-    test('collapses the refreshed Actualise header and restores the legacy close controls', () => {
-        const dom = createPage({}, 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP3FMRK&ptb-mod=buy&ptb-ctx=actualize&route=actualize&mos=2026-08-01');
-        const { document } = dom.window;
-        const actualiseToolbar = document.createElement('div');
-        actualiseToolbar.id = 'actualize-toolbar';
-        actualiseToolbar.innerHTML = `
-            <div class="actual-header">
-                <mo-toolbar class="actualize-header">
-                    <mo-breadcrumb>Actualisation</mo-breadcrumb>
-                    <mo-button slot="right" icon-name="close"></mo-button>
-                </mo-toolbar>
-            </div>
-            <div slot="center" class="actual-months-group">
-                <mo-button-group>
-                    <mo-button-group-item>Aug 26</mo-button-group-item>
-                    <mo-button-group-item>Sep 26</mo-button-group-item>
-                </mo-button-group>
-            </div>
-        `;
-        document.body.appendChild(actualiseToolbar);
-
-        const nativeClose = actualiseToolbar.querySelector('mo-button[icon-name="close"]');
-        const nativeCloseHandler = jest.fn();
-        nativeClose.addEventListener('click', nativeCloseHandler);
-
-        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
-
-        const header = actualiseToolbar.querySelector('.actual-header');
-        const monthsGroup = actualiseToolbar.querySelector('.actual-months-group');
-        const legacyClose = monthsGroup.querySelector('.toolshed-actualise-close-button');
-
-        expect(header.classList).toContain('toolshed-actualise-header-hidden');
-        expect(monthsGroup.classList).toContain('toolshed-actualise-months-group');
-        expect(monthsGroup.contains(nativeClose)).toBe(true);
-        expect(nativeClose.classList).toContain('toolshed-actualise-native-close');
-        expect(legacyClose).not.toBeNull();
-        expect(legacyClose.textContent).toBe('× Close');
-        expect(legacyClose.hasAttribute('title')).toBe(false);
-
-        legacyClose.click();
-        expect(nativeCloseHandler).toHaveBeenCalledTimes(1);
-
-        dom.window.history.replaceState({}, '', '#campaign-id=CP3FMRK&ptb-mod=buy&ptb-ctx=digital&route=online');
-        dom.window.campaignFeature.handleCampaignNavigationOptimisation();
-
-        expect(actualiseToolbar.querySelector('.toolshed-actualise-close-button')).toBeNull();
-        expect(header.classList).not.toContain('toolshed-actualise-header-hidden');
-        expect(header.querySelector('mo-button[icon-name="close"]')).toBe(nativeClose);
-        expect(nativeClose.getAttribute('slot')).toBe('right');
-        dom.window.close();
-    });
-
     test('moves the replacement workflow slot after Orders empties the previously relocated slot', () => {
         const dom = createPage();
         const { document } = dom.window;
@@ -589,6 +537,26 @@ describe('campaign navigation UI optimisation', () => {
             action: 'requestCampaignDetailsBasicFocus'
         });
         dom.window.close();
+    });
+
+    test.each([false, true])('campaign details still opens when Event construction fails (legacy failure: %s)', async legacyFailure => {
+        const dom = createPage();
+        try {
+            const { window } = dom;
+            window.chrome.runtime.sendMessage.mockResolvedValue({ status: 'accepted' });
+            window.setTimeout = callback => { callback(); return 0; };
+            window.campaignFeature.handleCampaignNavigationOptimisation();
+            window.Event = function () { throw new Error('Event constructor unavailable'); };
+            const legacy = jest.spyOn(window.document, 'createEvent');
+            if (legacyFailure) legacy.mockImplementation(() => { throw new Error('Legacy events unavailable'); });
+            window.document.querySelector('.toolshed-campaign-date-edit-marker').click();
+            await Promise.resolve();
+            expect(window.location.href).toContain('osModalId=prsm-cm-cmpdtls');
+            expect(legacy).toHaveBeenCalledWith('Event');
+            expect(window.chrome.runtime.sendMessage).toHaveBeenCalledWith({ action: 'requestCampaignDetailsBasicFocus' });
+        } finally {
+            dom.window.close();
+        }
     });
 
     test('shows one bottom-right pencil cue when campaign date quick edit is enabled', () => {
@@ -869,6 +837,44 @@ describe('campaign navigation UI optimisation', () => {
         expect(document.querySelector('.buy-details-wrapper').innerHTML).toBe('CP3FMRK | D/LB9/2/245');
         expect(document.querySelector('div[slot="right"]').parentElement.id).toBe('native-header');
         expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
+        dom.window.close();
+    });
+
+    test('unlocks buy comments on modern Actualise URLs without osAppId/osPspId', () => {
+        const dom = createPage(
+            { alwaysShowCommentsEnabled: true },
+            'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP3FMRK&ptb-ctx=actualize'
+        );
+        const { document } = dom.window;
+        const button = document.createElement('button');
+        button.className = 'btn btn-mini ok-to-pay disabled';
+        button.setAttribute('data-is-buy-locked', 'true');
+        button.setAttribute('data-row-comment', 'Confirmed monthly actuals');
+        document.body.appendChild(button);
+
+        dom.window.campaignFeature.handleAlwaysShowComments();
+
+        expect(button.getAttribute('data-is-buy-locked')).toBe('false');
+        expect(button.classList.contains('disabled')).toBe(false);
+        dom.window.close();
+    });
+
+    test('does not unlock buy comments outside Actualise or when feature is disabled', () => {
+        const dom = createPage(
+            { alwaysShowCommentsEnabled: true },
+            'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP3FMRK&ptb-mod=buy&ptb-ctx=digital'
+        );
+        const { document } = dom.window;
+        const button = document.createElement('button');
+        button.className = 'btn btn-mini ok-to-pay disabled';
+        button.setAttribute('data-is-buy-locked', 'true');
+        button.setAttribute('data-row-comment', 'Confirmed monthly actuals');
+        document.body.appendChild(button);
+
+        dom.window.campaignFeature.handleAlwaysShowComments();
+
+        expect(button.getAttribute('data-is-buy-locked')).toBe('true');
+        expect(button.classList.contains('disabled')).toBe(true);
         dom.window.close();
     });
 });

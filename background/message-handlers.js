@@ -54,7 +54,7 @@ function getVerifiedPrismaRequest(request, sender) {
     return { tabId, requestedUrl };
 }
 
-async function getAccountSwitchReturnUrls() {
+async function loadAndPruneAccountSwitchReturnUrls() {
     const stored = await chrome.storage.session.get({ [ACCOUNT_SWITCH_RETURN_URLS_KEY]: {} });
     const urlsByTab = { ...(stored[ACCOUNT_SWITCH_RETURN_URLS_KEY] || {}) };
     const now = Date.now();
@@ -76,7 +76,7 @@ async function rememberAccountSwitchUrl(request, sender, sendResponse) {
         sendResponse({ status: 'error', message: 'Invalid account-switch return URL.' });
         return;
     }
-    const urlsByTab = await getAccountSwitchReturnUrls();
+    const urlsByTab = await loadAndPruneAccountSwitchReturnUrls();
     urlsByTab[verified.tabId] = { url: verified.requestedUrl.href, createdAt: Date.now() };
     await chrome.storage.session.set({ [ACCOUNT_SWITCH_RETURN_URLS_KEY]: urlsByTab });
     sendResponse({ status: 'success' });
@@ -88,7 +88,7 @@ async function getAccountSwitchUrl(request, sender, sendResponse) {
         sendResponse({ status: 'error', message: 'Could not identify the Prisma tab.' });
         return;
     }
-    const urlsByTab = await getAccountSwitchReturnUrls();
+    const urlsByTab = await loadAndPruneAccountSwitchReturnUrls();
     sendResponse({ status: 'success', url: urlsByTab[verified.tabId]?.url || null });
 }
 
@@ -98,7 +98,7 @@ async function clearAccountSwitchUrl(request, sender, sendResponse) {
         sendResponse({ status: 'error', message: 'Could not identify the Prisma tab.' });
         return;
     }
-    const urlsByTab = await getAccountSwitchReturnUrls();
+    const urlsByTab = await loadAndPruneAccountSwitchReturnUrls();
     delete urlsByTab[verified.tabId];
     await chrome.storage.session.set({ [ACCOUNT_SWITCH_RETURN_URLS_KEY]: urlsByTab });
     sendResponse({ status: 'success' });
@@ -110,11 +110,13 @@ async function showTimesheetNotification(request, sender, sendResponse, context)
 }
 
 async function createTimesheetAlarm(request, sender, sendResponse, context) {
+    if (!requireSettingsSender(sender, sendResponse, 'timesheet reminders')) return;
     await context.createTimesheetAlarm(request.day, request.time);
     sendResponse({ status: "Alarm created" });
 }
 
 async function removeTimesheetAlarm(request, sender, sendResponse) {
+    if (!requireSettingsSender(sender, sendResponse, 'timesheet reminders')) return;
     await chrome.alarms.clear('timesheetReminder');
     sendResponse({ status: "Alarm removed" });
 }
@@ -370,7 +372,8 @@ async function setHelpGuidesPanelState(tabId, isOpen) {
     try {
         await chrome.tabs.sendMessage(tabId, { action: 'helpGuidesPanelState', open: isOpen });
     } catch {
-        // The page content script may be between route loads while the panel changes state.
+        // The persisted state remains authoritative while the content script reloads.
+        console.debug('[Help Guides] Panel state notification was not delivered to tab:', tabId);
     }
 }
 
@@ -440,7 +443,15 @@ async function handleTrackCampaignApproval(request, sender, sendResponse) {
     sendResponse(result);
 }
 
+function requireSettingsSender(sender, sendResponse, subject = 'diagnostics') {
+    if (sender?.id === chrome.runtime.id &&
+        sender.url?.split(/[?#]/)[0] === chrome.runtime.getURL('settings.html')) return true;
+    sendResponse({ status: 'error', message: `Manage ${subject} from Ops Toolshed Settings.` });
+    return false;
+}
+
 async function handleSetDiagnosticsMode(request, sender, sendResponse) {
+    if (!requireSettingsSender(sender, sendResponse)) return;
     const state = request.enabled === true
         ? await enableDiagnostics()
         : await disableDiagnostics();
@@ -452,10 +463,12 @@ async function handleRecordDiagnosticEvent(request, sender, sendResponse) {
 }
 
 async function handleGetDiagnosticReport(request, sender, sendResponse) {
+    if (!requireSettingsSender(sender, sendResponse)) return;
     sendResponse({ status: 'success', report: await getDiagnosticReport() });
 }
 
 async function handleClearDiagnosticEvents(request, sender, sendResponse) {
+    if (!requireSettingsSender(sender, sendResponse)) return;
     sendResponse(await clearDiagnosticEvents());
 }
 

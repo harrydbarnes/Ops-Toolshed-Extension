@@ -23,9 +23,9 @@ function createStorage(initial = {}) {
     };
 }
 
-function setup() {
+function setup(initial = {}) {
     const dom = new JSDOM(html, { runScripts: 'outside-only', url: 'chrome-extension://test/onboarding.html' });
-    const sync = createStorage();
+    const sync = createStorage(initial);
     const local = createStorage();
     dom.window.chrome = {
         runtime: { getURL: jest.fn(file => file === 'settings.html'
@@ -36,6 +36,7 @@ function setup() {
         tabs: { update: jest.fn() },
         windows: { WINDOW_ID_CURRENT: -2 }
     };
+    dom.window.eval(readScript(path.resolve(__dirname, '../loading-facts-preview.js')));
     dom.window.eval(script);
     return { dom, sync, local, chrome: dom.window.chrome };
 }
@@ -70,18 +71,18 @@ describe('First-run onboarding', () => {
         expect(dom.window.location.hash).toBe('#settings');
         dom.window.close();
     });
-    test('uses a three-step sequential flow and presents recommended settings first', async () => {
+    test('uses a four-step sequential flow and presents recommended settings first', async () => {
         const { dom } = setup();
         await Promise.resolve();
         await choosePrisma(dom);
 
-        expect(dom.window.document.getElementById('progress-count').textContent).toBe('1 of 3');
+        expect(dom.window.document.getElementById('progress-count').textContent).toBe('1 of 4');
         expect(dom.window.document.querySelector('[data-page="0"] [data-setting="helpGuidesEnabled"]')).not.toBeNull();
         expect(dom.window.document.querySelector('[data-setting="optimisedNewNavEnabled"]')).toBeNull();
         expect(dom.window.document.querySelectorAll('[role="tab"]')).toHaveLength(0);
 
         dom.window.document.getElementById('next-step').click();
-        expect(dom.window.document.getElementById('progress-count').textContent).toBe('2 of 3');
+        expect(dom.window.document.getElementById('progress-count').textContent).toBe('2 of 4');
         expect(dom.window.document.querySelector('[data-page="1"]').hidden).toBe(false);
         dom.window.close();
     });
@@ -122,6 +123,7 @@ describe('First-run onboarding', () => {
 
         dom.window.document.getElementById('next-step').click();
         dom.window.document.getElementById('next-step').click();
+        dom.window.document.getElementById('next-step').click();
         dom.window.document.getElementById('start-tour').click();
 
         expect(chrome.sidePanel.setOptions).toHaveBeenCalledWith({ path: 'onboarding-tour-v2.html', enabled: true });
@@ -156,10 +158,29 @@ test('keeps optional preferences collapsed and moves focus to each new heading',
     expect(doc.querySelector('.optional-preferences').open).toBe(false);
     expect(doc.querySelector('.pid-choice').closest('details')).toBeNull();
     expect(doc.querySelector('.reminder-frequency').closest('details')).toBeNull();
-    expect(doc.querySelector('[data-setting="loadingFactsEnabled"]').closest('details')).not.toBeNull();
+    expect(doc.querySelector('[data-setting="loadingFactsEnabled"]').closest('[data-page]').dataset.page).toBe('2');
     expect(doc.activeElement.id).toBe('stage-title');
     doc.getElementById('next-step').click();
     expect(doc.activeElement.id).toBe('stage-title');
     expect(doc.querySelector('a[href="feature-explorer.html"]')).not.toBeNull();
+    dom.window.close();
+});
+
+ test('shows previews, restores and saves the loading facts appearance', async () => {
+    const { dom, sync } = setup({ loadingFactsUI: 'old', loadingFactsEnabled: false });
+    await Promise.resolve();
+    await choosePrisma(dom);
+    const doc = dom.window.document;
+    doc.getElementById('next-step').click();
+    doc.getElementById('next-step').click();
+    expect(doc.querySelector('[data-page="2"]').hidden).toBe(false);
+    expect(doc.querySelector('[data-setting="loadingFactsEnabled"]').checked).toBe(false);
+    expect(doc.querySelector('[data-value="old"][data-setting-choice="loadingFactsUI"]').getAttribute('aria-pressed')).toBe('true');
+    expect(doc.querySelectorAll('.facts-preview')).toHaveLength(2);
+    doc.querySelector('[data-value="new"][data-setting-choice="loadingFactsUI"]').click();
+    await Promise.resolve();
+    expect(sync.store.loadingFactsUI).toBe('new');
+    expect(doc.querySelector('[data-value="new"][data-setting-choice="loadingFactsUI"]').getAttribute('aria-pressed')).toBe('true');
+    expect(sync.store.loadingFactsEnabled).toBe(false);
     dom.window.close();
 });

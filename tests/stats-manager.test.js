@@ -38,6 +38,41 @@ describe('Stats Manager', () => {
         expect(entries.find(entry => entry.key === 'b')).toMatchObject({ budget: null, booked: null });
     });
 
+    test('deduplicates confirmed acknowledgements across concurrent delivery and manager reloads', async () => {
+        const value = { eventId: '00000000-0000-4000-8000-000000000001', kind: 'created' };
+        const save = () => handleTrackStat({ type: 'PLACEMENT_CONFIRMED', value }, {}, () => {});
+        await Promise.all([save(), save(), save()]);
+        const day = chrome.storage.local.__getStore().dailyStats['2023-10-27'];
+        expect(day.placementsCreated).toBe(1);
+        expect(day.placements).toBe(0);
+        expect(chrome.storage.local.__getStore().statsSaveReceipts).toEqual([value.eventId]);
+        jest.resetModules();
+        const reloaded = require('../background/stats-manager');
+        await reloaded.handleTrackStat({ type: 'PLACEMENT_CONFIRMED', value }, {}, () => {});
+        expect(chrome.storage.local.__getStore().dailyStats['2023-10-27'].placementsCreated).toBe(1);
+    });
+
+    test('a failed confirmed write leaves no receipt and can safely be retried', async () => {
+        const value = { eventId: '00000000-0000-4000-8000-000000000009', kind: 'updated' };
+        const reply = jest.fn();
+        const errorLog = jest.spyOn(console, 'error').mockImplementation(() => {});
+        try {
+            chrome.storage.local.set.mockRejectedValueOnce(new Error('Storage unavailable'));
+            await handleTrackStat({ type: 'PLACEMENT_CONFIRMED', value }, {}, reply);
+            expect(chrome.storage.local.__getStore().statsSaveReceipts).toBeUndefined();
+            await handleTrackStat({ type: 'PLACEMENT_CONFIRMED', value }, {}, reply);
+            expect(chrome.storage.local.__getStore().dailyStats['2023-10-27'].placementsUpdated).toBe(1);
+            expect(chrome.storage.local.__getStore().statsSaveReceipts).toEqual([value.eventId]);
+        } finally { errorLog.mockRestore(); }
+    });
+
+    test('rejects malformed acknowledgements without writing activity', async () => {
+        const reply = jest.fn();
+        await handleTrackStat({ type: 'PLACEMENT_CONFIRMED', value: { eventId: 'no', kind: 'created' } }, {}, reply);
+        expect(reply).toHaveBeenCalledWith(expect.objectContaining({ status: 'error' }));
+        expect(chrome.storage.local.__getStore().dailyStats).toBeUndefined();
+    });
+
     test('migrateStats should move prismaUserStats to legacyStats', async () => {
         const oldStats = {
             visitedCampaigns: ['c1'],
@@ -75,7 +110,7 @@ describe('Stats Manager', () => {
         // Await the real queued writes, including concurrent submissions.
         handleTrackStat({ type: 'CAMPAIGN_VISIT', value: 'c2' }, {}, () => {});
         handleTrackStat({ type: 'LOADING_TIME', value: 2.5 }, {}, () => {});
-        handleTrackStat({ type: 'PLACEMENT_ADDED', value: 3 }, {}, () => {});
+        handleTrackStat({ type: 'PLACEMENT_CONFIRMED', value: { eventId: '00000000-0000-4000-8000-000000000003', kind: 'created' } }, {}, () => {});
         await handleTrackStat({ type: 'RECONCILIATION', value: 2 }, {}, () => {});
 
         const store = chrome.storage.local.__getStore();
@@ -88,7 +123,8 @@ describe('Stats Manager', () => {
         expect(daily.visitedCampaigns).toContain('c2');
         expect(daily.loadingTime).toBe(2.5);
         expect(daily.loadingByArea).toEqual({});
-        expect(daily.placements).toBe(3);
+        expect(daily.placements).toBe(0);
+        expect(daily.placementsCreated).toBe(1);
         expect(daily.reconciliations).toBe(2);
     });
 
@@ -146,16 +182,16 @@ describe('Stats Manager', () => {
         chrome.storage.local.set.mockRejectedValueOnce(new Error('Storage unavailable'));
 
         try {
-            await handleTrackStat({ type: 'PLACEMENT_ADDED', value: 1 }, {}, failedResponse);
+            await handleTrackStat({ type: 'RECONCILIATION', value: 1 }, {}, failedResponse);
             expect(failedResponse).toHaveBeenCalledTimes(1);
             expect(failedResponse).toHaveBeenCalledWith({
                 status: 'error', message: 'Error: Storage unavailable'
             });
 
-            await handleTrackStat({ type: 'PLACEMENT_ADDED', value: 2 }, {}, nextResponse);
+            await handleTrackStat({ type: 'RECONCILIATION', value: 2 }, {}, nextResponse);
             expect(nextResponse).toHaveBeenCalledTimes(1);
             expect(nextResponse).toHaveBeenCalledWith({ status: 'success' });
-            expect(chrome.storage.local.__getStore().dailyStats['2023-10-27'].placements).toBe(2);
+            expect(chrome.storage.local.__getStore().dailyStats['2023-10-27'].reconciliations).toBe(2);
         } finally {
             errorLog.mockRestore();
         }
@@ -173,9 +209,25 @@ describe('Stats Manager', () => {
             }
         });
 
-        await handleTrackStat({ type: 'PLACEMENT_ADDED', value: 1 }, {}, () => {});
+        await handleTrackStat({ type: 'RECONCILIATION', value: 1 }, {}, () => {});
 
         const store = chrome.storage.local.__getStore();
         expect(store.statsStartDate).toBe('2023-01-15T00:00:00.000Z');
+    });
+
+    test('ignores retired click estimates and retains historical placement counts', async () => {
+        await chrome.storage.local.set({ dailyStats: { '2023-10-27': {
+            placements: 7, loadingTime: 0, visitedCampaigns: [], reconciliations: 0
+        } } });
+        chrome.storage.local.set.mockClear();
+        const reply = jest.fn();
+        await handleTrackStat({ type: 'PLACEMENT_ADDED', value: 5 }, {}, reply);
+        expect(reply).toHaveBeenCalledWith({ status: 'success', ignored: true });
+        expect(chrome.storage.local.set).not.toHaveBeenCalled();
+        await handleTrackStat({ type: 'PLACEMENT_CONFIRMED', value: {
+            eventId: '00000000-0000-4000-8000-000000000004', kind: 'created'
+        } }, {}, jest.fn());
+        expect(chrome.storage.local.__getStore().dailyStats['2023-10-27'])
+            .toMatchObject({ placements: 7, placementsCreated: 1 });
     });
 });

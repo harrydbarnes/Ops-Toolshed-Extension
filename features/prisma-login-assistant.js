@@ -13,6 +13,10 @@
     const PROMPT_DURATION_MS = 2 * 24 * 60 * 60 * 1000;
     const TOAST_ID = 'ops-toolshed-prisma-login-toast';
     const TOAST_STYLE_ID = 'ops-toolshed-prisma-login-toast-style';
+    const TIMEOUT_BAR_ID = 'ops-toolshed-session-timeout-bar';
+    const TIMEOUT_BAR_CONTAINER_CLASS = 'ops-toolshed-timeout-bar-container';
+    let timeoutTimerId = null;
+    let timeoutLinkProcessed = false;
     let settings = {
         enabled: false,
         email: '',
@@ -48,7 +52,99 @@
 
     function hasPrismaSignInPage() {
         const text = pageText();
-        return text.includes('enter username to continue') || text.includes('select your organisation to sign in');
+        return text.includes('enter username to continue') ||
+            text.includes('select your organisation to sign in') ||
+            isSessionTimeoutPage();
+    }
+
+    function isSessionTimeoutPage() {
+        const text = pageText();
+        const matchesText = text.includes('signed out because your session was inactive') ||
+            (text.includes('signed out') && text.includes('session was inactive'));
+        return matchesText;
+    }
+
+    function findTimeoutSignInLink() {
+        const anchors = Array.from(document.querySelectorAll('a'));
+        return anchors.find(a => {
+            const label = normalise(a.textContent).toLowerCase();
+            return (label === 'sign in' || label.startsWith('sign in')) && isVisible(a);
+        }) || null;
+    }
+
+    function cleanupTimeoutProgress() {
+        if (timeoutTimerId !== null) {
+            clearTimeout(timeoutTimerId);
+            timeoutTimerId = null;
+        }
+        document.getElementById(TIMEOUT_BAR_ID)?.closest(`.${TIMEOUT_BAR_CONTAINER_CLASS}`)?.remove();
+    }
+
+    function showTimeoutProgressBar(link) {
+        if (document.getElementById(TIMEOUT_BAR_ID)) return;
+        injectToastStyles();
+        const container = document.createElement('div');
+        container.className = TIMEOUT_BAR_CONTAINER_CLASS;
+        const status = document.createElement('div');
+        status.className = 'ops-toolshed-timeout-status';
+        status.setAttribute('role', 'status');
+        status.setAttribute('aria-label', 'Logging you back in');
+        status.append('Logging you back in');
+        const dots = document.createElement('span');
+        dots.className = 'ops-toolshed-timeout-dots';
+        dots.setAttribute('aria-hidden', 'true');
+        dots.textContent = '...';
+        status.appendChild(dots);
+        container.appendChild(status);
+        const track = document.createElement('div');
+        track.className = 'ops-toolshed-timeout-track';
+        track.setAttribute('aria-hidden', 'true');
+        const bar = document.createElement('div');
+        bar.id = TIMEOUT_BAR_ID;
+        track.appendChild(bar);
+        container.appendChild(track);
+
+        // Insert container right after the link's enclosing paragraph or block container
+        const parentBlock = link.closest('p, div') || link.parentElement;
+        if (parentBlock && parentBlock.parentNode) {
+            parentBlock.parentNode.insertBefore(container, parentBlock.nextSibling);
+        } else if (link.parentNode) {
+            link.parentNode.insertBefore(container, link.nextSibling);
+        }
+
+        // Trigger CSS transition animation from 0% to 100% across 2000ms
+        const scheduleAnim = typeof window.requestAnimationFrame === 'function'
+            ? cb => window.requestAnimationFrame(cb)
+            : cb => setTimeout(cb, 16);
+        scheduleAnim(() => {
+            scheduleAnim(() => {
+                bar.style.width = '100%';
+            });
+        });
+    }
+
+    function trySessionTimeoutStage() {
+        if (!isActiveDocument() || !settings.enabled) {
+            cleanupTimeoutProgress();
+            return;
+        }
+        if (timeoutLinkProcessed) return;
+        const link = findTimeoutSignInLink();
+        if (!link) return;
+
+        showTimeoutProgressBar(link);
+
+        if (timeoutTimerId !== null) return;
+        timeoutTimerId = setTimeout(() => {
+            timeoutTimerId = null;
+            if (timeoutLinkProcessed) return;
+            if (!settings.enabled || !isActiveDocument() || !isSessionTimeoutPage() || !link.isConnected) {
+                cleanupTimeoutProgress();
+                return;
+            }
+            timeoutLinkProcessed = true;
+            link.click();
+        }, 2000);
     }
 
     function isUsernameStage() {
@@ -116,6 +212,36 @@
             #${TOAST_ID} .ops-toolshed-login-actions { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
             #${TOAST_ID} button { border: 0; border-radius: 5px; padding: 7px 12px; background: #fff; color: #102c72; font: inherit; font-weight: 700; cursor: pointer; }
             #${TOAST_ID} button.ops-toolshed-login-dismiss { margin-left: auto; padding: 2px 7px; background: transparent; color: #fff; font-size: 20px; line-height: 1; }
+
+            .${TIMEOUT_BAR_CONTAINER_CLASS} { margin: 12px 0 6px; }
+            .ops-toolshed-timeout-status { color: #102c72; font-size: 12px; margin-bottom: 6px; text-align: center; }
+            .ops-toolshed-timeout-dots { display: inline-block; overflow: hidden; vertical-align: bottom; width: 1ch; animation: ops-toolshed-timeout-dots 1.2s steps(1, end) infinite; }
+            @keyframes ops-toolshed-timeout-dots {
+                0% { width: 1ch; }
+                33.333% { width: 2ch; }
+                66.666% { width: 3ch; }
+            }
+            @media (prefers-reduced-motion: reduce) {
+                .ops-toolshed-timeout-dots { animation: none; width: 3ch; }
+            }
+            .ops-toolshed-timeout-track {
+                display: block;
+                width: 100%;
+                max-width: 100%;
+                height: 4px;
+                background: rgba(16, 44, 114, 0.12);
+                border-radius: 2px;
+                overflow: hidden;
+                position: relative;
+            }
+            #${TIMEOUT_BAR_ID} {
+                display: block;
+                height: 100%;
+                width: 0%;
+                background: #102c72;
+                border-radius: 2px;
+                transition: width 2000ms linear;
+            }
         `;
         document.documentElement.appendChild(style);
     }
@@ -361,7 +487,7 @@
         reconcileQueued = false;
         if (!settingsLoaded) return;
         if (!hasPrismaSignInPage()) return;
-        const stage = isUsernameStage() ? 'username' : isOrganisationStage() ? 'organisation' : '';
+        const stage = isUsernameStage() ? 'username' : isOrganisationStage() ? 'organisation' : isSessionTimeoutPage() ? 'timeout' : '';
         if (stage !== currentSignInStage) {
             currentSignInStage = stage;
             if (stage === 'username') usernameSubmitted = false;
@@ -369,9 +495,13 @@
                 organisationSubmitted = false;
                 organisationOptionChosen = false;
             }
+            if (stage === 'timeout') {
+                timeoutLinkProcessed = false;
+            }
         }
         if (stage === 'username') tryUsernameStage();
         if (stage === 'organisation') tryOrganisationStage();
+        if (stage === 'timeout') trySessionTimeoutStage();
     }
 
     function scheduleReconcile() {
@@ -443,6 +573,8 @@
     function dispose() {
         observer?.disconnect();
         observer = null;
+        cleanupTimeoutProgress();
+        timeoutLinkProcessed = false;
         settingsLoaded = false;
         currentSignInStage = '';
     }

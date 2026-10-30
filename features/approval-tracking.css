@@ -491,13 +491,17 @@ a.toolshed-approval-item-link * {
 
 .toolshed-approval-already-tracked-note {
     font-size: 11px;
-    color: #16a34a;
+    color: #64748b;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 4px;
     font-weight: 500;
     padding: 4px;
+}
+
+.toolshed-approval-already-tracked-note.is-approved {
+    color: #16a34a;
 }
 
 /* Toast Notification (Reusing #ops-toolshed-toast) */

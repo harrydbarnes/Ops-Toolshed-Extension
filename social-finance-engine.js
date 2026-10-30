@@ -3,6 +3,71 @@
     if (typeof module === 'object' && module.exports) module.exports = api;
     if (root) root.socialFinanceEngine = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+    /**
+     * Public finance records retain source currency; amounts are never converted.
+     * These contracts describe shared matching/report fields; records also carry
+     * delivery, workflow and source-row evidence used by the review UI.
+     *
+     * @typedef {{headers: string[], rows: Object<string, string>[]}} ParsedFinanceCsv
+     *
+     * @typedef {Object} MetaFinanceRecord
+     * @property {string} key Account/campaign/month aggregation key.
+     * @property {string} accountId IDs remain strings to preserve precision.
+     * @property {string} campaignId
+     * @property {Date} month First day of the reporting month.
+     * @property {string} campaignName
+     * @property {string} currency Empty when the source does not establish currency.
+     * @property {number} spend Summed source spend; missing/unparseable values contribute zero.
+     * @property {number|null} budget Null means unavailable, not a zero budget.
+     * @property {number|null} budgetRemaining
+     * @property {number|null} adSetBudget
+     * @property {Date|null} start Earliest available schedule start.
+     * @property {Date|null} end Latest available schedule end.
+     * @property {Date|null} firstDelivery
+     * @property {Date|null} lastDelivery
+     * @property {{date: string, spend: number, impressions: number, reach: number}[]} dailySpend
+     * @property {number[]} sourceRows One-based CSV row numbers, including the header.
+     *
+     * @typedef {Object} PrismaFinanceRecord
+     * @property {string} key Account/campaign/month aggregation key.
+     * @property {string} accountId
+     * @property {string} campaignId
+     * @property {Date} month First day of the reporting month.
+     * @property {string} campaignName
+     * @property {string} currency
+     * @property {number} planned Aggregated money excludes duplicate booking/month keys.
+     * @property {number} orderAmount Optional source amounts aggregate to zero when unavailable.
+     * @property {number} integratedSpend
+     * @property {number} nonIntegratedSpend
+     * @property {number} opportunity
+     * @property {Date|null} start
+     * @property {Date|null} end
+     * @property {string[]} bookingKeys
+     * @property {number[]} sourceRows
+     *
+     * @typedef {Object} FinanceCandidate
+     * @property {string} key Stable key used when rejecting a suggestion.
+     * @property {string} prismaKey Empty for an unaggregated source row.
+     * @property {number} score Rounded evidence score from 0 to 100; not a probability.
+     * @property {string[]} reasons Evidence contributing to the score.
+     * @property {boolean} hasCorroboratingEvidence
+     * @property {'Strong candidate'|'Possible candidate'|'Low evidence'} level
+     *
+     * @typedef {Object} FinanceReportRow
+     * @property {string} accountId
+     * @property {string} campaignId
+     * @property {string} month Reporting month as YYYY-MM.
+     * @property {number|null} metaSpend Null for a Prisma-only report row.
+     * @property {number|null} metaBudget
+     * @property {number|null} prismaPlanned Null when no booking is matched.
+     * @property {number|null} variance Null when currencies prevent comparison.
+     * @property {string} classification
+     * @property {string} evidence
+     * @property {string[]} issues
+     * @property {FinanceCandidate[]} candidates
+     * @property {FinanceCandidate[]} candidatePool
+     */
+
     const META_ALIASES = {
         accountId: ['account id', 'account_id'],
         businessId: ['business id', 'business_id', 'business manager id', 'business manager id.'],
@@ -77,6 +142,10 @@
         updatedTime: ['placement updated time', 'booking updated time', 'last updated', 'updated time', 'updated date']
     };
 
+    /** Parse quoted CSV without coercing IDs or amounts.
+     * @param {string} text
+     * @returns {ParsedFinanceCsv}
+     */
     function parseCsv(text) {
         const source = String(text || '').replace(/^\uFEFF/, '');
         const matrix = [];
@@ -308,6 +377,10 @@
         return `${accountId}|${campaignId}`;
     }
 
+    /** Aggregate Meta rows by account, campaign and reporting month.
+     * @param {ParsedFinanceCsv} parsed
+     * @returns {{columns: Object<string, string>, records: MetaFinanceRecord[], errors: string[]}}
+     */
     function aggregateMeta(parsed) {
         const columns = resolveColumns(parsed.headers, META_ALIASES);
         const errors = [];
@@ -494,6 +567,12 @@
         };
     }
 
+    /** Aggregate usable linked bookings; retain unlinked source rows for review.
+     * Source rows have nullable optional money fields, while aggregate totals are numbers.
+     * @param {ParsedFinanceCsv} parsed
+     * @param {{requireStandardTemplate?: boolean}} [options]
+     * @returns {{columns: Object<string, string>, records: PrismaFinanceRecord[], allRows: Object[], unintegratedRows: Object[], errors: string[]}}
+     */
     function aggregatePrisma(parsed, options = {}) {
         const columns = resolveColumns(parsed.headers, PRISMA_ALIASES);
         const errors = [];
@@ -764,6 +843,12 @@
         return `${row.accountId || ''}|prisma-row-${row.sourceRow || 0}|${toIsoDate(row.month)}`;
     }
 
+    /** Rank suggestions for human review; a suggestion does not establish a match.
+     * @param {MetaFinanceRecord} meta
+     * @param {Object[]} prismaRows Aggregated bookings or unintegrated source rows.
+     * @param {{mapping?: Object, allowUnintegrated?: boolean, rejectedKeys?: string[], monthClosed?: boolean, limit?: number, asOfDate?: Date|string}} [options]
+     * @returns {FinanceCandidate[]} Sorted by descending score; at most three by default.
+     */
     function findCandidates(meta, prismaRows, options = {}) {
         const mappingConfirmed = typeof options.mapping?.integrationExpected === 'boolean';
         const sameMonth = prismaRows.filter(row => {
@@ -951,6 +1036,290 @@
             && toIsoDate(record.end).slice(0, 7) === reportMonth;
     }
 
+    function classifyMissingBooking(platform, facts, context) {
+        const { accountMismatches, otherMonths, monthClosed, accountMonthConfirmed } = facts;
+        const { tolerance, asOfDate, prismaMonths, candidateRows, accountMappings,
+            rejectedCandidates, metaPoCampaigns, prismaPoCampaigns } = context;
+        const issues = [];
+        let classification = 'Matched: booking evidence valid';
+        let evidence = 'Matched';
+        let candidate = null;
+        let candidates = [];
+        let candidatePool = [];
+        if (accountMismatches.length) {
+            classification = 'Account ID mismatch: Campaign ID is booked under another Prisma partner';
+            evidence = 'Investigate';
+            issues.push(`Meta Account ID ${platform.accountId}; Prisma Partner account ID ${accountMismatches.map(item => item.accountId).join(', ')}`);
+
+        } else if (otherMonths.length) {
+            classification = 'Month update needed: Campaign ID is booked in another month';
+            evidence = 'Needs update';
+            issues.push(`Prisma months: ${otherMonths.map(item => toIsoDate(item.month).slice(0, 7)).join(', ')}`);
+        } else if (!prismaMonths.has(toIsoDate(platform.month).slice(0, 7))) {
+            classification = 'Outside Prisma reporting months';
+            evidence = 'Outside scope';
+            issues.push(`Prisma report does not include ${toIsoDate(platform.month).slice(0, 7)}`);
+        } else {
+            candidatePool = findCandidates(platform, candidateRows, {
+                monthClosed,
+                mapping: accountMappings[platform.accountId] || {},
+                allowUnintegrated: true,
+                asOfDate,
+                rejectedKeys: rejectedCandidates[platform.key] || [],
+                limit: Infinity
+            });
+            candidates = candidatePool.slice(0, 3);
+            candidate = candidates[0] && candidates[0].level !== 'Low evidence' ? candidates[0] : null;
+            if (candidate) {
+                const sharedPo = [...purchaseOrderTokens(platform.campaignName)]
+                    .find(po => purchaseOrderTokens([candidate.campaignName, ...(candidate.placementNames || [])].join(' ')).has(po));
+                const metaPoCount = sharedPo ? (metaPoCampaigns.get(sharedPo)?.size || 0) : 0;
+                const prismaPoCount = sharedPo ? (prismaPoCampaigns.get(sharedPo)?.size || 0) : 0;
+                if (sharedPo && metaPoCount === 1 && prismaPoCount === 1) {
+                    classification = 'Strong PO match: confirm campaign link';
+                    issues.push(`PO ${sharedPo.toUpperCase()} appears once in Meta and once in Prisma. Treat as the likely match after user confirmation.`);
+                } else if (sharedPo && prismaPoCount > metaPoCount) {
+                    classification = 'Possible PO match: check for cancel/rebook';
+                    issues.push(`PO ${sharedPo.toUpperCase()} links ${metaPoCount} Meta campaign${metaPoCount === 1 ? '' : 's'} to ${prismaPoCount} Prisma bookings. Confirm the intended match and check whether a Prisma booking is a cancellation/rebook.`);
+                } else {
+                    classification = candidate.campaignId
+                        ? 'Possible Prisma campaign match: confirm link'
+                        : 'Likely booked but unlinked: add Partner line ID';
+                }
+                evidence = 'Investigate';
+                issues.push(`${candidate.level}: ${candidate.score}% match score${candidate.reasons.length ? ` (${candidate.reasons.join('; ')})` : ''}`);
+            } else {
+                const purchaseOrderReferences = [...referenceTokens(platform.campaignName)].filter(token => /^(mf|po)[-_]/.test(token));
+                if (purchaseOrderReferences.length) {
+                    classification = 'PO reference needs booking confirmation';
+                    evidence = 'Investigate';
+                    issues.push(`Buyer to confirm whether a Prisma booking exists against PO reference ${purchaseOrderReferences[0]}.`);
+                } else {
+                const missingLabel = accountMonthConfirmed ? 'No exact Prisma campaign ID match' : 'No linked Prisma booking found';
+                const noDelivery = platform.spend <= tolerance && !(platform.impressions > 0);
+                const fixedFlightBudgetRisk = !monthClosed && noDelivery
+                    && platform.budget !== null && platform.budget > tolerance
+                    && isFixedSingleMonthFlight(platform);
+                if (fixedFlightBudgetRisk) {
+                    classification = `${missingLabel}: fixed-flight Meta budget is unbooked`;
+                    evidence = 'Missing/unlinked';
+                } else if (!monthClosed && noDelivery) {
+                    classification = 'Open-month £0 campaign: monitor for booking activity';
+                    evidence = 'Monitor';
+                } else if (noDelivery && isInactiveMetaRecord(platform)) {
+                    classification = 'No booking action: inactive in Meta with no delivery';
+                    evidence = 'Monitor';
+                } else {
+                    classification = platform.spend > tolerance || platform.impressions > 0
+                        ? `${missingLabel}: delivered or spending`
+                        : `${missingLabel}: active or scheduled pre-flight`;
+                    evidence = 'Missing/unlinked';
+                }
+                }
+            }
+        }
+
+        return { classification, evidence, issues, candidate, candidates, candidatePool,
+            relatedBookingKeys: accountMismatches.map(item => item.key) };
+    }
+
+    function classifyMatchedBooking(platform, booking, { monthClosed, asOfDate, tolerance, manualBooking }) {
+        const issues = [];
+        let classification = 'Matched: booking evidence valid';
+        let evidence = 'Matched';
+        let comparisonBasis = 'Meta spend';
+        let comparisonValue = platform.spend;
+        let comparisonVariance = platform.spend - booking.planned;
+        const metaCurrency = platform.currency || '';
+        const prismaCurrency = booking.currency || '';
+        const currencyMismatch = Boolean(metaCurrency && prismaCurrency && metaCurrency !== prismaCurrency);
+        const startVariance = daysBetween(platform.start, booking.start);
+        const endVariance = daysBetween(platform.end, booking.end);
+        const boundedBudgetComparable = !monthClosed && platform.budget !== null
+            && platform.start && platform.end && booking.start && booking.end
+            && startVariance === 0 && endVariance === 0;
+        comparisonBasis = boundedBudgetComparable ? 'Meta budget' : 'Meta spend';
+        comparisonValue = boundedBudgetComparable ? platform.budget : platform.spend;
+        comparisonVariance = currencyMismatch ? null : comparisonValue - booking.planned;
+        const updateKinds = [];
+        const reviewKinds = [];
+
+        if (currencyMismatch) {
+            classification = 'Currency check needed: Meta and Prisma differ';
+            evidence = 'Investigate';
+            issues.push(`Meta currency ${metaCurrency}; Prisma currency ${prismaCurrency}. Amounts are not compared or added together.`);
+        }
+
+        if (platform.start && booking.start && platform.start < booking.start) {
+            issues.push(`${platform.scheduleSource || 'Meta schedule'} starts before Prisma`);
+            updateKinds.push('schedule');
+        } else if (startVariance !== null && startVariance > 0) {
+            issues.push(`Prisma booking covers the Meta start and begins ${startVariance} day(s) earlier`);
+        }
+        if (platform.end && booking.end && platform.end > booking.end) {
+            issues.push(`${platform.scheduleSource || 'Meta schedule'} ends after Prisma`);
+            updateKinds.push('schedule');
+        } else if (endVariance !== null && endVariance < 0) {
+            issues.push(`Prisma booking covers the Meta end and finishes ${Math.abs(endVariance)} day(s) later`);
+        }
+
+        if (comparisonVariance !== null && comparisonVariance > tolerance) {
+            updateKinds.push(boundedBudgetComparable ? 'budget' : 'spend');
+            issues.push(`${comparisonBasis} exceeds Prisma booking by ${comparisonVariance.toFixed(2)}`);
+        } else if (comparisonVariance !== null && comparisonVariance < -tolerance && monthClosed) {
+            updateKinds.push('reconciliation');
+            issues.push(`Check Prisma is reconciled correctly: its booking exceeds closed-month Meta spend by ${Math.abs(comparisonVariance).toFixed(2)} and looks high.`);
+        } else if (comparisonVariance !== null && comparisonVariance < -tolerance) {
+            reviewKinds.push('in-flight spend');
+            issues.push(`${comparisonBasis} is below Prisma booking by ${Math.abs(comparisonVariance).toFixed(2)}`);
+        }
+
+        if (platform.budget === null && platform.budgetRaw) issues.push(`Budget not comparable: ${platform.budgetRaw}`);
+        const metaUpdated = parseTimestamp(platform.updatedTime);
+        const prismaUpdated = parseTimestamp(booking.updatedTime);
+        if (metaUpdated && prismaUpdated && metaUpdated > prismaUpdated && (updateKinds.length || reviewKinds.length)) {
+            issues.push(`Meta changed after the Prisma booking (${displayTimestamp(metaUpdated)} vs ${displayTimestamp(prismaUpdated)})`);
+        }
+
+        const uniqueUpdates = [...new Set(updateKinds)];
+        const uniqueReviews = [...new Set(reviewKinds)];
+        if (currencyMismatch) {
+            // Date and workflow evidence remains useful, but monetary findings stay deliberately non-comparable.
+        } else if (uniqueUpdates.length > 1) {
+            classification = `Multiple updates needed: ${uniqueUpdates.join(' and ')} differ`;
+            evidence = 'Needs update';
+        } else if (uniqueUpdates[0] === 'schedule') {
+            classification = 'Date update needed: Meta extends outside Prisma';
+            evidence = 'Needs update';
+        } else if (uniqueUpdates[0] === 'spend') {
+            classification = 'Spend update needed: Meta spend exceeds Prisma booking';
+            evidence = 'Needs update';
+        } else if (uniqueUpdates[0] === 'budget') {
+            classification = 'Budget update needed: bounded Meta budget exceeds Prisma booking';
+            evidence = 'Needs update';
+        } else if (uniqueUpdates[0] === 'reconciliation') {
+            classification = 'Closed-month reconciliation needed: Prisma booking exceeds Meta spend';
+            evidence = 'Needs update';
+        } else if (uniqueReviews.includes('schedule')) {
+            classification = 'Date difference: review booking coverage';
+            evidence = 'Investigate';
+        } else if (uniqueReviews.includes('in-flight spend')) {
+            classification = 'In-flight spend difference: monitor';
+            evidence = 'Monitor';
+        }
+        const workflowIssues = prismaWorkflowIssues(booking, { asOfDate });
+        if (workflowIssues.length) {
+            issues.push(...workflowIssues);
+            if (evidence === 'Matched') {
+                classification = 'Prisma workflow review needed';
+                evidence = 'Investigate';
+            } else if (evidence === 'Needs update') {
+                classification = 'Prisma workflow and booking update needed';
+            }
+        }
+        const metaReferences = referenceTokens(platform.campaignName);
+        const prismaReferences = referenceTokens([booking.campaignName, ...(booking.placementNames || [])].join(' '));
+        const referencesConflict = metaReferences.size && prismaReferences.size && ![...metaReferences].some(reference => prismaReferences.has(reference));
+        if (referencesConflict) {
+            issues.push('Exact IDs match but campaign references differ; verify whether Prisma is correct or the wrong PO was used in the Meta campaign name.');
+            if (evidence === 'Matched') {
+                classification = 'Exact link has conflicting PO references: verify booking';
+                evidence = 'Investigate';
+            }
+        }
+        if (manualBooking && evidence === 'Matched') classification = 'Matched manually: booking evidence valid';
+        return { classification, evidence, issues, comparisonBasis, comparisonValue, comparisonVariance };
+    }
+
+    function buildMetaComparisonRow(platform, booking, decision, { issues, monthClosed, asOfDate }) {
+        const { classification, evidence, candidate = null, candidates = [], candidatePool = [],
+            comparisonBasis = 'Meta spend', comparisonValue = platform.spend,
+            comparisonVariance = platform.spend } = decision;
+        return {
+            accountId: platform.accountId,
+            campaignId: platform.campaignId,
+            metaKey: platform.key,
+            month: toIsoDate(platform.month).slice(0, 7),
+            account: platform.account,
+            campaignName: platform.campaignName,
+            status: platform.status,
+            effectiveStatus: platform.effectiveStatus,
+            configuredStatus: platform.configuredStatus,
+            adSetStatus: platform.adSetStatus,
+            currency: platform.currency || booking?.currency || '',
+            metaCurrency: platform.currency || '',
+            prismaCurrency: booking?.currency || candidate?.currency || '',
+            currencyMismatch: Boolean(booking && platform.currency && booking.currency && platform.currency !== booking.currency),
+            timezone: platform.timezone,
+            timezoneOffset: platform.timezoneOffset,
+            metaSpend: platform.spend,
+            metaBudget: platform.budget,
+            metaBudgetType: platform.budgetType,
+            metaBudgetLevel: platform.budgetLevel,
+            metaBudgetSource: platform.budgetSource,
+            metaBudgetRemaining: platform.budgetRemaining,
+            metaAdSetBudget: platform.adSetBudget,
+            metaAdSetBudgetType: platform.adSetBudgetType,
+            metaBudgetSharing: platform.budgetSharing,
+            metaBudgetSchedule: platform.budgetSchedule,
+            metaImpressions: platform.impressions,
+            metaReach: platform.reach,
+            metaActiveSpendDays: platform.activeSpendDays,
+            metaFirstDelivery: toIsoDate(platform.firstDelivery),
+            metaLastDelivery: toIsoDate(platform.lastDelivery),
+            metaDailySpend: platform.dailySpend || [],
+            metaUpdatedTime: platform.updatedTime,
+            metaCampaignUpdatedTime: platform.campaignUpdatedTime,
+            metaAdSetUpdatedTime: platform.adSetUpdatedTime,
+            metaAdSetCount: platform.adSetCount,
+            metaActiveAdSetCount: platform.activeAdSetCount,
+            prismaPlanned: booking?.planned ?? null,
+            prismaOrderAmount: booking?.orderAmount ?? candidate?.orderAmount ?? null,
+            prismaIntegratedSpend: booking?.integratedSpend ?? candidate?.integratedSpend ?? null,
+            prismaNonIntegratedSpend: booking?.nonIntegratedSpend ?? candidate?.nonIntegratedSpend ?? null,
+            prismaOpportunity: booking?.opportunity ?? candidate?.opportunity ?? null,
+            prismaCampaignId: booking?.campaignId || '',
+            prismaClient: booking?.client || candidate?.client || '',
+            prismaProduct: booking?.product || candidate?.product || '',
+            prismaKey: booking?.key || '',
+            prismaBookingKeys: booking?.bookingKeys || candidate?.bookingKeys || [],
+            prismaPlacementNumbers: booking?.placementNumbers || candidate?.placementNumbers || [],
+            prismaBuyNumbers: booking?.buyNumbers || candidate?.buyNumbers || [],
+            comparisonBasis,
+            comparisonValue,
+            variance: booking && !(platform.currency && booking.currency && platform.currency !== booking.currency) ? comparisonVariance : (booking ? null : platform.spend),
+            metaStart: toIsoDate(platform.start),
+            metaEnd: toIsoDate(platform.end),
+            prismaStart: toIsoDate(booking?.start),
+            prismaEnd: toIsoDate(booking?.end),
+            prismaUpdatedTime: booking?.updatedTime || '',
+            prismaOrderStatus: booking?.orderStatus || candidate?.orderStatus || '',
+            prismaIntegratedStatus: booking?.integratedStatus || candidate?.integratedStatus || '',
+            prismaDeliveryStatus: booking?.deliveryStatus || candidate?.deliveryStatus || '',
+            prismaFlightStatus: booking?.flightStatus || candidate?.flightStatus || '',
+            prismaPeriodStatus: booking?.periodStatus || candidate?.periodStatus || '',
+            prismaPlacementNames: booking?.placementNames || candidate?.placementNames || [],
+            prismaWorkflowIssues: booking ? prismaWorkflowIssues(booking, { asOfDate }) : (candidate?.workflowIssues || []),
+            classification,
+            evidence,
+            issues,
+            owner: booking?.owner || candidate?.owner || '',
+            candidateScore: candidate?.score ?? null,
+            candidates,
+            candidatePool,
+            monthClosed
+        };
+    }
+
+    /** Build the review report without mutating saved mappings or manual decisions.
+     * Invalid input returns empty rows and validationErrors before comparison.
+     * Report schedule/delivery dates are ISO strings (empty when unavailable),
+     * unlike the Date values on normalized aggregation records.
+     * @param {ParsedFinanceCsv} metaParsed
+     * @param {ParsedFinanceCsv} prismaParsed
+     * @param {{tolerance?: number, asOfDate?: Date|string, closedWorkingDay?: number, accountIdScope?: string[], accountMappings?: Object, manualMatches?: Object, rejectedCandidates?: Object, populationConfirmed?: boolean}} [options]
+     * @returns {{rows: FinanceReportRow[], summary: Object, validationErrors: string[], warnings: string[]}}
+     */
     function compare(metaParsed, prismaParsed, options = {}) {
         const meta = aggregateMeta(metaParsed);
         const prisma = aggregatePrisma(prismaParsed);
@@ -1050,6 +1419,12 @@
             const manualBooking = resolveManualMatch(platform).booking;
             return (manualBooking || prismaByKey.get(platform.key))?.key;
         }).filter(Boolean));
+        const candidateRows = [...prismaRecordsInMetaClientScope,
+            ...prismaAllRows.filter(row => !row.campaignId && clientAppearsInMeta(row)),
+            ...prismaUnintegratedGroups.filter(clientAppearsInMeta)]
+            .filter(row => !row.key || !linkedPrismaKeys.has(row.key));
+        const missingBookingContext = { tolerance, asOfDate, prismaMonths, candidateRows,
+            accountMappings, rejectedCandidates, metaPoCampaigns, prismaPoCampaigns };
         const handledPrismaKeys = new Set();
         const reportRows = [];
 
@@ -1061,14 +1436,6 @@
             const accountMismatches = (prismaCampaignMonths.get(`${platform.campaignId}|${toIsoDate(platform.month)}`) || [])
                 .filter(record => record.accountId !== platform.accountId);
             const issues = [];
-            let classification = 'Matched: booking evidence valid';
-            let evidence = 'Matched';
-            let candidate = null;
-            let candidates = [];
-            let candidatePool = [];
-            let comparisonBasis = 'Meta spend';
-            let comparisonValue = platform.spend;
-            let comparisonVariance = booking ? platform.spend - booking.planned : platform.spend;
             if (manualBooking) {
                 handledPrismaKeys.add(manualBooking.key);
                 issues.push(`Manual match to Prisma Partner line ID ${manualBooking.campaignId}`);
@@ -1078,181 +1445,12 @@
             const monthClosed = asOfDate > addWorkingDays(endOfMonth(platform.month), closedWorkingDay);
             const platformAccountMonth = `${platform.accountId}|${toIsoDate(platform.month).slice(0, 7)}`;
             const accountMonthConfirmed = populationConfirmationEnabled && prismaAccountMonths.has(platformAccountMonth);
-            if (!booking) {
-                if (accountMismatches.length) {
-                    classification = 'Account ID mismatch: Campaign ID is booked under another Prisma partner';
-                    evidence = 'Investigate';
-                    issues.push(`Meta Account ID ${platform.accountId}; Prisma Partner account ID ${accountMismatches.map(item => item.accountId).join(', ')}`);
-                    accountMismatches.forEach(item => handledPrismaKeys.add(item.key));
-                } else if (otherMonths.length) {
-                    classification = 'Month update needed: Campaign ID is booked in another month';
-                    evidence = 'Needs update';
-                    issues.push(`Prisma months: ${otherMonths.map(item => toIsoDate(item.month).slice(0, 7)).join(', ')}`);
-                } else if (!prismaMonths.has(toIsoDate(platform.month).slice(0, 7))) {
-                    classification = 'Outside Prisma reporting months';
-                    evidence = 'Outside scope';
-                    issues.push(`Prisma report does not include ${toIsoDate(platform.month).slice(0, 7)}`);
-                } else {
-                    const candidateRows = [...prismaRecordsInMetaClientScope, ...prismaAllRows.filter(row => !row.campaignId && clientAppearsInMeta(row)), ...prismaUnintegratedGroups.filter(clientAppearsInMeta)]
-                        .filter(row => !row.key || !linkedPrismaKeys.has(row.key));
-                    candidatePool = findCandidates(platform, candidateRows, {
-                        monthClosed,
-                        mapping: accountMappings[platform.accountId] || {},
-                        allowUnintegrated: true,
-                        asOfDate,
-                        rejectedKeys: rejectedCandidates[platform.key] || [],
-                        limit: Infinity
-                    });
-                    candidates = candidatePool.slice(0, 3);
-                    candidate = candidates[0] && candidates[0].level !== 'Low evidence' ? candidates[0] : null;
-                    if (candidate) {
-                        const sharedPo = [...purchaseOrderTokens(platform.campaignName)]
-                            .find(po => purchaseOrderTokens([candidate.campaignName, ...(candidate.placementNames || [])].join(' ')).has(po));
-                        const metaPoCount = sharedPo ? (metaPoCampaigns.get(sharedPo)?.size || 0) : 0;
-                        const prismaPoCount = sharedPo ? (prismaPoCampaigns.get(sharedPo)?.size || 0) : 0;
-                        if (sharedPo && metaPoCount === 1 && prismaPoCount === 1) {
-                            classification = 'Strong PO match: confirm campaign link';
-                            issues.push(`PO ${sharedPo.toUpperCase()} appears once in Meta and once in Prisma. Treat as the likely match after user confirmation.`);
-                        } else if (sharedPo && prismaPoCount > metaPoCount) {
-                            classification = 'Possible PO match: check for cancel/rebook';
-                            issues.push(`PO ${sharedPo.toUpperCase()} links ${metaPoCount} Meta campaign${metaPoCount === 1 ? '' : 's'} to ${prismaPoCount} Prisma bookings. Confirm the intended match and check whether a Prisma booking is a cancellation/rebook.`);
-                        } else {
-                            classification = candidate.campaignId
-                                ? 'Possible Prisma campaign match: confirm link'
-                                : 'Likely booked but unlinked: add Partner line ID';
-                        }
-                        evidence = 'Investigate';
-                        issues.push(`${candidate.level}: ${candidate.score}% match score${candidate.reasons.length ? ` (${candidate.reasons.join('; ')})` : ''}`);
-                    } else {
-                        const purchaseOrderReferences = [...referenceTokens(platform.campaignName)].filter(token => /^(mf|po)[-_]/.test(token));
-                        if (purchaseOrderReferences.length) {
-                            classification = 'PO reference needs booking confirmation';
-                            evidence = 'Investigate';
-                            issues.push(`Buyer to confirm whether a Prisma booking exists against PO reference ${purchaseOrderReferences[0]}.`);
-                        } else {
-                        const missingLabel = accountMonthConfirmed ? 'No exact Prisma campaign ID match' : 'No linked Prisma booking found';
-                        const noDelivery = platform.spend <= tolerance && !(platform.impressions > 0);
-                        const fixedFlightBudgetRisk = !monthClosed && noDelivery
-                            && platform.budget !== null && platform.budget > tolerance
-                            && isFixedSingleMonthFlight(platform);
-                        if (fixedFlightBudgetRisk) {
-                            classification = `${missingLabel}: fixed-flight Meta budget is unbooked`;
-                            evidence = 'Missing/unlinked';
-                        } else if (!monthClosed && noDelivery) {
-                            classification = 'Open-month £0 campaign: monitor for booking activity';
-                            evidence = 'Monitor';
-                        } else if (noDelivery && isInactiveMetaRecord(platform)) {
-                            classification = 'No booking action: inactive in Meta with no delivery';
-                            evidence = 'Monitor';
-                        } else {
-                            classification = platform.spend > tolerance || platform.impressions > 0
-                                ? `${missingLabel}: delivered or spending`
-                                : `${missingLabel}: active or scheduled pre-flight`;
-                            evidence = 'Missing/unlinked';
-                        }
-                        }
-                    }
-                }
-            } else {
-                const metaCurrency = platform.currency || '';
-                const prismaCurrency = booking.currency || '';
-                const currencyMismatch = Boolean(metaCurrency && prismaCurrency && metaCurrency !== prismaCurrency);
-                const startVariance = daysBetween(platform.start, booking.start);
-                const endVariance = daysBetween(platform.end, booking.end);
-                const boundedBudgetComparable = !monthClosed && platform.budget !== null
-                    && platform.start && platform.end && booking.start && booking.end
-                    && startVariance === 0 && endVariance === 0;
-                comparisonBasis = boundedBudgetComparable ? 'Meta budget' : 'Meta spend';
-                comparisonValue = boundedBudgetComparable ? platform.budget : platform.spend;
-                comparisonVariance = currencyMismatch ? null : comparisonValue - booking.planned;
-                const updateKinds = [];
-                const reviewKinds = [];
-
-                if (currencyMismatch) {
-                    classification = 'Currency check needed: Meta and Prisma differ';
-                    evidence = 'Investigate';
-                    issues.push(`Meta currency ${metaCurrency}; Prisma currency ${prismaCurrency}. Amounts are not compared or added together.`);
-                }
-
-                if (platform.start && booking.start && platform.start < booking.start) {
-                    issues.push(`${platform.scheduleSource || 'Meta schedule'} starts before Prisma`);
-                    updateKinds.push('schedule');
-                } else if (startVariance !== null && startVariance > 0) {
-                    issues.push(`Prisma booking covers the Meta start and begins ${startVariance} day(s) earlier`);
-                }
-                if (platform.end && booking.end && platform.end > booking.end) {
-                    issues.push(`${platform.scheduleSource || 'Meta schedule'} ends after Prisma`);
-                    updateKinds.push('schedule');
-                } else if (endVariance !== null && endVariance < 0) {
-                    issues.push(`Prisma booking covers the Meta end and finishes ${Math.abs(endVariance)} day(s) later`);
-                }
-
-                if (comparisonVariance !== null && comparisonVariance > tolerance) {
-                    updateKinds.push(boundedBudgetComparable ? 'budget' : 'spend');
-                    issues.push(`${comparisonBasis} exceeds Prisma booking by ${comparisonVariance.toFixed(2)}`);
-                } else if (comparisonVariance !== null && comparisonVariance < -tolerance && monthClosed) {
-                    updateKinds.push('reconciliation');
-                    issues.push(`Check Prisma is reconciled correctly: its booking exceeds closed-month Meta spend by ${Math.abs(comparisonVariance).toFixed(2)} and looks high.`);
-                } else if (comparisonVariance !== null && comparisonVariance < -tolerance) {
-                    reviewKinds.push('in-flight spend');
-                    issues.push(`${comparisonBasis} is below Prisma booking by ${Math.abs(comparisonVariance).toFixed(2)}`);
-                }
-
-                if (platform.budget === null && platform.budgetRaw) issues.push(`Budget not comparable: ${platform.budgetRaw}`);
-                const metaUpdated = parseTimestamp(platform.updatedTime);
-                const prismaUpdated = parseTimestamp(booking.updatedTime);
-                if (metaUpdated && prismaUpdated && metaUpdated > prismaUpdated && (updateKinds.length || reviewKinds.length)) {
-                    issues.push(`Meta changed after the Prisma booking (${displayTimestamp(metaUpdated)} vs ${displayTimestamp(prismaUpdated)})`);
-                }
-
-                const uniqueUpdates = [...new Set(updateKinds)];
-                const uniqueReviews = [...new Set(reviewKinds)];
-                if (currencyMismatch) {
-                    // Date and workflow evidence remains useful, but monetary findings stay deliberately non-comparable.
-                } else if (uniqueUpdates.length > 1) {
-                    classification = `Multiple updates needed: ${uniqueUpdates.join(' and ')} differ`;
-                    evidence = 'Needs update';
-                } else if (uniqueUpdates[0] === 'schedule') {
-                    classification = 'Date update needed: Meta extends outside Prisma';
-                    evidence = 'Needs update';
-                } else if (uniqueUpdates[0] === 'spend') {
-                    classification = 'Spend update needed: Meta spend exceeds Prisma booking';
-                    evidence = 'Needs update';
-                } else if (uniqueUpdates[0] === 'budget') {
-                    classification = 'Budget update needed: bounded Meta budget exceeds Prisma booking';
-                    evidence = 'Needs update';
-                } else if (uniqueUpdates[0] === 'reconciliation') {
-                    classification = 'Closed-month reconciliation needed: Prisma booking exceeds Meta spend';
-                    evidence = 'Needs update';
-                } else if (uniqueReviews.includes('schedule')) {
-                    classification = 'Date difference: review booking coverage';
-                    evidence = 'Investigate';
-                } else if (uniqueReviews.includes('in-flight spend')) {
-                    classification = 'In-flight spend difference: monitor';
-                    evidence = 'Monitor';
-                }
-                const workflowIssues = prismaWorkflowIssues(booking, { asOfDate });
-                if (workflowIssues.length) {
-                    issues.push(...workflowIssues);
-                    if (evidence === 'Matched') {
-                        classification = 'Prisma workflow review needed';
-                        evidence = 'Investigate';
-                    } else if (evidence === 'Needs update') {
-                        classification = 'Prisma workflow and booking update needed';
-                    }
-                }
-                const metaReferences = referenceTokens(platform.campaignName);
-                const prismaReferences = referenceTokens([booking.campaignName, ...(booking.placementNames || [])].join(' '));
-                const referencesConflict = metaReferences.size && prismaReferences.size && ![...metaReferences].some(reference => prismaReferences.has(reference));
-                if (referencesConflict) {
-                    issues.push('Exact IDs match but campaign references differ; verify whether Prisma is correct or the wrong PO was used in the Meta campaign name.');
-                    if (evidence === 'Matched') {
-                        classification = 'Exact link has conflicting PO references: verify booking';
-                        evidence = 'Investigate';
-                    }
-                }
-                if (manualBooking && evidence === 'Matched') classification = 'Matched manually: booking evidence valid';
-            }
+            const decision = booking
+                ? classifyMatchedBooking(platform, booking, { monthClosed, asOfDate, tolerance, manualBooking })
+                : classifyMissingBooking(platform, { accountMismatches, otherMonths, monthClosed, accountMonthConfirmed }, missingBookingContext);
+            issues.push(...decision.issues);
+            (decision.relatedBookingKeys || []).forEach(key => handledPrismaKeys.add(key));
+            const { evidence } = decision;
 
             const dailyContext = dailySpendContext(platform, asOfDate);
             if (!monthClosed && dailyContext && (evidence === 'Monitor' || evidence === 'Needs update' || evidence === 'Investigate')) {
@@ -1265,80 +1463,7 @@
                 if (platform.budgetRemaining !== null && platform.budgetRemaining !== undefined) issues.push(`Meta budget remaining: ${Number(platform.budgetRemaining).toFixed(2)}${platform.budgetSource ? ` (${platform.budgetSource})` : ''}`);
             }
 
-            reportRows.push({
-                accountId: platform.accountId,
-                campaignId: platform.campaignId,
-                metaKey: platform.key,
-                month: toIsoDate(platform.month).slice(0, 7),
-                account: platform.account,
-                campaignName: platform.campaignName,
-                status: platform.status,
-                effectiveStatus: platform.effectiveStatus,
-                configuredStatus: platform.configuredStatus,
-                adSetStatus: platform.adSetStatus,
-                currency: platform.currency || booking?.currency || '',
-                metaCurrency: platform.currency || '',
-                prismaCurrency: booking?.currency || candidate?.currency || '',
-                currencyMismatch: Boolean(booking && platform.currency && booking.currency && platform.currency !== booking.currency),
-                timezone: platform.timezone,
-                timezoneOffset: platform.timezoneOffset,
-                metaSpend: platform.spend,
-                metaBudget: platform.budget,
-                metaBudgetType: platform.budgetType,
-                metaBudgetLevel: platform.budgetLevel,
-                metaBudgetSource: platform.budgetSource,
-                metaBudgetRemaining: platform.budgetRemaining,
-                metaAdSetBudget: platform.adSetBudget,
-                metaAdSetBudgetType: platform.adSetBudgetType,
-                metaBudgetSharing: platform.budgetSharing,
-                metaBudgetSchedule: platform.budgetSchedule,
-                metaImpressions: platform.impressions,
-                metaReach: platform.reach,
-                metaActiveSpendDays: platform.activeSpendDays,
-                metaFirstDelivery: toIsoDate(platform.firstDelivery),
-                metaLastDelivery: toIsoDate(platform.lastDelivery),
-                metaDailySpend: platform.dailySpend || [],
-                metaUpdatedTime: platform.updatedTime,
-                metaCampaignUpdatedTime: platform.campaignUpdatedTime,
-                metaAdSetUpdatedTime: platform.adSetUpdatedTime,
-                metaAdSetCount: platform.adSetCount,
-                metaActiveAdSetCount: platform.activeAdSetCount,
-                prismaPlanned: booking?.planned ?? null,
-                prismaOrderAmount: booking?.orderAmount ?? candidate?.orderAmount ?? null,
-                prismaIntegratedSpend: booking?.integratedSpend ?? candidate?.integratedSpend ?? null,
-                prismaNonIntegratedSpend: booking?.nonIntegratedSpend ?? candidate?.nonIntegratedSpend ?? null,
-                prismaOpportunity: booking?.opportunity ?? candidate?.opportunity ?? null,
-                prismaCampaignId: booking?.campaignId || '',
-                prismaClient: booking?.client || candidate?.client || '',
-                prismaProduct: booking?.product || candidate?.product || '',
-                prismaKey: booking?.key || '',
-                prismaBookingKeys: booking?.bookingKeys || candidate?.bookingKeys || [],
-                prismaPlacementNumbers: booking?.placementNumbers || candidate?.placementNumbers || [],
-                prismaBuyNumbers: booking?.buyNumbers || candidate?.buyNumbers || [],
-                comparisonBasis,
-                comparisonValue,
-                variance: booking && !(platform.currency && booking.currency && platform.currency !== booking.currency) ? comparisonVariance : (booking ? null : platform.spend),
-                metaStart: toIsoDate(platform.start),
-                metaEnd: toIsoDate(platform.end),
-                prismaStart: toIsoDate(booking?.start),
-                prismaEnd: toIsoDate(booking?.end),
-                prismaUpdatedTime: booking?.updatedTime || '',
-                prismaOrderStatus: booking?.orderStatus || candidate?.orderStatus || '',
-                prismaIntegratedStatus: booking?.integratedStatus || candidate?.integratedStatus || '',
-                prismaDeliveryStatus: booking?.deliveryStatus || candidate?.deliveryStatus || '',
-                prismaFlightStatus: booking?.flightStatus || candidate?.flightStatus || '',
-                prismaPeriodStatus: booking?.periodStatus || candidate?.periodStatus || '',
-                prismaPlacementNames: booking?.placementNames || candidate?.placementNames || [],
-                prismaWorkflowIssues: booking ? prismaWorkflowIssues(booking, { asOfDate }) : (candidate?.workflowIssues || []),
-                classification,
-                evidence,
-                issues,
-                owner: booking?.owner || candidate?.owner || '',
-                candidateScore: candidate?.score ?? null,
-                candidates,
-                candidatePool,
-                monthClosed
-            });
+            reportRows.push(buildMetaComparisonRow(platform, booking, decision, { issues, monthClosed, asOfDate }));
         });
 
         prismaRecordsInMetaClientScope.filter(record => !metaKeys.has(record.key) && !handledPrismaKeys.has(record.key)).forEach(booking => {
@@ -1407,6 +1532,12 @@
         return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
     }
 
+    /** Export report rows with CRLF separators and a header, without a BOM.
+     * Null/undefined values become empty cells; arrays become semicolon-separated
+     * evidence. Formula-like text is prefixed to keep spreadsheet imports inert.
+     * @param {FinanceReportRow[]} rows
+     * @returns {string}
+     */
     function reportToCsv(rows) {
         const headers = [
             'Account ID', 'Meta account name', 'Campaign ID', 'Campaign name', 'Month', 'Meta delivery status',

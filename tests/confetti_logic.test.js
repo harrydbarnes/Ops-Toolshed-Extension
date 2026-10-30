@@ -17,9 +17,9 @@ describe('Toolshed Stats UI', () => {
     test('should trigger confetti on milestone crossing', async () => {
         window.confetti = jest.fn();
 
-        // Initial State: 99 placements
+        // Milestones use confirmed saves, never historical click counts.
         const legacyStats = { placementsAdded: 99, visitedCampaigns: [], totalLoadingTime: 0 };
-        const dailyStats = {};
+        const dailyStats = { '2023-01-01': { placementsCreated: 99 } };
 
         // Mock get for first call
         chrome.storage.local.get.mockImplementation((keys, cb) => {
@@ -37,8 +37,9 @@ describe('Toolshed Stats UI', () => {
 
         // Simulate Update: 101 placements (Crossed 100)
         const newLegacyStats = { placementsAdded: 101, visitedCampaigns: [], totalLoadingTime: 0 };
+        const updatedDailyStats = { '2023-01-01': { placementsCreated: 101 } };
         chrome.storage.local.get.mockImplementation((keys, cb) => {
-            cb({ legacyStats: newLegacyStats, dailyStats, statsStartDate: '2023-01-01' });
+            cb({ legacyStats: newLegacyStats, dailyStats: updatedDailyStats, statsStartDate: '2023-01-01' });
         });
 
         // Trigger storage change
@@ -58,7 +59,7 @@ describe('Toolshed Stats UI', () => {
         const legacyStats = { placementsAdded: 100, visitedCampaigns: [], totalLoadingTime: 0 };
 
         chrome.storage.local.get.mockImplementation((keys, cb) => {
-            cb({ legacyStats, dailyStats: {}, statsStartDate: '2023-01-01' });
+            cb({ legacyStats, dailyStats: { '2023-01-01': { placementsCreated: 100 } }, statsStartDate: '2023-01-01' });
         });
 
         // Reset modules to reload script and clear previousTotalPlacements
@@ -69,5 +70,14 @@ describe('Toolshed Stats UI', () => {
         await new Promise(r => setTimeout(r, 50));
 
         expect(window.confetti).toHaveBeenCalled();
+    });
+
+    test('historical clicks do not count towards a confirmed-save milestone', async () => {
+        window.confetti = jest.fn();
+        chrome.storage.local.get.mockImplementation((_keys, callback) => callback({ legacyStats: { placementsAdded: 100 }, dailyStats: { '2023-01-01': { placements: 100 } } }));
+        require('../toolshed.js');
+        document.dispatchEvent(new Event('DOMContentLoaded'));
+        await new Promise(r => setTimeout(r, 50));
+        expect(window.confetti).not.toHaveBeenCalled();
     });
 });

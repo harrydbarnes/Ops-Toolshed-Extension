@@ -95,68 +95,12 @@
     }
 
     function waitForDeepElement(predicate, timeout = 5000, description = 'element') {
-        return new Promise((resolve, reject) => {
-            const intervalTime = 100;
-            const startedAt = Date.now();
-
-            const interval = setInterval(() => {
-                const element = queryKnownDeep(KNOWN_CUE_ELEMENT_SELECTOR).find(predicate);
-                if (element) {
-                    clearInterval(interval);
-                    resolve(element);
-                    return;
-                }
-
-                if (Date.now() - startedAt >= timeout) {
-                    clearInterval(interval);
-                    reject(new Error(`${description} not found within ${timeout}ms`));
-                }
-            }, intervalTime);
+        return window.utils.waitForResult(() => queryKnownDeep(KNOWN_CUE_ELEMENT_SELECTOR).find(predicate), {
+            timeout,
+            timeoutMessage: `${description} not found within ${timeout}ms`
         });
     }
 
-    function clickElement(element) {
-        if (!element) return;
-
-        const rect = element.getBoundingClientRect();
-        const view = element.ownerDocument?.defaultView || window;
-        const clientX = rect.left + Math.min(Math.max(rect.width / 2, 8), rect.width - 1);
-        const clientY = rect.top + Math.min(Math.max(rect.height / 2, 8), rect.height - 1);
-        const baseOptions = {
-            bubbles: true,
-            cancelable: true,
-            composed: true,
-            clientX,
-            clientY,
-            button: 0,
-            view
-        };
-
-        if (view.PointerEvent) {
-            element.dispatchEvent(new view.PointerEvent('pointerdown', {
-                ...baseOptions,
-                buttons: 1,
-                pointerId: 1,
-                pointerType: 'mouse',
-                isPrimary: true
-            }));
-        }
-
-        element.dispatchEvent(new view.MouseEvent('mousedown', { ...baseOptions, buttons: 1 }));
-
-        if (view.PointerEvent) {
-            element.dispatchEvent(new view.PointerEvent('pointerup', {
-                ...baseOptions,
-                buttons: 0,
-                pointerId: 1,
-                pointerType: 'mouse',
-                isPrimary: true
-            }));
-        }
-
-        element.dispatchEvent(new view.MouseEvent('mouseup', { ...baseOptions, buttons: 0 }));
-        element.dispatchEvent(new view.MouseEvent('click', { ...baseOptions, buttons: 0 }));
-    }
 
     function isVisible(element) {
         const rect = element.getBoundingClientRect();
@@ -380,7 +324,7 @@
         if (!linkIcon) return;
 
         ignoreNextTrigger = true;
-        clickElement(linkIcon);
+        window.utils.clickElement(linkIcon);
         setTimeout(() => {
             ignoreNextTrigger = false;
         }, 0);
@@ -397,7 +341,7 @@
             'Page link Copy button'
         );
 
-        clickElement(copyButton);
+        window.utils.clickElement(copyButton);
         return findPageLinkValue();
     }
 

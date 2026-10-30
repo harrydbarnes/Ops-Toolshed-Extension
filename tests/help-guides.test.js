@@ -270,6 +270,7 @@ describe('Help Guides side panel', () => {
 
         document.querySelector('[data-guide-id="approval-budget"]').click();
         document.getElementById('favourite-guide').click();
+        await Promise.resolve(); await Promise.resolve();
         expect(document.getElementById('favourite-guide').getAttribute('aria-pressed')).toBe('true');
         expect(syncSet).toHaveBeenCalledWith({ helpGuideFavouriteIds: ['approval-budget'] }, expect.any(Function));
 
@@ -291,10 +292,46 @@ describe('Help Guides side panel', () => {
         const shell = star.closest('.guide-card-shell');
 
         star.click();
+        await Promise.resolve(); await Promise.resolve();
         expect(shell.classList.contains('is-removing-favourite')).toBe(true);
         expect(syncSet).toHaveBeenCalledWith({ helpGuideFavouriteIds: [] }, expect.any(Function));
         await new Promise(resolve => dom.window.setTimeout(resolve, 260));
         expect(document.querySelector('.guide-section-title')?.textContent || '').not.toContain('Favourites');
+        closeApp(dom);
+    });
+
+    test.each(['viewer', 'card'])('%s favourites retain the saved selection on failure and allow retry', async location => {
+        const { dom, syncSet } = await createApp();
+        const { document } = dom.window;
+        if (location === 'viewer') document.querySelector('[data-guide-id="approval-budget"]').click();
+        const button = location === 'viewer' ? document.getElementById('favourite-guide')
+            : document.querySelector('[data-guide-id="approval-budget"]').closest('.guide-card-shell').querySelector('.guide-card-favourite');
+        syncSet.mockRejectedValueOnce(new Error('Storage unavailable'));
+        button.click();
+        await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+        expect(button.getAttribute('aria-pressed')).toBe('false');
+        expect(button.disabled).toBe(false);
+        expect(document.getElementById('panel-toast-message').textContent).toContain('Could not save your favourites');
+        button.click();
+        await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+        expect(syncSet).toHaveBeenLastCalledWith({ helpGuideFavouriteIds: ['approval-budget'] }, expect.any(Function));
+        if (location === 'viewer') expect(button.getAttribute('aria-pressed')).toBe('true');
+        else expect(button.closest('.guide-card-shell').classList.contains('is-adding-favourite')).toBe(true);
+        closeApp(dom);
+    });
+
+    test('serializes favourite saves while persistence is pending', async () => {
+        const { dom, syncSet } = await createApp();
+        const stars = dom.window.document.querySelectorAll('.guide-card-favourite');
+        let complete;
+        syncSet.mockImplementationOnce((values, callback) => { complete = callback; });
+        stars[0].click();
+        stars[1].click();
+        expect(syncSet).toHaveBeenCalledTimes(1);
+        expect(stars[0].getAttribute('aria-pressed')).toBe('false');
+        complete();
+        await Promise.resolve(); await Promise.resolve();
+        expect(stars[1].disabled).toBe(false);
         closeApp(dom);
     });
 
@@ -551,10 +588,34 @@ describe('Help Guides side panel', () => {
 
         disable.click();
         expect(syncSet).toHaveBeenCalledWith({ helpGuidesEnabled: false }, expect.any(Function));
+        await Promise.resolve();
         expect(document.getElementById('panel-toast-message').textContent)
             .toBe('You can turn this on again in the Ops Toolshed settings');
         expect(document.getElementById('panel-toast-layer').hidden).toBe(false);
         closeApp(dom);
+    });
+
+    test.each(['throw', 'reject', 'callback'])('keeps Help Guides open and allows retry when disabling fails via %s', async mode => {
+        const { dom, syncSet } = await createApp();
+        try {
+            syncSet.mockImplementationOnce((_values, callback) => {
+                if (mode === 'throw') throw new Error('Storage unavailable');
+                if (mode === 'reject') return Promise.reject(new Error('Storage unavailable'));
+                dom.window.chrome.runtime.lastError = { message: 'Storage unavailable' };
+                callback();
+                delete dom.window.chrome.runtime.lastError;
+            });
+            const app = dom.window.helpGuidesApp;
+            await app.handleDisableFeature();
+            await app.handleDisableFeature();
+            const button = dom.window.document.getElementById('disable-help-guides');
+            expect(button.disabled).toBe(false);
+            expect(dom.window.document.getElementById('panel-toast-message').textContent).toBe('Could not turn off Help Guides. Try again.');
+            expect(dom.window.chrome.runtime.sendMessage).not.toHaveBeenCalledWith(expect.objectContaining({ action: 'closeHelpGuides' }));
+            await app.handleDisableFeature();
+            expect(button.disabled).toBe(true);
+            expect(dom.window.document.getElementById('panel-toast-message').textContent).toBe('You can turn this on again in the Ops Toolshed settings');
+        } finally { closeApp(dom); }
     });
 
     test('uses textContent so guide metadata cannot inject markup', async () => {

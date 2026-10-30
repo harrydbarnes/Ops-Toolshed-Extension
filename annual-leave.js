@@ -11,7 +11,14 @@
     function setupSummary(collapse = false) {
         const settings = config();
         let ready = false;
-        try { api.validateSettings(settings); ready = api.emails(settings.organizer).length === 1 && api.emails(settings.recipients).length > 0; } catch { /* Keep incomplete setup open. */ }
+        try {
+            api.validateSettings(settings);
+            ready = api.emails(settings.organizer).length === 1 && api.emails(settings.recipients).length > 0;
+        } catch (error) {
+            $('setup-summary').textContent = `Complete Calendar setup: ${error.message}`;
+            $('calendar-setup').open = true;
+            return;
+        }
         $('setup-summary').textContent = ready ? `${api.title(settings.teamTitle, settings.name)} · ${api.emails(settings.recipients).length} work invitee(s)` : 'Set up once, reuse for every request';
         if (collapse && ready) $('calendar-setup').open = false;
     }

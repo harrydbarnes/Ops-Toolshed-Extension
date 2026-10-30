@@ -120,19 +120,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // const logoToggle = document.getElementById('logoToggle'); // Removed
-    // const metaReminderToggle = document.getElementById('metaReminderToggle'); // Removed
-    // const timesheetReminderToggle = document.getElementById('timesheetReminderToggle'); // Removed
-    // const settingsToggle = document.getElementById('settingsToggle'); // Removed
-    // const settingsContent = document.getElementById('settingsContent'); // Removed
-    // const settingsIcon = settingsToggle.querySelector('i'); // Removed
     const triggerTimesheetReminderButton = document.getElementById('triggerTimesheetReminder');
     const triggerMetaReminder = document.getElementById('triggerMetaReminder');
-    // const reminderDay = document.getElementById('reminderDay'); // Removed
-    // const reminderTime = document.getElementById('reminderTime'); // Removed
-    // const reminderSettings = document.getElementById('reminderSettings'); // Removed
-    // const saveReminderSettingsButton = document.getElementById('saveReminderSettings'); // Removed
-    // const reminderUpdateMessage = document.getElementById('reminderUpdateMessage'); // Removed
 
     console.log("[Popup Load] DOMContentLoaded event fired.");
 
