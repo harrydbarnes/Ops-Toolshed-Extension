@@ -131,7 +131,8 @@ export function handleTrackStat(request, sender, sendResponse) {
                 stats.loadingTime += val;
                 const area = String(detailedValue?.area || '').toLowerCase();
                 const supportedAreas = new Set([
-                    'home', 'plan', 'buy', 'actualise', 'traffic', 'analyse', 'orders', 'other'
+                    'home', 'plan', 'buy', 'actualise', 'traffic', 'analyse', 'orders',
+                    'session', 'startup', 'navigation', 'unclassified', 'other'
                 ]);
                 if (supportedAreas.has(area)) {
                     stats.loadingByArea[area] = (Number(stats.loadingByArea[area]) || 0) + val;

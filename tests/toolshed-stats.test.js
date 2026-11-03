@@ -85,7 +85,7 @@ describe('Toolshed Stats UI', () => {
                     buy: 45,
                     actualise: 115,
                     analyse: 25,
-                    other: 10
+                    session: 3, startup: 4, navigation: 5, unclassified: 6, other: 10
                 },
                 visitedCampaigns: ['c2']
             }
@@ -126,11 +126,11 @@ describe('Toolshed Stats UI', () => {
         expect(document.querySelector('[data-loading-area="actualise"] .loading-area-time').textContent).toBe('1m 55s');
         expect(document.querySelector('[data-loading-area="plan"]')).toBeNull();
         expect(document.querySelector('[data-loading-area="analyse"]')).toBeNull();
-        expect(document.querySelector('[data-loading-area="other"] .loading-area-time').textContent).toBe('50s');
+        expect(document.querySelector('[data-loading-area="other"] .loading-area-time').textContent).toBe('1m 8s');
         expect(Array.from(document.querySelectorAll('[data-loading-area="other"] .loading-area-tooltip-row'))
             .map(row => Array.from(row.children).map(child => child.textContent)))
-            .toEqual([['Plan', '15s'], ['Analyse', '25s'], ['Other areas', '10s']]);
-        expect(document.getElementById('loading-area-context').textContent).toContain('3 mins 50s tracked');
+            .toEqual([['Plan', '15s'], ['Analyse', '25s'], ['Session / sign-in', '3s'], ['Opening Prisma', '4s'], ['Navigation between views', '5s'], ['Unclassified', '6s'], ['Legacy unclassified', '10s']]);
+        expect(document.getElementById('loading-area-context').textContent).toContain('4 mins 8s tracked');
 
         // Check Heatmap presence (at least one day should be generated)
         expect(document.getElementById('heatmap').children.length).toBeGreaterThan(250);

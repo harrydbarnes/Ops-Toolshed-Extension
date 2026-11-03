@@ -17,7 +17,7 @@ describe('confirmed placement save collection', () => {
     const confirmed = () => sendMessage.mock.calls.map(([message]) => message).filter(message => message.type === 'PLACEMENT_CONFIRMED');
     beforeEach(() => {
         dom = new JSDOM('<div role="dialog"><h2>New placement</h2><button id="btn-save"><span>Save</span></button></div>', {
-            runScripts: 'outside-only', url: 'https://go.mediaocean.com/campaign-management/#campaign-id=CP123'
+            runScripts: 'outside-only', pretendToBeVisual: true, url: 'https://go.mediaocean.com/campaign-management/#campaign-id=CP123'
         });
         window = dom.window;
         sendMessage = jest.fn().mockResolvedValue({ status: 'success' });
@@ -46,6 +46,24 @@ describe('confirmed placement save collection', () => {
         expect(confirmed()).toHaveLength(1);
         expect(confirmed()[0].value.kind).toBe('created');
         expect(sendMessage.mock.calls.filter(([m]) => m.type === 'PERFORMANCE_SAMPLE').map(([m]) => m.value)).toEqual([expect.objectContaining({ signal: 'placement_save', outcome: 'completed' })]);
+    });
+
+    test('background time interrupts save timing without losing a genuine save acknowledgement', async () => {
+        let elapsed = 0, hidden = false;
+        window.performance.now = () => elapsed;
+        Object.defineProperty(window.document, 'hidden', { get: () => hidden });
+        click();
+        elapsed = 1000; hidden = true;
+        window.document.dispatchEvent(new window.Event('visibilitychange'));
+        elapsed = 10000; notice('Placement created successfully.'); await flush();
+        expect(confirmed()).toHaveLength(1);
+        expect(sendMessage.mock.calls.filter(([m]) => m.type === 'PERFORMANCE_SAMPLE').map(([m]) => m.value)).toEqual([
+            expect.objectContaining({ signal: 'placement_save', duration: 1000, outcome: 'interrupted' })
+        ]);
+        hidden = false; window.document.dispatchEvent(new window.Event('visibilitychange'));
+        click(); elapsed = 11000; notice('Placement created successfully.'); await flush();
+        expect(confirmed()).toHaveLength(2);
+        expect(sendMessage.mock.calls.filter(([m]) => m.type === 'PERFORMANCE_SAMPLE').at(-1)[0].value).toMatchObject({ duration: 1000, outcome: 'completed' });
     });
 
     test('distinguishes update, create and an unclassified confirmed save', async () => {

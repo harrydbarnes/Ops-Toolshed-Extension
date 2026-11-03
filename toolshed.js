@@ -194,7 +194,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const OTHER_AREA_CONFIG = [
         { key: 'plan', label: 'Plan' },
         { key: 'analyse', label: 'Analyse' },
-        { key: 'other', label: 'Other areas' }
+        { key: 'session', label: 'Session / sign-in' },
+        { key: 'startup', label: 'Opening Prisma' },
+        { key: 'navigation', label: 'Navigation between views' },
+        { key: 'unclassified', label: 'Unclassified' },
+        { key: 'other', label: 'Legacy unclassified' }
     ];
 
     function formatCompactLoadingTime(totalSeconds) {

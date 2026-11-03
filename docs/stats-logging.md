@@ -53,6 +53,33 @@ count and latest financial snapshots are explicitly independent of the selector.
 Waiting-time kettles follow the selected period. Financial snapshots have no
 historical ledger and are not represented as period booking transactions.
 
+## Waiting-time categories
+
+Orders recognises `osPspId=prsm-cm-ord`, including when the URL also says
+`ptb-mod=buy`. Existing Orders, Home, Plan, Buy, Actualise, Traffic and Analyse
+recognition remains supported. Additional categories are recorded for future data:
+
+- **Session / sign-in:** Mediaocean's `/mo-op-discovery/` session recovery pages.
+- **Opening Prisma:** the first observed loading cycle at the bare
+  `/campaign-management/` entry URL, before a section has been identified.
+- **Navigation between views:** a loading cycle at that bare entry after an
+  observed URL change. It ends when the indicators clear; it is not assigned to
+  every slow or unknown page.
+- **Unclassified:** unsupported section identifiers, other paths, or later loading
+  cycles that cannot be attributed to one of the above.
+- **Legacy unclassified:** existing `other` totals, retained without reassignment.
+
+The main **Other** card groups Plan, Analyse and these categories; hover or focus
+it for the individual totals. No raw URLs, page text or extra identifiers are
+stored to classify the activity. The same category keys are allowed in diagnostic
+samples and exports. These describe observed loading activity, not the cause of
+slowness or total time spent signed in.
+
+New waiting-time totals stop when the tab is hidden and resume a fresh foreground
+segment on return if a spinner is still present. The separate diagnostics chart
+continues to exclude interrupted operations from completed latency entirely.
+Previously accumulated background time cannot be reconstructed or corrected.
+
 ## Verification boundary
 
 Jest/jsdom exercises success, error, retry, duplicate, unknown-mode, expiry,

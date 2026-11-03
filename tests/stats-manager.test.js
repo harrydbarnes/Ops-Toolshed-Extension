@@ -175,6 +175,13 @@ describe('Stats Manager', () => {
         expect(sendResponse).toHaveBeenCalledWith({ status: 'success' });
     });
 
+    test('persists the new waiting categories without relabelling legacy other time', async () => {
+        for (const area of ['other', 'session', 'startup', 'navigation', 'unclassified']) {
+            await handleTrackStat({ type: 'LOADING_TIME', value: { seconds: 2, area } }, {}, () => {});
+        }
+        expect(chrome.storage.local.__getStore().dailyStats['2023-10-27'].loadingByArea).toEqual({ other: 2, session: 2, startup: 2, navigation: 2, unclassified: 2 });
+    });
+
     test('reports a failed storage write and continues processing subsequent stats', async () => {
         const failedResponse = jest.fn();
         const nextResponse = jest.fn();

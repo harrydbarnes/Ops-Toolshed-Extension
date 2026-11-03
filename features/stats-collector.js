@@ -111,14 +111,23 @@
         console.log(`[Stats Collector] Campaign tracked: ${campaignId}`);
     }
 
+    let areaUrl = window.location.href;
+    let entryPhase = 'startup';
+    let entryPhaseSawLoading = false;
     function getPrismaArea(url = window.location.href) {
-        let params;
+        let params, parsedUrl;
         try {
-            const parsedUrl = new URL(url, window.location.origin);
+            parsedUrl = new URL(url, window.location.origin);
             params = new URLSearchParams(parsedUrl.hash.replace(/^#/, ''));
         } catch {
-            return 'other';
+            return 'unclassified';
         }
+        if (url === window.location.href && areaUrl !== url) {
+            areaUrl = url;
+            entryPhase = 'navigation';
+            entryPhaseSawLoading = false;
+        }
+        if (parsedUrl.pathname.startsWith('/mo-op-discovery/')) return 'session';
 
         const app = (params.get('osPspId') || '').toLowerCase();
         const module = (params.get('ptb-mod') || '').toLowerCase();
@@ -128,16 +137,21 @@
 
         if (app === 'cm-dashboard' || route === 'campaigns') return 'home';
         if (context === 'actualize' || route === 'actualize') return 'actualise';
-        if (showOrders || context === 'ordersummary') return 'orders';
+        if (app === 'prsm-cm-ord' || showOrders || context === 'ordersummary') return 'orders';
         if (module === 'plan') return 'plan';
         if (module === 'traffic') return 'traffic';
         if (module === 'analyze') return 'analyse';
         if (module === 'buy') return 'buy';
-        return 'other';
+        // Only a bare application entry can be an opening/navigation shell.
+        // An unknown section identifier is a real classification gap, not a transition.
+        const isEntry = /^\/campaign-management\/?$/.test(parsedUrl.pathname) &&
+            !['osPspId', 'ptb-mod', 'ptb-ctx', 'route', 'campaign-id', 'osModalId'].some(key => params.get(key));
+        return isEntry && url === window.location.href ? entryPhase : 'unclassified';
     }
 
     // Independent intervals: overlapping page indicators form one observation.
     const diagnosticIntervals = new Map();
+    const interruptedIndicators = new Set();
     let diagnosticRoute = location.href;
     function finishDiagnostic(signal, outcome) {
         const active = diagnosticIntervals.get(signal);
@@ -156,12 +170,15 @@
     }
     function checkDiagnostics(state = window.loadingMonitor?.getState?.()) {
         if (!isEnabled || !state) return;
+        if (document.hidden) { interruptHiddenDiagnostics(); return; }
         if (diagnosticRoute !== location.href) { clearDiagnostics('interrupted'); diagnosticRoute = location.href; }
         const states = {
             page_indicator: !!(state.pageVisibleSpinners?.length || state.pageVisibleSkeletons?.length),
             side_panel_indicator: !!(state.sidePanelVisibleSpinners?.length || state.sidePanelVisibleSkeletons?.length)
         };
         Object.entries(states).forEach(([signal, visible]) => {
+            if (!visible) interruptedIndicators.delete(signal);
+            if (interruptedIndicators.has(signal)) return;
             const active = diagnosticIntervals.get(signal);
             if (active && active.area !== getPrismaArea()) finishDiagnostic(signal, 'interrupted');
             if (!visible) finishDiagnostic(signal, 'completed');
@@ -198,8 +215,11 @@
     }
 
     function checkLoadingState(state) {
+        state ||= window.loadingMonitor?.getState?.();
+        // Observe URL changes before classifying either diagnostic or legacy time.
+        getPrismaArea();
         checkDiagnostics(state);
-        if (!isEnabled) {
+        if (!isEnabled || document.hidden) {
             loadingSpinnerStartTime = null;
             loadingSpinnerArea = '';
             return;
@@ -222,6 +242,9 @@
             console.log(`[Stats Collector] Loading finished. Duration: ${duration.toFixed(2)}s`);
             recordLoadingSegment();
         }
+        const hasIndicator = hasVisibleSpinner || state?.pageVisibleSkeletons?.length || state?.sidePanelVisibleSkeletons?.length;
+        if (hasIndicator) entryPhaseSawLoading = true;
+        else if (entryPhaseSawLoading) entryPhase = 'unclassified';
     }
 
     function finishActiveLoadingMeasurement() {
@@ -235,8 +258,27 @@
     let pendingSave = null;
     let saveObserver = null;
     let saveTimeout = null;
+    function finishSaveDiagnostic(outcome) {
+        if (!pendingSave?.diagnosticActive) return;
+        pendingSave.diagnosticActive = false;
+        if (outcome && isEnabled) trackStat('PERFORMANCE_SAMPLE', { timestamp: Date.now(), signal: 'placement_save', area: pendingSave.area, duration: Math.min(300000, Math.max(0, performance.now() - pendingSave.startedAt)), outcome });
+    }
+    function interruptHiddenDiagnostics() {
+        clearDiagnostics('interrupted');
+        interruptedIndicators.add('page_indicator');
+        interruptedIndicators.add('side_panel_indicator');
+        // Keep watching for the real save acknowledgement so existing save counts
+        // remain correct, but this operation can no longer supply a completed timing.
+        finishSaveDiagnostic('interrupted');
+    }
+    function handleDiagnosticVisibility() {
+        if (document.hidden) {
+            interruptHiddenDiagnostics();
+            finishActiveLoadingMeasurement();
+        } else checkLoadingState();
+    }
     function cancelPendingSave(outcome = 'interrupted') {
-        if (outcome && pendingSave?.startedAt !== undefined && isEnabled) trackStat('PERFORMANCE_SAMPLE', { timestamp: Date.now(), signal: 'placement_save', area: pendingSave.area, duration: Math.min(300000, Math.max(0, performance.now() - pendingSave.startedAt)), outcome });
+        finishSaveDiagnostic(outcome);
         saveObserver?.disconnect();
         saveObserver = null;
         clearTimeout(saveTimeout);
@@ -255,7 +297,7 @@
             : /^edit placement\b/i.test(heading.trim()) ? 'updated' : 'other';
         const baseline = new WeakMap();
         document.querySelectorAll(NATIVE_NOTICE).forEach(node => baseline.set(node, node.textContent));
-        pendingSave = { startedAt: performance.now(), area: getPrismaArea(), campaignId, mode, id: crypto.randomUUID(), baseline };
+        pendingSave = { startedAt: performance.now(), area: getPrismaArea(), campaignId, mode, id: crypto.randomUUID(), baseline, diagnosticActive: !document.hidden };
         saveObserver = new MutationObserver(records => {
             if (!pendingSave || !isEnabled) return;
             if (new URLSearchParams(location.hash.slice(1)).get('campaign-id') !== pendingSave.campaignId) {
@@ -347,6 +389,7 @@
         document.body.addEventListener('click', handleClickEvents, true);
         window.addEventListener('pagehide', stopLoadingMeasurements);
         window.addEventListener('pageshow', startLoadingMeasurements);
+        document.addEventListener('visibilitychange', handleDiagnosticVisibility);
         const handleRouteChange = () => { clearDiagnostics('interrupted'); cancelPendingSave(); trackCampaignId(); checkLoadingState(); };
         window.addEventListener('hashchange', handleRouteChange);
         window.addEventListener('popstate', handleRouteChange);

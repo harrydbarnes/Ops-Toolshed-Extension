@@ -35,12 +35,23 @@ describe('diagnostics Stats graph and private export', () => {
             const exported = JSON.parse(reader.result);
             expect(JSON.stringify(exported)).not.toContain('SECRET');
             expect(Object.keys(exported.days)).toEqual([day]);
-            expect(exported.recent).toEqual([event]); resolve();
+            expect(exported.recent).toEqual([event]);
+            expect(exported).toMatchObject({ schemaVersion: 2, timingBasis: 'completed' });
+            expect(exported.days[day]['page_indicator:buy'].completedHistogram.reduce((a, b) => a + b, 0)).toBe(1);
+            resolve();
         }; reader.readAsText(blob); });
     });
     test('shows no-data state for excluded dates', () => {
         window.renderPrismaDiagnostics({ days: {}, recent: [] }, () => false, {});
-        expect(document.getElementById('diagnostics-summary').textContent).toContain('No timed data');
+        expect(document.getElementById('diagnostics-summary').textContent).toContain('No completed timing data');
         expect(document.querySelectorAll('#diagnostics-chart circle')).toHaveLength(0);
+    });
+    test('keeps interruption-only days in the outcome table without plotting false zero timings', () => {
+        const now = Date.now(), day = new Date(now).toISOString().slice(0, 10);
+        const store = api.append(null, { timestamp: now, signal: 'page_indicator', area: 'buy', duration: 100, outcome: 'interrupted' });
+        window.renderPrismaDiagnostics(store, () => true, {});
+        expect(document.getElementById('diagnostics-summary').textContent).toContain('0 completed timings');
+        expect(document.querySelectorAll('#diagnostics-chart circle')).toHaveLength(0);
+        expect(document.querySelector('#diagnostics-table tr:nth-child(2)').textContent).toContain(day + '——');
     });
 });
