@@ -13,6 +13,82 @@ const {
 const featureSettingsRegistry = require('../feature-settings-registry');
 
 describe('popup DOM initialization', () => {
+    test('defaults the popup to Reccies, keeps myOffice Days selectable, and opens saved custom links', () => {
+        const dom = new JSDOM(fs.readFileSync(path.resolve(__dirname, '../popup.html'), 'utf8'), {
+            runScripts: 'outside-only', url: 'chrome-extension://test/popup.html'
+        });
+        const { window } = dom;
+        const createTab = jest.fn();
+        const sendMessage = jest.fn((_message, callback) => callback({ status: 'success' }));
+        const storedCustomShortcut = { name: 'Team <Hub>', url: 'https://example.com/team' };
+        const disabledCustomShortcut = { name: 'Off-site tool', url: 'https://example.com/off', enabled: false };
+        window.chrome = {
+            runtime: {
+                getManifest: () => ({ version: '1.9' }),
+                getURL: file => `chrome-extension://test/${file}`,
+                sendMessage,
+                openOptionsPage: jest.fn()
+            },
+            tabs: { create: createTab },
+            storage: {
+                sync: {
+                    get: (keys, callback) => callback(Array.isArray(keys)
+                        ? {}
+                        : { ...keys, popupCustomShortcuts: [storedCustomShortcut, disabledCustomShortcut] })
+                },
+                onChanged: { addListener: jest.fn() }
+            }
+        };
+        window.console.log = jest.fn();
+        try {
+            window.eval(readScript(path.resolve(__dirname, '../popup-shortcuts.js')));
+            window.eval(readScript(path.resolve(__dirname, '../popup.js')));
+            window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
+
+            expect(window.document.getElementById('recciesButton').hidden).toBe(false);
+            expect(window.document.getElementById('officeHoursButton').hidden).toBe(true);
+            const customButton = window.document.querySelector('[data-custom-popup-shortcut="true"]');
+            expect(customButton.textContent).toBe('Team <Hub>');
+            expect(window.document.querySelectorAll('[data-custom-popup-shortcut="true"]')).toHaveLength(1);
+            customButton.click();
+            expect(createTab).toHaveBeenCalledWith({ url: 'https://example.com/team' });
+
+            window.document.getElementById('recciesButton').click();
+            expect(sendMessage).toHaveBeenCalledWith({ action: 'openReccies', windowId: -2 }, expect.any(Function));
+        } finally {
+            window.close();
+        }
+    });
+
+    test('renders the saved shortcut selection instead of the defaults', () => {
+        const dom = new JSDOM(fs.readFileSync(path.resolve(__dirname, '../popup.html'), 'utf8'), {
+            runScripts: 'outside-only', url: 'chrome-extension://test/popup.html'
+        });
+        const { window } = dom;
+        window.chrome = {
+            runtime: { getManifest: () => ({ version: '1.9' }), getURL: file => file, sendMessage: jest.fn() },
+            tabs: { create: jest.fn() },
+            storage: {
+                sync: {
+                    get: (keys, callback) => callback(Array.isArray(keys)
+                        ? {}
+                        : { ...keys, popupShortcuts: ['myOfficeDays'] })
+                },
+                onChanged: { addListener: jest.fn() }
+            }
+        };
+        window.console.log = jest.fn();
+        try {
+            window.eval(readScript(path.resolve(__dirname, '../popup-shortcuts.js')));
+            window.eval(readScript(path.resolve(__dirname, '../popup.js')));
+            window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
+            expect(window.document.getElementById('officeHoursButton').hidden).toBe(false);
+            expect(window.document.getElementById('recciesButton').hidden).toBe(true);
+        } finally {
+            window.close();
+        }
+    });
+
     test('wires campaign and navigation actions from the real popup markup', () => {
         const dom = new JSDOM(fs.readFileSync(path.resolve(__dirname, '../popup.html'), 'utf8'), {
             runScripts: 'outside-only', url: 'chrome-extension://test/popup.html'
@@ -34,6 +110,7 @@ describe('popup DOM initialization', () => {
         };
         window.console.log = jest.fn();
         try {
+            window.eval(readScript(path.resolve(__dirname, '../popup-shortcuts.js')));
             window.eval(readScript(path.resolve(__dirname, '../popup.js')));
             window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
 
@@ -69,6 +146,7 @@ describe('popup DOM initialization', () => {
             storage: { sync: { get: (keys, callback) => callback({}) }, onChanged: { addListener: jest.fn() } }
         };
         try {
+            window.eval(readScript(path.resolve(__dirname, '../popup-shortcuts.js')));
             window.eval(readScript(path.resolve(__dirname, '../popup.js')));
             window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
             const input = window.document.getElementById('campaignDate');
@@ -105,6 +183,7 @@ describe('popup DOM initialization', () => {
             storage: { sync: { get: (keys, callback) => callback({}) }, onChanged: { addListener: jest.fn() } }
         };
         try {
+            window.eval(readScript(path.resolve(__dirname, '../popup-shortcuts.js')));
             window.eval(readScript(path.resolve(__dirname, '../popup.js')));
             window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
             const input = window.document.getElementById('campaignId');
@@ -140,6 +219,7 @@ describe('popup DOM initialization', () => {
         window.console.log = jest.fn();
         try {
             expect(window.OpsToolshedFeatureSettings).toBeUndefined();
+            window.eval(readScript(path.resolve(__dirname, '../popup-shortcuts.js')));
             window.eval(readScript(path.resolve(__dirname, '../popup.js')));
             window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
             window.document.getElementById('prismaButton').click();
@@ -161,6 +241,7 @@ describe('popup DOM initialization', () => {
         window.chrome = { ...chrome, runtime: { ...chrome.runtime, getManifest: () => ({ version: '1.9.0' }) } };
         window.OpsToolshedFeatureSettings = featureSettingsRegistry;
         window.console.log = jest.fn();
+        window.eval(readScript(path.resolve(__dirname, '../popup-shortcuts.js')));
         window.eval(readScript(path.resolve(__dirname, '../popup.js')));
         window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
 

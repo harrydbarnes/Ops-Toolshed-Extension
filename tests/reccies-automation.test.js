@@ -12,6 +12,14 @@ describe('automatic tracker updates',()=>{
         dispatchTrackerWrite.mockReset().mockImplementation(async request=>request.operation==='previewTrackerWrite'?{write:{requestId:'01234567-89ab-cdef-0123-456789abcdef'}}:{tracker,write:{state:'complete',results:[{state:'updated',confirmed:true}]}});
     });
     const run=()=>autoMarkVerified(tracker,{mode:'main',month:'2026-09',rowIds:[2]},context);
+    test('late opt-out during progress persistence is rejected by the final commit guard',async()=>{
+        chrome.storage.local.set.mockImplementation(async data=>{Object.assign(state,structuredClone(data));if(data.reccieAutomationLastRun)state.reccieAutomation.autoMark=false;});
+        dispatchTrackerWrite.mockImplementation(async(request,options)=>{
+            if(request.operation==='previewTrackerWrite')return {write:{requestId:'01234567-89ab-cdef-0123-456789abcdef'}};
+            await options.beforeCommit();throw Error('Commit should be cancelled');
+        });
+        const result=await run();expect(result.lastAutoUpdate.saved).toBe(0);expect(result.lastAutoUpdate.error).toContain('switched off');
+    });
     test('pending batch preserves remaining stable identities without repeating commit',async()=>{
         const seed=tracker.rows[0];
         tracker.rows=Array.from({length:101},(_,index)=>({...seed,sourceRow:index+2,dNumber:`D${3100000+index}`}));

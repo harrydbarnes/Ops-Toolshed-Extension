@@ -8,7 +8,7 @@
     });
     const observed = () => tracker?.source?.type === 'automatic' || mode === 'automatic';
     const storageKey = suffix => mode === 'main' ? (suffix === 'preferences' ? 'recciePreferences' : 'reccieLastRunTiming') : `${core.trackerKey(mode, $('report-month').value)}:${suffix}`;
-    const labels = { ready: 'Verified ready', outstanding: 'Outstanding', review: 'Needs attention', error: 'Check failed' };
+    const labels = { ready: 'Reconciled in Prisma', outstanding: 'Outstanding', review: 'Needs attention', error: 'Check failed' };
     // Keep existing filter values and persistence; visible pills drive their native change handlers.
     const segmentBindings = [];
     function bindSegments(container, options, read, choose, disabled) {
@@ -173,7 +173,7 @@
     });
     function setBusy(value) {
         busy = value;
-        ['refresh-sheet', 'csv-file', 'report-month', 'sheet-url', 'forget-report', 'assignment', 'person', 'search', 'show-by', 'tracker-status'].forEach(id => { $(id).disabled = value; });
+        ['refresh-sheet', 'csv-file', 'report-month', 'sheet-url', 'forget-report', 'assignment', 'person', 'search', 'show-by', 'tracker-status', 'show-progress-bars'].forEach(id => { $(id).disabled = value; });
         document.querySelectorAll('[name=mode]').forEach(input => { input.disabled = value; });
         $('discover-campaigns').disabled = value;
         $('forget-report').disabled = value || !tracker;
@@ -184,7 +184,7 @@
         $('clear-filters').disabled = value;
         $('debug-workers').disabled = value;
         $('debug-run').disabled = $('check-rows').disabled;
-        document.querySelectorAll('.tracker-mark-yes').forEach(button=>{button.disabled=value;});
+        document.querySelectorAll('.tracker-mark-yes,.tracker-note').forEach(button=>{button.disabled=value;});
         segmentBindings.forEach(sync=>sync());
         window.reccieUi?.updateFilters();
     }
@@ -228,6 +228,45 @@
     function rowCount(rows, grouped = $('show-by').value === 'campaign') {
         return `${grouped ? `${counted(campaignGroups(rows).length, 'campaign')} · ` : ''}${counted(rows.length, 'D number')}`;
     }
+    function elapsedWorkingDays(month, now = new Date()) {
+        if (!core.validMonth(month)) return 0;
+        const [year, monthNumber] = month.split('-').map(Number);
+        const selectedMonth = year * 12 + monthNumber - 1;
+        const currentMonth = now.getFullYear() * 12 + now.getMonth();
+        if (selectedMonth < currentMonth) return 5;
+        if (selectedMonth > currentMonth) return 0;
+
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const fractionOfDay = (now.getHours() * 3600000 + now.getMinutes() * 60000 + now.getSeconds() * 1000 + now.getMilliseconds()) / 86400000;
+        let elapsed = 0;
+        for (let day = 1; day <= new Date(year, monthNumber, 0).getDate() && elapsed < 5; day++) {
+            const date = new Date(year, monthNumber - 1, day);
+            if (date.getDay() === 0 || date.getDay() === 6) continue;
+            if (date < today) elapsed++;
+            else if (date.getTime() === today.getTime()) return Math.min(5, elapsed + fractionOfDay);
+            else return elapsed;
+        }
+        return Math.min(5, elapsed);
+    }
+    function renderProgressBars() {
+        const panel = $('reccie-progress');
+        const visible = $('show-progress-bars').checked && !!tracker && tracker.month === $('report-month').value && !observed() && !!$('person').value;
+        panel.hidden = !visible;
+        if (!visible) return;
+
+        const assigned = myRows();
+        const marked = assigned.filter(row => row.reccied.toLowerCase() === 'yes').length;
+        const elapsed = elapsedWorkingDays($('report-month').value);
+        const percent = assigned.length ? Math.round(marked / assigned.length * 100) : 0;
+        $('reccie-time-progress').value = elapsed;
+        $('reccie-time-progress-label').textContent = `${elapsed.toFixed(1).replace(/\.0$/, '')} / 5 working days`;
+        $('reccie-time-progress').setAttribute('aria-valuetext', `${elapsed.toFixed(1).replace(/\.0$/, '')} of 5 working days elapsed`);
+        const trackerProgress = $('reccie-tracker-progress');
+        trackerProgress.max = Math.max(1, assigned.length);
+        trackerProgress.value = marked;
+        trackerProgress.setAttribute('aria-valuetext', assigned.length ? `${marked} of ${assigned.length} assigned rows marked Yes` : 'No assigned rows');
+        $('reccie-tracker-progress-label').textContent = assigned.length ? `${marked} / ${assigned.length} marked Yes · ${percent}%` : 'No assigned rows';
+    }
     function mismatchWarning(rows, grouped = false) {
         const mismatches = rows.filter(row => trackerMismatch(row, tracker.checks?.[row.sourceRow]));
         if (!mismatches.length) return null;
@@ -260,6 +299,7 @@
         const shown = shownRows(), mine = myRows();
         const grouped = $('show-by').value === 'campaign';
         const entries = grouped ? campaignGroups(shown) : shown;
+        renderProgressBars();
         $('source-status').textContent = tracker ? `${tracker.rows.length.toLocaleString()} rows · Report ${tracker.month} · Read ${dateLabel(tracker.importedAt)} · ${tracker.source.type === 'google' ? 'Google Sheet' : 'CSV snapshot'}` : 'No tracker loaded. Tracker data and check results are stored locally in this Chrome profile.';
         if (observed() && tracker) $('source-status').textContent = `Visited campaigns · ${tracker.month} · ${tracker.rows.length} placements · Read ${dateLabel(tracker.importedAt)}${tracker.source.fallback ? ' · Early Recs fallback' : ''}. Open Campaign coverage for limitations and failures.`;
         $('summary').textContent = tracker ? (!$('person').value ? 'Choose your name to see your assignments.' : `${rowCount(shown, grouped)} shown · ${mine.length} assigned · ${mine.filter(row => row.reccied.toLowerCase() !== 'yes').length} not marked Yes`) : 'Connect a tracker to get started.';
@@ -294,7 +334,7 @@
                 bottom.append(highlighted('span', `${row.campaignId} · ${row.month}`));
                 const url = core.campaignUrl(row);
                 if (url) { const link = text('a', 'Open in Prisma ↗'); link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer'; bottom.append(link); }
-                const mark=manualWrites?.button(entry,true);if(mark)bottom.append(mark);
+                const mark=manualWrites?.button(entry,true);if(mark)bottom.append(mark); const note=manualWrites?.noteButton(entry,true);if(note)bottom.append(note);
                 card.append(bottom); window.reccieUi?.decorateCard(card,entry,tracker.checks,observed(),true); list.append(card); return;
             }
             const result = tracker.checks?.[row.sourceRow];
@@ -309,7 +349,7 @@
             statuses.append(text('p', observed() ? 'Tracker status: unavailable for visited-campaign placements.' : `Tracker Reccied: ${row.reccied || 'Blank'}`, 'tracker-status-line'));
             if (result?.reconciled != null) statuses.append(text('p', `Prisma Reconciled: ${result.reconciled === '1' ? 'Yes' : result.reconciled === '0' ? 'No' : 'Unknown'} · Buy: ${result.buyStatus || 'Unknown'}`, 'prisma-status-line'));
             if (row.issue || result?.message) statuses.append(text('p', row.issue || (result.message === 'D number not found for this month' ? core.missingDMessage : result.message)));
-            if (result?.state === 'ready') statuses.append(text('p', observed() ? 'Meets the Prisma rule. Tracker assignment is unknown.' : row.reccied.toLowerCase() === 'yes' ? 'Matches the tracker’s Yes.' : 'Ready to mark manually in the tracker.', 'ready-guidance'));
+            if (result?.state === 'ready') statuses.append(text('p', observed() ? 'Meets the Prisma rule. Tracker assignment is unknown.' : row.reccied.toLowerCase() === 'yes' ? 'Matches the tracker’s Yes.' : 'Reconciled in Prisma. Mark Yes in the tracker.', 'ready-guidance'));
             if (result?.state === 'outstanding' && row.reccied.toLowerCase() === 'yes') statuses.append(text('p', 'Tracker says Yes, but Prisma does not meet the rule. Review manually.'));
             card.append(statuses);
             if (row.comments) card.append(text('p', row.comments, 'comment'));
@@ -317,7 +357,7 @@
             bottom.append(highlighted('span', `${row.campaignId} · ${row.month}\nChecked: ${dateLabel(result?.checkedAt)}`));
             const url = core.campaignUrl(row);
             if (url) { const link = text('a', 'Open in Prisma ↗'); link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer'; bottom.append(link); }
-            const mark=manualWrites?.button([row],false);if(mark)bottom.append(mark);
+            const mark=manualWrites?.button([row],false);if(mark)bottom.append(mark); const note=manualWrites?.noteButton([row],false);if(note)bottom.append(note);
             card.append(bottom); window.reccieUi?.decorateCard(card,[row],tracker.checks,observed(),false); list.append(card);
         });
         if (entries.length > limit) { const more = text('button', grouped ? 'Show more campaigns' : 'Show more rows', 'more'); more.type = 'button'; more.onclick = () => { limit += 40; render(); }; list.append(more); }
@@ -522,6 +562,11 @@
             finally{$(id).disabled=false;}
         });
     }
+    $('show-progress-bars').addEventListener('change', async()=>{
+        const enabled=$('show-progress-bars').checked;
+        try { await chrome.storage.local.set({reccieProgressBarsEnabled:enabled}); renderProgressBars(); }
+        catch(error) { $('show-progress-bars').checked=!enabled; renderProgressBars(); message(error.message,true); }
+    });
     function showAutomationResult(result){
         if(!result)return;
         const active=['checking','saving','recovering'].includes(result.state);
@@ -542,8 +587,9 @@
     document.addEventListener('reccies-ui-change', () => render());
     (async () => {
         try {
-            const stored = await chrome.storage.local.get(['reccieTracker','recciePreferences','reccieLastRunTiming']);
+            const stored = await chrome.storage.local.get(['reccieTracker','recciePreferences','reccieLastRunTiming','reccieProgressBarsEnabled']);
             tracker = stored.reccieTracker || null;
+            $('show-progress-bars').checked = stored.reccieProgressBarsEnabled !== false;
             const prefs = stored.recciePreferences || {};
             restorePreferences(prefs);
             const previous = new Date(); previous.setDate(1); previous.setMonth(previous.getMonth() - 1);
@@ -557,4 +603,5 @@
             if (tracker && stored.reccieLastRunTiming?.revision === tracker.revision) showTiming(stored.reccieLastRunTiming.report);
         } catch (error) { message(error.message, true); }
     })();
+    window.setInterval(renderProgressBars, 60000);
 })();

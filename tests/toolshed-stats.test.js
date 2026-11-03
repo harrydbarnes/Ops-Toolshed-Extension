@@ -17,6 +17,57 @@ describe('Toolshed Stats UI', () => {
         delete window.confetti;
     });
 
+    test('Reset Stats clears diagnostics through the queued background handler', async () => {
+        const { handleResetStats } = require('../background/stats-manager');
+        chrome.runtime.getURL.mockImplementation(file => 'chrome-extension://test/' + file);
+        chrome.runtime.sendMessage.mockImplementation(request => new Promise(resolve => {
+            handleResetStats(request, { url: chrome.runtime.getURL('toolshed.html') }, resolve);
+        }));
+        await chrome.storage.local.set({ prismaDiagnostics: { days: { '2026-11-01': {} }, recent: [{ timestamp: 1 }] } });
+        require('../toolshed.js');
+        document.dispatchEvent(new Event('DOMContentLoaded'));
+        await new Promise(resolve => setTimeout(resolve, 30));
+        document.getElementById('reset-stats-button').click();
+        document.getElementById('modal-confirm-button').click();
+        await new Promise(resolve => setTimeout(resolve, 40));
+        expect(chrome.storage.local.__getStore().prismaDiagnostics).toEqual({ days: {}, recent: [] });
+        expect(chrome.storage.local.__getStore().diagnosticsResetAt).toBeGreaterThan(0);
+    });
+
+    test('zero previous confirmed saves is not described as a first week', async () => {
+        const today = new Date();
+        const key = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        const old = new Date(today); old.setDate(old.getDate() - 10);
+        await chrome.storage.local.set({ dailyStats: { [key(old)]: { placements: 20, loadingTime: 10 }, [key(today)]: { placementsCreated: 2 } } });
+        require('../toolshed.js'); document.dispatchEvent(new Event('DOMContentLoaded'));
+        await new Promise(resolve => setTimeout(resolve, 40));
+        expect(document.getElementById('beat-your-week').textContent).toBe('2 confirmed saves');
+        expect(document.getElementById('beat-your-week').nextElementSibling.textContent).toContain('no confirmed saves in the previous 7');
+    });
+
+    test('supplier aliases merge before counting each unique campaign', async () => {
+        await chrome.storage.local.set({ campaignStatsSnapshots: [
+            { key: 'a', supplier: 'AMAZON | Amazon | AMAZON REG. ADVERTISING FEE | FLASHTALKING :Flashtalking' },
+            { key: 'b', supplier: 'Amazon | Amazon RAF | Flashtalking' }
+        ] });
+        require('../toolshed.js'); document.dispatchEvent(new Event('DOMContentLoaded'));
+        await new Promise(resolve => setTimeout(resolve, 40));
+        expect([...document.querySelectorAll('#top-suppliers li')].map(node => node.textContent)).toEqual(['Amazon2 campaigns', 'Amazon RAF2 campaigns', 'Flashtalking2 campaigns']);
+    });
+
+    test('diagnostics signal buttons select exactly one signal using normal keyboard button semantics', async () => {
+        window.renderPrismaDiagnostics = jest.fn();
+        require('../toolshed.js'); document.dispatchEvent(new Event('DOMContentLoaded'));
+        await new Promise(resolve => setTimeout(resolve, 40));
+        const buttons = [...document.querySelectorAll('[data-diagnostics-signal]')];
+        expect(buttons).toHaveLength(3);
+        buttons[1].click();
+        await new Promise(resolve => setTimeout(resolve, 40));
+        expect(buttons.map(button => button.getAttribute('aria-pressed'))).toEqual(['false', 'true', 'false']);
+        expect(window.renderPrismaDiagnostics).toHaveBeenCalled();
+        delete window.renderPrismaDiagnostics;
+    });
+
     test('should display stats from legacy and daily storage', async () => {
         // Setup storage
         const legacyStats = {

@@ -28,6 +28,8 @@ html[data-reccies-ui=v2] input[type=file]{font-size:13px}
 html[data-reccies-ui=v2] .automation-settings{border-color:var(--rec-line)}
 html[data-reccies-ui=v2] .automation-settings label{display:grid;grid-template-columns:16px minmax(0,1fr);align-items:start;gap:10px;font-size:14px}
 html[data-reccies-ui=v2] .automation-settings input[type=checkbox]{display:block;width:16px;height:16px;min-height:16px;padding:0;margin:3px 0 0}
+html[data-reccies-ui=v2] .reccies-progress-setting{border-color:var(--rec-line)}
+html[data-reccies-ui=v2] .reccie-progress-label{font-size:13px;color:var(--rec-muted)}
 html[data-reccies-ui=v2] .filters{margin:16px 0 0}
 html[data-reccies-ui=v2] #assignment-fields label:first-child{order:2}
 html[data-reccies-ui=v2] #search{background:#f8f9fa}

@@ -1,6 +1,8 @@
 (async function() {
     'use strict';
 
+    const popupShortcutSettings = globalThis.OpsToolshedPopupShortcuts;
+
     if (window.opsToolshedPageGate && !(await window.opsToolshedPageGate.allow())) return;
 
     const PRISMA_HOME = 'https://go.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns';
@@ -18,7 +20,9 @@
         prismaReminderFrequency: 'daily',
         metaReminderEnabled: true,
         iasReminderEnabled: true,
-        timesheetReminderEnabled: true
+        timesheetReminderEnabled: true,
+        popupShortcuts: popupShortcutSettings?.DEFAULT_ENABLED_KEYS || [],
+        popupCustomShortcuts: []
     };
     const stepCopy = [
         ['Choose your defaults', 'Start with the tools you’ll notice every day.', 'We’ve picked a practical starting set for navigating campaigns, keeping account context visible, and finding help without leaving Prisma.'],
@@ -275,6 +279,14 @@
     storageGet(chrome.storage?.sync, defaults).then(settings => {
         currentSettings = settings;
         syncControls();
+        const popupShortcutEditor = document.getElementById('onboarding-popup-shortcut-editor');
+        if (popupShortcutSettings && popupShortcutEditor) {
+            popupShortcutSettings.renderEditor(
+                popupShortcutEditor,
+                currentSettings,
+                values => popupShortcutSettings.writeSync(chrome.storage?.sync, values)
+            );
+        }
         renderAudienceChoice();
     });
 })();

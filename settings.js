@@ -16,6 +16,9 @@ function isMissingContentScriptReceiverError(error) {
 const featureSettingsRegistry = typeof module !== 'undefined' && module.exports
     ? require('./feature-settings-registry')
     : globalThis.OpsToolshedFeatureSettings;
+const popupShortcutSettings = typeof module !== 'undefined' && module.exports
+    ? require('./popup-shortcuts')
+    : globalThis.OpsToolshedPopupShortcuts;
 
 const SETTINGS_DEFAULTS = Object.freeze({
     uiTheme: 'pink',
@@ -28,7 +31,9 @@ const SETTINGS_DEFAULTS = Object.freeze({
     prismaCountdownDuration: '5',
     reminderDay: 'Friday',
     reminderTime: '14:30',
-    customReminders: Object.freeze([])
+    customReminders: Object.freeze([]),
+    popupShortcuts: popupShortcutSettings.DEFAULT_ENABLED_KEYS,
+    popupCustomShortcuts: Object.freeze([])
 });
 
 const REMINDER_SETTING_KEYS = new Set([
@@ -578,6 +583,16 @@ document.addEventListener('DOMContentLoaded', async function() {
     } catch (error) {
         console.error('Failed to load Settings preferences; using defaults for this page:', error);
         settings = { ...SETTINGS_DEFAULTS };
+    }
+
+    let popupShortcutEditor;
+    const popupShortcutEditorContainer = document.getElementById('popup-shortcut-editor');
+    if (popupShortcutSettings && popupShortcutEditorContainer) {
+        popupShortcutEditor = popupShortcutSettings.renderEditor(
+            popupShortcutEditorContainer,
+            settings,
+            values => popupShortcutSettings.writeSync(chrome.storage.sync, values)
+        );
     }
 
     const featureSettingSections = document.querySelectorAll('#features > section');
@@ -1502,6 +1517,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     }
 
                     Object.assign(settings, FEATURE_SETTINGS_DEFAULTS);
+                    popupShortcutEditor?.refresh();
                     syncedToggleInputs.forEach((input, storageKey) => {
                         if (Object.prototype.hasOwnProperty.call(FEATURE_SETTINGS_DEFAULTS, storageKey)) {
                             input.checked = FEATURE_SETTINGS_DEFAULTS[storageKey] !== false;

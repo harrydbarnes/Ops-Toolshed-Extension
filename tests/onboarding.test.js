@@ -36,6 +36,7 @@ function setup(initial = {}) {
         tabs: { update: jest.fn() },
         windows: { WINDOW_ID_CURRENT: -2 }
     };
+    dom.window.eval(readScript(path.resolve(__dirname, '../popup-shortcuts.js')));
     dom.window.eval(readScript(path.resolve(__dirname, '../loading-facts-preview.js')));
     dom.window.eval(script);
     return { dom, sync, local, chrome: dom.window.chrome };
@@ -48,6 +49,33 @@ async function choosePrisma(dom) {
 }
 
 describe('First-run onboarding', () => {
+    test('lets people customise popup shortcuts during onboarding and explains Settings remains available', async () => {
+        const { dom, sync } = setup();
+        await Promise.resolve();
+        const doc = dom.window.document;
+        expect(doc.querySelector('#onboarding-popup-shortcuts summary').textContent).toContain('now');
+        expect(doc.querySelector('#onboarding-popup-shortcuts > p').textContent).toContain('later in Settings');
+        expect(doc.querySelector('#onboarding-popup-shortcut-editor .popup-shortcut-board')).not.toBeNull();
+        const reccies = doc.querySelector('[data-popup-shortcut-option="reccies"]');
+        const officeDays = doc.querySelector('[data-popup-shortcut-option="myOfficeDays"]');
+        expect(reccies.getAttribute('aria-pressed')).toBe('true');
+        expect(officeDays.getAttribute('aria-pressed')).toBe('false');
+
+        officeDays.click();
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(sync.store.popupShortcuts).toContain('myOfficeDays');
+
+        const editor = doc.getElementById('onboarding-popup-shortcut-editor');
+        editor.querySelector('[name="shortcutName"]').value = 'Team Hub';
+        editor.querySelector('[name="shortcutUrl"]').value = 'https://example.com/team';
+        editor.querySelector('form').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(sync.store.popupCustomShortcuts).toEqual([{ name: 'Team Hub', url: 'https://example.com/team', enabled: true }]);
+        dom.window.close();
+    });
+
     test('routes non-Prisma colleagues to shared tools without opening a Prisma tour', async () => {
         const { dom, sync, local, chrome } = setup();
         await Promise.resolve();

@@ -45,6 +45,7 @@ describe('confirmed placement save collection', () => {
         await flush();
         expect(confirmed()).toHaveLength(1);
         expect(confirmed()[0].value.kind).toBe('created');
+        expect(sendMessage.mock.calls.filter(([m]) => m.type === 'PERFORMANCE_SAMPLE').map(([m]) => m.value)).toEqual([expect.objectContaining({ signal: 'placement_save', outcome: 'completed' })]);
     });
 
     test('distinguishes update, create and an unclassified confirmed save', async () => {
@@ -83,6 +84,7 @@ describe('confirmed placement save collection', () => {
             expect(confirmed()).toHaveLength(0);
             click();
             jest.advanceTimersByTime(20001);
+            expect(sendMessage.mock.calls.filter(([m]) => m.type === 'PERFORMANCE_SAMPLE').map(([m]) => m.value.outcome)).toEqual(['timed_out']);
             notice('Placement created successfully.'); await flush();
             expect(confirmed()).toHaveLength(0);
         } finally { jest.useRealTimers(); }

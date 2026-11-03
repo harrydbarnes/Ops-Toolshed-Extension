@@ -39,6 +39,55 @@ describe('loading-time collection', () => {
         return element;
     }
 
+    test('merges overlapping page indicators, separates side panels and discards disabled observations', () => {
+        const { dom, window } = createCollector();
+        let elapsed = 100;
+        window.performance.now = () => elapsed;
+        const state = { visibleSpinners: [], pageVisibleSpinners: [{}], pageVisibleSkeletons: [{}], sidePanelVisibleSpinners: [{}] };
+        window.statsCollector.checkLoadingState(state);
+        elapsed = 600;
+        window.statsCollector.checkLoadingState({ ...state, pageVisibleSpinners: [] });
+        elapsed = 1100;
+        window.statsCollector.checkLoadingState({ ...state, pageVisibleSpinners: [], pageVisibleSkeletons: [] });
+        elapsed = 2100;
+        window.statsCollector.checkLoadingState({ visibleSpinners: [], pageVisibleSpinners: [], pageVisibleSkeletons: [], sidePanelVisibleSpinners: [] });
+        const samples = () => window.chrome.runtime.sendMessage.mock.calls.filter(([m]) => m.type === 'PERFORMANCE_SAMPLE').map(([m]) => m.value);
+        expect(samples()).toEqual([
+            expect.objectContaining({ signal: 'page_indicator', duration: 1000, outcome: 'completed' }),
+            expect.objectContaining({ signal: 'side_panel_indicator', duration: 2000, outcome: 'completed' })
+        ]);
+        window.statsCollector.checkLoadingState(state);
+        const listener = window.chrome.storage.onChanged.addListener.mock.calls[0][0];
+        listener({ statsCollectorEnabled: { newValue: false } }, 'sync');
+        window.dispatchEvent(new window.Event('pagehide'));
+        expect(samples()).toHaveLength(2);
+        dom.window.close();
+    });
+
+    test('emits one timeout until indicators clear and interrupts same-area route changes', () => {
+        const { dom, window } = createCollector();
+        let elapsed = 0, timeout;
+        window.performance.now = () => elapsed;
+        window.setTimeout = jest.fn(callback => { timeout = callback; return 1; });
+        window.clearTimeout = jest.fn();
+        const active = { visibleSpinners: [], pageVisibleSpinners: [{}], pageVisibleSkeletons: [], sidePanelVisibleSpinners: [] };
+        const idle = { ...active, pageVisibleSpinners: [] };
+        const samples = () => window.chrome.runtime.sendMessage.mock.calls.filter(([m]) => m.type === 'PERFORMANCE_SAMPLE').map(([m]) => m.value);
+        window.statsCollector.checkLoadingState(active);
+        elapsed = 300001; timeout();
+        window.statsCollector.checkLoadingState(active);
+        window.statsCollector.checkLoadingState(idle);
+        expect(samples()).toEqual([expect.objectContaining({ outcome: 'timed_out', duration: 300000 })]);
+        window.statsCollector.checkLoadingState(active);
+        elapsed += 100;
+        window.history.replaceState({}, '', '#route=another');
+        window.statsCollector.checkLoadingState(active);
+        expect(samples().map(sample => sample.outcome)).toEqual(['timed_out', 'interrupted']);
+        window.dispatchEvent(new window.Event('pagehide'));
+        expect(samples().at(-1).outcome).toBe('interrupted');
+        dom.window.close();
+    });
+
     test('captures exact GBP totals once, rejects rounded money and stale campaign headers', () => {
         const { dom, window } = createCollector('https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP123');
         window.document.body.innerHTML = '<div class="buy-details-wrapper">CP123 | Campaign</div><div data-cy="budget-type-label">Total client cost</div><div data-cy="budget-amount">£1,000.00 budget</div><div data-cy="budget-purchased">£800.00 buy total (billable amount)</div>';
@@ -249,7 +298,7 @@ describe('loading-time collection', () => {
         now = 2000;
         spinner.remove();
         window.loadingMonitor.refreshNow();
-        expect(window.chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
+        expect(window.chrome.runtime.sendMessage.mock.calls.filter(([message]) => message.type === 'LOADING_TIME')).toHaveLength(1);
         window.dispatchEvent(new window.Event('pageshow'));
         expect(subscribe).toHaveBeenCalledTimes(2);
         window.document.body.appendChild(spinner);
@@ -261,7 +310,9 @@ describe('loading-time collection', () => {
         expect(window.chrome.runtime.sendMessage).toHaveBeenLastCalledWith({
             action: 'TRACK_STAT', type: 'LOADING_TIME', value: { seconds: 0.25, area: 'other' }
         });
-        expect(window.chrome.runtime.sendMessage).toHaveBeenCalledTimes(2);
+        expect(window.chrome.runtime.sendMessage.mock.calls.filter(([message]) => message.type === 'LOADING_TIME')).toHaveLength(2);
+        const samples = window.chrome.runtime.sendMessage.mock.calls.filter(([message]) => message.type === 'PERFORMANCE_SAMPLE').map(([message]) => message.value);
+        expect(samples.map(sample => sample.outcome)).toEqual(['interrupted', 'completed']);
         dom.window.close();
     });
 

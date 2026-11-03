@@ -11,12 +11,13 @@ function doPost(e) {
   try {
     var actor = actor_(), input;
     try { input = JSON.parse(e && e.postData && e.postData.contents || '{}'); } catch (_) { throw Error('INVALID_REQUEST'); }
-    if (!input || !['preview','commit','status'].includes(input.operation)) throw Error('INVALID_REQUEST');
+    if (!input || !['preview','previewEdit','commit','status'].includes(input.operation)) throw Error('INVALID_REQUEST');
     if (input.operation === 'status') return reply_(receipt_(input.requestId,actor));
     if (!enabled_()) throw Error('MANUAL_WRITES_DISABLED');
     lock = LockService.getScriptLock(); acquired = lock.tryLock(10000);
     if (!acquired) throw Error('BUSY_TRY_AGAIN');
     actor_(); if (!enabled_()) throw Error('MANUAL_WRITES_DISABLED');
+    if (input.operation === 'previewEdit') return reply_(previewEdit_(input,actor));
     if (input.operation === 'preview') return reply_(preview_(input,actor));
     return reply_(commit_(input,actor));
   } catch (error) { return fail_(error); }
@@ -114,6 +115,7 @@ function receipt_(id,actor,insideCommit) {
       if(row.values[5]==='pending'){
         var current=snapshot_(row.values[2]),pending=JSON.parse(row.values[6]);
         var recovered=pending.map(function(prior){
+          if(prior.kind==='edit')return confirmEdit_(current,prior,row.values[3]);
           if(!['eligible','already_yes'].includes(prior.state))return prior;
           var fresh=match_(current,prior,row.values[3]);
           return Object.assign({},prior,{state:fresh.state==='already_yes'?'already_yes':'failed',after:fresh.state==='already_yes'?'Yes':null,confirmed:fresh.state==='already_yes',reason:fresh.state==='already_yes'?'Recovered: current tracker Yes confirmed':'Interrupted save: no saved Yes confirmed; refresh before retrying'});
@@ -133,6 +135,7 @@ function commit_(input,actor) {
   if(existing)return receipt_(input.requestId,actor,true); // Idempotent: no second write for a request ID.
   var cache=CacheService.getScriptCache(),raw=cache.get('manual:'+input.requestId),record=raw?JSON.parse(raw):null;
   if(!record||record.actor!==actor||typeof input.token!=='string'||record.token!==input.token)throw Error('PREVIEW_EXPIRED_OR_WRONG_USER');
+  if(record.kind==='edit')return commitEdit_(input,actor,record,book);
   cache.remove('manual:'+input.requestId);
   var requestRow=requests.getLastRow()+1,stamp=new Date().toISOString();
   requests.getRange(requestRow,1,1,7).setValues([[input.requestId,actor,record.mode,record.month,stamp,'pending',JSON.stringify(record.results)]]);SpreadsheetApp.flush();
@@ -186,4 +189,60 @@ function setupAudit_(){
   var requests=book.insertSheet('Requests');requests.getRange(1,1,1,7).setValues([['Request ID','Actor','Mode','Report month','Started','State','Results JSON']]);requests.setFrozenRows(1);
   props.setProperty('AUDIT_SPREADSHEET_ID',book.getId());props.setProperty('MANUAL_WRITES_ENABLED','false');props.setProperty('WRITE_TEST_ENABLED','false');
   return {id:book.getId(),created:true};
+}
+
+/** Notes and manual Yes/No updates share identity, preview and durable receipt guards. */
+function editMatch_(snapshot,item,month) {
+  var result=match_(snapshot,item,month),headers=snapshot.display[0].map(function(v){return String(v).trim().toLowerCase();});
+  var col=headers.indexOf('comments');
+  if(col<0||headers.lastIndexOf('comments')!==col)throw Error('COMMENTS_HEADER_CHANGED');
+  if(!result.row||result.state==='skipped')return Object.assign(result,{kind:'edit',after:item.after,commentsAfter:item.commentsAfter});
+  if(snapshot.formulas[result.row-1][col])return Object.assign(result,{state:'skipped',reason:'Comment is a formula',kind:'edit',after:item.after,commentsAfter:item.commentsAfter});
+  return Object.assign(result,{state:'eligible',kind:'edit',after:item.after,commentsAfter:item.commentsAfter,commentsBefore:String(snapshot.values[result.row-1][col]||''),commentColumn:col+1});
+}
+function previewEdit_(input,actor) {
+  var identities=validate_(input),snapshot=snapshot_(input.mode),id=Utilities.getUuid(),token=Utilities.getUuid();
+  var results=identities.map(function(identity,index){
+    var item=input.rows[index];
+    if(!['Yes','No'].includes(item.after)||typeof item.commentsAfter!=='string'||item.commentsAfter.length>2000||/^\s*=/.test(item.commentsAfter)||typeof item.commentsBefore!=='string'||typeof item.before!=='string')throw Error('INVALID_EDIT');
+    var result=editMatch_(snapshot,item,input.month);
+    if(result.state==='eligible'&&(result.before!==item.before||result.commentsBefore!==item.commentsBefore))result=Object.assign(result,{state:'skipped',reason:'Tracker changed. Read the report again before editing.'});
+    return result;
+  });
+  var record=JSON.stringify({actor:actor,mode:input.mode,month:input.month,results:results,token:token,kind:'edit'});
+  if(record.length>30000)throw Error('NOTES_TOO_LARGE_NARROW_SELECTION');
+  CacheService.getScriptCache().put('manual:'+id,record,120);
+  return {ok:true,kind:'edit',requestId:id,token:token,expiresInSeconds:120,mode:input.mode,month:input.month,results:results};
+}
+function confirmEdit_(snapshot,prior,month) {
+  if(prior.state==='skipped')return prior;
+  var fresh=editMatch_(snapshot,prior,month),confirmed=fresh.state==='eligible'&&fresh.before===prior.after&&fresh.commentsBefore===prior.commentsAfter;
+  if(confirmed&&prior.commentsAfter.trim()){
+    var backgrounds=snapshot.sheet.getRange(fresh.row,1,1,snapshot.display[0].length).getBackgrounds()[0];
+    confirmed=backgrounds.every(function(color){return String(color).toLowerCase()==='#fff2cc';});
+  }
+  return Object.assign({},prior,{state:confirmed?'updated':'failed',confirmed:confirmed,reason:confirmed?'':'Could not confirm all fields and highlighting. Read the tracker before retrying.'});
+}
+function commitEdit_(input,actor,record,book) {
+  var requests=book.getSheetByName('Requests'),changes=book.getSheetByName('Changes'),row=requests.getLastRow()+1,stamp=new Date().toISOString();
+  CacheService.getScriptCache().remove('manual:'+input.requestId);
+  requests.getRange(row,1,1,7).setValues([[input.requestId,actor,record.mode,record.month,stamp,'pending',JSON.stringify(record.results)]]);SpreadsheetApp.flush();
+  journal_(changes,record.results.map(function(r){return [stamp,input.requestId,actor,record.mode,record.month,r.dNumber,r.campaignId,JSON.stringify({reccied:r.before,comments:r.commentsBefore}),JSON.stringify({reccied:r.after,comments:r.commentsAfter}),r.state==='eligible'?'intent':'skipped','Manual note/status; yellow for non-empty note'];}));
+  var results=record.results.map(function(prior){
+    if(prior.state!=='eligible')return prior;
+    var snapshot=snapshot_(record.mode),fresh=editMatch_(snapshot,prior,record.month);
+    if(fresh.state!=='eligible'||fresh.before!==prior.before||fresh.commentsBefore!==prior.commentsBefore)return Object.assign({},prior,{state:'skipped',confirmed:false,reason:'Tracker changed since preview'});
+    var cell=snapshot.sheet.getRange(fresh.row,snapshot.columns.rec+1),rule=cell.getDataValidation();
+    if(rule&&(rule.getCriteriaType()!==SpreadsheetApp.DataValidationCriteria.VALUE_IN_LIST||!rule.getCriteriaValues()[0].includes(prior.after)))return Object.assign({},prior,{state:'skipped',confirmed:false,reason:'Tracker validation needs review'});
+    try {
+      cell.setValue(prior.after);
+      snapshot.sheet.getRange(fresh.row,fresh.commentColumn).setRichTextValue(SpreadsheetApp.newRichTextValue().setText(prior.commentsAfter).build());
+      if(prior.commentsAfter.trim())snapshot.sheet.getRange(fresh.row,1,1,snapshot.display[0].length).setBackground('#fff2cc');
+      SpreadsheetApp.flush();
+      return confirmEdit_(snapshot_(record.mode),prior,record.month);
+    }catch(_){return Object.assign({},prior,{state:'failed',confirmed:false,reason:'Save could not be fully confirmed. Read the tracker before retrying.'});}
+  });
+  journal_(changes,results.map(function(r){return [new Date().toISOString(),input.requestId,actor,record.mode,record.month,r.dNumber,r.campaignId,JSON.stringify({reccied:r.before,comments:r.commentsBefore}),JSON.stringify({reccied:r.after,comments:r.commentsAfter}),r.state,r.reason||''];}));
+  requests.getRange(row,6,1,2).setValues([['complete',JSON.stringify(results)]]);SpreadsheetApp.flush();
+  return {ok:true,requestId:input.requestId,mode:record.mode,month:record.month,state:'complete',results:results};
 }

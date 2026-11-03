@@ -831,3 +831,21 @@ li {
     font-size: 0.8em;
     color: #777;
 }
+
+/* Diagnostics controls follow the Stats period selector and Toolshed palette. */
+.diagnostics-segments { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; margin: 18px 0 12px; border-radius: 9px; background: #f0f1f2; }
+.diagnostics-segments button { min-height: 38px; padding: 8px 10px; border: 1px solid transparent; border-radius: 6px; background: transparent; box-shadow: none; color: #414650; font: inherit; font-size: 13px; cursor: pointer; }
+.diagnostics-segments button[aria-pressed="true"] { color: #b61459; background: #fff1f6; border-color: #e8a5c1; }
+.diagnostics-segments button:hover { background: #fff; }
+.diagnostics-segments button[aria-pressed="true"]:hover { background: #fff1f6; }
+.diagnostics-report-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin: 18px 0 8px; }
+.diagnostics-field { display: flex; flex: 1 1 170px; flex-direction: column; gap: 7px; color: #555b65; font-size: 12px; font-weight: 600; }
+.diagnostics-field:first-child { flex-grow: 2; }
+.diagnostics-field select { appearance: none; width: 100%; min-height: 42px; box-sizing: border-box; padding: 10px 38px 10px 12px; border: 1px solid #d9dde2; border-radius: 8px; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4' fill='none' stroke='%23555b65' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 12px center; color: #242830; font: inherit; font-size: 14px; font-weight: 400; cursor: pointer; }
+.diagnostics-field select:hover { border-color: #b61459; }
+.diagnostics-segments button:focus-visible, .diagnostics-field select:focus-visible { outline: 2px solid #b61459; outline-offset: 3px; }
+.diagnostics-report-controls .button-secondary { min-height: 42px; margin: 0; }
+#diagnostics-table { overflow-x: auto; }
+#diagnostics-table table { width: 100%; border-collapse: collapse; font-size: 12px; }
+#diagnostics-table th, #diagnostics-table td { padding: 9px 8px; border-bottom: 1px solid #e5e7eb; text-align: left; }
+@media (max-width: 480px) { .diagnostics-segments button { padding: 7px 4px; font-size: 12px; } .diagnostics-report-controls .button-secondary { width: 100%; } }

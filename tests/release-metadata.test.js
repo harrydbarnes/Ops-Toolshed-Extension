@@ -51,6 +51,7 @@ describe('release metadata', () => {
             const items = Array.from(release.querySelectorAll('li'));
             const required = [
                 ['My Reccies:', 'new', ['Verification keeps the tracker unchanged', 'preview and confirmation', 'save receipts']],
+                ['Custom Popup Shortcuts:', 'new', ['Reccies instead of myOffice Days', 'drag between Shown and Turned off', 'during onboarding']],
                 ['Timesheet Helper:', 'new', ['review proportional estimates', 'Read visible rows']],
                 ['Annual Leave Calendar Helper:', 'new', ['Apple or Google Calendar', 'AM/PM']],
                 ['Stats Insights:', 'improved', []],

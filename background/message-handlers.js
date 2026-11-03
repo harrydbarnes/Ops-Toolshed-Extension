@@ -14,7 +14,7 @@ const OPEN_HELP_GUIDE_TABS_KEY = 'openHelpGuideTabIds';
 const ACCOUNT_SWITCH_RETURN_URLS_KEY = 'accountSwitchReturnUrlsByTab';
 const ACCOUNT_SWITCH_RETURN_TTL_MS = 2 * 60 * 1000;
 import { scrapeAndDownloadCsv } from './meta-billing-scraper.js';
-import { handleTrackStat } from './stats-manager.js';
+import { handleTrackStat, handleResetStats } from './stats-manager.js';
 import { PRISMA_DASHBOARD_URL } from './prisma-url.js';
 import {
     trackCampaignApproval,
@@ -526,6 +526,7 @@ export const messageHandlers = {
     clearAllApprovedCampaigns: handleClearAllApprovedCampaigns,
     checkApprovalStatusNow: handleCheckApprovalStatusNow,
     TRACK_STAT: handleTrackStat,
+    RESET_STATS: handleResetStats,
     SET_DIAGNOSTICS_MODE: handleSetDiagnosticsMode,
     RECORD_DIAGNOSTIC_EVENT: handleRecordDiagnosticEvent,
     GET_DIAGNOSTIC_REPORT: handleGetDiagnosticReport,

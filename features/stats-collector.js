@@ -10,6 +10,11 @@
     });
 
     chrome.storage.onChanged.addListener((changes, area) => {
+        if (area === 'local' && changes.prismaDiagnostics && !Object.keys(changes.prismaDiagnostics.newValue?.days || {}).length) {
+            clearDiagnostics();
+            cancelPendingSave(null);
+            if (isInitialized) checkDiagnostics();
+        }
         if (area === 'local' && changes.campaignStatsSnapshots && !changes.campaignStatsSnapshots.newValue?.length) {
             lastSnapshotFingerprint = '';
         }
@@ -17,6 +22,7 @@
             isEnabled = changes.statsCollectorEnabled.newValue !== false;
             if (!isEnabled) {
                 cancelPendingSave();
+                clearDiagnostics();
                 loadingSpinnerStartTime = null;
                 loadingSpinnerArea = '';
             } else if (isInitialized) {
@@ -130,6 +136,47 @@
         return 'other';
     }
 
+    // Independent intervals: overlapping page indicators form one observation.
+    const diagnosticIntervals = new Map();
+    let diagnosticRoute = location.href;
+    function finishDiagnostic(signal, outcome) {
+        const active = diagnosticIntervals.get(signal);
+        if (!active) return;
+        diagnosticIntervals.delete(signal);
+        clearTimeout(active.timer);
+        if (active.timedOut) return;
+        trackStat('PERFORMANCE_SAMPLE', { timestamp: Date.now(), signal, area: active.area,
+            duration: Math.min(300000, Math.max(0, performance.now() - active.start)), outcome });
+    }
+    function clearDiagnostics(outcome) {
+        [...diagnosticIntervals.keys()].forEach(signal => {
+            if (outcome) finishDiagnostic(signal, outcome);
+            else { clearTimeout(diagnosticIntervals.get(signal).timer); diagnosticIntervals.delete(signal); }
+        });
+    }
+    function checkDiagnostics(state = window.loadingMonitor?.getState?.()) {
+        if (!isEnabled || !state) return;
+        if (diagnosticRoute !== location.href) { clearDiagnostics('interrupted'); diagnosticRoute = location.href; }
+        const states = {
+            page_indicator: !!(state.pageVisibleSpinners?.length || state.pageVisibleSkeletons?.length),
+            side_panel_indicator: !!(state.sidePanelVisibleSpinners?.length || state.sidePanelVisibleSkeletons?.length)
+        };
+        Object.entries(states).forEach(([signal, visible]) => {
+            const active = diagnosticIntervals.get(signal);
+            if (active && active.area !== getPrismaArea()) finishDiagnostic(signal, 'interrupted');
+            if (!visible) finishDiagnostic(signal, 'completed');
+            else if (!diagnosticIntervals.has(signal)) {
+                const interval = { start: performance.now(), area: getPrismaArea(), timer: null };
+                // Keep a sentinel after timeout until the indicator disappears.
+                interval.timer = setTimeout(() => {
+                    finishDiagnostic(signal, 'timed_out');
+                    diagnosticIntervals.set(signal, { ...interval, timedOut: true, timer: null });
+                }, 300000);
+                diagnosticIntervals.set(signal, interval);
+            }
+        });
+    }
+
     // --- 2. Track Loading Spinner Time ---
     let loadingSpinnerStartTime = null;
     let loadingSpinnerArea = '';
@@ -151,6 +198,7 @@
     }
 
     function checkLoadingState(state) {
+        checkDiagnostics(state);
         if (!isEnabled) {
             loadingSpinnerStartTime = null;
             loadingSpinnerArea = '';
@@ -187,7 +235,8 @@
     let pendingSave = null;
     let saveObserver = null;
     let saveTimeout = null;
-    function cancelPendingSave() {
+    function cancelPendingSave(outcome = 'interrupted') {
+        if (outcome && pendingSave?.startedAt !== undefined && isEnabled) trackStat('PERFORMANCE_SAMPLE', { timestamp: Date.now(), signal: 'placement_save', area: pendingSave.area, duration: Math.min(300000, Math.max(0, performance.now() - pendingSave.startedAt)), outcome });
         saveObserver?.disconnect();
         saveObserver = null;
         clearTimeout(saveTimeout);
@@ -201,11 +250,12 @@
         if (!campaignId) return;
         const form = button.closest('[role="dialog"], .modal, form');
         const heading = form?.querySelector('h1, h2, h3, .modal-title')?.textContent || form?.getAttribute('aria-label') || '';
+        if (!/\bplacement\b/i.test(heading)) return;
         const mode = /^(?:add|new|create) placement\b/i.test(heading.trim()) ? 'created'
             : /^edit placement\b/i.test(heading.trim()) ? 'updated' : 'other';
         const baseline = new WeakMap();
         document.querySelectorAll(NATIVE_NOTICE).forEach(node => baseline.set(node, node.textContent));
-        pendingSave = { campaignId, mode, id: crypto.randomUUID(), baseline };
+        pendingSave = { startedAt: performance.now(), area: getPrismaArea(), campaignId, mode, id: crypto.randomUUID(), baseline };
         saveObserver = new MutationObserver(records => {
             if (!pendingSave || !isEnabled) return;
             if (new URLSearchParams(location.hash.slice(1)).get('campaign-id') !== pendingSave.campaignId) {
@@ -227,8 +277,8 @@
                 if (notice.closest('[id^="toolshed"], [id^="ops-toolshed"], .otf-toast') || notice.hidden || notice.getAttribute('aria-hidden') === 'true' || getComputedStyle(notice).display === 'none' || getComputedStyle(notice).visibility === 'hidden') continue;
                 const text = notice.textContent.replace(/\s+/g, ' ').trim();
                 if (pendingSave.baseline.get(notice) === notice.textContent) continue;
-                if (notice.matches('.toast-error, .alert-danger') || /\bplacement\b.*\b(?:failed|error|could not|cannot|unable)\b|\b(?:failed|unable)\b.*\bplacement\b/i.test(text)) {
-                    cancelPendingSave();
+                if (/\bplacement\b.*\b(?:failed|error|could not|cannot|unable)\b|\b(?:failed|unable)\b.*\bplacement\b/i.test(text)) {
+                    cancelPendingSave('error');
                     return;
                 }
                 const match = text.match(/^placement(?:\s+[A-Z0-9-]+)?\s+(?:(?:has been|was)\s+)?(?:(successfully)\s+)?(created|added|updated|saved)(?:\s+(successfully))?[.!]?$/i);
@@ -236,13 +286,13 @@
                 const verb = match[2].toLowerCase();
                 const kind = ['created', 'added'].includes(verb) ? 'created' : verb === 'updated' ? 'updated' : pendingSave.mode;
                 const value = { eventId: pendingSave.id, kind };
-                cancelPendingSave();
+                cancelPendingSave('completed');
                 trackStat('PLACEMENT_CONFIRMED', value);
                 return;
             }
         });
         saveObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
-        saveTimeout = setTimeout(cancelPendingSave, 20000);
+        saveTimeout = setTimeout(() => cancelPendingSave('timed_out'), 20000);
     }
 
     // --- 3. Track Click Events (Save Placements & Reconciliations) ---
@@ -281,6 +331,7 @@
     }
 
     function stopLoadingMeasurements() {
+        clearDiagnostics('interrupted');
         cancelPendingSave();
         finishActiveLoadingMeasurement();
         unsubscribeLoadingMonitor?.();
@@ -296,7 +347,7 @@
         document.body.addEventListener('click', handleClickEvents, true);
         window.addEventListener('pagehide', stopLoadingMeasurements);
         window.addEventListener('pageshow', startLoadingMeasurements);
-        const handleRouteChange = () => { cancelPendingSave(); trackCampaignId(); checkLoadingState(); };
+        const handleRouteChange = () => { clearDiagnostics('interrupted'); cancelPendingSave(); trackCampaignId(); checkLoadingState(); };
         window.addEventListener('hashchange', handleRouteChange);
         window.addEventListener('popstate', handleRouteChange);
         trackCampaignId();

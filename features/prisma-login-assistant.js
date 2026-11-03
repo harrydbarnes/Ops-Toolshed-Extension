@@ -215,11 +215,11 @@
 
             .${TIMEOUT_BAR_CONTAINER_CLASS} { margin: 12px 0 6px; }
             .ops-toolshed-timeout-status { color: #102c72; font-size: 12px; margin-bottom: 6px; text-align: center; }
-            .ops-toolshed-timeout-dots { display: inline-block; overflow: hidden; vertical-align: bottom; width: 1ch; animation: ops-toolshed-timeout-dots 1.2s steps(1, end) infinite; }
+            .ops-toolshed-timeout-dots { display: inline-block; overflow: hidden; vertical-align: bottom; width: 3ch; animation: ops-toolshed-timeout-dots 1.2s steps(1, end) infinite; }
             @keyframes ops-toolshed-timeout-dots {
-                0% { width: 1ch; }
-                33.333% { width: 2ch; }
-                66.666% { width: 3ch; }
+                0% { clip-path: inset(0 66.666% 0 0); }
+                33.333% { clip-path: inset(0 33.333% 0 0); }
+                66.666% { clip-path: inset(0); }
             }
             @media (prefers-reduced-motion: reduce) {
                 .ops-toolshed-timeout-dots { animation: none; width: 3ch; }

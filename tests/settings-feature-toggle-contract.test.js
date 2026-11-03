@@ -6,6 +6,7 @@ const { FEATURE_SETTINGS_DEFAULTS } = require('../settings');
 
 const settingsHtml = fs.readFileSync(path.resolve(__dirname, '../settings.html'), 'utf8');
 const settingsScript = readScript(path.resolve(__dirname, '../settings.js'));
+const popupShortcutScript = readScript(path.resolve(__dirname, '../popup-shortcuts.js'));
 const utilsScript = readScript(path.resolve(__dirname, '../utils.js'));
 const registryScript = readScript(path.resolve(__dirname, '../feature-settings-registry.js'));
 
@@ -157,6 +158,7 @@ async function createSettingsPage(ignoredProductCodes = [], initialSyncSettings 
     window.console.log = jest.fn();
     window.eval(readScript(path.resolve(__dirname, '../loading-facts-preview.js')));
     window.eval(registryScript);
+    window.eval(popupShortcutScript);
     window.eval(utilsScript);
     window.eval(settingsScript);
     window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
@@ -248,7 +250,7 @@ describe('Settings feature toggle contract', () => {
         const { dom, window } = await createSettingsPage();
         const toggles = Array.from(
             window.document.querySelectorAll('#features input[type="checkbox"]')
-        );
+        ).filter(toggle => !toggle.hasAttribute('data-popup-shortcut-option'));
         const visibleToggleIds = toggles.map(toggle => toggle.id).sort();
 
         expect(visibleToggleIds).toEqual(Object.keys(FEATURE_TOGGLE_KEYS).sort());
@@ -275,6 +277,68 @@ describe('Settings feature toggle contract', () => {
         }
 
         for (let index = 0; index < 5; index += 1) await Promise.resolve();
+        dom.window.close();
+    });
+
+    test('popup shortcut options use their shared defaults and save selection and custom links', async () => {
+        const { dom, window, syncStore } = await createSettingsPage();
+        const reccies = window.document.querySelector('[data-popup-shortcut-option="reccies"]');
+        const officeDays = window.document.querySelector('[data-popup-shortcut-option="myOfficeDays"]');
+        expect(reccies.getAttribute('aria-pressed')).toBe('true');
+        expect(officeDays.getAttribute('aria-pressed')).toBe('false');
+        expect(reccies.draggable).toBe(true);
+        expect(window.document.querySelector('[data-popup-shortcut-drop-zone="off"]')).not.toBeNull();
+        expect(FEATURE_SETTINGS_DEFAULTS.popupShortcuts).toContain('reccies');
+        expect(FEATURE_SETTINGS_DEFAULTS.popupShortcuts).not.toContain('myOfficeDays');
+
+        const editor = window.document.getElementById('popup-shortcut-editor');
+        const transfer = {
+            shortcutId: '',
+            setData: jest.fn((_type, value) => { transfer.shortcutId = value; }),
+            getData: jest.fn(() => transfer.shortcutId)
+        };
+        const dragStart = new window.Event('dragstart', { bubbles: true });
+        Object.defineProperty(dragStart, 'dataTransfer', { value: transfer });
+        reccies.dispatchEvent(dragStart);
+        const drop = new window.Event('drop', { bubbles: true, cancelable: true });
+        Object.defineProperty(drop, 'dataTransfer', { value: transfer });
+        editor.querySelector('[data-popup-shortcut-drop-zone="off"]').dispatchEvent(drop);
+        await Promise.resolve();
+        expect(syncStore.popupShortcuts).not.toContain('reccies');
+        expect(editor.querySelector('[data-popup-shortcut-drop-zone="off"] [data-popup-shortcut-option="reccies"]')).not.toBeNull();
+
+        editor.querySelector('[data-popup-shortcut-drop-zone="off"] [data-popup-shortcut-option="reccies"]').click();
+        await Promise.resolve();
+        expect(syncStore.popupShortcuts).toContain('reccies');
+
+        editor.querySelector('[data-popup-shortcut-option="myOfficeDays"]').click();
+        expect(syncStore.popupShortcuts).toContain('myOfficeDays');
+        expect(window.chrome.storage.sync.set).toHaveBeenCalledWith(
+            { popupShortcuts: expect.arrayContaining(['reccies', 'myOfficeDays']) },
+            expect.any(Function)
+        );
+
+        editor.querySelector('[name="shortcutName"]').value = 'Team Hub';
+        editor.querySelector('[name="shortcutUrl"]').value = 'javascript:alert(1)';
+        editor.querySelector('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+        expect(syncStore.popupCustomShortcuts).toEqual([]);
+        expect(editor.querySelector('.popup-shortcut-status').dataset.state).toBe('error');
+
+        editor.querySelector('[name="shortcutUrl"]').value = 'https://example.com/team';
+        editor.querySelector('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+        await Promise.resolve();
+        expect(syncStore.popupCustomShortcuts).toEqual([{ name: 'Team Hub', url: 'https://example.com/team', enabled: true }]);
+        expect(editor.querySelector('[data-popup-custom-shortcut="0"]').textContent).toBe('Team Hub');
+
+        editor.querySelector('[data-popup-custom-shortcut="0"]').click();
+        await Promise.resolve();
+        expect(syncStore.popupCustomShortcuts[0].enabled).toBe(false);
+        const disabledCustom = editor.querySelector('[data-popup-shortcut-drop-zone="off"] [data-popup-custom-shortcut="0"]');
+        expect(disabledCustom).not.toBeNull();
+        disabledCustom.click();
+        await Promise.resolve();
+        expect(syncStore.popupCustomShortcuts[0].enabled).toBe(true);
+
         dom.window.close();
     });
 

@@ -16,6 +16,12 @@ describe('manual Reccies worker writes',()=>{
     afterEach(()=>{delete global.fetch;});
     const preview=()=>manual({operation:'previewTrackerWrite',mode:'main',month:'2026-09',revision:'original',rowIds:[2]},context);
     const commit=()=>manual({operation:'commitTrackerWrite',mode:'main',month:'2026-09',revision:'original',requestId},context);
+    test('automatic opt-out at final send boundary prevents the network commit',async()=>{
+        await preview();
+        const beforeCommit=jest.fn(async()=>{throw Error('Automatic tracker updates were switched off.');});
+        await expect(manual({operation:'commitTrackerWrite',mode:'main',month:'2026-09',revision:'original',requestId},{...context,automatic:true,beforeCommit})).rejects.toThrow('switched off');
+        expect(beforeCommit).toHaveBeenCalledTimes(1);expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
     test('previews authoritative snapshot identities without exposing tokens to UI',async()=>{
         const result=await preview();expect(result.write).not.toHaveProperty('token');expect(state.reccieTracker.rows[0].reccied).toBe('No');
         expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({operation:'preview',mode:'main',month:'2026-09',rows:[{dNumber:'D03120200',campaignId:'CP3G9KS'}]});
@@ -65,4 +71,20 @@ describe('manual Reccies worker writes',()=>{
         chrome.permissions.contains.mockResolvedValue(false);await expect(preview()).rejects.toThrow('Allow');expect(fetchMock).not.toHaveBeenCalled();chrome.permissions.contains.mockResolvedValue(true);
         fetchMock.mockResolvedValue({ok:true,url:'https://accounts.google.com/login',headers:{get:()=> 'text/html'}});await expect(preview()).rejects.toThrow('sign-in');
     });
+    test('manual notes send selected edits and apply confirmed No/comments from receipt',async()=>{
+        state.reccieTracker.rows[0].reccied='Yes';state.reccieTracker.rows[0].comments='Old';
+        const item={dNumber:'D03120200',campaignId:'CP3G9KS',month:'2026-09',state:'eligible',before:'Yes',after:'No',commentsAfter:'Waiting on Supplier Spend'};
+        fetchMock.mockResolvedValueOnce(response({kind:'edit',requestId,mode:'main',month:'2026-09',token:'secret-token',results:[item]}));
+        await manual({operation:'previewTrackerEdit',mode:'main',month:'2026-09',revision:'original',rowIds:[2],edits:[{sourceRow:2,reccied:'No',comments:item.commentsAfter}]},context);
+        expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({operation:'previewEdit',rows:[{before:'Yes',after:'No',commentsBefore:'Old',commentsAfter:item.commentsAfter}]});
+        fetchMock.mockResolvedValueOnce(response({requestId,mode:'main',month:'2026-09',state:'complete',results:[{...item,state:'updated',confirmed:true}]}));
+        const result=await commit();expect(result.tracker.rows[0]).toMatchObject({reccied:'No',comments:item.commentsAfter});
+    });
+    test('automatic callers cannot write notes or manual No',async()=>{
+        await expect(manual({operation:'previewTrackerEdit',mode:'main',month:'2026-09',revision:'original',rowIds:[2],edits:[{sourceRow:2,reccied:'No',comments:'test'}]},{...context,automatic:true})).rejects.toThrow('Invalid manual');expect(fetchMock).not.toHaveBeenCalled();
+    });
+    test('rejects old service and mismatched comment previews before commit',async()=>{
+        await expect(manual({operation:'previewTrackerEdit',mode:'main',month:'2026-09',revision:'original',rowIds:[2],edits:[{sourceRow:2,reccied:'No',comments:'test'}]},context)).rejects.toThrow('notes update');await expect(commit()).rejects.toThrow('expired');
+    });
+
 });

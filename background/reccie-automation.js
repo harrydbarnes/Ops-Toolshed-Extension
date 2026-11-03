@@ -40,7 +40,7 @@ export async function autoMarkVerified(tracker,request,context){
             await saveAutoReceipt(requestId,mode,request.month,{financial:!!request.financial,remaining:eligible.slice(offset+100).map(({dNumber,campaignId,month})=>({dNumber,campaignId,month}))});
             await chrome.storage.local.set({reccieAutomationLastRun:{at:new Date().toISOString(),state:'saving',message:`Saving ${rows.length} D numbers; ${eligible.length-offset-rows.length} remaining.`}});
             let result;
-            try{result=await dispatchTrackerWrite({operation:'commitTrackerWrite',mode,month:request.month,revision:current.revision,requestId},{...context,automatic:true});}
+            try{result=await dispatchTrackerWrite({operation:'commitTrackerWrite',mode,month:request.month,revision:current.revision,requestId},{...context,automatic:true,beforeCommit:assertOptIn});}
             catch(failure){
                 if(failure.code!=='TRANSPORT_UNCERTAIN')throw failure;
                 result=await dispatchTrackerWrite({operation:'trackerWriteStatus',mode,month:request.month,requestId},context);

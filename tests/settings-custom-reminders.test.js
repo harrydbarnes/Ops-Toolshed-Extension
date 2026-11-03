@@ -7,6 +7,7 @@ const settingsHtml = fs.readFileSync(path.resolve(__dirname, '../settings.html')
 const settingsScript = readScript(path.resolve(__dirname, '../settings.js'));
 const utilsScript = readScript(path.resolve(__dirname, '../utils.js'));
 const registryScript = readScript(path.resolve(__dirname, '../feature-settings-registry.js'));
+const popupShortcutScript = readScript(path.resolve(__dirname, '../popup-shortcuts.js'));
 let activeDom;
 
 async function setupSettings(customReminders = [], url = 'chrome-extension://test/settings.html') {
@@ -54,6 +55,7 @@ async function setupSettings(customReminders = [], url = 'chrome-extension://tes
         }
     };
     window.alert = jest.fn();
+    window.eval(popupShortcutScript);
     window.eval(registryScript);
     window.eval(utilsScript);
     window.eval(settingsScript);

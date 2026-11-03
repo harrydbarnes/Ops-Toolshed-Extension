@@ -142,7 +142,7 @@
             rows.forEach(row => {
                 const item = document.createElement('div'); item.className = 'v2-placement';
                 const id = document.createElement('p'); id.className = 'v2-placement-id'; id.textContent = row.dNumber;
-                item.append(id, evidence(row, checks?.[row.sourceRow], observed)); placements.append(item);
+                item.append(id, evidence(row, checks?.[row.sourceRow], observed)); if(row.comments){const note=document.createElement('p');note.className='comment';note.textContent=row.comments;item.append(note);} placements.append(item);
             });
             bottom.before(placements);
         } else {
@@ -153,7 +153,7 @@
             card.querySelector('.campaign-name').after(metadata);
             card.querySelector('.status-lines').before(evidence(row, result, observed));
             const badge = card.querySelector('.card-top > .badge');
-            if (badge && !row.issue && result?.state === 'ready') badge.textContent = 'Ready in Prisma';
+            if (badge && !row.issue && result?.state === 'ready') badge.textContent = 'Reconciled in Prisma';
             if (badge && !row.issue && result?.state === 'outstanding') badge.textContent = result.reconciled === '0' ? 'Not reconciled in Prisma' : `Buy status: ${human(result.buyStatus)}`;
         }
         const warnings = card.querySelectorAll('.mismatch-warning');

@@ -5,8 +5,9 @@ const trackerId='1QxX7yZvfh75ENyvPG7xD_5ldLuoLwUsTZ6z0edkpORU';
 const origins=['https://script.google.com/*','https://script.googleusercontent.com/*'];
 const pending=new Map();
 const receiptKey=(mode,month)=>`reccieManualSave:${mode}:${month}`;
-async function api(operation,body){
+async function api(operation,body,beforeSend){
     if(!await chrome.permissions.contains({origins}))throw Error('Allow Google script access to update the tracker.');
+    if(beforeSend)await beforeSend();
     let response;
     try {
         response=await fetch(endpoint,{method:'POST',credentials:'include',redirect:'follow',cache:'no-store',signal:AbortSignal.timeout(25000),headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify({operation,...body})});
@@ -18,7 +19,7 @@ async function api(operation,body){
     if(!response.ok||!['https://script.google.com','https://script.googleusercontent.com'].includes(new URL(response.url).origin)||!(response.headers.get('content-type')||'').includes('application/json'))throw Error('Google returned a sign-in or access page. Open the tracker in your work Google account and try again.');
     const data=await response.json();
     if(data.service!=='ops-toolshed-reccies-writer'||data.protocol!==1)throw Error('The tracker update service is not ready. No confirmed update is available.');
-    if(!data.ok)throw Error(({ACCESS_DENIED:'Your Google account is not enabled for tracker updates.',MANUAL_WRITES_DISABLED:'Manual tracker updates are disabled by the owner.',PREVIEW_EXPIRED_OR_WRONG_USER:'The preview expired. Open a new preview before saving.'})[data.error]||data.error||'Tracker update failed.');
+    if(!data.ok)throw Error(({NOTES_TOO_LARGE_NARROW_SELECTION:'These notes are too large for one save. Narrow your filters and update fewer D numbers.',ACCESS_DENIED:'Your Google account is not enabled for tracker updates.',MANUAL_WRITES_DISABLED:'Manual tracker updates are disabled by the owner.',PREVIEW_EXPIRED_OR_WRONG_USER:'The preview expired. Open a new preview before saving.'})[data.error]||data.error||'Tracker update failed.');
     return data;
 }
 function liveTracker(tracker,month){
@@ -36,15 +37,16 @@ async function applyReceipt(result,key,mode,month,queueWrite){
         for(const row of tracker.rows){
             if(tracker.rows.filter(other=>other.dNumber===row.dNumber&&other.campaignId===row.campaignId&&other.month===row.month).length!==1)continue;
             const matches=result.results.filter(item=>item.dNumber===row.dNumber&&item.campaignId===row.campaignId&&item.month===row.month);
-            if(matches.length===1&&matches[0].confirmed===true&&matches[0].after==='Yes'&&['updated','already_yes'].includes(matches[0].state)&&row.reccied!=='Yes'){
-                row.reccied='Yes';changed=true;
+            if(matches.length===1&&matches[0].confirmed===true&&['Yes','No'].includes(matches[0].after)&&['updated','already_yes','unchanged'].includes(matches[0].state)){
+                if(row.reccied!==matches[0].after){row.reccied=matches[0].after;changed=true;}
+                if(typeof matches[0].commentsAfter==='string'&&row.comments!==matches[0].commentsAfter){row.comments=matches[0].commentsAfter;changed=true;}
             }
         }
         if(changed){tracker.revision=crypto.randomUUID();tracker.lastManualSave={requestId:result.requestId,at:new Date().toISOString()};const values={[`${key}:${month}`]:tracker};if(active?.month===month)values[key]=tracker;await chrome.storage.local.set(values);}
     });
     return tracker;
 }
-export async function dispatchTrackerWrite(request,{queueWrite,assertActive,automatic=false}){
+export async function dispatchTrackerWrite(request,{queueWrite,assertActive,automatic=false,beforeCommit}){
     const mode=request.mode||'main',month=request.month,key=core.trackerKey(mode,month);
     if(!['main','early'].includes(mode)||!core.validMonth(month))throw Error('Manual updates need a Main Tracker or Early Recs report month.');
     if(request.operation==='trackerWriteStatus'){
@@ -58,21 +60,29 @@ export async function dispatchTrackerWrite(request,{queueWrite,assertActive,auto
     if(!liveTracker(tracker,month))throw Error('Connect the live Ops Reccie Tracker before updating it. CSV and visited-campaign reports cannot be written.');
     if(tracker.revision!==request.revision)throw Error('The report changed. Open a new write preview.');
     assertActive();
-    if(request.operation==='previewTrackerWrite'){
+    if(['previewTrackerWrite','previewTrackerEdit'].includes(request.operation)){
+        const editing=request.operation==='previewTrackerEdit';
+        if(editing&&(automatic||!Array.isArray(request.edits)||request.edits.length!==request.rowIds?.length))throw Error('Invalid manual note update.');
         if(!Array.isArray(request.rowIds)||!request.rowIds.length||request.rowIds.length>100||new Set(request.rowIds).size!==request.rowIds.length)throw Error('Select between 1 and 100 D numbers for one update.');
         const rows=request.rowIds.map(id=>{
             const matches=tracker.rows.filter(row=>row.sourceRow===id);
             if(matches.length!==1||matches[0].issue||matches[0].month!==month)throw Error('Selection contains a missing, duplicate or invalid placement.');
-            return {dNumber:matches[0].dNumber,campaignId:matches[0].campaignId};
+            const row=matches[0];
+            if(!editing)return {dNumber:row.dNumber,campaignId:row.campaignId};
+            const changes=request.edits.filter(edit=>edit.sourceRow===id);
+            if(changes.length!==1||!['Yes','No'].includes(changes[0].reccied)||typeof changes[0].comments!=='string'||changes[0].comments.length>2000||/^\s*=/.test(changes[0].comments))throw Error('Use Yes or No and a note of up to 2,000 characters, without a leading equals sign.');
+            return {dNumber:row.dNumber,campaignId:row.campaignId,after:changes[0].reccied,commentsAfter:changes[0].comments,before:row.reccied,commentsBefore:row.comments||''};
         });
-        let result=await api('preview',{mode,month,rows,cause:automatic?'verified':'manual'});
+        let result;
+        try{result=await api(editing?'previewEdit':'preview',{mode,month,rows,cause:automatic?'verified':'manual'});}catch(error){if(editing&&error.message==='INVALID_REQUEST')throw Error('The tracker service needs the notes update. No save was started.');throw error;}
         // Google can redirect the first authenticated POST to the service's GET
         // connection response. Only retry this known read-only response shape.
         if(typeof result.manualEnabled==='boolean'&&typeof result.email==='string'&&!result.requestId&&!result.results){
-            result=await api('preview',{mode,month,rows,cause:automatic?'verified':'manual'});
+            result=await api(editing?'previewEdit':'preview',{mode,month,rows,cause:automatic?'verified':'manual'});
         }
         if(typeof result.requestId!=='string'||!/^[a-zA-Z0-9-]{20,80}$/.test(result.requestId)||typeof result.token!=='string'||!Array.isArray(result.results))throw Error('Google returned an incomplete tracker preview. No save was started. Close and try the preview again.');
         if(result.mode!==mode||result.month!==month||result.results.length!==rows.length||result.results.some(item=>item.month!==month)||rows.some(row=>rows.filter(other=>row.dNumber===other.dNumber&&row.campaignId===other.campaignId).length!==1||result.results.filter(item=>row.dNumber===item.dNumber&&row.campaignId===item.campaignId).length!==1))throw Error('Tracker preview does not match the selected placements.');
+        if(editing&&(result.kind!=='edit'||result.results.some(item=>!rows.some(row=>row.dNumber===item.dNumber&&row.campaignId===item.campaignId&&row.after===item.after&&row.commentsAfter===item.commentsAfter))))throw Error('The tracker service needs the notes update. No save was started.');
         const current=(await chrome.storage.local.get(key))[key];
         if(current?.revision!==request.revision)throw Error('The report changed while loading the preview. Preview again.');
         for(const [id,item]of pending)if(item.expires<Date.now())pending.delete(id);
@@ -81,11 +91,12 @@ export async function dispatchTrackerWrite(request,{queueWrite,assertActive,auto
         delete result.token;return {write:result};
     }
     if(request.operation!=='commitTrackerWrite')throw Error('Unknown tracker update action.');
+    if(automatic&&typeof beforeCommit!=='function')throw Error('Automatic tracker updates need a current opt-in check.');
     const prepared=pending.get(request.requestId);
     if(!prepared||prepared.expires<Date.now()||prepared.revision!==request.revision||prepared.mode!==mode||prepared.month!==month)throw Error('The preview expired. Preview again before saving.');
     pending.delete(request.requestId);
     await chrome.storage.local.set({[receiptKey(mode,month)]:{requestId:request.requestId,mode,month}});
-    const result=await api('commit',{requestId:request.requestId,token:prepared.token});
+    const result=await api('commit',{requestId:request.requestId,token:prepared.token},automatic?beforeCommit:undefined);
     if(result.requestId!==request.requestId)throw Error('Unexpected save receipt. Use Check save result before retrying.');
     return {write:result,tracker:await applyReceipt(result,key,mode,month,queueWrite)};
 }

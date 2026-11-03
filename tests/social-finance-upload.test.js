@@ -93,6 +93,13 @@ describe('Social Booking Checker report uploads', () => {
     beforeEach(async () => { await setupReviewPage(); });
 
     afterEach(() => dom.window.close());
+    test('rejects oversized files before reading their contents', async () => {
+        const text = jest.fn();
+        dropFile(dom.window, document.querySelector('#metaDropZone'), {name:'large.csv',type:'text/csv',size:25*1024*1024+1,text});
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        expect(text).not.toHaveBeenCalled();
+        expect(document.querySelector('#validationMessages').textContent).toContain('25 MB');
+    });
 
     test.each(['socialBookingManualCampaignMatches', 'socialBookingRejectedCampaignMatches', 'socialBookingWrikeReferences', 'socialBookingMetaPrismaMappings'].flatMap(key => [
         [key, 'callback'], [key, 'reject']

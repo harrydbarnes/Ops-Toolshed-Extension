@@ -16,6 +16,16 @@
         <div class="titleline"><h1>My Reccies</h1><span class="readonly">Manual tracker updates</span></div>
         <p class="intro">Your Reccie Tracker rows, checked against Prisma. Preview and confirm any tracker updates.</p>
     </header>
+    <section id="reccie-progress" class="reccie-progress" aria-label="Monthly Reccie progress" hidden>
+        <div class="reccie-progress-metric">
+            <div class="reccie-progress-label"><span>Time gone</span><span id="reccie-time-progress-label"></span></div>
+            <progress id="reccie-time-progress" max="5" value="0" aria-label="Time gone in the first five working days"></progress>
+        </div>
+        <div class="reccie-progress-metric">
+            <div class="reccie-progress-label"><span>Tracker progress</span><span id="reccie-tracker-progress-label"></span></div>
+            <progress id="reccie-tracker-progress" max="1" value="0" aria-label="Assigned tracker rows marked Yes"></progress>
+        </div>
+    </section>
     <fieldset class="mode-switch" id="mode-switch"><legend id="source-label">Reccie source</legend>
         <div class="segmented-control" id="source-segments" role="group" aria-labelledby="source-label"></div>
         <label hidden><input type="radio" name="mode" value="main" checked>Main Tracker</label>
@@ -44,6 +54,7 @@
             <p class="hint">Checks changed placements after financial confirmation; gross/date-only and unchanged lines are excluded. Automatic marking uses the setting above. Chrome must be running and Prisma signed in.</p>
             <p id="automation-status" class="hint" role="status"></p>
         </div>
+        <div class="reccies-progress-setting"><label><input id="show-progress-bars" type="checkbox" checked> Show progress bars above the tracker</label></div>
     </details>
     <p id="source-status" class="hint"></p>
     <p id="background-progress" class="hint" role="status" aria-live="polite" hidden></p>
@@ -65,7 +76,7 @@
         </div>
         <fieldset class="status-filter"><legend>Prisma status</legend><div class="status-chips">
             <label><input type="checkbox" data-status="mismatch">Yes in sheet, not in Prisma</label>
-            <label><input type="checkbox" data-status="ready">Ready in Prisma</label>
+            <label><input type="checkbox" data-status="ready">Reconciled in Prisma</label>
             <label><input type="checkbox" data-status="review">Needs attention</label>
         </div><p id="filter-hint" class="hint">Matches the tracker status AND any selected Prisma status. Nothing ticked means any Prisma status, including not checked. Uses your latest checks.</p>
         <button id="clear-filters" type="button" class="filter-clear" hidden>Clear filters</button></fieldset>
@@ -74,7 +85,7 @@
     <p id="verification-scope" class="hint">Verifies all rows matching your filters, including rows below “Show more”.</p>
     <p id="message" role="status" aria-live="polite"></p>
     <div id="rows" aria-label="Reccie rows"></div>
-    <p class="rule">Ready means Reconciled = Yes and Buy status = Successful for the report month. Checking does not mark the tracker as reccied; use Mark Yes in tracker to preview and confirm an update.</p>
+    <p class="rule">Reconciled in Prisma means Reconciled = Yes and Buy status = Successful for the report month. Tracker Yes/No is separate. Use Note to edit comments or tracker status, or Mark Yes in tracker to confirm reconciliation. Automatic Yes updates apply only when enabled.</p>
     <button id="last-tracker-save" type="button" hidden>Check last tracker save</button>
     <details id="debug"><summary>Debug</summary>
         <button id="test-google-connection" type="button">Test Google connection</button>

@@ -24,7 +24,8 @@ describe('Loading Facts review settings', () => {
         expect(settingsHtml).toContain('id="exportLoadingFactRatings"');
         const view = new JSDOM(settingsHtml);
         const scripts = view.window.document.querySelector('script[data-scripts]').dataset.scripts.split(',');
-        expect(scripts).toEqual(expect.arrayContaining(['feature-settings-registry.js', 'build-info.js', 'utils.js', 'features/feedback-modal.js', 'features/loading-facts.js', 'loading-facts-preview.js', 'settings.js']));
+        expect(scripts).toEqual(expect.arrayContaining(['feature-settings-registry.js', 'popup-shortcuts.js', 'build-info.js', 'utils.js', 'features/feedback-modal.js', 'features/loading-facts.js', 'loading-facts-preview.js', 'settings.js']));
+        expect(scripts.indexOf('popup-shortcuts.js')).toBeLessThan(scripts.indexOf('settings.js'));
         expect(scripts.indexOf('features/loading-facts.js')).toBeLessThan(scripts.indexOf('loading-facts-preview.js'));
         expect(scripts.indexOf('loading-facts-preview.js')).toBeLessThan(scripts.indexOf('settings.js'));
         view.window.close();

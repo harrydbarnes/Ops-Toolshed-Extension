@@ -28,6 +28,11 @@
                     <button id="choose-prisma" class="audience-option" type="button"><strong>I book on Prisma</strong><span>Set up campaign shortcuts and take the optional Prisma tour.</span></button>
                     <button id="choose-non-prisma" class="audience-option" type="button"><strong>I don't book on Prisma</strong><span>Use Aura timesheets, Social Booking Checker, Approvers, Help Guides and launch links.</span></button>
                     <p class="audience-data-note">Preferences are saved in your Chrome profile and may sync when Chrome Sync is enabled and the extension ID matches. Campaign records stay in local extension storage. <a href="data-and-permissions.html" target="_blank" rel="noopener">Review data and permissions</a>.</p>
+                    <details id="onboarding-popup-shortcuts" class="onboarding-popup-shortcuts">
+                        <summary>Customise popup shortcuts now</summary>
+                        <p>Choose which buttons appear in the popup and add your own links. You can change these choices any time later in Settings.</p>
+                        <div id="onboarding-popup-shortcut-editor" class="popup-shortcut-editor"></div>
+                    </details>
                 </section>
                 <section id="non-prisma-setup" class="non-prisma-setup" hidden>
                     <p>Open the Ops Toolshed toolbar popup to use these tools:</p>
@@ -91,6 +96,6 @@
 
         <footer class="onboarding-footer"><span id="save-status" role="status" aria-live="polite">Your choices save automatically</span><div class="footer-actions"><button id="previous-step" class="secondary-action" type="button" hidden>Back</button><button id="next-step" class="primary-action" type="button">Continue</button><button id="start-tour" class="primary-action" type="button" hidden>Open Prisma tour</button></div></footer>
     </main>
-    <script src="extension-page-gate.js" data-scripts="loading-facts-preview.js,onboarding.js"></script>
+    <script src="extension-page-gate.js" data-scripts="popup-shortcuts.js,loading-facts-preview.js,onboarding.js"></script>
 </body>
 </html>

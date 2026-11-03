@@ -147,6 +147,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         syncTabFromUrl();
     }
 
+    document.getElementById('diagnostics-signal')?.addEventListener('click', event => {
+        const button = event.target.closest('[data-diagnostics-signal]');
+        if (!button) return;
+        document.querySelectorAll('[data-diagnostics-signal]').forEach(option => option.setAttribute('aria-pressed', String(option === button)));
+        displayStats();
+    });
     // --- Stats Display Logic ---
     function formatLoadingTime(totalSeconds) {
         if (totalSeconds < 60) {
@@ -293,6 +299,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    function normalizeStatsSupplier(value) {
+        let name = value.trim().replace(/\s+/g, ' ');
+        name = name.replace(/\s*\([^)]*\)/g, '').replace(/\s+(?:GBP|EUR|USD)$/i, '').trim();
+        const halves = name.split(/\s*:\s*/);
+        if (halves.length === 2 && halves[0].toLowerCase() === halves[1].toLowerCase()) name = halves[0];
+        if (/^amazon\s+(?:reg(?:ulatory)?\.?\s+advertising\s+fee|raf)$/i.test(name)) return 'Amazon RAF';
+        const aliases = { amazon: 'Amazon', flashtalking: 'Flashtalking', facebook: 'Facebook', meta: 'Meta', google: 'Google', youtube: 'YouTube', tiktok: 'TikTok', snapchat: 'Snapchat', linkedin: 'LinkedIn', dv360: 'DV360', 'goat solutions': 'GOAT', goat: 'GOAT', 'adapted creative limited:adapted': 'Adapted', 'adapted creative limited': 'Adapted', adapted: 'Adapted' };
+        return aliases[name.toLowerCase()] || name;
+    }
+
     function renderCampaignInsights(entries) {
         const snapshots = Array.isArray(entries) ? entries : [];
         const money = value => typeof value === 'number' && Number.isFinite(value) && value >= 0;
@@ -308,7 +324,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const counts = new Map();
             snapshots.forEach(entry => {
                 const names = String(entry[field] || '').split(field === 'supplier' ? '|' : /$^/);
-                const unique = new Map(names.map(name => [name.trim().toLowerCase(), name.trim()]).filter(([key]) => key));
+                const normalized = names.map(name => field === 'supplier' ? normalizeStatsSupplier(name) : name.trim());
+                const unique = new Map(normalized.map(name => [name.toLowerCase(), name]).filter(([key]) => key));
                 unique.forEach((name, key) => {
                     const existing = counts.get(key);
                     counts.set(key, { name: existing?.name || name, count: (existing?.count || 0) + 1 });
@@ -672,14 +689,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (beatWeekEl) {
             const beatWeekLabel = beatWeekEl.nextElementSibling;
             if (previousWeekCount === 0) {
-                beatWeekEl.textContent = "First Week!";
-                if (beatWeekLabel) beatWeekLabel.style.display = 'none';
+                beatWeekEl.textContent = `${currentWeekCount} confirmed save${currentWeekCount === 1 ? '' : 's'}`;
+                if (beatWeekLabel) { beatWeekLabel.style.display = ''; beatWeekLabel.textContent = 'Last 7 days · no confirmed saves in the previous 7'; }
             } else {
                 const diff = currentWeekCount - previousWeekCount;
                 const percent = Math.round((diff / previousWeekCount) * 100);
                 const arrow = percent > 0 ? '⬆️' : (percent < 0 ? '⬇️' : '➖');
                 beatWeekEl.textContent = `${arrow} ${Math.abs(percent)}%`;
-                if (beatWeekLabel) beatWeekLabel.style.display = '';
+                if (beatWeekLabel) { beatWeekLabel.style.display = ''; beatWeekLabel.textContent = 'Confirmed saves · last 7 days vs previous 7'; }
             }
         }
 
@@ -769,7 +786,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function displayStats() {
-        chrome.storage.local.get(['legacyStats', 'dailyStats', 'statsStartDate', 'appLearnPopupsBlocked', 'campaignStatsSnapshots'], (data) => {
+        chrome.storage.local.get(['legacyStats', 'dailyStats', 'statsStartDate', 'appLearnPopupsBlocked', 'campaignStatsSnapshots', 'prismaDiagnostics'], (data) => {
             const range = periodRange();
             const legacyStats = (selectedPeriod === 'all' ? data.legacyStats : null) || {
                 visitedCampaigns: [],
@@ -825,6 +842,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (appLearnPopupsBlockedEl) appLearnPopupsBlockedEl.textContent = Number(data.appLearnPopupsBlocked) || 0;
 
             // Render Visualizations
+            window.renderPrismaDiagnostics?.(data.prismaDiagnostics, key => inRange(key, range), { start: range.start ? dateKey(range.start) : null, end: dateKey(range.end) });
             renderLoadingAreaBreakdown(dailyStats);
             renderCampaignInsights(data.campaignStatsSnapshots);
             renderMonthlyTrends(dailyStats, allDailyStats, range);
@@ -888,19 +906,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     // --- Stats Reset Logic ---
-    function resetStats() {
-        chrome.storage.local.set({
-            'legacyStats': { visitedCampaigns: [], totalLoadingTime: 0, placementsAdded: 0, reconciliations: 0 },
-            'dailyStats': {},
-            'campaignStatsSnapshots': [],
-            'statsSaveReceipts': [],
-            'appLearnPopupsBlocked': 0,
-            'statsStartDate': new Date().toISOString()
-        }, () => {
-            console.log('Stats have been reset.');
+    async function resetStats() {
+        try {
+            const response = await chrome.runtime.sendMessage({ action: 'RESET_STATS' });
+            if (response?.status !== 'success') throw new Error('Reset was not saved');
             displayStats();
-        });
-        hideModal();
+            hideModal();
+        } catch (error) {
+            console.error('Could not reset stats:', error);
+            document.getElementById('diagnostics-report-status').textContent = 'Could not reset Stats. Please try again.';
+        }
     }
 
     if (resetButton) resetButton.addEventListener('click', showModal);
@@ -910,7 +925,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- Real-Time Update Listener ---
     chrome.storage.onChanged.addListener((changes, namespace) => {
-        if (namespace === 'local' && (changes.legacyStats || changes.dailyStats || changes.appLearnPopupsBlocked || changes.campaignStatsSnapshots)) {
+        if (namespace === 'local' && (changes.prismaDiagnostics || changes.legacyStats || changes.dailyStats || changes.appLearnPopupsBlocked || changes.campaignStatsSnapshots)) {
             displayStats();
         }
     });

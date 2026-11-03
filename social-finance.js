@@ -374,12 +374,15 @@
 
     async function loadFile(file, key, labelId, dropZone, removeButton) {
         if (!file) return;
+        if (file.size > 25 * 1024 * 1024) throw new Error('This CSV exceeds 25 MB. Export a smaller date range and try again.');
         const isCsv = file.type === 'text/csv' || /\.csv$/i.test(file.name || '');
         if (!isCsv) {
             renderMessages([`Choose a CSV file for the ${key === 'metaText' ? 'Meta Ads Report' : 'Prisma booking report'}.`]);
             return;
         }
-        state[key] = await file.text();
+        const text = await file.text();
+        const columnCheck = validateUploadColumns(key, text);
+        state[key] = text;
         if (key === 'metaText') {
             state.uploadedMetaText = state[key];
             state.metaTextSource = 'csv';
@@ -388,7 +391,7 @@
         byId(labelId).textContent = `${file.name}, ${(file.size / 1024).toFixed(1)} KB`;
         dropZone.classList.add('has-file');
         removeButton.classList.remove('hidden');
-        renderColumnCheck(key, validateUploadColumns(key, state[key]));
+        renderColumnCheck(key, columnCheck);
         resetReport();
         renderMessages([]);
         if (key === 'metaText') await importMetaReference();

@@ -1,3 +1,7 @@
+const popupShortcutSettings = typeof module !== 'undefined' && module.exports
+    ? require('./popup-shortcuts')
+    : globalThis.OpsToolshedPopupShortcuts;
+
 function setKillSwitchAppearance(button, featuresDisabled) {
     if (!button) return;
 
@@ -104,8 +108,62 @@ function initialiseFeaturesKillSwitch() {
     });
 }
 
+function initialisePopupShortcuts() {
+    const shortcuts = popupShortcutSettings;
+    const buttonGroup = document.querySelector('.button-group');
+    if (!shortcuts || !buttonGroup) return;
+
+    chrome.storage.sync.get({
+        popupShortcuts: shortcuts.DEFAULT_ENABLED_KEYS,
+        popupCustomShortcuts: []
+    }, data => {
+        if (chrome.runtime.lastError) {
+            console.error('Could not load popup shortcuts:', chrome.runtime.lastError.message);
+            return;
+        }
+
+        const selectedKeys = shortcuts.normalizeShortcutKeys(data.popupShortcuts);
+        shortcuts.BUILT_IN_SHORTCUTS.forEach(shortcut => {
+            const button = document.getElementById(shortcut.elementId);
+            if (button) button.hidden = !selectedKeys.includes(shortcut.key);
+        });
+
+        buttonGroup.querySelectorAll('[data-custom-popup-shortcut="true"]').forEach(button => button.remove());
+        shortcuts.normalizeCustomShortcuts(data.popupCustomShortcuts)
+            .filter(shortcut => shortcut.enabled)
+            .forEach(shortcut => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'nav-button';
+            button.dataset.customPopupShortcut = 'true';
+            button.textContent = shortcut.name;
+            button.addEventListener('click', () => chrome.tabs.create({ url: shortcut.url }));
+            buttonGroup.appendChild(button);
+            });
+    });
+}
+
+function openPopupReccies() {
+    try {
+        chrome.runtime.sendMessage({
+            action: 'openReccies',
+            windowId: chrome.windows?.WINDOW_ID_CURRENT ?? -2
+        }, response => {
+            if (chrome.runtime.lastError || response?.status === 'error') {
+                const message = response?.message || 'Could not open Reccies. Try again from the Ops Toolshed popup.';
+                console.error('Could not open Reccies:', chrome.runtime.lastError?.message || message);
+                window.alert(message);
+            }
+        });
+    } catch (error) {
+        console.error('Could not open Reccies:', error);
+        window.alert('Could not open Reccies. Try again from the Ops Toolshed popup.');
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     initialiseFeaturesKillSwitch();
+    initialisePopupShortcuts();
     setupCampaignMonthTooltip();
     document.getElementById('annualLeaveButton')?.addEventListener('click', () => {
         chrome.tabs.create({ url: chrome.runtime.getURL('annual-leave.html') });
@@ -211,6 +269,7 @@ document.addEventListener('DOMContentLoaded', function() {
     addClickListener('timesheetHelperButton', 'timesheet-helper.html');
     addClickListener('approvalsButton', 'https://groupmuk-aura.mediaocean.com/viewport-home/#osAppId=rod-time&osPspId=rod-time&route=time/display/myTimesheetApprovals/AwaitingMe');
     addClickListener('officeHoursButton', 'https://myofficedays.netlify.app/');
+    document.getElementById('recciesButton')?.addEventListener('click', openPopupReccies);
     addClickListener('approversListButton', 'https://insidemedia.sharepoint.com/:x:/s/TPO-SharePoint/EYxRbLkQU_xLpMSvnQQFIt4Bug1w9CJupONy6sIdr6IuFw?email=harry.barnes%40wppmedia.com&e=Mi9JPh');
     addClickListener('tpoSharepointButton', 'https://insidemedia.sharepoint.com/sites/TPO-SharePoint');
     addClickListener('addCampaignButton', 'https://go.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns&osModalId=prsm-cm-cmpadd&osMOpts=lb');

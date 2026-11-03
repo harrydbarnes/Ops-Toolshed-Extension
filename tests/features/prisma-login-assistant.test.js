@@ -363,6 +363,9 @@ describe('Prisma sign-in assistant', () => {
         expect(status.textContent).toBe('Logging you back in...');
         expect(status.compareDocumentPosition(progressBar) & window.Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
         expect(window.document.querySelector('.ops-toolshed-timeout-dots').getAttribute('aria-hidden')).toBe('true');
+        const styles = window.document.getElementById('ops-toolshed-prisma-login-toast-style').textContent;
+        expect(styles).toMatch(/\.ops-toolshed-timeout-dots\s*\{[^}]*width:\s*3ch/);
+        expect(styles).toMatch(/@keyframes ops-toolshed-timeout-dots\s*\{[\s\S]*?clip-path:/);
         expect(linkClick).not.toHaveBeenCalled();
 
         await new Promise(resolve => setTimeout(resolve, 2050));

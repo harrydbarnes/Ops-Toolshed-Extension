@@ -48,6 +48,23 @@ describe('Reccies sidebar',()=>{
     const liveSource={type:'google',url:'https://docs.google.com/spreadsheets/d/1QxX7yZvfh75ENyvPG7xD_5ldLuoLwUsTZ6z0edkpORU/edit?gid=405487495'};
     const writeId='01234567-89ab-cdef-0123-456789abcdef';
     const clickDialog=(win,label)=>[...win.document.querySelectorAll('dialog button')].find(button=>button.textContent===label).click();
+    test('shows compact assigned-row and time progress, and saves the display toggle',async()=>{
+        const {dom,win,getData}=create({trackerStatus:'any'});
+        try{
+            await flush();
+            const doc=win.document,panel=doc.getElementById('reccie-progress'),toggle=doc.getElementById('show-progress-bars');
+            expect(panel.hidden).toBe(false);
+            expect(doc.getElementById('reccie-tracker-progress-label').textContent).toBe('1 / 2 marked Yes · 50%');
+            expect(doc.getElementById('reccie-time-progress').max).toBe(5);
+            expect(doc.getElementById('reccie-time-progress-label').textContent).toMatch(/\d+(?:\.\d)? \/ 5 working days/);
+            doc.getElementById('search').value='D03120200';doc.getElementById('search').dispatchEvent(new win.Event('input'));
+            expect(doc.getElementById('reccie-tracker-progress-label').textContent).toBe('1 / 2 marked Yes · 50%');
+            toggle.click();await flush();
+            expect(panel.hidden).toBe(true);expect(getData().reccieProgressBarsEnabled).toBe(false);
+            toggle.click();await flush();
+            expect(panel.hidden).toBe(false);expect(getData().reccieProgressBarsEnabled).toBe(true);
+        }finally{dom.window.close();}
+    });
     test('V2 focus hides only this sidebar controls and keeps filters, verification and results',async()=>{
         const {dom,win,getData}=create({trackerStatus:'any'},liveSource,true);
         try{
@@ -568,7 +585,7 @@ describe('Reccies sidebar',()=>{
         try {
             const doc=dom.window.document;
             expect([...doc.querySelectorAll('#show-by option')].map(option=>option.textContent)).toEqual(['D number','Campaign']);
-            expect([...doc.querySelectorAll('[data-status]')].map(input=>input.parentElement.textContent.trim())).toEqual(['Yes in sheet, not in Prisma','Ready in Prisma','Needs attention']);
+            expect([...doc.querySelectorAll('[data-status]')].map(input=>input.parentElement.textContent.trim())).toEqual(['Yes in sheet, not in Prisma','Reconciled in Prisma','Needs attention']);
             expect(doc.querySelectorAll('[data-status]:checked')).toHaveLength(0);
             expect(doc.getElementById('show-by').value).toBe('dnumber');
             expect(doc.getElementById('view')).toBeNull();
@@ -646,7 +663,7 @@ describe('Reccies sidebar',()=>{
         const {dom,win,getData}=create();await flush();
         win.document.getElementById('check-rows').click();await flush();await flush();
         expect(win.chrome.runtime.sendMessage).toHaveBeenCalledWith({action:'reccies',operation:'check',revision:'test',rowIds:[2],method:'workers-8'});
-        expect(win.document.getElementById('rows').textContent).toContain('Verified ready');
+        expect(win.document.getElementById('rows').textContent).toContain('Reconciled in Prisma');
         expect(win.document.getElementById('rows').textContent).toContain('Tracker Reccied: No');
         expect(getData().reccieTracker.rows[0].reccied).toBe('No');
         dom.window.close();
@@ -724,4 +741,17 @@ describe('Reccies header lifecycle',()=>{
         expect(win.document.getElementById('ops-reccies-launcher')).toBeNull();
         dom.window.close();
     });
+});
+
+test('notes show actual mixed campaign statuses and chips preserve existing comments',async()=>{
+ const liveSource={type:'google',url:'https://docs.google.com/spreadsheets/d/1QxX7yZvfh75ENyvPG7xD_5ldLuoLwUsTZ6z0edkpORU/edit?gid=405487495'},writeId='01234567-89ab-cdef-0123-456789abcdef';
+ const {dom,win,getData}=create({trackerStatus:'any',showBy:'campaign'},liveSource,true);
+ try{await flush();getData().reccieTracker.rows[0].comments='Existing note';win.document.getElementById('search').dispatchEvent(new win.Event('input'));
+ win.document.querySelector('.tracker-note').click();await flush();const fields=[...win.document.querySelectorAll('.tracker-note-dialog fieldset')];expect(fields).toHaveLength(2);expect(fields.map(f=>f.querySelector('select').value)).toEqual(['No','Yes']);
+ const area=fields[0].querySelector('textarea');expect(area.value).toBe('Existing note');fields[0].querySelector('button').click();fields[0].querySelector('button').click();expect(area.value).toBe('Existing note\nWaiting on Supplier Spend');
+ win.chrome.runtime.sendMessage.mockResolvedValue({status:'success',write:{requestId:writeId,results:[{dNumber:'D03120200',state:'eligible',before:'No',after:'Yes',commentsAfter:area.value},{dNumber:'D03144023',state:'eligible',before:'Yes',after:'Yes',commentsAfter:''}]}});
+ fields[0].querySelector('select').value='Yes';[...win.document.querySelectorAll('dialog button')].find(button=>button.textContent==='Preview Update(s)').click();await flush();
+ expect(win.chrome.runtime.sendMessage).toHaveBeenLastCalledWith(expect.objectContaining({operation:'previewTrackerEdit',rowIds:[2,3],edits:[{sourceRow:2,reccied:'Yes',comments:'Existing note\nWaiting on Supplier Spend'},{sourceRow:3,reccied:'Yes',comments:''}]}));
+ expect(win.document.querySelector('dialog').textContent).toContain('No → Yes');expect(win.chrome.runtime.sendMessage.mock.calls.some(([r])=>r.operation==='commitTrackerWrite')).toBe(false);
+ }finally{dom.window.close();}
 });

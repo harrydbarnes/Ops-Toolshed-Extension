@@ -269,7 +269,7 @@ export async function handleReccies(request, sender, sendResponse) {
     try {
         if (!ownPage(sender)) throw new Error('Tracker data is available only in Ops Toolshed.');
         await assertPrismaProfile();
-        if (['previewTrackerWrite','commitTrackerWrite','trackerWriteStatus'].includes(request.operation)) {
+        if (['previewTrackerWrite','previewTrackerEdit','commitTrackerWrite','trackerWriteStatus'].includes(request.operation)) {
             const result = await dispatchTrackerWrite(request,{queueWrite,assertActive});
             sendResponse({status:'success',...result});
             return;

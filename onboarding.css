@@ -225,6 +225,41 @@ button:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid
 .shared-tool-list > div { padding: 16px 0; border-bottom: 1px solid var(--line); }
 .shared-tool-list dt { font-weight: 600; }
 .shared-tool-list dd { margin: 6px 0 0; color: var(--muted); line-height: 1.5; }
+.onboarding-popup-shortcuts { grid-column: 1 / -1; padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--soft); }
+.onboarding-popup-shortcuts summary { cursor: pointer; color: var(--accent-dark); font-weight: 700; }
+.onboarding-popup-shortcuts > p { color: var(--muted); font-size: 14px; line-height: 1.5; }
+.popup-shortcut-editor { margin-top: 12px; }
+.popup-shortcut-instructions { margin: 0 0 12px; color: var(--muted); font-size: 13px; line-height: 1.45; }
+.popup-shortcut-lane-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.popup-shortcut-lane .popup-shortcut-lane-header h3 { margin: 0; }
+.popup-shortcut-reset { flex: 0 0 auto; margin: 0; padding: 6px 9px; border: 1px solid #cbd2dc; border-radius: 5px; background: #fff; color: #404756; font-size: 12px; line-height: 1.3; }
+.popup-shortcut-reset:hover { background: #f4f5f7; }
+.popup-shortcut-board { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(180px, .8fr); gap: 12px; align-items: start; margin-bottom: 16px; }
+.popup-shortcut-lane { min-width: 0; padding: 12px; border-radius: 6px; background: #f8f9fb; }
+.popup-shortcut-lane h3 { margin: 0 0 4px; color: var(--ink); font-size: 14px; }
+.popup-shortcut-lane-help { margin: 0 0 10px; color: var(--muted); font-size: 12px; line-height: 1.4; }
+.popup-shortcut-board > section.popup-shortcut-dropzone { min-height: 160px; border: 1px dashed #aeb5bf; background: #fbfbfc; margin-bottom: 0; padding-bottom: 12px; transition: border-color .15s ease, background-color .15s ease; }
+.popup-shortcut-lane.is-drop-target { outline: 2px solid var(--accent); outline-offset: 2px; background-color: #fff1f5; }
+.popup-shortcut-board > section.popup-shortcut-dropzone.is-drop-target { border-style: solid; }
+.popup-shortcut-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; min-height: 42px; align-content: start; }
+.popup-shortcut-dropzone .popup-shortcut-tiles { grid-template-columns: 1fr; }
+.popup-shortcut-tile-wrap { display: flex; align-items: stretch; gap: 4px; min-width: 0; }
+button.popup-shortcut-tile.nav-button { flex: 1 1 auto; min-width: 0; width: 100%; min-height: 38px; margin: 0; padding: 8px; border: 1px solid #ccc; border-radius: 4px; background: #f0f0f0; color: #333; font-size: 12px; font-weight: 400; line-height: 1.25; overflow-wrap: anywhere; cursor: grab; transition: background-color .2s, transform .1s; }
+button.popup-shortcut-tile.nav-button:hover { background: #fafafa; animation: none; }
+button.popup-shortcut-tile.nav-button:active { transform: translateY(2px); cursor: grabbing; }
+button.popup-shortcut-tile.nav-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.popup-shortcut-dropzone button.popup-shortcut-tile.nav-button { background: #f5f5f5; color: #4d4d4d; }
+.popup-shortcut-tile-wrap.is-dragging { opacity: .4; }
+.popup-shortcut-remove { align-self: center; flex: 0 0 auto; margin: 0; padding: 4px 3px; border: 0; background: transparent; color: #595959; font-size: 11px; cursor: pointer; }
+.popup-shortcut-remove:hover, .popup-shortcut-remove:focus-visible { background: transparent; color: #222; text-decoration: underline; }
+.popup-shortcut-custom-form { display: grid; grid-template-columns: 1fr 1.4fr auto; align-items: end; gap: 10px; margin: 0 0 12px; }
+.popup-shortcut-custom-form label { display: grid; gap: 5px; color: var(--ink); font-size: 13px; font-weight: 600; }
+.popup-shortcut-custom-form input { width: 100%; min-width: 0; height: 40px; padding: 8px; border: 1px solid #cbd2dc; border-radius: 7px; background: white; color: var(--ink); }
+.popup-shortcut-custom-form button { margin: 0; padding: 9px 12px; border: 0; border-radius: 8px; background: var(--accent-dark); color: white; font: inherit; font-weight: 600; cursor: pointer; }
+.popup-shortcut-custom-form button:disabled { opacity: .55; cursor: not-allowed; }
+.popup-shortcut-status { min-height: 1.3em; margin: 8px 0 0; color: #396d3e; font-size: 13px; }
+.popup-shortcut-status[data-state="error"] { color: #9b2222; }
+@media (max-width: 650px) { .popup-shortcut-board, .popup-shortcut-tiles, .popup-shortcut-custom-form { grid-template-columns: 1fr; } .popup-shortcut-reset { white-space: nowrap; } }
 .privacy-shell { min-height: auto; }
 .privacy-content h1 { margin: 0 0 12px; font-size: clamp(30px, 4vw, 42px); }
 .privacy-content section { margin-top: 38px; }

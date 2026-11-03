@@ -147,12 +147,14 @@
      * @returns {ParsedFinanceCsv}
      */
     function parseCsv(text) {
+        if (String(text || '').length > 25 * 1024 * 1024) throw new Error('CSV exceeds the 25 MB parsing limit. Export a smaller date range.');
         const source = String(text || '').replace(/^\uFEFF/, '');
         const matrix = [];
         let row = [];
         let field = '';
         let quoted = false;
         for (let index = 0; index < source.length; index++) {
+            if (field.length > 100000 || row.length > 500 || matrix.length > 100000) throw new Error('CSV exceeds the supported field, column or row limits. Export a smaller report.');
             const char = source[index];
             if (quoted) {
                 if (char === '"' && source[index + 1] === '"') {
@@ -172,10 +174,12 @@
             } else if (char !== '\r') field += char;
         }
         row.push(field);
+        if (field.length > 100000 || row.length > 500 || matrix.length > 100000) throw new Error('CSV exceeds the supported field, column or row limits. Export a smaller report.');
         if (row.some(value => String(value).trim() !== '')) matrix.push(row);
         if (!matrix.length) return { headers: [], rows: [] };
 
         const headers = matrix[0].map((value, index) => String(value || `Column_${index + 1}`).trim());
+        if (headers.length * (matrix.length - 1) > 2000000) throw new Error('CSV exceeds the supported cell limit. Export a smaller report.');
         const rows = matrix.slice(1).map(values => {
             const output = {};
             headers.forEach((header, index) => { output[header] = values[index] ?? ''; });

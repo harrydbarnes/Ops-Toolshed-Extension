@@ -36,6 +36,16 @@ Google Sheets does not provide an atomic compare-and-set transaction against
 concurrent human sorts/edits or other scripts. ScriptLock serialises this service
 only. Rematching reduces this risk; avoid sorting during a save.
 
+Security follow-up: this concurrency limitation remains open. Additional row
+checks cannot guarantee that a concurrent sort will not redirect a coordinate
+write, and readback cannot undo an unknown collateral change. A complete fix
+requires all editors/importers to honor an enforced exclusive editing window,
+or an authoritative store with atomic identity/version-based updates. Do not
+apply temporary sheet protections automatically: owners can bypass them and a
+failed cleanup can alter colleagues' access. Until that design is established,
+coordinate sorts/imports outside save operations and reconcile uncertain saves
+against the audit record before retrying.
+
 The separate private audit workbook stores actor email, D/campaign/month, original
 and confirmed values, request IDs and outcomes. It is not shared with colleagues.
 Automatic writes and three-minute post-financial-request checks are opt-in per Chrome profile and default off. The same fixed-sheet writer handles both, with client-verified automatic saves distinguished in the audit intent. Google does not query Prisma itself.
@@ -86,3 +96,11 @@ and a sendable preview Line ID + month. The inspected April preview had two
 unchanged lines and zero ready to send, so Confirm was never clicked. Cancel closed
 it without submitting financial changes. This trigger refinement is client-only;
 version 3 audit attribution remains unchanged.
+
+## Notes/status upgrade
+
+`previewEdit` accepts per-row expected/current status and comment plus target Yes/No and comment (2,000 characters maximum). The existing commit operation consumes an actor-bound preview. The service rematches identities/month, checks both original fields and formulas/validation, journals intentions, writes status/comments and pale yellow row backgrounds for non-empty notes, then reads back fields and colours. Clearing a comment does not reset backgrounds. Pending receipt recovery reads all fields/colours without replaying edits. No new scopes or allowlist entries are needed. Deploy the updated Code.gs at the existing URL before testing notes.
+
+## Live release record: 2 November 2026
+
+Version 4 deployed to the existing service URL after Harry approved notes/status deployment. Execution remains as Harry; domain access remains Anyone within groupm.com, with the same private server allowlist. No new scopes or permissions were requested. Editor source was read back and matched the tested local Code.gs exactly (LF-normalized length 20,094; FNV-1a b7f97a63). Google confirmed deployment success; a live GET returned ok=true, Harry's identity, manualEnabled=true, service/protocol unchanged. No tracker write or note/highlight test was submitted during deployment. Installed-extension preview and real save/readback remain to be tested.
