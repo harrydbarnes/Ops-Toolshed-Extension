@@ -2,6 +2,88 @@
 var WRITER_SERVICE_ = 'ops-toolshed-reccies-writer';
 var TRACKER_ID_ = '1QxX7yZvfh75ENyvPG7xD_5ldLuoLwUsTZ6z0edkpORU';
 var MAX_ROWS_ = 100;
+var RECORD_METADATA_KEY_ = 'or';
+function recordIdentity_(item,month){return item.dNumber+'/'+item.campaignId+'/'+month;}
+function recordMetadata_(sheet){
+  var registry=auditBook_().getSheetByName('Records'),bindings={};
+  if(registry)registry.getDataRange().getValues().slice(1).forEach(function(row){
+    if(String(row[1])!==String(sheet.getSheetId()))return;
+    if(bindings[row[0]]!==undefined)throw Error('DUPLICATE_RECORD_REGISTRY');bindings[row[0]]=String(row[2]);
+  });
+  var result=Sheets.Spreadsheets.DeveloperMetadata.search({dataFilters:[{developerMetadataLookup:{metadataKey:RECORD_METADATA_KEY_}}]},TRACKER_ID_);
+  return (result.matchedDeveloperMetadata||[]).map(function(entry){return entry.developerMetadata;}).filter(function(tag){
+    var range=tag.location&&tag.location.dimensionRange;
+    return range&&range.sheetId===sheet.getSheetId()&&range.dimension==='ROWS'&&range.endIndex===range.startIndex+1;
+  }).map(function(tag){return {id:tag.metadataId,row:tag.location.dimensionRange.startIndex+1,value:bindings[tag.metadataId]};});
+}
+function writeTagged_(snapshot,changes){
+  var data=changes.map(function(change){
+    var record=change.record,id=record.metadataId;
+    if(!Number.isInteger(id)||id<0)throw Error('RECORD_IDENTIFIER_REQUIRED');
+    var tag=snapshot.metadata.filter(function(item){return item.id===id;});
+    if(tag.length!==1||tag[0].value!==recordIdentity_(record,record.month))throw Error('RECORD_IDENTIFIER_CHANGED');
+    var width=Math.max(snapshot.columns.rec+1,change.commentColumn||0),values=Array(width).fill(null);
+    values[snapshot.columns.rec]=change.status;
+    if(change.commentColumn)values[change.commentColumn-1]=change.comments;
+    return {dataFilter:{developerMetadataLookup:{metadataId:id}},majorDimension:'ROWS',values:[values]};
+  });
+  var response=Sheets.Spreadsheets.Values.batchUpdateByDataFilter({valueInputOption:'RAW',includeValuesInResponse:true,data:data},TRACKER_ID_);
+  if(response.totalUpdatedRows!==changes.length||!response.responses||response.responses.length!==changes.length)throw Error('WRITE_NOT_CONFIRMED');
+  SpreadsheetApp.flush();
+}
+
+/** Editor-only migration. Run during a coordinated pause in tracker edits.
+ * Leaves new writes disabled until the owner verifies the logged results. */
+function setupSortSafeTracker(){
+  actor_();
+  var props=PropertiesService.getScriptProperties();props.setProperty('MANUAL_WRITES_ENABLED','false');
+  var lock=LockService.getScriptLock();if(!lock.tryLock(10000))throw Error('BUSY_TRY_AGAIN');
+  try{
+    var audit=auditBook_(),registry=audit.getSheetByName('Records');
+    if(!registry){registry=audit.insertSheet('Records');registry.getRange(1,1,1,3).setValues([['Metadata ID','Sheet ID','Record identity']]);}
+    var summary=[];
+    ['main','early'].forEach(function(mode){
+      var snapshot=snapshot_(mode),requests=[],expected=[],counts={},skipped=0;
+      var identities=snapshot.display.map(function(row,index){
+        if(!index)return null;
+        var d=String(row[snapshot.columns.d]).trim().toUpperCase(),c=String(row[snapshot.columns.c]).trim().toUpperCase();
+        var month=snapshot.rowMonths[index]||snapshot.uniform;
+        if(!/^D\d{5,15}$/.test(d)||!/^CP[A-Z0-9]{3,20}$/.test(c)||!month)return null;
+        var key=recordIdentity_({dNumber:d,campaignId:c},month);counts[key]=(counts[key]||0)+1;return key;
+      });
+      for(var i=1;i<snapshot.display.length;i++){
+        var d=String(snapshot.display[i][snapshot.columns.d]).trim().toUpperCase(),c=String(snapshot.display[i][snapshot.columns.c]).trim().toUpperCase();
+        var month=snapshot.rowMonths[i]||snapshot.uniform;
+        if(!/^D\d{5,15}$/.test(d)||!/^CP[A-Z0-9]{3,20}$/.test(c)||!month)continue;
+        var identity=recordIdentity_({dNumber:d,campaignId:c},month),tags=snapshot.metadata.filter(function(tag){return tag.row===i+1;});
+        if(counts[identities[i]]!==1){skipped++;continue;}
+        if(tags.length>1||(tags.length===1&&tags[0].value!==identity))throw Error('RECORD_IDENTIFIER_CHANGED');
+        expected.push({dNumber:d,campaignId:c,month:month});
+        if(!tags.length)requests.push({identity:identity,request:{createDeveloperMetadata:{developerMetadata:{metadataKey:RECORD_METADATA_KEY_,visibility:'DOCUMENT',location:{dimensionRange:{sheetId:snapshot.sheet.getSheetId(),dimension:'ROWS',startIndex:i,endIndex:i+1}}}}}});
+      }
+      for(var offset=0;offset<requests.length;offset+=200){
+        var batch=requests.slice(offset,offset+200),response=Sheets.Spreadsheets.batchUpdate({requests:batch.map(function(item){return item.request;})},TRACKER_ID_);
+        var rows=response.replies.map(function(reply,index){return [reply.createDeveloperMetadata.developerMetadata.metadataId,snapshot.sheet.getSheetId(),batch[index].identity];});
+        registry.getRange(registry.getLastRow()+1,1,rows.length,3).setValues(rows);SpreadsheetApp.flush();
+      }
+      var verified=snapshot_(mode);
+      if(expected.some(function(item){return match_(verified,item,item.month).metadataId===undefined;}))throw Error('RECORD_SETUP_NOT_CONFIRMED');
+      var headers=verified.display[0].map(function(v){return String(v).trim().toLowerCase();}),comment=headers.indexOf('comments');
+      if(comment>=0&&headers.lastIndexOf('comments')!==comment)throw Error('COMMENTS_HEADER_CHANGED');
+      if(comment>=0){
+      var letter='',column=comment+1;while(column){column--;letter=String.fromCharCode(65+column%26)+letter;column=Math.floor(column/26);}
+      var formula='=LEN(TRIM($'+letter+'2))>0',rules=verified.sheet.getConditionalFormatRules();
+      rules=rules.filter(function(rule){var condition=rule.getBooleanCondition();return !condition||condition.getCriteriaValues()[0]!==formula;});
+      rules.unshift(SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied(formula).setBackground('#fff2cc').setRanges([verified.sheet.getRange(2,1,verified.sheet.getMaxRows()-1,headers.length)]).build());
+      verified.sheet.setConditionalFormatRules(rules);
+      }
+      summary.push({mode:mode,identified:expected.length,created:requests.length,ambiguousSkipped:skipped,comments:comment>=0});
+    });
+    console.log(JSON.stringify({writesEnabled:false,summary:summary}));return summary;
+  }finally{lock.releaseLock();}
+}
+/** Editor-only activation repeats migration verification before accepting saves. */
+function enableSortSafeTracker(){setupSortSafeTracker();PropertiesService.getScriptProperties().setProperty('MANUAL_WRITES_ENABLED','true');console.log('Sort-safe writes enabled');}
 function doGet(e) {
   try { var actor = actor_(); return reply_({ok:true,email:actor,manualEnabled:enabled_()}); }
   catch (error) { return fail_(error); }
@@ -60,27 +142,32 @@ function snapshot_(mode) {
   if(headers.indexOf('campaign id mediaocean')<0 && headers.indexOf('campaign id')>=0)headers[headers.indexOf('campaign id')]='campaign id mediaocean';
   function col(name){if(headers.filter(function(value){return value===name;}).length!==1)throw Error('HEADERS_CHANGED');return headers.indexOf(name);}
   var columns={d:col('serial number'),c:col('campaign id mediaocean'),date:col('booking end date'),rec:col('reccied')};
-  var months={},invalid=false;
+  var months={},invalid=false,rowMonths=[],dateMonths={},timezone=sheet.getParent().getSpreadsheetTimeZone();
   for(var i=1;i<display.length;i++){
-    var date=values[i][columns.date], month=date instanceof Date ? Utilities.formatDate(date,sheet.getParent().getSpreadsheetTimeZone(),'yyyy-MM') : month_(display[i][columns.date]);
+    var date=values[i][columns.date], month=date instanceof Date ? (dateMonths[date.getTime()]||(dateMonths[date.getTime()]=Utilities.formatDate(date,timezone,'yyyy-MM'))) : month_(display[i][columns.date]);
+    rowMonths[i]=month;
     if(month===null)invalid=true; if(month)months[month]=true;
   }
   var uniform=Object.keys(months).length===1&&!invalid?Object.keys(months)[0]:null;
-  return {sheet:sheet,display:display,values:values,formulas:formulas,columns:columns,uniform:uniform};
+  return {sheet:sheet,display:display,values:values,formulas:formulas,columns:columns,uniform:uniform,rowMonths:rowMonths,metadata:recordMetadata_(sheet)};
 }
 function match_(snapshot,item,month) {
   var s=snapshot,c=s.columns,matches=[];
   for(var i=1;i<s.display.length;i++){
     if(String(s.display[i][c.d]).trim().toUpperCase()!==item.dNumber || String(s.display[i][c.c]).trim().toUpperCase()!==item.campaignId)continue;
-    var raw=s.values[i][c.date], actual=raw instanceof Date ? Utilities.formatDate(raw,s.sheet.getParent().getSpreadsheetTimeZone(),'yyyy-MM') : month_(s.display[i][c.date]);
+    var actual=s.rowMonths[i];
     if((actual || (actual===''?s.uniform:null))===month)matches.push(i);
   }
   var result={dNumber:item.dNumber,campaignId:item.campaignId,month:month};
   if(matches.length!==1)return Object.assign(result,{state:'skipped',reason:matches.length?'Duplicate tracker match':'No unique match for this report month'});
   var index=matches[0],before=s.values[index][c.rec];
+  result.before=before;result.row=index+1;
+  var tags=s.metadata.filter(function(tag){return tag.row===result.row;});
+  if(tags.length!==1||tags[0].value!==recordIdentity_(result,month)||
+     (item.metadataId!==undefined&&item.metadataId!==tags[0].id))return Object.assign(result,{state:'skipped',confirmed:false,reason:'Record identifier missing or changed. Refresh the tracker; owner setup may be required.'});
+  result.metadataId=tags[0].id;
   if(s.formulas[index][c.rec])return Object.assign(result,{state:'skipped',reason:'Tracker value is a formula'});
   if(typeof before!=='string')return Object.assign(result,{state:'skipped',reason:'Unexpected tracker value'});
-  result.before=before;result.row=index+1;
   if(before.trim().toLowerCase()==='yes')return Object.assign(result,{state:'already_yes',after:'Yes',confirmed:true});
   if(!['','no'].includes(before.trim().toLowerCase()))return Object.assign(result,{state:'skipped',reason:'Unexpected tracker value'});
   return Object.assign(result,{state:'eligible'});
@@ -88,7 +175,7 @@ function match_(snapshot,item,month) {
 function preview_(input,actor) {
   var rows=validate_(input),snapshot=snapshot_(input.mode),id=Utilities.getUuid(),token=Utilities.getUuid();
   var results=rows.map(function(row){return match_(snapshot,row,input.month);});
-  var record={actor:actor,mode:input.mode,month:input.month,results:results,token:token,cause:input.cause==='verified'?'Client verified Prisma statuses':'Manual confirmation'};
+  var record={writerVersion:2,actor:actor,mode:input.mode,month:input.month,results:results,token:token,cause:input.cause==='verified'?'Client verified Prisma statuses':'Manual confirmation'};
   CacheService.getScriptCache().put('manual:'+id,JSON.stringify(record),120);
   return {ok:true,requestId:id,token:token,expiresInSeconds:120,mode:input.mode,month:input.month,results:results};
 }
@@ -135,6 +222,7 @@ function commit_(input,actor) {
   if(existing)return receipt_(input.requestId,actor,true); // Idempotent: no second write for a request ID.
   var cache=CacheService.getScriptCache(),raw=cache.get('manual:'+input.requestId),record=raw?JSON.parse(raw):null;
   if(!record||record.actor!==actor||typeof input.token!=='string'||record.token!==input.token)throw Error('PREVIEW_EXPIRED_OR_WRONG_USER');
+  if(record.writerVersion!==2)throw Error('PREVIEW_EXPIRED_OR_WRONG_USER');
   if(record.kind==='edit')return commitEdit_(input,actor,record,book);
   cache.remove('manual:'+input.requestId);
   var requestRow=requests.getLastRow()+1,stamp=new Date().toISOString();
@@ -163,7 +251,7 @@ function commit_(input,actor) {
       if(rule&&(rule.getCriteriaType()!==SpreadsheetApp.DataValidationCriteria.VALUE_IN_LIST||!rule.getCriteriaValues()[0].includes('Yes'))){results[index]=Object.assign(fresh,{state:'skipped',confirmed:false,reason:'Tracker validation needs review'});return false;}
       results[index]=fresh;return true;
     });
-    if(eligible.length){snapshot.sheet.getRangeList(eligible.map(function(index){return snapshot.sheet.getRange(results[index].row,snapshot.columns.rec+1).getA1Notation();})).setValue('Yes');SpreadsheetApp.flush();}
+    if(eligible.length)writeTagged_(snapshot,eligible.map(function(index){return {record:results[index],status:'Yes'};}));
   } catch (_) {writeError=true;}
   var readback;
   try {readback=snapshot_(record.mode);}catch(_){readback=null;}
@@ -209,7 +297,7 @@ function previewEdit_(input,actor) {
     if(result.state==='eligible'&&(result.before!==item.before||result.commentsBefore!==item.commentsBefore))result=Object.assign(result,{state:'skipped',reason:'Tracker changed. Read the report again before editing.'});
     return result;
   });
-  var record=JSON.stringify({actor:actor,mode:input.mode,month:input.month,results:results,token:token,kind:'edit'});
+  var record=JSON.stringify({writerVersion:2,actor:actor,mode:input.mode,month:input.month,results:results,token:token,kind:'edit'});
   if(record.length>30000)throw Error('NOTES_TOO_LARGE_NARROW_SELECTION');
   CacheService.getScriptCache().put('manual:'+id,record,120);
   return {ok:true,kind:'edit',requestId:id,token:token,expiresInSeconds:120,mode:input.mode,month:input.month,results:results};
@@ -217,11 +305,7 @@ function previewEdit_(input,actor) {
 function confirmEdit_(snapshot,prior,month) {
   if(prior.state==='skipped')return prior;
   var fresh=editMatch_(snapshot,prior,month),confirmed=fresh.state==='eligible'&&fresh.before===prior.after&&fresh.commentsBefore===prior.commentsAfter;
-  if(confirmed&&prior.commentsAfter.trim()){
-    var backgrounds=snapshot.sheet.getRange(fresh.row,1,1,snapshot.display[0].length).getBackgrounds()[0];
-    confirmed=backgrounds.every(function(color){return String(color).toLowerCase()==='#fff2cc';});
-  }
-  return Object.assign({},prior,{state:confirmed?'updated':'failed',confirmed:confirmed,reason:confirmed?'':'Could not confirm all fields and highlighting. Read the tracker before retrying.'});
+  return Object.assign({},prior,{state:confirmed?'updated':'failed',confirmed:confirmed,reason:confirmed?'':'Could not confirm saved fields. Read the tracker before retrying.'});
 }
 function commitEdit_(input,actor,record,book) {
   var requests=book.getSheetByName('Requests'),changes=book.getSheetByName('Changes'),row=requests.getLastRow()+1,stamp=new Date().toISOString();
@@ -235,10 +319,7 @@ function commitEdit_(input,actor,record,book) {
     var cell=snapshot.sheet.getRange(fresh.row,snapshot.columns.rec+1),rule=cell.getDataValidation();
     if(rule&&(rule.getCriteriaType()!==SpreadsheetApp.DataValidationCriteria.VALUE_IN_LIST||!rule.getCriteriaValues()[0].includes(prior.after)))return Object.assign({},prior,{state:'skipped',confirmed:false,reason:'Tracker validation needs review'});
     try {
-      cell.setValue(prior.after);
-      snapshot.sheet.getRange(fresh.row,fresh.commentColumn).setRichTextValue(SpreadsheetApp.newRichTextValue().setText(prior.commentsAfter).build());
-      if(prior.commentsAfter.trim())snapshot.sheet.getRange(fresh.row,1,1,snapshot.display[0].length).setBackground('#fff2cc');
-      SpreadsheetApp.flush();
+      writeTagged_(snapshot,[{record:fresh,status:prior.after,comments:prior.commentsAfter,commentColumn:fresh.commentColumn}]);
       return confirmEdit_(snapshot_(record.mode),prior,record.month);
     }catch(_){return Object.assign({},prior,{state:'failed',confirmed:false,reason:'Save could not be fully confirmed. Read the tracker before retrying.'});}
   });

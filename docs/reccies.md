@@ -104,6 +104,13 @@ Yes; it does not alter Prisma or require a successful Prisma check for this manu
 attestation. The server rematches D number, campaign ID and report month, skips
 ambiguous or changed rows, and confirms saved values before updating local cards.
 
+The sort-safe writer uses invisible record identifiers for saves, so sorting the
+complete tracker table from its column dropdown keeps updates with their records.
+It preserves formula columns. Records without valid identifiers require owner
+setup before saving; duplicate or changed identities are skipped. Sorting only
+part of a record, changing columns or replacing report data requires a refresh
+and may require identifier setup again.
+
 Google identifies the signed-in user. Access is controlled remotely by a private
 server allowlist, never a list bundled in the extension. Saves record the actor,
 selection and outcomes in a separate private audit workbook. If a save times out or loses its connection, the dialog checks the receipt once
@@ -284,6 +291,6 @@ V2 result transitions respect reduced motion. Collapse settings hides source, co
 
 ### Notes and manual tracker status
 
-The Note action is available for connected Main Tracker and Early Recs reports. It starts with each selected D number's existing comment and tracker Yes/No value. Campaign edits include only matching filtered rows. Suggested phrases append without replacing existing text. Preview checks the live status and comment against the imported report; stale rows are skipped and must be refreshed. Confirmed saves update Comments (resolved by its unique header, normally U) and the selected Yes/No. Non-empty notes colour the used columns of the matching sheet row pale yellow (#fff2cc); clearing comments preserves existing colours. Formula comments and notes beginning with = are rejected. The Apps Script notes release must be deployed before saves work; older servers reject previewEdit without changing cells. Automatic marking stays Yes-only.
+The Note action is available for connected Main Tracker and Early Recs reports. It starts with each selected D number's existing comment and tracker Yes/No value. Campaign edits include only matching filtered rows. Suggested phrases append without replacing existing text. Preview checks the live status and comment against the imported report; stale rows are skipped and must be refreshed. Confirmed saves update Comments (resolved by its unique header, normally U) and the selected Yes/No. The sort-safe writer uses conditional formatting for pale yellow highlighting (#fff2cc) while a comment is non-empty. Clearing comments removes that automatic highlight and reveals the existing base colours. Formula comments and notes beginning with = are rejected. The Apps Script notes release must be deployed before saves work; older servers reject previewEdit without changing cells. Automatic marking stays Yes-only.
 
 Reconciled in Prisma means Reconciled = Yes and buy status = Successful. It does not mean the sheet has been updated. Not checked / Check failed are unknown results, not proof of unreconciled status.

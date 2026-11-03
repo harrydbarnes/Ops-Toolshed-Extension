@@ -13,8 +13,9 @@ Run the editor-only setupAudit_ helper once to create private Changes and Reques
 tabs; it sets AUDIT_SPREADSHEET_ID, disables the old fixed-cell test and starts with
 MANUAL_WRITES_ENABLED=false. It has already been run in the pilot project.
 
-After reviewing the upgrade, publish Code.gs as a new version of the existing
-deployment and explicitly enable MANUAL_WRITES_ENABLED=true. Keep
+After reviewing the upgrade, run `setupSortSafeTracker` to pause saves and verify
+the row identifiers, publish Code.gs as a new version of the existing deployment,
+then run `enableSortSafeTracker` to reverify and enable saves. Keep
 WRITE_TEST_ENABLED=false. Setting the manual flag false blocks new previews and
 commits while receipt recovery remains available. Removing ALLOW_email or setting
 it false revokes that user on their next request, including receipt access.
@@ -32,19 +33,32 @@ an attestation by the user; it does not claim server-side Prisma verification.
 
 Requests are idempotent. If the response is lost, status reads the receipt and can
 recover an interrupted request by reading the current tracker without writing.
-Google Sheets does not provide an atomic compare-and-set transaction against
-concurrent human sorts/edits or other scripts. ScriptLock serialises this service
-only. Rematching reduces this risk; avoid sorting during a save.
+The sort-safe writer binds previews to row developer metadata for each unique
+D number/campaign/report-month identity. RAW sparse Sheets API writes target that
+metadata ID, with null placeholders preserving all other cells and formulas.
+Each row uses the short metadata key `or` without a value; the private audit
+workbook's Records tab binds its generated metadata ID and sheet ID to the exact
+record identity. This avoids putting long identifiers into Sheets' 30,000-character
+per-sheet metadata allocation (the two-character key allows up to 15,000 tagged
+rows per sheet when no other metadata consumes that allocation).
+There is no coordinate-write fallback. Sorting the complete table from a column
+dropdown, inserting rows, and moving complete rows are supported. Partial-column
+sorts, editing identity fields, replacing imports, and moving columns during saves
+are not atomic: refresh/reinitialise identifiers after structural changes and
+reconcile uncertain results before retrying. ScriptLock serialises this service
+only; it does not provide compare-and-set against direct human field edits.
 
-Security follow-up: this concurrency limitation remains open. Additional row
-checks cannot guarantee that a concurrent sort will not redirect a coordinate
-write, and readback cannot undo an unknown collateral change. A complete fix
-requires all editors/importers to honor an enforced exclusive editing window,
-or an authoritative store with atomic identity/version-based updates. Do not
-apply temporary sheet protections automatically: owners can bypass them and a
-failed cleanup can alter colleagues' access. Until that design is established,
-coordinate sorts/imports outside save operations and reconcile uncertain saves
-against the audit record before retrying.
+Enable the advanced Google Sheets v4 service in the writer project. Run
+`setupSortSafeTracker` during a coordinated pause in structural edits. It disables
+new saves, adds invisible identity metadata to unique valid records in Main/Early,
+verifies it, and installs comment-dependent yellow conditional formatting on reports
+with a Comments column. Status-only reports do not require that column. Duplicate
+identities remain unwritable. Run `enableSortSafeTracker` to repeat verification
+and activate saves. Old cached previews are rejected and must be opened again.
+New/imported records without identifiers fail closed until setup is rerun; do not
+create tags from request-time row positions. Missing or mismatched tags never
+fall back to writing a row number. Existing base colours are preserved; automatic
+yellow follows non-empty comments and disappears on clearing a comment.
 
 The separate private audit workbook stores actor email, D/campaign/month, original
 and confirmed values, request IDs and outcomes. It is not shared with colleagues.
@@ -58,6 +72,31 @@ an explicitly chosen test placement, confirm the save, verify the actual sheet a
 audit receipt, and restore its original value when testing. Repeat the preview for
 a filtered campaign to confirm only matching D numbers are listed. Test a second
 allowlisted colleague before enabling any automatic-update work.
+
+## Sort safeguard release: 3 November 2026
+
+Version 5 was published through the existing signed-in Chrome session at the same
+deployment URL, retaining owner execution, GroupM domain access and the private
+allowlist. The Sheets v4 service was enabled without changing OAuth scopes.
+Setup created and verified 1,889 Main identifiers and 271 Early identifiers, with
+no ambiguous records. Activation reverified all 2,160 identifiers, created none,
+then enabled saves. Main has Comments-based conditional highlighting; Early has
+no Comments column. The live endpoint returned the expected identity, service,
+protocol 1 and `manualEnabled:true` after activation. No live status or comment
+values were changed during this rollout.
+
+On the user's copy, both combined status/note saves and the separate Yes-save path
+were previewed, the full report was sorted before commit, and the intended records
+were confirmed. Restoration after another sort was confirmed for both tests;
+row formulas were preserved in both. Local regression coverage also moves rows
+at the API write boundary and verifies missing or mismatched identifiers cannot
+fall back to row coordinates. Installed-extension interaction against the updated
+live writer has not been repeated in this rollout.
+
+New records require owner setup before extension saves. Replacing record identities
+inside existing tagged rows fails closed and requires owner reconciliation of the
+identifier registry during a pause in structural edits; setup deliberately does
+not silently rebind an existing identifier to different data.
 
 ## Live release record: 22 October 2026
 
