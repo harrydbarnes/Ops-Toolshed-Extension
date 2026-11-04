@@ -64,4 +64,3 @@ test('waits for the security banner stylesheet before showing the banner', () =>
     expect(banner.querySelector('.action').style.flexDirection).toBe('column');
     dom.window.close();
 });
-
