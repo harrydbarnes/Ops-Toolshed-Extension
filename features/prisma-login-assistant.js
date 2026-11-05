@@ -54,14 +54,15 @@
         const text = pageText();
         return text.includes('enter username to continue') ||
             text.includes('select your organisation to sign in') ||
-            isSessionTimeoutPage();
+            isSignInRestartPage();
     }
 
-    function isSessionTimeoutPage() {
+    function isSignInRestartPage() {
         const text = pageText();
-        const matchesText = text.includes('signed out because your session was inactive') ||
+        const matchesInactiveTimeout = text.includes('signed out because your session was inactive') ||
             (text.includes('signed out') && text.includes('session was inactive'));
-        return matchesText;
+        const matchesSuccessfulSignOff = text.includes('successfully signed off') && text.includes('sign in again');
+        return matchesInactiveTimeout || matchesSuccessfulSignOff;
     }
 
     function findTimeoutSignInLink() {
@@ -123,7 +124,7 @@
         });
     }
 
-    function trySessionTimeoutStage() {
+    function trySignInRestartStage() {
         if (!isActiveDocument() || !settings.enabled) {
             cleanupTimeoutProgress();
             return;
@@ -138,7 +139,7 @@
         timeoutTimerId = setTimeout(() => {
             timeoutTimerId = null;
             if (timeoutLinkProcessed) return;
-            if (!settings.enabled || !isActiveDocument() || !isSessionTimeoutPage() || !link.isConnected) {
+            if (!settings.enabled || !isActiveDocument() || !isSignInRestartPage() || !link.isConnected) {
                 cleanupTimeoutProgress();
                 return;
             }
@@ -214,7 +215,7 @@
             #${TOAST_ID} button.ops-toolshed-login-dismiss { margin-left: auto; padding: 2px 7px; background: transparent; color: #fff; font-size: 20px; line-height: 1; }
 
             .${TIMEOUT_BAR_CONTAINER_CLASS} { margin: 12px 0 6px; }
-            .ops-toolshed-timeout-status { color: #102c72; font-size: 12px; margin-bottom: 6px; text-align: center; }
+            .ops-toolshed-timeout-status { color: #102c72; font-size: 13px; font-weight: 700; margin-bottom: 6px; text-align: center; }
             .ops-toolshed-timeout-dots { display: inline-block; overflow: hidden; vertical-align: bottom; width: 3ch; animation: ops-toolshed-timeout-dots 1.2s steps(1, end) infinite; }
             @keyframes ops-toolshed-timeout-dots {
                 0% { clip-path: inset(0 66.666% 0 0); }
@@ -487,7 +488,7 @@
         reconcileQueued = false;
         if (!settingsLoaded) return;
         if (!hasPrismaSignInPage()) return;
-        const stage = isUsernameStage() ? 'username' : isOrganisationStage() ? 'organisation' : isSessionTimeoutPage() ? 'timeout' : '';
+        const stage = isUsernameStage() ? 'username' : isOrganisationStage() ? 'organisation' : isSignInRestartPage() ? 'restart' : '';
         if (stage !== currentSignInStage) {
             currentSignInStage = stage;
             if (stage === 'username') usernameSubmitted = false;
@@ -495,13 +496,13 @@
                 organisationSubmitted = false;
                 organisationOptionChosen = false;
             }
-            if (stage === 'timeout') {
+            if (stage === 'restart') {
                 timeoutLinkProcessed = false;
             }
         }
         if (stage === 'username') tryUsernameStage();
         if (stage === 'organisation') tryOrganisationStage();
-        if (stage === 'timeout') trySessionTimeoutStage();
+        if (stage === 'restart') trySignInRestartStage();
     }
 
     function scheduleReconcile() {

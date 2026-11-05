@@ -40,6 +40,21 @@ describe('loading-time collection', () => {
         return element;
     }
 
+    test.each(['time/display/myTimesheetApprovals/AwaitingMe', 'time/display/timesheet'])('timesheet samples pass background validation for %s', route => {
+        const { dom, window, setNow } = createCollector(`https://go.mediaocean.com/viewport-home/#osAppId=rod-time&osPspId=rod-time&route=${route}`);
+        setNow(Date.now());
+        let elapsed = 0;
+        window.performance.now = () => elapsed;
+        window.statsCollector.checkLoadingState({ visibleSpinners: [], pageVisibleSpinners: [{}] });
+        elapsed = 500;
+        window.statsCollector.checkLoadingState({ visibleSpinners: [], pageVisibleSpinners: [] });
+        const message = window.chrome.runtime.sendMessage.mock.calls.map(([value]) => value)
+            .find(value => value.type === 'PERFORMANCE_SAMPLE');
+        expect(message.value.area).toBe('unclassified');
+        expect(require('../../diagnostics').sanitize(message.value)).toEqual(message.value);
+        dom.window.close();
+    });
+
     test('merges overlapping page indicators, separates side panels and discards disabled observations', () => {
         const { dom, window } = createCollector();
         let elapsed = 100;

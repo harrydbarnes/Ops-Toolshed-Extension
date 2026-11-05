@@ -114,6 +114,16 @@ function closeApp(dom) {
 }
 
 describe('Help Guides side panel', () => {
+    test('keeps the Reccies link out of the Help Guides header', async () => {
+        const { dom } = await createApp();
+
+        try {
+            expect(dom.window.document.querySelector('.title-row a[href="reccies.html"]')).toBeNull();
+        } finally {
+            closeApp(dom);
+        }
+    });
+
     test('opens the guide library at the top even when Chrome restores side-panel scroll', async () => {
         const { dom } = await createApp({ initialScrollTop: 240 });
 
@@ -438,6 +448,39 @@ describe('Help Guides side panel', () => {
 
         dom.window.helpGuidesApp.closeGuide();
         expect(dom.window.URL.revokeObjectURL).toHaveBeenCalledWith('blob:chrome-extension://test/sharepoint-pdf');
+        closeApp(dom);
+    });
+
+    test('Ctrl + wheel zooms the PDF in both directions without intercepting ordinary scrolling', async () => {
+        const pdfBytes = Uint8Array.from([37, 80, 68, 70, 45, 49, 46, 55]).buffer;
+        const { dom } = await createApp({ sharePointBytes: pdfBytes });
+        const { document, WheelEvent } = dom.window;
+        await dom.window.helpGuidesApp.openGuide(dom.window.HELP_GUIDES.find(item => item.id === 'approval-budget'));
+        const scroller = document.getElementById('pdf-canvas-scroll');
+        const zoom = () => Number.parseInt(document.getElementById('pdf-zoom-label').textContent, 10);
+        const initial = zoom();
+        const scroll = new WheelEvent('wheel', { deltaY: 100, bubbles: true, cancelable: true });
+        scroller.dispatchEvent(scroll);
+        expect(scroll.defaultPrevented).toBe(false);
+        expect(zoom()).toBe(initial);
+
+        const zoomIn = new WheelEvent('wheel', { ctrlKey: true, deltaY: -100, bubbles: true, cancelable: true });
+        scroller.dispatchEvent(zoomIn);
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        expect(zoomIn.defaultPrevented).toBe(true);
+        expect(zoom()).toBeGreaterThan(initial);
+        const mouseStep = zoom() - initial;
+        expect(mouseStep / initial).toBeLessThan(0.15);
+
+        const zoomOut = new WheelEvent('wheel', { ctrlKey: true, deltaY: 100, bubbles: true, cancelable: true });
+        scroller.dispatchEvent(zoomOut);
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        expect(zoomOut.defaultPrevented).toBe(true);
+        expect(zoom()).toBe(initial);
+        scroller.dispatchEvent(new WheelEvent('wheel', { ctrlKey: true, deltaY: -20, bubbles: true, cancelable: true }));
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        expect(zoom()).toBeGreaterThan(initial);
+        expect(zoom() - initial).toBeLessThan(mouseStep);
         closeApp(dom);
     });
 

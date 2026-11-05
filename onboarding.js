@@ -6,6 +6,7 @@
     if (window.opsToolshedPageGate && !(await window.opsToolshedPageGate.allow())) return;
 
     const PRISMA_HOME = 'https://go.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns';
+    const recciesDefaults = Object.fromEntries(Object.keys(globalThis.OpsToolshedFeatureSettings?.BOOLEAN_DEFAULTS || {}).map(key => [key, ['recciesV2Enabled', 'campaignHistoryLoggingEnabled'].includes(key)]));
     const defaults = {
         uiTheme: 'pink',
         bannerUsernameEnabled: true,
@@ -24,6 +25,7 @@
         popupShortcuts: popupShortcutSettings?.DEFAULT_ENABLED_KEYS || [],
         popupCustomShortcuts: []
     };
+    defaults.popupShortcuts = ['reccies'];
     const stepCopy = [
         ['Choose your defaults', 'Start with the tools you’ll notice every day.', 'We’ve picked a practical starting set for navigating campaigns, keeping account context visible, and finding help without leaving Prisma.'],
         ['Fine-tune your workflow', 'Choose the shortcuts that fit your day.', 'Set up useful copy actions, reminders and account switching before you open Prisma.'],
@@ -259,6 +261,13 @@
     elements.previous.addEventListener('click', () => renderStep(activeStep - 1, true));
     elements.next.addEventListener('click', () => renderStep(activeStep + 1, true));
     elements.start.addEventListener('click', startGuidedTour);
+    document.getElementById('choose-reccies').addEventListener('click', async () => {
+        try {
+            await storageSet(chrome.storage?.sync, { ...recciesDefaults, onboardingAudience: 'prisma', allFeaturesDisabled: false, popupShortcuts: ['reccies'] });
+            await markComplete({ onboardingTourActive: false, onboardingSkipped: false });
+            window.location.href = chrome.runtime.getURL('reccies.html');
+        } catch { elements.status.textContent = 'Could not save your Reccies setup. Try again.'; }
+    });
     document.getElementById('choose-prisma').addEventListener('click', () => void chooseAudience('prisma'));
     document.getElementById('choose-non-prisma').addEventListener('click', () => void chooseAudience('non-prisma'));
     document.getElementById('change-audience').addEventListener('click', renderAudienceChoice);

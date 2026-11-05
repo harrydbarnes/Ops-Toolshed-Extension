@@ -668,6 +668,16 @@ describe('Reccies sidebar',()=>{
         expect(getData().reccieTracker.rows[0].reccied).toBe('No');
         dom.window.close();
     });
+    test('requires a first report month and explains the monthly default', async () => {
+        const {dom,win,getData}=create();
+        delete getData().reccieTracker;
+        await flush();
+        expect(win.document.getElementById('report-month').value).toBe('');
+        expect(win.document.getElementById('first-use-guide').hidden).toBe(false);
+        expect(win.document.getElementById('sheet-connection').textContent).toContain('previous calendar month');
+        dom.window.close();
+    });
+
     test('requires reimport when report month changes and never offers a write control',async()=>{
         const {dom,win}=create();await flush();
         const month=win.document.getElementById('report-month');month.value='2026-10';month.dispatchEvent(new win.Event('change'));

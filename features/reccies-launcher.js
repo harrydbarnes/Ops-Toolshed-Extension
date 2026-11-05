@@ -19,7 +19,7 @@
         const count = outstandingCount;
         const preparing = !launch?.ready && !!launch?.pending;
         if (button.disabled !== preparing) button.disabled = preparing;
-        const label = preparing ? 'Reccies · starting…' : launch?.message ? 'Reccies · unavailable' : `Reccies${count == null ? '' : ` · ${count}`}`;
+        const label = preparing ? 'Reccies · starting…' : launch?.message ? 'Reccies · unavailable' : launch?.hint ? 'Reccies · ready, click to open' : `Reccies${count == null ? '' : ` · ${count}`}`;
         const accessibleLabel = preparing ? 'Preparing Reccies' : launch?.message || launch?.hint || (count == null ? 'Open read-only Reccies sidebar' : `Open Reccies sidebar: ${count} tracker rows not marked Yes`);
         if (button.textContent !== label) button.textContent = label;
         if (button.getAttribute('aria-busy') !== String(preparing)) button.setAttribute('aria-busy', String(preparing));
@@ -69,6 +69,7 @@
                     }
                     if (result?.status !== 'success') throw new Error(result?.message || 'Could not open Reccies.');
                     launch.message = '';
+                    launch.hint = '';
                     renderLaunch();
                 } catch (error) { if (button === target && launch === current) { current.message = error.message; renderLaunch(); } }
             });

@@ -332,7 +332,7 @@ describe('Prisma sign-in assistant', () => {
         closePage(dom);
     });
 
-    test('PR209 review leaves an intentional logout signed out', async () => {
+    test('does not restart when the confirmation says signed out instead of signed off', async () => {
         const {dom,window}=createPage({stage:'session-timeout',enabled:true,url:'https://go.mediaocean.com/ideskos-viewport/federate/logout?federatedLogout=true'});
         const paragraph=window.document.querySelector('p');
         paragraph.firstChild.textContent='You have successfully signed out. ';
@@ -341,6 +341,39 @@ describe('Prisma sign-in assistant', () => {
         await settle();
         await new Promise(resolve=>setTimeout(resolve,2050));
         try { expect(click).not.toHaveBeenCalled(); } finally {closePage(dom);}
+    });
+
+    test('restarts sign-in from the successful sign-off page after the tab regains focus', async () => {
+        const {dom,window}=createPage({
+            stage:'session-timeout',
+            enabled:true,
+            visible:false,
+            focused:false,
+            url:'https://go.mediaocean.com/ideskos-viewport/federate/logout?federatedLogout=true'
+        });
+        const paragraph=window.document.querySelector('p');
+        paragraph.firstChild.textContent="You've successfully signed off. You may ";
+        paragraph.lastChild.textContent=' again.';
+        const link=window.document.getElementById('signInLink');
+        const click=jest.fn(event=>event.preventDefault()); link.addEventListener('click',click);
+
+        try {
+            await settle();
+            expect(window.document.getElementById('ops-toolshed-session-timeout-bar')).toBeNull();
+            expect(click).not.toHaveBeenCalled();
+
+            Object.defineProperty(window.document, 'visibilityState', { configurable:true, value:'visible' });
+            window.document.hasFocus.mockReturnValue(true);
+            window.document.dispatchEvent(new window.Event('visibilitychange'));
+            await settle();
+
+            expect(window.document.getElementById('ops-toolshed-session-timeout-bar')).not.toBeNull();
+            expect(click).not.toHaveBeenCalled();
+            await new Promise(resolve=>setTimeout(resolve,2050));
+            expect(click).toHaveBeenCalledTimes(1);
+        } finally {
+            closePage(dom);
+        }
     });
 
     test('shows a subtle progress bar and clicks Sign In after two seconds on session timeout page', async () => {
@@ -364,6 +397,8 @@ describe('Prisma sign-in assistant', () => {
         expect(status.compareDocumentPosition(progressBar) & window.Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
         expect(window.document.querySelector('.ops-toolshed-timeout-dots').getAttribute('aria-hidden')).toBe('true');
         const styles = window.document.getElementById('ops-toolshed-prisma-login-toast-style').textContent;
+        expect(styles).toMatch(/\.ops-toolshed-timeout-status\s*\{[^}]*font-size:\s*13px/);
+        expect(styles).toMatch(/\.ops-toolshed-timeout-status\s*\{[^}]*font-weight:\s*700/);
         expect(styles).toMatch(/\.ops-toolshed-timeout-dots\s*\{[^}]*width:\s*3ch/);
         expect(styles).toMatch(/@keyframes ops-toolshed-timeout-dots\s*\{[\s\S]*?clip-path:/);
         expect(linkClick).not.toHaveBeenCalled();

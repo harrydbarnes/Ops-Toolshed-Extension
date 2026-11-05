@@ -106,6 +106,67 @@ describe('new order UI optimisation', () => {
         page.dom.window.close();
     });
 
+    test('reopens the native menu when aria-expanded is stale and its overlay is gone', async () => {
+        const page = createPage();
+        const { document } = page.dom.window;
+        page.dom.window.orderViewToggleFeature.initialize();
+        await flushAsync();
+        document.querySelector('mo-menu').setAttribute('aria-expanded', 'true');
+
+        document.querySelector('[data-order-view="all"]').click();
+        await flushAsync();
+
+        expect(page.nativeSelections).toEqual(['latest', 'all']);
+        expect(document.querySelector('[data-order-view="all"]').getAttribute('aria-pressed')).toBe('true');
+        page.dom.window.close();
+    });
+
+    test('retries if the first menu trigger only clears a stale open state', async () => {
+        const page = createPage();
+        const { document } = page.dom.window;
+        page.dom.window.orderViewToggleFeature.initialize();
+        await flushAsync();
+        const menu = document.querySelector('mo-menu');
+        // Model a component that consumes the first trigger to close its stale state.
+        menu.addEventListener('mousedown', event => {
+            event.stopImmediatePropagation();
+        }, { capture: true, once: true });
+        menu.setAttribute('aria-expanded', 'true');
+
+        await page.dom.window.orderViewToggleFeature.selectOrderView(
+            'all', document.querySelector('.order-view-toggle')
+        );
+
+        expect(page.nativeSelections).toEqual(['latest', 'all']);
+        expect(document.querySelector('[data-order-view="all"]').getAttribute('aria-pressed')).toBe('true');
+        page.dom.window.close();
+    });
+
+    test('does not select an option from a replacement campaign while a retry is pending', async () => {
+        const page = createPage();
+        const { document } = page.dom.window;
+        page.dom.window.orderViewToggleFeature.initialize();
+        await flushAsync();
+        const menu = document.querySelector('mo-menu');
+        menu.addEventListener('mousedown', event => event.stopImmediatePropagation(),
+            { capture: true, once: true });
+
+        const pending = page.dom.window.orderViewToggleFeature.selectOrderView(
+            'all', document.querySelector('.order-view-toggle')
+        );
+        document.getElementById('cm-buy-sidebar-order-revisions-header').remove();
+        const replacement = document.createElement('mo-menu-item');
+        replacement.id = 'ptb-orders-view-all';
+        const onSelect = jest.fn();
+        replacement.addEventListener('click', onSelect);
+        document.body.appendChild(replacement);
+
+        expect(await pending).toBe(false);
+        expect(onSelect).not.toHaveBeenCalled();
+        expect(page.nativeSelections).toEqual(['latest']);
+        page.dom.window.close();
+    });
+
     test('does not render when disabled in Settings', async () => {
         const page = createPage(false);
         page.dom.window.orderViewToggleFeature.initialize();

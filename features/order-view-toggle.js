@@ -61,17 +61,23 @@
         });
 
         try {
-            if (nativeMenu.getAttribute('aria-expanded') !== 'true') {
+            const isCurrent = () => featureEnabled && toggle?.isConnected &&
+                getNewOrderUiElements().nativeMenu === nativeMenu;
+            let option = document.getElementById(optionId);
+            for (let attempt = 0; !option && attempt < 2; attempt++) {
+                if (!isCurrent()) return false;
+                // Prisma can leave aria-expanded true after removing the overlay.
+                // Re-trigger the menu when its actual option is absent; a second
+                // trigger also recovers a menu whose internal state is still open.
                 nativeMenu.dispatchEvent(new MouseEvent('mousedown', {
                     bubbles: true,
                     composed: true,
                     button: 0,
                     buttons: 1
                 }));
+                option = await waitForNativeOption(optionId);
             }
-
-            const option = await waitForNativeOption(optionId);
-            if (!option) return false;
+            if (!option || !isCurrent()) return false;
 
             option.click();
             updateToggleState(toggle, view);

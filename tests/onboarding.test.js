@@ -36,6 +36,7 @@ function setup(initial = {}) {
         tabs: { update: jest.fn() },
         windows: { WINDOW_ID_CURRENT: -2 }
     };
+    dom.window.eval(readScript(path.resolve(__dirname, '../feature-settings-registry.js')));
     dom.window.eval(readScript(path.resolve(__dirname, '../popup-shortcuts.js')));
     dom.window.eval(readScript(path.resolve(__dirname, '../loading-facts-preview.js')));
     dom.window.eval(script);
@@ -49,6 +50,21 @@ async function choosePrisma(dom) {
 }
 
 describe('First-run onboarding', () => {
+    test('Reccies setup enables only Reccies and its campaign logging dependency', async () => {
+        const {dom, sync, local} = setup();
+        await Promise.resolve();
+        dom.window.document.getElementById('choose-reccies').click();
+        await new Promise(resolve => setImmediate(resolve));
+        const saved = Object.assign({}, ...sync.set.mock.calls.map(call => call[0]));
+        expect(saved.recciesV2Enabled).toBe(true);
+        expect(saved.campaignHistoryLoggingEnabled).toBe(true);
+        expect(saved.approvalTrackingEnabled).toBe(false);
+        expect(saved.loadingFactsEnabled).toBe(false);
+        expect(saved.popupShortcuts).toEqual(['reccies']);
+        expect(local.set).toHaveBeenCalledWith(expect.objectContaining({onboardingCompleted:true}), expect.any(Function));
+        dom.window.close();
+    });
+
     test('lets people customise popup shortcuts during onboarding and explains Settings remains available', async () => {
         const { dom, sync } = setup();
         await Promise.resolve();

@@ -38,22 +38,24 @@
     <details id="source-details" open>
         <summary id="source-summary"><span>Reccie tracking settings</span><span id="report-loaded-badge" class="report-loaded-badge" hidden><span aria-hidden="true">✓</span> Report loaded</span></summary>
         <div id="sheet-connection">
+        <p id="first-use-guide" class="hint">Choose the report month, read your Reccie report tab or import its CSV, then choose your assignment and name. Select Verify Reccie Status to check your rows in Prisma.</p>
         <label for="sheet-url">Google Sheet tab URL</label>
         <input id="sheet-url" type="url" placeholder="https://docs.google.com/spreadsheets/d/…/edit?gid=…" autocomplete="off">
         <label for="report-month">Report month <span id="month-hint" class="hint">Applies to every row</span></label>
         <input id="report-month" type="month" required>
+        <p id="month-default-hint" class="hint">Confirm the month on first use. New reports default to the previous calendar month, advancing one month each month. Change it before reading or importing if needed. Saved reports keep their month.</p>
         <button id="refresh-sheet" type="button" class="primary">Read Google Sheet</button>
         <p id="sheet-hint" class="hint">Uses your signed-in Google account. Open the Reccie report tab before copying its URL.</p>
         <div class="import-row"><label for="csv-file">Or import a report CSV</label><input id="csv-file" type="file" accept=".csv,text/csv"></div>
         <p class="hint">CSV is a snapshot. Refresh or import again after the tracker changes.</p>
         </div>
-        <div class="automation-settings">
+        <details class="automation-settings"><summary>Automatic verification and tracker updates</summary>
             <label><input id="auto-mark-tracker" type="checkbox"> Automatically mark Yes after Prisma verification</label>
             <p class="hint">For your assigned rows in connected Main Tracker and Early Recs reports. Requires a fresh, unique Reconciled = Yes and Successful buy status. Never changes Yes back to No.</p>
             <label><input id="verify-after-financial" type="checkbox"> Verify three minutes after confirming a reconciliation update</label>
             <p class="hint">Checks changed placements after financial confirmation; gross/date-only and unchanged lines are excluded. Automatic marking uses the setting above. Chrome must be running and Prisma signed in.</p>
             <p id="automation-status" class="hint" role="status"></p>
-        </div>
+        </details>
         <div class="reccies-progress-setting"><label><input id="show-progress-bars" type="checkbox" checked> Show progress bars above the tracker</label></div>
     </details>
     <p id="source-status" class="hint"></p>
@@ -74,6 +76,7 @@
                 <select id="tracker-status" hidden><option value="any">Any</option><option value="outstanding">No</option><option value="reconciled">Yes</option></select>
             </div>
         </div>
+        <p class="hint">Tracker Yes/No comes from the sheet. Reconciled in Prisma means Reconciled = Yes and Buy status = Successful for the report month.</p>
         <fieldset class="status-filter"><legend>Prisma status</legend><div class="status-chips">
             <label><input type="checkbox" data-status="mismatch">Yes in sheet, not in Prisma</label>
             <label><input type="checkbox" data-status="ready">Reconciled in Prisma</label>

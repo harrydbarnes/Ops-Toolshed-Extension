@@ -364,10 +364,13 @@
         setBusy(busy);
     }
     async function loadReport(operation, args) {
+        if (!core.validMonth($('report-month').value)) { message('Choose the report month first.', true); $('report-month').focus(); return; }
         setBusy(true); message('Reading report', false, true);
         $('message').scrollIntoView?.({behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'center'});
         try {
             await send(operation, { ...args, month: $('report-month').value });
+            await chrome.storage.local.set({reccieMonthConfirmed:true});
+            $('first-use-guide').hidden = true;
             showTiming(null);
             people(); render(); setDisclosureOpen($('source-details'), false);
             message(observed() ? 'Visited-campaign discovery finished. Review the coverage and results below.' : '');
@@ -485,13 +488,16 @@
         const automatic = observed();
         document.querySelector('header .intro').textContent = automatic ? 'Placements from visited campaigns, checked against Prisma. The spreadsheet stays unchanged.' : 'Your Reccie Tracker rows, checked against Prisma. Preview and confirm any tracker updates.';
         document.querySelector('header .readonly').textContent = manualWrites?.available() ? 'Manual tracker updates' : 'Read only';
-        $('mode-description').textContent = mode === 'main' ? 'Monthly tracker assignments.' : mode === 'early' ? `Early Reccie report for ${core.currentMonth()}. Current-month dates determine whether the tab can be used.` : `Current-month placements from campaigns visited this month in this Chrome profile. Not proof of who booked them. Visit campaigns with History logging on, then discover.`;
+        $('mode-description').textContent = mode === 'main' ? 'Monthly tracker assignments.' : mode === 'early' ? `Early Reccie report for ${core.currentMonth()}. Current-month dates determine whether the tab can be used.` : `Uses the same saved visits as Campaign History. Refresh queries Prisma for current-month D numbers in campaigns visited this month, even if you have not opened each placement. Keep campaign visit logging enabled. A visit does not establish who booked the placements.`;
         $('sheet-connection').hidden = mode === 'automatic';
         $('source-details').hidden = mode === 'automatic';
         $('report-loaded-badge').hidden = !tracker || automatic;
         $('forget-report').disabled = busy || !tracker;
         $('discover-campaigns').hidden = mode === 'main';
-        $('discover-campaigns').textContent = mode === 'early' ? 'Use visited campaigns fallback' : 'Discover / refresh visited campaigns';
+        $('discover-campaigns').textContent = mode === 'early' ? 'Use visited campaigns fallback' : 'Refresh placements from visited campaigns';
+        $('month-default-hint').hidden = mode !== 'main';
+        $('first-use-guide').hidden = !!tracker || mode !== 'main';
+        $('verification-scope').textContent = `Checks Prisma for ${$('report-month').value || 'the report month you choose'}. Verifies all rows matching your filters, including rows below “Show more”.`;
         $('month-hint').textContent = mode === 'main' ? 'Applies to every row' : 'Current month only';
         $('sheet-hint').textContent = mode === 'early' ? 'Reads the Early Reccie report tab from this spreadsheet. Booking End Date determines the month; stale reports fall back to visited campaigns.' : 'Uses your signed-in Google account. Open the Reccie report tab before copying its URL.';
         $('assignment-fields').hidden = automatic;
@@ -504,10 +510,12 @@
         const coverage=$('coverage-issues'); coverage.replaceChildren();
         if (source?.issues?.length || source?.limited || source?.fallback) setDisclosureOpen($('coverage-details'), true);
         if (source && automatic) {
-            coverage.append(text('p', `${source.fallback ? `Early Recs fallback: ${source.fallbackReason} ` : ''}${source.coverage || ''}`));
+            if (source.fallback) coverage.append(text('p', `Early Recs fallback: ${source.fallbackReason}`));
+            coverage.append(text('p', `${tracker.rows.length} current-month placements found.`));
+            if (!tracker.rows.length && source.successfulCampaigns) coverage.append(text('p', 'Prisma returned no eligible current-month D numbers from the successfully checked campaigns. Use Main Tracker for the previous month’s reconciliation report.'));
             coverage.append(text('p', `${source.successfulCampaigns || 0} campaigns checked of ${source.attemptedCampaigns || 0} attempted; ${source.eligibleCampaigns || 0} eligible visited campaigns.${source.limited ? ' Limited to the 50 most recently visited campaigns.' : ''}`));
             (source.issues || []).forEach(issue=>coverage.append(text('p', `${issue.campaignId}: ${issue.message}`)));
-            if (!source.eligibleCampaigns) coverage.append(text('p','No eligible visits recorded this month. Visit campaigns with History logging enabled, then discover again.'));
+            if (!source.eligibleCampaigns) coverage.append(text('p','No eligible visits recorded this month. Enable campaign visit logging in Settings, open a campaign in Prisma, then select Refresh placements from visited campaigns.'));
         } else if (source && mode === 'early') coverage.append(text('p', `${source.excludedRows || 0} rows excluded from other months; ${source.ambiguousRows || 0} dates need attention. Blank dates inherit the month only when dated rows consistently establish it.`));
     }
     document.querySelectorAll('[name=mode]').forEach(input=>input.addEventListener('change', async()=>{
@@ -587,7 +595,7 @@
     document.addEventListener('reccies-ui-change', () => render());
     (async () => {
         try {
-            const stored = await chrome.storage.local.get(['reccieTracker','recciePreferences','reccieLastRunTiming','reccieProgressBarsEnabled']);
+            const stored = await chrome.storage.local.get(['reccieTracker','recciePreferences','reccieLastRunTiming','reccieProgressBarsEnabled','reccieMonthConfirmed']);
             tracker = stored.reccieTracker || null;
             $('show-progress-bars').checked = stored.reccieProgressBarsEnabled !== false;
             const prefs = stored.recciePreferences || {};
@@ -595,6 +603,8 @@
             const previous = new Date(); previous.setDate(1); previous.setMonth(previous.getMonth() - 1);
             $('report-month').value = tracker?.month || `${previous.getFullYear()}-${String(previous.getMonth() + 1).padStart(2, '0')}`;
             $('sheet-url').value = tracker?.source.url || '';
+            if (!tracker && !stored.reccieMonthConfirmed) $('report-month').value = '';
+            $('first-use-guide').hidden = !!tracker;
             people(prefs.person); setDisclosureOpen($('source-details'), !tracker); render();
             if (typeof prefs.view === 'string' || !prefs.trackerStatus) {
                 await savePreferences();

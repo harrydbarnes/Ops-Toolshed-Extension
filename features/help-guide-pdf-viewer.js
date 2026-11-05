@@ -291,16 +291,20 @@
             event.preventDefault();
             scrollToPage(elements.pageInput.value);
         });
-        elements.zoomOut.addEventListener('click', () => {
-            manualScale = clamp((zoomMode === 'fit' ? renderedScale : manualScale) - SCALE_STEP, MIN_SCALE, MAX_SCALE);
+        function setManualZoom(scale) {
+            if (!pdfDocument) return;
+            manualScale = clamp(scale, MIN_SCALE, MAX_SCALE);
             zoomMode = 'manual';
             renderAllPages();
-        });
-        elements.zoomIn.addEventListener('click', () => {
-            manualScale = clamp((zoomMode === 'fit' ? renderedScale : manualScale) + SCALE_STEP, MIN_SCALE, MAX_SCALE);
-            zoomMode = 'manual';
-            renderAllPages();
-        });
+        }
+        function currentScale() {
+            return zoomMode === 'fit' ? renderedScale : manualScale;
+        }
+        function changeZoom(direction) {
+            setManualZoom(currentScale() + direction * SCALE_STEP);
+        }
+        elements.zoomOut.addEventListener('click', () => changeZoom(-1));
+        elements.zoomIn.addEventListener('click', () => changeZoom(1));
         elements.fit.addEventListener('click', () => {
             zoomMode = 'fit';
             renderAllPages();
@@ -319,6 +323,13 @@
             const schedule = globalThis.requestAnimationFrame || (callback => window.setTimeout(callback, 16));
             scrollFrame = schedule(trackVisiblePage);
         }, { passive: true });
+        elements.scroller.addEventListener('wheel', event => {
+            if (!pdfDocument || !event.ctrlKey || !event.deltaY) return;
+            event.preventDefault();
+            const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? elements.scroller.clientHeight : 1;
+            const delta = clamp(event.deltaY * unit, -100, 100);
+            setManualZoom(currentScale() * Math.exp(-delta * 0.001));
+        }, { passive: false });
 
         function handleViewportResize() {
             if (!pdfDocument || zoomMode !== 'fit') return;

@@ -297,6 +297,9 @@ async function mainContentScriptInit() {
         hostname.includes('prisma.mediaocean.com') ||
         hostname === 'go.demo.mediaocean.com' ||
         hostname === 'go.mediaocean.com';
+    // The token exchange page shares Prisma's host but is an authentication
+    // hand-off, not a Prisma workspace with user-facing loading indicators.
+    const isPrismaAuthHandoffPage = window.location.pathname.replace(/\/+$/, '') === '/mo-op-discovery/rp/tokens';
     const isAura = hostname.includes('aura.mediaocean.com');
     const isMediaoceanPage = hostname.includes('mediaocean.com');
     const initialRoute = getDynamicRouteContext();
@@ -379,7 +382,7 @@ async function mainContentScriptInit() {
         { name: 'actualise-export', getFeature: () => window.actualiseExportAllFeature, when: route => isPrismaLike && route.isActualise },
         { name: 'actualise-month', getFeature: () => window.actualiseMonthAssuranceFeature, when: route => isPrismaLike && route.isActualise },
         { name: 'max-campaign-budget', getFeature: () => window.maxCampaignBudgetFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
-        { name: 'loading-facts', getFeature: () => window.loadingFactsFeature, when: () => isPrismaLike }
+        { name: 'loading-facts', getFeature: () => window.loadingFactsFeature, when: () => isPrismaLike && !isPrismaAuthHandoffPage }
     ];
 
     function initializeEligibleFeatures(route) {
