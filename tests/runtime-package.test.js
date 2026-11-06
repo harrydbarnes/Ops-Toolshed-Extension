@@ -3,7 +3,7 @@ const {runtimeFiles}=require('../scripts/package-extension.cjs');
 const root=path.resolve(__dirname,'..');
 test('runtime package retains extension entry points and assets, excluding development and server files',()=>{
  const files=runtimeFiles().map(file=>file.replaceAll('\\','/'));
- for(const file of ['manifest.json','background.js','build-info.js','popup.html','approvers-icons.css','onboarding-tour.html','onboarding-tour-v2.html','assets/fonts/fonts.css','vendor/pdfjs/pdf.worker.min.mjs'])expect(files).toContain(file);
+ for(const file of ['manifest.json','background.js','build-info.js','popup.html','popup-shortcuts.js','approvers-icons.css','onboarding-tour.html','onboarding-tour-v2.html','assets/fonts/fonts.css','vendor/pdfjs/pdf.worker.min.mjs'])expect(files).toContain(file);
  expect(files.some(file=>/^(tests|docs|outputs|node_modules|integrations|artifacts|scripts|benchmarks)\//.test(file))).toBe(false);
  for(const file of ['package.json','package-lock.json','jest.config.js','babel.config.js','update-build-info.js','icon-backup.png'])expect(files).not.toContain(file);
  const manifest=JSON.parse(fs.readFileSync(path.join(root,'manifest.json')));

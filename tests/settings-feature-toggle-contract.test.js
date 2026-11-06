@@ -6,6 +6,7 @@ const { FEATURE_SETTINGS_DEFAULTS } = require('../settings');
 
 const settingsHtml = fs.readFileSync(path.resolve(__dirname, '../settings.html'), 'utf8');
 const settingsScript = readScript(path.resolve(__dirname, '../settings.js'));
+const popupShortcutScript = readScript(path.resolve(__dirname, '../popup-shortcuts.js'));
 const utilsScript = readScript(path.resolve(__dirname, '../utils.js'));
 const registryScript = readScript(path.resolve(__dirname, '../feature-settings-registry.js'));
 
@@ -15,7 +16,6 @@ const FEATURE_TOGGLE_KEYS = {
     appLearnReplaceToggle: 'appLearnReplaceEnabled',
     bannerUsernameToggle: 'bannerUsernameEnabled',
     loadingFactsToggle: 'loadingFactsEnabled',
-    loadingFactsUI: 'loadingFactsUI',
     helpGuidesToggle: 'helpGuidesEnabled',
     prismaLoginAssistantToggle: 'prismaLoginAssistantEnabled',
     countPlacementsSelectedToggle: 'countPlacementsSelectedEnabled',
@@ -156,7 +156,9 @@ async function createSettingsPage(ignoredProductCodes = [], initialSyncSettings 
     };
     window.alert = jest.fn();
     window.console.log = jest.fn();
+    window.eval(readScript(path.resolve(__dirname, '../loading-facts-preview.js')));
     window.eval(registryScript);
+    window.eval(popupShortcutScript);
     window.eval(utilsScript);
     window.eval(settingsScript);
     window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
@@ -167,11 +169,88 @@ async function createSettingsPage(ignoredProductCodes = [], initialSyncSettings 
 }
 
 describe('Settings feature toggle contract', () => {
+    test.each(['callback', 'throw', 'reject'])('restores a checkbox after a %s storage failure and allows retry', async failure => {
+        const { dom, window, syncStore } = await createSettingsPage();
+        const control = window.document.getElementById('helpGuidesToggle');
+        const initial = control.checked;
+        window.chrome.storage.sync.set.mockImplementationOnce((_values, callback) => {
+            if (failure === 'throw') throw new Error('Storage unavailable');
+            if (failure === 'reject') return Promise.reject(new Error('Storage unavailable'));
+            window.chrome.runtime.lastError = { message: 'Storage unavailable' };
+            callback();
+            delete window.chrome.runtime.lastError;
+        });
+        control.click();
+        await Promise.resolve();
+        expect(control.checked).toBe(initial);
+        expect(control.disabled).toBe(false);
+        expect(window.document.querySelector('#toast-notification .toast-message').textContent).toContain('Could not save');
+        control.click();
+        expect(syncStore.helpGuidesEnabled).toBe(!initial);
+        dom.window.close();
+    });
+
+    test('restores the saved appearance after a failed segmented-control save and allows retry', async () => {
+        const { dom, window, syncStore } = await createSettingsPage();
+        const control = window.document.getElementById('uiThemeSegmented');
+        const original = control.querySelector('[aria-pressed="true"]');
+        const alternative = [...control.querySelectorAll('button[data-value]')].find(button => button !== original);
+        window.chrome.storage.sync.set.mockImplementationOnce((_values, callback) => {
+            window.chrome.runtime.lastError = { message: 'Storage unavailable' };
+            callback();
+            delete window.chrome.runtime.lastError;
+        });
+        alternative.click();
+        expect(original.getAttribute('aria-pressed')).toBe('true');
+        expect(alternative.getAttribute('aria-pressed')).toBe('false');
+        expect(window.document.querySelector('#toast-notification .toast-message').textContent).toContain('Could not save');
+        alternative.click();
+        expect(syncStore.uiTheme).toBe(alternative.dataset.value);
+        dom.window.close();
+    });
+
+    test.each([
+        ['logoToggle', 'logoReplaceEnabled'],
+        ['timesheetReminderToggle', 'timesheetReminderEnabled'],
+        ['statsCollectorToggle', 'statsCollectorEnabled']
+    ])('restores the special %s control when its save fails', async (id, key) => {
+        const initial = id === 'statsCollectorToggle' ? false : true;
+        const { dom, window, syncStore } = await createSettingsPage([], { [key]: initial });
+        const control = window.document.getElementById(id);
+        window.chrome.storage.sync.set.mockImplementationOnce((_values, callback) => {
+            window.chrome.runtime.lastError = { message: 'Storage unavailable' };
+            callback();
+            delete window.chrome.runtime.lastError;
+        });
+        control.click();
+        expect(control.checked).toBe(initial);
+        expect(syncStore[key]).toBe(initial);
+        expect(window.document.querySelector('#toast-notification .toast-message').textContent).toContain('Could not save');
+        dom.window.close();
+    });
+
+    test('restores reminder frequency after storage fails', async () => {
+        const { dom, window } = await createSettingsPage([], { prismaReminderFrequency: 'daily' });
+        const control = window.document.getElementById('prismaReminderFrequency');
+        const original = control.value;
+        const alternative = [...control.options].find(option => option.value !== original);
+        window.chrome.storage.sync.set.mockImplementationOnce((_values, callback) => {
+            window.chrome.runtime.lastError = { message: 'Storage unavailable' };
+            callback();
+            delete window.chrome.runtime.lastError;
+        });
+        control.value = alternative.value;
+        control.dispatchEvent(new window.Event('change', { bubbles: true }));
+        expect(control.value).toBe(original);
+        expect(window.document.querySelector('#toast-notification .toast-message').textContent).toContain('Could not save');
+        dom.window.close();
+    });
+
     test('every visible Features checkbox has a default and persists from its real UI control', async () => {
         const { dom, window } = await createSettingsPage();
         const toggles = Array.from(
             window.document.querySelectorAll('#features input[type="checkbox"]')
-        );
+        ).filter(toggle => !toggle.hasAttribute('data-popup-shortcut-option'));
         const visibleToggleIds = toggles.map(toggle => toggle.id).sort();
 
         expect(visibleToggleIds).toEqual(Object.keys(FEATURE_TOGGLE_KEYS).sort());
@@ -184,9 +263,7 @@ describe('Settings feature toggle contract', () => {
             toggle.checked = false;
             toggle.click();
 
-            if (toggle.id === 'loadingFactsUI') {
-                expect(window.chrome.storage.sync.set).toHaveBeenCalledWith({ loadingFactsUI: 'new' });
-            } else if (toggle.id === 'diagnosticsModeToggle') {
+            if (toggle.id === 'diagnosticsModeToggle') {
                 expect(window.chrome.runtime.sendMessage).toHaveBeenCalledWith({
                     action: 'SET_DIAGNOSTICS_MODE',
                     enabled: true
@@ -200,6 +277,68 @@ describe('Settings feature toggle contract', () => {
         }
 
         for (let index = 0; index < 5; index += 1) await Promise.resolve();
+        dom.window.close();
+    });
+
+    test('popup shortcut options use their shared defaults and save selection and custom links', async () => {
+        const { dom, window, syncStore } = await createSettingsPage();
+        const reccies = window.document.querySelector('[data-popup-shortcut-option="reccies"]');
+        const officeDays = window.document.querySelector('[data-popup-shortcut-option="myOfficeDays"]');
+        expect(reccies.getAttribute('aria-pressed')).toBe('true');
+        expect(officeDays.getAttribute('aria-pressed')).toBe('false');
+        expect(reccies.draggable).toBe(true);
+        expect(window.document.querySelector('[data-popup-shortcut-drop-zone="off"]')).not.toBeNull();
+        expect(FEATURE_SETTINGS_DEFAULTS.popupShortcuts).toContain('reccies');
+        expect(FEATURE_SETTINGS_DEFAULTS.popupShortcuts).not.toContain('myOfficeDays');
+
+        const editor = window.document.getElementById('popup-shortcut-editor');
+        const transfer = {
+            shortcutId: '',
+            setData: jest.fn((_type, value) => { transfer.shortcutId = value; }),
+            getData: jest.fn(() => transfer.shortcutId)
+        };
+        const dragStart = new window.Event('dragstart', { bubbles: true });
+        Object.defineProperty(dragStart, 'dataTransfer', { value: transfer });
+        reccies.dispatchEvent(dragStart);
+        const drop = new window.Event('drop', { bubbles: true, cancelable: true });
+        Object.defineProperty(drop, 'dataTransfer', { value: transfer });
+        editor.querySelector('[data-popup-shortcut-drop-zone="off"]').dispatchEvent(drop);
+        await Promise.resolve();
+        expect(syncStore.popupShortcuts).not.toContain('reccies');
+        expect(editor.querySelector('[data-popup-shortcut-drop-zone="off"] [data-popup-shortcut-option="reccies"]')).not.toBeNull();
+
+        editor.querySelector('[data-popup-shortcut-drop-zone="off"] [data-popup-shortcut-option="reccies"]').click();
+        await Promise.resolve();
+        expect(syncStore.popupShortcuts).toContain('reccies');
+
+        editor.querySelector('[data-popup-shortcut-option="myOfficeDays"]').click();
+        expect(syncStore.popupShortcuts).toContain('myOfficeDays');
+        expect(window.chrome.storage.sync.set).toHaveBeenCalledWith(
+            { popupShortcuts: expect.arrayContaining(['reccies', 'myOfficeDays']) },
+            expect.any(Function)
+        );
+
+        editor.querySelector('[name="shortcutName"]').value = 'Team Hub';
+        editor.querySelector('[name="shortcutUrl"]').value = 'javascript:alert(1)';
+        editor.querySelector('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+        expect(syncStore.popupCustomShortcuts).toEqual([]);
+        expect(editor.querySelector('.popup-shortcut-status').dataset.state).toBe('error');
+
+        editor.querySelector('[name="shortcutUrl"]').value = 'https://example.com/team';
+        editor.querySelector('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+        await Promise.resolve();
+        expect(syncStore.popupCustomShortcuts).toEqual([{ name: 'Team Hub', url: 'https://example.com/team', enabled: true }]);
+        expect(editor.querySelector('[data-popup-custom-shortcut="0"]').textContent).toBe('Team Hub');
+
+        editor.querySelector('[data-popup-custom-shortcut="0"]').click();
+        await Promise.resolve();
+        expect(syncStore.popupCustomShortcuts[0].enabled).toBe(false);
+        const disabledCustom = editor.querySelector('[data-popup-shortcut-drop-zone="off"] [data-popup-custom-shortcut="0"]');
+        expect(disabledCustom).not.toBeNull();
+        disabledCustom.click();
+        await Promise.resolve();
+        expect(syncStore.popupCustomShortcuts[0].enabled).toBe(true);
+
         dom.window.close();
     });
 
@@ -341,27 +480,31 @@ describe('Settings feature toggle contract', () => {
     });
 });
 
-test('loading facts appearance defaults to New UI and persists both choices', async () => {
-    const {dom,window,syncStore} = await createSettingsPage();
+test('loading facts appearance restores, saves, previews and follows external changes', async () => {
+    const {dom,window,syncStore} = await createSettingsPage([], {loadingFactsUI:'old'});
     try {
-        const toggle = window.document.getElementById('loadingFactsUI');
-        expect(toggle.type).toBe('checkbox');
-        expect(toggle.checked).toBe(true);
-        expect(FEATURE_SETTINGS_DEFAULTS.loadingFactsUI).toBe('new');
-        for (const value of ['old','new']) {
-            toggle.click();
-            expect(syncStore.loadingFactsUI).toBe(value);
-        }
+        const control = window.document.getElementById('loadingFactsUI');
+        const old = control.querySelector('[data-value="old"]');
+        const newer = control.querySelector('[data-value="new"]');
+        const tooltip = window.document.getElementById('loading-facts-option-preview');
+        expect(old.getAttribute('aria-pressed')).toBe('true');
+        newer.dispatchEvent(new window.Event('pointerenter'));
+        expect(tooltip.hidden).toBe(false);
+        expect(tooltip.querySelector('.facts-preview-new')).not.toBeNull();
+        newer.focus();
+        expect(newer.getAttribute('aria-describedby')).toBe(tooltip.id);
+        newer.dispatchEvent(new window.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+        expect(tooltip.hidden).toBe(true);
+        newer.click();
+        expect(syncStore.loadingFactsUI).toBe('new');
+        newer.dispatchEvent(new window.KeyboardEvent('keydown', {key:'ArrowRight', bubbles:true}));
+        expect(syncStore.loadingFactsUI).toBe('old');
+        expect(tooltip.querySelector('.facts-preview-old')).not.toBeNull();
+        const changed = window.chrome.storage.onChanged.addListener.mock.calls[0][0];
+        changed({loadingFactsUI:{newValue:'new'}}, 'sync');
+        expect(newer.getAttribute('aria-pressed')).toBe('true');
     } finally { dom.window.close(); }
 });
-
-test('loading facts appearance toggle restores a saved Old UI preference', async () => {
-    const {dom,window} = await createSettingsPage([], {loadingFactsUI:'old'});
-    try {
-        expect(window.document.getElementById('loadingFactsUI').checked).toBe(false);
-    } finally { dom.window.close(); }
-});
-
 
 test('Reccies appearance selector preserves the boolean preference, keyboard choice and sync updates',async()=>{
     const {dom,window,syncStore}=await createSettingsPage();

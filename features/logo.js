@@ -15,17 +15,22 @@
         const directMatch = document.querySelector(selector);
         if (directMatch) return directMatch;
 
-        const roots = [document];
+        // Prioritise the known banner independently of the grid walk budget.
+        const bannerRoot = document.querySelector('mo-banner')?.shadowRoot;
+        const bannerMatch = bannerRoot?.querySelector(selector);
+        if (bannerMatch) return bannerMatch;
+        const roots = bannerRoot ? [bannerRoot, document] : [document];
         let rootsChecked = 0;
-        let elementsWalked = 0;
 
-        while (roots.length && rootsChecked < MAX_SHADOW_ROOTS_TO_CHECK && elementsWalked < MAX_ELEMENTS_TO_WALK) {
+
+        while (roots.length && rootsChecked < MAX_SHADOW_ROOTS_TO_CHECK) {
             const root = roots.shift();
             rootsChecked += 1;
 
             const directRootMatch = root === document ? null : root.querySelector?.(selector);
             if (directRootMatch) return directRootMatch;
 
+            let elementsWalked = 0;
             const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
             let element;
             while ((element = walker.nextNode()) && elementsWalked < MAX_ELEMENTS_TO_WALK) {

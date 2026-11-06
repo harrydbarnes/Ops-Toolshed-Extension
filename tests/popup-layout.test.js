@@ -15,8 +15,10 @@ function getFlexGrow(selector) {
 }
 
 describe('Popup bottom menu layout', () => {
-    test('omits the Reccies section and its popup script', () => {
-        expect(popupHtml).not.toMatch(/recciesPopupTitle|recciesPopupStatus|recciesButton|recciesPageButton|reccie-popup\.js/);
+    test('adds Reccies as a configurable launch button without a separate Reccies panel section', () => {
+        expect(popupHtml).toContain('id="recciesButton"');
+        expect(popupHtml).toContain('src="popup-shortcuts.js"');
+        expect(popupHtml).not.toMatch(/recciesPopupTitle|recciesPopupStatus|recciesPageButton|reccie-popup\.js/);
         expect(popupHtml).not.toContain('Open Reccies sidebar');
         expect(popupHtml).not.toContain('Open full page');
     });

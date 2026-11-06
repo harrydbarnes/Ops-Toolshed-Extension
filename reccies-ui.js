@@ -10,22 +10,24 @@
     const controls = document.createElement('div'); controls.id = 'reccies-controls';
     document.querySelector('.mode-switch').before(controls);
     for (const selector of ['.mode-switch','#mode-description','#discover-campaigns','#coverage-details','#source-details','#source-status','.filters']) {
-        controls.append(document.querySelector(selector));
+        const el = document.querySelector(selector);
+        if (el) controls.append(el);
     }
     const focusBar = document.createElement('div'); focusBar.className = 'reccies-focus-controls';
     const focusButton = document.createElement('button'); focusButton.id = 'reccies-focus-toggle'; focusButton.type = 'button';
-    focusButton.setAttribute('aria-controls', controls.id); focusBar.append(focusButton); $('rows').before(focusBar);
+    focusButton.setAttribute('aria-controls', controls.id); focusBar.append($('reccie-results-asof'),focusButton); $('rows').before(focusBar);
     function setFocused(value, animate = true) {
         const start = controls.hidden ? 0 : controls.getBoundingClientRect().height;
-        focusAnimation?.cancel(); focusAnimation = null;
+        focusAnimation?.cancel(); focusAnimation = null; controls.style.overflow = "";
         focused = enabled() && value;
         focusButton.textContent = focused ? 'Show settings' : 'Collapse settings';
         focusButton.setAttribute('aria-expanded', String(!focused));
         controls.hidden = false; controls.inert = focused;
         if (!enabled() || reduced() || !animate || typeof controls.animate !== 'function') { controls.hidden = focused; return; }
+        controls.style.overflow = "hidden";
         const animation = controls.animate([{height:start+'px',opacity:focused?1:0},{height:focused?'0px':controls.scrollHeight+'px',opacity:focused?0:1}], {duration:160,easing:'ease-out'});
         focusAnimation = animation;
-        animation.onfinish = () => { if(focusAnimation!==animation)return;controls.hidden=focused;focusAnimation=null;animation.cancel(); };
+        animation.onfinish = () => { if(focusAnimation!==animation)return;controls.hidden=focused;focusAnimation=null;controls.style.overflow="";animation.cancel(); };
     }
     focusButton.addEventListener('click', () => setFocused(!focused));
     function transitionContent(update, key) {
@@ -71,7 +73,6 @@
     const originalMismatch = mismatchText?.textContent;
     function updateFilters() {
         sourceMetadata.textContent = $('source-status').textContent;
-        chips.title = $('filter-hint').textContent;
         const inputs = [...chips.querySelectorAll('[data-status]')];
         const labels = [...chips.querySelectorAll('label')].filter(label => !label.hidden);
         const gap = parseFloat(window.getComputedStyle(chips).gap) || 7;
@@ -142,7 +143,7 @@
             rows.forEach(row => {
                 const item = document.createElement('div'); item.className = 'v2-placement';
                 const id = document.createElement('p'); id.className = 'v2-placement-id'; id.textContent = row.dNumber;
-                item.append(id, evidence(row, checks?.[row.sourceRow], observed)); placements.append(item);
+                item.append(id, evidence(row, checks?.[row.sourceRow], observed)); if(row.comments){const note=document.createElement('p');note.className='comment';note.textContent=row.comments;item.append(note);} placements.append(item);
             });
             bottom.before(placements);
         } else {
@@ -153,7 +154,7 @@
             card.querySelector('.campaign-name').after(metadata);
             card.querySelector('.status-lines').before(evidence(row, result, observed));
             const badge = card.querySelector('.card-top > .badge');
-            if (badge && !row.issue && result?.state === 'ready') badge.textContent = 'Ready in Prisma';
+            if (badge && !row.issue && result?.state === 'ready') badge.textContent = 'Reconciled in Prisma';
             if (badge && !row.issue && result?.state === 'outstanding') badge.textContent = result.reconciled === '0' ? 'Not reconciled in Prisma' : `Buy status: ${human(result.buyStatus)}`;
         }
         const warnings = card.querySelectorAll('.mismatch-warning');

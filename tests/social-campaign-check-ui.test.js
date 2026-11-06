@@ -25,6 +25,13 @@ describe('Live campaign check feedback',()=>{
         dom.window.chrome=chrome;dom.window.HTMLElement.prototype.scrollIntoView=jest.fn();
     });
     afterEach(()=>dom.window.close());
+    test.each(['sync', 'local'])('contains a rejected %s startup read and prevents checks', async area => {
+        chrome.storage[area].get.mockRejectedValueOnce(new Error('Storage unavailable'));
+        await dom.window.eval(script); await flush();
+        expect(dom.window.document.getElementById('status').textContent).toContain('Reload this page');
+        expect(dom.window.document.getElementById('check').disabled).toBe(true);
+        expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
+    });
     test('candidate links and creation evidence stay separate from the linked result',async()=>{
         const result={name:'Linked',campaignId:'123',accountId:'456',currency:'GBP',prismaCurrency:'GBP',budget:100,packageBudget:200,metaBudget:100,totalSpend:0,outsideSpend:0,findings:[],warnings:['No spend recorded; reason not confirmed.'],notes:[],bookings:[],metaRanges:[],outsideDays:[],deliveryReview:{},creation:{actor:'Operator',application:'Mediaocean',at:'2026-06-01'},candidates:[]};
         result.candidates=[{...result,candidates:[],name:'Possible',campaignId:'789',totalSpend:30,evidence:'Same name; unconfirmed.'}];

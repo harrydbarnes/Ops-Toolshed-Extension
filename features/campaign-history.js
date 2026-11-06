@@ -222,6 +222,16 @@
         return normalizeWhitespace(element.textContent || '');
     }
 
+    function getFrameElements(frame, visited) {
+        try {
+            const frameDocument = frame.contentDocument;
+            return frameDocument ? getElementsIncludingShadowDom(frameDocument, visited) : [];
+        } catch (_error) {
+            // Cross-origin frames are expected in the Mediaocean shell.
+            return [];
+        }
+    }
+
     function getElementsIncludingShadowDom(root = document, visited = new Set()) {
         if (!root || visited.has(root)) return [];
         visited.add(root);
@@ -242,13 +252,7 @@
                 result.push(...getElementsIncludingShadowDom(element.shadowRoot, visited));
             }
             if (element.tagName === 'IFRAME') {
-                try {
-                    if (element.contentDocument) {
-                        result.push(...getElementsIncludingShadowDom(element.contentDocument, visited));
-                    }
-                } catch (_error) {
-                    // Cross-origin frames are expected in the Mediaocean shell.
-                }
+                result.push(...getFrameElements(element, visited));
             }
         });
 
@@ -2363,14 +2367,13 @@
     }
 
     async function copyToClipboard(text, action) {
-        if (!text) return false;
+        if (!text || !chrome.runtime?.sendMessage) return false;
         try {
-            if (chrome.runtime?.sendMessage) {
-                const response = await chrome.runtime.sendMessage({ action, text });
-                return response?.status === 'success';
-            }
-        } catch (_error) {}
-        return false;
+            const response = await chrome.runtime.sendMessage({ action, text });
+            return response?.status === 'success';
+        } catch (_error) {
+            return false;
+        }
     }
 
     function createContextMenuItem(label, iconName, onClick) {
@@ -2691,6 +2694,7 @@
             if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return 0;
         } catch (_error) {
             // Fall back to the normal transition when matchMedia is unavailable.
+            return PANEL_TRANSITION_DURATION_MS;
         }
         return PANEL_TRANSITION_DURATION_MS;
     }
@@ -2782,20 +2786,36 @@
         };
     }
 
-    function animatePanelGeometry(panel, expanded, prepareCollapsedPanel) {
+    function animatePanelGeometry(panel, expanded, preparePanel) {
         clearPanelGeometryCleanup();
         const currentRect = panel.getBoundingClientRect();
         setInlinePanelGeometry(panel, currentRect);
 
         let targetRect;
         if (expanded) {
-            panel.classList.add('is-expanded');
+            const previousTransition = panel.style.getPropertyValue('transition');
+            const previousPriority = panel.style.getPropertyPriority('transition');
+            panel.style.setProperty('transition', 'none');
+            try {
+                panel.classList.add('is-expanded');
+                preparePanel?.();
+                // Commit the full list at the current size before starting motion.
+                // Otherwise list construction and its first layout interrupt the
+                // opening frames, while minimising only lays out four results.
+                void panel.offsetWidth;
+            } finally {
+                if (previousTransition) {
+                    panel.style.setProperty('transition', previousTransition, previousPriority);
+                } else {
+                    panel.style.removeProperty('transition');
+                }
+            }
             targetRect = getExpandedPanelGeometry();
         } else {
             targetRect = measureCollapsedPanelGeometry(
                 panel,
                 currentRect,
-                prepareCollapsedPanel
+                preparePanel
             );
         }
 
@@ -2806,19 +2826,31 @@
 
         const duration = getPanelTransitionDuration();
         if (duration === 0) {
-            clearInlinePanelGeometry(panel);
+            if (expanded) {
+                clearInlinePanelGeometry(panel);
+            } else {
+                panel.style.removeProperty('height');
+                panel.style.removeProperty('max-height');
+            }
             return;
         }
 
         panelGeometryCleanupTimer = window.setTimeout(() => {
             panelGeometryCleanupTimer = null;
-            if (!panel.hidden && expanded) {
-                clearInlinePanelGeometry(panel);
+            if (!panel.hidden) {
+                if (expanded) {
+                    clearInlinePanelGeometry(panel);
+                } else {
+                    panel.style.removeProperty('height');
+                    panel.style.removeProperty('max-height');
+                }
             }
             // Keep the measured collapsed geometry in place. Removing the
             // pixel-based left/width values here lets the CSS right anchor
             // reflow after the transition, which causes a visible jump at the
-            // end of minimising.
+            // end of minimising. Height is removed so the collapsed panel
+            // naturally wraps its results without leaving an empty gap, and
+            // adapts when searching or paginating.
         }, duration + 40);
     }
 
@@ -2916,8 +2948,7 @@
         const searchInput = panel?.querySelector('#toolshed-campaign-history-search-input');
         const shouldRestoreSearchFocus = document.activeElement === searchInput;
         const expanded = !panel.classList.contains('is-expanded');
-        setExpanded(panel, expanded, expanded ? null : () => renderHistoryResults());
-        if (expanded) renderHistoryResults();
+        setExpanded(panel, expanded, () => renderHistoryResults());
         if (shouldRestoreSearchFocus) searchInput.focus();
     }
 
@@ -2946,16 +2977,19 @@
         });
     }
 
+    let lastVisitedFormatter;
+
     function formatLastVisited(timestamp) {
         if (!Number.isFinite(timestamp) || timestamp <= 0) return 'Visit time unavailable';
         try {
-            return `Last visited ${new Intl.DateTimeFormat(undefined, {
+            lastVisitedFormatter ||= new Intl.DateTimeFormat(undefined, {
                 day: 'numeric',
                 month: 'short',
                 year: 'numeric',
                 hour: '2-digit',
                 minute: '2-digit'
-            }).format(new Date(timestamp))}`;
+            });
+            return `Last visited ${lastVisitedFormatter.format(new Date(timestamp))}`;
         } catch (_error) {
             return 'Last visited recently';
         }
@@ -3159,8 +3193,10 @@
         }
 
         updateHistoryPagination(panel, filteredEntries.length, true);
+        const results = document.createDocumentFragment();
         getVisibleHistoryEntries(panel, filteredEntries)
-            .forEach(entry => resultList.appendChild(createHistoryResult(entry, input.value)));
+            .forEach(entry => results.appendChild(createHistoryResult(entry, input.value)));
+        resultList.appendChild(results);
         if (pageTransitionDirection) {
             animateHistoryPage(resultList, pageTransitionDirection);
         }
@@ -3210,7 +3246,10 @@
         const handleOutsideClick = event => {
             const currentPanel = document.getElementById(PANEL_ID);
             if (!currentPanel || currentPanel.hidden || currentPanel.classList.contains('is-closing')) return;
-            if (currentPanel.contains(event.target)) return;
+            // Expand replaces its SVG while the click is still bubbling. The
+            // original target can be detached, but the dispatch path still
+            // records that this interaction started inside the panel.
+            if (currentPanel.contains(event.target) || event.composedPath?.().includes(currentPanel)) return;
             if (activeContextMenu && activeContextMenu.contains(event.target)) return;
             if (event.composedPath?.().some(target =>
                 target?.id === NAVIGATION_ID || target?.id === OVERFLOW_NAVIGATION_ID ||

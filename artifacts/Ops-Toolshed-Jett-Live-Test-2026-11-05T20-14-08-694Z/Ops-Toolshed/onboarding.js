@@ -1,0 +1,309 @@
+(async function() {
+    'use strict';
+
+    const popupShortcutSettings = globalThis.OpsToolshedPopupShortcuts;
+
+    if (window.opsToolshedPageGate && !(await window.opsToolshedPageGate.allow())) return;
+
+    const PRISMA_HOME = 'https://go.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns';
+    const recciesDefaults = Object.fromEntries(Object.keys(globalThis.OpsToolshedFeatureSettings?.BOOLEAN_DEFAULTS || {}).map(key => [key, ['recciesV2Enabled', 'campaignHistoryLoggingEnabled'].includes(key)]));
+    const defaults = {
+        uiTheme: 'pink',
+        bannerUsernameEnabled: true,
+        helpGuidesEnabled: true,
+        blockAppLearnPopupsEnabled: true,
+        campaignNameQuickCopyEnabled: true,
+        campaignHeaderQuickCopyEnabled: true,
+        swapAccountsEnabled: true,
+        rememberAccountSwitchUrlEnabled: true,
+        loadingFactsEnabled: true,
+        loadingFactsUI: 'new',
+        prismaReminderFrequency: 'daily',
+        metaReminderEnabled: true,
+        iasReminderEnabled: true,
+        timesheetReminderEnabled: true,
+        popupShortcuts: popupShortcutSettings?.DEFAULT_ENABLED_KEYS || [],
+        popupCustomShortcuts: []
+    };
+    defaults.popupShortcuts = ['reccies'];
+    const stepCopy = [
+        ['Choose your defaults', 'Start with the tools you’ll notice every day.', 'We’ve picked a practical starting set for navigating campaigns, keeping account context visible, and finding help without leaving Prisma.'],
+        ['Fine-tune your workflow', 'Choose the shortcuts that fit your day.', 'Set up useful copy actions, reminders and account switching before you open Prisma.'],
+        ['Loading facts', 'Choose how loading facts look.', 'Preview both styles and pick the one you prefer. You can change this later in Settings.'],
+        ['See it in Prisma', 'Your setup is ready.', 'Open Prisma and follow the focused side-panel guide to see the most useful areas in context.']
+    ];
+    let activeStep = 0;
+    let currentSettings = { ...defaults };
+    let selectedAudience = null;
+
+    const elements = {
+        pages: Array.from(document.querySelectorAll('.onboarding-page')),
+        audienceChoice: document.getElementById('audience-choice'),
+        nonPrismaSetup: document.getElementById('non-prisma-setup'),
+        progress: document.querySelector('.onboarding-progress'),
+        progressCount: document.getElementById('progress-count'),
+        progressFill: document.getElementById('progress-fill'),
+        progressLabel: document.getElementById('progress-label'),
+        title: document.getElementById('stage-title'),
+        description: document.getElementById('stage-description'),
+        previous: document.getElementById('previous-step'),
+        next: document.getElementById('next-step'),
+        start: document.getElementById('start-tour'),
+        skip: document.getElementById('skip-onboarding'),
+        status: document.getElementById('save-status'),
+        summary: document.getElementById('setup-summary'),
+        error: document.getElementById('onboarding-error')
+    };
+
+    function storageGet(area, values) {
+        return new Promise(resolve => {
+            if (!area?.get) return resolve({ ...values });
+            let settled = false;
+            const finish = result => {
+                if (settled) return;
+                settled = true;
+                resolve({ ...values, ...(result || {}) });
+            };
+            try {
+                const response = area.get(values, finish);
+                if (response?.then) response.then(finish, () => finish(values));
+            } catch {
+                finish(values);
+            }
+        });
+    }
+
+    function storageSet(area, values) {
+        return new Promise((resolve, reject) => {
+            if (!area?.set) return resolve();
+            let settled = false;
+            const finish = () => {
+                if (settled) return;
+                settled = true;
+                if (chrome.runtime?.lastError) reject(new Error(chrome.runtime.lastError.message));
+                else resolve();
+            };
+            try {
+                const response = area.set(values, finish);
+                if (response?.then) response.then(finish, reject);
+            } catch (error) {
+                reject(error);
+            }
+        });
+    }
+
+    function showSavedStatus() {
+        elements.status.textContent = 'Saved';
+        clearTimeout(showSavedStatus.timer);
+        showSavedStatus.timer = setTimeout(() => {
+            elements.status.textContent = 'Settings are saved as you go';
+        }, 1500);
+    }
+
+    async function saveSetting(key, value) {
+        currentSettings[key] = value;
+        try {
+            await storageSet(chrome.storage?.sync, { [key]: value });
+            showSavedStatus();
+        } catch {
+            elements.status.textContent = 'Could not save this setting';
+        }
+    }
+
+    function syncControls() {
+        document.querySelectorAll('[data-setting]').forEach(control => {
+            const value = currentSettings[control.dataset.setting];
+            if (control.type === 'checkbox') control.checked = value !== false;
+            else control.value = value;
+        });
+        document.querySelectorAll('[data-setting-choice]').forEach(button => {
+            button.setAttribute('aria-pressed', String(currentSettings[button.dataset.settingChoice] === button.dataset.value));
+        });
+        document.querySelectorAll('[data-pid-choice]').forEach(button => {
+            button.setAttribute('aria-pressed', String((currentSettings.swapAccountsEnabled !== false) === (button.dataset.pidChoice === 'true')));
+        });
+    }
+
+    function updateSummary() {
+        const toggleKeys = Object.keys(defaults).filter(key => typeof defaults[key] === 'boolean');
+        const enabled = toggleKeys.filter(key => currentSettings[key] !== false).length;
+        elements.summary.textContent = `${enabled} setup features enabled. Other tools keep their existing defaults. Explore all features to see what is on.`;
+    }
+
+    function renderStep(index, moveFocus = false) {
+        elements.audienceChoice.hidden = true;
+        elements.nonPrismaSetup.hidden = true;
+        elements.progress.hidden = false;
+        activeStep = Math.max(0, Math.min(stepCopy.length - 1, index));
+        const [label, title, description] = stepCopy[activeStep];
+        elements.progressCount.textContent = `${activeStep + 1} of ${stepCopy.length}`;
+        elements.progressFill.style.width = `${((activeStep + 1) / stepCopy.length) * 100}%`;
+        elements.progressLabel.textContent = label;
+        elements.title.textContent = title;
+        elements.description.textContent = description;
+        elements.pages.forEach((page, pageIndex) => {
+            const active = pageIndex === activeStep;
+            page.hidden = !active;
+            page.classList.toggle('active', active);
+        });
+        elements.previous.hidden = activeStep === 0;
+        elements.next.hidden = activeStep === stepCopy.length - 1;
+        elements.next.textContent = activeStep === stepCopy.length - 2 ? 'Review setup' : 'Continue';
+        elements.start.hidden = activeStep !== stepCopy.length - 1;
+        if (activeStep === stepCopy.length - 1) updateSummary();
+        if (moveFocus) elements.title.focus();
+    }
+
+    function renderAudienceChoice() {
+        elements.pages.forEach(page => { page.hidden = true; });
+        elements.nonPrismaSetup.hidden = true;
+        elements.audienceChoice.hidden = false;
+        elements.progress.hidden = true;
+        elements.previous.hidden = true;
+        elements.next.hidden = true;
+        elements.start.hidden = true;
+        elements.title.textContent = 'How will you use Ops Toolshed?';
+        elements.description.textContent = 'Choose the setup that fits your work. You can change this later in Settings.';
+        elements.title.focus();
+    }
+
+    function renderNonPrismaSetup() {
+        elements.pages.forEach(page => { page.hidden = true; });
+        elements.audienceChoice.hidden = true;
+        elements.nonPrismaSetup.hidden = false;
+        elements.progress.hidden = true;
+        elements.previous.hidden = true;
+        elements.next.hidden = true;
+        elements.start.hidden = true;
+        elements.title.textContent = 'Your everyday tools are ready.';
+        elements.description.textContent = 'Prisma page enhancements and approval polling are paused. Your individual feature preferences are kept.';
+        elements.title.focus();
+    }
+
+    async function chooseAudience(audience) {
+        try {
+            await storageSet(chrome.storage?.sync, { onboardingAudience: audience });
+            selectedAudience = audience;
+            elements.error.hidden = true;
+            if (audience === 'prisma') renderStep(0, true);
+            else renderNonPrismaSetup();
+        } catch {
+            elements.status.textContent = 'Could not save your choice. Try again.';
+        }
+    }
+
+    async function markComplete(values = {}) {
+        await storageSet(chrome.storage?.local, {
+            onboardingCompleted: true,
+            onboardingCompletedAt: Date.now(),
+            ...values
+        });
+    }
+
+    function startGuidedTour() {
+        elements.error.hidden = true;
+        void markComplete({ onboardingTourActive: true, onboardingTourVersion: 'v2' }).catch(() => { elements.status.textContent = 'Tour progress could not be saved'; });
+        try {
+            const optionsResult = chrome.sidePanel?.setOptions?.({ path: 'onboarding-tour-v2.html', enabled: true });
+            optionsResult?.catch?.(() => {
+                elements.error.textContent = 'The guided panel could not be prepared. Prisma will still open, and you can return to Settings at any time.';
+                elements.error.hidden = false;
+            });
+            const windowId = chrome.windows?.WINDOW_ID_CURRENT ?? -2;
+            const openResult = chrome.sidePanel?.open?.({ windowId });
+            if (openResult?.catch) {
+                openResult.catch(() => {
+                    elements.error.textContent = 'The side panel could not open. Prisma will still open, and you can return to Settings at any time.';
+                    elements.error.hidden = false;
+                });
+            }
+            chrome.tabs?.update?.({ url: PRISMA_HOME });
+        } catch {
+            elements.error.textContent = 'The side panel is not available in this browser. Open Settings to review all features.';
+            elements.error.hidden = false;
+        }
+    }
+
+    document.querySelectorAll('[data-setting]').forEach(control => {
+        control.addEventListener('change', () => {
+            const value = control.type === 'checkbox' ? control.checked : control.value;
+            void saveSetting(control.dataset.setting, value);
+        });
+    });
+
+    document.querySelectorAll('[data-setting-choice]').forEach(button => {
+        button.addEventListener('click', () => {
+            const key = button.dataset.settingChoice;
+            currentSettings[key] = button.dataset.value;
+            syncControls();
+            void saveSetting(key, button.dataset.value);
+        });
+    });
+
+    document.querySelectorAll('[data-pid-choice]').forEach(button => {
+        button.addEventListener('click', async () => {
+            const hasMultiplePids = button.dataset.pidChoice === 'true';
+            currentSettings.swapAccountsEnabled = hasMultiplePids;
+            currentSettings.rememberAccountSwitchUrlEnabled = hasMultiplePids;
+            syncControls();
+            try {
+                await storageSet(chrome.storage?.sync, {
+                    swapAccountsEnabled: hasMultiplePids,
+                    rememberAccountSwitchUrlEnabled: hasMultiplePids
+                });
+                showSavedStatus();
+            } catch {
+                elements.status.textContent = 'Could not save this setting';
+            }
+        });
+    });
+
+    elements.previous.addEventListener('click', () => renderStep(activeStep - 1, true));
+    elements.next.addEventListener('click', () => renderStep(activeStep + 1, true));
+    elements.start.addEventListener('click', startGuidedTour);
+    document.getElementById('choose-reccies').addEventListener('click', async () => {
+        try {
+            await storageSet(chrome.storage?.sync, { ...recciesDefaults, onboardingAudience: 'prisma', allFeaturesDisabled: false, popupShortcuts: ['reccies'] });
+            elements.audienceChoice.hidden = true;
+            document.getElementById('reccies-intro').hidden = false;
+            elements.title.textContent = 'Verify your Reccies, step by step.';
+            elements.description.textContent = 'Use the sidebar alongside Prisma to check your report and review tracker updates.';
+        } catch { elements.status.textContent = 'Could not save your Reccies setup. Try again.'; }
+    });
+    document.getElementById('finish-reccies').addEventListener('click', async () => {
+        try {
+            await markComplete({ onboardingTourActive: false, onboardingSkipped: false });
+            chrome.tabs.update({url:PRISMA_HOME});
+        } catch { elements.status.textContent = 'Could not finish setup. Try again.'; }
+    });
+    document.getElementById('choose-prisma').addEventListener('click', () => void chooseAudience('prisma'));
+    document.getElementById('choose-non-prisma').addEventListener('click', () => void chooseAudience('non-prisma'));
+    document.getElementById('change-audience').addEventListener('click', renderAudienceChoice);
+    document.getElementById('finish-non-prisma').addEventListener('click', async () => {
+        if (selectedAudience !== 'non-prisma') return;
+        try {
+            await markComplete({ onboardingTourActive: false, onboardingSkipped: false });
+            window.location.href = chrome.runtime.getURL('settings.html');
+        } catch {
+            elements.status.textContent = 'Could not save setup completion. Try again.';
+        }
+    });
+    elements.skip.addEventListener('click', () => {
+        void markComplete({ onboardingTourActive: false, onboardingSkipped: true });
+        window.location.href = chrome.runtime.getURL('settings.html');
+    });
+
+    storageGet(chrome.storage?.sync, defaults).then(settings => {
+        currentSettings = settings;
+        syncControls();
+        const popupShortcutEditor = document.getElementById('onboarding-popup-shortcut-editor');
+        if (popupShortcutSettings && popupShortcutEditor) {
+            popupShortcutSettings.renderEditor(
+                popupShortcutEditor,
+                currentSettings,
+                values => popupShortcutSettings.writeSync(chrome.storage?.sync, values)
+            );
+        }
+        renderAudienceChoice();
+    });
+})();

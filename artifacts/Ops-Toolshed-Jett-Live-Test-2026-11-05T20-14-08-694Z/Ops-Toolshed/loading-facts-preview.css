@@ -1,0 +1,12 @@
+.facts-preview { min-height: 142px; display: flex; align-items: center; justify-content: center; padding: 20px; background: #f2f3f6; font: 13px/1.5 Arial, sans-serif; }
+.facts-preview-new .facts-preview-message { padding: 12px 42px 12px 14px; border: 1px solid #e0e3e8; border-radius: 6px; background: #f8f9fb; color: #444b55; }
+.facts-preview-new { position: relative; }
+.facts-preview-menu { position: absolute; right: 34px; color: #626873; }
+.facts-preview-old { gap: 12px; align-self: center; min-height: 0; margin: 30px 0; padding: 15px; border-radius: 50px; background: #333; color: white; text-align: center; }
+.facts-preview-old b { display: block; color: #ec4899; font-size: 11px; letter-spacing: 1px; }
+.facts-preview-old .facts-preview-message { display: block; }
+.facts-old-icon, .facts-old-actions { flex: 0 0 auto; }
+
+.loading-facts-option-preview { position: fixed; z-index: 2147483647; width: min(380px, calc(100vw - 24px)); padding: 12px; border: 1px solid #d8d9df; border-radius: 10px; background: white; box-shadow: 0 6px 24px #0003; pointer-events: none; }
+.loading-facts-option-preview[hidden] { display: none; }
+.loading-facts-option-preview .facts-preview-old { margin: 12px 0; }

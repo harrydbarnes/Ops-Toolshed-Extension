@@ -1,21 +1,34 @@
 (function() {
     'use strict';
 
-    let isEnabled = true;
+    let isEnabled = false;
+    let isInitialized = false;
 
     chrome.storage.sync.get('statsCollectorEnabled', (data) => {
         isEnabled = data.statsCollectorEnabled !== false;
+        if (isInitialized) { trackCampaignId(); checkLoadingState(); }
     });
 
     chrome.storage.onChanged.addListener((changes, area) => {
+        if (area === 'local' && changes.prismaDiagnostics && !Object.keys(changes.prismaDiagnostics.newValue?.days || {}).length) {
+            clearDiagnostics();
+            cancelPendingSave(null);
+            if (isInitialized) checkDiagnostics();
+        }
         if (area === 'local' && changes.campaignStatsSnapshots && !changes.campaignStatsSnapshots.newValue?.length) {
             lastSnapshotFingerprint = '';
         }
         if (area === 'sync' && changes.statsCollectorEnabled) {
             isEnabled = changes.statsCollectorEnabled.newValue !== false;
             if (!isEnabled) {
+                cancelPendingSave();
+                clearDiagnostics();
                 loadingSpinnerStartTime = null;
                 loadingSpinnerArea = '';
+            } else if (isInitialized) {
+                lastTrackedCampaignId = '';
+                trackCampaignId();
+                checkLoadingState();
             }
         }
     });
@@ -55,10 +68,11 @@
     function trackCampaignSnapshot() {
         if (!isEnabled || getVisibleSpinners().length) return;
         const id = new URLSearchParams(window.location.hash.slice(1)).get('campaign-id');
-        const snapshot = window.campaignHistoryFeature?.getCampaignSnapshot?.();
-        if (!id || !snapshot?.key || snapshot.campaignId !== id) return;
+        if (!id) return;
         const renderedId = document.querySelector('.buy-details-wrapper, .buy-details-background')?.textContent?.match(/\bCP[A-Z0-9-]+\b/i)?.[0];
         if (!renderedId || renderedId.toLowerCase() !== id.toLowerCase()) return;
+        const snapshot = window.campaignHistoryFeature?.getCampaignSnapshot?.();
+        if (!snapshot?.key || snapshot.campaignId !== id) return;
         const exactMoney = selector => {
             const text = (document.querySelector(selector)?.textContent?.trim() || '')
                 .replace(/\s+(?:budget|buy total \(billable amount\))$/i, '');
@@ -97,14 +111,23 @@
         console.log(`[Stats Collector] Campaign tracked: ${campaignId}`);
     }
 
+    let areaUrl = window.location.href;
+    let entryPhase = 'startup';
+    let entryPhaseSawLoading = false;
     function getPrismaArea(url = window.location.href) {
-        let params;
+        let params, parsedUrl;
         try {
-            const parsedUrl = new URL(url, window.location.origin);
+            parsedUrl = new URL(url, window.location.origin);
             params = new URLSearchParams(parsedUrl.hash.replace(/^#/, ''));
         } catch {
-            return 'other';
+            return 'unclassified';
         }
+        if (url === window.location.href && areaUrl !== url) {
+            areaUrl = url;
+            entryPhase = 'navigation';
+            entryPhaseSawLoading = false;
+        }
+        if (parsedUrl.pathname.startsWith('/mo-op-discovery/')) return 'session';
 
         const app = (params.get('osPspId') || '').toLowerCase();
         const module = (params.get('ptb-mod') || '').toLowerCase();
@@ -114,12 +137,61 @@
 
         if (app === 'cm-dashboard' || route === 'campaigns') return 'home';
         if (context === 'actualize' || route === 'actualize') return 'actualise';
-        if (showOrders || context === 'ordersummary') return 'orders';
+        if (app === 'prsm-cm-ord' || showOrders || context === 'ordersummary') return 'orders';
         if (module === 'plan') return 'plan';
         if (module === 'traffic') return 'traffic';
         if (module === 'analyze') return 'analyse';
         if (module === 'buy') return 'buy';
-        return 'other';
+        // Only a bare application entry can be an opening/navigation shell.
+        // An unknown section identifier is a real classification gap, not a transition.
+        const isEntry = /^\/campaign-management\/?$/.test(parsedUrl.pathname) &&
+            !['osPspId', 'ptb-mod', 'ptb-ctx', 'route', 'campaign-id', 'osModalId'].some(key => params.get(key));
+        return isEntry && url === window.location.href ? entryPhase : 'unclassified';
+    }
+
+    // Independent intervals: overlapping page indicators form one observation.
+    const diagnosticIntervals = new Map();
+    const interruptedIndicators = new Set();
+    let diagnosticRoute = location.href;
+    function finishDiagnostic(signal, outcome) {
+        const active = diagnosticIntervals.get(signal);
+        if (!active) return;
+        diagnosticIntervals.delete(signal);
+        clearTimeout(active.timer);
+        if (active.timedOut) return;
+        trackStat('PERFORMANCE_SAMPLE', { timestamp: Date.now(), signal, area: active.area,
+            duration: Math.min(300000, Math.max(0, performance.now() - active.start)), outcome });
+    }
+    function clearDiagnostics(outcome) {
+        [...diagnosticIntervals.keys()].forEach(signal => {
+            if (outcome) finishDiagnostic(signal, outcome);
+            else { clearTimeout(diagnosticIntervals.get(signal).timer); diagnosticIntervals.delete(signal); }
+        });
+    }
+    function checkDiagnostics(state = window.loadingMonitor?.getState?.()) {
+        if (!isEnabled || !state) return;
+        if (document.hidden) { interruptHiddenDiagnostics(); return; }
+        if (diagnosticRoute !== location.href) { clearDiagnostics('interrupted'); diagnosticRoute = location.href; }
+        const states = {
+            page_indicator: !!(state.pageVisibleSpinners?.length || state.pageVisibleSkeletons?.length),
+            side_panel_indicator: !!(state.sidePanelVisibleSpinners?.length || state.sidePanelVisibleSkeletons?.length)
+        };
+        Object.entries(states).forEach(([signal, visible]) => {
+            if (!visible) interruptedIndicators.delete(signal);
+            if (interruptedIndicators.has(signal)) return;
+            const active = diagnosticIntervals.get(signal);
+            if (active && active.area !== getPrismaArea()) finishDiagnostic(signal, 'interrupted');
+            if (!visible) finishDiagnostic(signal, 'completed');
+            else if (!diagnosticIntervals.has(signal)) {
+                const interval = { start: performance.now(), area: getPrismaArea(), timer: null };
+                // Keep a sentinel after timeout until the indicator disappears.
+                interval.timer = setTimeout(() => {
+                    finishDiagnostic(signal, 'timed_out');
+                    diagnosticIntervals.set(signal, { ...interval, timedOut: true, timer: null });
+                }, 300000);
+                diagnosticIntervals.set(signal, interval);
+            }
+        });
     }
 
     // --- 2. Track Loading Spinner Time ---
@@ -143,7 +215,11 @@
     }
 
     function checkLoadingState(state) {
-        if (!isEnabled) {
+        state ||= window.loadingMonitor?.getState?.();
+        // Observe URL changes before classifying either diagnostic or legacy time.
+        getPrismaArea();
+        checkDiagnostics(state);
+        if (!isEnabled || document.hidden) {
             loadingSpinnerStartTime = null;
             loadingSpinnerArea = '';
             return;
@@ -166,11 +242,99 @@
             console.log(`[Stats Collector] Loading finished. Duration: ${duration.toFixed(2)}s`);
             recordLoadingSegment();
         }
+        const hasIndicator = hasVisibleSpinner || state?.pageVisibleSkeletons?.length || state?.sidePanelVisibleSkeletons?.length;
+        if (hasIndicator) entryPhaseSawLoading = true;
+        else if (entryPhaseSawLoading) entryPhase = 'unclassified';
     }
 
     function finishActiveLoadingMeasurement() {
         if (!isEnabled || loadingSpinnerStartTime === null) return;
         recordLoadingSegment();
+    }
+
+    // Observe native placement acknowledgements only while a user save is pending.
+    // A closed form, spinner disappearance or generic "Success" is not proof.
+    const NATIVE_NOTICE = '.toast-success, .toast-error, .alert-success, .alert-danger, [role="alert"], [role="status"]';
+    let pendingSave = null;
+    let saveObserver = null;
+    let saveTimeout = null;
+    function finishSaveDiagnostic(outcome) {
+        if (!pendingSave?.diagnosticActive) return;
+        pendingSave.diagnosticActive = false;
+        if (outcome && isEnabled) trackStat('PERFORMANCE_SAMPLE', { timestamp: Date.now(), signal: 'placement_save', area: pendingSave.area, duration: Math.min(300000, Math.max(0, performance.now() - pendingSave.startedAt)), outcome });
+    }
+    function interruptHiddenDiagnostics() {
+        clearDiagnostics('interrupted');
+        interruptedIndicators.add('page_indicator');
+        interruptedIndicators.add('side_panel_indicator');
+        // Keep watching for the real save acknowledgement so existing save counts
+        // remain correct, but this operation can no longer supply a completed timing.
+        finishSaveDiagnostic('interrupted');
+    }
+    function handleDiagnosticVisibility() {
+        if (document.hidden) {
+            interruptHiddenDiagnostics();
+            finishActiveLoadingMeasurement();
+        } else checkLoadingState();
+    }
+    function cancelPendingSave(outcome = 'interrupted') {
+        finishSaveDiagnostic(outcome);
+        saveObserver?.disconnect();
+        saveObserver = null;
+        clearTimeout(saveTimeout);
+        saveTimeout = null;
+        pendingSave = null;
+    }
+
+    function beginPlacementSave(button) {
+        if (button.disabled || button.getAttribute('aria-disabled') === 'true' || pendingSave) return;
+        const campaignId = new URLSearchParams(location.hash.slice(1)).get('campaign-id');
+        if (!campaignId) return;
+        const form = button.closest('[role="dialog"], .modal, form');
+        const heading = form?.querySelector('h1, h2, h3, .modal-title')?.textContent || form?.getAttribute('aria-label') || '';
+        if (!/\bplacement\b/i.test(heading)) return;
+        const mode = /^(?:add|new|create) placement\b/i.test(heading.trim()) ? 'created'
+            : /^edit placement\b/i.test(heading.trim()) ? 'updated' : 'other';
+        const baseline = new WeakMap();
+        document.querySelectorAll(NATIVE_NOTICE).forEach(node => baseline.set(node, node.textContent));
+        pendingSave = { startedAt: performance.now(), area: getPrismaArea(), campaignId, mode, id: crypto.randomUUID(), baseline, diagnosticActive: !document.hidden };
+        saveObserver = new MutationObserver(records => {
+            if (!pendingSave || !isEnabled) return;
+            if (new URLSearchParams(location.hash.slice(1)).get('campaign-id') !== pendingSave.campaignId) {
+                cancelPendingSave();
+                return;
+            }
+            const notices = new Set();
+            records.forEach(record => {
+                const root = record.target.nodeType === Node.ELEMENT_NODE ? record.target : record.target.parentElement;
+                const parent = root?.closest?.(NATIVE_NOTICE);
+                if (parent) notices.add(parent);
+                record.addedNodes.forEach(node => {
+                    if (node.nodeType !== Node.ELEMENT_NODE) return;
+                    if (node.matches(NATIVE_NOTICE)) notices.add(node);
+                    node.querySelectorAll(NATIVE_NOTICE).forEach(notice => notices.add(notice));
+                });
+            });
+            for (const notice of notices) {
+                if (notice.closest('[id^="toolshed"], [id^="ops-toolshed"], .otf-toast') || notice.hidden || notice.getAttribute('aria-hidden') === 'true' || getComputedStyle(notice).display === 'none' || getComputedStyle(notice).visibility === 'hidden') continue;
+                const text = notice.textContent.replace(/\s+/g, ' ').trim();
+                if (pendingSave.baseline.get(notice) === notice.textContent) continue;
+                if (/\bplacement\b.*\b(?:failed|error|could not|cannot|unable)\b|\b(?:failed|unable)\b.*\bplacement\b/i.test(text)) {
+                    cancelPendingSave('error');
+                    return;
+                }
+                const match = text.match(/^placement(?:\s+[A-Z0-9-]+)?\s+(?:(?:has been|was)\s+)?(?:(successfully)\s+)?(created|added|updated|saved)(?:\s+(successfully))?[.!]?$/i);
+                if (!match || (!match[1] && !match[3] && !notice.matches('.toast-success, .alert-success'))) continue;
+                const verb = match[2].toLowerCase();
+                const kind = ['created', 'added'].includes(verb) ? 'created' : verb === 'updated' ? 'updated' : pendingSave.mode;
+                const value = { eventId: pendingSave.id, kind };
+                cancelPendingSave('completed');
+                trackStat('PLACEMENT_CONFIRMED', value);
+                return;
+            }
+        });
+        saveObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+        saveTimeout = setTimeout(() => cancelPendingSave('timed_out'), 20000);
     }
 
     // --- 3. Track Click Events (Save Placements & Reconciliations) ---
@@ -182,10 +346,8 @@
         }
 
         // Track Placement Saves
-        if (event.target.id === 'btn-save' || event.target.id === 'btn-save-and-add-another') {
-            console.log('[Stats Collector] Save button clicked.');
-            trackStat('PLACEMENT_ADDED', 1);
-        }
+        const saveButton = event.target.closest('#btn-save, #btn-save-and-add-another');
+        if (saveButton) beginPlacementSave(saveButton);
 
         // Track Reconciliations (Ok to Pay = Yes)
         if (event.target.id === 'ok-to-pay-yes-button') {
@@ -203,7 +365,6 @@
     }
 
     // --- Main Initialization ---
-    let isInitialized = false;
     let unsubscribeLoadingMonitor = null;
 
     function startLoadingMeasurements() {
@@ -212,6 +373,8 @@
     }
 
     function stopLoadingMeasurements() {
+        clearDiagnostics('interrupted');
+        cancelPendingSave();
         finishActiveLoadingMeasurement();
         unsubscribeLoadingMonitor?.();
         unsubscribeLoadingMonitor = null;
@@ -223,11 +386,14 @@
         startLoadingMeasurements();
 
         // Use event delegation for buttons
-        document.body.addEventListener('click', handleClickEvents);
+        document.body.addEventListener('click', handleClickEvents, true);
         window.addEventListener('pagehide', stopLoadingMeasurements);
         window.addEventListener('pageshow', startLoadingMeasurements);
-        window.addEventListener('hashchange', () => checkLoadingState());
-        window.addEventListener('popstate', () => checkLoadingState());
+        document.addEventListener('visibilitychange', handleDiagnosticVisibility);
+        const handleRouteChange = () => { clearDiagnostics('interrupted'); cancelPendingSave(); trackCampaignId(); checkLoadingState(); };
+        window.addEventListener('hashchange', handleRouteChange);
+        window.addEventListener('popstate', handleRouteChange);
+        trackCampaignId();
 
         isInitialized = true;
         console.log("Stats Collector Initialized");

@@ -1,7 +1,17 @@
 (async function() {
     'use strict';
     const byId = id => document.getElementById(id);
-    const state = await chrome.storage.sync.get({ allFeaturesDisabled: false, onboardingAudience: 'prisma' });
+    function startupFailed() {
+        document.querySelectorAll('form input, form button, #search').forEach(control => { control.disabled = true; });
+        byId('status').textContent = 'Campaign check settings could not be loaded. Reload this page to try again.';
+    }
+    let state;
+    try {
+        state = await chrome.storage.sync.get({ allFeaturesDisabled: false, onboardingAudience: 'prisma' });
+    } catch {
+        startupFailed();
+        return;
+    }
     if (state.allFeaturesDisabled || state.onboardingAudience !== 'prisma') { document.querySelector('main').replaceChildren(document.createTextNode('Enable Prisma features in Settings to use live campaign checks.')); return; }
     let records = {}, history = [], busy = false, selected = '', page = 0;
     const pageSize = 10;
@@ -145,10 +155,11 @@
         catch(error) { byId('status').textContent=error.message;try { await load(); } catch (_) { /* Preserve the actionable check error. */ } records[selected]={...records[selected],error:error.message};show(records[selected]); }
         finally { busy=false;byId('check').disabled=false;show(records[selected]);savedList(); }
     }
+    try { await load(); } catch { startupFailed(); return; }
     byId('check-form').addEventListener('submit',event=>{event.preventDefault();check(byId('campaign').value);});byId('search').addEventListener('input',()=>{page=0;savedList();});
     chrome.storage.onChanged.addListener((changes,area)=>{
         if(area==='sync'&&(changes.allFeaturesDisabled?.newValue === true || (changes.onboardingAudience && changes.onboardingAudience.newValue !== 'prisma'))) location.reload();
         if(area==='local' && changes.socialCampaignChecks && !busy) { records=changes.socialCampaignChecks.newValue || {};savedList();if(selected)show(records[selected]); }
     });
-    await load(); const campaign=new URLSearchParams(location.search).get('campaign'); if (/^CP[A-Z0-9]{3,20}$/.test(campaign || '')) await check(campaign);
+    const campaign=new URLSearchParams(location.search).get('campaign'); if (/^CP[A-Z0-9]{3,20}$/.test(campaign || '')) await check(campaign);
 })();

@@ -23,8 +23,9 @@
         if (!isPrismaHost || url.pathname.replace(/\/+$/, '') !== CAMPAIGN_PATH) return '';
 
         const params = new URLSearchParams(url.hash.replace(/^#/, ''));
+        const pspId = params.get('osPspId') || '';
         if (
-            params.get('osPspId') !== 'prsm-cm-plan-to-buy' ||
+            pspId === 'cm-dashboard' ||
             !params.get('campaign-id') ||
             params.get('ptb-mod') !== 'plan'
         ) return '';

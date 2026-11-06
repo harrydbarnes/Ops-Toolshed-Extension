@@ -10,7 +10,8 @@ function setup(settings = {}, startingUrl = 'https://groupmuk-prisma.mediaocean.
     const dom = new JSDOM(html, { runScripts: 'outside-only', url: 'chrome-extension://test/onboarding-tour-v2.html' });
     let activeUrl = startingUrl;
     const chrome = {
-        storage: { sync: { get: jest.fn((defaults, callback) => callback({ ...defaults, ...settings })) }, local: { get: jest.fn((defaults, callback) => callback({ ...defaults, ...progress })), set: jest.fn() } },
+        runtime: {},
+        storage: { sync: { get: jest.fn((defaults, callback) => callback({ ...defaults, ...settings })) }, local: { get: jest.fn((defaults, callback) => callback({ ...defaults, ...progress })), set: jest.fn((values, callback) => callback()) } },
         tabs: {
             query: jest.fn(async () => [{ id: 12, url: activeUrl }]),
             sendMessage: jest.fn(async (tabId, message) => ({ status: 'success', found: message.action === 'showOnboardingHighlight' })),
@@ -24,6 +25,48 @@ function setup(settings = {}, startingUrl = 'https://groupmuk-prisma.mediaocean.
 }
 
 describe('Onboarding side-panel v2', () => {
+    test.each(['throw', 'reject', 'callback', 'missing'])('keeps progress and permits retry after a %s save failure', async failure => {
+        const { dom, chrome } = setup({}, undefined, { onboardingTourVersion: 'v2', onboardingTourChapter: 4 });
+        await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+        const title = dom.window.document.getElementById('tour-title').textContent;
+        const save = chrome.storage.local.set;
+        if (failure === 'missing') delete chrome.storage.local.set;
+        else save.mockImplementation(() => {
+            if (failure === 'throw') throw new Error('Storage unavailable');
+            if (failure === 'reject') return Promise.reject(new Error('Storage unavailable'));
+        });
+        if (failure === 'callback') save.mockImplementation((values, callback) => {
+            chrome.runtime.lastError = { message: 'Storage unavailable' };
+            callback();
+            delete chrome.runtime.lastError;
+        });
+        await dom.window.onboardingTourPanelV2.finishTour(false);
+        expect(chrome.sidePanel.close).not.toHaveBeenCalled();
+        expect(dom.window.document.getElementById('tour-title').textContent).toBe(title);
+        expect(dom.window.document.getElementById('tour-status').textContent).toContain('Could not save');
+        expect(dom.window.document.getElementById('tour-next').disabled).toBe(false);
+        chrome.storage.local.set = save.mockImplementation((values, callback) => callback());
+        await dom.window.onboardingTourPanelV2.finishTour(false);
+        expect(chrome.sidePanel.close).toHaveBeenCalledTimes(1);
+        dom.window.close();
+    });
+
+    test('waits for persistence and suppresses duplicate completion requests', async () => {
+        const { dom, chrome } = setup();
+        await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+        let complete;
+        chrome.storage.local.set.mockClear().mockImplementation(() => new Promise(resolve => { complete = resolve; }));
+        const pending = dom.window.onboardingTourPanelV2.finishTour(true);
+        await dom.window.onboardingTourPanelV2.finishTour(true);
+        expect(chrome.sidePanel.close).not.toHaveBeenCalled();
+        expect(chrome.storage.local.set).toHaveBeenCalledTimes(1);
+        expect(dom.window.document.getElementById('skip-tour').disabled).toBe(true);
+        complete();
+        await pending;
+        expect(chrome.sidePanel.close).toHaveBeenCalledTimes(1);
+        dom.window.close();
+    });
+
     test('groups enabled campaign features into a small set of chapters', async () => {
         const { dom } = setup();
         await Promise.resolve();
@@ -77,7 +120,7 @@ describe('Onboarding side-panel v2', () => {
 
         expect(chrome.tabs.update).not.toHaveBeenCalled();
         expect(chrome.sidePanel.close).toHaveBeenCalledWith({ tabId: 12 });
-        expect(chrome.storage.local.set).toHaveBeenCalledWith(expect.objectContaining({ onboardingTourVersion: 'v2', onboardingTourCompleted: true }));
+        expect(chrome.storage.local.set).toHaveBeenCalledWith(expect.objectContaining({ onboardingTourVersion: 'v2', onboardingTourCompleted: true }), expect.any(Function));
         dom.window.close();
     });
 
@@ -88,7 +131,7 @@ describe('Onboarding side-panel v2', () => {
 
         expect(chrome.tabs.update).not.toHaveBeenCalled();
         expect(chrome.sidePanel.close).toHaveBeenCalledWith({ tabId: 12 });
-        expect(chrome.storage.local.set).toHaveBeenCalledWith(expect.objectContaining({ onboardingTourSkipped: true, onboardingTourCompleted: false }));
+        expect(chrome.storage.local.set).toHaveBeenCalledWith(expect.objectContaining({ onboardingTourSkipped: true, onboardingTourCompleted: false }), expect.any(Function));
         dom.window.close();
     });
 });

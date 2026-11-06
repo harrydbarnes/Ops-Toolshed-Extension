@@ -1,5 +1,5 @@
 import '../reccie-core.js';
-import {manualTrackerWrite} from './reccie-writes.js';
+import {dispatchTrackerWrite} from './reccie-writes.js';
 const core=globalThis.reccieCore;
 export const RECCIE_ALARM='ops-reccie-financial:';
 export function assigned(row,prefs){return !!prefs?.person&&(prefs.assignment==='any'?['ops','buyer','group']:[prefs.assignment]).some(key=>['ops','buyer','group'].includes(key)&&row[key]?.toLowerCase()===prefs.person.toLowerCase());}
@@ -8,6 +8,7 @@ export async function autoMarkVerified(tracker,request,context){
     const stored=await chrome.storage.local.get(['reccieAutomation',mode==='main'?'recciePreferences':`${key}:preferences`]);
     const prefs=stored[mode==='main'?'recciePreferences':`${key}:preferences`];
     if((request.financial&&!stored.reccieAutomation?.afterFinancial)||!stored.reccieAutomation?.autoMark||tracker.source?.type!=='google'||!['main','early'].includes(mode))return tracker;
+    const clearComments=stored.reccieAutomation?.clearCommentsOnMarkYes===true;
     const ids=new Set(request.rowIds),now=Date.now();
     // Index every tracker row, including rows outside this request/assignment.
     // Separate Map levels preserve exact field equality without delimiter collisions.
@@ -26,13 +27,13 @@ export async function autoMarkVerified(tracker,request,context){
         const check=tracker.checks?.[row.sourceRow],age=now-Date.parse(check?.checkedAt);
         return ids.has(row.sourceRow)&&assigned(row,prefs)&&!row.issue&&row.reccied.trim().toLowerCase()!=='yes'&&check?.state==='ready'&&check.reconciled==='1'&&check.buyStatus==='SUCCESSFUL'&&age>=0&&age<300000&&duplicateCounts.get(row.dNumber)?.get(row.campaignId)?.get(row.month)===1;
     });
-    const assertOptIn=async()=>{context.assertActive();const settings=(await chrome.storage.local.get('reccieAutomation')).reccieAutomation;if(!settings?.autoMark||(request.financial&&!settings.afterFinancial))throw Error('Automatic tracker updates were switched off.');};
+    const assertOptIn=async()=>{context.assertActive();const settings=(await chrome.storage.local.get('reccieAutomation')).reccieAutomation;if(!settings?.autoMark||(request.financial&&!settings.afterFinancial))throw Error('Automatic tracker updates were switched off.');if(clearComments&&!settings.clearCommentsOnMarkYes)throw Error('Automatic comment removal was switched off. Verify again.');};
     let current=tracker,saved=0,pending=0,error='';
     for(let offset=0;offset<eligible.length;offset+=100){
         const rows=eligible.slice(offset,offset+100);let requestId;
         try{
             await assertOptIn();
-            const preview=await manualTrackerWrite({operation:'previewTrackerWrite',mode,month:request.month,revision:current.revision,rowIds:rows.map(r=>r.sourceRow)}, {...context,automatic:true});
+            const preview=await dispatchTrackerWrite({operation:'previewTrackerWrite',mode,month:request.month,revision:current.revision,rowIds:rows.map(r=>r.sourceRow),...(clearComments?{clearComments:true}:{})}, {...context,automatic:true});
             requestId=preview.write.requestId;await assertOptIn();
             const latest=(await chrome.storage.local.get([key,mode==='main'?'recciePreferences':`${key}:preferences`]));
             const latestPrefs=latest[mode==='main'?'recciePreferences':`${key}:preferences`];
@@ -40,10 +41,10 @@ export async function autoMarkVerified(tracker,request,context){
             await saveAutoReceipt(requestId,mode,request.month,{financial:!!request.financial,remaining:eligible.slice(offset+100).map(({dNumber,campaignId,month})=>({dNumber,campaignId,month}))});
             await chrome.storage.local.set({reccieAutomationLastRun:{at:new Date().toISOString(),state:'saving',message:`Saving ${rows.length} D numbers; ${eligible.length-offset-rows.length} remaining.`}});
             let result;
-            try{result=await manualTrackerWrite({operation:'commitTrackerWrite',mode,month:request.month,revision:current.revision,requestId},{...context,automatic:true});}
+            try{result=await dispatchTrackerWrite({operation:'commitTrackerWrite',mode,month:request.month,revision:current.revision,requestId},{...context,automatic:true,beforeCommit:assertOptIn});}
             catch(failure){
-                if(!/timed? ?out|timeout|fetch|network|connection/i.test(failure.message))throw failure;
-                result=await manualTrackerWrite({operation:'trackerWriteStatus',mode,month:request.month,requestId},context);
+                if(failure.code!=='TRANSPORT_UNCERTAIN')throw failure;
+                result=await dispatchTrackerWrite({operation:'trackerWriteStatus',mode,month:request.month,requestId},context);
             }
             if(result.tracker)current=result.tracker;
             if(result.write.state!=='complete'){pending++;break;}

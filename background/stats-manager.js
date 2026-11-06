@@ -1,3 +1,5 @@
+import '../diagnostics.js';
+const diagnostics = globalThis.prismaDiagnostics || (typeof require === 'function' ? require('../diagnostics.js') : null);
 
 let updatePromise = Promise.resolve();
 
@@ -24,8 +26,28 @@ export async function migrateStats() {
 }
 
 export function handleTrackStat(request, sender, sendResponse) {
+    if (request.type === 'PLACEMENT_ADDED') {
+        // Older injected pages may still emit click estimates. Preserve stored
+        // history, but only confirmed save acknowledgements add new placements.
+        sendResponse({ status: 'success', ignored: true });
+        return Promise.resolve();
+    }
     // Queue updates to avoid race conditions
     updatePromise = updatePromise.then(async () => {
+        if (request.type === 'PERFORMANCE_SAMPLE') {
+            const event = diagnostics.sanitize(request.value);
+            if (!event) { sendResponse({ status: 'error', message: 'Invalid diagnostics sample' }); return; }
+            const setting = await chrome.storage.sync.get('statsCollectorEnabled');
+            if (setting.statsCollectorEnabled === false) { sendResponse({ status: 'success', ignored: true }); return; }
+            const data = await chrome.storage.local.get(['prismaDiagnostics', 'diagnosticsResetAt']);
+            if (event.timestamp <= (data.diagnosticsResetAt || 0)) { sendResponse({ status: 'success', ignored: true }); return; }
+            await chrome.storage.local.set({ prismaDiagnostics: diagnostics.append(data.prismaDiagnostics, event) });
+            sendResponse({ status: 'success' });
+            return;
+        }
+        if (!['CAMPAIGN_SNAPSHOT', 'CAMPAIGN_VISIT', 'LOADING_TIME', 'RECONCILIATION', 'PLACEMENT_CONFIRMED'].includes(request.type)) {
+            sendResponse({ status: 'error', message: 'Unknown stat type' }); return;
+        }
         if (request.type === 'CAMPAIGN_SNAPSHOT') {
             const value = request.value;
             if (!value || typeof value.key !== 'string' || !value.key || value.key.length > 1000) {
@@ -50,7 +72,17 @@ export function handleTrackStat(request, sender, sendResponse) {
         }
         const d = new Date();
         const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        const data = await chrome.storage.local.get(['dailyStats', 'statsStartDate']);
+        const data = await chrome.storage.local.get(['dailyStats', 'statsStartDate', 'statsSaveReceipts']);
+        const confirmed = request.type === 'PLACEMENT_CONFIRMED';
+        if (confirmed && (!request.value || !/^[a-f0-9-]{36}$/i.test(request.value.eventId || '') || !['created', 'updated', 'other'].includes(request.value.kind))) {
+            sendResponse({ status: 'error', message: 'Invalid save acknowledgement' });
+            return;
+        }
+        const receipts = Array.isArray(data.statsSaveReceipts) ? data.statsSaveReceipts : [];
+        if (confirmed && receipts.includes(request.value.eventId)) {
+            sendResponse({ status: 'success' });
+            return;
+        }
         let dailyStats = data.dailyStats || {};
         let statsStartDate = data.statsStartDate;
 
@@ -83,7 +115,10 @@ export function handleTrackStat(request, sender, sendResponse) {
             stats.loadingByArea = {};
         }
 
-        if (request.type === 'CAMPAIGN_VISIT') {
+        if (confirmed) {
+            const field = { created: 'placementsCreated', updated: 'placementsUpdated', other: 'placementSavesOther' }[request.value.kind];
+            stats[field] = (Number(stats[field]) || 0) + 1;
+        } else if (request.type === 'CAMPAIGN_VISIT') {
             if (!stats.visitedCampaigns.includes(request.value)) {
                 stats.visitedCampaigns.push(request.value);
             }
@@ -96,16 +131,12 @@ export function handleTrackStat(request, sender, sendResponse) {
                 stats.loadingTime += val;
                 const area = String(detailedValue?.area || '').toLowerCase();
                 const supportedAreas = new Set([
-                    'home', 'plan', 'buy', 'actualise', 'traffic', 'analyse', 'orders', 'other'
+                    'home', 'plan', 'buy', 'actualise', 'traffic', 'analyse', 'orders',
+                    'session', 'startup', 'navigation', 'unclassified', 'other'
                 ]);
                 if (supportedAreas.has(area)) {
                     stats.loadingByArea[area] = (Number(stats.loadingByArea[area]) || 0) + val;
                 }
-            }
-        } else if (request.type === 'PLACEMENT_ADDED') {
-            const val = parseInt(request.value, 10);
-            if (!isNaN(val)) {
-                stats.placements += val;
             }
         } else if (request.type === 'RECONCILIATION') {
             const val = parseInt(request.value, 10);
@@ -115,7 +146,8 @@ export function handleTrackStat(request, sender, sendResponse) {
         }
 
         dailyStats[today] = stats;
-        await chrome.storage.local.set({ dailyStats, statsStartDate });
+        await chrome.storage.local.set({ dailyStats, statsStartDate,
+            ...(confirmed ? { statsSaveReceipts: [...receipts, request.value.eventId].slice(-5000) } : {}) });
         sendResponse({ status: 'success' });
     }).catch(err => {
         console.error('[Stats Manager] Error updating stats:', err);
@@ -125,5 +157,24 @@ export function handleTrackStat(request, sender, sendResponse) {
     // The background message router awaits handler promises. Returning the
     // queued write keeps the MV3 service worker alive until storage is updated
     // and the sender has received its acknowledgement.
+    return updatePromise;
+}
+
+// Serialize reset with tracking writes so an in-flight storage write cannot
+// restore pre-reset diagnostics after the reset finishes.
+export function handleResetStats(request, sender, sendResponse) {
+    if (sender?.url !== chrome.runtime.getURL('toolshed.html') && !sender?.url?.startsWith(chrome.runtime.getURL('toolshed.html') + '?') && !sender?.url?.startsWith(chrome.runtime.getURL('toolshed.html') + '#')) {
+        sendResponse({ status: 'error', message: 'Stats reset requires Toolshed' });
+        return Promise.resolve();
+    }
+    updatePromise = updatePromise.then(async () => {
+        await chrome.storage.local.set({
+            legacyStats: { visitedCampaigns: [], totalLoadingTime: 0, placementsAdded: 0, reconciliations: 0 },
+            dailyStats: {}, campaignStatsSnapshots: [], statsSaveReceipts: [],
+            prismaDiagnostics: { days: {}, recent: [] }, diagnosticsResetAt: Date.now(),
+            appLearnPopupsBlocked: 0, statsStartDate: new Date().toISOString()
+        });
+        sendResponse({ status: 'success' });
+    }).catch(error => { sendResponse({ status: 'error', message: String(error) }); });
     return updatePromise;
 }

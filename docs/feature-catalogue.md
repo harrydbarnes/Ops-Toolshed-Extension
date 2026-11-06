@@ -8,12 +8,13 @@ The non-Prisma setup profile does not inject Prisma features. Shared popup tools
 
 | Feature | What it does | Default |
 | --- | --- | --- |
+| Reccies appearance | Use the refreshed Reccies layout, pink selectors and compact evidence cards. Choose V1 for the original appearance or V2 for the refresh; tracking behaviour stays the same. | On |
 | Popup UI theme | Choose the pink or black presentation used by the extension popup. | Choice or action |
 | Replace Prisma Logo | Swaps the standard Prisma mark for the selected Toolshed logo treatment. | On |
 | Translucent AppLearn Logo | Makes the AppLearn logo less visually dominant while keeping it recognisable. | On |
 | Meta finance tool | Selects whether the popup opens Booking Checker or the legacy Billing Check workflow. | Choice or action |
 | Loading Facts | Shows a useful fact while Prisma is processing an Actualise action. | On |
-| Loading Facts appearance | Turn on for the new Loading Facts appearance, or off for the old appearance. | Choice or action |
+| Loading Facts appearance | Choose the New UI or Old UI appearance for Loading Facts. | Choice or action |
 | Stats Collector | Records waiting-time and productivity signals for the local Toolshed statistics view. | On |
 | Diagnostics Mode | Temporarily records local feature timings, outcomes and the current campaign ID when available; clear or export records in Settings. | Off |
 | Meta reconciliation reminder | Show the checks needed before reconciling Meta bookings. | On |
@@ -31,7 +32,7 @@ The non-Prisma setup profile does not inject Prisma features. Shared popup tools
 | Legacy Prisma link redirect | Redirects campaign links from Prisma's retired URL to the current site, even when other extension features are off. | On |
 | Campaign tab title | Uses the active campaign name as the browser tab title. | On |
 | Open Plan campaign links in Buy | Opens Buy when a campaign Plan URL is loaded directly. Clicking Prisma’s Plan tab still opens Plan. | On |
-| Prisma sign-in assistant | On a focused Prisma sign-in tab only, fills your saved email, remembers the browser, and selects your organisation. | Off |
+| Prisma sign-in assistant | On a focused Prisma sign-in tab only, automatically clicks Sign In after session timeouts, fills your saved email, remembers the browser, and selects your organisation. | Off |
 | Campaign History search | Adds a History link to Prisma campaign navigation and lets you search campaigns you have visited. | On |
 | Log campaigns visited | Records campaign names, references, supplier details and active account locations locally so they can be found later in Campaign History. | On |
 | Orders shortcut | Adds an Orders shortcut to the campaign navigation menu. | On |
@@ -64,7 +65,7 @@ The non-Prisma setup profile does not inject Prisma features. Shared popup tools
 | Actualise bulk export | Exports each visible Actualise month and combines the results into one CSV-ready file. | On |
 | Order ID copy | Lets you click an Order ID in the new Orders sidebar to copy it. | On |
 | Actualise month assurance | Confirms that the Actualise URL, selected month, rendered grid and native response all agree. | On |
-| New Order UI | Applies the extension’s layout improvements to Prisma’s newer Orders interface. | On |
+| Latest / All easy-access toggle in New Order UI | Adds a Latest / All toggle to the Orders sidebar and selects Latest by default. | On |
 | Comments on locked Buys | Keeps comments visible when a Buy is locked. | On |
 | Actualise scroll restoration | Restores the active grid’s horizontal position after an Actualise save refresh. | On |
 | Order Summary alignment | Keeps Order Summary headers aligned with the scrolling grid. | On |

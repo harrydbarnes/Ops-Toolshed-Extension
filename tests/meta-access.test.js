@@ -12,6 +12,15 @@ describe('Standalone Meta access without report uploads',()=>{
         dom.window.chrome=chrome;
     });
     afterEach(()=>dom.window.close());
+    test.each(['sync', 'local'])('contains a rejected %s startup read and prevents edits', async area => {
+        chrome.storage[area].get.mockRejectedValueOnce(new Error('Storage unavailable'));
+        await dom.window.eval(script); await flush();
+        expect(dom.window.document.getElementById('status').textContent).toContain('Reload this page');
+        expect(dom.window.document.getElementById('save-token').disabled).toBe(true);
+        expect(dom.window.document.getElementById('remove-token').disabled).toBe(true);
+        expect(chrome.storage.local.set).not.toHaveBeenCalled();
+        expect(chrome.storage.local.remove).not.toHaveBeenCalled();
+    });
     test('never exposes the existing token and needs no report input',async()=>{
         dom.window.eval(script);await flush();
         expect(dom.window.document.getElementById('token').value).toBe('');

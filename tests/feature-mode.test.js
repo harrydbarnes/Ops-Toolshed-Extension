@@ -15,11 +15,26 @@ describe('Features master-mode boundary', () => {
         });
     }
 
+    test('import is passive and explicit initialization shares one startup operation', async () => {
+        setMasterState(false);
+        const mode = require('../background/feature-mode');
+        await Promise.resolve();
+        expect(chrome.storage.sync.get).not.toHaveBeenCalled();
+        expect(chrome.scripting.registerContentScripts).not.toHaveBeenCalled();
+        expect(mode.isFeatureModeActive()).toBe(false);
+        const startup = mode.initializeFeatureMode();
+        expect(mode.initializeFeatureMode()).toBe(startup);
+        await expect(startup).resolves.toBe(true);
+        expect(mode.initializeFeatureMode()).toBe(startup);
+        expect(chrome.storage.sync.get).toHaveBeenCalledTimes(1);
+        expect(chrome.scripting.registerContentScripts).toHaveBeenCalledTimes(1);
+    });
+
     test('registers every owned content bundle when Features is on', async () => {
         setMasterState(false);
         const mode = require('../background/feature-mode');
         expect(mode.isFeatureModeInitialized()).toBe(false);
-        await expect(mode.featureModeReady).resolves.toBe(true);
+        await expect(mode.initializeFeatureMode()).resolves.toBe(true);
         expect(mode.isFeatureModeInitialized()).toBe(true);
         expect(mode.isFeatureModeActive()).toBe(true);
         expect(chrome.scripting.registerContentScripts).toHaveBeenCalledTimes(1);
@@ -33,7 +48,7 @@ describe('Features master-mode boundary', () => {
     test('keeps shared extension tools active without Prisma injection for a non-Prisma profile', async () => {
         setMasterState(false, 'non-prisma');
         const mode = require('../background/feature-mode');
-        await expect(mode.featureModeReady).resolves.toBe(true);
+        await expect(mode.initializeFeatureMode()).resolves.toBe(true);
         expect(mode.isFeatureModeActive()).toBe(true);
         expect(chrome.scripting.registerContentScripts).not.toHaveBeenCalled();
         await expect(mode.reconcileFeatureMode(false, { audience: 'prisma', reloadTabs: true })).resolves.toBe(true);
@@ -44,7 +59,7 @@ describe('Features master-mode boundary', () => {
         setMasterState(true);
         const mode = require('../background/feature-mode');
 
-        await expect(mode.featureModeReady).resolves.toBe(false);
+        await expect(mode.initializeFeatureMode()).resolves.toBe(false);
         expect(mode.isFeatureModeActive()).toBe(false);
         expect(chrome.scripting.registerContentScripts).not.toHaveBeenCalled();
     });
@@ -58,7 +73,7 @@ describe('Features master-mode boundary', () => {
         ]);
         chrome.tabs.query.mockResolvedValue([{ id: 12 }, { id: 34 }, { id: undefined }]);
         const mode = require('../background/feature-mode');
-        await mode.featureModeReady;
+        await mode.initializeFeatureMode();
         chrome.scripting.unregisterContentScripts.mockClear();
 
         await expect(mode.reconcileFeatureMode(true, { reloadTabs: true })).resolves.toBe(false);
@@ -74,7 +89,7 @@ describe('Features master-mode boundary', () => {
     test('becomes inactive immediately and remains off when unregistration fails', async () => {
         setMasterState(false);
         const mode = require('../background/feature-mode');
-        await mode.featureModeReady;
+        await mode.initializeFeatureMode();
         chrome.scripting.getRegisteredContentScripts.mockRejectedValue(new Error('registration API failed'));
 
         const transition = mode.reconcileFeatureMode(true);
@@ -86,7 +101,7 @@ describe('Features master-mode boundary', () => {
     test('allows only the toolbar popup through the disabled background message boundary', async () => {
         setMasterState(true);
         const mode = require('../background/feature-mode');
-        await mode.featureModeReady;
+        await mode.initializeFeatureMode();
 
         expect(mode.isPopupSender({ url: 'mock-url/popup.html' })).toBe(true);
         expect(mode.isPopupSender({ url: 'mock-url/settings.html' })).toBe(false);
@@ -100,7 +115,7 @@ describe('Features master-mode boundary', () => {
         const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
         const mode = require('../background/feature-mode');
 
-        await expect(mode.featureModeReady).resolves.toBe(false);
+        await expect(mode.initializeFeatureMode()).resolves.toBe(false);
         expect(mode.isFeatureModeActive()).toBe(false);
         expect(chrome.scripting.registerContentScripts).not.toHaveBeenCalled();
         consoleSpy.mockRestore();

@@ -2,7 +2,17 @@
     'use strict';
     const KEY = 'socialBookingMetaApiCredentials';
     const get = id => document.getElementById(id);
-    const settings = await chrome.storage.sync.get({ allFeaturesDisabled: false, onboardingAudience: 'prisma' });
+    function startupFailed() {
+        document.querySelectorAll('form input, form button, #remove-token').forEach(control => { control.disabled = true; });
+        get('status').textContent = 'Meta access settings could not be loaded. Reload this page to try again.';
+    }
+    let settings;
+    try {
+        settings = await chrome.storage.sync.get({ allFeaturesDisabled: false, onboardingAudience: 'prisma' });
+    } catch {
+        startupFailed();
+        return;
+    }
     if (settings.allFeaturesDisabled || settings.onboardingAudience === 'non-prisma') {
         document.querySelector('main').replaceChildren(document.createTextNode('Enable Prisma features in Settings to manage Meta access.'));
         return;
@@ -12,6 +22,7 @@
         get('saved-status').textContent = saved?.accessToken ? 'A Meta token is saved. Replace it if campaign checks report that it has expired.' : 'No Meta token is saved yet.';
         get('remove-token').disabled = !saved?.accessToken;
     }
+    try { await refresh(); } catch { startupFailed(); return; }
     get('token-form').addEventListener('submit', async event => {
         event.preventDefault();
         const token = get('token').value.trim();
@@ -32,5 +43,4 @@
     chrome.storage.onChanged.addListener((changes, area) => {
         if (area === 'sync' && (changes.allFeaturesDisabled?.newValue === true || changes.onboardingAudience?.newValue === 'non-prisma')) location.reload();
     });
-    try { await refresh(); } catch (_) { get('status').textContent = 'Saved token status is unavailable. Reload the extension and try again.'; }
 })();

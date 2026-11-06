@@ -799,9 +799,10 @@
             });
 
         const activeRequest = activeRequestInFlight;
-        activeRequestInFlight = activeRequest.finally(() => {
-            if (activeRequestInFlight === activeRequest) activeRequestInFlight = null;
+        const trackedActiveRequest = activeRequest.finally(() => {
+            if (activeRequestInFlight === trackedActiveRequest) activeRequestInFlight = null;
         });
+        activeRequestInFlight = trackedActiveRequest;
         return activeRequestInFlight;
     }
 
@@ -970,7 +971,11 @@
     function getCachedAddAssessment(parts, agencyId, windowRef = window) {
         const key = `${agencyId}|${getAddPartsKey(parts)}`;
         if (!addAssessmentCache.has(key)) {
-            addAssessmentCache.set(key, loadAssessmentForParts(parts, agencyId, windowRef));
+            const request = loadAssessmentForParts(parts, agencyId, windowRef).catch(error => {
+                if (addAssessmentCache.get(key) === request) addAssessmentCache.delete(key);
+                throw error;
+            });
+            addAssessmentCache.set(key, request);
         }
         return addAssessmentCache.get(key);
     }
@@ -1068,9 +1073,10 @@
             });
 
         const addRequest = state.inFlight;
-        state.inFlight = addRequest.finally(() => {
-            if (state.inFlight === addRequest) state.inFlight = null;
+        const trackedAddRequest = addRequest.finally(() => {
+            if (state.inFlight === trackedAddRequest) state.inFlight = null;
         });
+        state.inFlight = trackedAddRequest;
         return state.inFlight;
     }
 

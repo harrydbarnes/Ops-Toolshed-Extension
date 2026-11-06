@@ -8,7 +8,7 @@ jest.mock('../background/social-campaign-check', () => ({
 jest.mock('../background/annual-leave', () => ({ initializeAnnualLeave: jest.fn() }));
 jest.mock('../background/feature-mode', () => ({
     MASTER_FEATURE_KEY: 'allFeaturesDisabled',
-    featureModeReady: Promise.resolve(true),
+    initializeFeatureMode: jest.fn(() => Promise.resolve(true)),
     isFeatureModeActive: jest.fn(() => true),
     isFeatureModeInitialized: jest.fn(() => true),
     isPopupSender: jest.fn(sender => sender?.url === 'mock-url/popup.html' && !sender?.tab),
@@ -341,8 +341,9 @@ describe('Background message routing', () => {
         }
     };
 
-    const loadMessageListener = () => {
+    const loadMessageListener = (prepare) => {
         jest.resetModules();
+        prepare?.();
         require('../background');
         return chrome.runtime.onMessage.listener;
     };
@@ -433,7 +434,7 @@ describe('Background message routing', () => {
         const listener = loadMessageListener();
         const sendResponse = jest.fn();
 
-        listener({ action: 'removeTimesheetAlarm' }, {}, sendResponse);
+        listener({ action: 'removeTimesheetAlarm' }, { id: chrome.runtime.id, url: chrome.runtime.getURL('settings.html') }, sendResponse);
         await waitForResponse(sendResponse);
 
         expect(chrome.alarms.clear).toHaveBeenCalledWith('timesheetReminder');
@@ -803,11 +804,11 @@ describe('Background message routing', () => {
         mode.isFeatureModeActive.mockReturnValue(true);
     });
     test('prepares Reccies after readiness, then opens it on the click without awaiting readiness again', async () => {
-        const listener = loadMessageListener();
-        const mode = require('../background/feature-mode');
-        const originalReady = mode.featureModeReady;
         let finishStartup;
-        mode.featureModeReady = new Promise(resolve => { finishStartup = resolve; });
+        const startup = new Promise(resolve => { finishStartup = resolve; });
+        const listener = loadMessageListener(() => {
+            require('../background/feature-mode').initializeFeatureMode.mockReturnValueOnce(startup);
+        });
         const sender = {id:chrome.runtime.id,url:'https://go.mediaocean.com/campaign-management/',frameId:0,tab:{id:42,windowId:7}};
         const prepared = jest.fn();
         listener({action:'prepareReccies'},sender,prepared);
@@ -821,7 +822,6 @@ describe('Background message routing', () => {
         expect(chrome.sidePanel.open).toHaveBeenCalledWith({windowId:7});
         await waitForResponse(opened);
         expect(opened).toHaveBeenCalledWith({status:'success'});
-        mode.featureModeReady = originalReady;
     });
 });
 
@@ -1075,6 +1075,18 @@ describe('Help Guides native side panel lifecycle', () => {
             open: true
         });
         expect(chrome.storage.session.__getStore().openHelpGuideTabIds).toEqual([42]);
+    });
+
+    test('persists panel state even when the page receiver is unavailable', async () => {
+        chrome.tabs.sendMessage.mockRejectedValueOnce(new Error('Receiving end does not exist'));
+        const debug = jest.spyOn(console, 'debug').mockImplementation(() => {});
+        try {
+            await chrome.sidePanel.onOpened.listener({ path: 'help-guides.html', tabId: 42, windowId: 7 });
+            expect(chrome.storage.session.__getStore().openHelpGuideTabIds).toEqual([42]);
+            expect(debug).toHaveBeenCalledWith(expect.stringContaining('not delivered'), 42);
+        } finally {
+            debug.mockRestore();
+        }
     });
 });
 

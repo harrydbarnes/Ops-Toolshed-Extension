@@ -9,6 +9,16 @@ const helpGuidesHtml = fs.readFileSync(path.resolve(__dirname, '../help-guides.h
 
 describe('Manifest content-script order', () => {
 
+    test('registered content scripts and styles are valid UTF-8', () => {
+        const { TextDecoder } = require('util');
+        const decoder = new TextDecoder('utf-8', { fatal: true });
+        for (const registration of CONTENT_SCRIPT_DEFINITIONS) {
+            for (const file of [...(registration.js || []), ...(registration.css || [])]) {
+                expect(() => decoder.decode(fs.readFileSync(path.resolve(__dirname, '..', file)))).not.toThrow();
+            }
+        }
+    });
+
     test('grants Chrome host permission for every dynamic Mediaocean registration', () => {
         expect(manifest.host_permissions).toContain('https://*.mediaocean.com/*');
         CONTENT_SCRIPT_DEFINITIONS.forEach(registration => {
@@ -86,6 +96,8 @@ describe('Manifest content-script order', () => {
         expect(mediaoceanRegistration.js).toContain('features/actualise-shortcut.js');
         expect(mediaoceanRegistration.js).toContain('features/actualise-export-all.js');
         expect(mediaoceanRegistration.js).toContain('features/actualise-month-assurance.js');
+        expect(mediaoceanRegistration.js).toContain('features/actualise-buy-status.js');
+        expect(mediaoceanRegistration.css).toContain('features/actualise-buy-status.css');
         expect(mediaoceanRegistration.js).toContain('features/plan-to-buy-redirect.js');
         expect(mediaoceanRegistration.js).toContain('features/order-grid-scroll-sync.js');
         expect(mediaoceanRegistration.js).toContain('features/max-campaign-budget.js');

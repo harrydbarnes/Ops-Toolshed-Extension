@@ -1,7 +1,7 @@
 import '../reccie-core.js';
 import { testReccieGoogleConnection } from './reccie-connection-probe.js';
 import {autoMarkVerified,assigned,RECCIE_ALARM,clearAutoReceipt} from './reccie-automation.js';
-import { manualTrackerWrite } from './reccie-writes.js';
+import { dispatchTrackerWrite } from './reccie-writes.js';
 import { buildReccieQuery } from './reccie-query.js';
 import { isFeatureModeActive } from './feature-mode.js';
 
@@ -65,11 +65,11 @@ function getRecciesPanelTarget(request, sender) {
         throw error;
     }
     let prismaSender = false;
-    try {
+    if (URL.canParse(sender?.url)) {
         const url = new URL(sender?.url);
         prismaSender = sender.id === chrome.runtime.id && sender.tab?.id &&
             (sender.frameId == null || sender.frameId === 0) && url.origin === 'https://go.mediaocean.com' && url.pathname.startsWith('/campaign-management/');
-    } catch (_) { /* Only extension pages or the signed-in Prisma top frame may open this panel. */ }
+    }
     if (!ownPage(sender) && !prismaSender) throw new Error('Open Reccies from Ops Toolshed or Prisma.');
     const windowId = sender.tab?.windowId ?? request.windowId;
     if (!Number.isInteger(windowId)) throw new Error('Could not identify the active Chrome window.');
@@ -110,7 +110,7 @@ async function storeTracker(request, rows, source, checks = {}, expectedRevision
     assertActive();
     await queueWrite(async()=>{
         const previous=(await chrome.storage.local.get(key))[key];
-        if (expectedRevision !== undefined && (previous?.revision || '') !== expectedRevision) throw new Error('Report changed during discovery. Results discarded.');
+        if (expectedRevision !== undefined && (previous?.revision || '') !== expectedRevision) throw new Error('The saved report changed while loading. Your newer report was kept. Use Refresh tracker to read the sheet again.');
         const values = {[key]:tracker};
         if (!request.mode || request.mode === 'main') {
             if (previous?.month) values[`${key}:${previous.month}`]=previous;
@@ -121,12 +121,24 @@ async function storeTracker(request, rows, source, checks = {}, expectedRevision
     return tracker;
 }
 async function importTracker(request, text, source) {
+    let rows,report;
     if (request.mode === 'early') {
-        const report = core.earlyRows(text, request.month);
-        if (!report.rows.length) return discoverTracker(request, report.reason, source);
-        return storeTracker(request,report.rows,{...source,tab:'Early Reccie report',excludedRows:report.excludedRows,ambiguousRows:report.ambiguousRows});
+        report=core.earlyRows(text,request.month);
+        if(!report.rows.length)return discoverTracker(request,report.reason,source);
+        rows=report.rows;source={...source,tab:'Early Reccie report',excludedRows:report.excludedRows,ambiguousRows:report.ambiguousRows};
+    }else rows=core.importCsv(text,request.month);
+    const checks={};
+    if(request.preserveChecks===true){
+        const key=core.trackerKey(request.mode,request.month),previous=(await chrome.storage.local.get(key))[key];
+        const identity=row=>JSON.stringify([row.dNumber,row.campaignId,row.month]),priorRows=new Map(),counts=new Map();
+        for(const row of previous?.rows||[]){const id=identity(row);priorRows.set(id,priorRows.has(id)?null:row);}
+        for(const row of rows){const id=identity(row);counts.set(id,(counts.get(id)||0)+1);}
+        for(const row of rows){
+            const id=identity(row),prior=priorRows.get(id);
+            if(!row.issue&&counts.get(id)===1&&prior&&previous.checks?.[prior.sourceRow])checks[row.sourceRow]=previous.checks[prior.sourceRow];
+        }
     }
-    return storeTracker(request,core.importCsv(text,request.month),source);
+    return storeTracker(request,rows,source,checks,request.expectedRevision);
 }
 async function runGroups(groups, method, options, started = performance.now()) {
         const timing = { method, rows: options.rows, campaigns: groups.size, concurrency: method.concurrency,
@@ -194,7 +206,8 @@ async function checkRows(request) {
         const ids = new Set(request.rowIds);
         const rows = tracker.rows.filter(row => ids.has(row.sourceRow));
         if (rows.length !== ids.size) throw new Error('Some selected rows are no longer in this report.');
-        const groups = new Map(), results = {};
+        const groups = new Map(), results = {}, foundPlacements = new Set();
+        let searchedPlacements = false;
         for (const row of rows) {
             if (row.issue) { results[row.sourceRow] = { state: 'review', message: row.issue }; continue; }
             const key = `${row.campaignId}/${row.month}`;
@@ -204,7 +217,13 @@ async function checkRows(request) {
         if (groups.size > method.maxCampaigns) throw new Error(`Check up to ${method.maxCampaigns} campaigns per batch.`);
         const timing = await runGroups(groups, method, {
             rows: rows.length, skippedRows: Object.keys(results).length,
-            onRecords: (group, records, checkedAt) => { group.forEach(row => { if(placementIds&&!records.some(record=>record.buySerialNumber===row.dNumber&&record.month===row.month&&placementIds.has(record.placementNumber)))return; results[row.sourceRow] = { ...core.evaluateRow(row, records), checkedAt }; }); },
+            onRecords: (group, records, checkedAt) => {
+                if (placementIds) {
+                    searchedPlacements = true;
+                    records.forEach(record => { if (placementIds.has(record.placementNumber)) foundPlacements.add(record.placementNumber); });
+                }
+                group.forEach(row => { if(placementIds&&!records.some(record=>record.buySerialNumber===row.dNumber&&record.month===row.month&&placementIds.has(record.placementNumber)))return; results[row.sourceRow] = { ...core.evaluateRow(row, records), checkedAt }; });
+            },
             onError: (group, error, checkedAt) => { group.forEach(row => { results[row.sourceRow] = {state:'error',message:error.message,checkedAt}; }); }
         }, started);
         assertActive();
@@ -218,7 +237,9 @@ async function checkRows(request) {
             await chrome.storage.local.set({ [key]: current, ...(!request.mode || request.mode==='main' ? {[`${key}:${current.month}`]:current} : {}) });
             return current;
         });
-        return await autoMarkVerified(updated,{...request,rowIds:Object.keys(results).map(Number)},{queueWrite,assertActive});
+        if(request.readOnly===true)return updated;
+        const marked = await autoMarkVerified(updated,{...request,rowIds:Object.keys(results).map(Number)},{queueWrite,assertActive});
+        return placementIds ? {...marked, financialSearch: {searched: searchedPlacements, found: [...foundPlacements]}} : marked;
     } finally { checking = false; }
 }
 async function discoverTracker(request, fallbackReason = '', sheetSource = {}) {
@@ -269,8 +290,8 @@ export async function handleReccies(request, sender, sendResponse) {
     try {
         if (!ownPage(sender)) throw new Error('Tracker data is available only in Ops Toolshed.');
         await assertPrismaProfile();
-        if (['previewTrackerWrite','commitTrackerWrite','trackerWriteStatus'].includes(request.operation)) {
-            const result = await manualTrackerWrite(request,{queueWrite,assertActive});
+        if (['previewTrackerWrite','previewTrackerEdit','commitTrackerWrite','trackerWriteStatus','trackerWriteConnection','activatePerUserWriter'].includes(request.operation)) {
+            const result = await dispatchTrackerWrite(request,{queueWrite,assertActive});
             sendResponse({status:'success',...result});
             return;
         }
@@ -305,7 +326,7 @@ export async function handleReccies(request, sender, sendResponse) {
         }
         else throw new Error('Unknown Reccies action.');
         sendResponse({ status: 'success', tracker });
-    } catch (error) { sendResponse({ status: 'error', message: error.message }); }
+    } catch (error) { sendResponse({ status: 'error', message: error.message, ...(error.code ? { code: error.code } : {}) }); }
 }
 
 // The content event is a scheduling hint, never evidence that a placement is ready.
@@ -321,13 +342,13 @@ export async function scheduleFinancialVerification(request,sender,sendResponse)
             if(!core.validMonth(change.month)||!Array.isArray(change.placementIds)||!change.placementIds.length||change.placementIds.length>1000||change.placementIds.some(id=>!/^P[A-Z0-9]{3,20}$/.test(id)))throw Error('Invalid reconciliation change selection.');
             return {month:change.month,placementIds:[...new Set(change.placementIds)]};
         });
-        const due=Date.now()+180000;
+        const due=Date.now()+20000;
         await queueWrite(async()=>{const jobs=(await chrome.storage.local.get('reccieFinancialJobs')).reccieFinancialJobs||{};
             for(const update of updates){const id=campaignId+':'+update.month;if(Object.keys(jobs).length>=50&&!jobs[id])throw Error('Too many pending financial checks.');const placementIds=[...new Set([...(jobs[id]?.placementIds||[]),...update.placementIds])];if(placementIds.length>1000)throw Error('Too many pending placement changes for this campaign/month.');jobs[id]={campaignId,month:update.month,placementIds,due};}
             await chrome.storage.local.set({reccieFinancialJobs:jobs});
         });
         for(const update of updates)await chrome.alarms.create(RECCIE_ALARM+campaignId+':'+update.month,{when:due});
-        await chrome.storage.local.set({reccieAutomationLastRun:{at:new Date().toISOString(),campaignId,state:'scheduled',due,message:'Reccie verification scheduled three minutes after confirmation.'}});
+        await chrome.storage.local.set({reccieAutomationLastRun:{at:new Date().toISOString(),campaignId,state:'scheduled',due,message:'Reccie verification scheduled 20 seconds after confirmation.'}});
         sendResponse({status:'success',scheduled:true,due});
     }catch(error){sendResponse({status:'error',message:error.message});}
 }
@@ -350,7 +371,7 @@ export async function runReccieAlarm(alarm){
             if(checking){await chrome.alarms.create(alarm.name,{when:Date.now()+30000});return;}
             try{
                 await chrome.storage.local.set({reccieAutomationLastRun:{at:new Date().toISOString(),kind:'receipt',state:'recovering',message:'Checking the existing save receipt; the save is not sent again.'}});
-                const result=await manualTrackerWrite({operation:'trackerWriteStatus',mode:saved.mode,month:saved.month,requestId},{queueWrite,assertActive});
+                const result=await dispatchTrackerWrite({operation:'trackerWriteStatus',mode:saved.mode,month:saved.month,requestId},{queueWrite,assertActive});
                 await chrome.storage.local.set({reccieAutomationLastRun:{at:new Date().toISOString(),kind:'receipt',state:result.write.state}});
                 if(result.write.state==='complete'){
                     const trackerKey=core.trackerKey(saved.mode,saved.month),prefKey=saved.mode==='main'?'recciePreferences':`${trackerKey}:preferences`;
@@ -384,7 +405,8 @@ export async function runReccieAlarm(alarm){
     if(Date.now()<job.due){await chrome.alarms.create(alarm.name,{when:job.due});return;}
     if(!stored.reccieAutomation?.afterFinancial){await removeJob(id,job.due);return;}
     if(checking){await chrome.alarms.create(alarm.name,{when:Date.now()+30000});return;}
-    let retry=false,checked=0,pending=0,attention=0;
+    let retry=false,checked=0,pending=0,attention=0,searched=false;
+    const foundPlacements=new Set();
     try{
         await chrome.storage.local.set({reccieAutomationLastRun:{at:new Date().toISOString(),campaignId:job.campaignId,state:'checking',message:`Verifying changed placements · attempt ${(job.attempts||0)+1} of 3.`}});
         for(const mode of ['main','early']){
@@ -399,6 +421,8 @@ export async function runReccieAlarm(alarm){
                 if(current?.revision!==expectedRevision)throw Error('Report changed before the scheduled check.');
                 const started=Date.now();
                 const updated=await checkRows({placementIds:job.placementIds,financial:true,mode,month:tracker.month,revision:current.revision,rowIds:rows.slice(offset,offset+500).map(row=>row.sourceRow)});
+                if(updated.financialSearch?.searched) searched=true;
+                for(const placement of updated.financialSearch?.found||[]) foundPlacements.add(placement);
                 expectedRevision=updated.revision;
                 const freshRows=rows.slice(offset,offset+500).filter(row=>Date.parse(updated.checks?.[row.sourceRow]?.checkedAt)>=started);
                 checked+=freshRows.length;
@@ -407,14 +431,23 @@ export async function runReccieAlarm(alarm){
                 retry ||= freshRows.some(row=>retryableReccieCheck(updated.checks?.[row.sourceRow]));
             }
         }
+        const missingPlacements=searched&&job.placementIds.some(placement=>!foundPlacements.has(placement));
+        retry ||= missingPlacements;
         await chrome.storage.local.set({reccieAutomationLastRun:{at:new Date().toISOString(),kind:'financial',campaignId:job.campaignId,state:pending?'recovering':attention||!checked?'attention':'complete',message:pending?`${checked} D numbers checked; ${pending} save receipt awaiting confirmation.`:checked?`${checked} D numbers checked${attention?`; ${attention} need attention`:''}.`:'No matching assigned rows in a connected tracker report.'}});
     }catch(error){retry=/timeout|timed out|network|fetch|\b50[0234]\b/i.test(error.message);await chrome.storage.local.set({reccieAutomationLastRun:{at:new Date().toISOString(),kind:'financial',campaignId:job.campaignId,state:'error',message:error.message}});}
     finally{
         if(retry&&(job.attempts||0)<2){
-            const due=Date.now()+120000;let retained=false;
+            const delay=(job.attempts||0)===0?60000:180000;
+            const due=Date.now()+delay;let retained=false;
             await queueWrite(async()=>{const jobs=(await chrome.storage.local.get('reccieFinancialJobs')).reccieFinancialJobs||{};if(jobs[id]?.due===job.due){jobs[id]={...job,attempts:(job.attempts||0)+1,due};await chrome.storage.local.set({reccieFinancialJobs:jobs});retained=true;}});
-            if(retained){await chrome.alarms.create(alarm.name,{when:due});await chrome.storage.local.set({reccieAutomationLastRun:{at:new Date().toISOString(),campaignId:job.campaignId,state:'scheduled',due,message:'Temporary check failure. Retrying in two minutes (maximum three attempts).'}});}
-        }else{await removeJob(id,job.due);if(retry)await chrome.storage.local.set({reccieAutomationLastRun:{at:new Date().toISOString(),campaignId:job.campaignId,state:'attention',message:'Verification stopped after three attempts. Verify manually when Prisma is available.'}});}
+            if(retained){
+                await chrome.alarms.create(alarm.name,{when:due});
+                const retryMessage=(job.attempts||0)===0
+                    ?'Some placements were not found or the check was temporarily unavailable. Retrying in 60 seconds.'
+                    :'Some placements were not found or the check was temporarily unavailable. Retrying in 3 minutes (final attempt).';
+                await chrome.storage.local.set({reccieAutomationLastRun:{at:new Date().toISOString(),campaignId:job.campaignId,state:'scheduled',due,message:retryMessage}});
+            }
+        }else{await removeJob(id,job.due);if(retry)await chrome.storage.local.set({reccieAutomationLastRun:{at:new Date().toISOString(),campaignId:job.campaignId,state:'attention',message:'Some placements could not be verified after three attempts. Check them manually in Prisma.'}});}
     }
 }
 async function removeJob(id,due){await queueWrite(async()=>{const jobs=(await chrome.storage.local.get('reccieFinancialJobs')).reccieFinancialJobs||{};if(jobs[id]?.due===due){delete jobs[id];await chrome.storage.local.set({reccieFinancialJobs:jobs});}});}

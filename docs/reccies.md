@@ -104,6 +104,13 @@ Yes; it does not alter Prisma or require a successful Prisma check for this manu
 attestation. The server rematches D number, campaign ID and report month, skips
 ambiguous or changed rows, and confirms saved values before updating local cards.
 
+The sort-safe writer uses invisible record identifiers for saves, so sorting the
+complete tracker table from its column dropdown keeps updates with their records.
+It preserves formula columns. Records without valid identifiers require owner
+setup before saving; duplicate or changed identities are skipped. Sorting only
+part of a record, changing columns or replacing report data requires a refresh
+and may require identifier setup again.
+
 Google identifies the signed-in user. Access is controlled remotely by a private
 server allowlist, never a list bundled in the extension. Saves record the actor,
 selection and outcomes in a separate private audit workbook. If a save times out or loses its connection, the dialog checks the receipt once
@@ -249,7 +256,8 @@ Main/Early Google reports, never CSV or visited-campaign discovery. Only rows in
 the current fresh check qualify: unique D/campaign/month, Reconciled = Yes and
 Successful buy status, no data issue, not already Yes. Checks older than five
 minutes do not qualify. Server preview, rematching and saved-value readback remain
-in place. Disabling opt-in before commit prevents a new save. Audit entries identify
+in place. Opt-in is checked again immediately before sending a commit. A request
+already sent to Google may finish after the setting is switched off. Audit entries identify
 client-verified automatic saves separately from manual attestation.
 
 The delayed trigger observes reconciliation changes while this tab is open, then
@@ -280,3 +288,9 @@ saved request remains available for manual recovery.
 Settings → Features → Appearance → Reccies appearance offers V1 and V2, with V2 selected by default. Choose V1 for the original layout. Both appearances use the same reports, assignments, filters, verification and write handlers. The quick × beside Prisma chips clears only Prisma selections and is hidden when it would require another row; Clear filters remains available. Existing automatic-write preferences are unchanged and remain opt-in.
 
 V2 result transitions respect reduced motion. Collapse settings hides source, connection and filter controls for the current sidebar instance only; selected filters remain active and Verify stays available. Show settings restores the controls. A newly opened sidebar starts expanded. Campaign headers retain month-specific Prisma URLs while omitting the month beside the CP reference.
+
+### Notes and manual tracker status
+
+The Note action is available for connected Main Tracker and Early Recs reports. It starts with each selected D number's existing comment and tracker Yes/No value. Campaign edits include only matching filtered rows. Suggested phrases append without replacing existing text. Preview checks the live status and comment against the imported report; stale rows are skipped and must be refreshed. Confirmed saves update Comments (resolved by its unique header, normally U) and the selected Yes/No. The sort-safe writer uses conditional formatting for pale yellow highlighting (#fff2cc) while a comment is non-empty. Clearing comments removes that automatic highlight and reveals the existing base colours. Formula comments and notes beginning with = are rejected. The Apps Script notes release must be deployed before saves work; older servers reject previewEdit without changing cells. Automatic marking stays Yes-only.
+
+Reconciled in Prisma means Reconciled = Yes and buy status = Successful. It does not mean the sheet has been updated. Not checked / Check failed are unknown results, not proof of unreconciled status.

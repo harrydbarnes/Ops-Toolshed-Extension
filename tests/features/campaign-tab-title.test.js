@@ -93,15 +93,37 @@ describe('campaign tab title', () => {
         expect(dom.window.document.title).toBe(campaignName);
     });
 
-    test('leaves Prisma title untouched when the campaign name exceeds 99 characters', async () => {
-        ({ dom } = setup({ title: 'prsm-cm-plan-to-buy' }));
+    test('truncates long campaign names once without fighting Prisma', async () => {
+        const longTitle = `Prisma Media - ${'B'.repeat(100)}`;
+        ({ dom } = setup({ title: longTitle }));
         const pageHeader = dom.window.document.createElement('div');
         pageHeader.className = 'mo-page-header';
         pageHeader.innerHTML = `<span class="mo-campaign-name-wrapper">${'B'.repeat(100)}</span><span>12345</span>`;
         dom.window.document.body.appendChild(pageHeader);
         await new Promise(resolve => dom.window.setTimeout(resolve, 0));
 
-        expect(dom.window.document.title).toBe('prsm-cm-plan-to-buy');
+        expect(dom.window.document.title).toBe('B'.repeat(98) + '…');
+        dom.window.document.title = longTitle;
+        await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+        expect(dom.window.document.title).toBe(longTitle);
+    });
+
+    test('keeps title as Prisma Media during initial loading when Prisma title is prsm-cm-plan-to-buy', () => {
+        ({ dom } = setup({ title: 'prsm-cm-plan-to-buy' }));
+        expect(dom.window.document.title).toBe('Prisma Media');
+    });
+
+    test('keeps title as Prisma Media during initial loading when Prisma title is Prisma Media - prsm-cm-plan-to-buy', () => {
+        ({ dom } = setup({ title: 'Prisma Media - prsm-cm-plan-to-buy' }));
+        expect(dom.window.document.title).toBe('Prisma Media');
+    });
+
+    test('retitles the tab on modern Prisma campaign URLs without osAppId and osPspId in hash', () => {
+        ({ dom } = setup({
+            url: 'https://go.mediaocean.com/campaign-management/#campaign-id=12345&ptb-mod=buy',
+            title: 'Prisma Media - Digital Campaign'
+        }));
+        expect(dom.window.document.title).toBe('Digital Campaign');
     });
 
     test('does not watch every mutation in the document head', () => {

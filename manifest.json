@@ -25,6 +25,11 @@
   "content_security_policy": {
     "extension_pages": "script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'self'"
   },
+  "content_scripts": [{
+    "matches": ["https://chatgpt.com/*", "https://x.com/*", "https://claude.ai/*", "https://gemini.google.com/*"],
+    "js": ["features/harmonic-banner.js"],
+    "run_at": "document_start"
+  }],
   "background": {
     "service_worker": "background.js",
     "type": "module"

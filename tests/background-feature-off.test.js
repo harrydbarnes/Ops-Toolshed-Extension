@@ -26,7 +26,7 @@ describe('background behavior while Features is off', () => {
     async function loadDisabledBackground() {
         require('../background');
         const featureMode = require('../background/feature-mode');
-        await featureMode.featureModeReady;
+        await featureMode.initializeFeatureMode();
         await new Promise(jest.requireActual('timers').setImmediate);
         return featureMode;
     }

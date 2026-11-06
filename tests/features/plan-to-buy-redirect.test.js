@@ -34,6 +34,14 @@ describe('Plan to Buy redirect', () => {
         dom.window.close();
     });
 
+    test('builds the matching Buy URL for a modern Prisma URL without osPspId', () => {
+        const modernPlanUrl = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP3J3YP&ptb-mod=plan&ptb-ctx=rfpSummary';
+        const expectedBuyUrl = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP3J3YP&ptb-mod=buy&ptb-ctx=digital&route=online';
+        const { dom, feature } = setup(modernPlanUrl);
+        expect(feature.buildBuyUrl(modernPlanUrl)).toBe(expectedBuyUrl);
+        dom.window.close();
+    });
+
     test('retains Prisma context on the new host when moving Plan to Buy', () => {
         const { dom, feature } = setup(planUrl);
         const newPlanUrl = planUrl.replace('https://groupmuk-prisma.mediaocean.com/campaign-management/', 'https://go.mediaocean.com/campaign-management/?_ctx=session');

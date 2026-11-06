@@ -1,0 +1,20 @@
+#grid-container_hot .ht_clone_left td[id^="placementName-"]:has(.toolshed-actualise-buy-status-indicator) {
+    position: relative;
+    padding-right: 1.65rem !important;
+}
+
+.toolshed-actualise-buy-status-indicator {
+    display: inline-flex;
+    position: absolute;
+    top: 50%;
+    right: 0.4rem;
+    align-items: center;
+    transform: translateY(-50%);
+    vertical-align: middle;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.toolshed-actualise-buy-status-icon {
+    line-height: 1;
+}

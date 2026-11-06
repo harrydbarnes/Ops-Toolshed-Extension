@@ -14,6 +14,7 @@ function loadOffscreenDocument() {
     window.chrome = {
         runtime: {
             id: 'test-extension-id',
+            getURL: path => `chrome-extension://test-extension-id/${path}`,
             onMessage: {
                 addListener: jest.fn(listener => {
                     messageListener = listener;
@@ -135,6 +136,29 @@ describe('offscreen document message handling', () => {
         expect(context.document.querySelector('textarea')).toBeNull();
     });
 
+    test.each([
+        [{ id: 'test-extension-id', tab: { id: 42 } }, 'chrome-extension://test-extension-id/alarm.mp3'],
+        [{ id: 'foreign-extension' }, 'chrome-extension://test-extension-id/alarm.mp3'],
+        [{ id: 'test-extension-id' }, 'https://example.com/audio.mp3'],
+        [{ id: 'test-extension-id' }, 'chrome-extension://test-extension-id/other.mp3']
+    ])('rejects unauthorized audio before constructing Audio (%j, %s)', (sender, sound) => {
+        context = loadOffscreenDocument();
+        context.window.Audio = jest.fn();
+        const result = context.dispatchMessage({ target: 'offscreen', action: 'playAlarm', sound }, jest.fn(), sender);
+        expect(context.window.Audio).not.toHaveBeenCalled();
+        expect(result.sendResponse).toHaveBeenCalledWith(expect.objectContaining({ status: 'error' }));
+        expect(result.keepChannelOpen).toBe(false);
+    });
+
+    test('ignores audio messages intended for another target', () => {
+        context = loadOffscreenDocument();
+        context.window.Audio = jest.fn();
+        const result = context.dispatchMessage({ action: 'playAlarm', sound: context.window.chrome.runtime.getURL('alarm.mp3') });
+        expect(context.window.Audio).not.toHaveBeenCalled();
+        expect(result.sendResponse).not.toHaveBeenCalled();
+        expect(result.keepChannelOpen).toBe(false);
+    });
+
     test('catches rejected audio playback without an unhandled rejection', async () => {
         context = loadOffscreenDocument();
         const playbackError = new Error('Playback blocked');
@@ -145,13 +169,14 @@ describe('offscreen document message handling', () => {
             .mockImplementation(() => {});
 
         const result = context.dispatchMessage({
+            target: 'offscreen',
             action: 'playAlarm',
-            sound: 'alarm.mp3'
+            sound: context.window.chrome.runtime.getURL('alarm.mp3')
         });
         await Promise.resolve();
         await new Promise(resolve => setImmediate(resolve));
 
-        expect(context.window.Audio).toHaveBeenCalledWith('alarm.mp3');
+        expect(context.window.Audio).toHaveBeenCalledWith(context.window.chrome.runtime.getURL('alarm.mp3'));
         expect(play).toHaveBeenCalledTimes(1);
         expect(consoleError).toHaveBeenCalledWith(
             'Error playing audio in offscreen document:',

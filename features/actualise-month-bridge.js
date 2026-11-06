@@ -123,6 +123,25 @@
         return values;
     }
 
+    function getBuyStatusRows(payload) {
+        const rows = [];
+        const visitNodes = nodes => {
+            for (const node of nodes || []) {
+                const fields = Object.fromEntries((node.fields || []).map(field => [field.id, field.value]));
+                if (fields.placementNumber && fields.buyStatus) {
+                    rows.push({
+                        placementNumber: String(fields.placementNumber),
+                        buyStatus: String(fields.buyStatus)
+                    });
+                }
+                if (Array.isArray(node.nodes)) visitNodes(node.nodes);
+            }
+        };
+
+        visitNodes(payload?.nodes);
+        return rows;
+    }
+
     function publishEvidence(requestMonth, responseText) {
         if (!isBridgeActive()) return;
 
@@ -138,7 +157,8 @@
             campaignId: getCampaignId(),
             requestMonth,
             responseMonths,
-            rowCount: Number.isFinite(Number(payload?.total)) ? Number(payload.total) : null
+            rowCount: Number.isFinite(Number(payload?.total)) ? Number(payload.total) : null,
+            buyStatusRows: getBuyStatusRows(payload)
         };
         window.postMessage({
             source: SOURCE,
@@ -220,6 +240,15 @@
         xhrPatch = null;
     }
 
+    function handleUnhandledRejection(event) {
+        if (event.reason instanceof TypeError && event.reason.message === 'Failed to fetch') {
+            const stack = String(event.reason?.stack || '');
+            if (stack.includes('actualise-month-bridge.js')) {
+                event.preventDefault();
+            }
+        }
+    }
+
     function installFetchBridge() {
         if (typeof window.fetch !== 'function') return;
         if (fetchPatch?.wrappedFetch === window.fetch) return;
@@ -227,9 +256,15 @@
 
         const originalFetch = window.fetch;
         const wrappedFetch = function(input, init) {
-            const url = typeof input === 'string' ? input : input?.url;
+            const url = typeof input === 'string'
+                ? input
+                : (input instanceof URL ? input.href : input?.url);
             if (!isBridgeActive() || !isActualiseRequest(url)) {
-                return originalFetch.apply(this, arguments);
+                const responsePromise = originalFetch.apply(this, arguments);
+                if (responsePromise && typeof responsePromise.catch === 'function') {
+                    responsePromise.catch(() => {});
+                }
+                return responsePromise;
             }
 
             const requestMonth = getRequestMonth(init?.body);
@@ -247,11 +282,13 @@
         };
 
         window.fetch = wrappedFetch;
+        window.addEventListener('unhandledrejection', handleUnhandledRejection);
         fetchPatch = { originalFetch, wrappedFetch };
     }
 
     function removeFetchBridge() {
         if (!fetchPatch) return;
+        window.removeEventListener('unhandledrejection', handleUnhandledRejection);
         if (window.fetch === fetchPatch.wrappedFetch) window.fetch = fetchPatch.originalFetch;
         fetchPatch = null;
     }

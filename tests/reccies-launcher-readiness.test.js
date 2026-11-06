@@ -101,6 +101,7 @@ describe('header Reccies preparation', () => {
             expect(button.disabled).toBe(true);
             expect(button.textContent).toContain('starting');
             recover({ status: 'success' }); await flush();
+            expect(button.textContent).toContain('ready, click to open');
             expect(button.disabled).toBe(false);
             expect(send.mock.calls.filter(([r]) => r.action === 'openReccies')).toHaveLength(1);
             send.mockImplementation(() => Promise.resolve({ status: 'success' }));
