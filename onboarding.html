@@ -35,6 +35,13 @@
                         <div id="onboarding-popup-shortcut-editor" class="popup-shortcut-editor"></div>
                     </details>
                 </section>
+                <section id="reccies-intro" hidden aria-label="Introducing Reccies">
+                    <h2>Your tracker and Prisma, together</h2>
+                    <p>Reccies checks your assigned tracker rows against Prisma for the report month. Reconciled in Prisma means Reconciled = Yes and Buy status = Successful. Tracker Yes/No is shown separately.</p>
+                    <ol><li>Open Prisma and sign in. Use Reccies in the Prisma header or the pinned Ops Toolshed popup to open the sidebar beside your work.</li><li>Choose Main Tracker, paste the Google Sheet’s Reccie report tab URL and confirm the report month, usually the previous month.</li><li>Read the report, choose your assignment and name, then Verify Reccie Status. Your filtered rows are checked first, followed by the rest of your assigned rows.</li><li>Review results. Mark Yes and Note offer a live preview before you confirm any spreadsheet changes.</li></ol>
+                    <p>Early Recs uses the current-month report. Automatic checks current-month placements from campaigns recorded in your campaign visit history.</p>
+                    <button id="finish-reccies" class="primary-action" type="button">Open Prisma</button>
+                </section>
                 <section id="non-prisma-setup" class="non-prisma-setup" hidden>
                     <p>Open the Ops Toolshed toolbar popup to use these tools:</p>
                     <dl class="shared-tool-list"><div><dt>Aura timesheets</dt><dd>Open your timesheets and timesheet approvals.</dd></div><div><dt>Social Booking Checker</dt><dd>Compare uploaded booking reports and optional Meta data.</dd></div><div><dt>Approvers &amp; Help Guides</dt><dd>Find approver contacts and searchable company guidance.</dd></div><div><dt>Launch links</dt><dd>Open Meta Handbook, myOffice Days, TPO SharePoint and Ops Guide.</dd></div></dl><label class="setting-choice"><span><strong>Weekly timesheet reminder</strong><small>Receive the Aura timesheet reminder. Change this later in Settings.</small></span><input type="checkbox" data-setting="timesheetReminderEnabled" checked><i aria-hidden="true"></i></label>

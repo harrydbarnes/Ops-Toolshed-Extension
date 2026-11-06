@@ -61,7 +61,12 @@ describe('First-run onboarding', () => {
         expect(saved.approvalTrackingEnabled).toBe(false);
         expect(saved.loadingFactsEnabled).toBe(false);
         expect(saved.popupShortcuts).toEqual(['reccies']);
-        expect(local.set).toHaveBeenCalledWith(expect.objectContaining({onboardingCompleted:true}), expect.any(Function));
+        expect(dom.window.document.getElementById('reccies-intro').hidden).toBe(false);
+        expect(local.store.onboardingCompleted).toBeUndefined();
+        dom.window.document.getElementById('finish-reccies').click();
+        await new Promise(resolve=>setImmediate(resolve));
+        expect(local.store.onboardingCompleted).toBe(true);
+        expect(dom.window.chrome.tabs.update).toHaveBeenCalledWith(expect.objectContaining({url:expect.stringContaining('go.mediaocean.com')}));
         dom.window.close();
     });
 

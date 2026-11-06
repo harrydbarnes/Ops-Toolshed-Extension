@@ -12,6 +12,20 @@ describe('automatic tracker updates',()=>{
         dispatchTrackerWrite.mockReset().mockImplementation(async request=>request.operation==='previewTrackerWrite'?{write:{requestId:'01234567-89ab-cdef-0123-456789abcdef'}}:{tracker,write:{state:'complete',results:[{state:'updated',confirmed:true}]}});
     });
     const run=()=>autoMarkVerified(tracker,{mode:'main',month:'2026-09',rowIds:[2]},context);
+    test('comment clearing is requested only with its separate opt-in',async()=>{
+        state.reccieAutomation.clearCommentsOnMarkYes=true;
+        await run();
+        expect(dispatchTrackerWrite).toHaveBeenCalledWith(expect.objectContaining({operation:'previewTrackerWrite',clearComments:true}),expect.anything());
+    });
+    test('turning comment removal off before commit prevents the clearing save',async()=>{
+        state.reccieAutomation.clearCommentsOnMarkYes=true;
+        chrome.storage.local.set.mockImplementation(async data=>{Object.assign(state,structuredClone(data));if(data.reccieAutomationLastRun)state.reccieAutomation.clearCommentsOnMarkYes=false;});
+        dispatchTrackerWrite.mockImplementation(async(request,options)=>{
+            if(request.operation==='previewTrackerWrite')return {write:{requestId:'clear-comments-test'}};
+            await options.beforeCommit();throw Error('Commit should be cancelled');
+        });
+        const result=await run();expect(result.lastAutoUpdate.saved).toBe(0);expect(result.lastAutoUpdate.error).toContain('comment removal was switched off');
+    });
     test('late opt-out during progress persistence is rejected by the final commit guard',async()=>{
         chrome.storage.local.set.mockImplementation(async data=>{Object.assign(state,structuredClone(data));if(data.reccieAutomationLastRun)state.reccieAutomation.autoMark=false;});
         dispatchTrackerWrite.mockImplementation(async(request,options)=>{

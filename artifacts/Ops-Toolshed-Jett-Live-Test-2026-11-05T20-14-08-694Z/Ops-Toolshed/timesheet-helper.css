@@ -1,0 +1,18 @@
+main { max-width: 1300px; }
+.tracking, .week-controls, .actions-row { display:flex; flex-wrap:wrap; gap:16px; align-items:end; }
+.tracking { align-items:center; justify-content:space-between; }
+.tracking p { max-width:75ch; }
+.toggle { display:flex; align-items:center; gap:8px; white-space:nowrap; }
+.toggle input { width:auto; margin:0; }
+.week-controls input, .actions-row input, .actions-row select { margin-bottom:0; }
+.week-controls a { padding:10px; color:var(--accent); }
+.table-wrap { overflow:auto; margin:20px 0; }
+table { border-collapse:collapse; min-width:900px; width:100%; font-size:14px; font-variant-numeric:tabular-nums; }
+th, td { text-align:left; border-bottom:1px solid #ddd; padding:8px; }
+th { background:#f5f3f4; } td input { min-width:64px; width:75px; margin:0; padding:7px; }
+td:first-child { min-width:175px; } tfoot { font-weight:700; }
+.mapping { display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:10px 0; border-bottom:1px solid #eee; }
+.mapping label { min-width:220px; } .mapping select { margin:0; }
+#estimate { margin-top:18px; } #estimate ul { line-height:1.7; }
+.warning { color:#8a3511; font-weight:600; }
+@media(max-width:700px) { .actions-row label,.week-controls label { flex:1 1 160px; } }

@@ -17,14 +17,16 @@ function setGrouping(win,value) {
     win.document.getElementById('show-by').value=value;
     win.document.getElementById('show-by').dispatchEvent(new win.Event('change'));
 }
-function create(preferences={},source,uiEnabled) {
+function create(preferences={},source,uiEnabled,now,perUser=false) {
     const dom = new JSDOM(html,{url:'https://extension.test/reccies.html',runScripts:'dangerously',pretendToBeVisual:true});
     const win=dom.window;
+    if(now){const NativeDate=win.Date;win.Date=class extends NativeDate{constructor(...args){super(...(args.length?args:[now]));}static now(){return new NativeDate(now).getTime();}};}
     let data={reccieTracker:initial(),recciePreferences:{person:'Harry',assignment:'ops',showBy:'dnumber',trackerStatus:'outstanding',statuses:[],...preferences}};
     if(source)data.reccieTracker.source=source;
     if ('statuses' in preferences && !('trackerStatus' in preferences)) data.recciePreferences.trackerStatus='any';
     win.reccieCore=core;
-    win.chrome={storage:{local:{get:jest.fn(async()=>data),set:jest.fn(async values=>Object.assign(data,values))}},permissions:{request:jest.fn(async()=>true)},runtime:{sendMessage:jest.fn(async request=>{
+    if(perUser)win.opsReccieWriterMode={perUser:true,endpoint:'https://script.google.com/macros/s/per-user-test/exec'};
+    win.chrome={storage:{local:{get:jest.fn(async()=>data),set:jest.fn(async values=>Object.assign(data,values))}},permissions:{request:jest.fn(async()=>true),contains:jest.fn(async()=>true)},runtime:{sendMessage:jest.fn(async request=>{
         if(request.operation==='check') {
             request.rowIds.forEach(id=>{data.reccieTracker.checks[id]={state:'ready',reconciled:'1',buyStatus:'SUCCESSFUL',checkedAt:'2026-10-20T13:00:00Z'};});
             const method=core.verificationMethod(request.method);
@@ -48,6 +50,88 @@ describe('Reccies sidebar',()=>{
     const liveSource={type:'google',url:'https://docs.google.com/spreadsheets/d/1QxX7yZvfh75ENyvPG7xD_5ldLuoLwUsTZ6z0edkpORU/edit?gid=405487495'};
     const writeId='01234567-89ab-cdef-0123-456789abcdef';
     const clickDialog=(win,label)=>[...win.document.querySelectorAll('dialog button')].find(button=>button.textContent===label).click();
+    test.each([
+        ['2026-10-01T12:00:00',0.5],
+        ['2026-10-02T12:00:00',1.5],
+        ['2026-10-03T12:00:00',2],
+        ['2026-10-04T12:00:00',2],
+        ['2026-10-05T12:00:00',2.5],
+        ['2026-10-07T12:00:00',4.5],
+        ['2026-10-08T12:00:00',5]
+    ])('Main Tracker counts the following month’s first five weekdays at %s',async(now,expected)=>{
+        const {dom,win}=create({},undefined,undefined,now);
+        try{await flush();expect(win.document.getElementById('report-month').value).toBe('2026-09');expect(win.document.getElementById('reccie-time-progress').value).toBe(expected);}
+        finally{dom.window.close();}
+    });
+    test('Early Recs uses the report month rather than the following month',async()=>{
+        const month=core.currentMonth(),[year,number]=month.split('-').map(Number);
+        const first=new Date(year,number-1,1);while([0,6].includes(first.getDay()))first.setDate(first.getDate()+1);
+        const now=`${month}-${String(first.getDate()).padStart(2,'0')}T12:00:00`;
+        const {dom,win,getData}=create({},undefined,undefined,now);
+        getData().reccieViewMode='early';getData().reccieTracker.month=month;
+        getData()[`${core.trackerKey('early',month)}:preferences`]={person:'Harry',assignment:'ops',showBy:'dnumber',trackerStatus:'any',statuses:[]};
+        try{await flush();await flush();expect(win.document.getElementById('reccie-progress').hidden).toBe(false);expect(win.document.getElementById('reccie-time-progress').value).toBe(0.5);}
+        finally{dom.window.close();}
+    });
+    test.each([
+        ['ops','Harry’s Reccies'],
+        ['group','Harry’s Group Reccies'],
+        ['buyer','Buyer’s Reccies'],
+        ['any','Harry’s Reccies']
+    ])('progress identifies the selected %s assignment',async(assignment,expected)=>{
+        const {dom,win}=create({assignment,person:assignment==='buyer'?'Buyer':'Harry'});
+        try{await flush();expect(win.document.getElementById('reccies-title').textContent).toBe(expected);}
+        finally{dom.window.close();}
+    });
+    test('live-test sidebar blocks writes until account access is checked and activated',async()=>{
+        const {dom,win,getData}=create({},liveSource,undefined,undefined,true);
+        try{
+            let enforced=false;
+            win.chrome.runtime.sendMessage.mockImplementation(async request=>{
+                if(request.operation==='activatePerUserWriter')enforced=true;
+                return {status:'success',connection:{email:'jett@example.com',perUser:true,ready:true,enforced,problems:[]}};
+            });
+            await flush();await flush();const doc=win.document;
+            expect(doc.getElementById('writer-connection').hidden).toBe(false);
+            expect(doc.getElementById('writer-connection-status').textContent).toContain('jett@example.com');
+            expect(doc.querySelector('.tracker-mark-yes')).toBeNull();expect(doc.getElementById('writer-activate').hidden).toBe(false);
+            doc.getElementById('writer-activate').click();await flush();await flush();
+            expect(doc.getElementById('writer-connection-status').textContent).toContain('Ready to update');expect(doc.querySelector('.tracker-mark-yes')).not.toBeNull();
+            expect(getData().reccieAutomation).toMatchObject({autoMark:false,afterFinancial:false,clearCommentsOnMarkYes:false});
+        }finally{dom.window.close();}
+    });
+    test('live-test sidebar explains missing save-record access and keeps updates unavailable',async()=>{
+        const {dom,win}=create({},liveSource,undefined,undefined,true);
+        try{
+            win.chrome.runtime.sendMessage.mockResolvedValue({status:'success',connection:{email:'jett@example.com',perUser:true,ready:false,enforced:false,problems:['Ask Harry for Editor access to the separate save-record spreadsheet.']}});
+            await flush();await flush();expect(win.document.getElementById('writer-connection-status').textContent).toContain('Editor access');
+            expect(win.document.querySelector('.tracker-mark-yes')).toBeNull();expect(win.document.getElementById('writer-activate').hidden).toBe(true);
+        }finally{dom.window.close();}
+    });
+    test('progress shows report month, source timestamp, and working-days percentage',async()=>{
+        const {dom,win}=create({},undefined,true,'2026-10-05T12:00:00');
+        try{await flush();const doc=win.document;
+            expect(doc.getElementById('reccie-time-progress-label').textContent).toBe('2.5 / 5 working days · 50%');
+            expect(doc.getElementById('reccie-progress-month').textContent).toBe('September 2026');
+            expect(doc.getElementById('reccie-progress-asof').textContent).toMatch(/^Tracker as of /);
+            expect(doc.getElementById('reccie-results-asof').textContent).toBe(doc.getElementById('reccie-progress-asof').textContent);
+            expect(doc.querySelector('.reccies-focus-controls #reccie-results-asof')).not.toBeNull();
+            expect(doc.getElementById('reccie-progress-owner')).toBeNull();
+        }finally{dom.window.close();}
+    });
+    test('verification tooltip waits before appearing and cleans up on Escape, blur and scroll',async()=>{
+        const {dom,win}=create();
+        try{await flush();jest.useFakeTimers();const doc=win.document,button=doc.getElementById('check-rows'),tooltip=doc.getElementById('verification-scope');
+            button.dispatchEvent(new win.MouseEvent('mouseenter'));jest.advanceTimersByTime(349);expect(tooltip.hidden).toBe(true);
+            jest.advanceTimersByTime(1);expect(tooltip.hidden).toBe(false);expect(tooltip.parentElement).toBe(doc.body);
+            expect(tooltip.textContent).toContain('Checks Prisma for 2026-09');expect(button.getAttribute('aria-describedby')).toBe('verification-scope');expect(button.hasAttribute('title')).toBe(false);
+            doc.dispatchEvent(new win.KeyboardEvent('keydown',{key:'Escape'}));expect(tooltip.hidden).toBe(true);expect(button.hasAttribute('aria-describedby')).toBe(false);
+            button.dispatchEvent(new win.Event('focus'));jest.advanceTimersByTime(350);expect(tooltip.hidden).toBe(false);
+            button.dispatchEvent(new win.Event('blur'));expect(tooltip.hidden).toBe(true);
+            button.dispatchEvent(new win.MouseEvent('mouseenter'));jest.advanceTimersByTime(350);doc.dispatchEvent(new win.Event('scroll'));expect(tooltip.hidden).toBe(true);
+            button.dispatchEvent(new win.MouseEvent('mouseenter'));button.dispatchEvent(new win.MouseEvent('mouseleave'));jest.advanceTimersByTime(350);expect(tooltip.hidden).toBe(true);
+        }finally{dom.window.close();jest.useRealTimers();}
+    });
     test('shows compact assigned-row and time progress, and saves the display toggle',async()=>{
         const {dom,win,getData}=create({trackerStatus:'any'});
         try{
@@ -120,12 +204,14 @@ describe('Reccies sidebar',()=>{
             win.document.querySelector('.tracker-mark-yes').click();await flush();
             expect(win.document.querySelector('dialog').textContent).toContain('1 D number will be marked Yes');
             expect(win.document.getElementById('tracker-write-title').textContent).toBe('Update Tracker Status');
-            const save=[...win.document.querySelectorAll('dialog button')].find(button=>button.textContent==='Confirm Update(s)');expect(save.disabled).toBe(true);
+            const save=[...win.document.querySelectorAll('dialog button')].find(button=>button.textContent==='Confirm update');expect(save.disabled).toBe(true);
             const check=win.document.querySelector('dialog input');check.checked=true;check.dispatchEvent(new win.Event('change'));save.click();await flush();
             expect(win.document.querySelector('.status-lines').textContent).toContain('Tracker Reccied: No');
             expect(win.document.querySelector('dialog .reccie-status-dot')).not.toBeNull();
             expect(win.document.querySelector('dialog').textContent).toContain('Saving to the tracker');
             finish();await flush();expect(win.document.getElementById('summary').textContent).toContain('0 D numbers shown');
+            expect([...win.document.querySelectorAll('dialog button')].find(button=>button.textContent==='Check save result').hidden).toBe(true);
+            expect(win.document.querySelector('dialog [aria-label="Close dialog"]')).not.toBeNull();
             expect(win.document.querySelector('dialog').textContent).toContain('1 saved Yes');
             clickDialog(win,'Close');expect(win.document.querySelector('dialog')).toBeNull();
         }finally{dom.window.close();}
@@ -148,7 +234,7 @@ describe('Reccies sidebar',()=>{
                 if(request.operation==='commitTrackerWrite')throw Error('Connection lost');
                 return {status:'success',write:{requestId:writeId,state:'pending',results:[]}};
             });
-            win.document.querySelector('.tracker-mark-yes').click();await flush();const check=win.document.querySelector('dialog input');check.checked=true;check.dispatchEvent(new win.Event('change'));clickDialog(win,'Confirm Update(s)');await flush();
+            win.document.querySelector('.tracker-mark-yes').click();await flush();const check=win.document.querySelector('dialog input');check.checked=true;check.dispatchEvent(new win.Event('change'));clickDialog(win,'Confirm update');await flush();
             expect(win.document.querySelector('dialog').textContent).toContain('Save is still in progress');expect(win.chrome.runtime.sendMessage.mock.calls.filter(([r])=>r.operation==='trackerWriteStatus')).toHaveLength(1);clickDialog(win,'Check save result');await flush();
             expect(win.chrome.runtime.sendMessage.mock.calls.filter(([r])=>r.operation==='commitTrackerWrite')).toHaveLength(1);
             expect(win.chrome.runtime.sendMessage).toHaveBeenLastCalledWith(expect.objectContaining({operation:'trackerWriteStatus',requestId:writeId}));
@@ -165,10 +251,96 @@ describe('Reccies sidebar',()=>{
                 }
                 return {status:'success',write:{requestId:writeId,state:'complete',results:[{dNumber:'D03120200',state:'updated',confirmed:true}]}};
             });
-            win.document.querySelector('.tracker-mark-yes').click();await flush();const check=win.document.querySelector('dialog input');check.checked=true;check.dispatchEvent(new win.Event('change'));clickDialog(win,'Confirm Update(s)');await flush();
+            win.document.querySelector('.tracker-mark-yes').click();await flush();const check=win.document.querySelector('dialog input');check.checked=true;check.dispatchEvent(new win.Event('change'));clickDialog(win,'Confirm update');await flush();
             expect(win.document.querySelector('dialog').textContent).toContain('1 saved Yes');
             expect(win.chrome.runtime.sendMessage.mock.calls.filter(([r])=>r.operation==='commitTrackerWrite')).toHaveLength(1);
             expect(win.chrome.runtime.sendMessage.mock.calls.filter(([r])=>r.operation==='trackerWriteStatus')).toHaveLength(1);
+        }finally{dom.window.close();}
+    });
+    test('the red close action dismisses a tracker preview',async()=>{
+        const {dom,win}=create({},liveSource);
+        try{await flush();win.chrome.runtime.sendMessage.mockResolvedValue({status:'success',write:{requestId:writeId,results:[{dNumber:'D03120200',state:'eligible',before:'No'}]}});
+            win.document.querySelector('.tracker-mark-yes').click();await flush();win.document.querySelector('dialog [aria-label="Close dialog"]').click();
+            expect(win.document.querySelector('dialog')).toBeNull();expect(win.document.getElementById('check-rows').disabled).toBe(false);
+        }finally{dom.window.close();}
+    });
+    test('verification adopts the latest local report revision before checking',async()=>{
+        const {dom,win,getData}=create();
+        try{await flush();getData().reccieTracker={...getData().reccieTracker,revision:'updated-by-save'};
+            win.document.getElementById('check-rows').click();await flush();await flush();
+            expect(win.chrome.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({operation:'check',revision:'updated-by-save'}));
+        }finally{dom.window.close();}
+    });
+    test('visible tracker refresh reloads Google data and updates assigned progress',async()=>{
+        const {dom,win,getData}=create({},liveSource);
+        try{await flush();const doc=win.document;
+            win.chrome.runtime.sendMessage.mockImplementation(async request=>{
+                if(request.operation==='refresh')getData().reccieTracker={...getData().reccieTracker,revision:'fresh',rows:getData().reccieTracker.rows.map(row=>({...row,reccied:'Yes'}))};
+                return {status:'success',tracker:getData().reccieTracker};
+            });
+            expect(doc.getElementById('refresh-tracker').hidden).toBe(false);doc.getElementById('refresh-tracker').click();await flush();await flush();
+            expect(doc.getElementById('reccie-tracker-progress-label').textContent).toContain('2 / 2 marked Yes');
+        }finally{dom.window.close();}
+    });
+    test('Mark Yes checks live comments and offers explicit removal with a new preview',async()=>{
+        const {dom,win}=create({},liveSource);
+        try{
+            await flush();win.chrome.runtime.sendMessage.mockImplementation(async request=>({status:'success',write:{requestId:writeId,results:[{dNumber:'D03120200',state:'eligible',before:'No',...(request.clearComments?{commentsBefore:'Added directly in the sheet',commentsAfter:'',after:'Yes'}:{hasComment:true,commentPreview:'Added directly in the sheet'})}]}}));
+            win.document.querySelector('.tracker-mark-yes').click();await flush();
+            const option=win.document.querySelector('[aria-label="Remove existing comments when marking Yes"]');expect(option.closest('label').hidden).toBe(false);expect(option.checked).toBe(false);
+            expect(win.document.querySelector('dialog').textContent).toContain('Added directly in the sheet');
+            option.checked=true;option.dispatchEvent(new win.Event('change'));await flush();
+            expect(win.chrome.runtime.sendMessage).toHaveBeenLastCalledWith(expect.objectContaining({operation:'previewTrackerWrite',clearComments:true}));
+            expect(win.document.querySelector('dialog').textContent).toContain('comment to remove');
+        }finally{dom.window.close();}
+    });
+    test('restores saved search when the sidebar document opens again',async()=>{
+        const {dom,win}=create({search:'D03120200'});
+        try{await flush();expect(win.document.getElementById('search').value).toBe('D03120200');expect(win.document.querySelectorAll('.reccie-card')).toHaveLength(1);}
+        finally{dom.window.close();}
+    });
+    test('busy preview offers a fresh read without submitting a save',async()=>{
+        const {dom,win}=create({},liveSource);
+        try{
+            await flush();win.chrome.runtime.sendMessage.mockResolvedValueOnce({status:'error',code:'BUSY_TRY_AGAIN',message:'Another tracker save is running.'});
+            win.document.querySelector('.tracker-mark-yes').click();await flush();
+            expect(win.document.querySelector('dialog').textContent).toContain('Use Refresh preview to retry');
+            win.chrome.runtime.sendMessage.mockResolvedValue({status:'success',write:{requestId:writeId,results:[{dNumber:'D03120200',state:'eligible',before:'No'}]}});
+            clickDialog(win,'Refresh preview');await flush();
+            expect(win.document.querySelector('dialog').textContent).toContain('1 D number will be marked Yes');
+            expect(win.chrome.runtime.sendMessage.mock.calls.some(([r])=>r.operation==='commitTrackerWrite')).toBe(false);
+        }finally{dom.window.close();}
+    });
+    test('pending save checks automatically, completes, and never repeats the commit',async()=>{
+        const {dom,win}=create({},liveSource);
+        try{
+            await flush();let scheduled;
+            const timeout=win.setTimeout.bind(win);
+            win.setTimeout=(callback,delay)=>delay===5000?(scheduled=callback,1):timeout(callback,delay);
+            win.chrome.runtime.sendMessage.mockImplementation(async request=>{
+                if(request.operation==='previewTrackerWrite')return {status:'success',write:{requestId:writeId,expiresInSeconds:600,results:[{dNumber:'D03120200',state:'eligible',before:'No'}]}};
+                if(request.operation==='commitTrackerWrite')return {status:'success',write:{requestId:writeId,state:'pending',results:[]}};
+                return {status:'success',write:{requestId:writeId,state:'complete',results:[{dNumber:'D03120200',state:'updated',after:'Yes',confirmed:true}]}};
+            });
+            win.document.querySelector('.tracker-mark-yes').click();await flush();
+            expect(win.document.querySelector('dialog label').textContent).toContain('this placement');
+            const confirm=win.document.querySelector('dialog input');confirm.checked=true;confirm.dispatchEvent(new win.Event('change'));
+            clickDialog(win,'Confirm update');await flush();
+            expect(win.document.querySelector('dialog').textContent).toContain('Checking automatically');
+            await scheduled();await flush();
+            expect(win.document.querySelector('dialog').textContent).toContain('1 saved Yes');
+            expect(win.chrome.runtime.sendMessage.mock.calls.filter(([r])=>r.operation==='commitTrackerWrite')).toHaveLength(1);
+        }finally{dom.window.close();}
+    });
+    test('checks filtered rows first, then remaining assigned rows without automatic writes',async()=>{
+        const {dom,win}=create();
+        try{
+            await flush();const doc=win.document;
+            doc.getElementById('search').value='D03120200';doc.getElementById('search').dispatchEvent(new win.Event('input'));
+            doc.getElementById('check-rows').click();await flush();
+            const calls=win.chrome.runtime.sendMessage.mock.calls.map(([r])=>r).filter(r=>r.operation==='check');
+            expect(calls.map(r=>r.rowIds)).toEqual([[2],[3]]);
+            expect(calls[1].readOnly).toBe(true);
         }finally{dom.window.close();}
     });
     test('report reading animates and scrolls its status into view, then clears activity',async()=>{
@@ -190,13 +362,20 @@ describe('Reccies sidebar',()=>{
         const {dom,win,getData}=create({},liveSource);
         try{
             await flush();const toggle=win.document.getElementById('auto-mark-tracker');expect(toggle.checked).toBe(false);
+            const badge=win.document.querySelector('header .readonly');
+            expect(badge.textContent).toBe('Manual Mode');
+            expect(badge.classList.contains('is-automatic')).toBe(false);
             toggle.checked=true;toggle.dispatchEvent(new win.Event('change'));await flush();expect(getData().reccieAutomation.autoMark).toBe(true);expect(win.chrome.permissions.request).toHaveBeenCalled();
+            expect(badge.textContent).toBe('Automatic Updates');
+            expect(badge.classList.contains('is-automatic')).toBe(true);
             const delayed=win.document.getElementById('verify-after-financial');expect(delayed.checked).toBe(false);delayed.checked=true;delayed.dispatchEvent(new win.Event('change'));await flush();expect(getData().reccieAutomation).toEqual({autoMark:true,afterFinancial:true});
             toggle.checked=false;toggle.dispatchEvent(new win.Event('change'));await flush();expect(getData().reccieAutomation).toEqual({autoMark:false,afterFinancial:true});
+            expect(badge.textContent).toBe('Manual Mode');
+            expect(badge.classList.contains('is-automatic')).toBe(false);
         }finally{dom.window.close();}
     });
     test('CSV snapshots offer no tracker write action',async()=>{
-        const {dom,win}=create();try{await flush();expect(win.document.querySelector('.tracker-mark-yes')).toBeNull();}finally{dom.window.close();}
+        const {dom,win}=create();try{await flush();expect(win.document.querySelector('.tracker-mark-yes')).toBeNull();expect(win.document.querySelector('header .readonly').textContent).toBe('Read only');}finally{dom.window.close();}
     });
     test('runs the private identity test through the worker only after site permission',async()=>{
         const {dom,win}=create();
@@ -330,7 +509,7 @@ describe('Reccies sidebar',()=>{
             expect(win.document.getElementById('tracker-status').value).toBe(trackerStatus);
             expect(win.document.getElementById('show-by').value).toBe(view==='campaigns'?'campaign':'dnumber');
             expect([...win.document.querySelectorAll('[data-status]:checked')].map(input=>input.dataset.status)).toEqual(statuses);
-            expect(getData().recciePreferences).toEqual({person:'Harry',assignment:'ops',showBy:view==='campaigns'?'campaign':'dnumber',trackerStatus,statuses});
+            expect(getData().recciePreferences).toEqual({person:'Harry',assignment:'ops',showBy:view==='campaigns'?'campaign':'dnumber',trackerStatus,statuses,search:''});
         } finally {dom.window.close();}
     });
     test('combines tracker AND Prisma status, keeps Prisma chips OR and explains campaign attention issues',async()=>{
@@ -362,7 +541,7 @@ describe('Reccies sidebar',()=>{
             expect(doc.querySelectorAll('.campaign-card')).toHaveLength(3);expect(doc.getElementById('clear-filters').hidden).toBe(true);
             setStatuses(win,'mismatch');doc.getElementById('check-rows').click();await flush();await flush();
             expect(win.chrome.runtime.sendMessage).toHaveBeenCalledWith({action:'reccies',operation:'check',revision:'test',rowIds:[4],method:'workers-8'});
-            expect(doc.getElementById('message').textContent).toContain('Checked 1 campaign · 1 D number; 0 campaigns · 0 D numbers now shown');
+            expect(doc.getElementById('message').textContent).toContain('1 campaign · 1 D number matching filters, then 4 other assigned checked');
         } finally {dom.window.close();}
     });
     test('migrates old mixed OR filters with an explanation and treats opposite tracker filters as Any',async()=>{
@@ -398,7 +577,7 @@ describe('Reccies sidebar',()=>{
             setStatuses(win,'mismatch');
             expect([...doc.querySelectorAll('.card-top strong')].map(node=>node.textContent)).toEqual(['D0','D1','D2']);
             expect([...doc.querySelectorAll('.badge.mismatch')].map(node=>node.textContent)).toEqual(['Prisma mismatch','Prisma mismatch','Prisma mismatch']);
-            expect(win.chrome.storage.local.set).toHaveBeenCalledWith({recciePreferences:{person:'Harry',assignment:'ops',showBy:'dnumber',trackerStatus:'any',statuses:['mismatch']}});
+            expect(win.chrome.storage.local.set).toHaveBeenCalledWith({recciePreferences:{person:'Harry',assignment:'ops',showBy:'dnumber',trackerStatus:'any',statuses:['mismatch'],search:''}});
             doc.getElementById('search').value='D1';doc.getElementById('search').dispatchEvent(new win.Event('input'));
             expect(doc.querySelectorAll('.reccie-card')).toHaveLength(1);
             doc.getElementById('search').value='';doc.getElementById('search').dispatchEvent(new win.Event('input'));
@@ -436,7 +615,7 @@ describe('Reccies sidebar',()=>{
             await flush();const doc=win.document;
             doc.getElementById('debug-workers').value='1';doc.getElementById('debug-run').click();await flush();await flush();
             doc.getElementById('check-rows').click();await flush();await flush();
-            expect(win.chrome.runtime.sendMessage.mock.calls.map(([request])=>request.method)).toEqual(['workers-1','workers-8']);
+            expect(win.chrome.runtime.sendMessage.mock.calls.map(([request])=>request.method)).toEqual(['workers-1','workers-8','workers-8']);
         } finally { dom.window.close(); }
     });
     test('verification animations have a static reduced-motion alternative',()=>{
@@ -491,14 +670,14 @@ describe('Reccies sidebar',()=>{
             doc.getElementById('debug-workers').value=String(concurrency);
             doc.getElementById('debug-workers').dispatchEvent(new win.Event('input'));
             expect(doc.getElementById('debug-worker-count').value).toBe(String(concurrency));
-            doc.getElementById('debug-run').click();
+            doc.getElementById('debug-run').click();await flush();
             expect(win.chrome.runtime.sendMessage).toHaveBeenCalledWith({action:'reccies',operation:'check',revision:'test',rowIds:[2],method:`workers-${concurrency}`});
             expect([...doc.querySelectorAll('#debug-run,#debug-workers,#check-rows,.segmented-control button')].every(button=>button.disabled)).toBe(true);
             expect(doc.getElementById('message').classList.contains('is-verifying')).toBe(true);
             expect(doc.querySelector('.reccie-status-dot').getAttribute('aria-hidden')).toBe('true');
             expect(doc.querySelector('.reccie-status-dots').getAttribute('aria-hidden')).toBe('true');
             expect(doc.querySelectorAll('.reccie-status-dots span')).toHaveLength(3);
-            expect(doc.getElementById('message').textContent).toContain(`Verifying reccie status · 1 row · ${concurrency} campaigns at once`);
+            expect(doc.getElementById('message').textContent).toContain(`Verifying filtered rows · 1 row · ${concurrency} campaigns at once`);
             expect(doc.querySelector('.reccie-status-dots').parentElement.className).toBe('reccie-status-tail');
             expect(doc.querySelector('.reccie-status-tail').firstChild.textContent).toBe('once');
             expect(doc.getElementById('check-rows').getAttribute('aria-busy')).toBe('true');
@@ -654,7 +833,7 @@ describe('Reccies sidebar',()=>{
         expect(doc.querySelectorAll('.reccie-card')).toHaveLength(2);
         expect(doc.querySelector('.reccie-card img')).toBeNull();
         expect(doc.getElementById('rows').textContent).toContain('<img src=x');
-        expect(win.chrome.storage.local.set).toHaveBeenCalledWith({recciePreferences:{person:'Harry',assignment:'ops',showBy:'dnumber',trackerStatus:'any',statuses:[]}});
+        expect(win.chrome.storage.local.set).toHaveBeenCalledWith({recciePreferences:{person:'Harry',assignment:'ops',showBy:'dnumber',trackerStatus:'any',statuses:[],search:''}});
         expect(doc.querySelector('.card-bottom a').href).toContain('campaign-id=CP3G9KS');
         expect(doc.querySelector('.card-bottom a').href).toContain('mos=2026-09-01');
         dom.window.close();
@@ -726,8 +905,10 @@ describe('Reccies sidebar',()=>{
         try {
             const button = dom.window.document.getElementById('check-rows');
             expect(button.textContent).toBe('Verify Reccie Status');
-            expect(button.getAttribute('aria-describedby')).toBe('verification-scope');
-            expect(dom.window.document.getElementById('verification-scope').textContent).toContain('all rows matching your filters');
+            expect(button.hasAttribute('aria-describedby')).toBe(false);
+            const tooltip=dom.window.document.getElementById('verification-scope');
+            expect(tooltip.hidden).toBe(true);expect(tooltip.getAttribute('role')).toBe('tooltip');
+            expect(tooltip.textContent).toContain('filtered rows first');
         } finally { dom.window.close(); }
     });
 });

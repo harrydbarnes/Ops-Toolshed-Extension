@@ -60,6 +60,44 @@ describe('popup DOM initialization', () => {
         }
     });
 
+    test('handles Reccies startup and disabled states gracefully without logging console errors', () => {
+        const dom = new JSDOM(fs.readFileSync(path.resolve(__dirname, '../popup.html'), 'utf8'), {
+            runScripts: 'outside-only', url: 'chrome-extension://test/popup.html'
+        });
+        const { window } = dom;
+        let recciesCallback;
+        const sendMessage = jest.fn((request, cb) => {
+            if (request.action === 'openReccies') recciesCallback = cb;
+        });
+        window.chrome = {
+            runtime: { getManifest: () => ({ version: '1.9' }), getURL: file => file, sendMessage },
+            storage: { sync: { get: (keys, callback) => callback({}) } },
+            windows: { WINDOW_ID_CURRENT: -2 }
+        };
+        window.alert = jest.fn();
+        window.console.error = jest.fn();
+        window.console.warn = jest.fn();
+        try {
+            window.eval(readScript(path.resolve(__dirname, '../popup-shortcuts.js')));
+            window.eval(readScript(path.resolve(__dirname, '../popup.js')));
+            window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
+
+            window.document.getElementById('recciesButton').click();
+            expect(sendMessage).toHaveBeenCalledWith({ action: 'openReccies', windowId: -2 }, expect.any(Function));
+
+            recciesCallback({ status: 'error', code: 'FEATURES_STARTING', message: 'Ops Toolshed is starting. Reccies will be ready shortly.' });
+            expect(window.console.error).not.toHaveBeenCalled();
+            expect(window.alert).not.toHaveBeenCalled();
+
+            recciesCallback({ status: 'error', code: 'FEATURES_DISABLED', message: 'Enable Ops Toolshed features to open Reccies.' });
+            expect(window.console.error).not.toHaveBeenCalled();
+            expect(window.console.warn).toHaveBeenCalledWith('[Popup] Reccies unavailable:', 'Enable Ops Toolshed features to open Reccies.');
+            expect(window.alert).toHaveBeenCalledWith('Enable Ops Toolshed features to open Reccies.');
+        } finally {
+            window.close();
+        }
+    });
+
     test('renders the saved shortcut selection instead of the defaults', () => {
         const dom = new JSDOM(fs.readFileSync(path.resolve(__dirname, '../popup.html'), 'utf8'), {
             runScripts: 'outside-only', url: 'chrome-extension://test/popup.html'

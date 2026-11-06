@@ -1,0 +1,2201 @@
+/* --- Reminder Popup Styles --- */
+/* Note: The @import for Montserrat font is intentionally omitted here to avoid conflicts with host pages. */
+
+#meta-reminder-popup, #ias-reminder-popup, #custom-reminder-display-popup, #confirmation-popup { /* Apply styles to all popups */
+    font-family: 'Montserrat', sans-serif;
+    position: fixed;
+    z-index: 2147483647;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: #ff3d80;
+    color: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    max-width: 400px;
+    text-align: center;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Black Theme Override for Reminders */
+body.reminder-theme-black #meta-reminder-popup,
+body.reminder-theme-black #ias-reminder-popup,
+body.reminder-theme-black #custom-reminder-display-popup,
+body.reminder-theme-black #confirmation-popup {
+    background-color: #333;
+}
+#meta-reminder-popup h3, #ias-reminder-popup h3, #custom-reminder-display-popup h3, #confirmation-popup h3 { margin-top: 0; font-size: 18px; font-weight: 700; }
+#meta-reminder-popup p, #ias-reminder-popup p, #custom-reminder-display-popup p, #confirmation-popup p { margin-bottom: 10px; font-size: 14px; }
+#meta-reminder-popup ul, #ias-reminder-popup ul, #custom-reminder-display-popup ul, #confirmation-popup ul { text-align: left; margin-bottom: 20px; font-size: 14px; padding-left: 20px; }
+#meta-reminder-popup li, #ias-reminder-popup li, #custom-reminder-display-popup li, #confirmation-popup li { margin-bottom: 5px; }
+
+#custom-reminder-display-popup {
+    font-family: 'Outfit', sans-serif;
+}
+
+.custom-reminder-close-button {
+    padding: 10px 15px;
+    margin: 5px;
+    border: 0;
+    border-radius: 4px;
+    background-color: white;
+    color: #ff3d80;
+    font: inherit;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+.custom-reminder-close-button:hover {
+    background-color: #f8f8f8;
+}
+
+.custom-reminder-close-button:active {
+    transform: translateY(2px);
+}
+
+.reminder-close-button {
+    background-color: #07009a;
+    color: #ffffff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+.reminder-close-button:hover:not(:disabled) {
+    background-color: #05006a;
+    animation: vibrate 0.3s ease-in-out; /* This vibrate is for reminder buttons */
+}
+
+.reminder-close-button:active:not(:disabled) {
+    transform: translateY(2px);
+}
+
+.reminder-close-button:disabled {
+    background-color: #cccccc;
+    color: #666666;
+    cursor: not-allowed;
+}
+
+/* The countdown fills the button while the existing seconds remain visible. */
+.reminder-close-button.reminder-countdown:disabled {
+    background-image: linear-gradient(to right, #07009a 50%, #666666 50%);
+    background-size: 200% 100%;
+    background-position: right center;
+    color: #fff;
+    animation: reminder-button-fill var(--reminder-countdown-duration) linear forwards;
+}
+
+@keyframes reminder-button-fill {
+    to { background-position: left center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .reminder-close-button.reminder-countdown:disabled {
+        animation: none;
+        background-image: none;
+        color: #666;
+    }
+}
+
+/* Dimming Overlay */
+.reminder-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.2); /* 20% dim */
+    z-index: 9999; /* Below popup, above page content */
+    animation: fadeInOverlay 0.3s ease-in-out;
+}
+
+/* Keyframes (ensure these are defined only once) */
+/* fadeIn is used by popups */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translate(-50%, -60%); }
+    to { opacity: 1; transform: translate(-50%, -50%); }
+}
+
+/* vibrate is used by nav-buttons and reminder buttons. Ensure consistent definition. */
+@keyframes vibrate {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-2px); }
+    40% { transform: translateX(2px); }
+    60% { transform: translateX(-1px); }
+    80% { transform: translateX(1px); }
+}
+
+/* fadeInOverlay is used by .reminder-overlay */
+@keyframes fadeInOverlay {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+/* --- End of Reminder Popup Styles --- */
+
+/* --- Loading Facts Toast Styles --- */
+/* The Fact "Pill" */
+.loading-fact-toast {
+    /* Positioning (Fixed Bottom + Center X) */
+    position: fixed;
+    bottom: var(--toast-bottom-position);
+    transform: translateX(-50%);
+    z-index: var(--toast-z-index);
+    pointer-events: auto;
+
+    /* Layout & Sizing */
+    display: flex;
+    align-items: center;     /* Vertically center text */
+    justify-content: center; /* Horizontally center text */
+    width: max-content;
+    min-width: var(--toast-min-width);
+    max-width: var(--toast-max-width);
+    min-height: 50px; /* Reduced from 60px to fit tighter padding */
+    font-size: var(--toast-font-size);
+
+    /* VISUAL CENTERING MAGIC: Balanced Padding */
+    /* Left padding holds the icon. Right padding balances it. */
+    padding: 10px 92px 10px 70px;
+
+    /* Styling */
+    background-color: var(--toast-bg-color);
+    color: white;
+    border-radius: var(--toast-border-radius);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+}
+
+.loading-fact-icon {
+    /* Absolute positioning to prevent pushing text off-center */
+    position: absolute;
+    left: 25px; /* Sits comfortably in the left padding */
+    top: 50%;
+    transform: translateY(-50%);
+
+    font-size: var(--toast-icon-font-size);
+    line-height: 1;
+}
+
+.loading-fact-content {
+    /* Text Stack */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.loading-fact-content strong {
+    display: block;
+    color: var(--primary-pink);
+    font-size: var(--toast-strong-font-size);
+    text-transform: uppercase;
+    letter-spacing: var(--toast-letter-spacing);
+    margin-bottom: var(--toast-content-margin-bottom);
+}
+
+.loading-fact-toast.slide-up {
+    animation: slideUpFadeIn var(--toast-animation-duration) var(--toast-slide-up-bezier) forwards;
+}
+
+.loading-fact-toast.slide-down {
+    animation: slideDownFadeOut var(--toast-animation-duration) ease-in forwards;
+}
+
+@keyframes slideUpFadeIn {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, var(--toast-slide-offset));
+    }
+    100% {
+        opacity: 1;
+        transform: translate(-50%, 0); /* End at natural position */
+    }
+}
+
+@keyframes slideDownFadeOut {
+    0% {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+    100% {
+        opacity: 0;
+        transform: translate(-50%, var(--toast-slide-offset));
+    }
+}
+/* --- End Loading Facts Toast Styles --- */
+/* --- Paste Approvers & Favourites Button Styles --- */
+/* Separated from approvers.css to avoid conflicts and ensure correct application */
+.prisma-paste-button {
+    background-color: #f4f4f5;
+    border: 2px solid #e4e4e7;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-weight: 500;
+    color: #333;
+
+    /* Specific positioning and sizing */
+    font-size: 12px;
+    padding: 4px 17px;
+
+    /* Fix for vertical margin */
+    display: inline-block !important;
+    margin-bottom: 5px !important;
+}
+
+.prisma-paste-button:hover {
+    background-color: #fde8f2;
+    border-color: #e84399;
+}
+/* --- End of Paste Approvers Button Styles --- */
+
+/* --- Internal Approval recipient history controls --- */
+.ops-toolshed-recipient-history-pending .select2-drop-active {
+    visibility: hidden;
+}
+
+.loading-fact-actions {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    display: flex;
+    gap: 5px;
+    transform: translateY(-50%);
+}
+
+.loading-fact-action {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    cursor: pointer;
+    font: 700 14px/1 'Segoe UI', sans-serif;
+}
+
+.loading-fact-action:hover:not(:disabled),
+.loading-fact-action:focus-visible {
+    background: rgba(255, 255, 255, 0.28);
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+}
+
+.loading-fact-action:disabled {
+    cursor: default;
+    opacity: 0.55;
+}
+
+.loading-fact-toast--remove .loading-fact-content strong::after {
+    content: ' Removed';
+}
+
+.loading-fact-toast--notSure .loading-fact-content strong::after {
+    content: ' Saved for review';
+}
+
+.select2-drop-active .select2-result-label[data-ops-toolshed-recipient-history-handled="true"] {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.ops-toolshed-recipient-history-email {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ops-toolshed-recipient-history-remove {
+    margin-left: auto;
+    flex: 0 0 20px;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: #737373;
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 18px;
+}
+
+.ops-toolshed-recipient-history-remove:hover,
+.ops-toolshed-recipient-history-remove:focus-visible {
+    background: #fde8f2;
+    color: #b90068;
+    outline: none;
+}
+
+.ops-toolshed-recipient-history-tooltip {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 2147483647;
+    display: block;
+    width: max-content;
+    max-width: min(280px, calc(100vw - 16px));
+    box-sizing: border-box;
+    padding: 6px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 5px;
+    background: #1f2937;
+    color: #fff;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.28);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.3;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    pointer-events: none;
+}
+
+.ops-toolshed-recipient-history-tooltip[hidden] {
+    display: none;
+}
+
+.ops-toolshed-recipient-history-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 7px 8px 3px;
+    border-top: 1px solid #e4e4e7;
+}
+
+.ops-toolshed-recipient-history-clear {
+    padding: 2px 4px;
+    border: 0;
+    background: transparent;
+    color: #b90068;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.ops-toolshed-recipient-history-clear:hover,
+.ops-toolshed-recipient-history-clear:focus-visible {
+    text-decoration: underline;
+    outline: none;
+}
+
+.ops-toolshed-submitted-recipients {
+    display: inline-block;
+    max-width: calc(100% - 12px);
+    margin-left: 6px;
+    color: #97a0b1;
+    font-family: Avenir, Arial, sans-serif;
+    font-size: 11px;
+    font-weight: 400;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+    text-transform: none;
+    vertical-align: middle;
+}
+
+.ops-toolshed-submitted-recipients--sidebar {
+    box-sizing: border-box;
+}
+
+.ops-toolshed-submitted-recipient-tooltip {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 2147483647;
+    display: block;
+    width: max-content;
+    max-width: min(360px, calc(100vw - 16px));
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 6px;
+    background: #1f2937;
+    color: #fff;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.28);
+    font-family: Avenir, Arial, sans-serif;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.35;
+    text-align: left;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    pointer-events: none;
+}
+
+.ops-toolshed-submitted-recipient-tooltip[hidden] {
+    display: none;
+}
+/* --- End Internal Approval recipient history controls --- */
+
+/* --- GMI Chat Button Styles --- */
+/* Completely separate definition to allow individual margin control */
+.gmi-chat-button {
+    /* VISUALS: Copied from prisma-paste-button for consistency */
+    background-color: #f4f4f5;
+    border: 2px solid #e4e4e7;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-weight: 500;
+    color: #333;
+    font-size: 12px;
+    padding: 4px 17px;
+
+    /* LAYOUT FIXES */
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+
+    /* 1. Force margin to zero */
+    margin-bottom: 0 !important;
+
+
+    /* 2. Fix "Ghost" spacing caused by baseline alignment */
+    vertical-align: middle !important;
+
+    /* 3. Ensure line-height doesn't expand the box unnecessarily */
+    line-height: 14px !important;
+}
+
+.gmi-chat-button:hover {
+    background-color: #fde8f2;
+    border-color: #e84399;
+}
+/* --- End of GMI Chat Button Styles --- */
+
+/* --- Live Chat Enhancement Styles --- */
+#resizable-chat-handle {
+    height: 10px;
+    background-color: #888;
+    cursor: ns-resize;
+    position: fixed;
+    z-index: 999999;
+    border-bottom: 1px solid #666;
+}
+
+#launcher-button-container {
+    position: fixed;
+    bottom: 10px;
+    right: 20px;
+    z-index: 999998;
+    width: 107px;
+    height: 50px;
+}
+
+#launcher-button-container button {
+    width: 100%;
+    height: 100%;
+    background-color: #007bff;
+    color: white;
+    border-radius: 25px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 15px;
+    cursor: pointer;
+    border: none;
+    font-family: sans-serif;
+    font-size: 16px;
+    transition: background-color 0.2s ease-in-out;
+}
+
+#launcher-button-container button:hover {
+    background-color: #0056b3;
+}
+
+#launcher-button-container button svg {
+    fill: white;
+    width: 20px;
+    height: 20px;
+}
+
+#launcher-button-container button span {
+    margin-left: 8px;
+}
+
+.approver-widget-placement-enabled.gmi-chat-enabled .workflow-widget-wrapper {
+    min-width: 260px;
+    max-width: none;
+    width: max-content;
+    flex-shrink: 0;
+    gap: 6px;
+}
+
+/* Preserve native plan labels and status badges when injected controls widen
+   the centred workflow row. Flex compression can otherwise overlap them. */
+.approver-widget-placement-enabled .workflow-widget-wrapper > * {
+    flex-shrink: 0;
+}
+
+/* Keep the date card and its rear pencil tab in one predictable stacking
+   context across Prisma zoom levels. */
+.toolshed-campaign-date-edit-host {
+    position: relative;
+    display: inline-block;
+    overflow: visible;
+    z-index: 0;
+    isolation: isolate;
+    margin-right: 0.35em;
+    vertical-align: middle;
+}
+
+.mo-date-field-wrapper.toolshed-campaign-date-editable {
+    display: inline-block !important;
+    position: relative !important;
+    overflow: visible !important;
+    z-index: 1;
+    isolation: isolate;
+    box-sizing: border-box;
+    padding: 0.15em 0.5em;
+    background-color: #f3f4f6 !important;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.45em;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.toolshed-campaign-date-edit-marker {
+    appearance: none;
+    position: absolute;
+    top: auto;
+    bottom: -0.9em;
+    right: -0.6em;
+    width: 1.4em;
+    height: 1.35em;
+    z-index: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    margin: 0;
+    font: inherit;
+    pointer-events: auto;
+    box-sizing: border-box;
+    padding-inline: 0.2em;
+    padding-bottom: 0.15em;
+    background-color: #fff;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 0.45em;
+    color: #1e293b;
+    cursor: pointer;
+}
+
+
+/* Keep DST Assurance after GMI Chat on one intrinsic-width, visible row. */
+.workflow-widget-wrapper:has(> .toolshed-dst-assurance),
+.approver-widget-placement-enabled.gmi-chat-enabled .workflow-widget-wrapper:has(> .toolshed-dst-assurance) {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    width: max-content;
+    min-width: max-content;
+    max-width: none;
+    overflow: visible;
+    white-space: nowrap;
+}
+
+.workflow-widget-wrapper:has(> .toolshed-actualise-month-assurance),
+.approver-widget-placement-enabled.gmi-chat-enabled .workflow-widget-wrapper:has(> .toolshed-actualise-month-assurance) {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    width: max-content;
+    min-width: max-content;
+    max-width: none;
+    overflow: visible;
+    white-space: nowrap;
+}
+
+.toolshed-product-code-limit-warning-product-campaign {
+    display: inline-block;
+    padding: 1px 4px;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    font-weight: 700;
+    line-height: 1.2;
+    cursor: help;
+    outline-offset: 2px;
+}
+
+.toolshed-product-code-limit-warning--yellow {
+    background: #fef3c7 !important;
+    border-color: #fcd34d;
+    color: #92400e !important;
+}
+
+.toolshed-product-code-limit-warning--orange {
+    background: #ffedd5 !important;
+    border-color: #fb923c;
+    color: #9a3412 !important;
+}
+
+.toolshed-product-code-limit-warning--red {
+    background: #fee2e2 !important;
+    border-color: #f87171;
+    color: #991b1b !important;
+}
+
+.toolshed-product-code-limit-warning-tooltip {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 2147483647;
+    display: block;
+    width: max-content;
+    max-width: min(360px, calc(100vw - 16px));
+    box-sizing: border-box;
+    padding: 7px 9px 5px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 6px;
+    background: #1f2937;
+    color: #fff;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.28);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.3;
+    text-align: left;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    pointer-events: auto;
+}
+
+.toolshed-product-code-limit-warning-ignore {
+    display: block;
+    margin: 4px 0 0;
+    padding: 3px 9px;
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.12);
+    color: inherit;
+    font: inherit;
+    font-size: 12px;
+    line-height: 1.3;
+    cursor: pointer;
+}
+
+.toolshed-product-code-limit-warning-ignore:hover,
+.toolshed-product-code-limit-warning-ignore:focus-visible {
+    background: rgba(255, 255, 255, 0.24);
+}
+
+.toolshed-product-code-limit-warning-ignore:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 1px;
+}
+
+.toolshed-product-code-limit-warning-tooltip[hidden] {
+    display: none;
+}
+
+.toolshed-dst-assurance {
+    display: inline-flex;
+    align-items: center;
+    margin: 0 8px;
+    padding: 4px 8px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    cursor: default;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 14px;
+    white-space: nowrap;
+    flex: 0 0 auto;
+    vertical-align: middle;
+}
+
+/* DST supplies its own trailing gap. Preserve that gap when Meta follows
+   GMI Chat directly instead. */
+.gmi-chat-button + #ops-social-campaign-check {
+    margin-left: 8px;
+}
+
+.toolshed-dst-assurance--correct {
+    background: #dcfce7;
+    border-color: #86efac;
+    color: #166534;
+}
+
+.toolshed-dst-assurance--incorrect {
+    background: #fef3c7;
+    border-color: #fcd34d;
+    color: #92400e;
+    cursor: pointer;
+}
+
+.toolshed-actualise-month-assurance {
+    display: inline-flex;
+    align-items: center;
+    margin: 0 8px;
+    padding: 4px 8px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    cursor: default;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+    flex: 0 0 auto;
+    vertical-align: middle;
+}
+
+.toolshed-actualise-month-assurance--correct {
+    background: #dcfce7;
+    border-color: #86efac;
+    color: #166534;
+}
+
+.toolshed-actualise-month-assurance--incorrect {
+    background: #fef3c7;
+    border-color: #fcd34d;
+    color: #92400e;
+}
+
+/* Render the Correct Month explanation outside Prisma's clipped header. */
+.toolshed-actualise-month-assurance-tooltip {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 2147483647;
+    display: block;
+    width: max-content;
+    max-width: min(360px, calc(100vw - 16px));
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 6px;
+    background: #1f2937;
+    color: #fff;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.28);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.35;
+    text-align: left;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    pointer-events: none;
+}
+
+.toolshed-actualise-month-assurance-tooltip[hidden] {
+    display: none;
+}
+
+/* Point directly to the Fee supplier or authoritative cost that needs review. */
+.toolshed-dst-assurance-warning-cell,
+[data-toolshed-dst-assurance-warning] {
+    background-color: #fef3c7 !important;
+    box-shadow: inset 0 0 0 1px #fcd34d;
+    color: #111827 !important;
+}
+
+.toolshed-dst-assurance-warning-cell *,
+[data-toolshed-dst-assurance-warning] * {
+    color: #111827 !important;
+}
+
+/* Prisma applies a more-specific background to hierarchical group cells. */
+#grid-container_hot .htCore td.toolshed-dst-assurance-warning-cell,
+#grid-container_hot .htCore td[data-toolshed-dst-assurance-warning] {
+    background: #fef3c7 !important;
+    background-color: #fef3c7 !important;
+}
+
+/* Render the assurance explanation outside Prisma's clipped header layers. */
+.toolshed-dst-assurance-tooltip {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 2147483647;
+    display: block;
+    width: max-content;
+    max-width: 360px;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 6px;
+    background: #1f2937;
+    color: #fff;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.28);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.35;
+    text-align: left;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    pointer-events: auto;
+}
+
+.toolshed-dst-assurance-tooltip[hidden] {
+    display: none;
+}
+
+/* Centre the workflow controls within Prisma's available header cell. */
+#campaignHeader .mo.pull-right.container-fluid.workflow-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* The optimised nav moves the workflow slot beside #p2b-navbar. Let that
+   slot fill the remaining row width, then centre its contents within it. */
+.p2b-navbar-wrapper > .ai-style-change-1 {
+    flex: 1 1 auto;
+    min-width: 0;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Actualise replaces the campaign navbar completely. Place the cached workflow
+   widget in the month-selector row so compact screens do not overlap the
+   campaign header. */
+.toolshed-actualise-month-row {
+    position: relative !important;
+    pointer-events: none;
+}
+
+.toolshed-actualise-month-row > .btn-group,
+.toolshed-actualise-month-row > #mos-paginator,
+.toolshed-actualise-month-row > div[slot="right"].actualise-workflow-slot {
+    pointer-events: auto;
+}
+
+.toolshed-actualise-month-row > div[slot="right"].actualise-workflow-slot {
+    position: absolute;
+    right: 16px;
+    left: auto;
+    top: 50%;
+    width: max-content;
+    max-width: 100%;
+    z-index: 2;
+    transform: translateY(-50%);
+}
+
+/* Prisma's refreshed Actualise shell adds a title row above the month
+   selector. Keep the compact legacy controls on one row while retaining the
+   native close action for the right-side icon. */
+.toolshed-actualise-header-hidden {
+    display: none !important;
+}
+
+.actual-months-group.toolshed-actualise-months-group {
+    position: relative !important;
+    pointer-events: auto;
+}
+
+/* Show the complete campaign month range in one predictable, keyboard
+   accessible strip. The native pager remains mounted for Prisma's state and
+   is used behind the scenes when a month is outside its six-item window. */
+.actual-months-group.toolshed-actualise-months-group {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    min-height: 34px;
+    padding: 1px 72px;
+}
+
+.actual-months-group.toolshed-actualise-months-group > [data-toolshed-actualise-native-month-group="true"] {
+    display: none !important;
+}
+
+.toolshed-actualise-month-selector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0;
+    max-width: 100%;
+}
+
+.toolshed-actualise-month-button {
+    min-width: 54px;
+    min-height: 32px;
+    padding: 7px 9px;
+    border: 1px solid #d4dbe4;
+    border-right-width: 0;
+    background: #fff;
+    color: #2864c7;
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    line-height: 16px;
+    white-space: nowrap;
+}
+
+.toolshed-actualise-month-button:first-child {
+    border-radius: 3px 0 0 3px;
+}
+
+.toolshed-actualise-month-button:last-child {
+    border-right-width: 1px;
+    border-radius: 0 3px 3px 0;
+}
+
+.toolshed-actualise-month-button:hover,
+.toolshed-actualise-month-button:focus-visible {
+    background: #eef5ff;
+    outline: none;
+}
+
+.toolshed-actualise-month-button.is-selected,
+.toolshed-actualise-month-button[aria-pressed="true"] {
+    border-color: #2864c7;
+    background: #2864c7;
+    color: #fff;
+}
+
+@media (max-width: 700px) {
+    .actual-months-group.toolshed-actualise-months-group {
+        padding-right: 52px;
+        padding-left: 52px;
+    }
+
+    .toolshed-actualise-month-button {
+        min-width: 50px;
+        padding-right: 6px;
+        padding-left: 6px;
+    }
+}
+
+.actual-months-group.toolshed-actualise-months-group > .toolshed-actualise-close-button,
+.actual-months-group.toolshed-actualise-months-group > .toolshed-actualise-native-close {
+    position: absolute !important;
+    top: 50% !important;
+    z-index: 2;
+    transform: translateY(-50%);
+}
+
+.actual-months-group.toolshed-actualise-months-group > .toolshed-actualise-close-button {
+    left: -8px;
+    min-height: 28px;
+    padding: 3px 10px;
+    border: 1px solid #0875ca;
+    border-radius: 3px;
+    background: #fff;
+    color: #0875ca;
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    line-height: 18px;
+}
+
+.actual-months-group.toolshed-actualise-months-group > .toolshed-actualise-close-button:hover,
+.actual-months-group.toolshed-actualise-months-group > .toolshed-actualise-close-button:focus {
+    background: #eef6ff;
+}
+
+.actual-months-group.toolshed-actualise-months-group > .toolshed-actualise-native-close {
+    right: 8px;
+}
+
+#toolshed-max-budget-panel {
+    position: fixed;
+    z-index: 2147483644;
+    width: 230px;
+    padding: 8px;
+    border: 1px solid #b7c1cc;
+    border-radius: 3px;
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(18, 38, 63, 0.2);
+    color: #263746;
+    font-family: Arial, sans-serif;
+}
+
+#toolshed-max-budget-panel::before {
+    position: absolute;
+    top: -6px;
+    left: 18px;
+    width: 10px;
+    height: 10px;
+    border-top: 1px solid #b7c1cc;
+    border-left: 1px solid #b7c1cc;
+    background: #fff;
+    content: "";
+    transform: rotate(45deg);
+}
+
+.toolshed-max-budget-button {
+    min-height: 30px;
+    border: 1px solid #0875ca;
+    border-radius: 3px;
+    background: #0875ca;
+    color: #fff;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 18px;
+}
+
+.toolshed-max-budget-button {
+    flex: 1;
+    padding: 5px 10px;
+}
+
+.toolshed-max-budget-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.toolshed-max-budget-close {
+    flex: 0 0 30px;
+    min-height: 30px;
+    padding: 0;
+    border: 1px solid #b7c1cc;
+    border-radius: 3px;
+    background: #fff;
+    color: #52616d;
+    cursor: pointer;
+    font-size: 19px;
+    line-height: 26px;
+}
+
+.toolshed-max-budget-close:hover,
+.toolshed-max-budget-close:focus {
+    border-color: #7e8c99;
+    background: #f3f5f7;
+    color: #263746;
+    outline: none;
+}
+
+.toolshed-max-budget-button:hover,
+.toolshed-max-budget-button:focus {
+    border-color: #075b9c;
+    background: #075b9c;
+    outline: none;
+}
+
+.toolshed-max-budget-button:disabled {
+    border-color: #c7cfd7;
+    background: #e6e9ed;
+    color: #7a8793;
+    cursor: not-allowed;
+}
+
+.toolshed-max-budget-status {
+    margin-top: 6px;
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.toolshed-max-budget-status[data-state="success"],
+.toolshed-max-budget-actualise-status[data-state="success"] {
+    color: #287d3c;
+}
+
+.toolshed-max-budget-status[data-state="error"],
+.toolshed-max-budget-actualise-status[data-state="error"] {
+    color: #b52222;
+}
+
+#toolshed-max-budget-actualise {
+    margin-left: 8px;
+}
+
+.toolshed-max-budget-actualise-status {
+    align-self: center;
+    max-width: 390px;
+    margin-left: 8px;
+    color: #5e6c78;
+    font-size: 11px;
+    line-height: 1.3;
+}
+
+#toolshed-export-all-actuals-status {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 2147483647;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    max-width: min(520px, calc(100vw - 40px));
+    padding: 15px;
+    border-radius: 8px;
+    background: #333668;
+    color: #fff;
+    font-family: sans-serif;
+    font-size: 16px;
+    line-height: 1.4;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+}
+
+#toolshed-export-all-actuals-status[data-state="success"] {
+    background: #333668;
+}
+
+#toolshed-export-all-actuals-status[data-state="error"] {
+    background: #d32f2f;
+}
+
+.toolshed-export-all-actuals-cancel {
+    flex: 0 0 auto;
+    padding: 5px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    color: inherit;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.2;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.toolshed-export-all-actuals-cancel:hover,
+.toolshed-export-all-actuals-cancel:focus-visible {
+    border-color: #fff;
+    background: rgba(255, 255, 255, 0.22);
+    outline: 2px solid rgba(255, 255, 255, 0.9);
+    outline-offset: 2px;
+}
+
+.toolshed-export-all-actuals-cancel:disabled {
+    cursor: default;
+    opacity: 0.65;
+}
+
+.toolshed-export-all-actuals-combine {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.toolshed-max-budget-native-note {
+    padding: 5px 20px 7px;
+    color: #667582;
+    font-size: 11px;
+    font-style: italic;
+    line-height: 1.3;
+    white-space: nowrap;
+}
+
+/* On wide screens there is enough clearance to centre the workflow controls
+   against the full page. Narrower screens retain the available-space layout. */
+@media (min-width: 1440px) {
+    .p2b-navbar-wrapper {
+        position: relative;
+    }
+
+    .p2b-navbar-wrapper > .ai-style-change-1 {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: max-content;
+        flex: 0 0 auto;
+        transform: translate(-50%, -50%);
+    }
+}
+
+/* Set a fixed height for the workflow widget cell for consistent alignment */
+.approver-widget-placement-enabled #campaignHeader .mo.pull-right.container-fluid.workflow-cell {
+    height: 45px;
+}
+
+:root {
+    --color-nav-pill-bg: rgba(255, 255, 255, 0.15);
+    --color-nav-pill-bg-hover: rgba(255, 255, 255, 0.2);
+    --font-primary: 'Inter', 'Roboto', sans-serif;
+    --z-index-max: 2147483647;
+    --toast-bg-color: #333;
+    --primary-pink: #ff3d80;
+    /* Keep the fact clear of the bottom edge while reducing the empty space
+       on shorter laptop-height viewports. */
+    --toast-bottom-position: clamp(20px, 4.762vh, 55px);
+    --toast-z-index: var(--z-index-max);
+    --toast-border-radius: 50px;
+    --toast-font-size: 14px;
+    --toast-min-width: 300px;
+    --toast-max-width: 500px;
+    --toast-icon-font-size: 24px;
+    --toast-strong-font-size: 11px;
+    --toast-letter-spacing: 1px;
+    --toast-content-margin-bottom: 3px;
+    --toast-animation-duration: 0.5s;
+    --toast-slide-up-bezier: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    --toast-slide-offset: 20px;
+}
+
+/* --- Switch Account Button Styles --- */
+.switch-account-button {
+    background-color: var(--color-nav-pill-bg); /* bg-nav-pill */
+    color: white;
+    border: none;
+    border-radius: 9999px; /* rounded-full */
+    padding: 8px 16px; /* py-2 px-4 */
+    font-family: var(--font-primary); /* font-sans */
+    font-size: 14px; /* text-sm */
+    font-weight: 500; /* font-medium */
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.2s ease-in-out; /* transition-colors */
+    margin-right: 10px;
+}
+
+.switch-account-button:hover {
+    background-color: var(--color-nav-pill-bg-hover); /* hover:bg-white/20 */
+}
+
+.switch-account-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: transparent; /* Removed white circle background */
+    margin-right: 8px; /* space-x-2 */
+}
+
+.switch-account-icon svg {
+    width: 20px; /* text-lg */
+    height: 20px;
+    fill: white; /* Icon updated to white to match text */
+}
+/* --- End of Switch Account Button Styles --- */
+
+/* --- Order ID Copy Button Styles --- */
+.order-id-copy-btn {
+    margin-left: 8px;
+    padding: 2px 6px;
+    font-size: 10px;
+    cursor: pointer;
+    background-color: #f0f0f0;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    color: #333;
+    line-height: normal;
+}
+
+/* --- Order version segmented control --- */
+#cm-buy-sidebar-order-revisions-header.order-view-toggle-active
+    .mo-nav-list-item-accessory-content > :is(mo-popover, mo-menu) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.order-view-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 1px;
+    padding: 2px;
+    border: 1px solid #aeb9c8;
+    border-radius: 5px;
+    background: #f3f5f8;
+    white-space: nowrap;
+}
+
+.order-view-toggle button {
+    min-width: 32px;
+    height: 20px;
+    padding: 0 6px;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    color: #334155;
+    font: 600 10px/20px Arial, sans-serif;
+    cursor: pointer;
+}
+
+.order-view-toggle button[aria-pressed="true"] {
+    background: #2f6fdd;
+    color: #ffffff;
+}
+
+.order-view-toggle button:hover:not([aria-pressed="true"]):not(:disabled) {
+    background: #e2e7ef;
+}
+
+.order-view-toggle button:focus-visible {
+    outline: 2px solid #205cc0;
+    outline-offset: 1px;
+}
+
+.order-view-toggle button:disabled {
+    cursor: wait;
+    opacity: 0.7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .order-view-toggle button {
+        transition: none;
+    }
+}
+/* --- End order version segmented control --- */
+/* --- End of Order ID Copy Button Styles --- */
+
+/* --- Campaign Navigation Style Optimisation --- */
+div[slot="right"].ai-style-change-1 {
+    display: flex;
+    align-items: center;
+}
+
+/* --- Extracted Campaign Actions Toolbar & Tooltips --- */
+
+/* 1. Prevent clipping of tooltips by allowing overflow on header containers */
+#ptb-header,
+.mo-page-header,
+#ptb-header-header-inner,
+#ptb-header-mo-expandable-container-header-0-child-0 {
+  overflow: visible !important;
+}
+
+#ptb-header {
+  position: relative; /* Ensure position is set to create a stacking context */
+  z-index: 10001;     /* Higher than the modal container's 10000 */
+}
+
+/* 2. Toolbar and Icon Container Styling */
+#mo-extracted-actions-toolbar {
+  position: relative;
+  z-index: 1000;
+  display: flex;
+  gap: 12px;
+  margin-left: 12px;
+  margin-right: 0;
+  align-items: center;
+}
+
+#campaign-name-copy-toast {
+  position: fixed;
+  z-index: 2147483647;
+  transform: translateX(-50%) translateY(-4px);
+  padding: 6px 10px;
+  border-radius: 4px;
+  background: #333333;
+  color: #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  font: 13px/18px Arial, sans-serif;
+  white-space: nowrap;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s 0.2s;
+}
+
+#campaign-name-copy-toast::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-bottom: 5px solid #333333;
+}
+
+#campaign-name-copy-toast.show {
+  visibility: visible;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  transition-delay: 0s;
+}
+
+#mo-extracted-actions-toolbar > div {
+  position: relative;
+  cursor: pointer;
+  display: flex;
+}
+
+/* 3. Custom Tooltip Positioning and Visibility */
+/* Assuming the tooltip is the direct child div of the wrapper */
+#mo-extracted-actions-toolbar > div > .extracted-action-tooltip {
+  position: absolute !important;
+  top: 26px !important;            /* 12px gap from the bottom of the 14px icon */
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  background-color: #333333 !important;
+  color: #ffffff !important;
+  padding: 6px 10px !important;
+  border-radius: 4px !important;
+  font-size: 13px !important;
+  white-space: nowrap !important;
+  z-index: 2147483647 !important;
+  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2) !important;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;            /* Ensures tooltip doesn't interfere with clicks */
+}
+
+/* Tooltip Arrow - Centered and pointing UP */
+.extracted-action-tooltip .tooltip-arrow-custom {
+    position: absolute;
+    top: -4px;                       /* Overlaps slightly to prevent sub-pixel gaps */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-bottom: 5px solid #333333; /* Matches tooltip background color */
+}
+
+/* 4. Show tooltip on hover */
+#mo-extracted-actions-toolbar > div:hover > .extracted-action-tooltip {
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* Keep the Actualise title and workflow controls in separate flex items.
+   When their intrinsic widths no longer fit, give the controls their own row. */
+.toolshed-actualise-navbar-wrapper {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 12px;
+    height: auto !important;
+    position: relative;
+}
+
+.toolshed-actualise-navbar-wrapper > #p2b-navbar {
+    flex: 0 0 auto;
+    width: auto;
+}
+
+.toolshed-actualise-navbar-wrapper > .ai-style-change-1 {
+    position: static;
+    width: auto;
+    flex: 1 0 max-content;
+    justify-content: center;
+    transform: none;
+}
+
+/* At intermediate widths, keep the controls just after the navigation. This
+   is the smallest rightward move that preserves a gap from the title. */
+@media (min-width: 1000px) and (max-width: 1599px) {
+    .toolshed-actualise-navbar-wrapper > .ai-style-change-1 {
+        justify-content: flex-start;
+    }
+}
+
+/* On wider desktop widths, centre the approval controls against the whole
+   Actualise bar. The flex layout above keeps a gap and wraps when the title
+   and controls cannot fit together. */
+@media (min-width: 1600px) {
+    .toolshed-actualise-navbar-wrapper > .ai-style-change-1 {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: max-content;
+        flex: 0 0 auto;
+        transform: translate(-50%, -50%);
+    }
+}
+
+/* --- Campaign History --- */
+
+.toolshed-campaign-history-nav {
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    text-transform: none !important;
+    white-space: nowrap !important;
+}
+
+.toolshed-campaign-history-nav-content {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.toolshed-campaign-history-nav-label {
+    transform: translateY(-0.5px);
+}
+
+.toolshed-campaign-history-nav svg {
+    display: block;
+    width: 15px;
+    height: 15px;
+    flex: 0 0 15px;
+}
+
+.toolshed-campaign-history-nav .toolshed-campaign-history-icon-history {
+    width: 15px;
+    height: 15px;
+    flex-basis: 15px;
+    transform: translateY(-1px);
+}
+
+.toolshed-campaign-history-nav:focus-visible {
+    outline: 2px solid #0875ca !important;
+    outline-offset: -2px;
+}
+
+.toolshed-campaign-history-overflow-menu {
+    position: fixed;
+    z-index: 2147483647;
+    box-sizing: border-box;
+    min-width: 176px;
+    max-width: min(320px, calc(100vw - 16px));
+    padding: 4px 0;
+    overflow: hidden;
+    border: 1px solid #d8dde5;
+    border-radius: 4px;
+    background: #fff;
+    box-shadow: 0 8px 20px rgba(20, 30, 50, 0.2);
+    color: #252a32;
+    font: 14px/1.4 Arial, sans-serif;
+    text-align: left;
+}
+
+.toolshed-campaign-history-overflow-menu[hidden] {
+    display: none !important;
+}
+
+.toolshed-campaign-history-overflow-item {
+    display: flex;
+    box-sizing: border-box;
+    align-items: center;
+    width: 100%;
+    min-height: 40px;
+    padding: 0 16px;
+    color: inherit !important;
+    cursor: pointer;
+    text-decoration: none !important;
+    white-space: nowrap;
+}
+
+.toolshed-campaign-history-overflow-item:hover,
+.toolshed-campaign-history-overflow-item:focus-visible {
+    outline: none;
+    background: #f1f4f8;
+    color: inherit !important;
+    text-decoration: none !important;
+}
+
+#toolshed-campaign-history-panel {
+    --toolshed-history-motion-duration: 240ms;
+    --toolshed-history-ink: #243447;
+    --toolshed-history-muted: #667582;
+    --toolshed-history-border: #d9e1e8;
+    --toolshed-history-soft: #f5f8fb;
+    --toolshed-history-accent: #0875ca;
+    --toolshed-history-highlight: #f3e7ad;
+    --toolshed-history-reminder-pink: #ff3d80;
+    position: fixed;
+    top: 62px;
+    right: 18px;
+    z-index: 2147483646;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    width: min(640px, calc(100vw - 36px));
+    max-height: calc(100vh - 80px);
+    overflow: hidden;
+    border: 1px solid var(--toolshed-history-border);
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 18px 50px rgba(29, 47, 66, 0.22), 0 2px 8px rgba(29, 47, 66, 0.12);
+    color: var(--toolshed-history-ink);
+    font-family: inherit;
+    opacity: 0;
+    text-align: left;
+    transform: translate3d(calc(100% + 24px), 0, 0);
+    transition:
+        transform var(--toolshed-history-motion-duration) cubic-bezier(0.22, 0.75, 0.2, 1),
+        opacity 180ms ease,
+        top var(--toolshed-history-motion-duration) cubic-bezier(0.22, 0.75, 0.2, 1),
+        right var(--toolshed-history-motion-duration) cubic-bezier(0.22, 0.75, 0.2, 1),
+        bottom var(--toolshed-history-motion-duration) cubic-bezier(0.22, 0.75, 0.2, 1),
+        left var(--toolshed-history-motion-duration) cubic-bezier(0.22, 0.75, 0.2, 1),
+        width var(--toolshed-history-motion-duration) cubic-bezier(0.22, 0.75, 0.2, 1),
+        height var(--toolshed-history-motion-duration) cubic-bezier(0.22, 0.75, 0.2, 1),
+        max-height var(--toolshed-history-motion-duration) cubic-bezier(0.22, 0.75, 0.2, 1);
+    will-change: transform, opacity, top, right, bottom, left, width, height, max-height;
+}
+
+#toolshed-campaign-history-panel[hidden] {
+    display: none !important;
+}
+
+#toolshed-campaign-history-panel.is-open {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+}
+
+#toolshed-campaign-history-panel.is-closing {
+    pointer-events: none;
+}
+
+#toolshed-campaign-history-panel::before {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 4px;
+    background: var(--toolshed-history-reminder-pink);
+    content: '';
+}
+
+#toolshed-campaign-history-panel.is-expanded {
+    top: max(56px, 5vh);
+    right: 5vw;
+    bottom: 5vh;
+    left: 5vw;
+    width: auto;
+    max-height: 90vh;
+}
+
+.toolshed-campaign-history-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 14px 18px 12px 22px;
+    border-bottom: 1px solid var(--toolshed-history-border);
+    background: linear-gradient(180deg, #fff, #fbfdff);
+}
+
+.toolshed-campaign-history-heading-group {
+    min-width: 0;
+}
+
+.toolshed-campaign-history-heading-group h2 {
+    margin: 0 0 3px;
+    color: var(--toolshed-history-ink);
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.15;
+}
+
+.toolshed-campaign-history-count {
+    display: block;
+    min-height: 15px;
+    color: var(--toolshed-history-muted);
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.toolshed-campaign-history-header-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 6px;
+}
+
+.toolshed-campaign-history-header-actions button,
+.toolshed-campaign-history-clear {
+    appearance: none;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--toolshed-history-muted);
+    cursor: pointer;
+    font: inherit;
+}
+
+.toolshed-campaign-history-expand {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 30px;
+    padding: 4px 8px;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+}
+
+.toolshed-campaign-history-expand:hover,
+.toolshed-campaign-history-expand:focus-visible {
+    border-color: var(--toolshed-history-border);
+    background: var(--toolshed-history-soft);
+    color: var(--toolshed-history-ink);
+}
+
+.toolshed-campaign-history-close {
+    display: inline-grid;
+    width: 30px;
+    height: 30px;
+    place-items: center;
+}
+
+.toolshed-campaign-history-close:hover,
+.toolshed-campaign-history-close:focus-visible {
+    border-color: var(--toolshed-history-border) !important;
+    background: var(--toolshed-history-soft) !important;
+    color: var(--toolshed-history-ink) !important;
+}
+
+.toolshed-campaign-history-header-actions button:focus-visible,
+.toolshed-campaign-history-clear:focus-visible,
+#toolshed-campaign-history-panel input:focus-visible,
+.toolshed-campaign-history-result button:focus-visible {
+    outline: 2px solid var(--toolshed-history-accent);
+    outline-offset: 2px;
+}
+
+#toolshed-campaign-history-panel button svg {
+    display: block;
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+}
+
+.toolshed-campaign-history-search {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: 16px 18px 0 22px;
+    padding: 0 10px;
+    border: 1px solid #b9c8d5;
+    border-radius: 5px;
+    background: #fff;
+    color: var(--toolshed-history-muted);
+}
+
+.toolshed-campaign-history-search:focus-within {
+    border-color: var(--toolshed-history-accent);
+    box-shadow: 0 0 0 2px rgba(8, 117, 202, 0.14);
+}
+
+.toolshed-campaign-history-search > svg {
+    display: block;
+    width: 17px;
+    height: 17px;
+    flex: 0 0 17px;
+}
+
+.toolshed-campaign-history-search input {
+    min-width: 0;
+    flex: 1 1 auto;
+    height: 38px;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--toolshed-history-ink);
+    font: inherit;
+    font-size: 13px !important;
+}
+
+.toolshed-campaign-history-search input::placeholder {
+    color: #7b8b98;
+    opacity: 1;
+}
+
+.toolshed-campaign-history-clear {
+    display: inline-grid;
+    width: 25px;
+    height: 25px;
+    place-items: center;
+    color: var(--toolshed-history-muted);
+}
+
+.toolshed-campaign-history-clear[hidden] {
+    display: none;
+}
+
+.toolshed-campaign-history-clear:hover {
+    background: var(--toolshed-history-soft);
+    color: var(--toolshed-history-ink);
+}
+
+.toolshed-campaign-history-helper {
+    margin: 8px 20px 6px 22px;
+    color: var(--toolshed-history-muted);
+    font-size: 11px;
+    line-height: 1.45;
+}
+
+.toolshed-campaign-history-status {
+    min-height: 0;
+    margin: 0 20px 2px 22px;
+    color: var(--toolshed-history-muted);
+    font-size: 11px;
+    line-height: 1.45;
+}
+
+.toolshed-campaign-history-results {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    padding: 0 12px 10px 22px;
+}
+
+.toolshed-campaign-history-result {
+    margin: 0;
+    border-bottom: 1px solid #e8edf2;
+}
+
+#toolshed-campaign-history-panel.is-expanded .toolshed-campaign-history-result {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 110px;
+}
+
+.toolshed-campaign-history-result:last-child {
+    border-bottom: 0;
+}
+
+.toolshed-campaign-history-result button {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    gap: 12px;
+    padding: 12px 8px 12px 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    text-indent: 0;
+}
+
+.toolshed-campaign-history-result button:hover {
+    background: #f7fafc;
+}
+
+.toolshed-campaign-history-result button > svg {
+    color: #7c8d9a;
+    transition: transform 120ms ease, color 120ms ease;
+}
+
+.toolshed-campaign-history-result button:hover > svg {
+    color: var(--toolshed-history-accent);
+    transform: translateX(2px);
+}
+
+.toolshed-campaign-history-result-copy {
+    display: block;
+    min-width: 0;
+    flex: 1 1 auto;
+    padding-left: 0;
+    text-indent: 0;
+}
+
+.toolshed-campaign-history-result-title,
+.toolshed-campaign-history-result-metadata,
+.toolshed-campaign-history-result-footer {
+    padding-left: 0;
+    text-indent: 0;
+}
+
+.toolshed-campaign-history-result-title {
+    display: block;
+    overflow: hidden;
+    color: var(--toolshed-history-ink);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.toolshed-campaign-history-result-metadata {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px 10px;
+    margin-top: 6px;
+}
+
+.toolshed-campaign-history-metadata-item {
+    display: inline-flex;
+    min-width: 0;
+    max-width: 100%;
+    gap: 4px;
+    color: var(--toolshed-history-muted);
+    font-size: 10px;
+    line-height: 1.3;
+}
+
+.toolshed-campaign-history-metadata-label {
+    flex: 0 0 auto;
+    color: #8493a0;
+    font-weight: 700;
+}
+
+.toolshed-campaign-history-metadata-value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+
+
+.toolshed-campaign-history-result-footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 7px;
+    color: #8795a1;
+    font-size: 10px;
+    line-height: 1.35;
+}
+
+.toolshed-campaign-history-visits {
+    color: var(--toolshed-history-accent);
+    font-weight: 600;
+}
+
+.toolshed-campaign-history-empty {
+    margin: 18px 8px 4px 0;
+    padding: 22px 18px;
+    border: 1px dashed #cbd7e0;
+    border-radius: 6px;
+    background: var(--toolshed-history-soft);
+    color: var(--toolshed-history-muted);
+    text-align: center;
+}
+
+.toolshed-campaign-history-empty strong {
+    display: block;
+    color: var(--toolshed-history-ink);
+    font-size: 13px;
+}
+
+.toolshed-campaign-history-empty p {
+    margin: 6px 0 0;
+    font-size: 11px;
+    line-height: 1.45;
+}
+
+.toolshed-campaign-history-pagination {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 0 12px 12px 22px;
+}
+
+.toolshed-campaign-history-pagination[hidden] {
+    display: none;
+}
+
+.toolshed-campaign-history-page-button {
+    appearance: none;
+    display: inline-grid;
+    width: 52px;
+    height: 32px;
+    padding: 0;
+    place-items: center;
+    border: 1px solid var(--toolshed-history-border);
+    border-radius: 5px;
+    background: #fff;
+    color: var(--toolshed-history-muted);
+    cursor: pointer;
+    font: 600 16px/1 inherit;
+    text-indent: 0;
+    transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.toolshed-campaign-history-page-button:hover:not(:disabled),
+.toolshed-campaign-history-page-button:focus-visible {
+    border-color: var(--toolshed-history-accent);
+    background: var(--toolshed-history-soft);
+    color: var(--toolshed-history-accent);
+}
+
+.toolshed-campaign-history-page-button:disabled {
+    cursor: default;
+    opacity: 0.38;
+}
+
+.toolshed-campaign-history-page-symbol {
+    display: block;
+    line-height: 1;
+    text-indent: 0;
+}
+
+.toolshed-campaign-history-page-indicator {
+    color: var(--toolshed-history-muted);
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+@keyframes toolshed-campaign-history-page-next {
+    from {
+        opacity: 0;
+        transform: translate3d(14px, 0, 0);
+    }
+
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+@keyframes toolshed-campaign-history-page-previous {
+    from {
+        opacity: 0;
+        transform: translate3d(-14px, 0, 0);
+    }
+
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+.toolshed-campaign-history-results.is-page-transitioning-next {
+    animation: toolshed-campaign-history-page-next 180ms cubic-bezier(0.22, 0.75, 0.2, 1) both;
+}
+
+.toolshed-campaign-history-results.is-page-transitioning-previous {
+    animation: toolshed-campaign-history-page-previous 180ms cubic-bezier(0.22, 0.75, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .toolshed-campaign-history-results.is-page-transitioning-next,
+    .toolshed-campaign-history-results.is-page-transitioning-previous {
+        animation: none;
+    }
+
+    #toolshed-campaign-history-context-menu {
+        animation: none;
+    }
+}
+
+/* --- Campaign History Context Menu --- */
+#toolshed-campaign-history-context-menu {
+    position: fixed;
+    z-index: 2147483647;
+    box-sizing: border-box;
+    min-width: 190px;
+    padding: 6px;
+    border-radius: 8px;
+    background: #ffffff;
+    border: 1px solid #d9e1e8;
+    box-shadow: 0 10px 25px rgba(29, 47, 66, 0.18), 0 2px 8px rgba(29, 47, 66, 0.1);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    color: #243447;
+    animation: toolshed-context-menu-in 120ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@keyframes toolshed-context-menu-in {
+    from {
+        opacity: 0;
+        transform: scale(0.96) translateY(-2px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.toolshed-campaign-history-context-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 7px 10px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: #243447;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: left;
+    transition: background 100ms ease, color 100ms ease;
+    user-select: none;
+    outline: none;
+}
+
+.toolshed-campaign-history-context-item:hover,
+.toolshed-campaign-history-context-item:focus-visible {
+    background: #f0f4f8;
+    color: #0875ca;
+}
+
+.toolshed-campaign-history-context-item svg {
+    flex: 0 0 16px;
+    width: 16px;
+    height: 16px;
+    color: #7c8d9a;
+    transition: color 100ms ease;
+}
+
+.toolshed-campaign-history-context-item:hover svg,
+.toolshed-campaign-history-context-item:focus-visible svg {
+    color: #0875ca;
+}
+
+.toolshed-campaign-history-context-divider {
+    height: 1px;
+    background: #e8edf2;
+    margin: 4px 6px;
+}
+
+@media (max-width: 640px) {
+    #toolshed-campaign-history-panel {
+        top: 8px;
+        right: 8px;
+        width: calc(100vw - 16px);
+        max-height: calc(100vh - 16px);
+    }
+
+    .toolshed-campaign-history-header {
+        padding-right: 12px;
+    }
+
+    .toolshed-campaign-history-expand {
+        width: 30px;
+        padding: 4px;
+        justify-content: center;
+    }
+
+    .toolshed-campaign-history-expand .toolshed-campaign-history-button-label {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #toolshed-campaign-history-panel {
+        transition: none;
+    }
+
+    .toolshed-campaign-history-result button > svg {
+        transition: none;
+    }
+}
+/* Native loading facts; legacy pill remains available in Settings. */
+.loading-fact-toast--new {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: calc(100vw - 32px);
+    min-height: 0;
+    padding: 10px 42px 10px 12px;
+    border: 1px solid #b8cad6;
+    border-radius: 4px;
+    background: #f8fafc;
+    color: #15364d;
+    box-shadow: none;
+    font: 12px/1.45 Avenir, Arial, sans-serif;
+}
+.loading-fact-toast--new .loading-fact-icon,
+.loading-fact-toast--new .loading-fact-content strong { display: none; }
+.loading-fact-toast--new .loading-fact-content { align-items: flex-start; text-align: left; }
+.loading-fact-menu { position: absolute; right: 5px; top: 7px; }
+.loading-fact-menu summary { display: grid; place-items: center; width: 32px; height: 32px; cursor: pointer; list-style: none; border-radius: 4px; }
+.loading-fact-menu summary::-webkit-details-marker { display: none; }
+.loading-fact-menu summary:hover { background: #e9f0f5; }
+.loading-fact-menu summary:focus-visible,
+.loading-fact-toast--new .loading-fact-action:focus-visible { outline: 2px solid #3e6dd1; outline-offset: 2px; }
+.loading-fact-toast--new .loading-fact-actions { bottom: 36px; top: auto; right: 0; transform: none; width: 210px; padding: 5px; flex-direction: column; border: 1px solid #b8cad6; border-radius: 4px; background: #f8fafc; box-shadow: 0 3px 10px #102d431a; }
+.loading-fact-toast--new .loading-fact-action { width: 100%; height: auto; min-height: 32px; padding: 7px; border: 0; border-radius: 3px; background: #f8fafc; color: #15364d; font: 12px/1.45 Avenir, Arial, sans-serif; text-align: left; }
+.loading-fact-toast--new .loading-fact-action:hover:not(:disabled) { background: #e9f0f5; outline: none; }
+.loading-fact-toast--new.slide-up { animation: loadingFactFadeIn 160ms ease-out forwards; }
+.loading-fact-toast--new.slide-down { animation: loadingFactFadeOut 160ms ease-out forwards; pointer-events: none; }
+@keyframes loadingFactFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes loadingFactFadeOut { from { opacity: 1; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+    .loading-fact-toast.slide-up, .loading-fact-toast.slide-down { animation: none; }
+    .loading-fact-toast.slide-down { opacity: 0; }
+}

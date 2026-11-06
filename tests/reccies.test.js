@@ -172,6 +172,32 @@ describe('Reccies background reads', () => {
         expect(fetchMock.mock.calls[1][1].method).toBe('PUT');
         expect(JSON.parse(fetchMock.mock.calls[1][1].body).fields).toHaveLength(110);
     });
+    test('read-only follow-up checks cannot automatically update the tracker',async()=>{
+        await call(handleReccies,sender,{operation:'import',csv,month:'2026-09'});
+        state.reccieTracker.source={type:'google',url:'https://docs.google.com/spreadsheets/d/1QxX7yZvfh75ENyvPG7xD_5ldLuoLwUsTZ6z0edkpORU/edit?gid=405487495'};
+        state.reccieAutomation={autoMark:true};state.recciePreferences={person:'Harry',assignment:'ops'};
+        fetchMock.mockResolvedValueOnce({ok:true,json:async()=>({id:3062760,publicId:'CP3G9KS',status:'Active'})})
+            .mockResolvedValueOnce({ok:true,json:async()=>({status:0,total:1,nodes:[fieldNode()]})});
+        const result=await call(handleReccies,sender,{operation:'check',readOnly:true,revision:state.reccieTracker.revision,rowIds:[2]});
+        expect(result.status).toBe('success');expect(state.reccieTracker.checks[2].state).toBe('ready');
+        expect(state.reccieTracker.rows[0].reccied).toBe('No');
+        expect(fetchMock.mock.calls.every(([url])=>url.startsWith('https://go.mediaocean.com/'))).toBe(true);
+    });
+    test('post-save refresh preserves checks by stable identity after row reordering',async()=>{
+        await call(handleReccies,sender,{operation:'import',csv,month:'2026-09'});
+        const revision=state.reccieTracker.revision;
+        state.reccieTracker.checks={2:{state:'ready',checkedAt:'2026-11-05T12:00:00Z'}};
+        const refreshed=headers+'\r\nD03120201,CP3G9KS,Buyer,Harry,Harry,No,Other,Other,Supplier,\r\nD03120200,CP3G9KS,Buyer,Harry,Harry,Yes,Client,Campaign,Supplier,\r\n';
+        const result=await call(handleReccies,sender,{operation:'import',csv:refreshed,month:'2026-09',expectedRevision:revision,preserveChecks:true});
+        expect(result.status).toBe('success');expect(state.reccieTracker.checks[3]).toMatchObject({state:'ready'});
+        expect(state.reccieTracker.checks[2]).toBeUndefined();expect(state.reccieTracker.rows[1].reccied).toBe('Yes');
+    });
+    test('post-save refresh cannot overwrite a newer report revision',async()=>{
+        await call(handleReccies,sender,{operation:'import',csv,month:'2026-09'});
+        const revision=state.reccieTracker.revision;
+        const result=await call(handleReccies,sender,{operation:'import',csv,month:'2026-09',expectedRevision:'old-revision',preserveChecks:true});
+        expect(result.status).toBe('error');expect(state.reccieTracker.revision).toBe(revision);
+    });
     test('failed access replaces ready status with an error and does not alter tracker data',async()=>{
         await call(handleReccies,sender,{operation:'import',csv,month:'2026-09'});
         state.reccieTracker.checks[2]={state:'ready'};

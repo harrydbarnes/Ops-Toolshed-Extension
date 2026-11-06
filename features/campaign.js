@@ -1161,6 +1161,11 @@
             // Create Custom Tooltip (styles handled by CSS class)
             const tooltip = document.createElement('div');
             tooltip.className = 'extracted-action-tooltip';
+            // Keep labels from flashing as plain text before content.css is applied
+            // on a cold page load. The hover rule can still reveal them later.
+            tooltip.style.visibility = 'hidden';
+            tooltip.style.opacity = '0';
+            tooltip.style.pointerEvents = 'none';
             tooltip.appendChild(document.createTextNode(action.label));
 
             const arrow = document.createElement('div');

@@ -1,0 +1,1 @@
+(function(root){'use strict';root.opsReccieWriterMode=Object.freeze({"perUser":true,"endpoint":"https://script.google.com/a/macros/wppmedia.com/s/AKfycbygksrATahv4EdcHgA4_X0Tiwjhc9arrefwYZeoU2vz2IOghkxFo1J4WnMNPBktKVnn/exec"});})(globalThis);

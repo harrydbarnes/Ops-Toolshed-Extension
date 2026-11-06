@@ -1,0 +1,14 @@
+Hi Jett,
+
+I’ve put together the updated extension and the test for saves showing under your own Google account.
+
+Please copy the files from the ZIP’s Ops-Toolshed folder into the same folder we installed earlier, replacing the existing files. Then go to chrome://extensions, click Reload on Ops Toolshed and refresh Prisma. Keep the existing extension entry so your settings and tracker connection are retained.
+
+When you reopen Reccies, use Connect my Google account and sign in with your work account. Return to the sidebar, click Check access and confirm it shows your email. Once access to both sheets passes, click Use my Google account for updates.
+
+That switches your updates to your own account and pauses automatic updates for the first test. We can then check one genuinely reconciled placement, mark it Yes and check the Google cell history together. Once switched on, older extension builds won’t be able to save through my account for you.
+
+The ZIP includes the full steps, plus the other save, refresh and layout fixes from our call. If a permission message appears, send me what it says before retrying the save.
+
+Thanks,
+Harry

@@ -10,20 +10,21 @@ function setup(flags={}){
     const write=jest.fn(addresses=>{addresses.forEach((address,index)=>{if(flags.partial&&index)throw Error('partial write');data[Number(address.slice(1))-1][3]='Yes';});});
     function sheet(matrix,kind){return {
         getDataRange:()=>({getDisplayValues:()=>matrix.map(row=>row.map(String)),getValues:()=>matrix.map(row=>[...row]),getFormulas:()=>matrix.map((row,index)=>row.map((_,col)=>kind==='tracker'&&flags.formula&&index===1&&col===(flags.commentFormula?4:3)?'=A1':''))}),
-        getLastRow:()=>matrix.length,getSheetId:()=>1,getMaxRows:()=>matrix.length,
+        getLastColumn:()=>matrix[0].length,getLastRow:()=>matrix.length,getSheetId:()=>1,getMaxRows:()=>matrix.length,
         getConditionalFormatRules:()=>[],setConditionalFormatRules:jest.fn(),
         getRange:(row,col,height=1,width=1)=>({
             setValue:value=>{matrix[row-1][col-1]=value;},setRichTextValue:value=>{matrix[row-1][col-1]=value.text;},
             setBackground:value=>{backgrounds.set(row,Array(width).fill(value));},getBackgrounds:()=>[backgrounds.get(row)||Array(width).fill('#ffffff')],
             getDataValidation:()=>flags.validation?{getCriteriaType:()=> 'other',getCriteriaValues:()=>[['No']]}:null,
+            getDisplayValues:()=>[matrix[0].map(String)],getValues:()=>[matrix[0]],canEdit:()=>!flags.readOnly,
             getA1Notation:()=>String.fromCharCode(64+col)+row,
             setValues:values=>{if(kind==='audit'&&flags.failAudit)throw Error('audit unavailable');for(let y=0;y<height;y++){matrix[row-1+y]||=[];for(let x=0;x<width;x++)matrix[row-1+y][col-1+x]=values[y][x];}}
         }),
         getRangeList:addresses=>({setValue:()=>write(addresses)}),getParent:()=>({getSpreadsheetTimeZone:()=> 'Europe/London'})
     };}
     const tracker=sheet(data,'tracker'),requests=sheet(req,'requests'),changes=sheet(audit,'audit');
-    const context={Date,Session:{getActiveUser:()=>({getEmail:()=>actor})},PropertiesService:{getScriptProperties:()=>({getProperty:key=>props.get(key)??null,setProperty:(key,value)=>props.set(key,value)})},SpreadsheetApp:{newRichTextValue:()=>({setText(text){this.text=text;return this;},build(){return {text:this.text};}}),openById:jest.fn(id=>id==='audit-book'?{getSheetByName:name=>name==='Requests'?requests:changes}:{getSheetByName:()=>tracker}),DataValidationCriteria:{VALUE_IN_LIST:'list'},flush:jest.fn()},LockService:{getScriptLock:()=>({tryLock:()=>{if(locked||flags.busy)return false;locked=true;return true;},releaseLock:()=>{locked=false;}})},CacheService:{getScriptCache:()=>({put:(key,value)=>cache.set(key,value),get:key=>cache.get(key),remove:key=>cache.delete(key)})},Utilities:{getUuid:()=>`${String(++counter).padStart(8,'0')}-89ab-cdef-0123-456789abcdef`},console:{error:jest.fn()},ContentService:{MimeType:{JSON:'json'},createTextOutput:value=>({value,setMimeType(){return this;}})}};
-    context.SpreadsheetApp.openById.mockImplementation(id=>id==='audit-book'?{getSheetByName:name=>name==='Requests'?requests:name==='Records'?{getDataRange:()=>({getValues:()=>[['Metadata ID','Sheet ID','Record identity'],...tagged.map(t=>[t.id,1,t.value])]})}:changes}:{getSheetByName:()=>tracker});
+    const context={Date,Session:{getActiveUser:()=>({getEmail:()=>actor}),getEffectiveUser:()=>({getEmail:()=>flags.effectiveEmail||actor})},PropertiesService:{getScriptProperties:()=>({getProperty:key=>props.get(key)??null,setProperty:(key,value)=>props.set(key,value)})},SpreadsheetApp:{newRichTextValue:()=>({setText(text){this.text=text;return this;},build(){return {text:this.text};}}),openById:jest.fn(id=>id==='audit-book'?{getSheetByName:name=>name==='Requests'?requests:changes}:{getSheetByName:()=>tracker}),DataValidationCriteria:{VALUE_IN_LIST:'list'},flush:jest.fn()},LockService:{getScriptLock:()=>({tryLock:()=>{if(locked||flags.busy)return false;locked=true;return true;},releaseLock:()=>{locked=false;}})},CacheService:{getScriptCache:()=>({put:(key,value)=>cache.set(key,value),get:key=>cache.get(key),remove:key=>cache.delete(key)})},Utilities:{getUuid:()=>`${String(++counter).padStart(8,'0')}-89ab-cdef-0123-456789abcdef`},console:{error:jest.fn()},ContentService:{MimeType:{JSON:'json'},createTextOutput:value=>({value,setMimeType(){return this;}})}};
+    context.SpreadsheetApp.openById.mockImplementation(id=>id==='audit-book'?{getSheetByName:name=>name==='Requests'?requests:name==='Records'?{getRange:()=>({getValues:()=>[]}),getDataRange:()=>({getValues:()=>[['Metadata ID','Sheet ID','Record identity'],...tagged.map(t=>[t.id,1,t.value])]})}:changes}:{getSheetByName:()=>tracker});
     context.Sheets={Spreadsheets:{DeveloperMetadata:{search:()=>({matchedDeveloperMetadata:tagged.filter(t=>data.includes(t.row)).map(t=>({developerMetadata:{metadataId:t.id,location:{dimensionRange:{sheetId:1,dimension:'ROWS',startIndex:data.indexOf(t.row),endIndex:data.indexOf(t.row)+1}}}}))})},Values:{batchUpdateByDataFilter:jest.fn(request=>{
         if(flags.sortAtWrite){data.splice(1,2,data[2],data[1]);flags.sortAtWrite=false;}
         const responses=[];
@@ -170,3 +171,62 @@ test('interrupted note recovery confirms actual fields without replaying edits',
 });
 
 test('comment text preserves a leading apostrophe literally',()=>{const t=setup(),p=notePreview(t,{commentsAfter:"'Supplier query"});expect(t.commit(p).results[0].confirmed).toBe(true);expect(t.data[1][4]).toBe("'Supplier query");});
+
+ test('read-only preview works while writer lock is busy, commits still require the lock',()=>{
+    const test=setup({busy:true}),preview=test.preview();
+    expect(preview.ok).toBe(true);expect(preview.expiresInSeconds).toBe(600);
+    expect(test.commit(preview)).toMatchObject({ok:false,error:'BUSY_TRY_AGAIN'});
+    expect(test.write).not.toHaveBeenCalled();
+ });
+
+test('normal Mark Yes preview shows live comments and preserves them by default',()=>{
+ const test=setup(),preview=test.preview();expect(preview.results[0]).toMatchObject({hasComment:true,commentPreview:'Existing note'});
+ test.commit(preview);expect(test.data[1][3]).toBe('Yes');expect(test.data[1][4]).toBe('Existing note');
+});
+test('explicit comment removal marks Yes and clears the live comment',()=>{
+ const test=setup(),preview=test.preview(undefined,{clearComments:true});expect(preview).toMatchObject({clearComments:true,kind:'edit'});
+ expect(preview.results[0]).toMatchObject({before:'No',commentsBefore:'Existing note',after:'Yes',commentsAfter:''});
+ const result=test.commit(preview);expect(result.results[0]).toMatchObject({confirmed:true,after:'Yes',commentsAfter:''});expect(test.data[1].slice(3)).toEqual(['Yes','']);
+});
+test('a comment changed after the clearing preview prevents both changes',()=>{
+ const test=setup(),preview=test.preview(undefined,{clearComments:true});test.data[1][4]='New colleague comment';
+ const result=test.commit(preview);expect(result.results[0]).toMatchObject({state:'skipped',confirmed:false});expect(test.data[1].slice(3)).toEqual(['No','New colleague comment']);
+});
+test('comment removal never overwrites a comment formula',()=>{
+ const test=setup({formula:true,commentFormula:true}),preview=test.preview(undefined,{clearComments:true});
+ expect(preview.results[0]).toMatchObject({state:'skipped',reason:'Comment is a formula'});test.commit(preview);expect(test.write).not.toHaveBeenCalled();
+});
+
+test('comment removal batches multiple placements and reports partial writes from readback',()=>{
+ const test=setup({partial:true}),preview=test.preview([{dNumber:'D03120200',campaignId:'CP3G9KS'},{dNumber:'D03120201',campaignId:'CP3G9KS'}],{clearComments:true});
+ const result=test.commit(preview);expect(result.results.map(row=>row.confirmed)).toEqual([true,false]);
+ expect(test.data[1].slice(3)).toEqual(['Yes','']);expect(test.data[2][3]).toBe('No');
+ expect(test.context.Sheets.Spreadsheets.Values.batchUpdateByDataFilter).toHaveBeenCalledTimes(1);
+});
+
+test('per-user requirement prevents legacy owner-run updates for that actor',()=>{
+ const test=setup({effectiveEmail:'owner@example.com'});test.props.set('REQUIRE_PER_USER_user@example.com','true');
+ expect(test.preview()).toMatchObject({ok:false,error:'PER_USER_REQUIRED'});expect(test.write).not.toHaveBeenCalled();
+});
+test('caller supplied per-user flag cannot save without setup or with owner execution',()=>{
+ const owner=setup({effectiveEmail:'owner@example.com'});expect(owner.preview(undefined,{requirePerUser:true})).toMatchObject({ok:false,error:'PER_USER_REQUIRED'});
+ const user=setup();expect(user.preview(undefined,{requirePerUser:true})).toMatchObject({ok:false,error:'PER_USER_SETUP_REQUIRED'});
+});
+test('connection preflight is read-only and activation requires edit access',()=>{
+ const test=setup(),connection=test.post({operation:'connection',mode:'main'});
+ expect(connection).toMatchObject({ok:true,ready:true,perUser:true,enforced:false});expect(test.write).not.toHaveBeenCalled();
+ expect(test.post({operation:'activatePerUser',mode:'main'})).toMatchObject({ok:true,enforced:true});
+ expect(test.props.get('REQUIRE_PER_USER_user@example.com')).toBe('true');
+ const readOnly=setup({readOnly:true});expect(readOnly.post({operation:'connection',mode:'main'})).toMatchObject({ok:true,ready:false});
+ expect(readOnly.post({operation:'activatePerUser',mode:'main'})).toMatchObject({ok:false,error:'PER_USER_ACCESS_REQUIRED'});
+});
+
+test('per-user activation waits for the shared writer lock',()=>{
+ const test=setup({busy:true});expect(test.post({operation:'activatePerUser',mode:'main'})).toMatchObject({ok:false,error:'BUSY_TRY_AGAIN'});
+ expect(test.props.get('REQUIRE_PER_USER_user@example.com')).toBeUndefined();
+});
+test('a changed Google account is rejected before a write',()=>{
+ const test=setup();test.props.set('REQUIRE_PER_USER_user@example.com','true');
+ expect(test.preview(undefined,{requirePerUser:true,expectedEmail:'other@example.com'})).toMatchObject({ok:false,error:'ACCOUNT_CHANGED'});
+ expect(test.write).not.toHaveBeenCalled();
+});

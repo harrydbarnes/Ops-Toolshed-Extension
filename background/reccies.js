@@ -110,7 +110,7 @@ async function storeTracker(request, rows, source, checks = {}, expectedRevision
     assertActive();
     await queueWrite(async()=>{
         const previous=(await chrome.storage.local.get(key))[key];
-        if (expectedRevision !== undefined && (previous?.revision || '') !== expectedRevision) throw new Error('Report changed during discovery. Results discarded.');
+        if (expectedRevision !== undefined && (previous?.revision || '') !== expectedRevision) throw new Error('The saved report changed while loading. Your newer report was kept. Use Refresh tracker to read the sheet again.');
         const values = {[key]:tracker};
         if (!request.mode || request.mode === 'main') {
             if (previous?.month) values[`${key}:${previous.month}`]=previous;
@@ -121,12 +121,24 @@ async function storeTracker(request, rows, source, checks = {}, expectedRevision
     return tracker;
 }
 async function importTracker(request, text, source) {
+    let rows,report;
     if (request.mode === 'early') {
-        const report = core.earlyRows(text, request.month);
-        if (!report.rows.length) return discoverTracker(request, report.reason, source);
-        return storeTracker(request,report.rows,{...source,tab:'Early Reccie report',excludedRows:report.excludedRows,ambiguousRows:report.ambiguousRows});
+        report=core.earlyRows(text,request.month);
+        if(!report.rows.length)return discoverTracker(request,report.reason,source);
+        rows=report.rows;source={...source,tab:'Early Reccie report',excludedRows:report.excludedRows,ambiguousRows:report.ambiguousRows};
+    }else rows=core.importCsv(text,request.month);
+    const checks={};
+    if(request.preserveChecks===true){
+        const key=core.trackerKey(request.mode,request.month),previous=(await chrome.storage.local.get(key))[key];
+        const identity=row=>JSON.stringify([row.dNumber,row.campaignId,row.month]),priorRows=new Map(),counts=new Map();
+        for(const row of previous?.rows||[]){const id=identity(row);priorRows.set(id,priorRows.has(id)?null:row);}
+        for(const row of rows){const id=identity(row);counts.set(id,(counts.get(id)||0)+1);}
+        for(const row of rows){
+            const id=identity(row),prior=priorRows.get(id);
+            if(!row.issue&&counts.get(id)===1&&prior&&previous.checks?.[prior.sourceRow])checks[row.sourceRow]=previous.checks[prior.sourceRow];
+        }
     }
-    return storeTracker(request,core.importCsv(text,request.month),source);
+    return storeTracker(request,rows,source,checks,request.expectedRevision);
 }
 async function runGroups(groups, method, options, started = performance.now()) {
         const timing = { method, rows: options.rows, campaigns: groups.size, concurrency: method.concurrency,
@@ -218,6 +230,7 @@ async function checkRows(request) {
             await chrome.storage.local.set({ [key]: current, ...(!request.mode || request.mode==='main' ? {[`${key}:${current.month}`]:current} : {}) });
             return current;
         });
+        if(request.readOnly===true)return updated;
         return await autoMarkVerified(updated,{...request,rowIds:Object.keys(results).map(Number)},{queueWrite,assertActive});
     } finally { checking = false; }
 }
@@ -269,7 +282,7 @@ export async function handleReccies(request, sender, sendResponse) {
     try {
         if (!ownPage(sender)) throw new Error('Tracker data is available only in Ops Toolshed.');
         await assertPrismaProfile();
-        if (['previewTrackerWrite','previewTrackerEdit','commitTrackerWrite','trackerWriteStatus'].includes(request.operation)) {
+        if (['previewTrackerWrite','previewTrackerEdit','commitTrackerWrite','trackerWriteStatus','trackerWriteConnection','activatePerUserWriter'].includes(request.operation)) {
             const result = await dispatchTrackerWrite(request,{queueWrite,assertActive});
             sendResponse({status:'success',...result});
             return;

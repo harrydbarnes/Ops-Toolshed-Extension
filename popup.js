@@ -143,15 +143,29 @@ function initialisePopupShortcuts() {
     });
 }
 
-function openPopupReccies() {
+function openPopupReccies(isRetry) {
+    const retry = isRetry === true;
+    const button = document.getElementById('recciesButton');
     try {
         chrome.runtime.sendMessage({
             action: 'openReccies',
             windowId: chrome.windows?.WINDOW_ID_CURRENT ?? -2
         }, response => {
+            if (response?.code === 'FEATURES_STARTING' && !retry) {
+                if (button) button.style.opacity = '0.7';
+                setTimeout(() => {
+                    if (button) button.style.opacity = '';
+                    openPopupReccies(true);
+                }, 200);
+                return;
+            }
             if (chrome.runtime.lastError || response?.status === 'error') {
                 const message = response?.message || 'Could not open Reccies. Try again from the Ops Toolshed popup.';
-                console.error('Could not open Reccies:', chrome.runtime.lastError?.message || message);
+                if (response?.code === 'FEATURES_STARTING' || response?.code === 'FEATURES_DISABLED') {
+                    console.warn('[Popup] Reccies unavailable:', message);
+                } else {
+                    console.error('Could not open Reccies:', chrome.runtime.lastError?.message || message);
+                }
                 window.alert(message);
             }
         });

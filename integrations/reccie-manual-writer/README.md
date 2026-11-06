@@ -143,3 +143,22 @@ version 3 audit attribution remains unchanged.
 ## Live release record: 2 November 2026
 
 Version 4 deployed to the existing service URL after Harry approved notes/status deployment. Execution remains as Harry; domain access remains Anyone within groupm.com, with the same private server allowlist. No new scopes or permissions were requested. Editor source was read back and matched the tested local Code.gs exactly (LF-normalized length 20,094; FNV-1a b7f97a63). Google confirmed deployment success; a live GET returned ok=true, Harry's identity, manualEnabled=true, service/protocol unchanged. No tracker write or note/highlight test was submitted during deployment. Installed-extension preview and real save/readback remain to be tested.
+
+
+## Deployment on 5 November 2026
+
+Version 6 was published to the existing deployment after approval. The editor source matched the tested local source (LF-normalized length 26,692, FNV-1a 29a344bf). Previews last 600 seconds and read-only previews no longer acquire the writer lock. Commits retain the shared lock and existing matching, audit and readback guards. The deployment UI confirmed Version 6 at 12:33. A live GET returned ok=true and manualEnabled=true. Execution uses Harry’s account and domain access remains Anyone within groupm.com.
+
+Version 7 was deployed at the same URL at 12:55. The editor source matched the tested local source (LF-normalized length 27,856, FNV-1a 3ed7beb9). Mark Yes previews now expose live comment presence and a short preview. An explicit clearComments request uses the existing guarded edit protocol to save Yes and an empty comment together, rejecting changed comments or protected formulas. Note/status writes are batched and confirmed from fresh readback, including partial failures. A live GET returned ok=true and manualEnabled=true. Existing extension versions keep comments by default.
+
+
+## Live per-user pilot on 5 November 2026
+
+Owner deployment Version 8 and per-user deployment Version 9 use the same tested Code.gs (LF-normalized length 31,755; FNV-1a 71a8f0f8). The owner URL remains the existing URL. The new per-user deployment runs as User accessing the web app, with access restricted to Anyone within groupm.com, at:
+https://script.google.com/a/macros/wppmedia.com/s/AKfycbygksrATahv4EdcHgA4_X0Tiwjhc9arrefwYZeoU2vz2IOghkxFo1J4WnMNPBktKVnn/exec
+
+A read-only connect GET returned Harry as both active and executing account, all four tracker/audit read/edit checks true, ready=true and enforced=false. No account was activated and no tracker value was changed during deployment checks.
+
+Users activate per-user enforcement only after the Google identity and both spreadsheet access checks pass. Activation uses the shared writer lock and sets REQUIRE_PER_USER_<actual Google email>=true in Script Properties. Both deployments then reject owner-run requests for that user. Actor identities always come from Google; caller-provided expectedEmail is a comparison only. Requests, cache tokens, metadata registry and writer lock remain shared across the same script project. Losing file access blocks subsequent writes. Audit Editor access must be granted by Harry and also allows direct access to its records.
+
+The root reccie-writer-mode.js retains perUser=false for standard builds. The live-test package overrides only that file with perUser=true and the fixed test URL. The test build has no owner endpoint fallback. Enabling the test pauses local automatic marking, post-financial checks and comment removal before activation. To reverse enforcement, an administrator must deliberately remove/set false the actor’s REQUIRE_PER_USER_<email> property; simply reinstalling an old extension does not reverse it.

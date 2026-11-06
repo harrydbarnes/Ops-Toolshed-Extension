@@ -319,7 +319,7 @@
             font-size: 13px;
             font-weight: 500;
             white-space: nowrap;
-            transform: translateY(-1px);
+            transform: translateY(-2px);
         }
     `;
 

@@ -264,9 +264,17 @@
     document.getElementById('choose-reccies').addEventListener('click', async () => {
         try {
             await storageSet(chrome.storage?.sync, { ...recciesDefaults, onboardingAudience: 'prisma', allFeaturesDisabled: false, popupShortcuts: ['reccies'] });
-            await markComplete({ onboardingTourActive: false, onboardingSkipped: false });
-            window.location.href = chrome.runtime.getURL('reccies.html');
+            elements.audienceChoice.hidden = true;
+            document.getElementById('reccies-intro').hidden = false;
+            elements.title.textContent = 'Verify your Reccies, step by step.';
+            elements.description.textContent = 'Use the sidebar alongside Prisma to check your report and review tracker updates.';
         } catch { elements.status.textContent = 'Could not save your Reccies setup. Try again.'; }
+    });
+    document.getElementById('finish-reccies').addEventListener('click', async () => {
+        try {
+            await markComplete({ onboardingTourActive: false, onboardingSkipped: false });
+            chrome.tabs.update({url:PRISMA_HOME});
+        } catch { elements.status.textContent = 'Could not finish setup. Try again.'; }
     });
     document.getElementById('choose-prisma').addEventListener('click', () => void chooseAudience('prisma'));
     document.getElementById('choose-non-prisma').addEventListener('click', () => void chooseAudience('non-prisma'));

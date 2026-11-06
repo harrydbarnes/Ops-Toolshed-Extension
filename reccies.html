@@ -13,9 +13,16 @@
 <body>
 <main>
     <header>
-        <div class="titleline"><h1>My Reccies</h1><span class="readonly">Manual tracker updates</span></div>
+        <div class="titleline"><h1 id="reccies-title">My Reccies</h1><span class="readonly" id="tracker-mode-badge">Manual Mode</span></div>
         <p class="intro">Your Reccie Tracker rows, checked against Prisma. Preview and confirm any tracker updates.</p>
     </header>
+        <section id="writer-connection" hidden aria-label="Google account for tracker updates">
+            <p id="writer-connection-status" role="status" aria-live="polite">Checking your Google account and spreadsheet access…</p>
+            <a id="writer-authorise" target="_blank" rel="noopener">Connect my Google account</a>
+            <button id="writer-check-access" type="button">Check access</button>
+            <button id="writer-activate" type="button" hidden>Use my Google account for updates</button>
+            <p class="hint">Enabling this requires your own Google account for future updates, including in older extension versions. Automatic updates are paused for your first live test.</p>
+        </section>
     <section id="reccie-progress" class="reccie-progress" aria-label="Monthly Reccie progress" hidden>
         <div class="reccie-progress-metric">
             <div class="reccie-progress-label"><span>Time gone</span><span id="reccie-time-progress-label"></span></div>
@@ -24,6 +31,7 @@
         <div class="reccie-progress-metric">
             <div class="reccie-progress-label"><span>Tracker progress</span><span id="reccie-tracker-progress-label"></span></div>
             <progress id="reccie-tracker-progress" max="1" value="0" aria-label="Assigned tracker rows marked Yes"></progress>
+            <div class="reccie-progress-context"><p id="reccie-progress-asof"></p><p id="reccie-progress-month"></p></div>
         </div>
     </section>
     <fieldset class="mode-switch" id="mode-switch"><legend id="source-label">Reccie source</legend>
@@ -37,6 +45,7 @@
     <details id="coverage-details" hidden><summary>Campaign coverage</summary><div id="coverage-issues"></div></details>
     <details id="source-details" open>
         <summary id="source-summary"><span>Reccie tracking settings</span><span id="report-loaded-badge" class="report-loaded-badge" hidden><span aria-hidden="true">✓</span> Report loaded</span></summary>
+        <div class="reccies-progress-setting"><label><input id="show-progress-bars" type="checkbox" checked> Show progress bars above the tracker</label></div>
         <div id="sheet-connection">
         <p id="first-use-guide" class="hint">Choose the report month, read your Reccie report tab or import its CSV, then choose your assignment and name. Select Verify Reccie Status to check your rows in Prisma.</p>
         <label for="sheet-url">Google Sheet tab URL</label>
@@ -49,16 +58,19 @@
         <div class="import-row"><label for="csv-file">Or import a report CSV</label><input id="csv-file" type="file" accept=".csv,text/csv"></div>
         <p class="hint">CSV is a snapshot. Refresh or import again after the tracker changes.</p>
         </div>
-        <details class="automation-settings"><summary>Automatic verification and tracker updates</summary>
-            <label><input id="auto-mark-tracker" type="checkbox"> Automatically mark Yes after Prisma verification</label>
-            <p class="hint">For your assigned rows in connected Main Tracker and Early Recs reports. Requires a fresh, unique Reconciled = Yes and Successful buy status. Never changes Yes back to No.</p>
-            <label><input id="verify-after-financial" type="checkbox"> Verify three minutes after confirming a reconciliation update</label>
-            <p class="hint">Checks changed placements after financial confirmation; gross/date-only and unchanged lines are excluded. Automatic marking uses the setting above. Chrome must be running and Prisma signed in.</p>
+        <details class="automation-settings"><summary>Automatic updates</summary>
+            <label><input id="auto-mark-tracker" type="checkbox"> Mark tracker Yes after verification</label>
+            <p class="hint">For your assigned Main Tracker and Early Recs rows. Both Prisma checks must pass.</p>
+            <label><input id="auto-clear-comments" type="checkbox"> Clear comments when automatically marking Yes</label>
+            <p class="hint">Optional. Comments are kept unless you enable this. Changed comments are protected.</p>
+            <label><input id="verify-after-financial" type="checkbox"> Check reconciliations after three minutes</label>
+            <p class="hint">Runs after you confirm a reconciliation change in Prisma. Keep Chrome open and Prisma signed in.</p>
             <p id="automation-status" class="hint" role="status"></p>
         </details>
-        <div class="reccies-progress-setting"><label><input id="show-progress-bars" type="checkbox" checked> Show progress bars above the tracker</label></div>
     </details>
     <p id="source-status" class="hint"></p>
+    <button id="refresh-tracker" type="button" hidden>Refresh tracker from Google Sheet</button>
+    <p id="progress-scope" class="hint">Tracker progress counts all rows assigned to your selected name and role in the loaded report. Google Sheets filters and your search do not change this total.</p>
     <p id="background-progress" class="hint" role="status" aria-live="polite" hidden></p>
     <section aria-label="Find your rows" class="filters">
         <div class="filter-pair" id="assignment-fields">
@@ -84,15 +96,16 @@
         </div><p id="filter-hint" class="hint">Matches the tracker status AND any selected Prisma status. Nothing ticked means any Prisma status, including not checked. Uses your latest checks.</p>
         <button id="clear-filters" type="button" class="filter-clear" hidden>Clear filters</button></fieldset>
     </section>
-    <div class="checkbar"><p id="summary" role="status" aria-live="polite">Connect a tracker to get started.</p><button id="check-rows" type="button" class="primary" aria-describedby="verification-scope" disabled>Verify Reccie Status</button></div>
-    <p id="verification-scope" class="hint">Verifies all rows matching your filters, including rows below “Show more”.</p>
+    <div class="checkbar"><p id="summary" role="status" aria-live="polite">Connect a tracker to get started.</p><button id="check-rows" type="button" class="primary" disabled>Verify Reccie Status</button></div>
     <p id="message" role="status" aria-live="polite"></p>
+    <p id="reccie-results-asof" class="reccie-asof" hidden></p>
     <div id="rows" aria-label="Reccie rows"></div>
     <p class="rule">Reconciled in Prisma means Reconciled = Yes and Buy status = Successful for the report month. Tracker Yes/No is separate. Use Note to edit comments or tracker status, or Mark Yes in tracker to confirm reconciliation. Automatic Yes updates apply only when enabled.</p>
     <button id="last-tracker-save" type="button" hidden>Check last tracker save</button>
     <details id="debug"><summary>Debug</summary>
         <button id="test-google-connection" type="button">Test Google connection</button>
         <p class="hint">Private read-only test for Harry’s account. Checks Google identity from the extension background; does not read or update the tracker.</p>
+        <p><a id="per-user-writer-test" hidden href="reccie-user-test.html" target="_blank" rel="noopener">Live per-user writer test instructions</a></p>
         <pre id="google-connection-result" role="status" aria-live="polite"></pre>
         <button id="forget-report" type="button" class="quiet" aria-describedby="forget-hint">Clear saved report data</button>
         <p id="forget-hint" class="hint">Clears this report’s saved rows, Prisma results, filters and timings from this Chrome profile. The Google Sheet, Prisma and Campaign History stay unchanged.</p>
@@ -100,10 +113,11 @@
         <p id="debug-scope" class="hint">The normal verification button uses 8 workers. This slider changes only this debug run. Use the same filters and download each result before starting another run.</p>
         <label for="debug-workers">Workers: <output id="debug-worker-count" for="debug-workers">8</output></label>
         <input id="debug-workers" type="range" min="1" max="20" step="1" value="8">
-        <button id="debug-run" type="button" aria-describedby="verification-scope debug-scope" disabled>Run</button>
+        <button id="debug-run" type="button" aria-describedby="debug-scope" disabled>Run</button>
         <details id="timing-details" hidden><summary>Verification timings</summary><p class="hint">Local diagnostics for the latest run. Request durations overlap when campaigns run concurrently. No timing data is sent elsewhere.</p><button id="download-timings" type="button" disabled>Download timings (.md)</button><pre id="timing-report"></pre></details>
     </details>
 </main>
-<script src="extension-page-gate.js" data-scripts="search-highlight.js,reccie-core.js,reccie-status.js,reccies-ui.js,reccie-writes-ui.js,reccies.js"></script>
+<div id="verification-scope" class="reccie-verification-tooltip" role="tooltip" hidden>Checks filtered rows first, including rows below “Show more”, then the rest of your assigned rows. Additional checks do not update the tracker.</div>
+<script src="extension-page-gate.js" data-scripts="reccie-writer-mode.js,search-highlight.js,reccie-core.js,reccie-status.js,reccies-ui.js,reccie-writes-ui.js,reccies.js"></script>
 </body>
 </html>

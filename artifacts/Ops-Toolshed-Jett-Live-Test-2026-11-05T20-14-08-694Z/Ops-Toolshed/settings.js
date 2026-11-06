@@ -1,0 +1,2482 @@
+// Prepend to settings.js or ensure it's within DOMContentLoaded 
+ 
+// Utility to escape HTML for display 
+function escapeHTML(str) { 
+    if (str === null || str === undefined) return ''; 
+    const div = document.createElement('div'); 
+    div.appendChild(document.createTextNode(str)); 
+    return div.innerHTML; 
+} 
+
+function isMissingContentScriptReceiverError(error) {
+    const message = error?.message || String(error || '');
+    return /could not establish connection|receiving end does not exist|message port closed before a response was received/i.test(message);
+}
+
+const featureSettingsRegistry = typeof module !== 'undefined' && module.exports
+    ? require('./feature-settings-registry')
+    : globalThis.OpsToolshedFeatureSettings;
+const popupShortcutSettings = typeof module !== 'undefined' && module.exports
+    ? require('./popup-shortcuts')
+    : globalThis.OpsToolshedPopupShortcuts;
+
+const SETTINGS_DEFAULTS = Object.freeze({
+    uiTheme: 'pink',
+    reminderTheme: 'pink',
+    autoCopyUrlMode: 'short',
+    metaFinanceToolMode: 'social',
+    loadingFactsUI: 'new',
+    ...featureSettingsRegistry.BOOLEAN_DEFAULTS,
+    prismaReminderFrequency: 'daily',
+    prismaCountdownDuration: '5',
+    reminderDay: 'Friday',
+    reminderTime: '14:30',
+    customReminders: Object.freeze([]),
+    popupShortcuts: popupShortcutSettings.DEFAULT_ENABLED_KEYS,
+    popupCustomShortcuts: Object.freeze([])
+});
+
+const REMINDER_SETTING_KEYS = new Set([
+    'reminderTheme',
+    'prismaReminderFrequency',
+    'prismaCountdownDuration',
+    'metaReminderEnabled',
+    'iasReminderEnabled',
+    'timesheetReminderEnabled',
+    'reminderDay',
+    'reminderTime',
+    'customReminders'
+]);
+
+const FEATURE_SETTINGS_DEFAULTS = Object.freeze(Object.fromEntries(
+    Object.entries(SETTINGS_DEFAULTS)
+        .filter(([key]) => !REMINDER_SETTING_KEYS.has(key))
+));
+
+async function loadSettingsWithDefaults(storageArea, defaults = SETTINGS_DEFAULTS) {
+    const callStorage = (method, ...args) => new Promise((resolve, reject) => {
+        let settled = false;
+        const finish = (value) => {
+            if (settled) return;
+            settled = true;
+            resolve(value);
+        };
+
+        try {
+            const result = storageArea[method](...args, finish);
+            if (result?.then) {
+                result.then(finish, reject);
+            }
+        } catch (error) {
+            reject(error);
+        }
+    });
+
+    const storedSettings = await callStorage('get', Object.keys(defaults));
+    const missingDefaults = {};
+
+    Object.entries(defaults).forEach(([key, defaultValue]) => {
+        if (storedSettings[key] === undefined) missingDefaults[key] = defaultValue;
+    });
+
+    if (Object.keys(missingDefaults).length > 0) {
+        await callStorage('set', missingDefaults);
+    }
+
+    return { ...defaults, ...storedSettings };
+}
+ 
+ 
+// Function to show a test custom reminder on the settings page 
+function showTestCustomReminderOnSettingsPage(reminder) { 
+    const existingGenericPopup = document.getElementById('custom-reminder-display-popup'); 
+    if (existingGenericPopup) existingGenericPopup.remove(); 
+    const existingTestOverlays = document.querySelectorAll('[id^="settings-custom-reminder-overlay-"]'); 
+    existingTestOverlays.forEach(ov => ov.remove()); 
+ 
+    const overlayId = `settings-custom-reminder-overlay-${reminder.id}`; 
+    const overlay = document.createElement('div'); 
+    overlay.className = 'reminder-overlay'; // Ensure this class exists and provides basic overlay styling 
+    overlay.id = overlayId; 
+    document.body.appendChild(overlay); 
+ 
+    const popup = document.createElement('div'); 
+    popup.id = 'custom-reminder-display-popup'; // Ensure this ID is styled in settings.css or style.css 
+ 
+    // Safely parse and append the reminder's HTML content 
+    popup.innerHTML = window.utils.buildReminderPopupHTML(reminder);
+ 
+    const closeButton = document.createElement('button'); 
+    closeButton.id = 'custom-reminder-display-close'; 
+    closeButton.className = 'settings-button custom-reminder-close-button';
+    closeButton.textContent = 'Got it!'; 
+    popup.appendChild(closeButton); 
+ 
+    document.body.appendChild(popup); 
+ 
+    closeButton.addEventListener('click', () => { 
+        popup.remove(); 
+        overlay.remove(); 
+        console.log(`[Settings] Test custom reminder popup for ${reminder.name} closed.`); 
+    }); 
+    console.log(`[Settings] Test custom reminder popup created for: ${reminder.name}`); 
+} 
+ 
+ 
+// Generic function to show a test reminder popup on the settings page 
+function showTestReminderPopup({ popupId, overlayId, content, closeButtonId, hasCountdown, storageKey, countdownSeconds = 5 }) { 
+    // Remove existing popups to prevent duplicates 
+    const existingPopup = document.getElementById(popupId); 
+    if (existingPopup) existingPopup.remove(); 
+    const existingOverlay = document.getElementById(overlayId); 
+    if (existingOverlay) existingOverlay.remove(); 
+ 
+    const overlay = document.createElement('div'); 
+    overlay.className = 'reminder-overlay'; 
+    overlay.id = overlayId; 
+    document.body.appendChild(overlay); 
+ 
+    const popup = document.createElement('div'); 
+    popup.id = popupId; 
+ 
+    if (content.title) { 
+        const h3 = document.createElement('h3'); 
+        h3.textContent = content.title; 
+        popup.appendChild(h3); 
+    } 
+    if (content.message) { 
+        const p = document.createElement('p'); 
+        p.textContent = content.message; 
+        popup.appendChild(p); 
+    } 
+    if (content.list && content.list.length > 0) { 
+        const ul = document.createElement('ul'); 
+        content.list.forEach(itemText => { 
+            const li = document.createElement('li'); 
+            li.textContent = itemText; 
+            ul.appendChild(li); 
+        }); 
+        popup.appendChild(ul); 
+    } 
+ 
+    const closeButton = document.createElement('button'); 
+    closeButton.id = closeButtonId; 
+    closeButton.className = 'reminder-close-button'; 
+    closeButton.textContent = 'Got it!'; 
+    popup.appendChild(closeButton); 
+ 
+    document.body.appendChild(popup); 
+    console.log(`[Settings] Test ${popupId} CREATED.`); 
+ 
+    let countdownInterval; 
+ 
+    const cleanupPopup = () => { 
+        popup.remove(); 
+        overlay.remove(); 
+        clearInterval(countdownInterval); 
+        console.log(`[Settings] Test ${popupId} and overlay removed.`); 
+    }; 
+ 
+    if (closeButton) { 
+        if (hasCountdown && countdownSeconds > 0) { 
+            // Disable the button and start the countdown immediately for test popups. 
+            closeButton.disabled = true;
+            closeButton.style.setProperty('--reminder-countdown-duration', `${countdownSeconds}s`);
+            closeButton.classList.add('reminder-countdown');
+            let secondsLeft = countdownSeconds; 
+            closeButton.textContent = `Got it! (${secondsLeft}s)`; 
+ 
+            countdownInterval = setInterval(() => { 
+                secondsLeft--; 
+                if (secondsLeft > 0) { 
+                    closeButton.textContent = `Got it! (${secondsLeft}s)`; 
+                } else { 
+                    clearInterval(countdownInterval); 
+                    closeButton.textContent = 'Got it!'; 
+                    closeButton.classList.remove('reminder-countdown');
+                    closeButton.style.removeProperty('--reminder-countdown-duration');
+                    closeButton.disabled = false; 
+                } 
+            }, 1000); 
+        } 
+        closeButton.addEventListener('click', cleanupPopup); 
+    } 
+} 
+ 
+// Function to show a confirmation popup with custom actions 
+function showConfirmationPopup({ title, message, confirmText, cancelText, onConfirm, onCancel }) { 
+    const popupId = 'confirmation-popup'; 
+    const overlayId = 'confirmation-overlay'; 
+ 
+    // Remove existing 
+    const existingPopup = document.getElementById(popupId); 
+    if (existingPopup) existingPopup.remove(); 
+    const existingOverlay = document.getElementById(overlayId); 
+    if (existingOverlay) existingOverlay.remove(); 
+ 
+    const overlay = document.createElement('div'); 
+    overlay.className = 'reminder-overlay'; 
+    overlay.id = overlayId; 
+    document.body.appendChild(overlay); 
+ 
+    const popup = document.createElement('div'); 
+    popup.id = popupId; 
+     
+    // UPDATED: Matches Reminder UI (Pink Theme with White Buttons) 
+    // Construct DOM elements programmatically to avoid style string issues
+
+    const h3 = document.createElement('h3');
+    h3.textContent = title;
+    popup.appendChild(h3);
+
+    const p = document.createElement('p');
+    p.textContent = message;
+    popup.appendChild(p);
+
+    const buttonGroup = document.createElement('div');
+    buttonGroup.className = 'button-group';
+    buttonGroup.style.display = 'flex';
+    buttonGroup.style.justifyContent = 'center';
+    buttonGroup.style.gap = '15px';
+    buttonGroup.style.marginTop = '20px';
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.id = 'confirm-action-btn';
+    confirmBtn.className = 'reminder-close-button';
+    confirmBtn.style.margin = '0';
+    confirmBtn.textContent = confirmText;
+    buttonGroup.appendChild(confirmBtn);
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.id = 'cancel-action-btn';
+    cancelBtn.className = 'reminder-close-button';
+    cancelBtn.style.margin = '0';
+    cancelBtn.textContent = cancelText;
+    buttonGroup.appendChild(cancelBtn);
+
+    popup.appendChild(buttonGroup);
+    document.body.appendChild(popup); 
+ 
+    const cleanup = () => { 
+        popup.remove(); 
+        overlay.remove(); 
+    }; 
+ 
+    confirmBtn.addEventListener('click', () => { 
+        if (onConfirm) onConfirm(); 
+        cleanup(); 
+    }); 
+ 
+    cancelBtn.addEventListener('click', () => { 
+        if (onCancel) onCancel(); 
+        cleanup(); 
+    }); 
+} 
+ 
+const syncedToggleInputs = new Map();
+const syncedToggleValues = new Map();
+
+function showSettingsSaveFailure() {
+    const toast = document.getElementById('toast-notification');
+    const message = toast?.querySelector('.toast-message');
+    if (!toast || !message) return;
+    message.textContent = 'Could not save this setting. Try again.';
+    toast.classList.remove('hide');
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+function saveSettingsValue(values, onSuccess, onFailure) {
+    let settled = false;
+    const finish = saved => {
+        if (settled) return;
+        settled = true;
+        if (saved) onSuccess();
+        else { onFailure(); showSettingsSaveFailure(); }
+    };
+    try {
+        const result = chrome.storage.sync.set(values, () => finish(!chrome.runtime.lastError));
+        result?.then?.(() => finish(true), () => finish(false));
+    } catch { finish(false); }
+}
+let settingsPageInitialized = false;
+
+// Kept with the setting identifiers so the copy remains accurate when a setting is renamed.
+// Catalogue metadata is shared with the optional onboarding feature explorer.
+const FEATURE_SETTING_PREVIEWS = Object.fromEntries(featureSettingsRegistry.FEATURE_CATALOGUE
+    .filter(feature => feature.href.endsWith('#features'))
+    .map(feature => [feature.id, [feature.title, feature.description, feature.title]]));
+
+function getFeaturePreviewImage(controlId) {
+    return featureSettingsRegistry.FEATURE_CATALOGUE.find(feature => feature.id === controlId)?.image || null;
+}
+
+function ensureFeaturePreviewTooltip(root = document) {
+    let tooltip = root.getElementById('feature-settings-tooltip');
+    if (tooltip) return tooltip;
+
+    tooltip = root.createElement('div');
+    tooltip.id = 'feature-settings-tooltip';
+    tooltip.className = 'feature-rich-tooltip';
+    tooltip.setAttribute('role', 'tooltip');
+    tooltip.setAttribute('aria-hidden', 'true');
+
+    const image = root.createElement('img');
+    image.className = 'feature-rich-tooltip-image';
+    image.alt = '';
+    const copy = root.createElement('div');
+    copy.className = 'feature-rich-tooltip-copy';
+    const heading = root.createElement('strong');
+    heading.id = 'feature-settings-tooltip-title';
+    const paragraph = root.createElement('p');
+    paragraph.id = 'feature-settings-tooltip-description';
+    copy.append(heading, paragraph);
+    const note = root.createElement('p');
+    note.className = 'feature-preview-note';
+    tooltip.append(copy, image, note);
+    image.addEventListener('error', () => { image.hidden = true; note.textContent = 'Screenshot unavailable. Use the description above.'; note.hidden = false; });
+    root.body.append(tooltip);
+    return tooltip;
+}
+
+function addFeatureSettingPreviews(root = document) {
+    const tooltip = ensureFeaturePreviewTooltip(root);
+    root.querySelectorAll('#features .toggle-container').forEach(container => {
+        const control = container.querySelector('input[type="checkbox"], .segmented-control');
+        const preview = control && FEATURE_SETTING_PREVIEWS[control.id];
+        if (!preview) return;
+        container.dataset.featurePreviewControl = control.id;
+        const label = container.querySelector(':scope > span, :scope > div > span');
+        if (label && !container.querySelector('.feature-tooltip-indicator')) {
+            const labelGroup = root.createElement('span');
+            labelGroup.className = 'feature-setting-label';
+            const indicator = root.createElement('button');
+            indicator.className = 'feature-tooltip-indicator';
+            indicator.type = 'button';
+            indicator.setAttribute('aria-label', `Preview ${preview[0]}`);
+            indicator.setAttribute('aria-describedby', 'feature-settings-tooltip-description');
+            indicator.textContent = 'i';
+            label.before(labelGroup);
+            labelGroup.append(label, indicator);
+        }
+        control.setAttribute('aria-describedby', tooltip.querySelector('p').id);
+    });
+}
+
+function setupFeaturePreviewInteractions(root = document, delay = 500) {
+    const tooltip = ensureFeaturePreviewTooltip(root);
+    // The grace period covers the visible gap between a setting row and the tooltip.
+    // Use the same duration after leaving the tooltip so the interaction feels consistent.
+    const tooltipTransferDelay = 800;
+    const tooltipLeaveDelay = 800;
+    let tooltipDismissTimer;
+
+    const cancelTooltipDismissal = () => {
+        clearTimeout(tooltipDismissTimer);
+        tooltipDismissTimer = undefined;
+    };
+    const closeTooltip = () => {
+        tooltip.classList.remove('is-preview-open');
+        tooltip.setAttribute('aria-hidden', 'true');
+    };
+    const scheduleTooltipDismissal = (dismissDelay) => {
+        cancelTooltipDismissal();
+        tooltipDismissTimer = setTimeout(() => {
+            closeTooltip();
+            tooltipDismissTimer = undefined;
+        }, dismissDelay);
+    };
+
+    const positionPreview = () => {
+        if (!tooltip.classList.contains('is-preview-open')) return;
+        const container = root.getElementById(tooltip.dataset.controlId)?.closest('.toggle-container');
+        if (!container) { closeTooltip(); return; }
+        const bounds = container.getBoundingClientRect();
+        const tooltipBounds = tooltip.getBoundingClientRect();
+        const viewport = root.defaultView || window;
+        const horizontalPadding = 12;
+        const left = Math.max(horizontalPadding, Math.min(bounds.left, viewport.innerWidth - tooltipBounds.width - horizontalPadding));
+        const below = bounds.bottom + 8;
+        const placeBelow = below + tooltipBounds.height <= viewport.innerHeight;
+        const top = placeBelow
+            ? below
+            : Math.max(horizontalPadding, bounds.top - tooltipBounds.height - 8);
+        tooltip.style.left = `${left}px`;
+        tooltip.style.top = `${top}px`;
+        tooltip.dataset.placement = placeBelow ? 'below' : 'above';
+    };
+
+    if (!tooltip.dataset.dismissalReady) {
+        tooltip.dataset.dismissalReady = 'true';
+        root.addEventListener('scroll', positionPreview, true);
+        root.defaultView?.addEventListener('resize', positionPreview);
+        tooltip.querySelector('img').addEventListener('load', positionPreview);
+        tooltip.querySelector('img').addEventListener('error', positionPreview);
+        tooltip.addEventListener('pointerenter', cancelTooltipDismissal);
+        tooltip.addEventListener('pointerleave', () => scheduleTooltipDismissal(tooltipLeaveDelay));
+    }
+
+    root.querySelectorAll('#features .toggle-container').forEach(container => {
+        if (container.dataset.featurePreviewInteractionsReady) return;
+        const controlId = container.dataset.featurePreviewControl;
+        const preview = FEATURE_SETTING_PREVIEWS[controlId];
+        if (!preview) return;
+        container.dataset.featurePreviewInteractionsReady = 'true';
+        let revealTimer;
+
+        const cancelReveal = () => {
+            clearTimeout(revealTimer);
+            revealTimer = undefined;
+        };
+        const closePreview = (dismissDelay = tooltipTransferDelay) => {
+            cancelReveal();
+            scheduleTooltipDismissal(dismissDelay);
+        };
+        const showPreview = () => {
+            const [title, description] = preview;
+            const image = tooltip.querySelector('img');
+            const asset = getFeaturePreviewImage(controlId);
+            image.hidden = !asset;
+            if (asset) { image.src = asset.src; image.alt = asset.alt; }
+            else { image.removeAttribute('src'); image.alt = ''; }
+            const note = tooltip.querySelector('.feature-preview-note');
+            note.hidden = !!asset;
+            note.textContent = 'Screenshot not yet available.';
+            tooltip.dataset.controlId = controlId;
+            tooltip.querySelector('strong').textContent = title;
+            tooltip.querySelector('p').textContent = description;
+            tooltip.classList.add('is-preview-open');
+            tooltip.setAttribute('aria-hidden', 'false');
+
+            positionPreview();
+        };
+        const scheduleReveal = () => {
+            cancelTooltipDismissal();
+            if ((tooltip.classList.contains('is-preview-open') && tooltip.dataset.controlId === controlId) || revealTimer) return;
+            revealTimer = setTimeout(() => {
+                showPreview();
+                revealTimer = undefined;
+            }, delay);
+        };
+
+        let dismissed = false;
+        const indicator = container.querySelector('.feature-tooltip-indicator');
+        container.addEventListener('pointermove', event => {
+            if (controlId === 'loadingFactsUI' && event.target.closest('#loadingFactsUI button')) { cancelReveal(); closeTooltip(); return; }
+            if (!dismissed) scheduleReveal();
+        });
+        container.addEventListener('pointerleave', () => { dismissed = false; closePreview(); });
+        container.addEventListener('focusin', event => {
+            if (controlId === 'loadingFactsUI' && event.target.closest('#loadingFactsUI button')) { cancelReveal(); closeTooltip(); return; }
+            dismissed = false;
+            cancelReveal();
+            cancelTooltipDismissal();
+            showPreview();
+        });
+        indicator?.addEventListener('click', event => {
+            event.preventDefault();
+            cancelReveal();
+            cancelTooltipDismissal();
+            dismissed = false;
+            showPreview();
+        });
+        root.addEventListener('keydown', event => {
+            if (event.key !== 'Escape') return;
+            dismissed = true;
+            cancelReveal();
+            cancelTooltipDismissal();
+            closeTooltip();
+        });
+        container.addEventListener('focusout', event => {
+            if (!container.contains(event.relatedTarget)) closePreview(0);
+        });
+    });
+}
+
+function normalizeFeatureSearchText(value) {
+    return String(value || '').toLocaleLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function filterFeatureSettings(query, sections) {
+    const tokens = normalizeFeatureSearchText(query).split(' ').filter(Boolean);
+    let visibleSectionCount = 0;
+
+    Array.from(sections || []).forEach(section => {
+        const headingMatches = tokens.length > 0 && tokens.every(token =>
+            normalizeFeatureSearchText(section.querySelector(':scope > h2')?.textContent).includes(token)
+        );
+        const items = Array.from(section.children).filter(element => element.tagName !== 'H2');
+        let hasVisibleItem = false;
+
+        items.forEach(item => {
+            if (item.classList.contains('onboarding-launch-actions')) {
+                let hasVisibleButton = false;
+                item.querySelectorAll(':scope > .settings-button').forEach(button => {
+                    const matches = tokens.length === 0 || headingMatches || tokens.every(token =>
+                        normalizeFeatureSearchText(button.textContent).includes(token)
+                    );
+                    button.classList.toggle('settings-search-hidden', !matches);
+                    if (matches) hasVisibleButton = true;
+                });
+                item.classList.toggle('settings-search-hidden', !hasVisibleButton);
+                if (hasVisibleButton) hasVisibleItem = true;
+                return;
+            }
+
+            const matches = tokens.length === 0 || headingMatches || tokens.every(token =>
+                normalizeFeatureSearchText(item.textContent).includes(token)
+            );
+            item.classList.toggle('settings-search-hidden', !matches);
+            if (matches) hasVisibleItem = true;
+        });
+
+        const visible = tokens.length === 0 || headingMatches || hasVisibleItem;
+        section.classList.toggle('settings-search-hidden', !visible);
+        if (visible) visibleSectionCount += 1;
+    });
+
+    return visibleSectionCount;
+}
+
+// Helper function to set up a toggle switch 
+function setupToggle(toggleId, storageKey, logMessage, settings) {
+    const toggle = document.getElementById(toggleId); 
+    if (toggle) { 
+        syncedToggleInputs.set(storageKey, toggle);
+        toggle.checked = settings[storageKey];
+        syncedToggleValues.set(storageKey, toggle.checked);
+        toggle.addEventListener('change', function() { 
+            const isEnabled = this.checked; 
+            this.disabled = true;
+            let settled = false;
+            const finish = saved => {
+                if (settled) return;
+                settled = true;
+                this.disabled = false;
+                if (!saved) {
+                    this.checked = syncedToggleValues.get(storageKey);
+                    this.dispatchEvent(new Event('settings-save-reverted'));
+                    showSettingsSaveFailure();
+                    return;
+                }
+                syncedToggleValues.set(storageKey, isEnabled);
+                console.log(logMessage, isEnabled);
+            };
+            try {
+                const result = chrome.storage.sync.set({ [storageKey]: isEnabled }, () => finish(!chrome.runtime.lastError));
+                result?.then?.(() => finish(true), () => finish(false));
+            }
+            catch { finish(false); }
+        }); 
+    } 
+} 
+ 
+ 
+document.addEventListener('DOMContentLoaded', async function() {
+    if (window.opsToolshedPageGate && !(await window.opsToolshedPageGate.allow())) return;
+    if (settingsPageInitialized) return;
+    settingsPageInitialized = true;
+
+    let settings;
+    try {
+        settings = await loadSettingsWithDefaults(chrome.storage.sync);
+    } catch (error) {
+        console.error('Failed to load Settings preferences; using defaults for this page:', error);
+        settings = { ...SETTINGS_DEFAULTS };
+    }
+
+    let popupShortcutEditor;
+    const popupShortcutEditorContainer = document.getElementById('popup-shortcut-editor');
+    if (popupShortcutSettings && popupShortcutEditorContainer) {
+        popupShortcutEditor = popupShortcutSettings.renderEditor(
+            popupShortcutEditorContainer,
+            settings,
+            values => popupShortcutSettings.writeSync(chrome.storage.sync, values)
+        );
+    }
+
+    const featureSettingSections = document.querySelectorAll('#features > section');
+    const setFeatureModeInert = (element, disabled) => {
+        element.inert = disabled;
+        element.classList.toggle('is-feature-mode-off', disabled);
+        if (disabled) element.setAttribute('aria-disabled', 'true');
+        else element.removeAttribute('aria-disabled');
+    };
+    const setSettingsFeatureMode = enabled => {
+        featureSettingSections.forEach(section => {
+            const availableWhenDisabled = section.querySelector(':scope > [data-feature-mode-available-when-disabled]');
+            if (!availableWhenDisabled) {
+                setFeatureModeInert(section, !enabled);
+                return;
+            }
+
+            setFeatureModeInert(section, false);
+            Array.from(section.children).forEach(child => {
+                const keepAvailable = child.tagName === 'H2' || child === availableWhenDisabled;
+                setFeatureModeInert(child, !enabled && !keepAvailable);
+            });
+        });
+        document.querySelectorAll('.tab-button:not(#tab-features)').forEach(button => {
+            button.disabled = !enabled;
+            button.setAttribute('aria-disabled', String(!enabled));
+        });
+        document.querySelectorAll('.tab-content:not(#features)').forEach(panel => {
+            panel.inert = !enabled;
+            panel.classList.toggle('is-feature-mode-off', !enabled);
+        });
+    };
+    setSettingsFeatureMode(window.opsToolshedPageGate
+        ? window.opsToolshedPageGate.isEnabled()
+        : true);
+
+    // --- Feedback Modal Logic --- 
+    const feedbackLink = document.getElementById('open-feedback-modal'); 
+    if (feedbackLink) { 
+        feedbackLink.addEventListener('click', (e) => { 
+            e.preventDefault(); 
+            if (window.feedbackModalFeature) { 
+                window.feedbackModalFeature.open(); 
+            } 
+        }); 
+    } 
+
+    const launchOnboardingButton = document.getElementById('launchOnboardingButton');
+    const audienceStatus = document.getElementById('onboardingAudienceStatus');
+    const prismaTourButtons = [
+        document.getElementById('launchOnboardingTourV1Button'),
+        document.getElementById('launchOnboardingTourV2Button')
+    ];
+    let onboardingAudience = 'prisma';
+    function showOnboardingAudience(audience) {
+        onboardingAudience = audience === 'non-prisma' ? 'non-prisma' : 'prisma';
+        if (audienceStatus) audienceStatus.textContent = onboardingAudience === 'non-prisma'
+            ? 'Setup profile: I do not book on Prisma. Prisma tours are hidden.'
+            : 'Setup profile: I book on Prisma.';
+        prismaTourButtons.forEach(button => { if (button) button.hidden = onboardingAudience === 'non-prisma'; });
+    }
+    chrome.storage.sync.get({ onboardingAudience: 'prisma' }, data => showOnboardingAudience(data.onboardingAudience));
+    if (launchOnboardingButton) {
+        launchOnboardingButton.addEventListener('click', () => {
+            chrome.tabs.create({ url: chrome.runtime.getURL('onboarding.html') })
+                .catch(error => console.error('Could not launch user onboarding:', error));
+        });
+    }
+
+    const ONBOARDING_PRISMA_HOME = 'https://go.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns';
+
+    function openOnboardingSidePanel(path) {
+        if (onboardingAudience === 'non-prisma') return;
+        try {
+            const tab = chrome.tabs.create({ url: ONBOARDING_PRISMA_HOME });
+            tab?.catch?.(error => console.error('Could not open Prisma for the onboarding tour:', error));
+            const options = chrome.sidePanel?.setOptions?.({ path, enabled: true });
+            options?.catch?.(error => console.error('Could not prepare onboarding side panel:', error));
+            const result = chrome.sidePanel?.open?.({ windowId: chrome.windows?.WINDOW_ID_CURRENT ?? -2 });
+            result?.catch?.(error => console.error('Could not open onboarding side panel:', error));
+        } catch (error) {
+            console.error('Could not open onboarding side panel:', error);
+        }
+    }
+
+    document.getElementById('launchOnboardingTourV1Button')?.addEventListener('click', () => openOnboardingSidePanel('onboarding-tour.html'));
+    document.getElementById('launchOnboardingTourV2Button')?.addEventListener('click', () => openOnboardingSidePanel('onboarding-tour-v2.html'));
+
+    const featureSearchContainer = document.getElementById('feature-settings-search');
+    const featureSearchInput = document.getElementById('feature-settings-search-input');
+    const clearFeatureSearchButton = document.getElementById('clear-feature-settings-search');
+    const featureSearchEmpty = document.getElementById('feature-settings-search-empty');
+    const featureSections = document.querySelectorAll('#features > section');
+    addFeatureSettingPreviews();
+    setupFeaturePreviewInteractions();
+
+    const applyFeatureSearch = () => {
+        const query = featureSearchInput?.value || '';
+        const visibleSections = filterFeatureSettings(query, featureSections);
+        if (clearFeatureSearchButton) clearFeatureSearchButton.hidden = query.length === 0;
+        if (featureSearchEmpty) featureSearchEmpty.hidden = query.trim().length === 0 || visibleSections > 0;
+    };
+
+    featureSearchInput?.addEventListener('input', applyFeatureSearch);
+    featureSearchInput?.addEventListener('keydown', event => {
+        if (event.key !== 'Escape' || !featureSearchInput.value) return;
+        event.preventDefault();
+        featureSearchInput.value = '';
+        applyFeatureSearch();
+    });
+    clearFeatureSearchButton?.addEventListener('click', () => {
+        featureSearchInput.value = '';
+        applyFeatureSearch();
+        featureSearchInput.focus();
+    });
+    applyFeatureSearch();
+ 
+    // Tab switching logic 
+    const tabContainer = document.querySelector('.tab-container'); 
+    if (tabContainer) { 
+        const tabButtons = Array.from(tabContainer.querySelectorAll('.tab-button'));
+        const tabPanels = Array.from(document.querySelectorAll('[role="tabpanel"]'));
+        const defaultTab = tabButtons.find(tab => tab.classList.contains('active'))?.dataset.tab
+            || tabButtons[0]?.dataset.tab;
+
+        const getTabFromUrl = () => {
+            const requestedTab = window.location.hash.slice(1);
+            return tabButtons.some(tab => tab.dataset.tab === requestedTab)
+                ? requestedTab
+                : defaultTab;
+        };
+
+        const activateTab = (tabName, { updateUrl = false, focus = false } = {}) => {
+            const activeButton = tabButtons.find(tab => tab.dataset.tab === tabName);
+            const activePanel = document.getElementById(tabName);
+            if (!activeButton || !activePanel) return;
+
+            tabButtons.forEach(tab => {
+                tab.classList.remove('active');
+                tab.setAttribute('aria-selected', 'false');
+                tab.setAttribute('tabindex', '-1');
+            });
+            tabPanels.forEach(panel => {
+                panel.classList.remove('active');
+                panel.hidden = true;
+            });
+
+            activeButton.classList.add('active');
+            activeButton.setAttribute('aria-selected', 'true');
+            activeButton.removeAttribute('tabindex');
+            activePanel.classList.add('active');
+            activePanel.hidden = false;
+            if (featureSearchContainer) featureSearchContainer.hidden = tabName !== 'features';
+
+            if (updateUrl && window.location.hash !== `#${tabName}`) {
+                window.history.pushState({}, document.title, `#${tabName}`);
+            }
+            if (focus) activeButton.focus();
+        };
+
+        tabContainer.addEventListener('click', function(event) {
+            const clickedButton = event.target.closest('.tab-button');
+            if (!clickedButton) return;
+            activateTab(clickedButton.dataset.tab, { updateUrl: true, focus: true });
+        }); 
+
+        const syncTabFromUrl = () => activateTab(getTabFromUrl());
+        window.addEventListener('popstate', syncTabFromUrl);
+        window.addEventListener('hashchange', syncTabFromUrl);
+        syncTabFromUrl();
+        const requestedFeature = new URLSearchParams(window.location.search).get('feature');
+        const catalogueFeature = featureSettingsRegistry.FEATURE_CATALOGUE.find(item => item.id === requestedFeature);
+        const requestedControl = catalogueFeature && document.getElementById(catalogueFeature.id);
+        if (requestedControl && catalogueFeature.href.endsWith('#features')) {
+            activateTab('features');
+            requestedControl.tabIndex = 0;
+            requestedControl.scrollIntoView?.({ block: 'center' });
+            requestedControl.focus();
+        }
+    }
+
+    console.log('Settings page loaded'); 
+ 
+    // Toast Notification 
+    function showToast(message) { 
+        const toastNotification = document.getElementById('toast-notification'); 
+        const toastMessage = toastNotification.querySelector('.toast-message'); 
+        if (!toastNotification || !toastMessage) return; 
+ 
+        toastMessage.textContent = message; 
+        toastNotification.classList.add('show'); 
+ 
+        setTimeout(() => { 
+            toastNotification.classList.remove('show'); 
+            toastNotification.classList.add('hide'); 
+            setTimeout(() => { 
+                toastNotification.classList.remove('hide'); 
+            }, 500); // Cleanup hide class after animation 
+        }, 3000); // Show for 3 seconds 
+    } 
+ 
+    // General Settings 
+    // Theme Settings - Custom Dropdown Logic 
+    function initializeCustomDropdown(dropdownId, storageKey, defaultValue = 'pink', onChange = null) {
+        const dropdown = document.getElementById(dropdownId); 
+        if (!dropdown) return; 
+ 
+        const trigger = dropdown.querySelector('.dropdown-trigger'); 
+        const triggerText = trigger.querySelector('.selected-text'); 
+        const triggerColor = trigger.querySelector('.color-preview-rect'); 
+        const optionsContainer = dropdown.querySelector('.dropdown-options'); 
+        const options = dropdown.querySelectorAll('.dropdown-option'); 
+        let savedValue = defaultValue;
+        let saving = false;
+ 
+        // Accessibility Initialization 
+        trigger.setAttribute('aria-expanded', 'false'); 
+        trigger.setAttribute('aria-haspopup', 'listbox'); 
+        trigger.setAttribute('role', 'combobox'); 
+        optionsContainer.setAttribute('role', 'listbox'); 
+ 
+        options.forEach(option => { 
+            option.setAttribute('role', 'option'); 
+            option.setAttribute('tabindex', '-1'); 
+            option.setAttribute('aria-selected', 'false'); 
+        }); 
+ 
+        // Helper to update the UI 
+        function updateUI(value) { 
+            // Find the option element with this value 
+            const selectedOption = Array.from(options).find(opt => opt.dataset.value === value); 
+            if (selectedOption) { 
+                const text = selectedOption.textContent.trim(); 
+                triggerText.textContent = text; 
+ 
+                // Update trigger color class (CSP safe) 
+                if (triggerColor) triggerColor.className = 'color-preview-rect ' + value;
+ 
+                // Update selected state in options 
+                options.forEach(opt => { 
+                    opt.classList.remove('selected'); 
+                    opt.setAttribute('aria-selected', 'false'); 
+                }); 
+                selectedOption.classList.add('selected'); 
+                selectedOption.setAttribute('aria-selected', 'true'); 
+            } 
+        } 
+ 
+        function closeDropdown() { 
+            dropdown.classList.remove('active'); 
+            trigger.setAttribute('aria-expanded', 'false'); 
+            trigger.focus(); 
+        } 
+ 
+        function openDropdown() { 
+            if (dropdown.classList.contains('is-disabled')) return;
+            // Close other dropdowns first 
+            document.querySelectorAll('.custom-dropdown.active').forEach(d => { 
+                if (d !== dropdown) { 
+                    d.classList.remove('active'); 
+                    const otherTrigger = d.querySelector('.dropdown-trigger'); 
+                    if (otherTrigger) otherTrigger.setAttribute('aria-expanded', 'false'); 
+                } 
+            }); 
+            dropdown.classList.add('active'); 
+            trigger.setAttribute('aria-expanded', 'true'); 
+ 
+            // Focus current selection or first option 
+            const selected = dropdown.querySelector('.dropdown-option.selected') || options[0]; 
+            if (selected) selected.focus(); 
+        } 
+ 
+        function toggleDropdown() { 
+            if (dropdown.classList.contains('active')) { 
+                closeDropdown(); 
+            } else { 
+                openDropdown(); 
+            } 
+        } 
+ 
+        // Initialize from storage 
+        chrome.storage.sync.get(storageKey, (data) => { 
+            let storedValue = data[storageKey];
+            if (storedValue === undefined) {
+                // If specific default needs to be saved
+                storedValue = defaultValue;
+                chrome.storage.sync.set({ [storageKey]: storedValue });
+            }
+            savedValue = storedValue;
+            updateUI(storedValue);
+            if (onChange) onChange(storedValue);
+        }); 
+ 
+        // Toggle dropdown open/close on click 
+        trigger.addEventListener('click', (e) => { 
+            e.stopPropagation(); 
+            if (dropdown.classList.contains('is-disabled')) return;
+            toggleDropdown(); 
+        }); 
+ 
+        // Trigger Keyboard Events 
+        trigger.addEventListener('keydown', (e) => { 
+            if (dropdown.classList.contains('is-disabled')) return;
+            if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown' || e.key === 'ArrowUp') { 
+                e.preventDefault(); 
+                openDropdown(); 
+            } 
+        }); 
+ 
+        // Handle option selection 
+        options.forEach((option, index) => { 
+            const selectOption = () => { 
+                if (dropdown.classList.contains('is-disabled') || saving) return;
+                const value = option.dataset.value; 
+                updateUI(value); 
+                saving = true;
+                let settled = false;
+                const finish = saved => {
+                    if (settled) return;
+                    settled = true;
+                    saving = false;
+                    if (!saved) { updateUI(savedValue); showSettingsSaveFailure(); return; }
+                    savedValue = value;
+                    console.log(`${storageKey} saved:`, value);
+                    if (onChange) onChange(value);
+                };
+                try {
+                    const result = chrome.storage.sync.set({ [storageKey]: value }, () => finish(!chrome.runtime.lastError));
+                    result?.then?.(() => finish(true), () => finish(false));
+                }
+                catch { finish(false); }
+                closeDropdown(); 
+            }; 
+ 
+            option.addEventListener('click', (e) => { 
+                e.stopPropagation(); 
+                selectOption(); 
+            }); 
+ 
+            option.addEventListener('keydown', (e) => { 
+                if (e.key === 'Enter' || e.key === ' ') { 
+                    e.preventDefault(); 
+                    selectOption(); 
+                } else if (e.key === 'Escape') { 
+                    e.preventDefault(); 
+                    closeDropdown(); 
+                } else if (e.key === 'ArrowDown') { 
+                    e.preventDefault(); 
+                    const nextIndex = (index + 1) % options.length; 
+                    options[nextIndex].focus(); 
+                } else if (e.key === 'ArrowUp') { 
+                    e.preventDefault(); 
+                    const prevIndex = (index - 1 + options.length) % options.length; 
+                    options[prevIndex].focus(); 
+                } 
+            }); 
+        }); 
+
+        dropdown.addEventListener('custom-dropdown:set-value', (event) => {
+            savedValue = event.detail;
+            updateUI(event.detail);
+        });
+    } 
+
+    function initializeSegmentedControl(controlId, storageKey, defaultValue, initialSettings, codec = {}) {
+        const control = document.getElementById(controlId);
+        if (!control) return;
+
+        const buttons = Array.from(control.querySelectorAll('button[data-value]'));
+        let savedValue = initialSettings[storageKey] ?? defaultValue;
+        let saving = false;
+        const updateUI = (value) => {
+            const uiValue = codec.toUi ? codec.toUi(value) : value;
+            const validValue = buttons.some(button => button.dataset.value === uiValue) ? uiValue : defaultValue;
+            buttons.forEach(button => {
+                const selected = button.dataset.value === validValue;
+                button.classList.toggle('is-selected', selected);
+                button.setAttribute('aria-pressed', String(selected));
+                button.tabIndex = selected ? 0 : -1;
+            });
+        };
+
+        const selectValue = (value) => {
+            if (control.classList.contains('is-disabled') || saving) return;
+            updateUI(value);
+            const storedValue = codec.toStored ? codec.toStored(value) : value;
+            saving = true;
+            control.setAttribute('aria-busy', 'true');
+            let settled = false;
+            const finish = saved => {
+                if (settled) return;
+                settled = true;
+                saving = false;
+                control.removeAttribute('aria-busy');
+                if (!saved) { updateUI(savedValue); showSettingsSaveFailure(); return; }
+                savedValue = storedValue;
+                console.log(`${storageKey} saved:`, value);
+            };
+            try {
+                const result = chrome.storage.sync.set({ [storageKey]: storedValue }, () => finish(!chrome.runtime.lastError));
+                result?.then?.(() => finish(true), () => finish(false));
+            }
+            catch { finish(false); }
+        };
+
+        updateUI(initialSettings[storageKey] ?? defaultValue);
+
+        buttons.forEach((button, index) => {
+            button.addEventListener('click', () => selectValue(button.dataset.value));
+            button.addEventListener('keydown', (event) => {
+                if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+                event.preventDefault();
+                const offset = event.key === 'ArrowRight' ? 1 : -1;
+                const nextIndex = (index + offset + buttons.length) % buttons.length;
+                selectValue(buttons[nextIndex].dataset.value);
+                buttons[nextIndex].focus();
+            });
+        });
+
+        control.addEventListener('segmented-control:set-value', (event) => {
+            savedValue = event.detail;
+            updateUI(event.detail);
+        });
+    }
+ 
+    // Close dropdown when clicking outside (Global Listener) 
+    document.addEventListener('click', (e) => { 
+        document.querySelectorAll('.custom-dropdown.active').forEach(dropdown => { 
+            if (!dropdown.contains(e.target)) { 
+                dropdown.classList.remove('active'); 
+                const trigger = dropdown.querySelector('.dropdown-trigger'); 
+                if (trigger) trigger.setAttribute('aria-expanded', 'false'); 
+            } 
+        }); 
+    }); 
+ 
+    // Initialize theme and two-choice settings controls.
+    // DROPDOWN ROLLBACK:
+    // 1. Restore the commented dropdown markup beside each segmented control in settings.html.
+    // 2. Replace the uiThemeSegmented call with:
+    //    initializeCustomDropdown('uiThemeDropdown', 'uiTheme', 'pink');
+    // 3. Replace the autoCopyUrlModeSegmented call with:
+    //    initializeCustomDropdown('autoCopyUrlModeDropdown', 'autoCopyUrlMode', 'short');
+    // 4. In the URL enable/sync block below, rename autoCopyUrlModeSegmented to
+    //    autoCopyUrlModeDropdown and restore the dropdown is-disabled/custom-dropdown:set-value handling.
+    initializeSegmentedControl('uiThemeSegmented', 'uiTheme', 'pink', settings);
+    initializeSegmentedControl('reminderThemeSegmented', 'reminderTheme', 'pink', settings);
+    initializeSegmentedControl('autoCopyUrlModeSegmented', 'autoCopyUrlMode', 'short', settings);
+    initializeSegmentedControl('loadingFactsUI', 'loadingFactsUI', 'new', settings);
+    initializeSegmentedControl('metaFinanceToolSegmented', 'metaFinanceToolMode', 'social', settings);
+    initializeSegmentedControl('recciesAppearanceSegmented', 'recciesV2Enabled', 'v2', settings, {
+        toUi: value => value === false || value === 'v1' ? 'v1' : 'v2',
+        toStored: value => value === 'v2'
+    });
+
+    const logoToggle = document.getElementById('logoToggle');
+    if (logoToggle) {
+        logoToggle.checked = settings.logoReplaceEnabled;
+        syncedToggleValues.set('logoReplaceEnabled', logoToggle.checked);
+        logoToggle.addEventListener('change', function() {
+            const isEnabled = this.checked;
+            this.disabled = true;
+            saveSettingsValue({logoReplaceEnabled: isEnabled}, () => {
+                this.disabled = false;
+                syncedToggleValues.set('logoReplaceEnabled', isEnabled);
+                console.log('Logo replacement setting saved:', isEnabled);
+                chrome.tabs.query({url: ["https://*.mediaocean.com/*"]}, (tabs) => {
+                    tabs.forEach(tab => {
+                        if (tab.id) chrome.tabs.sendMessage(tab.id, { action: "checkLogoReplaceEnabled", enabled: isEnabled })
+                            .catch(error => {
+                                if (!isMissingContentScriptReceiverError(error)) {
+                                    console.error("Unexpected error sending logo toggle message to tab ID " + tab.id + ":", error);
+                                }
+                            });
+                    });
+                });
+            }, () => { this.disabled = false; this.checked = syncedToggleValues.get('logoReplaceEnabled'); });
+        });
+    }
+    setupToggle('appLearnReplaceToggle', 'appLearnReplaceEnabled', 'AppLearn transparency setting saved:', settings);
+    setupToggle('blockAppLearnPopupsToggle', 'blockAppLearnPopupsEnabled', 'AppLearn popup blocking setting saved:', settings);
+    setupToggle('helpGuidesToggle', 'helpGuidesEnabled', 'Help Guides setting saved:', settings);
+    setupToggle('legacyPrismaRedirectToggle', 'legacyPrismaRedirectEnabled', 'Legacy Prisma URL redirect setting saved:', settings);
+    setupToggle('prismaLoginAssistantToggle', 'prismaLoginAssistantEnabled', 'Prisma sign-in assistant setting saved:', settings);
+
+    const prismaLoginAssistantToggle = document.getElementById('prismaLoginAssistantToggle');
+    const prismaLoginAssistantOptions = document.getElementById('prisma-login-assistant-options');
+    const prismaLoginAssistantEmail = document.getElementById('prismaLoginAssistantEmail');
+    const prismaLoginAssistantOrganisation = document.getElementById('prismaLoginAssistantOrganisation');
+    const updatePrismaLoginAssistantOptions = () => {
+        if (!prismaLoginAssistantOptions || !prismaLoginAssistantToggle) return;
+        prismaLoginAssistantOptions.hidden = !prismaLoginAssistantToggle.checked;
+    };
+    if (prismaLoginAssistantToggle) {
+        updatePrismaLoginAssistantOptions();
+        prismaLoginAssistantToggle.addEventListener('change', updatePrismaLoginAssistantOptions);
+        prismaLoginAssistantToggle.addEventListener('change', () => {
+            chrome.storage.local.set({ prismaLoginAssistantEnabledLocal: prismaLoginAssistantToggle.checked });
+        });
+    }
+    if (prismaLoginAssistantToggle && prismaLoginAssistantEmail && prismaLoginAssistantOrganisation) {
+        chrome.storage.local.get({
+            prismaLoginAssistantEnabledLocal: null,
+            prismaLoginAssistantEmail: '',
+            prismaLoginAssistantOrganisation: 'WPP Media UK Agency Owner United Kingdom'
+        }, localSettings => {
+            if (localSettings.prismaLoginAssistantEnabledLocal !== null) {
+                prismaLoginAssistantToggle.checked = localSettings.prismaLoginAssistantEnabledLocal === true;
+                updatePrismaLoginAssistantOptions();
+            }
+            prismaLoginAssistantEmail.value = localSettings.prismaLoginAssistantEmail || '';
+            prismaLoginAssistantOrganisation.value = localSettings.prismaLoginAssistantOrganisation || 'WPP Media UK Agency Owner United Kingdom';
+        });
+        const savePrismaLoginAssistantDetails = () => {
+            chrome.storage.local.set({
+                prismaLoginAssistantEmail: prismaLoginAssistantEmail.value.trim(),
+                prismaLoginAssistantOrganisation: prismaLoginAssistantOrganisation.value.trim()
+            });
+        };
+        prismaLoginAssistantEmail.addEventListener('change', savePrismaLoginAssistantDetails);
+        prismaLoginAssistantOrganisation.addEventListener('change', savePrismaLoginAssistantDetails);
+    }
+    setupToggle('approverSidebarEnhancementsToggle', 'approverSidebarEnhancementsEnabled', 'Approver Sidebar Enhancements setting saved:', settings);
+    setupToggle('approverSubmittedRecipientDisplayToggle', 'approverSubmittedRecipientDisplayEnabled', 'Submitted approval recipients setting saved:', settings);
+    setupToggle('approvalTrackingToggle', 'approvalTrackingEnabled', 'Approval Tracking setting saved:', settings);
+    setupToggle('approvalBannerIndicatorToggle', 'approvalBannerIndicatorEnabled', 'Approval Banner Indicator setting saved:', settings);
+    setupToggle('approvalToastNotificationToggle', 'approvalToastNotificationEnabled', 'Approval Toast Notification setting saved:', settings);
+    setupToggle('actualiseBulkExportToggle', 'actualiseBulkExportEnabled', 'Actualise bulk export setting saved:', settings);
+ 
+    // Prisma Reminders 
+    const prismaReminderFrequency = document.getElementById('prismaReminderFrequency');
+    const prismaCountdownDuration = document.getElementById('prismaCountdownDuration');
+    const reminderSelectValues = new Map();
+
+    // Load and save settings for Prisma Reminders 
+    if (prismaReminderFrequency && prismaCountdownDuration) { 
+        prismaReminderFrequency.value = settings.prismaReminderFrequency;
+        prismaCountdownDuration.value = settings.prismaCountdownDuration;
+
+        for (const [control, key] of [[prismaReminderFrequency, 'prismaReminderFrequency'], [prismaCountdownDuration, 'prismaCountdownDuration']]) {
+            reminderSelectValues.set(key, control.value);
+            control.addEventListener('change', () => {
+                const value = control.value;
+                control.disabled = true;
+                saveSettingsValue({ [key]: value }, () => {
+                    control.disabled = false;
+                    reminderSelectValues.set(key, value);
+                    console.log(`${key} saved:`, value);
+                }, () => { control.disabled = false; control.value = reminderSelectValues.get(key); });
+            });
+        }
+    }
+
+    const resetRemindersButton = document.getElementById('resetRemindersButton');
+    if (resetRemindersButton) {
+        resetRemindersButton.addEventListener('click', () => {
+            chrome.storage.local.remove(['metaReminderLastShown', 'iasReminderLastShown'], () => {
+                if (chrome.runtime.lastError) {
+                    console.error('Error clearing reminder timestamps:', chrome.runtime.lastError);
+                } else {
+                    console.log('Reminder timestamps cleared from local storage.');
+                }
+            });
+            const defaultSettings = {
+                prismaReminderFrequency: 'daily',
+                prismaCountdownDuration: '5'
+            };
+            chrome.storage.sync.set(defaultSettings, () => {
+                if (chrome.runtime.lastError) {
+                    showToast('An error occurred while resetting reminder settings.');
+                } else {
+                    if (prismaReminderFrequency) prismaReminderFrequency.value = 'daily';
+                    if (prismaCountdownDuration) prismaCountdownDuration.value = '5';
+                    reminderSelectValues.set('prismaReminderFrequency', 'daily');
+                    reminderSelectValues.set('prismaCountdownDuration', '5');
+                    showToast('Prisma reminders have been reset.');
+                }
+            });
+        });
+    }
+
+    setupToggle('metaReminderToggle', 'metaReminderEnabled', 'Meta reminder setting saved:', settings);
+    setupToggle('iasReminderToggle', 'iasReminderEnabled', 'IAS reminder setting saved:', settings);
+
+    const triggerMetaReminderButton = document.getElementById('triggerMetaReminder'); 
+    if (triggerMetaReminderButton) { 
+        triggerMetaReminderButton.addEventListener('click', () => { 
+            const countdownDuration = parseInt(prismaCountdownDuration.value, 10); 
+            showTestReminderPopup({ 
+                popupId: 'meta-reminder-popup', 
+                overlayId: 'meta-reminder-overlay', 
+                content: window.utils.builtInReminders.meta,
+                closeButtonId: 'meta-reminder-close', 
+                hasCountdown: countdownDuration > 0, 
+                countdownSeconds: countdownDuration 
+            }); 
+        }); 
+    } 
+
+    const triggerIasReminderButton = document.getElementById('triggerIasReminder'); 
+    if (triggerIasReminderButton) { 
+        triggerIasReminderButton.addEventListener('click', () => { 
+            const countdownDuration = parseInt(prismaCountdownDuration.value, 10); 
+            showTestReminderPopup({ 
+                popupId: 'ias-reminder-popup', 
+                overlayId: 'ias-reminder-overlay', 
+                content: window.utils.builtInReminders.ias,
+                closeButtonId: 'ias-reminder-close', 
+                hasCountdown: countdownDuration > 0, 
+                countdownSeconds: countdownDuration 
+            }); 
+        }); 
+    }
+    // Live Chat Enhancements 
+    setupToggle('fontSizeToggle', 'fontSizeToggleEnabled', 'Font Size Toggle setting saved:', settings);
+    setupToggle('resizableChatToggle', 'resizableChatToggleEnabled', 'Resizable Chat setting saved:', settings);
+    setupToggle('moeChatMediaAutoSelectToggle', 'moeChatMediaAutoSelectEnabled', 'Moe media auto-select setting saved:', settings);
+ 
+    // Campaign Management Settings 
+    setupToggle('addCampaignShortcutToggle', 'addCampaignShortcutEnabled', 'Add Campaign shortcut setting saved:', settings);
+    setupToggle('hidingSectionsToggle', 'hidingSectionsEnabled', 'Hiding Sections setting saved:', settings);
+    setupToggle('automateFormFieldsToggle', 'automateFormFieldsEnabled', 'Automate Form Fields setting saved:', settings);
+    setupToggle('countPlacementsSelectedToggle', 'countPlacementsSelectedEnabled', 'Count Placements Selected setting saved:', settings);
+    setupToggle('swapAccountsToggle', 'swapAccountsEnabled', 'Switch Accounts setting saved:', settings);
+    setupToggle('rememberAccountSwitchUrlToggle', 'rememberAccountSwitchUrlEnabled', 'Remember page after account switch setting saved:', settings);
+    setupToggle('bannerUsernameToggle', 'bannerUsernameEnabled', 'Prisma banner username setting saved:', settings);
+
+    setupToggle('seeCommentsOnLockedBuysToggle', 'alwaysShowCommentsEnabled', 'See Comments on Locked Buys setting saved:', settings);
+    setupToggle('orderIdCopyToggle', 'orderIdCopyEnabled', 'Order ID Copy setting saved:', settings);
+    setupToggle('maxCampaignBudgetToggle', 'maxCampaignBudgetEnabled', 'Max Campaign Budget setting saved:', settings);
+    setupToggle('newOrderUiOptimisationToggle', 'newOrderUiOptimisationEnabled', 'New Order UI Optimisation setting saved:', settings);
+    setupToggle('ordersShortcutToggle', 'ordersShortcutEnabled', 'Orders shortcut setting saved:', settings);
+    setupToggle('actualiseShortcutToggle', 'actualiseShortcutEnabled', 'Actualise shortcut setting saved:', settings);
+    setupToggle('approverWidgetPlacementToggle', 'approverWidgetPlacementEnabled', 'Approver Widget placement setting saved:', settings);
+    setupToggle('campaignHistoryToggle', 'campaignHistoryEnabled', 'Campaign History setting saved:', settings);
+    setupToggle('campaignHistoryLoggingToggle', 'campaignHistoryLoggingEnabled', 'Campaign History logging setting saved:', settings);
+    setupToggle('dstAssuranceToggle', 'dstAssuranceEnabled', 'DST Assurance setting saved:', settings);
+    setupToggle('actualiseMonthAssuranceToggle', 'actualiseMonthAssuranceEnabled', 'Actualise month assurance setting saved:', settings);
+    setupToggle('productCodeLimitWarningToggle', 'productCodeLimitWarningEnabled', 'Product Code Limit Warning setting saved:', settings);
+    setupToggle('campaignPoAutofillToggle', 'campaignPoAutofillEnabled', 'Purchase order autofill setting saved:', settings);
+
+    const PRODUCT_CODE_WARNING_IGNORE_STORAGE_KEY = 'productCodeLimitWarningIgnored';
+    const resetProductCodeWarningIgnoredButton = document.getElementById('resetProductCodeWarningIgnoredButton');
+    const productCodeWarningIgnoredStatus = document.getElementById('productCodeWarningIgnoredStatus');
+
+    const updateProductCodeWarningIgnoredStatus = () => {
+        if (!resetProductCodeWarningIgnoredButton || !productCodeWarningIgnoredStatus) return;
+
+        chrome.storage.local.get(PRODUCT_CODE_WARNING_IGNORE_STORAGE_KEY, data => {
+            if (chrome.runtime.lastError) {
+                resetProductCodeWarningIgnoredButton.disabled = true;
+                productCodeWarningIgnoredStatus.textContent = 'Ignored-warning status is unavailable.';
+                return;
+            }
+
+            const ignored = Array.isArray(data?.[PRODUCT_CODE_WARNING_IGNORE_STORAGE_KEY])
+                ? data[PRODUCT_CODE_WARNING_IGNORE_STORAGE_KEY]
+                : [];
+            const count = ignored.length;
+            resetProductCodeWarningIgnoredButton.disabled = count === 0;
+            productCodeWarningIgnoredStatus.textContent = count === 0
+                ? 'No ignored warnings saved.'
+                : `${count} ignored warning${count === 1 ? '' : 's'} saved.`;
+        });
+    };
+
+    const refreshOpenProductCodeWarningTabs = () => {
+        chrome.tabs.query({ url: ['https://*.mediaocean.com/*'] }, tabs => {
+            (tabs || []).forEach(tab => {
+                if (!Number.isInteger(tab?.id)) return;
+                try {
+                    const result = chrome.tabs.sendMessage(tab.id, {
+                        action: 'resetProductCodeLimitWarningIgnores'
+                    });
+                    result?.catch?.(() => {});
+                } catch (error) {
+                    // Tabs without the content script can be ignored.
+                }
+            });
+        });
+    };
+
+    resetProductCodeWarningIgnoredButton?.addEventListener('click', () => {
+        showConfirmationPopup({
+            title: 'Reset ignored warnings?',
+            message: 'This will show Product Code Limit Warning again for every product code you previously ignored. It does not change the feature toggle.',
+            confirmText: 'Reset warnings',
+            cancelText: 'Keep ignored',
+            onConfirm: () => {
+                chrome.storage.local.remove(PRODUCT_CODE_WARNING_IGNORE_STORAGE_KEY, () => {
+                    if (chrome.runtime.lastError) {
+                        showToast('Could not reset ignored product-code warnings.');
+                        return;
+                    }
+
+                    refreshOpenProductCodeWarningTabs();
+                    updateProductCodeWarningIgnoredStatus();
+                    showToast('Ignored product-code warnings reset.');
+                });
+            }
+        });
+    });
+    updateProductCodeWarningIgnoredStatus();
+
+    setupToggle('quickCampaignActionsToggle', 'quickCampaignActionsEnabled', 'Quick campaign actions setting saved:', settings);
+    setupToggle('budgetWidgetOptimisedToggle', 'budgetWidgetOptimisedEnabled', 'Budget widget optimisation setting saved:', settings);
+    setupToggle('campaignNameQuickCopyToggle', 'campaignNameQuickCopyEnabled', 'Campaign name quick copy setting saved:', settings);
+    setupToggle('campaignHeaderQuickCopyToggle', 'campaignHeaderQuickCopyEnabled', 'Campaign header quick copy setting saved:', settings);
+    setupToggle('campaignDateShortcutToggle', 'campaignDateShortcutEnabled', 'Campaign date shortcut setting saved:', settings);
+    setupToggle('actualiseScrollRestoreToggle', 'actualiseScrollRestoreEnabled', 'Actualise scroll restoration setting saved:', settings);
+    setupToggle('actualiseNavbarToggle', 'actualiseNavbarEnabled', 'Actualise navigation bar setting saved:', settings);
+    setupToggle('campaignTabTitleToggle', 'campaignTabTitleEnabled', 'Campaign tab title setting saved:', settings);
+    setupToggle('planToBuyRedirectToggle', 'planToBuyRedirectEnabled', 'Plan to Buy redirect setting saved:', settings);
+    setupToggle('gmiChatShortcutToggle', 'gmiChatShortcutEnabled', 'GMI Chat Shortcut setting saved:', settings);
+    setupToggle('autoCopyUrlToggle', 'autoCopyUrlEnabled', 'Auto Copy URL setting saved:', settings);
+    setupToggle('loadingFactsToggle', 'loadingFactsEnabled', 'Show Loading Facts setting saved:', settings);
+
+    setupToggle('orderGridScrollSyncToggle', 'orderGridScrollSyncEnabled', 'Order grid header alignment setting saved:', settings);
+
+    const loadingFactSummary = document.getElementById('loadingFactSummary');
+    const loadingFactReviewList = document.getElementById('loadingFactReviewList');
+    const exportLoadingFactRatings = document.getElementById('exportLoadingFactRatings');
+    const loadingFacts = Array.isArray(window.LOADING_FACTS) ? window.LOADING_FACTS : [];
+
+    const getLoadingFactRatings = () => new Promise(resolve => {
+        chrome.storage.local.get('loadingFactRatings', data => resolve(data.loadingFactRatings || {}));
+    });
+
+    const saveLoadingFactRating = async (fact, rating) => {
+        const ratings = await getLoadingFactRatings();
+        const nextRatings = { ...ratings };
+        if (rating) nextRatings[fact] = rating;
+        else delete nextRatings[fact];
+        chrome.storage.local.set({ loadingFactRatings: nextRatings });
+        return nextRatings;
+    };
+
+    const renderLoadingFactReview = async () => {
+        if (!loadingFactSummary || !loadingFactReviewList) return;
+        const ratings = await getLoadingFactRatings();
+        const groups = [
+            { key: 'remove', title: 'Remove', facts: loadingFacts.filter(fact => ratings[fact] === 'remove') },
+            { key: 'notSure', title: 'Not sure', facts: loadingFacts.filter(fact => ratings[fact] === 'notSure') },
+            { key: 'unrated', title: 'Unrated', facts: loadingFacts.filter(fact => !ratings[fact]) }
+        ];
+
+        loadingFactSummary.replaceChildren(...groups.map(group => {
+            const summary = document.createElement('span');
+            summary.textContent = `${group.title}: ${group.facts.length}`;
+            return summary;
+        }));
+        loadingFactReviewList.replaceChildren();
+
+        groups.forEach(group => {
+            const heading = document.createElement('h3');
+            heading.className = 'loading-fact-review-heading';
+            heading.textContent = `${group.title} (${group.facts.length})`;
+            loadingFactReviewList.appendChild(heading);
+
+            group.facts.forEach(fact => {
+                const row = document.createElement('article');
+                row.className = `loading-fact-review-row loading-fact-review-row--${group.key}`;
+
+                const text = document.createElement('p');
+                text.textContent = fact;
+                row.appendChild(text);
+
+                const controls = document.createElement('div');
+                controls.className = 'loading-fact-rating-controls';
+                [
+                    { value: '', label: 'Unrated' },
+                    { value: 'notSure', label: 'Not sure' },
+                    { value: 'remove', label: 'Remove' }
+                ].forEach(option => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.textContent = option.label;
+                    button.classList.toggle('is-selected', (ratings[fact] || '') === option.value);
+                    button.setAttribute('aria-pressed', String((ratings[fact] || '') === option.value));
+                    button.addEventListener('click', async () => {
+                        await saveLoadingFactRating(fact, option.value);
+                        await renderLoadingFactReview();
+                    });
+                    controls.appendChild(button);
+                });
+                row.appendChild(controls);
+                loadingFactReviewList.appendChild(row);
+            });
+        });
+    };
+
+    document.getElementById('tab-loading-facts')?.addEventListener('click', renderLoadingFactReview);
+
+    exportLoadingFactRatings?.addEventListener('click', async () => {
+        const ratings = await getLoadingFactRatings();
+        const exportData = {
+            format: 'ops-toolshed-loading-fact-ratings',
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            ratings: loadingFacts
+                .filter(fact => ratings[fact])
+                .map(fact => ({ fact, rating: ratings[fact] })),
+            summary: {
+                remove: loadingFacts.filter(fact => ratings[fact] === 'remove').length,
+                notSure: loadingFacts.filter(fact => ratings[fact] === 'notSure').length,
+                unrated: loadingFacts.filter(fact => !ratings[fact]).length
+            }
+        };
+        const url = URL.createObjectURL(new Blob([JSON.stringify(exportData, null, 2)], {
+            type: 'application/json'
+        }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'ops-toolshed-loading-fact-ratings.json';
+        link.click();
+        URL.revokeObjectURL(url);
+    });
+    renderLoadingFactReview();
+
+    const autoCopyUrlToggle = document.getElementById('autoCopyUrlToggle');
+    const autoCopyUrlModeSegmented = document.getElementById('autoCopyUrlModeSegmented');
+    const autoCopyUrlSubOptions = document.getElementById('autoCopyUrlSubOptions');
+    const setAutoCopyUrlSubOptionsEnabled = (enabled) => {
+        if (autoCopyUrlModeSegmented) {
+            autoCopyUrlModeSegmented.classList.toggle('is-disabled', !enabled);
+            autoCopyUrlModeSegmented.setAttribute('aria-disabled', String(!enabled));
+            autoCopyUrlModeSegmented.querySelectorAll('button').forEach(button => {
+                button.disabled = !enabled;
+            });
+        }
+        if (autoCopyUrlSubOptions) {
+            autoCopyUrlSubOptions.classList.toggle('is-disabled', !enabled);
+            autoCopyUrlSubOptions.setAttribute('aria-disabled', String(!enabled));
+        }
+    };
+
+    if (autoCopyUrlModeSegmented) {
+        setAutoCopyUrlSubOptionsEnabled(settings.autoCopyUrlEnabled);
+    }
+
+    autoCopyUrlToggle?.addEventListener('change', () => {
+        setAutoCopyUrlSubOptionsEnabled(autoCopyUrlToggle.checked);
+    });
+    autoCopyUrlToggle?.addEventListener('settings-save-reverted', () => {
+        setAutoCopyUrlSubOptionsEnabled(autoCopyUrlToggle.checked);
+    });
+
+    // Keep an already-open Settings page in sync with changes made by the
+    // popup kill switch or any other extension surface.
+    chrome.storage.onChanged.addListener((changes, area) => {
+        if (area !== 'sync') return;
+        if (changes.allFeaturesDisabled) {
+            setSettingsFeatureMode(changes.allFeaturesDisabled.newValue !== true);
+        }
+        if (changes.onboardingAudience) showOnboardingAudience(changes.onboardingAudience.newValue);
+
+        syncedToggleInputs.forEach((input, storageKey) => {
+            if (!changes[storageKey]) return;
+            input.checked = changes[storageKey].newValue !== false;
+            syncedToggleValues.set(storageKey, input.checked);
+        });
+        for (const [id, key] of [['logoToggle', 'logoReplaceEnabled'], ['timesheetReminderToggle', 'timesheetReminderEnabled']]) {
+            const input = document.getElementById(id);
+            if (!input || !changes[key]) continue;
+            input.checked = changes[key].newValue === true;
+            syncedToggleValues.set(key, input.checked);
+            if (key === 'timesheetReminderEnabled') {
+                const section = document.getElementById('timesheetReminderSettings');
+                if (section) section.style.display = input.checked ? 'block' : 'none';
+            }
+        }
+        for (const [control, key] of [[prismaReminderFrequency, 'prismaReminderFrequency'], [prismaCountdownDuration, 'prismaCountdownDuration']]) {
+            if (!control || !changes[key]) continue;
+            control.value = String(changes[key].newValue ?? '');
+            reminderSelectValues.set(key, control.value);
+        }
+
+        if (changes.autoCopyUrlEnabled) {
+            setAutoCopyUrlSubOptionsEnabled(changes.autoCopyUrlEnabled.newValue !== false);
+        }
+        if (changes.autoCopyUrlMode && autoCopyUrlModeSegmented) {
+            autoCopyUrlModeSegmented.dispatchEvent(new CustomEvent('segmented-control:set-value', {
+                detail: changes.autoCopyUrlMode.newValue === 'full' ? 'full' : 'short'
+            }));
+        }
+        if (changes.uiTheme) {
+            document.getElementById('uiThemeSegmented')?.dispatchEvent(new CustomEvent('segmented-control:set-value', {
+                detail: changes.uiTheme.newValue === 'black' ? 'black' : 'pink'
+            }));
+        }
+        if (changes.reminderTheme) {
+            document.getElementById('reminderThemeSegmented')?.dispatchEvent(new CustomEvent('segmented-control:set-value', {
+                detail: changes.reminderTheme.newValue === 'black' ? 'black' : 'pink'
+            }));
+        }
+        if (changes.recciesV2Enabled) {
+            document.getElementById('recciesAppearanceSegmented')?.dispatchEvent(new CustomEvent('segmented-control:set-value', {
+                detail: changes.recciesV2Enabled.newValue !== false
+            }));
+        }
+        if (changes.loadingFactsUI) {
+            document.getElementById('loadingFactsUI')?.dispatchEvent(new CustomEvent('segmented-control:set-value', { detail: changes.loadingFactsUI.newValue === 'old' ? 'old' : 'new' }));
+        }
+        if (changes.metaFinanceToolMode) {
+            document.getElementById('metaFinanceToolSegmented')?.dispatchEvent(new CustomEvent('segmented-control:set-value', {
+                detail: changes.metaFinanceToolMode.newValue === 'legacy' ? 'legacy' : 'social'
+            }));
+        }
+    });
+
+    document.getElementById('resetFeatureSettingsButton')?.addEventListener('click', () => {
+        showConfirmationPopup({
+            title: 'Restore default settings?',
+            message: 'This resets the Features tab only. Reminder settings, custom reminders, collected statistics and Loading Fact feedback will not be changed.',
+            confirmText: 'Restore defaults',
+            cancelText: 'Cancel',
+            onConfirm: () => {
+                chrome.storage.sync.set(FEATURE_SETTINGS_DEFAULTS, () => {
+                    if (chrome.runtime.lastError) {
+                        showToast('Could not restore default settings.');
+                        return;
+                    }
+
+                    Object.assign(settings, FEATURE_SETTINGS_DEFAULTS);
+                    popupShortcutEditor?.refresh();
+                    syncedToggleInputs.forEach((input, storageKey) => {
+                        if (Object.prototype.hasOwnProperty.call(FEATURE_SETTINGS_DEFAULTS, storageKey)) {
+                            input.checked = FEATURE_SETTINGS_DEFAULTS[storageKey] !== false;
+                            syncedToggleValues.set(storageKey, input.checked);
+                        }
+                    });
+                    setAutoCopyUrlSubOptionsEnabled(FEATURE_SETTINGS_DEFAULTS.autoCopyUrlEnabled);
+                    [
+                        ['uiThemeSegmented', FEATURE_SETTINGS_DEFAULTS.uiTheme],
+                        ['autoCopyUrlModeSegmented', FEATURE_SETTINGS_DEFAULTS.autoCopyUrlMode],
+                        ['metaFinanceToolSegmented', FEATURE_SETTINGS_DEFAULTS.metaFinanceToolMode],
+                        ['loadingFactsUI', FEATURE_SETTINGS_DEFAULTS.loadingFactsUI],
+                        ['recciesAppearanceSegmented', FEATURE_SETTINGS_DEFAULTS.recciesV2Enabled]
+                    ].forEach(([controlId, value]) => {
+                        document.getElementById(controlId)?.dispatchEvent(new CustomEvent('segmented-control:set-value', {
+                            detail: value
+                        }));
+                    });
+                    showToast('Feature settings restored to defaults.');
+                });
+            }
+        });
+    });
+
+    const diagnosticsModeToggle = document.getElementById('diagnosticsModeToggle');
+    const diagnosticsModeStatus = document.getElementById('diagnosticsModeStatus');
+    const exportDiagnosticsButton = document.getElementById('exportDiagnosticsButton');
+    const clearDiagnosticsButton = document.getElementById('clearDiagnosticsButton');
+
+    const updateDiagnosticsStatus = report => {
+        if (!diagnosticsModeStatus) return;
+        const eventCount = Array.isArray(report?.events) ? report.events.length : 0;
+        const hasSavedEvents = eventCount > 0;
+        if (exportDiagnosticsButton) exportDiagnosticsButton.disabled = !hasSavedEvents;
+        if (clearDiagnosticsButton) clearDiagnosticsButton.disabled = !hasSavedEvents;
+        if (report?.active && report.expiresAt) {
+            const expiresAt = new Date(report.expiresAt);
+            const expiryLabel = expiresAt.toLocaleString(undefined, {
+                dateStyle: 'medium',
+                timeStyle: 'short'
+            });
+            diagnosticsModeStatus.textContent = `Active until ${expiryLabel} or until Chrome restarts, whichever comes first.`;
+            return;
+        }
+        diagnosticsModeStatus.textContent = eventCount > 0
+            ? `Off. ${eventCount} saved diagnostic event${eventCount === 1 ? '' : 's'} available to export or clear.`
+            : 'Off. No diagnostic events are being recorded.';
+    };
+
+    const refreshDiagnosticsState = async () => {
+        try {
+            const response = await chrome.runtime.sendMessage({ action: 'GET_DIAGNOSTIC_REPORT' });
+            if (response?.status !== 'success' || !response.report) return;
+            diagnosticsModeToggle.checked = response.report.active === true;
+            settings.diagnosticsModeEnabled = response.report.active === true;
+            updateDiagnosticsStatus(response.report);
+        } catch (error) {
+            diagnosticsModeStatus.textContent = 'Diagnostics status is unavailable.';
+        }
+    };
+
+    if (diagnosticsModeToggle) {
+        syncedToggleInputs.set('diagnosticsModeEnabled', diagnosticsModeToggle);
+        diagnosticsModeToggle.checked = settings.diagnosticsModeEnabled === true;
+        diagnosticsModeToggle.addEventListener('change', async function() {
+            const requestedState = this.checked;
+            this.disabled = true;
+            try {
+                const response = await chrome.runtime.sendMessage({
+                    action: 'SET_DIAGNOSTICS_MODE',
+                    enabled: requestedState
+                });
+                if (response?.status !== 'success') throw new Error('Diagnostics update failed.');
+                settings.diagnosticsModeEnabled = response.enabled === true;
+                this.checked = response.enabled === true;
+                await refreshDiagnosticsState();
+                if (diagnosticsModeStatus?.isConnected) {
+                    showToast(this.checked ? 'Diagnostics Mode enabled.' : 'Diagnostics Mode disabled.');
+                }
+            } catch (error) {
+                this.checked = !requestedState;
+                if (diagnosticsModeStatus?.isConnected) showToast('Could not update Diagnostics Mode.');
+            } finally {
+                this.disabled = false;
+            }
+        });
+        refreshDiagnosticsState();
+    }
+
+    exportDiagnosticsButton?.addEventListener('click', async () => {
+        try {
+            const response = await chrome.runtime.sendMessage({ action: 'GET_DIAGNOSTIC_REPORT' });
+            if (response?.status !== 'success' || !response.report) throw new Error('Diagnostics export failed.');
+            const exportData = {
+                ...response.report,
+                extensionVersion: chrome.runtime.getManifest?.().version || 'unknown'
+            };
+            const url = URL.createObjectURL(new Blob([JSON.stringify(exportData, null, 2)], {
+                type: 'application/json'
+            }));
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `ops-toolshed-diagnostics-${new Date().toISOString().slice(0, 10)}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+            updateDiagnosticsStatus(response.report);
+        } catch (error) {
+            showToast('Could not export diagnostics.');
+        }
+    });
+
+    clearDiagnosticsButton?.addEventListener('click', async () => {
+        try {
+            const response = await chrome.runtime.sendMessage({ action: 'CLEAR_DIAGNOSTIC_EVENTS' });
+            if (response?.status !== 'success') throw new Error('Diagnostics clear failed.');
+            showToast('Diagnostic events cleared.');
+            await refreshDiagnosticsState();
+        } catch (error) {
+            showToast('Could not clear diagnostics.');
+        }
+    });
+
+    // Stats Collector with Confirmation 
+    const statsCollectorToggle = document.getElementById('statsCollectorToggle'); 
+    if (statsCollectorToggle) { 
+        syncedToggleInputs.set('statsCollectorEnabled', statsCollectorToggle);
+        statsCollectorToggle.checked = settings.statsCollectorEnabled;
+        syncedToggleValues.set('statsCollectorEnabled', statsCollectorToggle.checked);
+        const saveStatsEnabled = enabled => {
+            statsCollectorToggle.disabled = true;
+            saveSettingsValue({ statsCollectorEnabled: enabled }, () => {
+                statsCollectorToggle.disabled = false;
+                statsCollectorToggle.checked = enabled;
+                syncedToggleValues.set('statsCollectorEnabled', enabled);
+            }, () => {
+                statsCollectorToggle.disabled = false;
+                statsCollectorToggle.checked = syncedToggleValues.get('statsCollectorEnabled');
+            });
+        };
+        statsCollectorToggle.addEventListener('click', function(e) { 
+            if (!this.checked) { 
+                // User trying to disable 
+                e.preventDefault();  
+                this.checked = true; // Visually stay checked 
+ 
+                showConfirmationPopup({ 
+                    title: 'Wait!', 
+                    message: 'Keeping this setting on allows us to advocate for improvements to Prisma, and showcase how we are power users of the software! Changed your mind?', 
+                    confirmText: 'Disable', 
+                    cancelText: 'Keep Enabled', 
+                    onConfirm: () => { 
+                        saveStatsEnabled(false);
+                    }, 
+                    onCancel: () => { 
+                        // Do nothing, just close 
+                        console.log('Stats Collector kept enabled.'); 
+                    } 
+                }); 
+            } else { 
+                // User re-enabling 
+                saveStatsEnabled(true);
+            } 
+        }); 
+    } 
+ 
+    // Aura Reminders (Timesheet) 
+    const timesheetReminderToggle = document.getElementById('timesheetReminderToggle'); 
+    const timesheetReminderSettingsDiv = document.getElementById('timesheetReminderSettings'); 
+    const reminderDaySelect = document.getElementById('reminderDay'); 
+    const reminderTimeSelect = document.getElementById('reminderTime'); 
+    const saveTimesheetReminderSettingsButton = document.getElementById('saveTimesheetReminderSettings'); 
+    const timesheetReminderUpdateMessage = document.getElementById('timesheetReminderUpdateMessage'); 
+    const triggerTimesheetReminderButton = document.getElementById('triggerTimesheetReminder'); 
+ 
+    function updateTimesheetTimeOptions(day, preferredTime = null) {
+        if (!reminderTimeSelect) return; 
+        const currentSelectedTime = reminderTimeSelect.value; 
+        reminderTimeSelect.innerHTML = ''; 
+        let startTime, endTime; 
+        if (day === 'Friday') { startTime = 12 * 60; endTime = 17 * 60; } 
+        else { startTime = 9 * 60; endTime = 17 * 60 + 30; } 
+ 
+        for (let i = startTime; i <= endTime; i += 15) { 
+            const hour = Math.floor(i / 60); 
+            const minute = i % 60; 
+            const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`; 
+            const option = new Option(timeString, timeString); 
+            reminderTimeSelect.add(option); 
+        } 
+ 
+        if (preferredTime && Array.from(reminderTimeSelect.options).some(o => o.value === preferredTime)) {
+            reminderTimeSelect.value = preferredTime;
+        } else if (currentSelectedTime && Array.from(reminderTimeSelect.options).some(o => o.value === currentSelectedTime)) {
+            reminderTimeSelect.value = currentSelectedTime;
+        } else {
+            const defaultTime = (day === 'Friday') ? "14:30" : "09:00";
+            if (Array.from(reminderTimeSelect.options).some(o => o.value === defaultTime)) reminderTimeSelect.value = defaultTime;
+            else if (reminderTimeSelect.options.length > 0) reminderTimeSelect.value = reminderTimeSelect.options[0].value;
+        }
+    } 
+ 
+    function updateTimesheetAlarm(showMsg = true) { 
+        if (!reminderDaySelect || !reminderTimeSelect || !reminderDaySelect.value || !reminderTimeSelect.value) return; 
+        const dayValue = reminderDaySelect.value; 
+        const timeValue = reminderTimeSelect.value; 
+ 
+        chrome.storage.sync.set({reminderDay: dayValue, reminderTime: timeValue}, () => { 
+            if (chrome.runtime.lastError) { 
+                console.error("[Settings] Error setting timesheet reminderDay/Time:", chrome.runtime.lastError.message); 
+                return; 
+            } 
+            chrome.runtime.sendMessage({action: "createTimesheetAlarm", day: dayValue, time: timeValue}, (response) => { 
+                const messageEl = timesheetReminderUpdateMessage; 
+                if (!messageEl || !showMsg) return; 
+                if (chrome.runtime.lastError) { 
+                    messageEl.textContent = "Error updating alarm."; messageEl.style.color = "red"; 
+                } else { 
+                    messageEl.textContent = `Reminder updated for ${dayValue} at ${timeValue}.`; messageEl.style.color = "green"; 
+                } 
+                messageEl.classList.remove('hidden-initially'); 
+                setTimeout(() => messageEl.classList.add('hidden-initially'), 3000); 
+            }); 
+        }); 
+    } 
+ 
+    if (timesheetReminderToggle) { 
+        timesheetReminderToggle.checked = settings.timesheetReminderEnabled;
+        if (timesheetReminderSettingsDiv) timesheetReminderSettingsDiv.style.display = timesheetReminderToggle.checked ? 'block' : 'none';
+        if (reminderDaySelect) reminderDaySelect.value = settings.reminderDay;
+        updateTimesheetTimeOptions(
+            reminderDaySelect ? reminderDaySelect.value : settings.reminderDay,
+            settings.reminderTime
+        );
+ 
+        syncedToggleValues.set('timesheetReminderEnabled', timesheetReminderToggle.checked);
+        timesheetReminderToggle.addEventListener('change', function() { 
+            const isEnabled = this.checked; 
+            if (timesheetReminderSettingsDiv) timesheetReminderSettingsDiv.style.display = isEnabled ? 'block' : 'none'; 
+            this.disabled = true;
+            saveSettingsValue({timesheetReminderEnabled: isEnabled}, () => {
+                this.disabled = false;
+                syncedToggleValues.set('timesheetReminderEnabled', isEnabled);
+                console.log('Timesheet reminder setting saved:', isEnabled); 
+                if (isEnabled) updateTimesheetAlarm(); 
+                else { 
+                    chrome.runtime.sendMessage({action: "removeTimesheetAlarm"}, (response) => { 
+                        const messageEl = timesheetReminderUpdateMessage; 
+                        if (!messageEl) return; 
+                        if (chrome.runtime.lastError) console.error("[Settings] Error sending removeTimesheetAlarm:", chrome.runtime.lastError.message); 
+                        else messageEl.textContent = "Timesheet reminder disabled."; messageEl.style.color = "orange"; 
+                        messageEl.classList.remove('hidden-initially'); 
+                        setTimeout(() => messageEl.classList.add('hidden-initially'), 3000); 
+                    }); 
+                } 
+            }, () => {
+                this.disabled = false;
+                this.checked = syncedToggleValues.get('timesheetReminderEnabled');
+                if (timesheetReminderSettingsDiv) timesheetReminderSettingsDiv.style.display = this.checked ? 'block' : 'none';
+            });
+        }); 
+    } 
+    if (reminderDaySelect) reminderDaySelect.addEventListener('change', () => updateTimesheetTimeOptions(reminderDaySelect.value)); 
+    if (saveTimesheetReminderSettingsButton) saveTimesheetReminderSettingsButton.addEventListener('click', () => { 
+        if (timesheetReminderToggle && timesheetReminderToggle.checked) updateTimesheetAlarm(); 
+        else if (timesheetReminderUpdateMessage) { 
+            timesheetReminderUpdateMessage.textContent = "Enable timesheet reminder first to save."; 
+            timesheetReminderUpdateMessage.style.color = "orange"; 
+            timesheetReminderUpdateMessage.classList.remove('hidden-initially'); 
+            setTimeout(() => timesheetReminderUpdateMessage.classList.add('hidden-initially'), 3000); 
+        } 
+    }); 
+    if (triggerTimesheetReminderButton) triggerTimesheetReminderButton.addEventListener('click', () => { 
+        chrome.runtime.sendMessage({action: "showTimesheetNotification"}, response => { 
+            if (chrome.runtime.lastError) alert("Error triggering reminder: " + chrome.runtime.lastError.message); 
+            else alert("Test timesheet reminder notification sent!"); 
+        }); 
+    }); 
+ 
+    // --- Custom Reminders - Modal Workflow --- 
+    const createReminderInitialStepDiv = document.getElementById('createReminderInitialStep'); 
+    const reminderFormHeading = document.getElementById('reminderFormHeading');
+    const reminderNameInput = document.getElementById('reminderName'); 
+    const reminderUrlPatternInput = document.getElementById('reminderUrlPattern'); 
+    const reminderUrlMatchType = document.getElementById('reminderUrlMatchType');
+    const reminderUrlMatchTypeSegmented = document.getElementById('reminderUrlMatchTypeSegmented');
+    const reminderUrlPatternLabel = document.getElementById('reminderUrlPatternLabel');
+    const reminderUrlHelp = document.getElementById('reminderUrlHelp');
+    const useReminderSiteOnlyButton = document.getElementById('useReminderSiteOnly');
+    // REMOVED: const reminderTextTriggerInput = document.getElementById('reminderTextTrigger'); 
+    const nextButton = document.getElementById('nextButton'); 
+    const customReminderStatus = document.getElementById('customReminderStatus'); 
+    const customRemindersListDiv = document.getElementById('customRemindersList'); 
+ 
+    // Helper: Dynamic Trigger Inputs 
+    function renderTriggerInput(value = '', options = {}) {
+        const containerId = options.containerId || 'reminderTriggersContainer';
+        const inputClass = options.inputClass || 'trigger-input';
+        const container = document.getElementById(containerId);
+        if (!container) return; 
+ 
+        const wrapper = document.createElement('div'); 
+        wrapper.className = 'trigger-input-wrapper'; 
+ 
+        const input = document.createElement('input'); 
+        input.type = 'text'; 
+        input.className = inputClass;
+        input.value = value; 
+        input.placeholder = "e.g., Order Complete"; 
+ 
+        const removeBtn = document.createElement('button'); 
+        removeBtn.type = 'button'; 
+        removeBtn.textContent = 'X'; 
+        removeBtn.className = 'settings-button settings-button-secondary remove-trigger-btn'; 
+        removeBtn.setAttribute('aria-label', 'Remove keyword'); 
+        // Allow removing, but user can always add more 
+        removeBtn.addEventListener('click', () => { 
+            wrapper.remove(); 
+        }); 
+ 
+        wrapper.appendChild(input); 
+        wrapper.appendChild(removeBtn); 
+        container.appendChild(wrapper); 
+    } 
+ 
+    const addTriggerBtn = document.getElementById('addTriggerBtn'); 
+    if (addTriggerBtn) { 
+        addTriggerBtn.addEventListener('click', () => renderTriggerInput()); 
+    } 
+    // Initialize with one empty input if none exist 
+    const container = document.getElementById('reminderTriggersContainer'); 
+    if (container && container.children.length === 0) { 
+        renderTriggerInput(); 
+    } 
+ 
+    // Modal elements 
+    const reminderModalOverlay = document.getElementById('reminderModalOverlay'); 
+    const reminderModalEditor = document.getElementById('reminderModalEditor'); 
+    const modalEditorTitle = document.getElementById('modalEditorTitle'); // h2 title of modal 
+    const modalEditorSubtitle = document.getElementById('modalEditorSubtitle');
+    const modalCloseButton = document.getElementById('modalCloseButton'); // X button 
+    const modalReminderSummary = document.getElementById('modalReminderSummary');
+    const modalEditConditions = document.getElementById('modalEditConditions');
+    const modalReminderNameDisplay = document.getElementById('modalReminderNameDisplay'); 
+    const modalReminderUrlPatternDisplay = document.getElementById('modalReminderUrlPatternDisplay'); 
+    const modalReminderTextTriggerDisplay = document.getElementById('modalReminderTextTriggerDisplay'); 
+    const modalInputReminderTitle = document.getElementById('modalInputReminderTitle'); 
+    const modalInputIntroSentence = document.getElementById('modalInputIntroSentence'); 
+    const modalInputBulletPoints = document.getElementById('modalInputBulletPoints'); 
+    const modalEditReminderName = document.getElementById('modalEditReminderName');
+    const modalEditUrlMatchType = document.getElementById('modalEditUrlMatchType');
+    const modalEditUrlMatchTypeSegmented = document.getElementById('modalEditUrlMatchTypeSegmented');
+    const modalEditUrlPatternLabel = document.getElementById('modalEditUrlPatternLabel');
+    const modalEditUrlPattern = document.getElementById('modalEditUrlPattern');
+    const modalUseReminderSiteOnly = document.getElementById('modalUseReminderSiteOnly');
+    const modalAddTriggerBtn = document.getElementById('modalAddTriggerBtn');
+    const modalEditTriggerLogic = document.getElementById('modalEditTriggerLogic');
+    const modalSaveButton = document.getElementById('modalSaveButton'); 
+    const modalCancelButton = document.getElementById('modalCancelButton'); 
+ 
+    let currentReminderData = {}; // Holds data for modal (name, url, textTrigger) 
+    let editingReminderId = null; // Used to distinguish between create and edit 
+    let previousReminderModalFocus = null;
+
+    function getUrlEditorState(urlPattern = '') {
+        const trimmedPattern = urlPattern.trim();
+        const isSimpleContainsPattern = trimmedPattern.startsWith('*') &&
+            trimmedPattern.endsWith('*') &&
+            !trimmedPattern.slice(1, -1).includes('*');
+
+        if (isSimpleContainsPattern) {
+            return { matchType: 'contains', value: trimmedPattern.slice(1, -1) };
+        }
+        if (!trimmedPattern.includes('*')) {
+            return { matchType: 'contains', value: trimmedPattern };
+        }
+        return { matchType: 'pattern', value: trimmedPattern };
+    }
+
+    function serializeUrlPattern(value, matchType) {
+        const trimmedValue = value.trim();
+        if (matchType !== 'contains') return trimmedValue;
+        const unwrappedValue = trimmedValue.replace(/^\*+|\*+$/g, '');
+        return `*${unwrappedValue}*`;
+    }
+
+    function initializeLocalSegmentedControl(control, valueInput, defaultValue, onChange) {
+        if (!control || !valueInput) return { setValue: () => {} };
+        const buttons = Array.from(control.querySelectorAll('button[data-value]'));
+        const setValue = (value) => {
+            const nextValue = buttons.some(button => button.dataset.value === value) ? value : defaultValue;
+            valueInput.value = nextValue;
+            buttons.forEach(button => {
+                const selected = button.dataset.value === nextValue;
+                button.classList.toggle('is-selected', selected);
+                button.setAttribute('aria-pressed', String(selected));
+            });
+            if (onChange) onChange(nextValue);
+        };
+        buttons.forEach(button => button.addEventListener('click', () => setValue(button.dataset.value)));
+        control.addEventListener('segmented-control:set-value', event => setValue(event.detail));
+        setValue(valueInput.value || defaultValue);
+        return { setValue };
+    }
+
+    function updateUrlMatchHelp() {
+        const isContainsMode = !reminderUrlMatchType || reminderUrlMatchType.value === 'contains';
+        if (reminderUrlPatternLabel) {
+            reminderUrlPatternLabel.textContent = isContainsMode ? 'URL text to match:' : 'URL wildcard pattern:';
+        }
+        if (reminderUrlPatternInput) {
+            reminderUrlPatternInput.placeholder = isContainsMode ? 'e.g., mediaocean.com' : 'e.g., *://*.example.com/path*';
+        }
+        if (reminderUrlHelp) {
+            reminderUrlHelp.textContent = isContainsMode
+                ? 'Simple mode matches this text anywhere in the page URL. Paste a full URL and choose “Use site only” to match every page on that site.'
+                : 'Advanced mode supports * as a wildcard. For example, *://*.example.com/path* matches that path and anything after it.';
+        }
+    }
+
+    function updateModalUrlMatchHelp() {
+        const isContainsMode = modalEditUrlMatchType.value === 'contains';
+        modalEditUrlPatternLabel.textContent = isContainsMode ? 'URL text to match:' : 'URL wildcard pattern:';
+        modalEditUrlPattern.placeholder = isContainsMode ? 'e.g., mediaocean.com' : 'e.g., *://*.example.com/path*';
+    }
+
+    const reminderMatchControl = initializeLocalSegmentedControl(
+        reminderUrlMatchTypeSegmented,
+        reminderUrlMatchType,
+        'contains',
+        updateUrlMatchHelp
+    );
+    const modalReminderMatchControl = initializeLocalSegmentedControl(
+        modalEditUrlMatchTypeSegmented,
+        modalEditUrlMatchType,
+        'contains',
+        updateModalUrlMatchHelp
+    );
+
+    function useSiteOnly(input, matchControl, onInvalid) {
+        const rawValue = input.value.trim();
+        if (!rawValue) return;
+        try {
+            const parsedUrl = new URL(/^https?:\/\//i.test(rawValue) ? rawValue : `https://${rawValue}`);
+            input.value = parsedUrl.hostname;
+            matchControl.setValue('contains');
+        } catch (error) {
+            onInvalid();
+        }
+    }
+
+    function resetReminderForm() {
+        if (reminderNameInput) reminderNameInput.value = '';
+        reminderMatchControl.setValue('contains');
+        if (reminderUrlPatternInput) reminderUrlPatternInput.value = 'mediaocean.com';
+        const triggersContainer = document.getElementById('reminderTriggersContainer');
+        if (triggersContainer) {
+            triggersContainer.replaceChildren();
+            renderTriggerInput();
+        }
+        const triggerLogicSelect = document.getElementById('reminderTriggerLogic');
+        if (triggerLogicSelect) triggerLogicSelect.value = 'OR';
+        if (reminderFormHeading) reminderFormHeading.textContent = 'Create Custom Reminder';
+        if (nextButton) nextButton.textContent = 'Next';
+    }
+
+    function beginReminderEdit(reminder) {
+        openReminderModal(true, reminder);
+    }
+
+    if (useReminderSiteOnlyButton) {
+        useReminderSiteOnlyButton.addEventListener('click', () => {
+            useSiteOnly(reminderUrlPatternInput, reminderMatchControl, () => {
+                customReminderStatus.textContent = 'Enter a valid full URL before choosing “Use site only”.';
+                customReminderStatus.style.color = 'red';
+                customReminderStatus.classList.remove('hidden-initially');
+            });
+        });
+    }
+    if (modalUseReminderSiteOnly) {
+        modalUseReminderSiteOnly.addEventListener('click', () => {
+            useSiteOnly(modalEditUrlPattern, modalReminderMatchControl, () => {
+                modalEditorSubtitle.textContent = 'Enter a valid full URL before choosing “Use site only”.';
+            });
+        });
+    }
+    if (modalAddTriggerBtn) {
+        modalAddTriggerBtn.addEventListener('click', () => renderTriggerInput('', {
+            containerId: 'modalReminderTriggersContainer',
+            inputClass: 'modal-trigger-input'
+        }));
+    }
+
+    function lockReminderModalBackground() {
+        const documentWidth = document.documentElement.clientWidth;
+        const scrollbarWidth = documentWidth > 0 ? Math.max(0, window.innerWidth - documentWidth) : 0;
+        document.body.style.setProperty('--reminder-scrollbar-compensation', `${scrollbarWidth}px`);
+        document.body.classList.add('reminder-modal-open');
+    }
+
+    function unlockReminderModalBackground() {
+        document.body.classList.remove('reminder-modal-open');
+        document.body.style.removeProperty('--reminder-scrollbar-compensation');
+    }
+ 
+    function openReminderModal(isEditMode = false, reminderDataForEdit = null) {
+        previousReminderModalFocus = document.activeElement;
+        reminderModalEditor.classList.remove('reminder-modal--closing');
+        reminderModalOverlay.classList.remove('reminder-modal-overlay--closing');
+        if (isEditMode && reminderDataForEdit) {
+            editingReminderId = reminderDataForEdit.id;
+            currentReminderData = {
+                name: reminderDataForEdit.name,
+                urlPattern: reminderDataForEdit.urlPattern,
+                textTrigger: reminderDataForEdit.textTrigger,
+                triggerLogic: reminderDataForEdit.triggerLogic
+            };
+            reminderModalEditor.classList.add('reminder-modal--editing');
+            reminderModalOverlay.classList.add('reminder-modal-overlay--editing');
+            modalEditorTitle.textContent = 'Edit Custom Reminder';
+            modalEditorSubtitle.textContent = `Editing “${reminderDataForEdit.name}”. Update the matching rules and popup content below.`;
+            modalReminderSummary.style.display = 'none';
+            modalEditConditions.classList.remove('hidden-initially');
+            modalEditReminderName.value = reminderDataForEdit.name;
+
+            const urlState = getUrlEditorState(reminderDataForEdit.urlPattern);
+            modalReminderMatchControl.setValue(urlState.matchType);
+            modalEditUrlPattern.value = urlState.value;
+            modalEditTriggerLogic.value = reminderDataForEdit.triggerLogic || 'OR';
+
+            const container = document.getElementById('modalReminderTriggersContainer');
+            if (container) {
+                container.replaceChildren();
+                const editTriggers = window.utils.normalizeTriggers(reminderDataForEdit.textTrigger);
+                const triggersToRender = editTriggers.length > 0 ? editTriggers : [''];
+                triggersToRender.forEach(trigger => renderTriggerInput(trigger, {
+                    containerId: 'modalReminderTriggersContainer',
+                    inputClass: 'modal-trigger-input'
+                }));
+            }
+
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(reminderDataForEdit.popupMessage, 'text/html');
+            const titleElem = doc.querySelector('h3');
+            const introElem = doc.querySelector('p');
+            const bulletsElems = doc.querySelectorAll('ul li');
+
+            modalInputReminderTitle.value = titleElem ? titleElem.textContent : '';
+            modalInputIntroSentence.value = introElem ? introElem.textContent : '';
+            modalInputBulletPoints.value = Array.from(bulletsElems).map(li => `• ${li.textContent.trim()}`).join('\n');
+        } else {
+            editingReminderId = null;
+            reminderModalEditor.classList.remove('reminder-modal--editing');
+            reminderModalOverlay.classList.remove('reminder-modal-overlay--editing');
+            modalEditorTitle.textContent = 'Create Custom Reminder';
+            modalEditorSubtitle.textContent = 'Review the popup content before saving.';
+            modalReminderSummary.style.display = 'block';
+            modalEditConditions.classList.add('hidden-initially');
+            modalReminderNameDisplay.textContent = currentReminderData.name || 'N/A';
+            modalReminderUrlPatternDisplay.textContent = currentReminderData.urlPattern || 'N/A';
+
+            const triggers = window.utils.normalizeTriggers(currentReminderData.textTrigger);
+            modalReminderTextTriggerDisplay.textContent = triggers.length > 0 ? triggers.join(', ') : 'N/A';
+
+            modalInputReminderTitle.value = `⚠️ ${currentReminderData.name} ⚠️`;
+            modalInputIntroSentence.value = 'This is a reminder to...';
+            modalInputBulletPoints.value = '• Step 1\n• Step 2\n• Step 3';
+        }
+
+        modalSaveButton.textContent = isEditMode ? 'Save Changes' : 'Save Reminder';
+        if (reminderModalOverlay) reminderModalOverlay.style.display = 'block';
+        if (reminderModalEditor) reminderModalEditor.style.display = 'block';
+        lockReminderModalBackground();
+        if (!isEditMode && createReminderInitialStepDiv) createReminderInitialStepDiv.style.display = 'none';
+        (isEditMode ? modalEditReminderName : modalInputReminderTitle).focus();
+    }
+
+    function finishClosingReminderModal(wasEditing) {
+        if (reminderModalOverlay) reminderModalOverlay.style.display = 'none';
+        if (reminderModalEditor) reminderModalEditor.style.display = 'none';
+        if (createReminderInitialStepDiv) createReminderInitialStepDiv.style.display = 'block';
+        reminderModalEditor.classList.remove('reminder-modal--editing');
+        reminderModalEditor.classList.remove('reminder-modal--closing');
+        reminderModalOverlay.classList.remove('reminder-modal-overlay--editing');
+        reminderModalOverlay.classList.remove('reminder-modal-overlay--closing');
+        unlockReminderModalBackground();
+        modalEditConditions.classList.add('hidden-initially');
+        modalReminderSummary.style.display = 'block';
+        modalEditorSubtitle.textContent = '';
+        modalSaveButton.textContent = 'Save Reminder';
+
+        if (modalInputReminderTitle) modalInputReminderTitle.value = '';
+        if (modalInputIntroSentence) modalInputIntroSentence.value = '';
+        if (modalInputBulletPoints) modalInputBulletPoints.value = '';
+        if (modalReminderNameDisplay) modalReminderNameDisplay.textContent = '';
+        if (modalReminderUrlPatternDisplay) modalReminderUrlPatternDisplay.textContent = '';
+        if (modalReminderTextTriggerDisplay) modalReminderTextTriggerDisplay.textContent = '';
+
+        currentReminderData = {};
+        editingReminderId = null;
+        if (!wasEditing) resetReminderForm();
+        if (previousReminderModalFocus?.isConnected) previousReminderModalFocus.focus();
+        previousReminderModalFocus = null;
+    }
+
+    function closeReminderModal() {
+        if (reminderModalEditor.classList.contains('reminder-modal--closing')) return;
+
+        const wasEditing = Boolean(editingReminderId);
+        if (!wasEditing) {
+            finishClosingReminderModal(false);
+            return;
+        }
+
+        reminderModalEditor.classList.add('reminder-modal--closing');
+        reminderModalOverlay.classList.add('reminder-modal-overlay--closing');
+        setTimeout(() => finishClosingReminderModal(true), 200);
+    }
+ 
+    if (nextButton) { 
+        nextButton.addEventListener('click', function() { 
+            const name = reminderNameInput.value.trim(); 
+            const urlValue = reminderUrlPatternInput.value.trim();
+ 
+            if (!name || !urlValue) {
+                const missingFields = [];
+                if (!name) missingFields.push('Reminder Name');
+                if (!urlValue) missingFields.push('URL match');
+                customReminderStatus.textContent = `${missingFields.join(' and ')} ${missingFields.length === 1 ? 'is' : 'are'} required.`;
+                customReminderStatus.style.color = 'red'; 
+                customReminderStatus.classList.remove('hidden-initially'); 
+                setTimeout(() => customReminderStatus.classList.add('hidden-initially'), 3000); 
+                return; 
+            } 
+ 
+            // Gather triggers from dynamic inputs 
+            const triggerInputs = document.querySelectorAll('.trigger-input'); 
+            const textTrigger = Array.from(triggerInputs).map(i => i.value.trim()).filter(v => v !== ''); 
+            const urlPattern = serializeUrlPattern(urlValue, reminderUrlMatchType.value);
+ 
+            currentReminderData = { 
+                name, 
+                urlPattern, 
+                textTrigger, // Array of strings 
+                triggerLogic: document.getElementById('reminderTriggerLogic').value 
+            }; 
+            openReminderModal(false);
+        }); 
+    } 
+ 
+    if (modalCloseButton) modalCloseButton.addEventListener('click', closeReminderModal); 
+    if (modalCancelButton) modalCancelButton.addEventListener('click', closeReminderModal); 
+    if (reminderModalOverlay) reminderModalOverlay.addEventListener('click', closeReminderModal);
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && reminderModalEditor?.style.display === 'block') closeReminderModal();
+    });
+ 
+    if (modalSaveButton) { 
+        modalSaveButton.addEventListener('click', function() { 
+            let reminderName;
+            let urlPattern;
+            let textTrigger;
+            let triggerLogic;
+
+            if (editingReminderId) {
+                reminderName = modalEditReminderName.value.trim();
+                const urlValue = modalEditUrlPattern.value.trim();
+                if (!reminderName || !urlValue) {
+                    alert('Reminder Name and URL match are required.');
+                    return;
+                }
+                urlPattern = serializeUrlPattern(urlValue, modalEditUrlMatchType.value);
+                textTrigger = Array.from(document.querySelectorAll('#modalReminderTriggersContainer .modal-trigger-input'))
+                    .map(input => input.value.trim())
+                    .filter(Boolean);
+                triggerLogic = modalEditTriggerLogic.value || 'OR';
+            } else {
+                reminderName = currentReminderData.name;
+                urlPattern = currentReminderData.urlPattern;
+                textTrigger = currentReminderData.textTrigger;
+                triggerLogic = currentReminderData.triggerLogic || 'OR';
+            }
+ 
+            const title = modalInputReminderTitle.value.trim(); 
+            const intro = modalInputIntroSentence.value.trim(); 
+            const bulletsText = modalInputBulletPoints.value.trim(); 
+ 
+            if (!title || !intro) { 
+                alert('Reminder Title and Intro Sentence are required.'); 
+                return; 
+            } 
+ 
+            let popupMessageHtml = `<h3>${escapeHTML(title)}</h3>`; 
+            if (intro) popupMessageHtml += `<p>${escapeHTML(intro)}</p>`; 
+            if (bulletsText) { 
+                popupMessageHtml += '<ul>'; 
+                bulletsText.split('\n').forEach(bullet => { 
+                    let trimmedBullet = bullet.trim(); 
+                    if (trimmedBullet) { 
+                        if (trimmedBullet.startsWith('• ')) { // Remove leading bullet if user typed it 
+                            trimmedBullet = trimmedBullet.substring(2); 
+                        } 
+                        popupMessageHtml += `<li>${escapeHTML(trimmedBullet)}</li>`; 
+                    } 
+                }); 
+                popupMessageHtml += '</ul>'; 
+            } 
+ 
+            chrome.storage.sync.get({customReminders: []}, function(data) { 
+                let reminders = data.customReminders; 
+                let statusMessage = ''; 
+ 
+                if (editingReminderId) { // EDIT MODE 
+                    const reminderIndex = reminders.findIndex(r => r.id === editingReminderId); 
+                    if (reminderIndex !== -1) { 
+                        reminders[reminderIndex].name = reminderName; 
+                        reminders[reminderIndex].urlPattern = urlPattern; 
+                        reminders[reminderIndex].textTrigger = textTrigger; 
+                        reminders[reminderIndex].triggerLogic = triggerLogic; 
+                        reminders[reminderIndex].popupMessage = popupMessageHtml; 
+                        // .enabled state is preserved as it's not editable here 
+                        statusMessage = 'Custom reminder updated!'; 
+                    } else { 
+                        customReminderStatus.textContent = 'Error: Reminder not found for editing.'; 
+                        customReminderStatus.style.color = 'red'; 
+                        customReminderStatus.classList.remove('hidden-initially'); 
+                        setTimeout(() => customReminderStatus.classList.add('hidden-initially'), 3000); 
+                        return; 
+                    } 
+                } else { // CREATE NEW MODE 
+                    const newReminder = { 
+                        id: 'custom_' + Date.now(), 
+                        name: reminderName, 
+                        urlPattern: urlPattern, 
+                        textTrigger: textTrigger, 
+                        triggerLogic: triggerLogic, 
+                        popupMessage: popupMessageHtml, 
+                        enabled: true 
+                    }; 
+                    reminders.push(newReminder); 
+                    statusMessage = 'Custom reminder saved!'; 
+                } 
+ 
+                chrome.storage.sync.set({customReminders: reminders}, function() { 
+                    if (chrome.runtime.lastError) { 
+                        customReminderStatus.textContent = 'Error saving: ' + chrome.runtime.lastError.message; 
+                        customReminderStatus.style.color = 'red'; 
+                    } else { 
+                        customReminderStatus.textContent = statusMessage; 
+                        customReminderStatus.style.color = 'green'; 
+ 
+                    } 
+                    customReminderStatus.classList.remove('hidden-initially'); 
+                    setTimeout(() => customReminderStatus.classList.add('hidden-initially'), 3000); 
+ 
+                    closeReminderModal(); 
+                    displayCustomReminders(); 
+                }); 
+            }); 
+        }); 
+    } 
+ 
+    function displayCustomReminders(initialReminders) {
+        const renderReminders = (data) => {
+            const reminders = data.customReminders; 
+            if (!customRemindersListDiv) return; 
+            customRemindersListDiv.textContent = ''; // Clear previous content safely 
+ 
+            if (reminders.length === 0) { 
+                const p = document.createElement('p'); 
+                p.textContent = 'No custom reminders saved yet.'; 
+                customRemindersListDiv.appendChild(p); 
+                return; 
+            } 
+ 
+            const ul = document.createElement('ul'); 
+            ul.style.listStyleType = 'none'; 
+            ul.style.paddingLeft = '0'; 
+ 
+            reminders.forEach(reminder => { 
+                const li = document.createElement('li'); 
+                li.style.padding = '10px'; 
+                li.style.border = '1px solid #eee'; 
+                li.style.marginBottom = '5px'; 
+                li.style.borderRadius = '4px'; 
+                li.style.display = 'flex'; 
+                li.style.justifyContent = 'space-between'; 
+                li.style.alignItems = 'center'; 
+ 
+                const textDiv = document.createElement('div'); 
+                textDiv.style.flexGrow = '1'; 
+ 
+                const nameStrong = document.createElement('strong'); 
+                nameStrong.textContent = 'Name:'; 
+                textDiv.appendChild(nameStrong); 
+                textDiv.appendChild(document.createTextNode(` ${reminder.name || 'N/A'}`)); 
+                textDiv.appendChild(document.createElement('br')); 
+ 
+                const urlStrong = document.createElement('strong'); 
+                urlStrong.textContent = 'URL Pattern:'; 
+                textDiv.appendChild(urlStrong); 
+                textDiv.appendChild(document.createTextNode(` ${reminder.urlPattern}`)); 
+                textDiv.appendChild(document.createElement('br')); 
+ 
+                const triggerStrong = document.createElement('strong'); 
+                triggerStrong.textContent = 'Trigger Text:'; 
+                textDiv.appendChild(triggerStrong); 
+ 
+                const normalizedTriggers = window.utils.normalizeTriggers(reminder.textTrigger); 
+                if (normalizedTriggers.length > 0) { 
+                    textDiv.appendChild(document.createTextNode(' ' + normalizedTriggers.join(', '))); 
+                } else { 
+                    const em = document.createElement('em'); 
+                    em.textContent = ' N/A'; 
+                    textDiv.appendChild(em); 
+                } 
+ 
+ 
+                const controlsDiv = document.createElement('div'); 
+                controlsDiv.style.display = 'flex'; 
+                controlsDiv.style.alignItems = 'center'; 
+                controlsDiv.style.marginLeft = '10px'; 
+ 
+                const toggleLabel = document.createElement('label'); 
+                toggleLabel.className = 'toggle'; 
+                const toggleInput = document.createElement('input'); 
+                toggleInput.type = 'checkbox'; 
+                toggleInput.checked = reminder.enabled; 
+                toggleInput.dataset.reminderId = reminder.id; 
+                const sliderSpan = document.createElement('span'); 
+                sliderSpan.className = 'slider'; 
+                toggleLabel.append(toggleInput, sliderSpan); 
+ 
+                toggleInput.addEventListener('change', function() { 
+                    const reminderIdToToggle = this.dataset.reminderId; 
+                    const isEnabled = this.checked; 
+                    this.disabled = true;
+                    const restore = () => { this.disabled = false; this.checked = reminder.enabled; };
+                    let readSettled = false;
+                    const finishRead = (error, storageData) => {
+                        if (readSettled) return;
+                        readSettled = true;
+                        if (error) { restore(); showSettingsSaveFailure(); return; }
+                        const updatedReminders = storageData.customReminders.map(r =>
+                            r.id === reminderIdToToggle ? { ...r, enabled: isEnabled } : r);
+                        saveSettingsValue({customReminders: updatedReminders}, () => {
+                            reminder.enabled = isEnabled;
+                            this.disabled = false;
+                        }, restore);
+                    };
+                    try {
+                        const result = chrome.storage.sync.get({customReminders: []}, data => finishRead(chrome.runtime.lastError, data));
+                        result?.then?.(data => finishRead(null, data), error => finishRead(error));
+                    } catch (error) { finishRead(error); }
+                }); 
+ 
+                const testButton = document.createElement('button'); 
+                testButton.textContent = 'Test'; 
+                testButton.classList.add('settings-button', 'settings-button-test'); 
+                testButton.style.marginLeft = '10px'; 
+                testButton.addEventListener('click', () => showTestCustomReminderOnSettingsPage(reminder)); 
+ 
+                const editButton = document.createElement('button'); 
+                editButton.textContent = 'Edit'; 
+                editButton.classList.add('settings-button', 'settings-button-edit'); // Added class 
+                // editButton.style.backgroundColor = '#ffc107'; // Using class instead 
+                editButton.style.marginLeft = '10px'; 
+                editButton.addEventListener('click', () => { 
+                    beginReminderEdit(reminder);
+                }); 
+ 
+                const deleteButton = document.createElement('button'); 
+                deleteButton.textContent = 'Delete'; 
+                deleteButton.className = 'settings-button'; 
+                deleteButton.style.backgroundColor = '#dc3545'; 
+                deleteButton.style.marginLeft = '10px'; 
+                deleteButton.dataset.reminderId = reminder.id; 
+                deleteButton.addEventListener('click', deleteCustomReminderById); 
+ 
+                controlsDiv.append(toggleLabel, testButton, editButton, deleteButton); 
+                li.append(textDiv, controlsDiv); 
+                ul.appendChild(li); 
+            }); 
+            customRemindersListDiv.appendChild(ul); 
+        };
+
+        if (initialReminders !== undefined) {
+            renderReminders({ customReminders: initialReminders });
+            return;
+        }
+        chrome.storage.sync.get({customReminders: []}, renderReminders);
+    } 
+ 
+    function deleteCustomReminderById(event) { 
+        const idToDelete = event.target.dataset.reminderId; 
+        chrome.storage.sync.get({customReminders: []}, (data) => { 
+            const reminders = data.customReminders.filter(r => r.id !== idToDelete); 
+            chrome.storage.sync.set({customReminders: reminders}, () => { 
+                if (chrome.runtime.lastError) { showSettingsSaveFailure(); return; }
+                console.log('Custom reminder deleted by ID:', idToDelete);
+                displayCustomReminders(); 
+            }); 
+        }); 
+    } 
+ 
+    displayCustomReminders(settings.customReminders); // Initial display from the batched settings read.
+ 
+    // Export Settings 
+    const generateExportDataButton = document.getElementById('generateExportData'); 
+    const exportDataTextarea = document.getElementById('exportDataTextarea'); 
+    if (generateExportDataButton && exportDataTextarea) { 
+        generateExportDataButton.addEventListener('click', () => { 
+            chrome.storage.sync.get({customReminders: []}, (data) => { 
+                if (data.customReminders.length === 0) { 
+                    exportDataTextarea.value = "No custom reminders to export."; 
+                    return; 
+                } 
+                try { 
+                    exportDataTextarea.value = JSON.stringify(data.customReminders, null, 2); 
+                    exportDataTextarea.select(); 
+                    alert("Custom reminder data generated. You can now copy it."); 
+                } catch (error) { 
+                    console.error("Error stringifying reminders for export:", error); 
+                    exportDataTextarea.value = "Error generating export data."; 
+                } 
+            }); 
+        }); 
+    } 
+ 
+    // Listener for external updates (e.g., from background script) 
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => { 
+        if (request.action === "refreshCustomRemindersDisplay") { 
+            displayCustomReminders(); 
+            sendResponse({status: "Custom reminders display refreshed"}); 
+            return true; 
+        } 
+    }); 
+ 
+    // Display Build Info 
+    if (window.buildInfo) { 
+        const buildInfoDiv = document.getElementById('build-info'); 
+        if (buildInfoDiv) { 
+            buildInfoDiv.textContent = `Build Date: ${window.buildInfo.buildDate} | Commit: ${window.buildInfo.commitId}`; 
+        } 
+    } 
+}); 
+ 
+if (typeof module !== 'undefined' && module.exports) { 
+    module.exports = { 
+        escapeHTML,
+        isMissingContentScriptReceiverError,
+        SETTINGS_DEFAULTS,
+        FEATURE_SETTINGS_DEFAULTS,
+        filterFeatureSettings,
+        normalizeFeatureSearchText,
+        FEATURE_SETTING_PREVIEWS,
+        ensureFeaturePreviewTooltip,
+        addFeatureSettingPreviews,
+        setupFeaturePreviewInteractions,
+        getFeaturePreviewImage,
+        loadSettingsWithDefaults,
+    }; 
+}
