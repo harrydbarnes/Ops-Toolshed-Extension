@@ -123,6 +123,25 @@
         return values;
     }
 
+    function getBuyStatusRows(payload) {
+        const rows = [];
+        const visitNodes = nodes => {
+            for (const node of nodes || []) {
+                const fields = Object.fromEntries((node.fields || []).map(field => [field.id, field.value]));
+                if (fields.placementNumber && fields.buyStatus) {
+                    rows.push({
+                        placementNumber: String(fields.placementNumber),
+                        buyStatus: String(fields.buyStatus)
+                    });
+                }
+                if (Array.isArray(node.nodes)) visitNodes(node.nodes);
+            }
+        };
+
+        visitNodes(payload?.nodes);
+        return rows;
+    }
+
     function publishEvidence(requestMonth, responseText) {
         if (!isBridgeActive()) return;
 
@@ -138,7 +157,8 @@
             campaignId: getCampaignId(),
             requestMonth,
             responseMonths,
-            rowCount: Number.isFinite(Number(payload?.total)) ? Number(payload.total) : null
+            rowCount: Number.isFinite(Number(payload?.total)) ? Number(payload.total) : null,
+            buyStatusRows: getBuyStatusRows(payload)
         };
         window.postMessage({
             source: SOURCE,

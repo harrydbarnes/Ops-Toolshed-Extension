@@ -13,7 +13,7 @@
 <body>
 <main>
     <header>
-        <div class="titleline"><h1 id="reccies-title">My Reccies</h1><span class="readonly" id="tracker-mode-badge">Manual Mode</span></div>
+        <div class="titleline"><h1 id="reccies-title">My Reccies</h1><button type="button" class="readonly" id="tracker-mode-badge" aria-label="Toggle between Manual Mode and Automatic Updates">Manual Mode</button></div>
         <p class="intro">Your Reccie Tracker rows, checked against Prisma. Preview and confirm any tracker updates.</p>
     </header>
         <section id="writer-connection" hidden aria-label="Google account for tracker updates">
@@ -49,24 +49,25 @@
         <div id="sheet-connection">
         <p id="first-use-guide" class="hint">Choose the report month, read your Reccie report tab or import its CSV, then choose your assignment and name. Select Verify Reccie Status to check your rows in Prisma.</p>
         <label for="sheet-url">Google Sheet tab URL</label>
+        <p id="sheet-hint" class="hint">Open the Reccie report tab before copying its URL.</p>
         <input id="sheet-url" type="url" placeholder="https://docs.google.com/spreadsheets/d/…/edit?gid=…" autocomplete="off">
         <label for="report-month">Report month <span id="month-hint" class="hint">Applies to every row</span></label>
         <input id="report-month" type="month" required>
         <p id="month-default-hint" class="hint">Confirm the month on first use. New reports default to the previous calendar month, advancing one month each month. Change it before reading or importing if needed. Saved reports keep their month.</p>
         <button id="refresh-sheet" type="button" class="primary">Read Google Sheet</button>
-        <p id="sheet-hint" class="hint">Uses your signed-in Google account. Open the Reccie report tab before copying its URL.</p>
         <div class="import-row"><label for="csv-file">Or import a report CSV</label><input id="csv-file" type="file" accept=".csv,text/csv"></div>
         <p class="hint">CSV is a snapshot. Refresh or import again after the tracker changes.</p>
         </div>
-        <details class="automation-settings"><summary>Automatic updates</summary>
+        <div class="automation-settings">
+            <h3 class="automation-title">Automatic updates</h3>
             <label><input id="auto-mark-tracker" type="checkbox"> Mark tracker Yes after verification</label>
             <p class="hint">For your assigned Main Tracker and Early Recs rows. Both Prisma checks must pass.</p>
             <label><input id="auto-clear-comments" type="checkbox"> Clear comments when automatically marking Yes</label>
             <p class="hint">Optional. Comments are kept unless you enable this. Changed comments are protected.</p>
-            <label><input id="verify-after-financial" type="checkbox"> Check reconciliations after three minutes</label>
-            <p class="hint">Runs after you confirm a reconciliation change in Prisma. Keep Chrome open and Prisma signed in.</p>
+            <label><input id="verify-after-financial" type="checkbox"> Check reconciliations after Prisma updates</label>
+            <p class="hint">Checks 20 seconds after confirming in Actualise. If needed, retries 60 seconds later and once more after 3 minutes. Keep Chrome open and Prisma signed in.</p>
             <p id="automation-status" class="hint" role="status"></p>
-        </details>
+        </div>
     </details>
     <p id="source-status" class="hint"></p>
 
@@ -99,8 +100,7 @@
     <p id="message" role="status" aria-live="polite"></p>
     <p id="reccie-results-asof" class="reccie-asof" hidden></p>
     <div id="rows" aria-label="Reccie rows"></div>
-    <p class="rule">Reconciled in Prisma means Reconciled = Yes and Buy status = Successful for the report month. Tracker Yes/No is separate. Use Note to edit comments or tracker status, or Mark Yes in tracker to confirm reconciliation. Automatic Yes updates apply only when enabled.</p>
-    <button id="last-tracker-save" type="button" hidden>Check last tracker save</button>
+        <button id="last-tracker-save" type="button" hidden>Check last tracker save</button>
     <details id="debug"><summary>Debug</summary>
         <button id="test-google-connection" type="button">Test Google connection</button>
         <p class="hint">Private read-only test for Harry’s account. Checks Google identity from the extension background; does not read or update the tracker.</p>

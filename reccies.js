@@ -478,6 +478,14 @@
         catch (error) { message(error.message, true); }
         $('csv-file').value = '';
     });
+    $('tracker-mode-badge')?.addEventListener('click', () => {
+        const checkbox = $('auto-mark-tracker');
+        if (!checkbox || checkbox.disabled) return;
+        if (!checkbox.checked && !manualWrites?.available()) { message('Connect the live Ops Reccie Tracker to enable Automatic Updates.'); return; }
+        checkbox.checked = !checkbox.checked;
+        checkbox.dispatchEvent(new Event('change'));
+    });
+    if ($('tracker-mode-badge')) attachStatusTooltip($('tracker-mode-badge'), 'Click to toggle Automatic Updates (automatically marks Yes in Google Sheet upon verification).');
     $('assignment').addEventListener('change', () => { people(); limit = 40; render(); savePreferences().catch(error => message(error.message, true)); });
     ['person','show-by','tracker-status'].forEach(id => $(id).addEventListener('change', () => { limit = 40; render(); savePreferences().catch(error => message(error.message, true)); }));
     $('search').addEventListener('input', () => { limit = 40; render(); savePreferences().catch(error => message(error.message, true)); });
@@ -685,11 +693,15 @@
         $('forget-report').disabled = busy || !tracker;
         $('discover-campaigns').hidden = mode === 'main';
         $('discover-campaigns').textContent = mode === 'early' ? 'Use visited campaigns fallback' : 'Refresh placements from visited campaigns';
-        $('month-default-hint').hidden = mode !== 'main';
-        $('first-use-guide').hidden = !!tracker || mode !== 'main';
+        const hasLoaded = Boolean(tracker);
+        $('month-default-hint').hidden = hasLoaded || mode !== 'main';
+        $('first-use-guide').hidden = hasLoaded || mode !== 'main';
+        if ($('sheet-hint')) {
+            $('sheet-hint').hidden = hasLoaded;
+            $('sheet-hint').textContent = mode === 'early' ? 'Open the Early Reccie report tab before copying its URL.' : 'Open the Reccie report tab before copying its URL.';
+        }
         $('verification-scope').textContent = `Checks Prisma for ${$('report-month').value || 'the report month you choose'}. Checks filtered rows first, including rows below “Show more”, then the rest of your assigned rows. Additional checks do not update the tracker.`;
         $('month-hint').textContent = mode === 'main' ? 'Applies to every row' : 'Current month only';
-        $('sheet-hint').textContent = mode === 'early' ? 'Reads the Early Reccie report tab from this spreadsheet. Booking End Date determines the month; stale reports fall back to visited campaigns.' : 'Uses your signed-in Google account. Open the Reccie report tab before copying its URL.';
         $('assignment-fields').hidden = automatic;
         $('tracker-status-control').hidden = automatic;
         statusInputs().find(input=>input.dataset.status==='mismatch').closest('label').hidden=automatic;
@@ -792,6 +804,7 @@
             if(stored.reccieAutomation){$('auto-mark-tracker').checked=stored.reccieAutomation.autoMark===true;$('verify-after-financial').checked=stored.reccieAutomation.afterFinancial===true;$('auto-clear-comments').checked=stored.reccieAutomation.clearCommentsOnMarkYes===true;}
             tracker = stored.reccieTracker || null;
             $('show-progress-bars').checked = stored.reccieProgressBarsEnabled !== false;
+
             const previous = new Date(); previous.setDate(1); previous.setMonth(previous.getMonth() - 1);
             mainMonth=tracker?.month || (stored.reccieMonthConfirmed?`${previous.getFullYear()}-${String(previous.getMonth() + 1).padStart(2, '0')}`:'');
             let prefs = stored.recciePreferences || {};

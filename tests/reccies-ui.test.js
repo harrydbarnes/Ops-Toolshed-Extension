@@ -316,6 +316,36 @@ describe('Reccies sidebar',()=>{
             expect(badge.textContent).toContain('Synced');
         }finally{dom.window.close();}
     });
+    test('tracker-mode-badge is interactive and toggles Automatic Updates on click',async()=>{
+        const {dom,win}=create({},liveSource);
+        try{
+            await flush();const doc=win.document,badge=doc.getElementById('tracker-mode-badge');
+            expect(badge.tagName).toBe('BUTTON');
+            expect(badge.textContent).toBe('Manual Mode');
+            expect(doc.querySelector('.rule')).toBeNull();
+            expect(doc.getElementById('sheet-hint').hidden).toBe(true);
+            badge.click();await flush();await flush();
+            expect(badge.textContent).toBe('Automatic Updates');
+            expect(badge.classList.contains('is-automatic')).toBe(true);
+            expect(doc.getElementById('auto-mark-tracker').checked).toBe(true);
+            badge.click();await flush();await flush();
+            expect(badge.textContent).toBe('Manual Mode');
+            expect(doc.getElementById('auto-mark-tracker').checked).toBe(false);
+        }finally{dom.window.close();}
+    });
+    test('badge can switch off automatic marking even when the current report is read-only',async()=>{
+        const {dom,win,getData}=create();
+        getData().reccieAutomation={autoMark:true,afterFinancial:true};
+        try{
+            await flush();await flush();
+            const badge=win.document.getElementById('tracker-mode-badge');
+            expect(badge.textContent).toBe('Read only');
+            badge.click();await flush();await flush();
+            expect(getData().reccieAutomation).toMatchObject({autoMark:false,afterFinancial:true});
+            expect(win.document.getElementById('auto-mark-tracker').checked).toBe(false);
+            badge.click();await flush();expect(getData().reccieAutomation.autoMark).toBe(false);
+        }finally{dom.window.close();}
+    });
     test('Mark Yes checks live comments and offers explicit removal with a new preview',async()=>{
         const {dom,win}=create({},liveSource);
         try{
