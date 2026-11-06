@@ -9,8 +9,9 @@
     let focused = false, focusAnimation = null;
     const controls = document.createElement('div'); controls.id = 'reccies-controls';
     document.querySelector('.mode-switch').before(controls);
-    for (const selector of ['.mode-switch','#mode-description','#discover-campaigns','#coverage-details','#source-details','#source-status','#refresh-tracker','#progress-scope','.filters']) {
-        controls.append(document.querySelector(selector));
+    for (const selector of ['.mode-switch','#mode-description','#discover-campaigns','#coverage-details','#source-details','#source-status','.filters']) {
+        const el = document.querySelector(selector);
+        if (el) controls.append(el);
     }
     const focusBar = document.createElement('div'); focusBar.className = 'reccies-focus-controls';
     const focusButton = document.createElement('button'); focusButton.id = 'reccies-focus-toggle'; focusButton.type = 'button';
@@ -72,7 +73,6 @@
     const originalMismatch = mismatchText?.textContent;
     function updateFilters() {
         sourceMetadata.textContent = $('source-status').textContent;
-        chips.title = $('filter-hint').textContent;
         const inputs = [...chips.querySelectorAll('[data-status]')];
         const labels = [...chips.querySelectorAll('label')].filter(label => !label.hidden);
         const gap = parseFloat(window.getComputedStyle(chips).gap) || 7;

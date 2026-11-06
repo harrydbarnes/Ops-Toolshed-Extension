@@ -37,6 +37,48 @@
     document.addEventListener('scroll',hideVerificationTooltip,true);
     document.addEventListener('visibilitychange',hideVerificationTooltip);
     window.addEventListener('resize',hideVerificationTooltip);
+    const statusTooltip=$('status-option-tooltip');
+    let statusTooltipTimer=null,activeStatusTrigger=null;
+    function hideStatusTooltip(){
+        clearTimeout(statusTooltipTimer);statusTooltipTimer=null;
+        if(statusTooltip){statusTooltip.hidden=true;statusTooltip.classList.remove('is-visible');}
+        if(activeStatusTrigger){activeStatusTrigger.removeAttribute('aria-describedby');activeStatusTrigger=null;}
+    }
+    function attachStatusTooltip(element,text){
+        if(!element||!text||!statusTooltip)return;
+        function show(){
+            hideStatusTooltip();hideVerificationTooltip();
+            activeStatusTrigger=element;
+            statusTooltipTimer=setTimeout(()=>{
+                if(!element.isConnected||document.hidden)return;
+                statusTooltip.textContent=text;
+                statusTooltip.hidden=false;
+                statusTooltip.style.maxWidth=`${Math.max(0,Math.min(280,window.innerWidth-16))}px`;
+                const rect=element.getBoundingClientRect(),tip=statusTooltip.getBoundingClientRect();
+                const above=rect.top>=tip.height+14;
+                statusTooltip.style.left=`${Math.max(8,Math.min(rect.left+(rect.width-tip.width)/2,window.innerWidth-tip.width-8))}px`;
+                statusTooltip.style.top=`${above?rect.top-tip.height-8:Math.max(8,Math.min(rect.bottom+8,window.innerHeight-tip.height-8))}px`;
+                element.setAttribute('aria-describedby',statusTooltip.id);
+                window.requestAnimationFrame(()=>{if(!statusTooltip.hidden)statusTooltip.classList.add('is-visible');});
+            },300);
+        }
+        element.addEventListener('mouseenter',show);
+        element.addEventListener('focus',show);
+        for(const event of ['mouseleave','blur','click'])element.addEventListener(event,hideStatusTooltip);
+    }
+    document.addEventListener('keydown',event=>{if(event.key==='Escape')hideStatusTooltip();});
+    document.addEventListener('scroll',hideStatusTooltip,true);
+    document.addEventListener('visibilitychange',hideStatusTooltip);
+    window.addEventListener('resize',hideStatusTooltip);
+    function formatSyncTimestamp(importedAt){
+        if(!importedAt)return 'Report loaded';
+        const date=new Date(importedAt);
+        if(Number.isNaN(date.getTime()))return 'Report loaded';
+        const diffMinutes=Math.floor((Date.now()-date.getTime())/60000);
+        if(diffMinutes<1)return 'Report loaded · Synced just now';
+        if(diffMinutes<60)return `Report loaded · Synced ${diffMinutes}m ago`;
+        return `Report loaded · Synced ${date.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`;
+    }
     const labels = { ready: 'Reconciled in Prisma', outstanding: 'Outstanding', review: 'Needs attention', error: 'Check failed' };
     // Keep existing filter values and persistence; visible pills drive their native change handlers.
     const segmentBindings = [];
@@ -45,6 +87,7 @@
             const button = document.createElement('button');
             button.type='button'; button.dataset.value=option.value; button.textContent=option.label;
             button.addEventListener('click',()=>{ if (!disabled()) choose(option.value); });
+            if (option.tooltip) attachStatusTooltip(button, option.tooltip);
             container.append(button); return button;
         });
         buttons.forEach((button,index)=>button.addEventListener('keydown',event=>{
@@ -62,7 +105,8 @@
     }
     ['show-by','tracker-status'].forEach(id=>{
         const select=$(id);
-        bindSegments($(`${id}-segments`),[...select.options].map(option=>({value:option.value,label:option.textContent})),()=>select.value,value=>{
+        const trackerTooltips = { any: 'All rows regardless of sheet tracker status.', outstanding: 'Rows not marked Yes in the Google Sheet.', reconciled: 'Rows marked Yes in the Google Sheet.' };
+        bindSegments($(`${id}-segments`),[...select.options].map(option=>({value:option.value,label:option.textContent,tooltip:id==='tracker-status'?trackerTooltips[option.value]:undefined})),()=>select.value,value=>{
             select.value=value; select.dispatchEvent(new Event('change'));
         },()=>select.disabled);
     });
@@ -204,7 +248,7 @@
         busy = value;
         ['refresh-sheet', 'csv-file', 'report-month', 'sheet-url', 'forget-report', 'assignment', 'person', 'search', 'show-by', 'tracker-status', 'show-progress-bars'].forEach(id => { $(id).disabled = value; });
         document.querySelectorAll('[name=mode]').forEach(input => { input.disabled = value; });
-        $('refresh-tracker').disabled = value;
+        if ($('refresh-tracker')) $('refresh-tracker').disabled = value;
         $('discover-campaigns').disabled = value;
         $('forget-report').disabled = value || !tracker;
         $('report-month').disabled = value || mode !== 'main';
@@ -416,7 +460,7 @@
         } catch (error) { message(error.message, true); }
         finally { setBusy(false); }
     }
-    $('refresh-tracker').addEventListener('click',()=>{if(busy)return;$('sheet-url').value=tracker?.source?.url||$('sheet-url').value;$('refresh-sheet').click();});
+    if ($('refresh-tracker')) $('refresh-tracker').addEventListener('click',()=>{if(busy)return;$('sheet-url').value=tracker?.source?.url||$('sheet-url').value;$('refresh-sheet').click();});
     $('refresh-sheet').addEventListener('click', async () => {
         try {
             core.sheetSource($('sheet-url').value);
@@ -437,7 +481,18 @@
     $('assignment').addEventListener('change', () => { people(); limit = 40; render(); savePreferences().catch(error => message(error.message, true)); });
     ['person','show-by','tracker-status'].forEach(id => $(id).addEventListener('change', () => { limit = 40; render(); savePreferences().catch(error => message(error.message, true)); }));
     $('search').addEventListener('input', () => { limit = 40; render(); savePreferences().catch(error => message(error.message, true)); });
-    statusInputs().forEach(input => input.addEventListener('change', () => { limit = 40; render(); savePreferences().catch(error => message(error.message, true)); }));
+    const prismaTooltips = {
+        mismatch: 'Marked Yes in the Google Sheet, but not reconciled or buy unsuccessful in Prisma.',
+        ready: 'Reconciled = Yes and Buy status = Successful in Prisma for the report month.',
+        review: 'Requires review (e.g. buy not successful, unmapped placements, or check errors).'
+    };
+    statusInputs().forEach(input => {
+        const label = input.closest('label');
+        if (label && prismaTooltips[input.dataset.status]) {
+            attachStatusTooltip(label, prismaTooltips[input.dataset.status]);
+        }
+        input.addEventListener('change', () => { limit = 40; render(); savePreferences().catch(error => message(error.message, true)); });
+    });
     $('clear-filters').addEventListener('click', () => {
         statusInputs().forEach(input => { input.checked = false; });
         $('tracker-status').value = 'any'; $('search').value = ''; limit = 40; render(); savePreferences().catch(error => message(error.message, true));
@@ -452,12 +507,45 @@
     async function verifyRows(methodId) {
         if (busy || $('check-rows').disabled) return;
         setBusy(true);
+        hideVerificationTooltip();
+        hideStatusTooltip();
         try {
-            const key=core.trackerKey(mode,$('report-month').value);
-            const saved=(await chrome.storage.local.get(key))[key];
-            if(saved?.month===$('report-month').value&&saved.revision!==tracker?.revision){tracker=saved;people();render();}
-        } catch(error) {setBusy(false);message(error.message,true);return;}
-        if(!shownRows().length){setBusy(false);message('The saved report is up to date. No rows currently match these filters. Clear filters to see your assignments.');return;}
+            if (tracker?.source?.type === 'google' && tracker?.source?.url) {
+                $('check-rows').setAttribute('aria-busy', 'true');
+                $('check-rows').classList.add('is-verifying');
+                $('check-rows').innerHTML = '<span class="button-spinner" aria-hidden="true"></span><span>Syncing sheet…</span>';
+                try {
+                    await send('refresh', { url: tracker.source.url, month: $('report-month').value, preserveChecks: true });
+                    people();
+                    render();
+                } catch (refreshError) {
+                    message(`Google Sheet sync failed: ${refreshError.message}. Checking cached rows…`, true);
+                }
+            } else {
+                const key = core.trackerKey(mode, $('report-month').value);
+                const saved = (await chrome.storage.local.get(key))[key];
+                if (saved?.month === $('report-month').value && saved.revision !== tracker?.revision) {
+                    tracker = saved;
+                    people();
+                    render();
+                }
+            }
+        } catch(error) {
+            setBusy(false);
+            $('check-rows').classList.remove('is-verifying');
+            $('check-rows').textContent = 'Verify Reccie Status';
+            $('check-rows').setAttribute('aria-busy', 'false');
+            message(error.message, true);
+            return;
+        }
+        if(!shownRows().length){
+            setBusy(false);
+            $('check-rows').classList.remove('is-verifying');
+            $('check-rows').textContent = 'Verify Reccie Status';
+            $('check-rows').setAttribute('aria-busy', 'false');
+            message('The saved report is up to date. No rows currently match these filters. Clear filters to see your assignments.');
+            return;
+        }
         const method = core.verificationMethod(methodId);
         const selected = shownRows(), revision = tracker?.revision;
         const selectedCount = rowCount(selected);
@@ -579,11 +667,21 @@
         document.querySelector('header .intro').textContent = automatic ? 'Placements from visited campaigns, checked against Prisma. The spreadsheet stays unchanged.' : 'Your Reccie Tracker rows, checked against Prisma. Preview and confirm any tracker updates.';
         updateModeBadge();
         $('mode-description').textContent = mode === 'main' ? 'Monthly tracker assignments.' : mode === 'early' ? `Early Reccie report for ${core.currentMonth()}. Current-month dates determine whether the tab can be used.` : `Uses the same saved visits as Campaign History. Refresh queries Prisma for current-month D numbers in campaigns visited this month, even if you have not opened each placement. Keep campaign visit logging enabled. A visit does not establish who booked the placements.`;
-        $('refresh-tracker').hidden = tracker?.source?.type!=='google'||automatic;
-        $('progress-scope').hidden=automatic;
+        if ($('refresh-tracker')) $('refresh-tracker').hidden = tracker?.source?.type!=='google'||automatic;
+        if ($('progress-scope')) $('progress-scope').hidden=automatic;
         $('sheet-connection').hidden = mode === 'automatic';
         $('source-details').hidden = mode === 'automatic';
         $('report-loaded-badge').hidden = !tracker || automatic;
+        const textSpan = $('report-loaded-text') || $('report-loaded-badge');
+        if (tracker && textSpan) {
+            if (tracker.source?.type === 'google' && tracker.importedAt) {
+                textSpan.textContent = formatSyncTimestamp(tracker.importedAt);
+            } else if (tracker.source?.type === 'csv') {
+                textSpan.textContent = 'Report loaded · CSV snapshot';
+            } else {
+                textSpan.textContent = 'Report loaded';
+            }
+        }
         $('forget-report').disabled = busy || !tracker;
         $('discover-campaigns').hidden = mode === 'main';
         $('discover-campaigns').textContent = mode === 'early' ? 'Use visited campaigns fallback' : 'Refresh placements from visited campaigns';

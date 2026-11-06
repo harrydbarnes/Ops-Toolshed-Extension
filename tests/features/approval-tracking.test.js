@@ -397,7 +397,7 @@ const { readScript } = require('../helpers/read-script');
         expect(inlineRule).toMatch(/transform:\s*none/i);
         for (const source of [approvalCss, scriptCode]) {
             const textRule = source.match(/\.toolshed-approval-banner-text\s*\{([^}]*)\}/)?.[1] || '';
-            expect(textRule).toMatch(/transform:\s*translateY\(-1px\)/i);
+            expect(textRule).toMatch(/transform:\s*translateY\(-2px\)/i);
         }
     });
 

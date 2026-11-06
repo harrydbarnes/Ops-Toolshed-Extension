@@ -76,7 +76,7 @@ const DIRTY_FEATURE_HINTS = [
     },
     {
         groups: ['actualise'],
-        selector: '#mos-paginator, #mos-import-export, [data-cy="actualise-grid"]'
+        selector: '#mos-paginator, #mos-import-export, [data-cy="actualise-grid"], #grid-container_hot td[id^="buyStatus-"], #grid-container_hot td[id^="placementName-"]'
     },
     {
         groups: ['campaign', 'actualise'],
@@ -170,6 +170,7 @@ function isExtensionOwnedRoot(node) {
 function elementTouchesDirtyHint(element, selector) {
     if (!element || element.nodeType !== 1) return false;
     if (element.matches?.(selector)) return true;
+    if (element.closest?.(selector)) return true;
 
     // Do not inspect the entire document for a body-level mutation. The
     // changed nodes themselves are checked below, while a nested target can
@@ -186,30 +187,36 @@ function markDirtyFeaturesFromMutations(mutations) {
         if (mutation.type === 'attributes' || mutation.type === 'characterData') {
             const target = mutation.target.nodeType === 1 ? mutation.target : mutation.target.parentElement;
             if (!target || target.closest?.(EXTENSION_OWNED_SELECTOR)) continue;
-            const hints = DIRTY_FEATURE_HINTS.filter(hint => target.matches?.(hint.selector));
+            const hints = DIRTY_FEATURE_HINTS.filter(hint =>
+                target.matches?.(hint.selector) || target.closest?.(hint.selector)
+            );
             if (!hints.length) continue;
             hints.forEach(hint => hint.groups.forEach(group => groups.add(group)));
             sawNativeMutation = true;
             continue;
         }
-        const changedElements = [
+        const changedNodes = [
             ...(mutation.addedNodes || []),
             ...(mutation.removedNodes || [])
-        ].filter(node => node?.nodeType === 1);
+        ];
+        const changedElements = changedNodes.filter(node => node?.nodeType === 1);
+        const changedNativeText = changedNodes.some(node => node?.nodeType === 3);
 
         // A mutation made entirely inside one of our own nodes cannot make a
         // missing native Prisma target appear, so it needs no reconciliation.
         const extensionOwned = isExtensionOwnedRoot(mutation.target) || (
             changedElements.length > 0
-                ? changedElements.every(isExtensionOwnedElement)
+                ? changedElements.every(isExtensionOwnedElement) && !changedNativeText
                 : isExtensionOwnedElement(mutation.target)
         );
         if (extensionOwned) continue;
 
         sawNativeMutation = true;
-        const candidates = changedElements.length > 0
-            ? changedElements
-            : [mutation.target];
+        const candidates = changedNativeText
+            ? [mutation.target, ...changedElements]
+            : changedElements.length > 0
+                ? changedElements
+                : [mutation.target];
         const matchingHints = DIRTY_FEATURE_HINTS.filter(hint =>
             candidates.some(candidate => elementTouchesDirtyHint(candidate, hint.selector))
         );
@@ -381,6 +388,7 @@ async function mainContentScriptInit() {
         { name: 'actualise-shortcut', getFeature: () => window.actualiseShortcutFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
         { name: 'actualise-export', getFeature: () => window.actualiseExportAllFeature, when: route => isPrismaLike && route.isActualise },
         { name: 'actualise-month', getFeature: () => window.actualiseMonthAssuranceFeature, when: route => isPrismaLike && route.isActualise },
+        { name: 'actualise-buy-status', getFeature: () => window.actualiseBuyStatusFeature, when: route => isPrismaLike && route.isActualise },
         { name: 'max-campaign-budget', getFeature: () => window.maxCampaignBudgetFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
         { name: 'loading-facts', getFeature: () => window.loadingFactsFeature, when: () => isPrismaLike && !isPrismaAuthHandoffPage }
     ];
@@ -479,6 +487,9 @@ async function mainContentScriptInit() {
             if (hasDirtyFeature('actualise') && route.isActualise && window.actualiseMonthAssuranceFeature) {
                 runFeatureOperation('actualiseMonthAssuranceFeature', () => window.actualiseMonthAssuranceFeature.apply());
             }
+            if (hasDirtyFeature('actualise') && window.actualiseBuyStatusFeature) {
+                runFeatureOperation('actualiseBuyStatusFeature', () => window.actualiseBuyStatusFeature.apply());
+            }
             if (hasDirtyFeature('campaign') && route.isCampaignWorkspace) {
                 runFeatureOperation('campaignFeature', () => window.campaignFeature?.syncPrintNavigationSections?.());
                 runFeatureOperation('campaignTabTitleFeature', () => window.campaignTabTitleFeature?.applyCampaignTitle?.());
@@ -547,6 +558,7 @@ async function mainContentScriptInit() {
                 }
                 if (route.isActualise && hasDirtyFeature('actualise')) {
                     runFeatureOperation('actualiseMonthAssuranceFeature', () => window.actualiseMonthAssuranceFeature?.apply?.());
+                    runFeatureOperation('actualiseBuyStatusFeature', () => window.actualiseBuyStatusFeature?.apply?.());
                 }
             }
 

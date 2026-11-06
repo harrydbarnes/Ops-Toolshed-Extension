@@ -44,7 +44,7 @@
     <button id="discover-campaigns" type="button" hidden>Discover visited campaigns</button>
     <details id="coverage-details" hidden><summary>Campaign coverage</summary><div id="coverage-issues"></div></details>
     <details id="source-details" open>
-        <summary id="source-summary"><span>Reccie tracking settings</span><span id="report-loaded-badge" class="report-loaded-badge" hidden><span aria-hidden="true">✓</span> Report loaded</span></summary>
+        <summary id="source-summary"><span>Reccie tracking settings</span><span id="report-loaded-badge" class="report-loaded-badge" hidden><span aria-hidden="true">✓</span> <span id="report-loaded-text">Report loaded</span></span></summary>
         <div class="reccies-progress-setting"><label><input id="show-progress-bars" type="checkbox" checked> Show progress bars above the tracker</label></div>
         <div id="sheet-connection">
         <p id="first-use-guide" class="hint">Choose the report month, read your Reccie report tab or import its CSV, then choose your assignment and name. Select Verify Reccie Status to check your rows in Prisma.</p>
@@ -69,8 +69,8 @@
         </details>
     </details>
     <p id="source-status" class="hint"></p>
-    <button id="refresh-tracker" type="button" hidden>Refresh tracker from Google Sheet</button>
-    <p id="progress-scope" class="hint">Tracker progress counts all rows assigned to your selected name and role in the loaded report. Google Sheets filters and your search do not change this total.</p>
+
+
     <p id="background-progress" class="hint" role="status" aria-live="polite" hidden></p>
     <section aria-label="Find your rows" class="filters">
         <div class="filter-pair" id="assignment-fields">
@@ -88,7 +88,6 @@
                 <select id="tracker-status" hidden><option value="any">Any</option><option value="outstanding">No</option><option value="reconciled">Yes</option></select>
             </div>
         </div>
-        <p class="hint">Tracker Yes/No comes from the sheet. Reconciled in Prisma means Reconciled = Yes and Buy status = Successful for the report month.</p>
         <fieldset class="status-filter"><legend>Prisma status</legend><div class="status-chips">
             <label><input type="checkbox" data-status="mismatch">Yes in sheet, not in Prisma</label>
             <label><input type="checkbox" data-status="ready">Reconciled in Prisma</label>
@@ -117,6 +116,7 @@
         <details id="timing-details" hidden><summary>Verification timings</summary><p class="hint">Local diagnostics for the latest run. Request durations overlap when campaigns run concurrently. No timing data is sent elsewhere.</p><button id="download-timings" type="button" disabled>Download timings (.md)</button><pre id="timing-report"></pre></details>
     </details>
 </main>
+<div id="status-option-tooltip" class="reccie-verification-tooltip" role="tooltip" hidden></div>
 <div id="verification-scope" class="reccie-verification-tooltip" role="tooltip" hidden>Checks filtered rows first, including rows below “Show more”, then the rest of your assigned rows. Additional checks do not update the tracker.</div>
 <script src="extension-page-gate.js" data-scripts="reccie-writer-mode.js,search-highlight.js,reccie-core.js,reccie-status.js,reccies-ui.js,reccie-writes-ui.js,reccies.js"></script>
 </body>

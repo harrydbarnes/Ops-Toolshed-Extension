@@ -271,15 +271,49 @@ describe('Reccies sidebar',()=>{
             expect(win.chrome.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({operation:'check',revision:'updated-by-save'}));
         }finally{dom.window.close();}
     });
-    test('visible tracker refresh reloads Google data and updates assigned progress',async()=>{
+    test('verification refreshes Google data before checking and updates assigned progress',async()=>{
         const {dom,win,getData}=create({},liveSource);
         try{await flush();const doc=win.document;
             win.chrome.runtime.sendMessage.mockImplementation(async request=>{
                 if(request.operation==='refresh')getData().reccieTracker={...getData().reccieTracker,revision:'fresh',rows:getData().reccieTracker.rows.map(row=>({...row,reccied:'Yes'}))};
                 return {status:'success',tracker:getData().reccieTracker};
             });
-            expect(doc.getElementById('refresh-tracker').hidden).toBe(false);doc.getElementById('refresh-tracker').click();await flush();await flush();
+            doc.getElementById('check-rows').click();await flush();await flush();
             expect(doc.getElementById('reccie-tracker-progress-label').textContent).toContain('2 / 2 marked Yes');
+        }finally{dom.window.close();}
+    });
+    test('status options and chips display helpful tooltips on hover and clean up on Escape',async()=>{
+        const {dom,win}=create({},liveSource);
+        try{
+            await flush();jest.useFakeTimers();const doc=win.document,tip=doc.getElementById('status-option-tooltip');
+            const trackerNoBtn=[...doc.querySelectorAll('#tracker-status-segments button')].find(b=>b.textContent==='No');
+            expect(trackerNoBtn).toBeTruthy();
+            trackerNoBtn.dispatchEvent(new win.MouseEvent('mouseenter'));
+            jest.advanceTimersByTime(300);
+            expect(tip.hidden).toBe(false);
+            expect(tip.textContent).toContain('Rows not marked Yes in the Google Sheet');
+            expect(trackerNoBtn.getAttribute('aria-describedby')).toBe('status-option-tooltip');
+            doc.dispatchEvent(new win.KeyboardEvent('keydown',{key:'Escape'}));
+            expect(tip.hidden).toBe(true);
+            expect(trackerNoBtn.hasAttribute('aria-describedby')).toBe(false);
+
+            const mismatchLabel=doc.querySelector('label input[data-status="mismatch"]').closest('label');
+            mismatchLabel.dispatchEvent(new win.MouseEvent('mouseenter'));
+            jest.advanceTimersByTime(300);
+            expect(tip.hidden).toBe(false);
+            expect(tip.textContent).toContain('Marked Yes in the Google Sheet');
+            mismatchLabel.dispatchEvent(new win.MouseEvent('mouseleave'));
+            expect(tip.hidden).toBe(true);
+        }finally{dom.window.close();jest.useRealTimers();}
+    });
+    test('report-loaded-badge displays relative sync timestamp',async()=>{
+        const {dom,win,getData}=create({},liveSource);
+        try{
+            await flush();
+            const badge=win.document.getElementById('report-loaded-badge');
+            expect(badge.hidden).toBe(false);
+            expect(badge.textContent).toContain('Report loaded');
+            expect(badge.textContent).toContain('Synced');
         }finally{dom.window.close();}
     });
     test('Mark Yes checks live comments and offers explicit removal with a new preview',async()=>{

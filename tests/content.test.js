@@ -18,6 +18,7 @@ const scriptsToLoad = [
     'features/max-campaign-budget.js',
     'features/dst-assurance.js',
     'features/actualise-month-assurance.js',
+    'features/actualise-buy-status.js',
     'content.js'
 ].map(scriptPath => readScript(path.resolve(__dirname, `../${scriptPath}`)));
 
@@ -176,6 +177,56 @@ describe('Content Script Main Logic', () => {
         expect(campaignHistoryFeature.initialize).toHaveBeenCalledTimes(1);
         expect(approverPastingFeature.initialize).toHaveBeenCalledTimes(1);
         expect(window.logoFeature.shouldReplaceLogoOnThisPage()).toBe(true);
+    });
+
+    test('initializes Buy status indicators only in Actualise', async () => {
+        const actualiseBuyStatusFeature = { initialize: jest.fn(), apply: jest.fn() };
+        const actualisePage = setupJSDOM(
+            'https://go.mediaocean.com/campaign-management/#campaign-id=CP1&ptb-ctx=actualize&route=actualize',
+            [],
+            { synchronousStorage: true, featureMocks: { actualiseBuyStatusFeature, logoFeature: { shouldReplaceLogoOnThisPage: () => false } } }
+        );
+
+        expect(actualiseBuyStatusFeature.initialize).toHaveBeenCalledTimes(1);
+        await Promise.resolve();
+        jest.runOnlyPendingTimers();
+        expect(actualiseBuyStatusFeature.apply).toHaveBeenCalled();
+        expect(actualisePage.window.actualiseBuyStatusFeature).toBe(actualiseBuyStatusFeature);
+        actualisePage.window.close();
+
+        const otherRouteFeature = { initialize: jest.fn(), apply: jest.fn() };
+        setupJSDOM(
+            'https://go.mediaocean.com/campaign-management/#campaign-id=CP1&ptb-mod=buy',
+            [],
+            { synchronousStorage: true, featureMocks: { actualiseBuyStatusFeature: otherRouteFeature, logoFeature: { shouldReplaceLogoOnThisPage: () => false } } }
+        );
+
+        expect(otherRouteFeature.initialize).not.toHaveBeenCalled();
+    });
+
+    test('reapplies the Buy icon when Prisma replaces a Name cell containing that icon', async () => {
+        const { document } = setupJSDOM(
+            'https://go.mediaocean.com/campaign-management/#campaign-id=CP1&ptb-ctx=actualize&route=actualize',
+            [],
+            { synchronousStorage: true, featureMocks: { logoFeature: { shouldReplaceLogoOnThisPage: () => false } } }
+        );
+        const grid = document.createElement('div');
+        grid.innerHTML = '<div id="grid-container_hot"><div class="ht_master"><table class="htCore"><tbody><tr><td id="buyStatus-2"><i class="buy-status fa fa-check-circle successful"></i><span>Successful</span></td></tr></tbody></table></div><div class="ht_clone_left"><table class="htCore"><tbody><tr><td id="placementName-2">Original name</td></tr></tbody></table></div></div>';
+        document.body.appendChild(grid);
+        await Promise.resolve();
+        await Promise.resolve();
+        jest.runOnlyPendingTimers();
+
+        const nameCell = document.getElementById('placementName-2');
+        expect(nameCell.querySelector('.toolshed-actualise-buy-status-indicator')).not.toBeNull();
+        nameCell.replaceChildren(document.createTextNode('Updated name'));
+        await Promise.resolve();
+        await Promise.resolve();
+        jest.runOnlyPendingTimers();
+
+        expect(nameCell.textContent).toBe('Updated name');
+        expect(nameCell.querySelector('.toolshed-actualise-buy-status-indicator')?.getAttribute('aria-label'))
+            .toBe('Buy status: Successful');
     });
 
     test.each(['throw', 'reject'])('isolates %s initialization failures, retries them, and retains successful instances', async mode => {

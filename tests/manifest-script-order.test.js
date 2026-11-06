@@ -96,6 +96,8 @@ describe('Manifest content-script order', () => {
         expect(mediaoceanRegistration.js).toContain('features/actualise-shortcut.js');
         expect(mediaoceanRegistration.js).toContain('features/actualise-export-all.js');
         expect(mediaoceanRegistration.js).toContain('features/actualise-month-assurance.js');
+        expect(mediaoceanRegistration.js).toContain('features/actualise-buy-status.js');
+        expect(mediaoceanRegistration.css).toContain('features/actualise-buy-status.css');
         expect(mediaoceanRegistration.js).toContain('features/plan-to-buy-redirect.js');
         expect(mediaoceanRegistration.js).toContain('features/order-grid-scroll-sync.js');
         expect(mediaoceanRegistration.js).toContain('features/max-campaign-budget.js');
