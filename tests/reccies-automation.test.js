@@ -88,5 +88,5 @@ describe('automatic tracker updates',()=>{
         dispatchTrackerWrite.mockImplementation(async request=>{if(request.operation==='previewTrackerWrite')return {write:{requestId:'01234567-89ab-cdef-0123-456789abcdef'}};if(request.operation==='commitTrackerWrite')throw Object.assign(Error('Transport failed with arbitrary wording'), {code:'TRANSPORT_UNCERTAIN'});return {write:{state:'pending',results:[]}};});
         const result=await run();expect(result.lastAutoUpdate.pending).toBe(1);expect(dispatchTrackerWrite.mock.calls.map(([r])=>r.operation)).toEqual(['previewTrackerWrite','commitTrackerWrite','trackerWriteStatus']);
     });
-    test('assignment matching requires a selected person and supported role',()=>{expect(assigned({ops:'Harry'},{person:'harry',assignment:'any'})).toBe(true);expect(assigned({ops:'Harry'},{assignment:'ops'})).toBe(false);});
+    test('assignment matching requires a selected person and supported role',()=>{expect(assigned({ops:'Harry'},{person:'harry',assignment:'any'})).toBe(true);expect(assigned({ops:'Harry'},{assignment:'ops'})).toBe(false);expect(assigned({ops:'Harry'},{person:'__all__',assignment:'ops'})).toBe(false);});
 });

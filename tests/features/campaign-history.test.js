@@ -1467,7 +1467,7 @@ describe('campaign history feature', () => {
                                 <td class="group-cell table-row-total hierarchical-name">Media total</td>
                             </tr>
                             <tr role="row">
-                                <td class="group-cell hierarchical-level-group-0 mo-row-expandcollapse"></td>
+                                <td class="group-cell hierarchical-level-group-0 hierarchical-name mo-row-expandcollapse"></td>
                                 <td class="group-cell hierarchical-level-group-0 hierarchical-name">GUARDIAN | 000010</td>
                                 <td class="hierarchical-level-group-1 redistribute-btn-col">
                                     <button>Redistribute</button>

@@ -1,4 +1,5 @@
 import '../diagnostics.js';
+import { clearFinanceTimings } from './finance-timing.js';
 const diagnostics = globalThis.prismaDiagnostics || (typeof require === 'function' ? require('../diagnostics.js') : null);
 
 let updatePromise = Promise.resolve();
@@ -168,6 +169,7 @@ export function handleResetStats(request, sender, sendResponse) {
         return Promise.resolve();
     }
     updatePromise = updatePromise.then(async () => {
+        await clearFinanceTimings();
         await chrome.storage.local.set({
             legacyStats: { visitedCampaigns: [], totalLoadingTime: 0, placementsAdded: 0, reconciliations: 0 },
             dailyStats: {}, campaignStatsSnapshots: [], statsSaveReceipts: [],

@@ -50,6 +50,89 @@ describe('Reccies sidebar',()=>{
     const liveSource={type:'google',url:'https://docs.google.com/spreadsheets/d/1QxX7yZvfh75ENyvPG7xD_5ldLuoLwUsTZ6z0edkpORU/edit?gid=405487495'};
     const writeId='01234567-89ab-cdef-0123-456789abcdef';
     const clickDialog=(win,label)=>[...win.document.querySelectorAll('dialog button')].find(button=>button.textContent===label).click();
+    test.each([false,true])('report metadata remains outside collapsed settings in UI v2=%s',async ui=>{
+        const {dom,win}=create({},undefined,ui);
+        try {
+            await flush(); await flush();
+            const status=win.document.getElementById('source-status');
+            expect(status.textContent).toContain('Report 2026-09');
+            expect(status.closest('#source-details')).toBeNull();
+            win.document.getElementById('source-details').removeAttribute('open');
+            expect(status.closest('details:not([open])')).toBeNull();
+        } finally { dom.window.close(); }
+    });
+    test('CSV drops are blocked while reading a file and during verification',async()=>{
+        const {dom,win}=create();
+        try {
+            await flush(); await flush();
+            let finishRead;
+            const first={name:'first.csv',size:10,text:jest.fn(()=>new Promise(resolve=>{finishRead=resolve;}))};
+            const second={name:'second.csv',size:10,text:jest.fn(async()=> 'csv')};
+            const drop=file=>{const event=new win.Event('drop',{bubbles:true,cancelable:true});Object.defineProperty(event,'dataTransfer',{value:{files:[file],types:['Files']}});win.document.getElementById('csv-drop-zone').dispatchEvent(event);};
+            drop(first); drop(second);
+            expect(first.text).toHaveBeenCalledTimes(1); expect(second.text).not.toHaveBeenCalled();
+            finishRead('csv'); await flush(); await flush();
+            let finishCheck;
+            win.chrome.runtime.sendMessage.mockImplementation(request=>request.operation==='check'?new Promise(resolve=>{finishCheck=resolve;}):Promise.resolve({status:'success',tracker:initial()}));
+            win.document.getElementById('check-rows').click(); await flush();
+            drop(second); expect(second.text).not.toHaveBeenCalled();
+            finishCheck({status:'success',tracker:initial()}); await flush();
+        } finally { dom.window.close(); }
+    });
+    test('rejects invalid CSV files and clears the chooser for reselection',async()=>{
+        const {dom,win}=create();
+        try {
+            await flush(); await flush();
+            const input=win.document.getElementById('csv-file');
+            for(const file of [{name:'report.txt',type:'',size:1},{name:'report.csv',size:5000001}]) {
+                Object.defineProperty(input,'files',{configurable:true,value:[file]});
+                input.dispatchEvent(new win.Event('change')); await flush();
+                expect(win.document.getElementById('message').classList.contains('error')).toBe(true);
+                expect(input.value).toBe('');
+            }
+            expect(win.chrome.runtime.sendMessage.mock.calls.some(([request])=>request.operation==='import')).toBe(false);
+        } finally { dom.window.close(); }
+    });
+    test('notice dismissal offers a persistent opt-out for that result',async()=>{
+        const result={at:'2026-11-06T10:00:00Z',state:'attention',message:'Check manually.'};
+        const {dom,win,getData}=create(); getData().reccieAutomationLastRun=result;
+        try {
+            await flush(); await flush();
+            const notice=win.document.getElementById('background-progress');
+            notice.querySelector('.background-progress-dismiss').click();
+            expect(notice.textContent).toContain("We'll remind you next time.");
+            notice.querySelector('.background-progress-forget').click(); await flush();
+            expect(notice.hidden).toBe(true);
+            expect(getData().reccieDismissedAutomationResult).toBe(JSON.stringify(result));
+        } finally { dom.window.close(); }
+        const reopened=create();
+        reopened.getData().reccieAutomationLastRun=result;
+        reopened.getData().reccieDismissedAutomationResult=JSON.stringify(result);
+        try { await flush(); await flush(); expect(reopened.win.document.getElementById('background-progress').hidden).toBe(true); }
+        finally { reopened.dom.window.close(); }
+        const next=create();
+        next.getData().reccieAutomationLastRun={...result,at:'2026-11-06T11:00:00Z'};
+        next.getData().reccieDismissedAutomationResult=JSON.stringify(result);
+        try { await flush(); await flush(); expect(next.win.document.getElementById('background-progress').hidden).toBe(false); }
+        finally { next.dom.window.close(); }
+    });
+    test('reminder prompt fades and hides without suppressing the result',async()=>{
+        const {dom,win,getData}=create();
+        getData().reccieAutomationLastRun={at:'2026-11-06T10:00:00Z',state:'attention'};
+        try {
+            await flush(); await flush();
+            const timers=[];
+            jest.spyOn(win,'setTimeout').mockImplementation((callback,delay)=>{timers.push({callback,delay});return timers.length;});
+            const notice=win.document.getElementById('background-progress');
+            notice.querySelector('.background-progress-dismiss').click();
+            expect(notice.classList.contains('is-reminder-prompt')).toBe(true);
+            expect(timers[0].delay).toBe(6000); timers[0].callback();
+            expect(notice.classList.contains('is-fading')).toBe(true);
+            expect(timers[1].delay).toBe(250); timers[1].callback();
+            expect(notice.hidden).toBe(true);
+            expect(getData().reccieDismissedAutomationResult).toBeUndefined();
+        } finally { dom.window.close(); }
+    });
     test.each([
         ['2026-10-01T12:00:00',0.5],
         ['2026-10-02T12:00:00',1.5],
@@ -76,8 +159,7 @@ describe('Reccies sidebar',()=>{
     test.each([
         ['ops','Harry’s Reccies'],
         ['group','Harry’s Group Reccies'],
-        ['buyer','Buyer’s Reccies'],
-        ['any','Harry’s Reccies']
+        ['buyer','Buyer’s Reccies']
     ])('progress identifies the selected %s assignment',async(assignment,expected)=>{
         const {dom,win}=create({assignment,person:assignment==='buyer'?'Buyer':'Harry'});
         try{await flush();expect(win.document.getElementById('reccies-title').textContent).toBe(expected);}
@@ -887,6 +969,31 @@ describe('Reccies sidebar',()=>{
         doc.getElementById('search').value='';doc.getElementById('search').dispatchEvent(new win.Event('input'));
         expect(doc.querySelectorAll('mark')).toHaveLength(0);
         dom.window.close();
+    });
+    test('All names follows the selected assignment and survives role changes',async()=>{
+        const {dom,win,getData}=create({trackerStatus:'any'});
+        try {
+            getData().reccieTracker.rows.push({...base,sourceRow:5,dNumber:'D03144021',ops:'',buyer:'',group:''});
+            await flush(); const doc=win.document, person=doc.getElementById('person'), role=doc.getElementById('assignment');
+            person.value='__all__'; person.dispatchEvent(new win.Event('change')); await flush();
+            expect(doc.querySelectorAll('.reccie-card')).toHaveLength(3);
+            expect(doc.getElementById('all-names-hint').hidden).toBe(false);
+            role.value='buyer'; role.dispatchEvent(new win.Event('change')); await flush();
+            expect(person.value).toBe('__all__'); expect(doc.querySelectorAll('.reccie-card')).toHaveLength(3);
+            expect(getData().recciePreferences.person).toBe('__all__');
+        } finally { dom.window.close(); }
+    });
+    test('Buyer names use title case and restore saved uppercase selections',async()=>{
+        const {dom,win,getData}=create({assignment:'buyer',person:'JANE SMITH',trackerStatus:'any'});
+        try {
+            getData().reccieTracker.rows[0].buyer='JANE SMITH';
+            getData().reccieTracker.rows[1].buyer='Jane Smith';
+            await flush(); const doc=win.document, person=doc.getElementById('person');
+            expect(person.value).toBe('Jane Smith');
+            expect([...person.options].filter(option=>option.text==='Jane Smith')).toHaveLength(1);
+            expect(doc.querySelectorAll('.reccie-card')).toHaveLength(2);
+            expect([...doc.getElementById('assignment').options].map(option=>option.value)).not.toContain('any');
+        } finally { dom.window.close(); }
     });
     test('filters by assignment, offers completed rows, and renders imported text safely',async()=>{
         const {dom,win}=create(); await flush();

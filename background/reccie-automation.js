@@ -2,7 +2,7 @@ import '../reccie-core.js';
 import {dispatchTrackerWrite} from './reccie-writes.js';
 const core=globalThis.reccieCore;
 export const RECCIE_ALARM='ops-reccie-financial:';
-export function assigned(row,prefs){return !!prefs?.person&&(prefs.assignment==='any'?['ops','buyer','group']:[prefs.assignment]).some(key=>['ops','buyer','group'].includes(key)&&row[key]?.toLowerCase()===prefs.person.toLowerCase());}
+export function assigned(row,prefs){const role=prefs?.assignment==='any'?'ops':prefs?.assignment;return !!prefs?.person&&prefs.person!=='__all__'&&['ops','buyer','group'].includes(role)&&row[role]?.toLowerCase()===prefs.person.toLowerCase();}
 export async function autoMarkVerified(tracker,request,context){
     const mode=request.mode||'main',key=core.trackerKey(mode,request.month);
     const stored=await chrome.storage.local.get(['reccieAutomation',mode==='main'?'recciePreferences':`${key}:preferences`]);

@@ -442,7 +442,7 @@
                 // total row or an ordinary placement row.
                 if (!supplierCell && row.querySelector('.mo-row-expandcollapse')) {
                     supplierCell = row.querySelector(
-                        '.group-cell.hierarchical-level-group-0.hierarchical-name:not(.table-row-total)'
+                        '.group-cell.hierarchical-level-group-0.hierarchical-name:not(.table-row-total):not(.mo-row-expandcollapse)'
                     );
                     if (!isSupplierCell(supplierCell)) supplierCell = null;
                 }
@@ -467,6 +467,8 @@
 
         const candidates = [];
         getElementsIncludingShadowDom().forEach(element => {
+            // Grid values are not campaign metadata.
+            if (element.closest?.('table, [role=grid]')) return;
             const text = getTextFromElement(element);
             const labelAttributes = [
                 element.getAttribute?.('aria-label'),

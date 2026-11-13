@@ -49,7 +49,7 @@ describe('header Reccies preparation', () => {
         } finally { dom.window.close(); }
     });
 
-    test('Any assignment counts each row once and ignores unrelated or sync storage changes', async () => {
+    test('legacy Any assignment falls back to Ops and ignores unrelated or sync storage changes', async () => {
         const prefs = { person: 'HARRY', assignment: 'any' };
         const data = { recciePreferences: prefs, reccieTracker: { rows: [
             { reccied: 'No', ops: 'Harry', buyer: 'Harry' },
@@ -59,11 +59,11 @@ describe('header Reccies preparation', () => {
         ] } };
         const { dom, win, button } = await launcher(async () => ({ status: 'success' }), data);
         try {
-            expect(button.textContent).toBe('Reccies · 2');
+            expect(button.textContent).toBe('Reccies · 1');
             const changed = win.chrome.storage.onChanged.addListener.mock.calls[0][0];
             changed({ reccieTracker: { newValue: null } }, 'sync');
             changed({ unrelated: { newValue: true } }, 'local');
-            expect(button.textContent).toBe('Reccies · 2');
+            expect(button.textContent).toBe('Reccies · 1');
             changed({ reccieTracker: {} }, 'local');
             expect(button.textContent).toBe('Reccies · 0');
         } finally { dom.window.close(); }
@@ -119,6 +119,16 @@ describe('header Reccies preparation', () => {
             win.opsRecciesLauncher.reconcile();
             expect(button.getAttribute('aria-label')).toContain('Panel permission denied');
             expect(send.mock.calls.filter(([r]) => r.action === 'prepareReccies')).toHaveLength(1);
+        } finally { dom.window.close(); }
+    });
+    test('explains that the Prisma page needs reloading when the extension context is invalidated', async () => {
+        const send = jest.fn(() => { throw new Error('Extension context invalidated.'); });
+        const { dom, button } = await launcher(send);
+        try {
+            expect(button.textContent).toBe('Reccies · reload page');
+            expect(button.getAttribute('aria-label')).toContain('Reload this Prisma page');
+            button.click(); await flush();
+            expect(send).toHaveBeenCalledTimes(1);
         } finally { dom.window.close(); }
     });
 });

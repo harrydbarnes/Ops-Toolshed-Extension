@@ -3,15 +3,21 @@
     if (window.top !== window || window.opsRecciesLauncher) return;
     let button = null, timer = null, tracker = null, preferences = {}, launch = null;
     let outstandingCount = null;
+    const needsReload = error => /extension context invalidated/i.test(error?.message || '');
+    function launchError(current, error) {
+        current.ready = false;
+        current.reloadPage = needsReload(error);
+        current.message = current.reloadPage ? 'Ops Toolshed was reloaded. Reload this Prisma page to reconnect Reccies.' : (error?.message || 'Could not open Reccies.');
+    }
     const active = () => window.opsToolshedExtensionState?.isActive() && location.hostname === 'go.mediaocean.com' && location.pathname.startsWith('/campaign-management/');
     function updateCount() {
-        const role = preferences.assignment || 'ops';
+        const role = !preferences.assignment || preferences.assignment === 'any' ? 'ops' : preferences.assignment;
         const person = preferences.person?.toLowerCase();
         outstandingCount = person ? 0 : null;
         if (!person) return;
-        const roles = role === 'any' ? ['ops','buyer','group'] : [role];
+        const roles = [role];
         for (const row of tracker?.rows || []) {
-            if (row.reccied.toLowerCase() !== 'yes' && roles.some(key => row[key]?.toLowerCase() === person)) outstandingCount++;
+            if (row.reccied.toLowerCase() !== 'yes' && roles.some(key => person === '__all__' ? !!row[key]?.trim() : row[key]?.toLowerCase() === person)) outstandingCount++;
         }
     }
     function renderLaunch() {
@@ -19,21 +25,24 @@
         const count = outstandingCount;
         const preparing = !launch?.ready && !!launch?.pending;
         if (button.disabled !== preparing) button.disabled = preparing;
-        const label = preparing ? 'Reccies · starting…' : launch?.message ? 'Reccies · unavailable' : launch?.hint ? 'Reccies · ready, click to open' : `Reccies${count == null ? '' : ` · ${count}`}`;
+        const label = preparing ? 'Reccies · starting…' : launch?.reloadPage ? 'Reccies · reload page' : launch?.message ? 'Reccies · unavailable' : launch?.hint ? 'Reccies · ready, click to open' : `Reccies${count == null ? '' : ` · ${count}`}`;
         const accessibleLabel = preparing ? 'Preparing Reccies' : launch?.message || launch?.hint || (count == null ? 'Open read-only Reccies sidebar' : `Open Reccies sidebar: ${count} tracker rows not marked Yes`);
         if (button.textContent !== label) button.textContent = label;
         if (button.getAttribute('aria-busy') !== String(preparing)) button.setAttribute('aria-busy', String(preparing));
         if (button.getAttribute('aria-label') !== accessibleLabel) button.setAttribute('aria-label', accessibleLabel);
+        if (launch?.message) button.setAttribute('title', launch.message);
+        else button.removeAttribute('title');
     }
     function prepare(recovering = false) {
         const current = launch, target = button;
-        if (!current || current.pending) return current?.pending;
+        if (!current || current.pending || current.reloadPage) return current?.pending;
         current.pending = Promise.resolve().then(() => chrome.runtime.sendMessage({ action: 'prepareReccies' })).then(result => {
             if (result?.status !== 'success') throw new Error(result?.message || 'Could not prepare Reccies.');
             current.ready = true;
             current.message = '';
+            current.reloadPage = false;
             current.hint = recovering ? 'Reccies is ready. Click to open the sidebar.' : '';
-        }).catch(error => { current.ready = false; current.message = error.message; })
+        }).catch(error => { launchError(current, error); })
             .finally(() => {
                 current.pending = null;
                 if (button === target) renderLaunch();
@@ -71,7 +80,7 @@
                     launch.message = '';
                     launch.hint = '';
                     renderLaunch();
-                } catch (error) { if (button === target && launch === current) { current.message = error.message; renderLaunch(); } }
+                } catch (error) { if (button === target && launch === current) { launchError(current, error); renderLaunch(); } }
             });
             button.addEventListener('pointerenter', () => prepare());
             button.addEventListener('focus', () => prepare());

@@ -582,6 +582,10 @@
                 secTitle.className = 'toolshed-approval-section-title';
                 secTitle.textContent = `${group.title} (${group.keys.length})`;
                 secHeader.appendChild(secTitle);
+                const interval = document.createElement('span');
+                interval.className = 'toolshed-approval-check-interval';
+                interval.textContent = 'Checking every 5m';
+                secHeader.appendChild(interval);
                 pendingSection.appendChild(secHeader);
 
                 const list = document.createElement('ul');
@@ -592,8 +596,8 @@
                     list.appendChild(createCampaignRow(item, {
                         approved: false,
                         timeText: group.watching
-                            ? `Watching since ${formatRelativeTime(item.watchedAt)} • Checking every 5m`
-                            : `Submitted ${formatRelativeTime(item.submittedAt)} • Checking every 5m`,
+                            ? `Watching since ${formatRelativeTime(item.watchedAt)}`
+                            : `Submitted ${formatRelativeTime(item.submittedAt)}`,
                         statusText: group.watching ? '⏳ Awaiting submission' : '⏳ Submitted',
                         anchor
                     }));

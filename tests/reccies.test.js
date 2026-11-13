@@ -227,8 +227,8 @@ describe('Reccies background reads', () => {
             expect(Object.values(state.reccieTracker.checks).every(item=>item.state==='ready')).toBe(true);
             expect(state.reccieTracker.lastCheckTiming).toMatchObject({rows:372,campaigns:1,totalMs:60,skippedRows:0,cacheHits:0,retries:0});
             expect(state.reccieTracker.lastCheckTiming.campaignsDetail[0]).toMatchObject({rows:372,queueMs:0,totalMs:60,outcome:'success',requests:[
-                {phase:'lookup',headersMs:25,totalMs:30,httpStatus:200,ok:true},
-                {phase:'grid',headersMs:25,totalMs:30,httpStatus:200,ok:true}
+                {phase:'lookup',headersMs:25,totalMs:30,httpStatus:200,ok:true,activeRequestsAtStart:1,activeGridsAtStart:0},
+                {phase:'grid',headersMs:25,totalMs:30,httpStatus:200,ok:true,activeRequestsAtStart:1,activeGridsAtStart:1}
             ]});
         } finally { clock.mockRestore(); }
     });
@@ -305,6 +305,7 @@ describe('Reccies background reads', () => {
             expect(fetchMock.mock.calls.filter(([url])=>url.endsWith(`publicforui/${row.campaignId}`))).toHaveLength(1);
             const detail=state.reccieTracker.lastCheckTiming.campaignsDetail.find(item=>item.campaign===row.campaignId);
             expect(detail).toMatchObject({attempts:2,outcome:'success',requests:[{phase:'lookup',attempt:1,ok:true},{phase:'grid',attempt:1,ok:false},{phase:'grid',attempt:2,ok:true}]});
+            if(kind==='timeout') expect(detail.requests[1].timeoutPhase).toBe('awaiting-headers');
             expect(state.reccieTracker.lastCheckTiming.retries).toBe(1);
             expect(state.reccieTracker.checks[2].state).toBe('ready');
         } finally { jest.useRealTimers(); }

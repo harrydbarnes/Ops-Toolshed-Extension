@@ -278,7 +278,7 @@
         if (observed()) return tracker?.rows || [];
         const person = $('person').value.toLowerCase(), role = $('assignment').value;
         if (!person) return [];
-        return (tracker?.rows || []).filter(row => (role === 'any' ? ['ops','buyer','group'] : [role]).some(key => row[key]?.toLowerCase() === person));
+        return (tracker?.rows || []).filter(row => person === '__all__' ? !!row[role]?.trim() : row[role]?.toLowerCase() === person);
     }
     function campaignGroups(rows) {
         const groups = new Map();
@@ -363,9 +363,17 @@
     }
     function people(preferred = $('person').value) {
         const role = $('assignment').value;
-        const names = [...new Set((tracker?.rows || []).flatMap(row => (role === 'any' ? ['ops','buyer','group'] : [role]).map(key => row[key])).filter(Boolean))].sort((a,b) => a.localeCompare(b));
-        $('person').replaceChildren(new Option('Choose your name', ''), ...names.map(name => new Option(name, name)));
-        if (names.includes(preferred)) $('person').value = preferred;
+        const namesByKey = new Map();
+        for (const row of tracker?.rows || []) {
+            const raw = row[role]?.trim();
+            if (!raw) continue;
+            const name = role === 'buyer' ? raw.toLocaleLowerCase().replace(/(^|[\s'-])\p{L}/gu, letter => letter.toLocaleUpperCase()) : raw;
+            if (!namesByKey.has(raw.toLocaleLowerCase())) namesByKey.set(raw.toLocaleLowerCase(), name);
+        }
+        const names = [...namesByKey.values()].sort((a,b) => a.localeCompare(b));
+        $('person').replaceChildren(new Option('Choose your name', ''), new Option('All', '__all__'), ...names.map(name => new Option(name, name)));
+        const saved = names.find(name => name.toLocaleLowerCase() === preferred?.toLocaleLowerCase());
+        if (preferred === '__all__' || saved) $('person').value = saved || preferred;
     }
     async function savePreferences() {
         await chrome.storage.local.set({ [storageKey('preferences')]: { person: $('person').value, assignment: $('assignment').value, showBy: $('show-by').value, trackerStatus: $('tracker-status').value, statuses: selectedStatuses(), search: $('search').value } });
@@ -384,7 +392,7 @@
         renderProgressBars();
         $('source-status').textContent = tracker ? `${tracker.rows.length.toLocaleString()} rows · Report ${tracker.month} · Read ${dateLabel(tracker.importedAt)} · ${tracker.source.type === 'google' ? 'Google Sheet' : 'CSV snapshot'}` : 'No tracker loaded. Tracker data and check results are stored locally in this Chrome profile.';
         if (observed() && tracker) $('source-status').textContent = `Visited campaigns · ${tracker.month} · ${tracker.rows.length} placements · Read ${dateLabel(tracker.importedAt)}${tracker.source.fallback ? ' · Early Recs fallback' : ''}. Open Campaign coverage for limitations and failures.`;
-        $('summary').textContent = tracker ? (!$('person').value ? 'Choose your name to see your assignments.' : `${rowCount(shown, grouped)} shown · ${mine.length} assigned · ${mine.filter(row => row.reccied.toLowerCase() !== 'yes').length} not marked Yes`) : 'Connect a tracker to get started.';
+        $('summary').textContent = tracker ? (!$('person').value ? 'Filter by name, group or buyer to see reccies below' : `${rowCount(shown, grouped)} shown · ${mine.length} assigned · ${mine.filter(row => row.reccied.toLowerCase() !== 'yes').length} not marked Yes`) : 'Connect a tracker to get started.';
         if (observed()) $('summary').textContent = `${rowCount(shown, grouped)} shown · ${mine.length} discovered; assignment unknown`;
         const list = $('rows'); list.replaceChildren();
         $('clear-filters').hidden = $('tracker-status').value === 'any' && !selectedStatuses().length && !$('search').value.trim();
@@ -470,14 +478,49 @@
             await loadReport('refresh', { url: $('sheet-url').value });
         } catch (error) { message(error.message, true); }
     });
+    async function processCsvFile(file) {
+        try {
+            if (!file || busy) return;
+            if (!file.name.toLowerCase().endsWith('.csv')) {
+                message('Choose a CSV file to import.', true);
+                return;
+            }
+            if (file.size > 5000000) { message('Choose a CSV smaller than 5 MB.', true); return; }
+            setBusy(true);
+            try { await loadReport('import', { csv: await file.text(), name: file.name }); }
+            finally { setBusy(false); }
+        } catch (error) { message(error.message, true); }
+        finally { $('csv-file').value = ''; }
+    }
     $('csv-file').addEventListener('change', async () => {
-        const file = $('csv-file').files[0];
-        if (!file) return;
-        if (file.size > 5000000) { message('Choose a CSV smaller than 5 MB.', true); return; }
-        try { await loadReport('import', { csv: await file.text(), name: file.name }); }
-        catch (error) { message(error.message, true); }
-        $('csv-file').value = '';
+        await processCsvFile($('csv-file').files[0]);
     });
+    const dropZone = $('csv-drop-zone');
+    if (dropZone) {
+        ['dragenter', 'dragover'].forEach(name => {
+            dropZone.addEventListener(name, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!busy) dropZone.classList.add('is-dragover');
+            });
+        });
+        ['dragleave', 'drop'].forEach(name => {
+            dropZone.addEventListener(name, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.remove('is-dragover');
+            });
+        });
+        dropZone.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove('is-dragover');
+            const file = e.dataTransfer?.files?.[0];
+            if (file) await processCsvFile(file);
+        });
+    }
+    window.addEventListener('dragover', (e) => { if (e.dataTransfer?.types?.includes('Files')) e.preventDefault(); }, false);
+    window.addEventListener('drop', (e) => { if (e.dataTransfer?.types?.includes('Files')) e.preventDefault(); }, false);
     $('tracker-mode-badge')?.addEventListener('click', () => {
         const checkbox = $('auto-mark-tracker');
         if (!checkbox || checkbox.disabled) return;
@@ -635,7 +678,7 @@
     }
     function restorePreferences(prefs = {}) {
             $('search').value=typeof prefs.search==='string'?prefs.search:'';
-            $('assignment').value = ['ops','buyer','group','any'].includes(prefs.assignment) ? prefs.assignment : 'ops';
+            $('assignment').value = ['ops','buyer','group'].includes(prefs.assignment) ? prefs.assignment : 'ops';
             const legacyStatuses = ['outstanding','reconciled','mismatch','ready','review'];
             $('show-by').value = ['dnumber','campaign'].includes(prefs.showBy) ? prefs.showBy : prefs.view === 'campaigns' ? 'campaign' : 'dnumber';
             const previousStatuses = Array.isArray(prefs.statuses) ? prefs.statuses : legacyStatuses.includes(prefs.view) ? [prefs.view] : [];
@@ -666,7 +709,8 @@
         hideVerificationTooltip();
         const automatic = observed();
         const person=$('person').value;
-        $('reccies-title').textContent=person&&!automatic?`${person}’s ${$('assignment').value==='group'?'Group ':''}Reccies`:'My Reccies';
+        $('all-names-hint').hidden=automatic || person!=='__all__';
+        $('reccies-title').textContent=person==='__all__'&&!automatic?'All Reccies':person&&!automatic?`${person}’s ${$('assignment').value==='group'?'Group ':''}Reccies`:'My Reccies';
         const asOf=tracker?.importedAt?`Tracker as of ${new Date(tracker.importedAt).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}`:'';
         $('reccie-progress-asof').textContent=asOf;
         $('reccie-results-asof').textContent=asOf;
@@ -761,6 +805,35 @@
         } catch (error) { output.textContent = error.message; }
         finally { button.disabled = false; }
     });
+    let toastTimer = null, toastHideTimer = null;
+    function showToast(text, isError = false) {
+        let toast = $('reccies-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'reccies-toast';
+            toast.className = 'reccies-toast';
+            toast.setAttribute('role', 'status');
+            toast.setAttribute('aria-live', 'polite');
+            document.body.appendChild(toast);
+        }
+        clearTimeout(toastTimer);
+        clearTimeout(toastHideTimer);
+        toast.textContent = text;
+        toast.classList.toggle('is-error', isError);
+        toast.hidden = false;
+        void toast.offsetWidth;
+        toast.classList.remove('is-hiding');
+        toast.classList.add('is-visible');
+
+        toastTimer = setTimeout(() => {
+            toast.classList.remove('is-visible');
+            toast.classList.add('is-hiding');
+            toastHideTimer = setTimeout(() => {
+                toast.classList.remove('is-hiding');
+                toast.hidden = true;
+            }, 300);
+        }, 3000);
+    }
     for(const [id,key] of [['auto-mark-tracker','autoMark'],['verify-after-financial','afterFinancial'],['auto-clear-comments','clearCommentsOnMarkYes']]){
         $(id).addEventListener('change',async()=>{
             const enabled=$(id).checked;$(id).disabled=true;
@@ -769,27 +842,96 @@
                 if(enabled&&key==='autoMark'&&!await chrome.permissions.request({origins:['https://script.google.com/*','https://script.googleusercontent.com/*']})){ $(id).checked=false; updateModeBadge(); throw Error('Google script access was not granted.'); }
                 const settings=(await chrome.storage.local.get('reccieAutomation')).reccieAutomation||{};
                 settings[key]=enabled;await chrome.storage.local.set({reccieAutomation:settings});
-                $('automation-status').textContent=enabled?'Enabled for this Chrome profile.':'Setting switched off.';
-            }catch(error){$(id).checked=!enabled;$('automation-status').textContent=error.message;}
+                const msg = enabled ? 'Enabled for this Chrome profile.' : 'Setting switched off.';
+                $('automation-status').textContent = msg;
+                showToast(msg);
+                setTimeout(() => {
+                    const el = $('automation-status');
+                    if (el && (el.textContent.includes('Chrome profile') || el.textContent.includes('switched off'))) el.textContent = '';
+                }, 4000);
+            }catch(error){$(id).checked=!enabled;$('automation-status').textContent=error.message;showToast(error.message, true);}
             finally{$(id).disabled=false;updateModeBadge();}
         });
     }
     $('show-progress-bars').addEventListener('change', async()=>{
         const enabled=$('show-progress-bars').checked;
-        try { await chrome.storage.local.set({reccieProgressBarsEnabled:enabled}); renderProgressBars(); }
-        catch(error) { $('show-progress-bars').checked=!enabled; renderProgressBars(); message(error.message,true); }
+        try { await chrome.storage.local.set({reccieProgressBarsEnabled:enabled}); renderProgressBars(); showToast(enabled ? 'Progress bars enabled.' : 'Progress bars hidden.'); }
+        catch(error) { $('show-progress-bars').checked=!enabled; renderProgressBars(); message(error.message,true); showToast(error.message, true); }
     });
+    let dismissedAutomationResult = null, currentAutomationResult = null, automationResultVersion = 0, noticeTimer = null;
+    const automationResultKey = result => JSON.stringify(result);
     function showAutomationResult(result){
         if(!result)return;
+        clearTimeout(noticeTimer);
+        currentAutomationResult = result;
+        const resultKey = automationResultKey(result);
+        if (resultKey === dismissedAutomationResult) { $('background-progress').hidden = true; return; }
         const active=['checking','saving','recovering'].includes(result.state);
-        const text=`Background Reccies · ${result.campaignId||'tracker update'} · ${result.state}${result.message?` · ${result.message}`:''}${result.due?` · due ${new Date(result.due).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`:''}`;
-        $('automation-status').textContent=text;
-        const progress=$('background-progress');progress.hidden=false;window.reccieStatus.render(progress,text,active);
+        const header=`Background Reccies · ${result.campaignId||'tracker update'} · ${result.state}`;
+        const detail=[
+            result.message||'',
+            result.due?`due ${new Date(result.due).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`:''
+        ].filter(Boolean).join(' · ');
+        const text=detail?`${header}\n${detail}`:header;
+        const progress=$('background-progress');
+        if (progress) {
+            progress.classList.remove('is-reminder-prompt', 'is-fading');
+            progress.onmouseenter = progress.onmouseleave = progress.onfocusin = progress.onfocusout = null;
+            progress.hidden=false;
+            progress.dataset.state = result.state || '';
+            window.reccieStatus.render(progress,text,active);
+            if (!active && !progress.querySelector('.background-progress-dismiss')) {
+                const dismiss = document.createElement('button');
+                dismiss.type = 'button';
+                dismiss.className = 'background-progress-dismiss';
+                dismiss.setAttribute('aria-label', 'Dismiss notice');
+                dismiss.textContent = '×';
+                dismiss.addEventListener('click', () => {
+                    progress.classList.add('is-reminder-prompt');
+                    const label = document.createElement('span');
+                    label.textContent = "We'll remind you next time.";
+                    const forget = document.createElement('button');
+                    forget.type = 'button';
+                    forget.className = 'background-progress-forget';
+                    forget.textContent = "Don't Remind Me";
+                    const scheduleHide = () => {
+                        clearTimeout(noticeTimer);
+                        noticeTimer = setTimeout(() => {
+                            progress.classList.add('is-fading');
+                            noticeTimer = setTimeout(() => { progress.hidden = true; }, 250);
+                        }, 6000);
+                    };
+                    progress.onmouseenter = progress.onfocusin = () => clearTimeout(noticeTimer);
+                    progress.onmouseleave = progress.onfocusout = () => {
+                        if (!progress.matches(':hover') && !progress.contains(document.activeElement)) scheduleHide();
+                    };
+                    forget.addEventListener('click', async () => {
+                        clearTimeout(noticeTimer);
+                        forget.disabled = true;
+                        try {
+                            await chrome.storage.local.set({reccieDismissedAutomationResult: resultKey});
+                            dismissedAutomationResult = resultKey;
+                            if (automationResultKey(currentAutomationResult) === resultKey) progress.hidden = true;
+                        } catch (_) {
+                            forget.disabled = false;
+                            message('Could not save the reminder preference. Please try again.', true);
+                        }
+                    });
+                    progress.replaceChildren(label, forget);
+                    scheduleHide();
+                });
+                progress.append(dismiss);
+            }
+        }
     }
-    chrome.storage.local.get('reccieAutomationLastRun').then(data=>showAutomationResult(data.reccieAutomationLastRun)).catch(()=>{});
+    chrome.storage.local.get(['reccieAutomationLastRun','reccieDismissedAutomationResult']).then(data=>{
+        dismissedAutomationResult=data.reccieDismissedAutomationResult || null;
+        if (!automationResultVersion) showAutomationResult(data.reccieAutomationLastRun);
+        else if (currentAutomationResult && automationResultKey(currentAutomationResult) === dismissedAutomationResult) $('background-progress').hidden=true;
+    }).catch(()=>{});
     chrome.storage.onChanged?.addListener?.((changes,area)=>{
         if(area!=='local')return;
-        if(changes.reccieAutomationLastRun)showAutomationResult(changes.reccieAutomationLastRun.newValue);
+        if(changes.reccieAutomationLastRun){automationResultVersion++;showAutomationResult(changes.reccieAutomationLastRun.newValue);}
         if(changes.reccieAutomation){const value=changes.reccieAutomation.newValue||{};for(const [id,key]of [['auto-mark-tracker','autoMark'],['verify-after-financial','afterFinancial'],['auto-clear-comments','clearCommentsOnMarkYes']])$(id).checked=value[key]===true;updateModeBadge();}
         const key=core.trackerKey(mode,$('report-month').value);
         if(changes[key]?.newValue?.month===$('report-month').value&&!busy){tracker=changes[key].newValue;people();render();}

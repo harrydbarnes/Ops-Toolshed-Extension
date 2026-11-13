@@ -72,6 +72,8 @@ workers (by default) pull continuously from the queue, without ten-campaign barr
 number, then sends the captured complete Actualise query with 110 fields. This
 endpoint uses PUT for a query; it does not change bookings.
 
+Choose All in the name selector to show rows with a populated assignment in the selected role. Automatic tracker updates require a specific name and do not run for All. Buyer names are formatted for display; matching ignores case.
+
 Each request has a 30-second timeout. A timeout, network failure or HTTP
 500/502/503/504 receives at most one retry, behind campaigns not yet started and
 at least one second after the failure. When a grid request fails, the retry reuses
@@ -156,6 +158,7 @@ The default limits are eight campaign workers, fifty campaign/month groups and
 500 rows per batch. Retry totals count campaign second attempts; actual request
 counts include every fetch attempt. cacheHits remains zero because previous grid
 results are never reused.
+Each request also records the number of active requests and grid requests when it starts. A timeout records whether it occurred before response headers or while reading the body. These are local observations and do not identify server, network or browser causes on their own.
 HTTP success can still produce a failed campaign if the grid is invalid. A completed
 run can contain failed campaign checks; inspect failedCampaigns and each row.
 Diagnostics stay in local extension storage and contain campaign IDs and counts,

@@ -686,6 +686,10 @@ const { readScript } = require('../helpers/read-script');
         expect(panel.textContent).toContain('Approved Campaigns (1)');
         expect(panel.textContent).toContain('Holiday Promo');
         expect(panel.textContent).toContain('Pending Approval (1)');
+        const pendingSection = Array.from(panel.querySelectorAll('.toolshed-approval-section'))
+            .find(section => section.textContent.includes('Pending Approval (1)'));
+        expect(pendingSection.querySelector('.toolshed-approval-section-header .toolshed-approval-check-interval').textContent).toBe('Checking every 5m');
+        expect(pendingSection.querySelector('.toolshed-approval-list').textContent).not.toContain('Checking every');
         expect(panel.textContent).toContain('Summer Launch');
         expect(panel.textContent).toContain('Check now');
         expect(panel.querySelector('.toolshed-approval-header-btn svg').getAttribute('viewBox')).toBe('0 0 24 24');

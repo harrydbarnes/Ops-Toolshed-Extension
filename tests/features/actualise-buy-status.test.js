@@ -1,15 +1,17 @@
 const { JSDOM } = require('jsdom');
+const fs = require('fs');
 const path = require('path');
 const { readScript } = require('../helpers/read-script');
 
 const featureScript = readScript(path.resolve(__dirname, '../../features/actualise-buy-status.js'));
+const featureStyles = fs.readFileSync(path.resolve(__dirname, '../../features/actualise-buy-status.css'), 'utf8');
 
 describe('Actualise Buy status indicators', () => {
     let dom;
     let window;
     let document;
 
-    const actualiseUrl = 'https://go.mediaocean.com/campaign-management/#campaign-id=CP1&ptb-ctx=actualize&route=actualize';
+    const actualiseUrl = 'https://go.mediaocean.com/campaign-management/#campaign-id=CP1&ptb-ctx=actualize&route=actualize&mos=2026-10-01';
 
     function setupPage(markup = '') {
         dom = new JSDOM(`<!doctype html><html><body>${markup}</body></html>`, {
@@ -98,53 +100,69 @@ describe('Actualise Buy status indicators', () => {
         expect(indicator.getAttribute('aria-label')).toBe('Buy status: Successful');
     });
 
-    test('samples the virtualized status column and restores the user scroll position', () => {
-        const statusMarkup = '<tr><td id="buyStatus-7"><i class="buy-status fa fa-clock-o pending"></i><span>Pending</span></td></tr>';
+    test('uses status values from Prisma without scrolling the grid', () => {
         const feature = setupPage(`
             <div id="grid-container_hot">
-                <div class="ht_master"><div class="wtHolder"><table class="htCore"><tbody id="status-rows"></tbody></table></div></div>
-                <div class="ht_clone_left"><table class="htCore"><tbody><tr><td id="placementName-7">Placement with pending status</td></tr></tbody></table></div>
+                <div class="ht_master"><div class="wtHolder"><table class="htCore"><tbody></tbody></table></div></div>
+                <div class="ht_clone_left"><table class="htCore"><tbody>
+                    <tr><td id="placementName-7">Placement with successful status</td><td id="placementNumber-7">P123</td></tr>
+                    <tr><td id="placementName-8">Placement with pending status</td><td id="placementNumber-8">P456</td></tr>
+                    <tr><td id="placementName-9">Placement with error status</td><td id="placementNumber-9">P789</td></tr>
+                </tbody></table></div>
             </div>
         `);
-        const scroller = document.querySelector('#grid-container_hot .ht_master > .wtHolder');
-        const statusRows = document.getElementById('status-rows');
-        const animationFrames = [];
-        let scrollLeft = 0;
-        let frameId = 0;
-        Object.defineProperties(scroller, {
-            clientWidth: { configurable: true, get: () => 800 },
-            scrollWidth: { configurable: true, get: () => 2400 },
-            scrollLeft: {
-                configurable: true,
-                get: () => scrollLeft,
-                set: value => {
-                    scrollLeft = value;
-                    statusRows.innerHTML = value > 0 ? statusMarkup : '';
+        feature.initialize();
+        window.dispatchEvent(new window.MessageEvent('message', {
+            source: window,
+            origin: window.location.origin,
+            data: {
+                source: 'ops-toolshed-actualise-month-bridge',
+                type: 'ops-toolshed-actualise-month-data',
+                detail: {
+                    campaignId: 'CP1',
+                    requestMonth: '2026-10',
+                    buyStatusRows: [
+                        { placementNumber: 'P123', buyStatus: 'SUCCESSFUL' },
+                        { placementNumber: 'P456', buyStatus: 'PENDING' },
+                        { placementNumber: 'P789', buyStatus: 'ERROR' }
+                    ]
                 }
             }
-        });
-        window.requestAnimationFrame = callback => {
-            animationFrames.push(callback);
-            frameId += 1;
-            return frameId;
-        };
+        }));
 
+        const success = document.querySelector('#placementName-7 .toolshed-actualise-buy-status-indicator');
+        const pending = document.querySelector('#placementName-8 .toolshed-actualise-buy-status-indicator');
+        const error = document.querySelector('#placementName-9 .toolshed-actualise-buy-status-indicator');
+        expect(success.firstElementChild.className).toContain('successful');
+        expect(success.firstElementChild.style.color).toBe('var(--mo-success-dark-color)');
+        expect(success.getAttribute('aria-label')).toBe('Buy status: Successful');
+        expect(pending.firstElementChild.className).toContain('pending');
+        expect(pending.getAttribute('aria-label')).toBe('Buy status: Pending');
+        expect(error.firstElementChild.className).toContain('failed');
+        expect(error.getAttribute('aria-label')).toBe('Buy status: Error');
+        expect(document.querySelectorAll('#grid-container_hot #buyStatus-7, #grid-container_hot #buyStatus-8, #grid-container_hot #buyStatus-9')).toHaveLength(0);
+    });
+
+    test('forwards pending observations with their original response time', () => {
+        const feature = setupPage();
+        const sendMessage = jest.fn(() => Promise.resolve());
+        window.chrome = { runtime: { sendMessage } };
         feature.initialize();
-        expect(scrollLeft).toBe(0);
-        expect(animationFrames).toHaveLength(1);
+        window.dispatchEvent(new window.MessageEvent('message', {
+            source: window, origin: window.location.origin,
+            data: { source: 'ops-toolshed-actualise-month-bridge', type: 'ops-toolshed-actualise-month-data',
+                detail: { campaignId: 'CP1', requestMonth: '2026-10', observedAt: 1234,
+                    buyStatusRows: [{ placementNumber: 'P1', buyStatus: 'PENDING' },
+                        { placementNumber: 'P2', buyStatus: 'SUCCESSFUL' }] } }
+        }));
+        expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({ action: 'financeTimingObserve',
+            observedAt: 1234, rows: [{ placementNumber: 'P1' }] }));
+    });
 
-        animationFrames.shift()();
-        expect(scrollLeft).toBe(1600);
-        animationFrames.shift()();
-        expect(scrollLeft).toBe(0);
-        animationFrames.shift()();
-
-        const indicator = document.querySelector('#placementName-7 .toolshed-actualise-buy-status-indicator');
-        expect(indicator).not.toBeNull();
-        expect(indicator.firstElementChild.className).toContain('pending');
-        expect(indicator.getAttribute('aria-label')).toBe('Buy status: Pending');
-        expect(scroller.scrollLeft).toBe(0);
-        expect(document.querySelector('#grid-container_hot #buyStatus-7')).toBeNull();
+    test('moves the fee details action left of the status icon', () => {
+        expect(featureStyles).toMatch(/\.mo-icon-placement-right:has\(\.toolshed-actualise-buy-status-indicator\)[^{]*\{[^}]*padding-right:\s*2\.5rem\s*!important/s);
+        expect(featureStyles).not.toMatch(/\.mo-icon-placement-right:has\(\.toolshed-actualise-buy-status-indicator\)\s+\.toolshed-actualise-buy-status-indicator\s*\{/s);
+        expect(featureStyles).toMatch(/\.mo-icon-placement-right:has\(\.toolshed-actualise-buy-status-indicator\)\s+\.launch-fee-details\s*\{[^}]*right:\s*1\.4rem\s*!important[^}]*top:\s*5px\s*!important/s);
     });
 
     test('omits rows with no native status icon and removes indicators outside Actualise', () => {

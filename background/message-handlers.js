@@ -1,4 +1,5 @@
 import { approversData } from '../approvers-data.js';
+import { observeFinancePending } from './finance-timing.js';
 import { handleSocialCheck } from './social-campaign-check.js';
 import { handleReccies, openReccies, prepareReccies, scheduleFinancialVerification } from './reccies.js';
 import {
@@ -493,6 +494,10 @@ async function handleCheckApprovalStatusNow(request, sender, sendResponse) {
 }
 
 export const messageHandlers = {
+    financeTimingObserve: async (request, sender, sendResponse) => {
+        await observeFinancePending(request, sender);
+        sendResponse({ status: 'success' });
+    },
     socialCampaignCheck: handleSocialCheck,
     reccies: handleReccies,
     reccieFinancialUpdate: scheduleFinancialVerification,

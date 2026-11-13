@@ -284,6 +284,13 @@
     margin: 0;
 }
 
+.toolshed-approval-check-interval {
+    color: #64748b;
+    font-size: 11px;
+    white-space: nowrap;
+    margin-left: 8px;
+}
+
 .toolshed-approval-clear-all-btn {
     background: transparent;
     border: none;

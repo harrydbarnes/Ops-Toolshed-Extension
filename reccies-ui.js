@@ -52,8 +52,6 @@
     read.before(readHome);
     const joined = document.createElement('div'); joined.className = 'reccies-sheet-input';
     const chips = document.querySelector('.status-chips');
-    const sourceMetadata = document.createElement('p'); sourceMetadata.className = 'v2-source-metadata hint';
-    $('source-details').append(sourceMetadata);
     chips.setAttribute('aria-describedby', 'filter-hint');
     const quickClear = document.createElement('button');
     quickClear.type = 'button'; quickClear.id = 'clear-prisma-filters'; quickClear.className = 'prisma-filter-clear';
@@ -72,7 +70,8 @@
     const mismatchText = [...mismatchLabel.childNodes].find(node => node.nodeType === Node.TEXT_NODE);
     const originalMismatch = mismatchText?.textContent;
     function updateFilters() {
-        sourceMetadata.textContent = $('source-status').textContent;
+        const sourceMetadata = $('source-status');
+        sourceMetadata.classList.toggle('has-tracker', Boolean(sourceMetadata.textContent && !sourceMetadata.textContent.startsWith('No tracker')));
         const inputs = [...chips.querySelectorAll('[data-status]')];
         const labels = [...chips.querySelectorAll('label')].filter(label => !label.hidden);
         const gap = parseFloat(window.getComputedStyle(chips).gap) || 7;

@@ -30,6 +30,7 @@
     let organisationSubmitted = false;
     let organisationOptionChosen = false;
     let suppressAutomationForCurrentPage = false;
+    let settingUsername = false;
     let promptVisible = false;
     let settingsLoaded = false;
     let currentSignInStage = '';
@@ -184,10 +185,15 @@
     }
 
     function setInputValue(input, value) {
-        const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
-        descriptor?.set?.call(input, value);
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-        input.dispatchEvent(new Event('change', { bubbles: true }));
+        settingUsername = true;
+        try {
+            const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+            descriptor?.set?.call(input, value);
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        } finally {
+            settingUsername = false;
+        }
     }
 
     function injectToastStyles() {
@@ -512,11 +518,14 @@
     }
 
     function captureManualEmail(event) {
-        if (!settings.enabled || !isActiveDocument()) return;
+        if (settingUsername || !settings.enabled || !isActiveDocument() || !isUsernameStage()) return;
         const input = event.target;
         if (!(input instanceof HTMLInputElement) || input !== getUsernameInput()) return;
+        // Let the user finish editing without a DOM update restoring the old address.
+        suppressAutomationForCurrentPage = true;
         const email = normalise(input.value);
         if (!isEmail(email)) return;
+        if (settings.email === email) return;
         settings.email = email;
         chrome.storage.local.set({ [SETTINGS.email]: email });
     }
@@ -558,6 +567,7 @@
         });
 
         document.addEventListener('input', captureManualEmail, true);
+        document.addEventListener('change', captureManualEmail, true);
         window.addEventListener('focus', scheduleReconcile);
         document.addEventListener('visibilitychange', scheduleReconcile);
         window.addEventListener('pagehide', dispose, { once: true });

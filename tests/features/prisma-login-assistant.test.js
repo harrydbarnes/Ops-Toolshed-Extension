@@ -332,6 +332,33 @@ describe('Prisma sign-in assistant', () => {
         closePage(dom);
     });
 
+    test('keeps a correction while Prisma updates the page and uses it on the next sign-in', async () => {
+        const { dom, window, localStore } = createPage({ enabled: true, email: 'old@example.com' });
+        await settle();
+        const username = window.document.getElementById('username');
+        username.value = 'new@';
+        username.dispatchEvent(new window.Event('input', { bubbles: true }));
+        window.document.querySelector('main').className = 'updated';
+        await settle();
+        expect(username.value).toBe('new@');
+        expect(localStore.prismaLoginAssistantEmail).toBe('old@example.com');
+
+        username.value = 'new@example.com';
+        username.dispatchEvent(new window.Event('input', { bubbles: true }));
+        await settle();
+        expect(localStore.prismaLoginAssistantEmail).toBe('new@example.com');
+        const savedEmail = localStore.prismaLoginAssistantEmail;
+        closePage(dom);
+
+        const nextPage = createPage({ enabled: true, email: savedEmail });
+        const nextClick = jest.fn();
+        nextPage.window.document.querySelector('button').addEventListener('click', nextClick);
+        await settle();
+        expect(nextPage.window.document.getElementById('username').value).toBe(savedEmail);
+        expect(nextClick).toHaveBeenCalledTimes(1);
+        closePage(nextPage.dom);
+    });
+
     test('does not restart when the confirmation says signed out instead of signed off', async () => {
         const {dom,window}=createPage({stage:'session-timeout',enabled:true,url:'https://go.mediaocean.com/ideskos-viewport/federate/logout?federatedLogout=true'});
         const paragraph=window.document.querySelector('p');

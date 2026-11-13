@@ -45,7 +45,7 @@
     <details id="coverage-details" hidden><summary>Campaign coverage</summary><div id="coverage-issues"></div></details>
     <details id="source-details" open>
         <summary id="source-summary"><span>Reccie tracking settings</span><span id="report-loaded-badge" class="report-loaded-badge" hidden><span aria-hidden="true">✓</span> <span id="report-loaded-text">Report loaded</span></span></summary>
-        <div class="reccies-progress-setting"><label><input id="show-progress-bars" type="checkbox" checked> Show progress bars above the tracker</label></div>
+        <div class="reccies-progress-setting automation-card"><label for="show-progress-bars"><input id="show-progress-bars" type="checkbox" checked> Show progress bars above the tracker</label></div>
         <div id="sheet-connection">
         <p id="first-use-guide" class="hint">Choose the report month, read your Reccie report tab or import its CSV, then choose your assignment and name. Select Verify Reccie Status to check your rows in Prisma.</p>
         <label for="sheet-url">Google Sheet tab URL</label>
@@ -55,18 +55,30 @@
         <input id="report-month" type="month" required>
         <p id="month-default-hint" class="hint">Confirm the month on first use. New reports default to the previous calendar month, advancing one month each month. Change it before reading or importing if needed. Saved reports keep their month.</p>
         <button id="refresh-sheet" type="button" class="primary">Read Google Sheet</button>
-        <div class="import-row"><label for="csv-file">Or import a report CSV</label><input id="csv-file" type="file" accept=".csv,text/csv"></div>
-        <p class="hint">CSV is a snapshot. Refresh or import again after the tracker changes.</p>
+        <div class="import-row" id="csv-drop-zone">
+            <label for="csv-file" class="csv-drop-label">
+                <input id="csv-file" type="file" accept=".csv,text/csv">
+                <span class="csv-drop-icon" aria-hidden="true">📄</span>
+                <span class="csv-drop-text"><strong>Drag &amp; drop report CSV here</strong> or <span class="csv-browse-link">browse</span></span>
+            </label>
+        </div>
+        <p class="hint">CSVs are a snapshot of recs at the time they were generated. Changes made on the system and here will not sync to any tracker.</p>
         </div>
         <div class="automation-settings">
             <h3 class="automation-title">Automatic updates</h3>
-            <label><input id="auto-mark-tracker" type="checkbox"> Mark tracker Yes after verification</label>
-            <p class="hint">For your assigned Main Tracker and Early Recs rows. Both Prisma checks must pass.</p>
-            <label><input id="auto-clear-comments" type="checkbox"> Clear comments when automatically marking Yes</label>
-            <p class="hint">Optional. Comments are kept unless you enable this. Changed comments are protected.</p>
-            <label><input id="verify-after-financial" type="checkbox"> Check reconciliations after Prisma updates</label>
-            <p class="hint">Checks 20 seconds after confirming in Actualise. If needed, retries 60 seconds later and once more after 3 minutes. Keep Chrome open and Prisma signed in.</p>
-            <p id="automation-status" class="hint" role="status"></p>
+            <div class="automation-card">
+                <label for="auto-mark-tracker"><input id="auto-mark-tracker" type="checkbox"> Mark tracker Yes after verification</label>
+                <p class="hint">For your assigned Main Tracker and Early Recs rows. Both Prisma checks must pass.</p>
+            </div>
+            <div class="automation-card automation-card-sub">
+                <label for="auto-clear-comments"><input id="auto-clear-comments" type="checkbox"> Clear comments when auto marking Yes</label>
+                <p class="hint">Optional. Comments are kept unless you enable this. Changed comments are protected.</p>
+            </div>
+            <div class="automation-card">
+                <label for="verify-after-financial"><input id="verify-after-financial" type="checkbox"> Check reconciliations after Prisma updates</label>
+                <p class="hint">Checks 20 seconds after confirming in Actualise. If needed, retries 60 seconds later and once more after 3 minutes. Keep Chrome open and Prisma signed in.</p>
+            </div>
+            <p id="automation-status" class="hint automation-status" role="status"></p>
         </div>
     </details>
     <p id="source-status" class="hint"></p>
@@ -75,9 +87,10 @@
     <p id="background-progress" class="hint" role="status" aria-live="polite" hidden></p>
     <section aria-label="Find your rows" class="filters">
         <div class="filter-pair" id="assignment-fields">
-            <label>Assignment<select id="assignment"><option value="ops">Ops assigned</option><option value="buyer">Buyer</option><option value="group">Group</option><option value="any">Any assignment</option></select></label>
+            <label>Assignment<select id="assignment"><option value="ops">Ops assigned</option><option value="buyer">Buyer</option><option value="group">Group</option></select></label>
             <label>Your name<select id="person"><option value="">Choose your name</option></select></label>
         </div>
+        <p id="all-names-hint" class="hint" hidden>Showing everyone's recs. Select a name to enable automatic updates.</p>
         <label for="search">Search your rows</label><input id="search" type="search" placeholder="D number, campaign, client or supplier">
         <div class="view-controls">
             <div class="filter-column"><span class="control-label" id="show-by-label">Show by</span>
@@ -118,6 +131,7 @@
 </main>
 <div id="status-option-tooltip" class="reccie-verification-tooltip" role="tooltip" hidden></div>
 <div id="verification-scope" class="reccie-verification-tooltip" role="tooltip" hidden>Checks filtered rows first, including rows below “Show more”, then the rest of your assigned rows. Additional checks do not update the tracker.</div>
+<div id="reccies-toast" class="reccies-toast" role="status" aria-live="polite" hidden></div>
 <script src="extension-page-gate.js" data-scripts="reccie-writer-mode.js,search-highlight.js,reccie-core.js,reccie-status.js,reccies-ui.js,reccie-writes-ui.js,reccies.js"></script>
 </body>
 </html>

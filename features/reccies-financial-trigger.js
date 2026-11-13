@@ -7,7 +7,10 @@
     function visibleRows(){
         const ctx=context();if(!ctx.actualise||!/^20\d\d-(0[1-9]|1[0-2])$/.test(ctx.month||''))return [];
         return [...document.querySelectorAll('#grid-container_hot button.ok-to-pay-buy[data-row-status-value]')].map(button=>{
-            const placementId=button.closest('tr')?.querySelector('[id^="placementNumber-"]')?.textContent.trim(),value=button.getAttribute('data-row-status-value');
+            const cell=button.closest('td[id^="okToPay-"]'),rowKey=cell?.id.slice('okToPay-'.length);
+            if(!/^\d+$/.test(rowKey||''))return null;
+            const grid=button.closest('#grid-container_hot');
+            const placementId=(button.closest('tr')?.querySelector(`[id="placementNumber-${rowKey}"]`)||grid?.querySelector(`.ht_clone_left [id="placementNumber-${rowKey}"]`))?.textContent.trim(),value=button.getAttribute('data-row-status-value');
             return /^P[A-Z0-9]{3,20}$/.test(placementId||'')&&['0','1'].includes(value)?{...ctx,placementId,value}:null;
         }).filter(Boolean);
     }
@@ -30,7 +33,7 @@
         if(!event.isTrusted||!active()||!context().actualise)return;
         if(event.type==='keydown'&&!['Enter',' '].includes(event.key))return;
         const path=event.composedPath();
-        if(path.some(node=>node?.matches?.('td[id^="okToPay-"]'))){captureBefore();return;}
+        if(path.some(node=>node?.matches?.('td[id^="okToPay-"],td[id^="payableActualCost"],td[id^="payableActualUnits"],td[id^="actualizationIsActualized"]'))){captureBefore();return;}
         const confirm=path.find(node=>node?.id==='confirm-button');
         if(!confirm||confirm.matches('.mo-btn-disabled,[disabled],[aria-disabled="true"]'))return;
         const modal=confirm.closest('.buyConfirmationDialogModal');

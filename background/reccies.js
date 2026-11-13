@@ -23,13 +23,17 @@ async function assertPrismaProfile() {
     const settings = await chrome.storage.sync.get({ allFeaturesDisabled: false, onboardingAudience: 'prisma' });
     if (settings.allFeaturesDisabled || settings.onboardingAudience === 'non-prisma') throw new Error('Choose the Prisma profile and enable features to check Reccies.');
 }
-async function prisma(path, body, requests, attempt, deadline, method) {
+async function prisma(path, body, requests, attempt, deadline, method, activity) {
     await assertPrismaProfile();
     const started = performance.now();
     const timeoutMs = Math.min(method.requestTimeoutMs, Math.ceil(deadline - started));
     if (timeoutMs <= 0) throw new Error('Verification time limit reached. Verify these rows again.');
     const timing = { phase: body ? 'grid' : 'lookup', attempt, startedMs: Math.round(started - (deadline - method.runBudgetMs)),
         timeoutMs, httpStatus: null, headersMs: null, totalMs: 0, ok: false };
+    activity.active++;
+    if (body) activity.grids++;
+    timing.activeRequestsAtStart = activity.active;
+    timing.activeGridsAtStart = activity.grids;
     requests.push(timing);
     try {
         const response = await fetch(`https://go.mediaocean.com/campaign-service/secure/campaign/${path}`, {
@@ -52,11 +56,12 @@ async function prisma(path, body, requests, attempt, deadline, method) {
     } catch (error) {
         timing.errorName = error.name;
         timing.timedOut = ['TimeoutError', 'AbortError'].includes(error.name);
+        if (timing.timedOut) timing.timeoutPhase = timing.headersMs === null ? 'awaiting-headers' : 'reading-body';
         const failure = timing.timedOut ? new Error(`Prisma request timed out after ${(timeoutMs / 1000).toFixed(1)} seconds. Verify these rows again if the retry also fails.`) : error;
         if (timing.timedOut) failure.name = error.name;
         if (timing.timedOut || error instanceof TypeError) failure.retryable = true;
         throw failure;
-    } finally { timing.totalMs = Math.round(performance.now() - started); }
+    } finally { timing.totalMs = Math.round(performance.now() - started); activity.active--; if (body) activity.grids--; }
 }
 function getRecciesPanelTarget(request, sender) {
     if (!isFeatureModeActive()) {
@@ -144,6 +149,7 @@ async function runGroups(groups, method, options, started = performance.now()) {
         const timing = { method, rows: options.rows, campaigns: groups.size, concurrency: method.concurrency,
             runBudgetMs: method.runBudgetMs, skippedRows: options.skippedRows || 0, cacheHits: 0, retries: 0, campaignsDetail: [] };
         const deadline = started + method.runBudgetMs;
+        const activity = {active: 0, grids: 0};
         const queue = [...groups.values()].map(group => ({ group, attempt: 1, campaign: null }));
         const worker = async () => {
             while (queue.length) {
@@ -164,10 +170,10 @@ async function runGroups(groups, method, options, started = performance.now()) {
                         timing.retries++;
                         campaignTiming.retryQueueMs = Math.round(campaignStarted - started);
                     }
-                    const campaign = task.campaign || await prisma(`publicforui/${first.campaignId}`, undefined, campaignTiming.requests, task.attempt, deadline, method);
+                    const campaign = task.campaign || await prisma(`publicforui/${first.campaignId}`, undefined, campaignTiming.requests, task.attempt, deadline, method, activity);
                     if (campaign.publicId !== first.campaignId || !/^\d+$/.test(String(campaign.id))) throw new Error('Prisma returned a different campaign.');
                     task.campaign = campaign;
-                    const data = await prisma(`${campaign.id}/queryservice/mediaplan/hybrid/actualize`, buildReccieQuery(first.month), campaignTiming.requests, task.attempt, deadline, method);
+                    const data = await prisma(`${campaign.id}/queryservice/mediaplan/hybrid/actualize`, buildReccieQuery(first.month), campaignTiming.requests, task.attempt, deadline, method, activity);
                     const records = core.extractResults(data);
                     const checkedAt = new Date().toISOString();
                     const count = options.onRecords(group, records, checkedAt);

@@ -7,6 +7,7 @@ import { setupApprovalAlarm, pollPendingApprovals, ALARM_NAME as APPROVAL_ALARM_
 import { expireDiagnosticsIfNeeded, recordDiagnosticEvent } from './background/diagnostics-manager.js';
 import { getLegacyPrismaRedirect } from './background/prisma-url.js';
 import { recordTimesheetActivity, clearTimesheetActivity } from './background/timesheet-activity.js';
+import { FINANCE_TIMING_ALARM, pollFinanceTimings } from './background/finance-timing.js';
 initializeAnnualLeave();
 import {
   MASTER_FEATURE_KEY,
@@ -29,7 +30,7 @@ chrome.sidePanel?.onClosed?.addListener(info => isFeatureModeActive() && handleH
 // --- Alarms and Notifications ---
 
 featureModeReady.then(enabled => {
-  if (enabled) { setupApprovalAlarm(); setupSocialCheckAlarm().catch(() => {}); }
+  if (enabled) { setupApprovalAlarm(); setupSocialCheckAlarm().catch(() => {}); chrome.alarms.create(FINANCE_TIMING_ALARM, { periodInMinutes: 2 }); }
   else closeFeatureSurfaces();
 });
 
@@ -143,6 +144,8 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     if (!isFeatureModeActive()) return;
     if (alarm.name.startsWith('ops-reccie-financial:')) {
       await runReccieAlarm(alarm);
+    } else if (alarm.name === FINANCE_TIMING_ALARM) {
+      await pollFinanceTimings(isFeatureModeActive);
     } else if (alarm.name === 'timesheetReminder') {
       await triggerTimesheetNotification();
     } else if (alarm.name === APPROVAL_ALARM_NAME) {
@@ -525,6 +528,7 @@ async function closeFeatureSurfaces() {
     chrome.alarms.clear('timesheetReminder'),
     chrome.alarms.clear(APPROVAL_ALARM_NAME),
     chrome.alarms.clear(SOCIAL_CHECK_ALARM),
+    chrome.alarms.clear(FINANCE_TIMING_ALARM),
     chrome.notifications.clear('timesheetReminder')
   ]);
 
@@ -552,6 +556,7 @@ async function closeFeatureSurfaces() {
 
 async function restoreFeatureResources() {
   await restoreReccieAlarms();
+  await chrome.alarms.create(FINANCE_TIMING_ALARM, { periodInMinutes: 2 });
   await chrome.sidePanel?.setOptions?.({ path: 'help-guides.html', enabled: true });
   await setupApprovalAlarm();
   await setupSocialCheckAlarm();

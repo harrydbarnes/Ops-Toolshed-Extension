@@ -18,3 +18,12 @@
 .toolshed-actualise-buy-status-icon {
     line-height: 1;
 }
+
+#grid-container_hot .ht_clone_left td[id^="placementName-"].mo-icon-placement-right:has(.toolshed-actualise-buy-status-indicator) {
+    padding-right: 2.5rem !important;
+}
+
+#grid-container_hot .ht_clone_left td[id^="placementName-"].mo-icon-placement-right:has(.toolshed-actualise-buy-status-indicator) .launch-fee-details {
+    right: 1.4rem !important;
+    top: 5px !important;
+}

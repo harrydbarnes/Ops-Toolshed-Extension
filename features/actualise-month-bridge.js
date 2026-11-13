@@ -154,6 +154,7 @@
 
         const responseMonths = getResponseMonthValues(payload);
         latestEvidence = {
+            observedAt: Date.now(),
             campaignId: getCampaignId(),
             requestMonth,
             responseMonths,

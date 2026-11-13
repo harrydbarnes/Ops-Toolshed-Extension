@@ -11,9 +11,15 @@ describe('Actualise month bridge', () => {
                 { id: 'month', key: 'Nov 25', hidden: true }
             ],
             nodes: [{
-                fields: [
-                    { id: 'month', value: '2025-11', key: 'Nov 25' }
-                ]
+                fields: [{ id: 'month', value: '2025-11', key: 'Nov 25' }],
+                nodes: [{
+                    fields: [
+                        { id: 'month', value: '2025-11', key: 'Nov 25' },
+                        { id: 'placementNumber', value: 'P123' },
+                        { id: 'buyStatus', value: 'SUCCESSFUL' },
+                        { id: 'buySerialNumber', value: 'D123' }
+                    ]
+                }]
             }]
         };
         const dom = new JSDOM('<!doctype html><html><body></body></html>', {
@@ -78,7 +84,8 @@ describe('Actualise month bridge', () => {
                 detail: expect.objectContaining({
                     campaignId: 'CP123',
                     requestMonth: '2025-11',
-                    responseMonths: ['2025-11']
+                    responseMonths: ['2025-11'],
+                    buyStatusRows: [{ placementNumber: 'P123', buyStatus: 'SUCCESSFUL' }]
                 })
             }));
 
