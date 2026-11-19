@@ -72,6 +72,8 @@ workers (by default) pull continuously from the queue, without ten-campaign barr
 number, then sends the captured complete Actualise query with 110 fields. This
 endpoint uses PUT for a query; it does not change bookings.
 
+Choose All in the name selector to show rows with a populated assignment in the selected role. Automatic tracker updates require a specific name and do not run for All. Buyer names are formatted for display; matching ignores case.
+
 Each request has a 30-second timeout. A timeout, network failure or HTTP
 500/502/503/504 receives at most one retry, behind campaigns not yet started and
 at least one second after the failure. When a grid request fails, the retry reuses
@@ -103,6 +105,13 @@ requires confirmation that you have reconciled them. It changes only Reccied to
 Yes; it does not alter Prisma or require a successful Prisma check for this manual
 attestation. The server rematches D number, campaign ID and report month, skips
 ambiguous or changed rows, and confirms saved values before updating local cards.
+
+The sort-safe writer uses invisible record identifiers for saves, so sorting the
+complete tracker table from its column dropdown keeps updates with their records.
+It preserves formula columns. Records without valid identifiers require owner
+setup before saving; duplicate or changed identities are skipped. Sorting only
+part of a record, changing columns or replacing report data requires a refresh
+and may require identifier setup again.
 
 Google identifies the signed-in user. Access is controlled remotely by a private
 server allowlist, never a list bundled in the extension. Saves record the actor,
@@ -149,6 +158,7 @@ The default limits are eight campaign workers, fifty campaign/month groups and
 500 rows per batch. Retry totals count campaign second attempts; actual request
 counts include every fetch attempt. cacheHits remains zero because previous grid
 results are never reused.
+Each request also records the number of active requests and grid requests when it starts. A timeout records whether it occurred before response headers or while reading the body. These are local observations and do not identify server, network or browser causes on their own.
 HTTP success can still produce a failed campaign if the grid is invalid. A completed
 run can contain failed campaign checks; inspect failedCampaigns and each row.
 Diagnostics stay in local extension storage and contain campaign IDs and counts,
@@ -249,7 +259,8 @@ Main/Early Google reports, never CSV or visited-campaign discovery. Only rows in
 the current fresh check qualify: unique D/campaign/month, Reconciled = Yes and
 Successful buy status, no data issue, not already Yes. Checks older than five
 minutes do not qualify. Server preview, rematching and saved-value readback remain
-in place. Disabling opt-in before commit prevents a new save. Audit entries identify
+in place. Opt-in is checked again immediately before sending a commit. A request
+already sent to Google may finish after the setting is switched off. Audit entries identify
 client-verified automatic saves separately from manual attestation.
 
 The delayed trigger observes reconciliation changes while this tab is open, then
@@ -280,3 +291,9 @@ saved request remains available for manual recovery.
 Settings → Features → Appearance → Reccies appearance offers V1 and V2, with V2 selected by default. Choose V1 for the original layout. Both appearances use the same reports, assignments, filters, verification and write handlers. The quick × beside Prisma chips clears only Prisma selections and is hidden when it would require another row; Clear filters remains available. Existing automatic-write preferences are unchanged and remain opt-in.
 
 V2 result transitions respect reduced motion. Collapse settings hides source, connection and filter controls for the current sidebar instance only; selected filters remain active and Verify stays available. Show settings restores the controls. A newly opened sidebar starts expanded. Campaign headers retain month-specific Prisma URLs while omitting the month beside the CP reference.
+
+### Notes and manual tracker status
+
+The Note action is available for connected Main Tracker and Early Recs reports. It starts with each selected D number's existing comment and tracker Yes/No value. Campaign edits include only matching filtered rows. Suggested phrases append without replacing existing text. Preview checks the live status and comment against the imported report; stale rows are skipped and must be refreshed. Confirmed saves update Comments (resolved by its unique header, normally U) and the selected Yes/No. The sort-safe writer uses conditional formatting for pale yellow highlighting (#fff2cc) while a comment is non-empty. Clearing comments removes that automatic highlight and reveals the existing base colours. Formula comments and notes beginning with = are rejected. The Apps Script notes release must be deployed before saves work; older servers reject previewEdit without changing cells. Automatic marking stays Yes-only.
+
+Reconciled in Prisma means Reconciled = Yes and buy status = Successful. It does not mean the sheet has been updated. Not checked / Check failed are unknown results, not proof of unreconciled status.

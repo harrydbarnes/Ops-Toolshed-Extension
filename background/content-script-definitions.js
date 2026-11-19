@@ -71,6 +71,7 @@ export const CONTENT_SCRIPT_DEFINITIONS = Object.freeze([
             'features/dst-assurance.js',
             'features/social-campaign-check.js',
             'features/actualise-month-assurance.js',
+            'features/actualise-buy-status.js',
             'features/banner-username.js',
             'features/swap-accounts.js',
             'features/auto-copy-url.js',
@@ -95,6 +96,7 @@ export const CONTENT_SCRIPT_DEFINITIONS = Object.freeze([
             'search-highlight.css',
             'approvers.css',
             'content.css',
+            'features/actualise-buy-status.css',
             'features/feedback-modal.css',
             'features/approval-tracking.css'
         ],

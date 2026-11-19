@@ -172,6 +172,32 @@ describe('Reccies background reads', () => {
         expect(fetchMock.mock.calls[1][1].method).toBe('PUT');
         expect(JSON.parse(fetchMock.mock.calls[1][1].body).fields).toHaveLength(110);
     });
+    test('read-only follow-up checks cannot automatically update the tracker',async()=>{
+        await call(handleReccies,sender,{operation:'import',csv,month:'2026-09'});
+        state.reccieTracker.source={type:'google',url:'https://docs.google.com/spreadsheets/d/1QxX7yZvfh75ENyvPG7xD_5ldLuoLwUsTZ6z0edkpORU/edit?gid=405487495'};
+        state.reccieAutomation={autoMark:true};state.recciePreferences={person:'Harry',assignment:'ops'};
+        fetchMock.mockResolvedValueOnce({ok:true,json:async()=>({id:3062760,publicId:'CP3G9KS',status:'Active'})})
+            .mockResolvedValueOnce({ok:true,json:async()=>({status:0,total:1,nodes:[fieldNode()]})});
+        const result=await call(handleReccies,sender,{operation:'check',readOnly:true,revision:state.reccieTracker.revision,rowIds:[2]});
+        expect(result.status).toBe('success');expect(state.reccieTracker.checks[2].state).toBe('ready');
+        expect(state.reccieTracker.rows[0].reccied).toBe('No');
+        expect(fetchMock.mock.calls.every(([url])=>url.startsWith('https://go.mediaocean.com/'))).toBe(true);
+    });
+    test('post-save refresh preserves checks by stable identity after row reordering',async()=>{
+        await call(handleReccies,sender,{operation:'import',csv,month:'2026-09'});
+        const revision=state.reccieTracker.revision;
+        state.reccieTracker.checks={2:{state:'ready',checkedAt:'2026-11-05T12:00:00Z'}};
+        const refreshed=headers+'\r\nD03120201,CP3G9KS,Buyer,Harry,Harry,No,Other,Other,Supplier,\r\nD03120200,CP3G9KS,Buyer,Harry,Harry,Yes,Client,Campaign,Supplier,\r\n';
+        const result=await call(handleReccies,sender,{operation:'import',csv:refreshed,month:'2026-09',expectedRevision:revision,preserveChecks:true});
+        expect(result.status).toBe('success');expect(state.reccieTracker.checks[3]).toMatchObject({state:'ready'});
+        expect(state.reccieTracker.checks[2]).toBeUndefined();expect(state.reccieTracker.rows[1].reccied).toBe('Yes');
+    });
+    test('post-save refresh cannot overwrite a newer report revision',async()=>{
+        await call(handleReccies,sender,{operation:'import',csv,month:'2026-09'});
+        const revision=state.reccieTracker.revision;
+        const result=await call(handleReccies,sender,{operation:'import',csv,month:'2026-09',expectedRevision:'old-revision',preserveChecks:true});
+        expect(result.status).toBe('error');expect(state.reccieTracker.revision).toBe(revision);
+    });
     test('failed access replaces ready status with an error and does not alter tracker data',async()=>{
         await call(handleReccies,sender,{operation:'import',csv,month:'2026-09'});
         state.reccieTracker.checks[2]={state:'ready'};
@@ -201,8 +227,8 @@ describe('Reccies background reads', () => {
             expect(Object.values(state.reccieTracker.checks).every(item=>item.state==='ready')).toBe(true);
             expect(state.reccieTracker.lastCheckTiming).toMatchObject({rows:372,campaigns:1,totalMs:60,skippedRows:0,cacheHits:0,retries:0});
             expect(state.reccieTracker.lastCheckTiming.campaignsDetail[0]).toMatchObject({rows:372,queueMs:0,totalMs:60,outcome:'success',requests:[
-                {phase:'lookup',headersMs:25,totalMs:30,httpStatus:200,ok:true},
-                {phase:'grid',headersMs:25,totalMs:30,httpStatus:200,ok:true}
+                {phase:'lookup',headersMs:25,totalMs:30,httpStatus:200,ok:true,activeRequestsAtStart:1,activeGridsAtStart:0},
+                {phase:'grid',headersMs:25,totalMs:30,httpStatus:200,ok:true,activeRequestsAtStart:1,activeGridsAtStart:1}
             ]});
         } finally { clock.mockRestore(); }
     });
@@ -279,6 +305,7 @@ describe('Reccies background reads', () => {
             expect(fetchMock.mock.calls.filter(([url])=>url.endsWith(`publicforui/${row.campaignId}`))).toHaveLength(1);
             const detail=state.reccieTracker.lastCheckTiming.campaignsDetail.find(item=>item.campaign===row.campaignId);
             expect(detail).toMatchObject({attempts:2,outcome:'success',requests:[{phase:'lookup',attempt:1,ok:true},{phase:'grid',attempt:1,ok:false},{phase:'grid',attempt:2,ok:true}]});
+            if(kind==='timeout') expect(detail.requests[1].timeoutPhase).toBe('awaiting-headers');
             expect(state.reccieTracker.lastCheckTiming.retries).toBe(1);
             expect(state.reccieTracker.checks[2].state).toBe('ready');
         } finally { jest.useRealTimers(); }
@@ -350,6 +377,11 @@ describe('Reccies background reads', () => {
         fetchMock.mockResolvedValueOnce({ok:true,headers:{get:()=> 'text/html'}});
         expect((await call(handleReccies,sender,request)).status).toBe('error');
         expect(state.reccieTracker.revision).toBe(revision);
+    });
+    test.each([undefined, '', 'not a URL', 'https://[invalid'])('rejects malformed panel sender URL %s without opening a panel', async url => {
+        const response = await call(prepareReccies, { id: chrome.runtime.id, url, tab: { id: 42, windowId: 7 }, frameId: 0 }, {});
+        expect(response).toMatchObject({ status: 'error', message: 'Open Reccies from Ops Toolshed or Prisma.' });
+        expect(chrome.sidePanel.setOptions).not.toHaveBeenCalled();
     });
     test('rejects content-page tracker requests and feature-off checks',async()=>{
         expect((await call(handleReccies,{id:chrome.runtime.id,url:'https://go.mediaocean.com/campaign-management/'},{operation:'import',csv,month:'2026-09'})).status).toBe('error');

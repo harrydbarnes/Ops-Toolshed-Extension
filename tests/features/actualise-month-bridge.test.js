@@ -11,9 +11,15 @@ describe('Actualise month bridge', () => {
                 { id: 'month', key: 'Nov 25', hidden: true }
             ],
             nodes: [{
-                fields: [
-                    { id: 'month', value: '2025-11', key: 'Nov 25' }
-                ]
+                fields: [{ id: 'month', value: '2025-11', key: 'Nov 25' }],
+                nodes: [{
+                    fields: [
+                        { id: 'month', value: '2025-11', key: 'Nov 25' },
+                        { id: 'placementNumber', value: 'P123' },
+                        { id: 'buyStatus', value: 'SUCCESSFUL' },
+                        { id: 'buySerialNumber', value: 'D123' }
+                    ]
+                }]
             }]
         };
         const dom = new JSDOM('<!doctype html><html><body></body></html>', {
@@ -78,7 +84,8 @@ describe('Actualise month bridge', () => {
                 detail: expect.objectContaining({
                     campaignId: 'CP123',
                     requestMonth: '2025-11',
-                    responseMonths: ['2025-11']
+                    responseMonths: ['2025-11'],
+                    buyStatusRows: [{ placementNumber: 'P123', buyStatus: 'SUCCESSFUL' }]
                 })
             }));
 
@@ -147,6 +154,36 @@ describe('Actualise month bridge', () => {
 
         expect(send).toHaveBeenCalledWith(payload);
         expect(parseSpy).not.toHaveBeenCalled();
+        dom.window.close();
+    });
+
+    test('prevents unhandled rejection errors from non-Actualise host page fetch failures', async () => {
+        const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+            runScripts: 'dangerously',
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP123&ptb-ctx=actualize&route=actualize&mos=2025-11-01'
+        });
+        dom.window.document.documentElement.setAttribute('data-ops-toolshed-features-active', 'true');
+        const originalFetch = jest.fn(() => {
+            const err = new dom.window.TypeError('Failed to fetch');
+            err.stack = 'TypeError: Failed to fetch\n    at wrappedFetch (features/actualise-month-bridge.js:235:36)';
+            return Promise.reject(err);
+        });
+        dom.window.fetch = originalFetch;
+
+        dom.window.eval(bridgeCode);
+
+        // Call a non-Actualise fetch that rejects
+        const promise = dom.window.fetch('https://some-telemetry.mediaocean.com/ping');
+        await expect(promise).rejects.toThrow('Failed to fetch');
+
+        // Dispatch unhandledrejection event to verify bridge cancels it
+        const unhandled = new dom.window.Event('unhandledrejection', { cancelable: true });
+        const err = new dom.window.TypeError('Failed to fetch');
+        err.stack = 'TypeError: Failed to fetch\n    at wrappedFetch (features/actualise-month-bridge.js:235:36)';
+        unhandled.reason = err;
+        dom.window.dispatchEvent(unhandled);
+
+        expect(unhandled.defaultPrevented).toBe(true);
         dom.window.close();
     });
 });

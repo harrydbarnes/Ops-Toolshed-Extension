@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ops Toolshed Settings</title>
+    <style>html { visibility: hidden; }</style>
+    <link rel="stylesheet" href="assets/fonts/fonts.css">
+    <link rel="stylesheet" href="style.css"> <!-- Added link to shared style.css -->
+    <link rel="stylesheet" href="settings.css">
+    <link rel="stylesheet" href="segmented-control.css">
+    <link rel="stylesheet" href="loading-facts-preview.css">
+    <link rel="stylesheet" href="content.css">
+    <!-- It's good practice to link a specific CSS for the settings page if major styling differences are expected -->
+    <!-- <link rel="stylesheet" href="settings.css"> -->
+    <link rel="stylesheet" href="features/feedback-modal.css">
+</head>
+<body>
+    <div class="container">
+        <header class="settings-header">
+            <h1>Settings</h1>
+            <a href="toolshed.html" class="nav-link">Release Notes, Roadmap + Stats</a>
+        </header>
+
+        <div class="settings-tab-toolbar">
+            <div class="tab-container" role="tablist">
+                <button class="tab-button active" data-tab="features" role="tab" id="tab-features" aria-controls="features" aria-selected="true">Features</button>
+                <button class="tab-button" data-tab="loading-facts" role="tab" id="tab-loading-facts" aria-controls="loading-facts" aria-selected="false" tabindex="-1">Loading Facts</button>
+                <button class="tab-button" data-tab="reminders" role="tab" id="tab-reminders" aria-controls="reminders" aria-selected="false" tabindex="-1">Reminders</button>
+                <button class="tab-button" data-tab="custom-reminders" role="tab" id="tab-custom-reminders" aria-controls="custom-reminders" aria-selected="false" tabindex="-1">Custom Reminders</button>
+            </div>
+            <div id="feature-settings-search" class="feature-settings-search" role="search">
+                <svg class="feature-settings-search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <circle cx="11" cy="11" r="7"></circle>
+                    <path d="m20 20-4-4"></path>
+                </svg>
+                <input id="feature-settings-search-input" type="text" placeholder="Search features..." aria-label="Search feature settings" aria-controls="features" autocomplete="off" spellcheck="false">
+                <button id="clear-feature-settings-search" class="feature-settings-search-clear" type="button" aria-label="Clear feature search" title="Clear search" hidden>
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M18 6 6 18M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <div id="features" class="tab-content active" role="tabpanel" aria-labelledby="tab-features">
+            <section id="appearance-settings">
+                <h2>Appearance</h2>
+                <div class="toggle-container">
+                    <span>Reccies appearance:</span>
+                    <div class="segmented-control" id="recciesAppearanceSegmented" role="group" aria-label="Reccies appearance">
+                        <button type="button" data-value="v1" aria-pressed="false">V1</button>
+                        <button type="button" data-value="v2" aria-pressed="true">V2</button>
+                    </div>
+                </div>
+                <p class="settings-feature-mode-help">V2 is selected by default. Choose V1 for the original Reccies appearance.</p>
+                <div class="toggle-container">
+                    <span>Popup UI Theme:</span>
+                    <div class="segmented-control" id="uiThemeSegmented" role="group" aria-label="Popup UI Theme">
+                        <button type="button" data-value="pink" aria-pressed="true">
+                            <span class="segment-color-swatch pink" aria-hidden="true"></span>
+                            Pink
+                        </button>
+                        <button type="button" data-value="black" aria-pressed="false">
+                            <span class="segment-color-swatch black" aria-hidden="true"></span>
+                            Black
+                        </button>
+                    </div>
+                    <!-- DROPDOWN ROLLBACK (Popup UI Theme): restore uiThemeDropdown and its existing initializer if required. -->
+                </div>
+                <div class="toggle-container">
+                    <span>Replace Prisma Logo:</span>
+                    <label class="toggle">
+                        <input type="checkbox" id="logoToggle"><span class="slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-container">
+                    <span>Translucent 'AppLearn' Logo:</span>
+                    <label class="toggle"><input type="checkbox" id="appLearnReplaceToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Show username in Prisma banner:</span>
+                    <label class="toggle"><input type="checkbox" id="bannerUsernameToggle"><span class="slider"></span></label>
+                </div>
+            </section>
+
+            <section id="popup-shortcut-settings">
+                <h2>Popup Shortcuts</h2>
+                <p class="settings-feature-mode-help">Reccies is on by default in place of myOffice Days. Add up to five custom links here, or make these choices during onboarding.</p>
+                <div id="popup-shortcut-editor" class="popup-shortcut-editor"></div>
+            </section>
+
+            <section id="productivity-settings">
+                <h2>Productivity</h2>
+                <div class="toggle-container">
+                    <span>Meta finance tool:</span>
+                    <div class="segmented-control" id="metaFinanceToolSegmented" role="group" aria-label="Meta finance tool">
+                        <button type="button" data-value="social" aria-pressed="true">Booking Checker</button>
+                        <button type="button" data-value="legacy" aria-pressed="false">Billing Check</button>
+                    </div>
+                </div>
+                <div class="toggle-container">
+                    <span>Show Loading Facts:</span>
+                    <label class="toggle"><input type="checkbox" id="loadingFactsToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Loading Facts appearance:</span>
+                    <div class="segmented-control" id="loadingFactsUI" role="group" aria-label="Loading Facts appearance">
+                        <button type="button" data-value="new" aria-pressed="true">New UI</button>
+                        <button type="button" data-value="old" aria-pressed="false">Old UI</button>
+                    </div>
+                </div>
+                <div class="toggle-container">
+                    <span>Help Guides launcher:</span>
+                    <label class="toggle"><input type="checkbox" id="helpGuidesToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Assist Prisma sign-in & timeout re-login on active tabs:</span>
+                    <label class="toggle"><input type="checkbox" id="prismaLoginAssistantToggle"><span class="slider"></span></label>
+                </div>
+                <div id="prisma-login-assistant-options" class="prisma-login-assistant-options" hidden aria-live="polite">
+                    <label>
+                        Work email
+                        <input id="prismaLoginAssistantEmail" type="email" autocomplete="email" placeholder="name@company.com">
+                    </label>
+                    <label>
+                        Organisation
+                        <input id="prismaLoginAssistantOrganisation" type="text" value="WPP Media UK Agency Owner United Kingdom">
+                    </label>
+                    <p>Saved only in this browser. Automatically clicks Sign In on session timeout screens after 2 seconds, fills your email, and selects your organisation. Never signs in on background tabs.</p>
+                </div>
+                <div class="toggle-container">
+                    <span>Count Placements Selected:</span>
+                    <label class="toggle"><input type="checkbox" id="countPlacementsSelectedToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Approver Sidebar Enhancements:</span>
+                    <label class="toggle"><input type="checkbox" id="approverSidebarEnhancementsToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Show submitted approval recipients:</span>
+                    <label class="toggle"><input type="checkbox" id="approverSubmittedRecipientDisplayToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Track campaign approvals in background:</span>
+                    <label class="toggle"><input type="checkbox" id="approvalTrackingToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Show approved campaigns in banner:</span>
+                    <label class="toggle"><input type="checkbox" id="approvalBannerIndicatorToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Toast notification on campaign approval:</span>
+                    <label class="toggle"><input type="checkbox" id="approvalToastNotificationToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Actualise bulk export <em>(requested by Issy)</em>:</span>
+                    <label class="toggle"><input type="checkbox" id="actualiseBulkExportToggle"><span class="slider"></span></label>
+                </div>
+            </section>
+
+            <section id="navigation-settings">
+                <h2>Navigation</h2>
+                <div class="toggle-container">
+                    <span>Use campaign name as tab title:</span>
+                    <label class="toggle"><input type="checkbox" id="campaignTabTitleToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Open Plan campaign links in Buy:</span>
+                    <label class="toggle"><input type="checkbox" id="planToBuyRedirectToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Add Orders shortcut tab to menu:</span>
+                    <label class="toggle"><input type="checkbox" id="ordersShortcutToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Add Actualise shortcut tab to menu:</span>
+                    <label class="toggle"><input type="checkbox" id="actualiseShortcutToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Show navigation bar in Actualise:</span>
+                    <label class="toggle"><input type="checkbox" id="actualiseNavbarToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Campaign History search:</span>
+                    <label class="toggle"><input type="checkbox" id="campaignHistoryToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Log campaigns visited:</span>
+                    <label class="toggle"><input type="checkbox" id="campaignHistoryLoggingToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container" data-feature-mode-available-when-disabled>
+                    <div class="settings-feature-mode-copy">
+                        <span>Redirect links from the retired Prisma URL:</span>
+                        <p class="settings-feature-mode-help">On by default. Keeps old campaign links working and remains available when Features are off.</p>
+                    </div>
+                    <label class="toggle">
+                        <input type="checkbox" id="legacyPrismaRedirectToggle" aria-label="Redirect links from the retired Prisma URL">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </section>
+
+            <section id="quick-actions-settings">
+                <h2>Quick Actions</h2>
+                <div class="toggle-container">
+                    <span>Quick details, copy campaign and history buttons:</span>
+                    <label class="toggle"><input type="checkbox" id="quickCampaignActionsToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Campaign name quick copy:</span>
+                    <label class="toggle"><input type="checkbox" id="campaignNameQuickCopyToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Campaign ID and CL/PR/CA quick copy:</span>
+                    <label class="toggle"><input type="checkbox" id="campaignHeaderQuickCopyToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Campaign dates quick edit shortcut:</span>
+                    <label class="toggle"><input type="checkbox" id="campaignDateShortcutToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Order ID Copy Button:</span>
+                    <label class="toggle"><input type="checkbox" id="orderIdCopyToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Max Campaign Budget feature:</span>
+                    <label class="toggle"><input type="checkbox" id="maxCampaignBudgetToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Switch Accounts button:</span>
+                    <label class="toggle"><input type="checkbox" id="swapAccountsToggle"><span class="slider"></span></label>
+                </div>
+            </section>
+
+            <section id="automation-settings">
+                <h2>Automation</h2>
+                <div class="toggle-container">
+                    <span>Auto Copy Campaign URL:</span>
+                    <label class="toggle"><input type="checkbox" id="autoCopyUrlToggle"><span class="slider"></span></label>
+                </div>
+                <div id="autoCopyUrlSubOptions" class="nested-toggle-group" aria-label="Auto Copy Campaign URL options">
+                    <div class="toggle-container nested-toggle-container">
+                        <span>URL format</span>
+                        <div class="segmented-control" id="autoCopyUrlModeSegmented" role="group" aria-label="URL format">
+                            <button type="button" data-value="short" aria-pressed="true">Short</button>
+                            <button type="button" data-value="full" aria-pressed="false">Full</button>
+                        </div>
+                        <!-- DROPDOWN ROLLBACK (URL format): restore autoCopyUrlModeDropdown and its existing initializer if required. -->
+                    </div>
+                </div>
+                <div class="toggle-container">
+                    <span>'Add Campaign' auto clicks 'Enter Full Details':</span>
+                    <label class="toggle"><input type="checkbox" id="addCampaignShortcutToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Hide unused sections on 'Add Campaign':</span>
+                    <label class="toggle"><input type="checkbox" id="hidingSectionsToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Automate 'Budget type' and 'Media mix' selection:</span>
+                    <label class="toggle"><input type="checkbox" id="automateFormFieldsToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Autofill Reference ID and Client reference from selected PO numbers:</span>
+                    <label class="toggle"><input type="checkbox" id="campaignPoAutofillToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Return to previous page after switching accounts:</span>
+                    <label class="toggle"><input type="checkbox" id="rememberAccountSwitchUrlToggle"><span class="slider"></span></label>
+                </div>
+            </section>
+
+            <section id="campaign-view-settings">
+                <h2>Campaign View</h2>
+                <div class="toggle-container">
+                    <span>Optimise placement of Approver Widget:</span>
+                    <label class="toggle"><input type="checkbox" id="approverWidgetPlacementToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>DST Assurance badge:</span>
+                    <label class="toggle"><input type="checkbox" id="dstAssuranceToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Actualise month assurance badge:</span>
+                    <label class="toggle"><input type="checkbox" id="actualiseMonthAssuranceToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Product Code Limit Warning:</span>
+                    <label class="toggle"><input type="checkbox" id="productCodeLimitWarningToggle"><span class="slider"></span></label>
+                </div>
+                <div class="product-code-warning-maintenance" role="group" aria-labelledby="productCodeWarningMaintenanceTitle">
+                    <div class="product-code-warning-maintenance-copy">
+                        <strong id="productCodeWarningMaintenanceTitle">Dismissed warnings</strong>
+                        <p id="productCodeWarningIgnoredStatus" aria-live="polite">Checking ignored warnings...</p>
+                    </div>
+                    <button id="resetProductCodeWarningIgnoredButton" class="settings-button settings-button-secondary" type="button" disabled>Reset ignored warnings</button>
+                </div>
+                <div class="toggle-container">
+                    <span>Budget widget optimised:</span>
+                    <label class="toggle"><input type="checkbox" id="budgetWidgetOptimisedToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>Latest / All easy-access toggle in New Order UI:</span>
+                    <label class="toggle"><input type="checkbox" id="newOrderUiOptimisationToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>See Comments on Locked Buys <em>(requested by LP)</em>:</span>
+                    <label class="toggle"><input type="checkbox" id="seeCommentsOnLockedBuysToggle"><span class="slider"></span></label>
+                </div>
+                <div class="toggle-container">
+                    <span>GMI Chat Shortcut:</span>
+                    <label class="toggle"><input type="checkbox" id="gmiChatShortcutToggle"><span class="slider"></span></label>
+                </div>
+            </section>
+
+            <section id="live-chat-settings">
+                <h2>Live Chat</h2>
+                <div class="toggle-container"><span>Smaller Chat Font:</span><label class="toggle"><input type="checkbox" id="fontSizeToggle"><span class="slider"></span></label></div>
+                <div class="toggle-container"><span>Resizable Chat Window:</span><label class="toggle"><input type="checkbox" id="resizableChatToggle"><span class="slider"></span></label></div>
+                <div class="toggle-container"><span>Auto-select Moe media:</span><label class="toggle"><input type="checkbox" id="moeChatMediaAutoSelectToggle"><span class="slider"></span></label></div>
+            </section>
+
+            <section id="fixes-settings">
+                <h2>Fixes</h2>
+                <div class="toggle-container"><span>Block broken AppLearn login popups:</span><label class="toggle"><input type="checkbox" id="blockAppLearnPopupsToggle"><span class="slider"></span></label></div>
+                <div class="toggle-container"><span>Preserve horizontal scroll position in Actualise <em>(requested by Frank)</em>:</span><label class="toggle"><input type="checkbox" id="actualiseScrollRestoreToggle"><span class="slider"></span></label></div>
+                <div class="toggle-container"><span>Keep Order Summary headers aligned while scrolling:</span><label class="toggle"><input type="checkbox" id="orderGridScrollSyncToggle"><span class="slider"></span></label></div>
+            </section>
+
+            <section id="advanced-settings">
+                <h2>Advanced</h2>
+                <div class="toggle-container"><span>Stats Collector:</span><label class="toggle"><input type="checkbox" id="statsCollectorToggle"><span class="slider"></span></label></div>
+                <div class="toggle-container"><span>Diagnostics Mode (up to 24 hours):</span><label class="toggle"><input type="checkbox" id="diagnosticsModeToggle"><span class="slider"></span></label></div>
+                <div class="diagnostics-mode-panel">
+                    <p id="diagnosticsModeStatus" class="diagnostics-mode-status" role="status" aria-live="polite">Off. No diagnostic events are being recorded.</p>
+                    <div class="diagnostics-mode-actions" aria-label="Diagnostics data actions">
+                        <button id="clearDiagnosticsButton" class="diagnostics-action diagnostics-action-clear" type="button" disabled>Clear</button>
+                        <button id="exportDiagnosticsButton" class="diagnostics-action diagnostics-action-icon" type="button" disabled aria-label="Export diagnostic data" title="Export diagnostic data">
+                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3v10m0-10 4 4m-4-4-4 4M5 14v4.5A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V14"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="onboarding-launch-actions">
+                    <p id="onboardingAudienceStatus" aria-live="polite">Setup profile: checking…</p>
+                    <a class="settings-button" href="feature-explorer.html" target="_blank" rel="noopener">Explore all features</a>
+                    <button id="launchOnboardingButton" class="settings-button" type="button">Change setup profile</button>
+                    <button id="launchOnboardingTourV1Button" class="settings-button settings-button-secondary" type="button">Open side panel v1</button>
+                    <button id="launchOnboardingTourV2Button" class="settings-button" type="button">Open side panel v2</button>
+                    <button id="resetFeatureSettingsButton" class="settings-button settings-button-secondary" type="button">Default Settings</button>
+                </div>
+            </section>
+            <p id="feature-settings-search-empty" class="feature-settings-search-empty" role="status" aria-live="polite" hidden>No feature settings found.</p>
+        </div>
+
+        <div id="loading-facts" class="tab-content" role="tabpanel" aria-labelledby="tab-loading-facts" hidden>
+            <section class="loading-facts-review">
+                <div class="section-header-with-button">
+                    <div>
+                        <h2>Loading Fact Review</h2>
+                        <p>Rate the remaining facts here, review feedback from Prisma, and export it for the next catalogue update.</p>
+                    </div>
+                    <button id="exportLoadingFactRatings" class="settings-button" type="button">Export ratings</button>
+                </div>
+                <div id="loadingFactSummary" class="loading-fact-summary" aria-live="polite"></div>
+                <div id="loadingFactReviewList" class="loading-fact-review-list" aria-live="polite"></div>
+            </section>
+        </div>
+
+        <div id="reminders" class="tab-content" role="tabpanel" aria-labelledby="tab-reminders">
+            <section id="prisma-reminders">
+                <div class="section-header-with-button">
+                    <h2>Prisma Reminders</h2>
+                    <button id="resetRemindersButton" class="settings-button settings-button-secondary">Reset</button>
+                </div>
+                <div class="prisma-reminder-options">
+                    <div class="setting-row">
+                        <span class="setting-label" id="reminderThemeLabel">Reminder Theme:</span>
+                        <div class="segmented-control" id="reminderThemeSegmented" role="group" aria-labelledby="reminderThemeLabel">
+                            <button type="button" data-value="pink" aria-pressed="true">
+                                <span class="segment-color-swatch pink" aria-hidden="true"></span>
+                                Pink
+                            </button>
+                            <button type="button" data-value="black" aria-pressed="false">
+                                <span class="segment-color-swatch black" aria-hidden="true"></span>
+                                Black
+                            </button>
+                        </div>
+                    </div>
+                    <div class="setting-row">
+                        <label for="prismaReminderFrequency">Show Reminders:</label>
+                        <div class="select-container">
+                            <select id="prismaReminderFrequency">
+                                <option value="daily">Daily</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="monthly">Monthly</option>
+                                <option value="once">Once</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="setting-row">
+                        <label for="prismaCountdownDuration">Countdown to dismiss:</label>
+                        <div class="select-container">
+                            <select id="prismaCountdownDuration">
+                                <option value="3">3 seconds</option>
+                                <option value="5">5 seconds</option>
+                                <option value="0">None</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="toggle-container">
+                    <span class="toggle-label">Meta Reconciliation Reminder:</span>
+                    <div class="button-and-toggle-group">
+                        <button id="triggerMetaReminder" class="settings-button">Test</button>
+                        <label class="toggle">
+                            <input type="checkbox" id="metaReminderToggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+                <div class="toggle-container">
+                    <span class="toggle-label">IAS Reminder:</span>
+                    <div class="button-and-toggle-group">
+                        <button id="triggerIasReminder" class="settings-button">Test</button>
+                        <label class="toggle">
+                            <input type="checkbox" id="iasReminderToggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </section>
+
+            <section id="aura-reminders">
+                <h2>Aura Reminders</h2>
+                <div class="toggle-container">
+                    <span>Enable Timesheet Reminder:</span>
+                    <label class="toggle">
+                        <input type="checkbox" id="timesheetReminderToggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div id="timesheetReminderSettings" class="hidden-initially"> <!-- This div will be shown/hidden by the toggle -->
+                    <p class="reminder-text"><em>Remind me on and at:</em></p>
+                    <div class="select-container">
+                        <select id="reminderDay">
+                            <option value="Monday">Monday</option>
+                            <option value="Tuesday">Tuesday</option>
+                            <option value="Wednesday">Wednesday</option>
+                            <option value="Thursday">Thursday</option>
+                            <option value="Friday">Friday</option>
+                        </select>
+                    </div>
+                    <div class="select-container">
+                        <select id="reminderTime"></select> <!-- Options populated by JS -->
+                    </div>
+                    <div class="button-group">
+                        <button id="saveTimesheetReminderSettings" class="settings-button">Save Reminder</button>
+                        <button id="triggerTimesheetReminder" class="settings-button">Trigger Timesheet Reminder Now</button>
+                        <p id="timesheetReminderUpdateMessage" class="reminder-update-message hidden-initially"></p>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div id="custom-reminders" class="tab-content" role="tabpanel" aria-labelledby="tab-custom-reminders">
+            <section id="create-reminder">
+                <h2 id="reminderFormHeading">Create Custom Reminder</h2>
+                <div id="createReminderInitialStep">
+                    <div>
+                        <label for="reminderName">Reminder Name:</label>
+                        <input type="text" id="reminderName" placeholder="e.g., Snapchat Task">
+                    </div>
+                    <div>
+                        <div class="reminder-url-label-row">
+                            <label for="reminderUrlPattern" id="reminderUrlPatternLabel">URL text to match:</label>
+                            <div class="segmented-control reminder-match-segmented" id="reminderUrlMatchTypeSegmented" role="group" aria-label="URL matching mode">
+                                <button type="button" data-value="contains" aria-pressed="true">Simple</button>
+                                <button type="button" data-value="pattern" aria-pressed="false">Advanced</button>
+                            </div>
+                            <input type="hidden" id="reminderUrlMatchType" value="contains">
+                        </div>
+                        <div class="reminder-url-input-row">
+                            <input type="text" id="reminderUrlPattern" value="mediaocean.com" placeholder="e.g., mediaocean.com">
+                            <button type="button" id="useReminderSiteOnly" class="settings-button settings-button-secondary">Use site only</button>
+                        </div>
+                        <p id="reminderUrlHelp" class="input-help">Simple mode matches this text anywhere in the page URL. Paste a full URL and choose “Use site only” to match every page on that site.</p>
+                    </div>
+                    <div>
+                        <fieldset>
+                            <legend>Text to look for on site (leave blank if URL match is enough):</legend>
+                            <div id="reminderTriggersContainer"></div>
+                            <button type="button" id="addTriggerBtn" class="settings-button settings-button-secondary add-trigger-btn">+ Add another keyword</button>
+                        </fieldset>
+                    </div>
+                    <div class="reminder-match-logic">
+                        <label for="reminderTriggerLogic">Match Logic:</label>
+                        <div class="select-container">
+                            <select id="reminderTriggerLogic">
+                                <option value="OR">Match ANY text (OR)</option>
+                                <option value="ALL">Match ALL text (AND)</option>
+                            </select>
+                        </div>
+                        <p class="input-help">"Any" triggers if one phrase is found. "All" requires every phrase to be present.</p>
+                    </div>
+                    <button id="nextButton" class="settings-button">Next</button>
+                    <p id="customReminderStatus" class="reminder-update-message hidden-initially"></p>
+                </div>
+
+                <h3>Saved Custom Reminders</h3>
+                <div id="customRemindersList">
+                    <!-- Custom reminders will be listed here by JavaScript -->
+                    <p>No custom reminders saved yet.</p>
+                </div>
+            </section>
+
+            <section id="export-settings">
+                <h2>Export Custom Reminders</h2>
+                <p>Click the button below to generate a JSON representation of your custom reminders. You can copy this to back them up or share them.</p>
+                <button id="generateExportData" class="settings-button">Generate Export Data</button>
+                <textarea id="exportDataTextarea" readonly placeholder="Exported JSON data will appear here..."></textarea>
+            </section>
+        </div>
+
+        <div class="feedback">
+            <a href="#" id="open-feedback-modal">Have an idea? Let the chef know here!</a>
+        </div>
+    </div>
+    <script src="extension-page-gate.js" data-allow-when-disabled="true" data-scripts="feature-settings-registry.js,popup-shortcuts.js,build-info.js,utils.js,features/feedback-modal.js,features/loading-facts.js,loading-facts-preview.js,settings.js"></script>
+
+    <div id="build-info" class="build-info"></div>
+
+    <!-- New Reminder Modal Editor -->
+    <div id="reminderModalOverlay" class="reminder-modal-overlay"></div>
+    <div id="reminderModalEditor" class="reminder-modal" role="dialog" aria-modal="true" aria-labelledby="modalEditorTitle" aria-describedby="modalEditorSubtitle">
+        <div class="reminder-modal-content">
+            <div class="reminder-modal-header">
+                <h2 id="modalEditorTitle">Create Custom Reminder</h2>
+                <button id="modalCloseButton" class="modal-close-button" type="button" aria-label="Close reminder editor">&times;</button>
+            </div>
+            <div class="reminder-modal-body">
+                <p id="modalEditorSubtitle" class="reminder-modal-subtitle"></p>
+                <div id="modalReminderSummary">
+                    <p><strong>Name:</strong> <span id="modalReminderNameDisplay"></span></p>
+                    <p><strong>URL Pattern:</strong> <span id="modalReminderUrlPatternDisplay"></span></p>
+                    <p><strong>Text Trigger:</strong> <span id="modalReminderTextTriggerDisplay"></span></p>
+                    <hr>
+                </div>
+                <div id="modalEditConditions" class="reminder-edit-conditions hidden-initially">
+                    <div>
+                        <label for="modalEditReminderName">Reminder Name:</label>
+                        <input type="text" id="modalEditReminderName">
+                    </div>
+                    <div>
+                        <div class="reminder-url-label-row">
+                            <label for="modalEditUrlPattern" id="modalEditUrlPatternLabel">URL text to match:</label>
+                            <div class="segmented-control reminder-match-segmented" id="modalEditUrlMatchTypeSegmented" role="group" aria-label="Edit URL matching mode">
+                                <button type="button" data-value="contains" aria-pressed="true">Simple</button>
+                                <button type="button" data-value="pattern" aria-pressed="false">Advanced</button>
+                            </div>
+                            <input type="hidden" id="modalEditUrlMatchType" value="contains">
+                        </div>
+                        <div class="reminder-url-input-row">
+                            <input type="text" id="modalEditUrlPattern" placeholder="e.g., mediaocean.com">
+                            <button type="button" id="modalUseReminderSiteOnly" class="settings-button settings-button-secondary">Use site only</button>
+                        </div>
+                    </div>
+                    <fieldset>
+                        <legend>Text to look for on site:</legend>
+                        <div id="modalReminderTriggersContainer"></div>
+                        <button type="button" id="modalAddTriggerBtn" class="settings-button settings-button-secondary add-trigger-btn">+ Add another keyword</button>
+                    </fieldset>
+                    <div class="reminder-match-logic">
+                        <label for="modalEditTriggerLogic">Match Logic:</label>
+                        <div class="select-container">
+                            <select id="modalEditTriggerLogic">
+                                <option value="OR">Match ANY text (OR)</option>
+                                <option value="ALL">Match ALL text (AND)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <hr>
+                </div>
+                <div>
+                    <label for="modalInputReminderTitle">Reminder Title:</label>
+                    <input type="text" id="modalInputReminderTitle" placeholder="⚠️ Your Title Here ⚠️">
+                </div>
+                <div>
+                    <label for="modalInputIntroSentence">Intro Sentence:</label>
+                    <textarea id="modalInputIntroSentence" placeholder="e.g., This is a reminder to..."></textarea>
+                </div>
+                <div>
+                    <label for="modalInputBulletPoints">Bullet Points (one per line):</label>
+                    <textarea id="modalInputBulletPoints" placeholder="• Do this first
+• Then do this
+• Finally, this"></textarea>
+                </div>
+            </div>
+            <div class="reminder-modal-footer">
+                <button id="modalSaveButton" class="settings-button">Save Reminder</button>
+                <button id="modalCancelButton" class="settings-button settings-button-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <div id="toast-notification" class="toast">
+        <div class="toast-message"></div>
+    </div>
+</body>
+</html>

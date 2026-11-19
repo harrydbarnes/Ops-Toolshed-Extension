@@ -6,8 +6,8 @@
     const SETTING_KEY = 'actualiseBulkExportEnabled';
     const STATUS_ID = 'toolshed-export-all-actuals-status';
     const FILE_INPUT_ID = 'toolshed-combine-actuals-input';
-    const MONTH_SELECTOR = '#mos-paginator li > a';
-    const ACTIVE_MONTH_SELECTOR = '#mos-paginator li.active > a';
+    const MONTH_SELECTOR = '#mos-paginator li > a, .actual-months-group mo-button-group-item';
+    const ACTIVE_MONTH_SELECTOR = '#mos-paginator li.active > a, .actual-months-group mo-button-group-item[aria-pressed="true"], .actual-months-group mo-button-group-item[selected="true"]';
     const IMPORT_EXPORT_BUTTON_SELECTOR = '#btn-importExportPlacements';
     const IMPORT_EXPORT_CONTAINER_SELECTOR = '#btn-importExportPlacements-container';
     const NATIVE_EXPORT_ITEM_SELECTOR = '#btn-2';
@@ -43,12 +43,17 @@
     }
 
     function getVisibleMonths() {
-        const links = Array.from(document.querySelectorAll(MONTH_SELECTOR));
+        const links = getMonthLinks();
         const layoutIsAvailable = links.some(link => link.getClientRects().length > 0);
         return links
             .filter(link => !layoutIsAvailable || link.getClientRects().length > 0)
             .map(link => link.textContent.trim())
             .filter((label, index, labels) => label && labels.indexOf(label) === index);
+    }
+
+    function getMonthLinks() {
+        const expanded = Array.from(document.querySelectorAll('#toolshed-actualise-month-selector .toolshed-actualise-month-button'));
+        return expanded.length ? expanded : Array.from(document.querySelectorAll(MONTH_SELECTOR));
     }
 
     function getActiveMonth() {
@@ -67,6 +72,9 @@
         }
         const link = item.querySelector('a');
         if (link && link.textContent !== desiredText) link.textContent = desiredText;
+        if (item.localName === 'mo-menu-item' && item.getAttribute('label') !== desiredText) {
+            item.setAttribute('label', desiredText);
+        }
     }
 
     function updateMenuItems() {
@@ -96,9 +104,14 @@
         if (!running) chooseCsvFiles();
     }
 
-    function createMenuItem(id, handler) {
-        const item = document.createElement('li');
+    function createMenuItem(id, handler, nativeItem) {
+        const item = document.createElement(nativeItem.localName === 'mo-menu-item' ? 'mo-menu-item' : 'li');
         item.id = id;
+
+        if (item.localName === 'mo-menu-item') {
+            item.addEventListener('click', handler);
+            return item;
+        }
 
         const link = document.createElement('a');
         link.href = '#';
@@ -124,7 +137,7 @@
 
         let item = document.getElementById(MENU_ID);
         if (!item) {
-            item = createMenuItem(MENU_ID, handleMenuClick);
+            item = createMenuItem(MENU_ID, handleMenuClick, nativeExportItem);
             nativeExportItem.after(item);
         } else if (item.previousElementSibling !== nativeExportItem) {
             nativeExportItem.after(item);
@@ -132,7 +145,7 @@
 
         let combineItem = document.getElementById(COMBINE_MENU_ID);
         if (!combineItem) {
-            combineItem = createMenuItem(COMBINE_MENU_ID, handleCombineMenuClick);
+            combineItem = createMenuItem(COMBINE_MENU_ID, handleCombineMenuClick, nativeExportItem);
             item.after(combineItem);
         } else if (combineItem.previousElementSibling !== item) {
             item.after(combineItem);
@@ -409,7 +422,7 @@
     }
 
     function findMonthLink(label) {
-        return Array.from(document.querySelectorAll(MONTH_SELECTOR))
+        return getMonthLinks()
             .find(link => link.textContent.trim() === label) || null;
     }
 
@@ -422,10 +435,13 @@
         await waitForCondition(() => {
             const nativeExportItem = document.querySelector(NATIVE_EXPORT_ITEM_SELECTOR);
             const importExportButton = document.querySelector(IMPORT_EXPORT_BUTTON_SELECTOR);
+            const modern = Boolean(importExportButton?.shadowRoot?.querySelector('mo-menu'));
+            const assessment = window.actualiseMonthAssuranceFeature?.assessActualiseMonth?.();
             const ready =
                 getActiveMonth() === label &&
-                nativeExportItem &&
-                !nativeExportItem.classList.contains('mo-disabled') &&
+                (nativeExportItem ? !nativeExportItem.classList.contains('mo-disabled') && !nativeExportItem.hasAttribute('disabled') :
+                    modern) &&
+                (!modern || assessment?.status === 'correct') &&
                 importExportButton &&
                 !importExportButton.disabled &&
                 !hasVisibleLoadingSpinner();
@@ -453,17 +469,31 @@
         if (!importExportButton) throw new Error('Import/Export is unavailable.');
 
         const container = document.querySelector(IMPORT_EXPORT_CONTAINER_SELECTOR);
-        if (!container?.classList.contains('open')) importExportButton.click();
+        const modernMenu = importExportButton.shadowRoot?.querySelector('mo-menu');
+        if (modernMenu) {
+            for (let attempt = 0; !document.querySelector(NATIVE_EXPORT_ITEM_SELECTOR) && attempt < 2; attempt += 1) {
+                modernMenu.dispatchEvent(new MouseEvent('mousedown', {
+                    bubbles: true, composed: true, button: 0, buttons: 1
+                }));
+                try {
+                    await waitForCondition(() => document.querySelector(NATIVE_EXPORT_ITEM_SELECTOR),
+                        MENU_OPEN_TIMEOUT_MS / 2, 'the Export actuals view option');
+                } catch (error) {
+                    if (attempt === 1) throw error;
+                }
+            }
+        } else if (!container?.classList.contains('open')) importExportButton.click();
 
         await waitForCondition(() => {
             const exportItem = document.querySelector(NATIVE_EXPORT_ITEM_SELECTOR);
-            return document.querySelector(IMPORT_EXPORT_CONTAINER_SELECTOR)?.classList.contains('open') &&
+            return (modernMenu ? true :
+                document.querySelector(IMPORT_EXPORT_CONTAINER_SELECTOR)?.classList.contains('open')) &&
                 exportItem &&
-                !exportItem.classList.contains('mo-disabled');
+                !exportItem.classList.contains('mo-disabled') && !exportItem.hasAttribute('disabled');
         }, MENU_OPEN_TIMEOUT_MS, 'the Export actuals view option');
 
         const exportItem = document.querySelector(NATIVE_EXPORT_ITEM_SELECTOR);
-        const exportControl = exportItem.querySelector('a') || exportItem;
+        const exportControl = exportItem.shadowRoot?.querySelector('a') || exportItem.querySelector('a') || exportItem;
         exportControl.click();
         await wait(EXPORT_TRIGGER_GAP_MS);
     }
@@ -537,6 +567,13 @@
 
         window.addEventListener('hashchange', apply);
         window.addEventListener('pageshow', apply);
+        // Modern Prisma creates its menu in a detached overlay only when opened.
+        new MutationObserver(records => {
+            if (records.some(record => Array.from(record.addedNodes).some(node =>
+                node.nodeType === 1 && (node.matches?.(NATIVE_EXPORT_ITEM_SELECTOR) ||
+                    node.querySelector?.(NATIVE_EXPORT_ITEM_SELECTOR))
+            ))) apply();
+        }).observe(document.body, { childList: true, subtree: true });
         if (!chrome.storage?.sync) {
             settingsLoaded = true;
             apply();

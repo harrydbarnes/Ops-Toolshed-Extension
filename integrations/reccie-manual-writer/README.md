@@ -13,8 +13,9 @@ Run the editor-only setupAudit_ helper once to create private Changes and Reques
 tabs; it sets AUDIT_SPREADSHEET_ID, disables the old fixed-cell test and starts with
 MANUAL_WRITES_ENABLED=false. It has already been run in the pilot project.
 
-After reviewing the upgrade, publish Code.gs as a new version of the existing
-deployment and explicitly enable MANUAL_WRITES_ENABLED=true. Keep
+After reviewing the upgrade, run `setupSortSafeTracker` to pause saves and verify
+the row identifiers, publish Code.gs as a new version of the existing deployment,
+then run `enableSortSafeTracker` to reverify and enable saves. Keep
 WRITE_TEST_ENABLED=false. Setting the manual flag false blocks new previews and
 commits while receipt recovery remains available. Removing ALLOW_email or setting
 it false revokes that user on their next request, including receipt access.
@@ -32,9 +33,32 @@ an attestation by the user; it does not claim server-side Prisma verification.
 
 Requests are idempotent. If the response is lost, status reads the receipt and can
 recover an interrupted request by reading the current tracker without writing.
-Google Sheets does not provide an atomic compare-and-set transaction against
-concurrent human sorts/edits or other scripts. ScriptLock serialises this service
-only. Rematching reduces this risk; avoid sorting during a save.
+The sort-safe writer binds previews to row developer metadata for each unique
+D number/campaign/report-month identity. RAW sparse Sheets API writes target that
+metadata ID, with null placeholders preserving all other cells and formulas.
+Each row uses the short metadata key `or` without a value; the private audit
+workbook's Records tab binds its generated metadata ID and sheet ID to the exact
+record identity. This avoids putting long identifiers into Sheets' 30,000-character
+per-sheet metadata allocation (the two-character key allows up to 15,000 tagged
+rows per sheet when no other metadata consumes that allocation).
+There is no coordinate-write fallback. Sorting the complete table from a column
+dropdown, inserting rows, and moving complete rows are supported. Partial-column
+sorts, editing identity fields, replacing imports, and moving columns during saves
+are not atomic: refresh/reinitialise identifiers after structural changes and
+reconcile uncertain results before retrying. ScriptLock serialises this service
+only; it does not provide compare-and-set against direct human field edits.
+
+Enable the advanced Google Sheets v4 service in the writer project. Run
+`setupSortSafeTracker` during a coordinated pause in structural edits. It disables
+new saves, adds invisible identity metadata to unique valid records in Main/Early,
+verifies it, and installs comment-dependent yellow conditional formatting on reports
+with a Comments column. Status-only reports do not require that column. Duplicate
+identities remain unwritable. Run `enableSortSafeTracker` to repeat verification
+and activate saves. Old cached previews are rejected and must be opened again.
+New/imported records without identifiers fail closed until setup is rerun; do not
+create tags from request-time row positions. Missing or mismatched tags never
+fall back to writing a row number. Existing base colours are preserved; automatic
+yellow follows non-empty comments and disappears on clearing a comment.
 
 The separate private audit workbook stores actor email, D/campaign/month, original
 and confirmed values, request IDs and outcomes. It is not shared with colleagues.
@@ -48,6 +72,31 @@ an explicitly chosen test placement, confirm the save, verify the actual sheet a
 audit receipt, and restore its original value when testing. Repeat the preview for
 a filtered campaign to confirm only matching D numbers are listed. Test a second
 allowlisted colleague before enabling any automatic-update work.
+
+## Sort safeguard release: 3 November 2026
+
+Version 5 was published through the existing signed-in Chrome session at the same
+deployment URL, retaining owner execution, GroupM domain access and the private
+allowlist. The Sheets v4 service was enabled without changing OAuth scopes.
+Setup created and verified 1,889 Main identifiers and 271 Early identifiers, with
+no ambiguous records. Activation reverified all 2,160 identifiers, created none,
+then enabled saves. Main has Comments-based conditional highlighting; Early has
+no Comments column. The live endpoint returned the expected identity, service,
+protocol 1 and `manualEnabled:true` after activation. No live status or comment
+values were changed during this rollout.
+
+On the user's copy, both combined status/note saves and the separate Yes-save path
+were previewed, the full report was sorted before commit, and the intended records
+were confirmed. Restoration after another sort was confirmed for both tests;
+row formulas were preserved in both. Local regression coverage also moves rows
+at the API write boundary and verifies missing or mismatched identifiers cannot
+fall back to row coordinates. Installed-extension interaction against the updated
+live writer has not been repeated in this rollout.
+
+New records require owner setup before extension saves. Replacing record identities
+inside existing tagged rows fails closed and requires owner reconciliation of the
+identifier registry during a pause in structural edits; setup deliberately does
+not silently rebind an existing identifier to different data.
 
 ## Live release record: 22 October 2026
 
@@ -86,3 +135,30 @@ and a sendable preview Line ID + month. The inspected April preview had two
 unchanged lines and zero ready to send, so Confirm was never clicked. Cancel closed
 it without submitting financial changes. This trigger refinement is client-only;
 version 3 audit attribution remains unchanged.
+
+## Notes/status upgrade
+
+`previewEdit` accepts per-row expected/current status and comment plus target Yes/No and comment (2,000 characters maximum). The existing commit operation consumes an actor-bound preview. The service rematches identities/month, checks both original fields and formulas/validation, journals intentions, writes status/comments and pale yellow row backgrounds for non-empty notes, then reads back fields and colours. Clearing a comment does not reset backgrounds. Pending receipt recovery reads all fields/colours without replaying edits. No new scopes or allowlist entries are needed. Deploy the updated Code.gs at the existing URL before testing notes.
+
+## Live release record: 2 November 2026
+
+Version 4 deployed to the existing service URL after Harry approved notes/status deployment. Execution remains as Harry; domain access remains Anyone within groupm.com, with the same private server allowlist. No new scopes or permissions were requested. Editor source was read back and matched the tested local Code.gs exactly (LF-normalized length 20,094; FNV-1a b7f97a63). Google confirmed deployment success; a live GET returned ok=true, Harry's identity, manualEnabled=true, service/protocol unchanged. No tracker write or note/highlight test was submitted during deployment. Installed-extension preview and real save/readback remain to be tested.
+
+
+## Deployment on 5 November 2026
+
+Version 6 was published to the existing deployment after approval. The editor source matched the tested local source (LF-normalized length 26,692, FNV-1a 29a344bf). Previews last 600 seconds and read-only previews no longer acquire the writer lock. Commits retain the shared lock and existing matching, audit and readback guards. The deployment UI confirmed Version 6 at 12:33. A live GET returned ok=true and manualEnabled=true. Execution uses Harry’s account and domain access remains Anyone within groupm.com.
+
+Version 7 was deployed at the same URL at 12:55. The editor source matched the tested local source (LF-normalized length 27,856, FNV-1a 3ed7beb9). Mark Yes previews now expose live comment presence and a short preview. An explicit clearComments request uses the existing guarded edit protocol to save Yes and an empty comment together, rejecting changed comments or protected formulas. Note/status writes are batched and confirmed from fresh readback, including partial failures. A live GET returned ok=true and manualEnabled=true. Existing extension versions keep comments by default.
+
+
+## Live per-user pilot on 5 November 2026
+
+Owner deployment Version 8 and per-user deployment Version 9 use the same tested Code.gs (LF-normalized length 31,755; FNV-1a 71a8f0f8). The owner URL remains the existing URL. The new per-user deployment runs as User accessing the web app, with access restricted to Anyone within groupm.com, at:
+https://script.google.com/a/macros/wppmedia.com/s/AKfycbygksrATahv4EdcHgA4_X0Tiwjhc9arrefwYZeoU2vz2IOghkxFo1J4WnMNPBktKVnn/exec
+
+A read-only connect GET returned Harry as both active and executing account, all four tracker/audit read/edit checks true, ready=true and enforced=false. No account was activated and no tracker value was changed during deployment checks.
+
+Users activate per-user enforcement only after the Google identity and both spreadsheet access checks pass. Activation uses the shared writer lock and sets REQUIRE_PER_USER_<actual Google email>=true in Script Properties. Both deployments then reject owner-run requests for that user. Actor identities always come from Google; caller-provided expectedEmail is a comparison only. Requests, cache tokens, metadata registry and writer lock remain shared across the same script project. Losing file access blocks subsequent writes. Audit Editor access must be granted by Harry and also allows direct access to its records.
+
+The root reccie-writer-mode.js retains perUser=false for standard builds. The live-test package overrides only that file with perUser=true and the fixed test URL. The test build has no owner endpoint fallback. Enabling the test pauses local automatic marking, post-financial checks and comment removal before activation. To reverse enforcement, an administrator must deliberately remove/set false the actor’s REQUIRE_PER_USER_<email> property; simply reinstalling an old extension does not reverse it.

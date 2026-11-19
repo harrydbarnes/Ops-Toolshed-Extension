@@ -64,7 +64,9 @@ const EXPECTED_DEFAULTS = {
     timesheetReminderEnabled: true,
     reminderDay: 'Friday',
     reminderTime: '14:30',
-    customReminders: []
+    customReminders: [],
+    popupShortcuts: require('../popup-shortcuts').DEFAULT_ENABLED_KEYS,
+    popupCustomShortcuts: []
 };
 
 describe('batched Settings initialization', () => {

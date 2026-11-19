@@ -41,3 +41,29 @@ test('keyboard activation captures the baseline and schedules only on confirmati
         expect(t.win.chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
     }finally{t.dom.window.close();}
 });
+test('matches the reconciliation cell to the placement in Prisma’s separate frozen grid',async()=>{
+    const t=await setup();try{
+        const cell=t.win.document.getElementById('placementNumber-2');cell.remove();
+        const frozen=t.win.document.createElement('div');frozen.className='ht_clone_left';
+        frozen.innerHTML='<table><tr><td id="placementNumber-3">P3WRONG</td><td id="placementNumber-2">P3FLH1P</td></tr></table>';
+        t.win.document.getElementById('grid-container_hot').append(frozen);
+        t.click(t.button);t.button.setAttribute('data-row-status-value','1');await flush();t.click(t.confirm);
+        expect(t.win.chrome.runtime.sendMessage).toHaveBeenCalledWith({action:'reccieFinancialUpdate',changes:[{month:'2026-04',placementIds:['P3FLH1P']}]});
+    }finally{t.dom.window.close();}
+});
+test.each(['payableActualCostApr26-2','payableActualUnitsApr26-2','actualizationIsActualizedPercentage-2'])('captures reconciliation changes caused by editing %s',async cellId=>{
+    const t=await setup();try{
+        const cell=t.win.document.createElement('td');cell.id=cellId;t.button.closest('tr').append(cell);
+        t.click(cell);t.button.setAttribute('data-row-status-value','1');await flush();
+        expect(t.win.chrome.runtime.sendMessage).not.toHaveBeenCalled();
+        t.click(t.confirm);
+        expect(t.win.chrome.runtime.sendMessage).toHaveBeenCalledWith({action:'reccieFinancialUpdate',changes:[{month:'2026-04',placementIds:['P3FLH1P']}]});
+    }finally{t.dom.window.close();}
+});
+test('does not schedule a gross edit if reconciliation did not change',async()=>{
+    const t=await setup();try{
+        const cell=t.win.document.createElement('td');cell.id='payableActualCostApr26-2';t.button.closest('tr').append(cell);
+        t.click(cell);await flush();t.click(t.confirm);
+        expect(t.win.chrome.runtime.sendMessage).not.toHaveBeenCalled();
+    }finally{t.dom.window.close();}
+});

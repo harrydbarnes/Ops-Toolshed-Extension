@@ -2,6 +2,53 @@
     'use strict';
 
     const utils = {
+        builtInReminders: Object.freeze({
+            meta: Object.freeze({
+                title: '⚠️ Meta Reconciliation Reminder ⚠️',
+                message: 'When reconciling Meta, please:',
+                list: Object.freeze(["Actualise to the 'Supplier' option", 'Self-accept the IO', 'Push through on trafficking tab to Meta', 'Verify success of the push, every time', 'Do not just leave the page!'])
+            }),
+            ias: Object.freeze({
+                title: '⚠️ IAS Booking Reminder ⚠️',
+                message: 'Please ensure you book as CPM',
+                list: Object.freeze(['With correct rate for media type', 'Check the plan', 'Ensure what is planned is what goes live'])
+            })
+        }),
+        clickElement(element) {
+            if (!element) return;
+            const rect = element.getBoundingClientRect();
+            const view = element.ownerDocument?.defaultView || window;
+            const clientX = rect.left + Math.min(Math.max(rect.width / 2, 8), rect.width - 1);
+            const clientY = rect.top + Math.min(Math.max(rect.height / 2, 8), rect.height - 1);
+            const options = { bubbles: true, cancelable: true, composed: true, clientX, clientY, button: 0, view };
+            const pointerOptions = { ...options, pointerId: 1, pointerType: 'mouse', isPrimary: true };
+            if (view.PointerEvent) element.dispatchEvent(new view.PointerEvent('pointerdown', { ...pointerOptions, buttons: 1 }));
+            element.dispatchEvent(new view.MouseEvent('mousedown', { ...options, buttons: 1 }));
+            if (view.PointerEvent) element.dispatchEvent(new view.PointerEvent('pointerup', { ...pointerOptions, buttons: 0 }));
+            element.dispatchEvent(new view.MouseEvent('mouseup', { ...options, buttons: 0 }));
+            element.dispatchEvent(new view.MouseEvent('click', { ...options, buttons: 0 }));
+        },
+
+        waitForResult(find, { timeout = 10000, intervalMs = 100, timeoutMessage = 'Element not found' } = {}) {
+            return new Promise((resolve, reject) => {
+                const finish = (settle, value) => {
+                    clearInterval(interval);
+                    clearTimeout(timer);
+                    settle(value);
+                };
+                const interval = setInterval(() => {
+                    try {
+                        const result = find();
+                        if (result) finish(resolve, result);
+                    } catch (error) {
+                        finish(reject, error);
+                    }
+                }, intervalMs);
+                const timer = setTimeout(() => finish(reject, new Error(timeoutMessage)), timeout);
+            });
+        },
+
+
         escapeHTML(str) {
             if (str === null || str === undefined) return '';
             const div = document.createElement('div');
@@ -154,23 +201,11 @@
             });
         },
 
-        waitForElementInShadow(selector, root = document, timeout = 10000) {
-            return new Promise((resolve, reject) => {
-                const intervalTime = 200;
-                let elapsedTime = 0;
-                const interval = setInterval(() => {
-                    const element = this.queryShadowDom(selector, root);
-                    if (element) {
-                        clearInterval(interval);
-                        resolve(element);
-                    } else {
-                        elapsedTime += intervalTime;
-                        if (elapsedTime >= timeout) {
-                            clearInterval(interval);
-                            reject(new Error(`Element with selector "${selector}" not found within ${timeout}ms.`));
-                        }
-                    }
-                }, intervalTime);
+        waitForElementInShadow(selector, timeout = 10000, root = document) {
+            return this.waitForResult(() => this.queryShadowDom(selector, root), {
+                timeout,
+                intervalMs: 200,
+                timeoutMessage: `Element with selector "${selector}" not found within ${timeout}ms.`
             });
         },
 

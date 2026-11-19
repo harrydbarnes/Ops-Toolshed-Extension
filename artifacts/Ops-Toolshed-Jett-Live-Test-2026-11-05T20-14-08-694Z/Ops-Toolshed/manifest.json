@@ -1,0 +1,65 @@
+{
+  "manifest_version": 3,
+  "minimum_chrome_version": "116",
+  "name": "Ops Toolshed",
+  "version": "1.9",
+  "description": "Enhances Prisma functionality and provides quick access to various tools. Built by Harry Barnes.",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "alarms",
+    "notifications",
+    "tabs",
+    "offscreen",
+    "scripting",
+    "clipboardRead",
+    "clipboardWrite",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "https://*.mediaocean.com/*",
+    "https://insidemedia.sharepoint.com/*",
+    "https://graph.facebook.com/*"
+  ],
+  "optional_host_permissions": ["https://docs.google.com/*", "https://script.google.com/*", "https://script.googleusercontent.com/*", "https://wd3.myworkday.com/*"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'self'"
+  },
+  "content_scripts": [{
+    "matches": ["https://chatgpt.com/*", "https://x.com/*", "https://claude.ai/*", "https://gemini.google.com/*"],
+    "js": ["features/harmonic-banner.js"],
+    "run_at": "document_start"
+  }],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon.png",
+      "32": "icon.png",
+      "48": "icon.png",
+      "128": "icon.png"
+    }
+  },
+  "icons": {
+    "16": "icon.png",
+    "32": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  },
+  "options_ui": {
+    "page": "settings.html",
+    "open_in_tab": true
+  },
+  "side_panel": {
+    "default_path": "help-guides.html"
+  },
+  "web_accessible_resources": [{
+    "resources": [
+      "icon.png"
+    ],
+    "matches": ["https://*.mediaocean.com/*"]
+  }]
+}

@@ -211,6 +211,68 @@ describe('Actualise export every month', () => {
         dom.window.close();
     });
 
+    test('supports the modern Actualise month controls and dynamically opened menu', async () => {
+        const { dom, window, exports } = createFeature();
+        const doc = window.document;
+        doc.getElementById('mos-paginator').outerHTML = `<div class="actual-months-group">
+            <mo-button-group-item aria-pressed="false">Jan 26</mo-button-group-item>
+            <mo-button-group-item aria-pressed="true">Feb 26</mo-button-group-item>
+            <mo-button-group-item aria-pressed="false">Mar 26</mo-button-group-item>
+        </div>`;
+        const months = Array.from(doc.querySelectorAll('mo-button-group-item'));
+        months.forEach(month => month.addEventListener('click', () => {
+            months.forEach(item => item.setAttribute('aria-pressed', String(item === month)));
+        }));
+        const expanded = doc.createElement('div');
+        expanded.id = 'toolshed-actualise-month-selector';
+        months.forEach(month => {
+            const button = doc.createElement('button');
+            button.className = 'toolshed-actualise-month-button';
+            button.textContent = month.textContent;
+            button.addEventListener('click', () => month.click());
+            expanded.appendChild(button);
+        });
+        doc.querySelector('.actual-months-group').prepend(expanded);
+        doc.getElementById('btn-importExportPlacements-container').remove();
+        const toolbar = doc.createElement('mo-toolbar-item');
+        toolbar.id = 'btn-importExportPlacements';
+        const menu = doc.createElement('mo-menu');
+        menu.setAttribute('aria-expanded', 'false');
+        toolbar.attachShadow({ mode: 'open' }).appendChild(menu);
+        doc.body.appendChild(toolbar);
+        let confirmed = false;
+        window.actualiseMonthAssuranceFeature = {
+            assessActualiseMonth: jest.fn(() => ({ status: confirmed ? 'correct' : 'checking' }))
+        };
+        menu.addEventListener('mousedown', () => {
+            menu.setAttribute('aria-expanded', 'true');
+            const overlay = doc.createElement('mo-overlay');
+            overlay.innerHTML = '<mo-menu-item-group><mo-menu-item id="btn-2" label="Export actuals view"></mo-menu-item></mo-menu-item-group>';
+            const nativeItem = overlay.querySelector('#btn-2');
+            const nativeLink = doc.createElement('a');
+            nativeItem.attachShadow({ mode: 'open' }).appendChild(nativeLink);
+            nativeLink.addEventListener('click', event => {
+                event.preventDefault();
+                exports.push(doc.querySelector('mo-button-group-item[aria-pressed="true"]').textContent);
+                overlay.remove();
+                menu.setAttribute('aria-expanded', 'false');
+            });
+            doc.body.appendChild(overlay);
+        });
+        window.actualiseExportAllFeature.initialize();
+        menu.dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true, composed: true }));
+        await Promise.resolve();
+        expect(doc.querySelector('#toolshed-export-all-actuals').getAttribute('label'))
+            .toBe('Export every month’s actuals view');
+        const run = window.actualiseExportAllFeature.exportAllMonths();
+        expect(exports).toEqual([]);
+        confirmed = true;
+        await run;
+        expect(exports).toEqual(['Jan 26', 'Feb 26', 'Mar 26']);
+        expect(doc.querySelector('mo-button-group-item[aria-pressed="true"]').textContent).toBe('Feb 26');
+        dom.window.close();
+    });
+
     test('combines monthly CSVs in month order with only the first header', async () => {
         const { dom, window } = createFeature();
         const files = [

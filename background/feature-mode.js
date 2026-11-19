@@ -100,14 +100,22 @@ export function reconcileFeatureMode(disabled, { reloadTabs = false, audience = 
     return reconciliation;
 }
 
-export const featureModeReady = storageGet({ [MASTER_FEATURE_KEY]: false, [AUDIENCE_KEY]: 'prisma' })
-    .then(settings => reconcileFeatureMode(settings[MASTER_FEATURE_KEY] === true, { audience: settings[AUDIENCE_KEY] }))
-    .catch(error => {
-        active = false;
-        initialized = true;
-        console.error('[Feature Mode] Could not establish feature state; remaining off:', error);
-        return unregisterOwnedContentScripts().catch(() => undefined).then(() => false);
-    });
+let startup;
+
+// Importing policy helpers must not read storage or register scripts.
+// The service-worker entry point owns startup; all callers share its result.
+export function initializeFeatureMode() {
+    if (startup) return startup;
+    startup = storageGet({ [MASTER_FEATURE_KEY]: false, [AUDIENCE_KEY]: 'prisma' })
+        .then(settings => reconcileFeatureMode(settings[MASTER_FEATURE_KEY] === true, { audience: settings[AUDIENCE_KEY] }))
+        .catch(error => {
+            active = false;
+            initialized = true;
+            console.error('[Feature Mode] Could not establish feature state; remaining off:', error);
+            return unregisterOwnedContentScripts().catch(() => undefined).then(() => false);
+        });
+    return startup;
+}
 
 export async function refreshFeatureMode(options) {
     const settings = await storageGet({ [MASTER_FEATURE_KEY]: false, [AUDIENCE_KEY]: 'prisma' });

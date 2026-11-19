@@ -66,6 +66,7 @@ describe('campaign navigation settings', () => {
         const sections = Array.from(dom.window.document.querySelectorAll('#features > section'));
         expect(sections.map(section => section.querySelector('h2')?.textContent)).toEqual([
             'Appearance',
+            'Popup Shortcuts',
             'Productivity',
             'Navigation',
             'Quick Actions',

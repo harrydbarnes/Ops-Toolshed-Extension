@@ -574,9 +574,9 @@ describe('DST Assurance', () => {
     ])('recognises the Amazon DST mapping %s -> %s', (mediaSupplier, feeSupplier) => {
         const dom = createPage({
             mediaSupplier: `${mediaSupplier}:Campaign`,
-            mediaCost: 'Â£1,000.00',
+            mediaCost: '£1,000.00',
             feeSupplier: `${feeSupplier}:Service Charge`,
-            feeCost: 'Â£0.00'
+            feeCost: '£0.00'
         });
 
         expect(dom.window.dstAssuranceFeature.assessDstAssurance()).toMatchObject({
@@ -585,6 +585,36 @@ describe('DST Assurance', () => {
             supplierCorrect: true,
             amountCorrect: true
         });
+        dom.window.close();
+    });
+
+    test.each([
+        ['AMAZON (GBP)', 'AMAZON REG. ADVERTISING FEE (G:Amazon Fee'],
+        ['AMAZON DSP (GBP)', 'AMAZON REG. ADVERTISING FEE (G:Service Charge'],
+        ['AMAZON - TWITCH (GBP)', 'AMAZON REG. ADVERTISING FEE (G'],
+        ['IMDB', 'AMAZON REG. ADVERTISING FEE (G:Amazon Fee'],
+        ['AMAZON (EUR)', 'AMAZON REG. ADVERTISING FEE (E:Amazon Fee'],
+        ['AMAZON (USD)', 'AMAZON REG. ADVERTISING FEE (U:Amazon Fee']
+    ])('recognises truncated Amazon DST fee supplier %s -> %s', (mediaSupplier, feeSupplier) => {
+        const dom = createPage({
+            mediaSupplier: `${mediaSupplier}:Campaign`,
+            mediaCost: '£1,000.00',
+            feeSupplier: feeSupplier,
+            feeCost: '£0.00'
+        });
+
+        const feature = dom.window.dstAssuranceFeature;
+        expect(feature.assessDstAssurance()).toMatchObject({
+            eligible: true,
+            status: 'correct',
+            supplierCorrect: true,
+            amountCorrect: true
+        });
+
+        feature.apply();
+        const badge = dom.window.document.querySelector('.toolshed-dst-assurance');
+        expect(badge.classList).toContain('toolshed-dst-assurance--correct');
+        expect(dom.window.document.querySelectorAll('.toolshed-dst-assurance-warning-cell')).toHaveLength(0);
         dom.window.close();
     });
 
@@ -609,6 +639,32 @@ describe('DST Assurance', () => {
         feature.apply();
         const feeRow = Array.from(dom.window.document.querySelectorAll('.htCore tr'))
             .find(row => row.children[3]?.textContent.includes('FACEBOOK:AMAZON REG. ADVERTISING FEE'));
+        expect(feeRow.children[3].classList).toContain('toolshed-dst-assurance-warning-cell');
+        expect(feeRow.children[8].classList).not.toContain('toolshed-dst-assurance-warning-cell');
+        dom.window.close();
+    });
+
+    test('marks a truncated Amazon service charge booked to the wrong supplier and highlights only its supplier cell', () => {
+        const dom = createPage({
+            mediaSupplier: 'AMAZON (GBP):Campaign',
+            mediaCost: '£1,000.00',
+            feeSupplier: 'FACEBOOK:AMAZON REG. ADVERTISING FEE (G',
+            feeCost: '£0.00'
+        });
+        const feature = dom.window.dstAssuranceFeature;
+
+        expect(feature.assessDstAssurance()).toMatchObject({
+            eligible: true,
+            status: 'incorrect',
+            supplierCorrect: false,
+            amountCorrect: true
+        });
+        expect(feature.assessDstAssurance().tooltip)
+            .toContain('AMAZON REG. ADVERTISING FEE (GBP)');
+
+        feature.apply();
+        const feeRow = Array.from(dom.window.document.querySelectorAll('.htCore tr'))
+            .find(row => row.children[3]?.textContent.includes('FACEBOOK:AMAZON REG. ADVERTISING FEE (G'));
         expect(feeRow.children[3].classList).toContain('toolshed-dst-assurance-warning-cell');
         expect(feeRow.children[8].classList).not.toContain('toolshed-dst-assurance-warning-cell');
         dom.window.close();

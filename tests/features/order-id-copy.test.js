@@ -72,7 +72,7 @@ describe('Order ID Copy Feature', () => {
     });
 
     test('should add copy button and apply flexbox to cell', () => {
-        window.orderIdCopyFeature.checkAndAddCopyButtons();
+        window.orderIdCopyFeature.reconcile();
 
         const cell = document.querySelector('td.pad');
         const button = document.querySelector('.order-id-copy-btn');
@@ -90,7 +90,7 @@ describe('Order ID Copy Feature', () => {
         `);
 
         const querySelectorAll = jest.spyOn(document, 'querySelectorAll');
-        window.orderIdCopyFeature.checkAndAddCopyButtons();
+        window.orderIdCopyFeature.reconcile();
 
         expect(document.querySelector('.order-id-copy-btn')).toBeNull();
         expect(document.querySelector('td.pad').classList).not.toContain('order-id-copy-cell');
@@ -103,8 +103,8 @@ describe('Order ID Copy Feature', () => {
         document.querySelector('tbody').insertAdjacentHTML('beforeend', `<tr>
             <td id="orderRecipients-0"><div><mo-text data-full-text="one@example.com">one@example.com</mo-text><mo-text data-full-text="two@example.com">two@example.com</mo-text></div></td>
             <td id="orderRecipients-1"></td></tr>`);
-        window.orderIdCopyFeature.checkAndAddCopyButtons();
-        window.orderIdCopyFeature.checkAndAddCopyButtons();
+        window.orderIdCopyFeature.reconcile();
+        window.orderIdCopyFeature.reconcile();
         expect(document.querySelectorAll('.ops-order-email-copy-btn')).toHaveLength(1);
         const cell = document.getElementById('orderRecipients-0');
         const button = cell.querySelector('button');
@@ -122,14 +122,14 @@ describe('Order ID Copy Feature', () => {
             action: 'copyOrderEmailsToClipboard', text: 'new@example.com; other@example.com'
         });
         cell.querySelector('div').textContent = '';
-        window.orderIdCopyFeature.checkAndAddCopyButtons();
+        window.orderIdCopyFeature.reconcile();
         expect(cell.querySelector('button')).toBeNull();
     });
 
     function createRecipientRow(contents, attributes = '') {
         document.body.insertAdjacentHTML('afterbegin', '<div id="cm-buy-sidebar-order-revisions-header"><div class="mo-nav-list-item-accessory-content"><mo-menu></mo-menu></div></div>');
         document.querySelector('tbody').insertAdjacentHTML('beforeend', '<tr><td id="orderRecipients-0" ' + attributes + '><div>' + contents + '</div></td></tr>');
-        window.orderIdCopyFeature.checkAndAddCopyButtons();
+        window.orderIdCopyFeature.reconcile();
         const cell = document.getElementById('orderRecipients-0');
         return { cell, button: cell.querySelector('.ops-order-email-copy-btn') };
     }
@@ -174,12 +174,12 @@ describe('Order ID Copy Feature', () => {
         expect(document.querySelector('.ops-order-email-copy-btn')).toBeNull();
         storageListener({ orderIdCopyEnabled: { newValue: true } }, 'sync');
         window.location.hash = 'campaign-id=CP123&ptb-mod=buy&ptb-ctx=digital';
-        window.orderIdCopyFeature.checkAndAddCopyButtons();
+        window.orderIdCopyFeature.reconcile();
         expect(document.querySelector('.ops-order-email-copy-btn')).toBeNull();
     });
 
     test('removes stale legacy controls when Prisma changes to the new Order UI in place', () => {
-        window.orderIdCopyFeature.checkAndAddCopyButtons();
+        window.orderIdCopyFeature.reconcile();
         expect(document.querySelector('.order-id-copy-btn')).not.toBeNull();
         expect(document.querySelector('td.pad').classList).toContain('order-id-copy-cell');
 
@@ -190,7 +190,7 @@ describe('Order ID Copy Feature', () => {
         `);
         const querySelectorAll = jest.spyOn(document, 'querySelectorAll');
 
-        window.orderIdCopyFeature.checkAndAddCopyButtons();
+        window.orderIdCopyFeature.reconcile();
 
         expect(document.querySelector('.order-id-copy-btn')).toBeNull();
         expect(document.querySelector('td.pad').classList).not.toContain('order-id-copy-cell');
@@ -215,8 +215,8 @@ describe('Order ID Copy Feature', () => {
             </div>
         `);
 
-        window.orderIdCopyFeature.checkAndAddCopyButtons();
-        window.orderIdCopyFeature.checkAndAddCopyButtons();
+        window.orderIdCopyFeature.reconcile();
+        window.orderIdCopyFeature.reconcile();
         const orderIdTarget = document.querySelector(
             '#cm-buy-sidebar-nav-list [id$="-order-header"] > .mo-nav-list-item-content'
         );
@@ -261,7 +261,7 @@ describe('Order ID Copy Feature', () => {
             </div>
         `);
 
-        window.orderIdCopyFeature.checkAndAddCopyButtons();
+        window.orderIdCopyFeature.reconcile();
         const orderIdTarget = document.querySelector(
             '#cm-buy-sidebar-nav-list [id$="-order-header"] > .mo-nav-list-item-content'
         );
@@ -299,7 +299,7 @@ describe('Order ID Copy Feature', () => {
                 </div>
             </div>
         `);
-        window.orderIdCopyFeature.checkAndAddCopyButtons();
+        window.orderIdCopyFeature.reconcile();
         const orderIdTarget = document.querySelector(
             '#cm-buy-sidebar-nav-list [id$="-order-header"] > .mo-nav-list-item-content'
         );
@@ -315,7 +315,7 @@ describe('Order ID Copy Feature', () => {
     });
 
     test('does not run the new-UI check for unrelated page clicks', () => {
-        window.orderIdCopyFeature.checkAndAddCopyButtons();
+        window.orderIdCopyFeature.reconcile();
         const newUiSelector = '#cm-buy-sidebar-order-revisions-header .mo-nav-list-item-accessory-content mo-menu';
         const querySelector = jest.spyOn(document, 'querySelector');
         const unrelatedButton = document.createElement('button');
@@ -327,7 +327,7 @@ describe('Order ID Copy Feature', () => {
     });
 
     test('should copy cleaned ID and show toast on click', async () => {
-        window.orderIdCopyFeature.checkAndAddCopyButtons();
+        window.orderIdCopyFeature.reconcile();
         const button = document.querySelector('.order-id-copy-btn');
 
         trustedClick(button);
@@ -350,7 +350,7 @@ describe('Order ID Copy Feature', () => {
     });
 
     test('should change button style temporarily on click', async () => {
-        window.orderIdCopyFeature.checkAndAddCopyButtons();
+        window.orderIdCopyFeature.reconcile();
         const button = document.querySelector('.order-id-copy-btn');
         const originalText = button.textContent;
 
@@ -366,7 +366,7 @@ describe('Order ID Copy Feature', () => {
     });
 
     test('does not copy an Order ID for a synthetic page click', () => {
-        window.orderIdCopyFeature.checkAndAddCopyButtons();
+        window.orderIdCopyFeature.reconcile();
         document.querySelector('.order-id-copy-btn').click();
         expect(window.chrome.runtime.sendMessage).not.toHaveBeenCalled();
     });
@@ -379,5 +379,10 @@ describe('Order ID Copy Feature', () => {
 
         expect(document.querySelector('.order-id-copy-btn')).toBeNull();
         expect(document.querySelector('td.pad').classList).not.toContain('order-id-copy-cell');
+    });
+
+    test('detects Order Summary route on modern Prisma campaign URLs without osPspId', () => {
+        dom.window.history.replaceState({}, '', 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP123&ptb-mod=buy&ptb-ctx=orderSummary&showOrders=true');
+        expect(window.orderIdCopyFeature.isOrderSummaryRoute()).toBe(true);
     });
 });

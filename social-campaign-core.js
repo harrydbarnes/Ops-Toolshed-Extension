@@ -4,6 +4,73 @@
     root.socialCampaignCore = api;
 })(typeof window !== 'undefined' ? window : globalThis, function() {
     'use strict';
+    /**
+     * @typedef {Object} Booking
+     * @property {string} placementId
+     * @property {string} placementNumber
+     * @property {string} campaignId
+     * @property {string} accountId
+     * @property {string} currency
+     * @property {number|null} budget Net media amount, not the package total.
+     * @property {string} start YYYY-MM-DD, or '' when unavailable.
+     * @property {string} end YYYY-MM-DD, or '' when unavailable.
+     * @property {string} packageId
+     * @property {number|null} packageBudget
+     * @property {{control: string, trafficked: boolean|null}} [integration]
+     */
+    /**
+     * @typedef {Object} MetaEntity
+     * @property {string} id
+     * @property {string} [account_id]
+     * @property {string} [name]
+     * @property {string|number} [lifetime_budget] Meta minor units.
+     * @property {string|number} [daily_budget] Meta minor units.
+     * @property {string} [start_time]
+     * @property {string} [end_time]
+     * @property {string} [stop_time]
+     * @property {string} [effective_status]
+     * @property {string} [configured_status]
+     * @property {string} [status]
+     * @property {string} [source_campaign_id]
+     * @property {boolean} [is_budget_schedule_enabled]
+     * @property {boolean} [is_adset_budget_sharing_enabled]
+     */
+    /**
+     * @typedef {Object} Snapshot
+     * @property {MetaEntity} campaign
+     * @property {{id: string, currency: string, timezone_name?: string}} account
+     * @property {MetaEntity[]} adSets
+     * @property {{spend: string|number, date_start: string}[]} dailySpend
+     */
+    /**
+     * @typedef {Object} Comparison
+     * @property {string} campaignId
+     * @property {string} accountId
+     * @property {string} currency
+     * @property {string} prismaCurrency Empty when booking currencies differ.
+     * @property {string|undefined} name
+     * @property {string|undefined} timezone
+     * @property {number} totalSpend
+     * @property {number} outsideSpend
+     * @property {{date: string, spend: number}[]} outsideDays
+     * @property {number[]} dailyBudgets
+     * @property {{status: string, firstSpendDate: string|null, lastSpendDate: string|null}} delivery
+     * @property {number|null} budget
+     * @property {number|null} metaBudget Null when budgets are not comparable.
+     * @property {number|null} metaComparisonBudget
+     * @property {number|null} packageBudget
+     * @property {{appliedBudget: number, pending: {placementNumber: string, start: string, amount: number, expectedBudget: number, projectedBudget: number, risk: boolean}[]}|null} upweightPlan
+     * @property {{pending: {placementNumber: string, start: string, amount: number}[], verifiedTraffickedBudget: number, reasons: string[]}|null} upweightReview
+     * @property {string[]} findings
+     * @property {string[]} warnings
+     * @property {string[]} notes
+     * @property {Booking[]} bookings
+     * @property {{start: string, end: string}[]} metaRanges
+     * @property {string} fingerprint
+     * @property {boolean} coverage
+     * @property {{messages: string[], metaFingerprint: string, prismaBudgetState: string, prismaDateState: string}|null} changeReview
+     * @property {{detectedAt: string, previousLifetimeBudget: number|null, previousDailyBudgets: number[], previousRanges: {start: string, end: string}[]}|null} lastChange
+     */
     const number = value => value === '' || value == null || !Number.isFinite(Number(value)) ? null : Number(value);
     const date = value => /^\d{4}-\d{2}-\d{2}/.test(String(value || '')) ? String(value).slice(0, 10) : '';
     function extractBookings(grid) {
@@ -43,6 +110,8 @@
         if (number(grid.total) === null || Number(grid.total) !== count) throw new Error('Prisma returned a partial booking grid. No comparison was made.');
         return { bookings, unmatched };
     }
+    /** @param {Booking[]} bookings
+     * @returns {{accountId: string, campaignId: string, bookings: Booking[]}[]} */
     function groupBookings(bookings) {
         const groups = new Map();
         bookings.forEach(booking => {
@@ -75,20 +144,35 @@
         if (!directSource && !sameName) return null;
         return directSource ? 'Meta source_campaign_id links these campaigns; this does not prove replacement.' : 'Same campaign name and ad account; replacement is not confirmed.';
     }
-    function budgetPlan(bookings, metaBudget, coverage, comparable) {
-        if (!coverage || !comparable || metaBudget == null || !bookings.every(item => item.budget >= 0 && item.integration && typeof item.integration.trafficked === 'boolean')) return null;
+    function budgetPlan(bookings, metaBudget, coverage, comparable, campaignLifetime) {
         const ordered = bookings.slice().sort((a,b) => a.start.localeCompare(b.start) || a.placementId.localeCompare(b.placementId));
-        if (ordered[0].integration.control !== 'replace_budget' || !ordered[0].integration.trafficked || ordered.slice(1).some(item => item.integration.control !== 'increment_budget')) return null;
-        const firstPending = ordered.findIndex(item => !item.integration.trafficked);
-        if (firstPending < 0 || ordered.slice(firstPending).some(item => item.integration.trafficked)) return null;
+        const pendingBookings = bookings.filter(item => item.integration?.control === 'increment_budget' && item.integration.trafficked === false);
+        const reasons = [];
+        if (!coverage) reasons.push('Linked placement coverage is incomplete or unverified.');
+        if (!comparable || !campaignLifetime || metaBudget == null) reasons.push('A comparable, unscheduled campaign lifetime budget is required.');
+        const unknown = ordered.filter(item => !item.integration || typeof item.integration.trafficked !== 'boolean');
+        if (unknown.length) reasons.push(`Traffic or budget action unverified: ${unknown.map(item => item.placementNumber).join(', ')}.`);
+        if (ordered[0]?.integration?.control !== 'replace_budget' || !ordered[0]?.integration?.trafficked) reasons.push(`Starting replacement budget is unverified: ${ordered[0]?.placementNumber}.`);
+        if (ordered.slice(1).some(item => item.integration?.control !== 'increment_budget')) reasons.push('Subsequent budget actions are not a verified increment sequence.');
+        const firstPending = ordered.findIndex(item => item.integration?.trafficked === false);
+        if (ordered.slice(firstPending).some(item => item.integration?.trafficked === true)) reasons.push('A trafficked booking follows an untrafficked booking.');
+        if (reasons.length || firstPending < 0 || !ordered.every(item => item.budget >= 0)) return { plan: null, pendingBookings, reasons };
         const appliedBudget = ordered.slice(0,firstPending).reduce((sum,item) => sum + item.budget,0);
         let expected = appliedBudget, projected = metaBudget;
         const pending = ordered.slice(firstPending).map(item => {
             expected += item.budget; projected += item.budget;
             return { placementNumber:item.placementNumber, start:item.start, amount:item.budget, expectedBudget:expected, projectedBudget:projected, risk:projected > expected + 0.01 };
         });
-        return { appliedBudget, pending };
+        return { plan: { appliedBudget, pending }, pendingBookings, reasons };
     }
+    /**
+     * @param {{accountId: string, campaignId: string, bookings: Booking[]}} group One campaign/account; nonempty, validated bookings.
+     * @param {Snapshot} snapshot Verified Meta response for that identity.
+     * @param {string[]|null|undefined} linkedPlacements Complete linked placement numbers, if verified.
+     * @param {Comparison|null|undefined} previous Last successful comparison.
+     * @returns {Comparison} Amounts are major currency units; null means unavailable, not zero.
+     * @throws {Error} If the returned Meta identity or flight date is invalid.
+     */
     function compare(group, snapshot, linkedPlacements, previous) {
         const { campaign, account, adSets, dailySpend } = snapshot;
         if (String(campaign.id) !== group.campaignId || String(campaign.account_id) !== group.accountId || String(account.id).replace(/^act_/, '') !== group.accountId) throw new Error('Meta returned a different campaign or account.');
@@ -116,23 +200,13 @@
         const entities = number(campaign.lifetime_budget) > 0 || number(campaign.daily_budget) > 0 ? [campaign] : adSets;
         const lifetime = entities.length > 0 && entities.every(entity => number(entity.lifetime_budget) > 0 && !entity.is_budget_schedule_enabled) && !campaign.is_adset_budget_sharing_enabled;
         const metaBudget = lifetime ? entities.reduce((sum,entity) => sum + Number(entity.lifetime_budget) / 100, 0) : null;
-        const upweightPlan = budgetPlan(group.bookings,metaBudget,coverage,comparable && number(campaign.lifetime_budget) > 0);
+        const { plan: upweightPlan, pendingBookings, reasons } = budgetPlan(group.bookings,metaBudget,coverage,comparable,number(campaign.lifetime_budget) > 0);
         const metaComparisonBudget = upweightPlan?.appliedBudget ?? budget;
-        const pendingBookings = group.bookings.filter(item => item.integration?.control === 'increment_budget' && item.integration.trafficked === false);
         let upweightReview = null;
         if (!upweightPlan && pendingBookings.length) {
-            const reasons = [], ordered = group.bookings.slice().sort((a,b) => a.start.localeCompare(b.start) || a.placementId.localeCompare(b.placementId));
-            if (!coverage) reasons.push('Linked placement coverage is incomplete or unverified.');
-            if (!comparable || !(number(campaign.lifetime_budget) > 0) || !lifetime) reasons.push('A comparable, unscheduled campaign lifetime budget is required.');
-            const unknown = ordered.filter(item => !item.integration || typeof item.integration.trafficked !== 'boolean');
-            if (unknown.length) reasons.push(`Traffic or budget action unverified: ${unknown.map(item => item.placementNumber).join(', ')}.`);
-            if (ordered[0].integration?.control !== 'replace_budget' || !ordered[0].integration?.trafficked) reasons.push(`Starting replacement budget is unverified: ${ordered[0].placementNumber}.`);
-            if (ordered.slice(1).some(item => item.integration?.control !== 'increment_budget')) reasons.push('Subsequent budget actions are not a verified increment sequence.');
-            const firstPending = ordered.findIndex(item => item.integration?.trafficked === false);
-            if (ordered.slice(firstPending).some(item => item.integration?.trafficked === true)) reasons.push('A trafficked booking follows an untrafficked booking.');
             upweightReview = {pending:pendingBookings.map(item => ({placementNumber:item.placementNumber,start:item.start,amount:item.budget})), verifiedTraffickedBudget:group.bookings.filter(item => item.integration?.trafficked === true).reduce((sum,item) => sum+item.budget,0),reasons};
         }
-        if (!upweightPlan && group.bookings.some(item => item.integration?.control === 'increment_budget' && item.integration.trafficked === false)) warnings.push('Upweight preflight unavailable: linked coverage, budget type or the replacement/increment sequence is not fully verified. Review the pending increment before trafficking.');
+        if (!upweightPlan && pendingBookings.length) warnings.push('Upweight preflight unavailable: linked coverage, budget type or the replacement/increment sequence is not fully verified. Review the pending increment before trafficking.');
         if (!lifetime) warnings.push('Meta uses daily, mixed, scheduled or unavailable budgets. No lifetime budget comparison is possible; configuration changes are still checked.');
         const ranges = adSets.length ? adSets.map(item => ({ start: metaDate(item.start_time), end: metaDate(item.end_time) })) : [{ start: metaDate(campaign.start_time), end: metaDate(campaign.stop_time) }];
         const booked = value => group.bookings.some(item => value >= item.start && value <= item.end);

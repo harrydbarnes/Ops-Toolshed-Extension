@@ -238,8 +238,7 @@
         const pspId = params.get('osPspId');
         return window.location.href.includes('=prsm-cm-ord&campaign-id=') || (
             Boolean(params.get('campaign-id')) &&
-            pspId === 'prsm-cm-plan-to-buy' &&
-            params.get('ptb-ctx') === 'orderSummary'
+            (params.get('ptb-ctx') === 'orderSummary' || pspId === 'prsm-cm-ord')
         );
     }
 
@@ -296,6 +295,16 @@
             cell.querySelector('.order-id-copy-btn')?.remove();
             cell.classList.remove('order-id-copy-cell');
         });
+    }
+
+    function reconcile() {
+        ensureNewUiSidebarCopyListener();
+        if (!isNewOrderUi() || document.querySelector('.order-id-copy-cell')) {
+            checkAndAddCopyButtons();
+        } else {
+            // Recipient rows can arrive or be recycled without any legacy ID cells.
+            reconcileEmailCopyButtons();
+        }
     }
 
     function checkAndAddCopyButtons() {
@@ -455,6 +464,7 @@
     }
 
     window.orderIdCopyFeature = {
+        reconcile,
         initialize,
         checkAndAddCopyButtons,
         reconcileEmailCopyButtons,

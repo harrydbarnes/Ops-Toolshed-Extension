@@ -5,6 +5,14 @@ const metaCsv = `Account name,Account ID,Campaign name,Campaign ID,Month,Amount 
 const prismaCsv = `Client name,Partner account id,Partner line id,Period,PLANNED_AMOUNT,Campaign name,Partner,Integrated status,Placement creator,Days in Flight start date,Days in Flight end date\nBoots,999,120000000000000001,Jun 2026,100,Matched campaign,Facebook,Integrated,Alice,1/6/26,30/6/26\nBoots,999,120000000000000003,May 2026,20,Wrong month,Facebook,Integrated,Bob,1/5/26,31/5/26\nBoots,999,120000000000000004,Jun 2026,90,Spend exposure,Facebook,Integrated,Chris,1/6/26,30/6/26\nBoots,999,120000000000000005,Jun 2026,60,Date exposure,Facebook,Integrated,Dana,1/6/26,30/6/26\nBoots,999,,Jun 2026,40,Named unlinked campaign,Facebook,Not integrated,Erin,1/6/26,30/6/26`;
 
 describe('social finance comparison engine', () => {
+    test('bounds untrusted CSV resources while preserving quoted ordinary data', () => {
+        expect(() => parseCsv('x'.repeat(25 * 1024 * 1024 + 1))).toThrow('25 MB');
+        expect(() => parseCsv('header\n' + 'x'.repeat(100002))).toThrow('limits');
+        expect(() => parseCsv(Array(502).fill('x').join(','))).toThrow('limits');
+        expect(() => parseCsv('h\n' + 'x\n'.repeat(100002))).toThrow('limits');
+        expect(() => parseCsv(Array.from({length:500}, (_,i)=>`h${i}`).join(',')+'\n'+'x\n'.repeat(4001))).toThrow('cell limit');
+        expect(parseCsv('name,note\nAlice,"one,two"').rows).toEqual([{name:'Alice',note:'one,two'}]);
+    });
     test('preserves long IDs as strings and rejects scientific-notation IDs before comparison or mapping', () => {
         const original=parseCsv('Partner account id,Partner line id,Period,PLANNED_AMOUNT\n1234567890123456,120000000000000099,Oct 26,123.45');
         expect(aggregatePrisma(original).records[0].campaignId).toBe('120000000000000099');

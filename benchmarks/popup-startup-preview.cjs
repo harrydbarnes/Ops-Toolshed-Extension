@@ -4,6 +4,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const resultToken = require('crypto').randomBytes(32).toString('hex');
 const root = path.resolve(__dirname, '..');
 const allowed = new Set([
     'popup.html', 'popup.js', 'feature-settings-registry.js',
@@ -50,10 +51,12 @@ function probe(apiDelay, rows) {
             title:document.querySelector('h1')?.textContent,
             status:document.getElementById('recciesPopupStatus')?.textContent
         });
+        window.savePopupProbe=()=>fetch('/results',{method:'POST',headers:{'Content-Type':'application/json','X-Probe-Token':${JSON.stringify(resultToken)}},body:JSON.stringify(window.popupProbe())});
     })();`;
 }
 
 http.createServer((req, res) => {
+    if (req.headers.host !== '127.0.0.1:8766') { res.writeHead(403); res.end(); return; }
     const url = new URL(req.url, 'http://127.0.0.1:8766');
     if (url.pathname === '/probe.js') {
         const delay = Math.min(10000, Math.max(0, Number(url.searchParams.get('apiDelay')) || 0));
@@ -62,10 +65,15 @@ http.createServer((req, res) => {
         res.end(probe(delay, rows)); return;
     }
     if (req.method === 'POST' && url.pathname === '/results') {
+        if (req.headers.origin !== 'http://127.0.0.1:8766' || req.headers['x-probe-token'] !== resultToken) { res.writeHead(403); res.end(); return; }
         let body = '';
-        req.on('data', chunk => { body += chunk; });
+        let bytes = 0, rejected = false;
+        req.on('data', chunk => { bytes += chunk.length; if (bytes > 1024 * 1024) { if (!rejected) { rejected = true; res.writeHead(413); res.end(); } return; } if (!rejected) body += chunk; });
         req.on('end', () => {
-            const evidence = JSON.parse(body);
+            if (rejected) return;
+            let evidence;
+            try { evidence = JSON.parse(body); if (!evidence || typeof evidence !== 'object' || Array.isArray(evidence) || !Array.isArray(evidence.marks) || !Array.isArray(evidence.requests)) throw Error('Invalid probe'); }
+            catch (_) { res.writeHead(400); res.end('Invalid probe'); return; }
             fs.writeFileSync(path.join(root,'docs/popup-startup-measurement-2026-10-22.json'), JSON.stringify(evidence,null,2)+'\n');
             res.writeHead(200); res.end('saved');
         }); return;

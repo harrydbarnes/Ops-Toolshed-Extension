@@ -65,3 +65,32 @@ test('explorer searches all features, filters groups, exposes current settings a
     expect(set).not.toHaveBeenCalled();
     dom.window.close();
 });
+
+test('explorer recovers from a failed settings read on a later sync change', async () => {
+    const dom = new JSDOM(read('feature-explorer.html'), { runScripts: 'outside-only', url: 'https://example.test/feature-explorer.html' });
+    let onChange;
+    const get = jest.fn().mockRejectedValueOnce(new Error('Storage unavailable'))
+        .mockImplementation(async defaults => ({ ...defaults, actualiseBulkExportEnabled: false }));
+    dom.window.chrome = {
+        runtime: {}, storage: {
+            sync: { get },
+            onChanged: { addListener: callback => { onChange = callback; } }
+        }
+    };
+    try {
+        dom.window.eval(readScript(path.join(__dirname, '..', 'feature-settings-registry.js')));
+        await dom.window.eval(readScript(path.join(__dirname, '..', 'feature-explorer.js')));
+        const state = dom.window.document.querySelector('#actualiseBulkExportToggle .feature-state');
+        expect(state.textContent).toBe('Setting unavailable');
+        expect(dom.window.document.querySelectorAll('.explorer-feature')).toHaveLength(FEATURE_CATALOGUE.length);
+        await onChange({}, 'local');
+        expect(get).toHaveBeenCalledTimes(1);
+        await onChange({ actualiseBulkExportEnabled: { newValue: false } }, 'sync');
+        expect(get).toHaveBeenCalledTimes(2);
+        expect(state.textContent).toBe('Off');
+        await onChange({ actualiseBulkExportEnabled: { newValue: true } }, 'sync');
+        expect(state.textContent).toBe('On');
+    } finally {
+        dom.window.close();
+    }
+});

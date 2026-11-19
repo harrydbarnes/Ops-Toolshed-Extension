@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prisma Tools</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="popup-page">
+    <div class="container">
+        <div class="header">
+            <div class="header-left">
+                <img src="icon.png" alt="Prisma Tools" class="logo">
+                <h1 id="prisma-tools" class="title">Ops Toolshed</h1>
+            </div>
+            <div class="header-actions">
+                <div id="version-link" class="version"></div>
+                <button
+                    id="featuresKillSwitch"
+                    class="features-kill-switch"
+                    type="button"
+                    role="switch"
+                    aria-checked="false"
+                    title="Turn off all Settings features"
+                >
+                    <svg class="kill-switch-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 2v10M5.6 5.6a9 9 0 1 0 12.8 0"/></svg>
+                    <span>Features on</span>
+                </button>
+            </div>
+        </div>
+
+        <h2 id="prisma-but-better" class="subtitle">Tools to make you go 'oooo'!</h2>
+
+        <div class="button-group">
+            <button id="prismaButton" class="nav-button">Prisma</button>
+            <button id="metaHandbookButton" class="nav-button">Meta Handbook</button>
+            <button id="timesheetsButton" class="nav-button">My Timesheets</button>
+            <button id="timesheetHelperButton" class="nav-button">Timesheet Helper</button>
+            <button id="annualLeaveButton" class="nav-button">Annual Leave</button>
+            <button id="approvalsButton" class="nav-button">Timesheet Approvals</button>
+            <button id="recciesButton" class="nav-button">Reccies</button>
+            <button id="officeHoursButton" class="nav-button" hidden>myOffice Days</button>
+            <button id="tpoSharepointButton" class="nav-button">TPO Sharepoint</button>
+            <button id="approversListButton" class="nav-button">Prisma Approvers List</button>
+            <button id="addCampaignButton" class="nav-button">Add Campaign</button>
+            <button id="socialFinanceReportButton" class="nav-button">Social Booking Checker</button>
+            <button id="opsDreButton" class="nav-button">Ops Guide</button>
+        </div>
+
+        <div class="campaign-actions-grid">
+            <!-- Row 1: Campaign search and approvers -->
+            <div class="input-group">
+                <input type="text" id="campaignId" placeholder="Campaign ID / D / O" aria-label="Campaign ID or D or O number">
+            </div>
+            <button id="prismaApproversButton" class="primary-button">Prisma Approvers</button>
+
+            <!-- Row 2: Optional month and open action -->
+            <div class="input-group">
+                <input type="text" id="campaignDate" placeholder="Month e.g. 07/25" aria-label="Campaign month, optional, for example 07/25">
+            </div>
+            <button id="generateUrl" class="primary-button">Open Campaign</button>
+
+            <!-- Validation message -->
+            <p id="campaignIdError" class="error-message hidden"></p>
+        </div>
+
+        <div class="section">
+            <h3>Switch Prisma Location:</h3>
+            <div class="button-group">
+                <button id="ngmclonButton" class="location-button">NGMCLON</button>
+                <button id="ngmcintButton" class="location-button">NGMCINT</button>
+                <button id="ngmcscoButton" class="location-button">NGMCSCO</button>
+                <button id="ngopenButton" class="location-button">NGOPEN</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="menu-container">
+        <div class="menu-row split-menu-row">
+            <div id="menu-settings" class="split-menu-item">
+                <img class="menu-icon" src="assets/icons/fontawesome/gear-solid.svg" alt="" aria-hidden="true">
+                <span class="menu-label">Settings</span>
+            </div>
+
+            <div class="menu-separator"></div>
+
+            <div id="menu-roadmap" class="split-menu-item">
+                <img class="menu-icon" src="assets/icons/fontawesome/file-lines-solid.svg" alt="" aria-hidden="true">
+                <span class="menu-label">Release Notes, Roadmap &amp; Stats</span>
+            </div>
+        </div>
+
+        <div class="menu-row" id="menu-feedback">
+            <div class="menu-row-left"><img class="menu-icon" src="assets/icons/fontawesome/bullhorn-solid.svg" alt="" aria-hidden="true"><span class="menu-label" id="feedback-label">Submit Feedback</span></div>
+            <svg class="menu-chevron" aria-hidden="true" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+        </div>
+    </div>
+
+    <div id="campaign-month-tooltip" class="campaign-month-tooltip" role="tooltip" hidden>
+        <strong>Campaign month</strong>
+        <span>Examples: 07/25, July 2025 or 2025-07. Leave blank for the current month.</span>
+    </div>
+    <script src="popup-shortcuts.js"></script>
+    <script src="popup.js"></script>
+</body>
+</html>

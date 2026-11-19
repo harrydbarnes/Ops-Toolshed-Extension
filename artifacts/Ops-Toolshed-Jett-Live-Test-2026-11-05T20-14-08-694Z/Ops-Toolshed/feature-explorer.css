@@ -1,0 +1,18 @@
+.explorer-shell { grid-template-rows: auto 1fr auto; }
+.explorer-shell a { color: var(--accent-dark); }
+.explorer-search { display: grid; gap: 8px; font-weight: 600; }
+.explorer-search input { width: 100%; padding: 12px 14px; border: 1px solid #b7bac4; border-radius: 8px; background: #fff; color: var(--ink); }
+.explorer-groups { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0; }
+.explorer-groups button { padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; background: white; cursor: pointer; }
+.explorer-groups button[aria-pressed="true"] { background: var(--accent-dark); border-color: var(--accent-dark); color: white; }
+.explorer-list { border-top: 1px solid var(--line); }
+.explorer-feature { border-bottom: 1px solid var(--line); padding: 0 4px; }
+.explorer-feature summary { cursor: pointer; padding: 18px 0; line-height: 1.5; }
+.explorer-feature summary strong { margin-right: 12px; }
+.feature-state { font-size: 13px; color: var(--muted); }
+.explorer-feature p { max-width: 70ch; line-height: 1.6; }
+.explorer-feature a { display: inline-block; padding: 8px 0 20px; }
+.explorer-feature img { display: block; max-width: min(100%, 640px); max-height: 280px; object-fit: contain; margin: 16px 0; }
+.explorer-feature .preview-status { color: var(--muted); font-size: 13px; }
+.explorer-search input:focus-visible, summary:focus-visible { outline: 3px solid var(--accent-dark); outline-offset: 3px; }
+#explorer-count { color: var(--muted); }

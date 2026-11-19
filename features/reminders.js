@@ -191,6 +191,8 @@
 
         if (countdownSeconds > 0) {
             closeButton.disabled = true;
+            closeButton.style.setProperty('--reminder-countdown-duration', `${countdownSeconds}s`);
+            closeButton.classList.add('reminder-countdown');
             let secondsLeft = countdownSeconds;
             closeButton.textContent = `Got it! (${secondsLeft}s)`;
             countdownInterval = setInterval(() => {
@@ -200,6 +202,8 @@
                 } else {
                     clearInterval(countdownInterval);
                     closeButton.textContent = 'Got it!';
+                    closeButton.classList.remove('reminder-countdown');
+                    closeButton.style.removeProperty('--reminder-countdown-duration');
                     closeButton.disabled = false;
                 }
             }, 1000);
@@ -230,11 +234,7 @@
                     if (!document.getElementById('meta-reminder-popup')) {
                         createPrismaReminderPopup({
                             popupId: 'meta-reminder-popup',
-                            content: {
-                                title: '⚠️ Meta Reconciliation Reminder ⚠️',
-                                message: 'When reconciling Meta, please:',
-                                list: ["Actualise to the 'Supplier' option", "Self-accept the IO", "Push through on trafficking tab to Meta", "Verify success of the push, every time", "Do not just leave the page!"]
-                            },
+                            content: window.utils.builtInReminders.meta,
                             countdownSeconds: prismaCountdownDuration,
                             storageKey: 'metaReminderLastShown'
                         });
@@ -260,11 +260,7 @@
                 if (show && !document.getElementById('ias-reminder-popup')) {
                     createPrismaReminderPopup({
                         popupId: 'ias-reminder-popup',
-                        content: {
-                            title: '⚠️ IAS Booking Reminder ⚠️',
-                            message: 'Please ensure you book as CPM',
-                            list: ['With correct rate for media type', 'Check the plan', 'Ensure what is planned is what goes live']
-                        },
+                        content: window.utils.builtInReminders.ias,
                         countdownSeconds: prismaCountdownDuration,
                         storageKey: 'iasReminderLastShown'
                     });
