@@ -32,7 +32,12 @@ chrome.sidePanel?.onClosed?.addListener(info => isFeatureModeActive() && handleH
 // --- Alarms and Notifications ---
 
 featureModeReady.then(enabled => {
-  if (enabled) { setupApprovalAlarm(); setupSocialCheckAlarm().catch(() => {}); chrome.alarms.create(FINANCE_TIMING_ALARM, { periodInMinutes: 2 }); }
+  if (enabled) {
+    setupApprovalAlarm();
+    setupSocialCheckAlarm().catch(() => {});
+    chrome.alarms.create(FINANCE_TIMING_ALARM, { periodInMinutes: 2 });
+    void startAutomaticPoPolling().catch(() => {});
+  }
   else closeFeatureSurfaces();
 });
 
@@ -161,8 +166,6 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     console.error(`Error handling alarm "${alarm.name}":`, error);
   }
 });
-
-void startAutomaticPoPolling().catch(() => {});
 
 chrome.notifications.onButtonClicked.addListener(async (notificationId, buttonIndex) => {
   await featureModeReady;
@@ -557,6 +560,7 @@ async function closeFeatureSurfaces() {
     chrome.alarms.clear(APPROVAL_ALARM_NAME),
     chrome.alarms.clear(SOCIAL_CHECK_ALARM),
     chrome.alarms.clear(FINANCE_TIMING_ALARM),
+    chrome.alarms.clear(ABW_PO_ALARM),
     chrome.notifications.clear('timesheetReminder')
   ]);
 
@@ -583,6 +587,7 @@ async function closeFeatureSurfaces() {
 }
 
 async function restoreFeatureResources() {
+  await startAutomaticPoPolling();
   await restoreReccieAlarms();
   await chrome.alarms.create(FINANCE_TIMING_ALARM, { periodInMinutes: 2 });
   await chrome.sidePanel?.setOptions?.({ path: 'help-guides.html', enabled: true });
