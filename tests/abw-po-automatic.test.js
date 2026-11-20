@@ -1,4 +1,4 @@
-const { checkAutomaticPo } = require('../background/abw-po-automatic');
+const { checkAutomaticPo, pollAutomaticPoChecks } = require('../background/abw-po-automatic');
 
 const booking = {
     client: 'CW7', product: '3', po: '61507', start: '01/10/2026', end: '31/12/2026',
@@ -25,4 +25,32 @@ test('returns sign-in or incomplete input states without opening a tab', async (
     await expect(checkAutomaticPo({ ...booking, plan: '' }, 'context', fetchRows)).resolves.toBe('unavailable');
     expect(fetchRows).not.toHaveBeenCalled();
     await expect(checkAutomaticPo(booking, 'context', fetchRows)).resolves.toBe('signin');
+});
+
+test('returns the job verdict through the native host without opening a tab', async () => {
+    const previousChrome = global.chrome;
+    const previousFetch = global.fetch;
+    const native = jest.fn()
+        .mockResolvedValueOnce({ jobs: [{ id: 'test-job', booking }] })
+        .mockResolvedValueOnce({ ok: true });
+    const create = jest.fn();
+    global.chrome = {
+        runtime: { sendNativeMessage: native },
+        tabs: {
+            query: jest.fn().mockResolvedValue([{ url: 'https://go.mediaocean.com/campaign-management/?_ctx=test-context' }]),
+            create,
+        },
+    };
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => [row] });
+    try {
+        await pollAutomaticPoChecks();
+        expect(native.mock.calls).toEqual([
+            ['net.insidemedia.abw.po_check', { action: 'poll' }],
+            ['net.insidemedia.abw.po_check', { action: 'complete', id: 'test-job', status: 'checked' }],
+        ]);
+        expect(create).not.toHaveBeenCalled();
+    } finally {
+        global.chrome = previousChrome;
+        global.fetch = previousFetch;
+    }
 });
