@@ -6,6 +6,8 @@ import { setupSocialCheckAlarm, pollSocialCampaigns, SOCIAL_CHECK_ALARM } from '
 import { setupApprovalAlarm, pollPendingApprovals, ALARM_NAME as APPROVAL_ALARM_NAME } from './background/approval-polling.js';
 import { expireDiagnosticsIfNeeded, recordDiagnosticEvent } from './background/diagnostics-manager.js';
 import { getLegacyPrismaRedirect } from './background/prisma-url.js';
+import { ABW_PO_ALARM, pollAutomaticPoChecks, startAutomaticPoPolling } from './background/abw-po-automatic.js';
+import { clearAbwPoHandoff, getAbwPoPrismaContext, queryAbwPoFromPrismaTab, queryAbwPoFromWorker, rememberAbwPoHandoff, takeAbwPoHandoff } from './background/abw-po-session.js';
 import { recordTimesheetActivity, clearTimesheetActivity } from './background/timesheet-activity.js';
 import { FINANCE_TIMING_ALARM, pollFinanceTimings } from './background/finance-timing.js';
 initializeAnnualLeave();
@@ -142,7 +144,9 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   try {
     await featureModeReady;
     if (!isFeatureModeActive()) return;
-    if (alarm.name.startsWith('ops-reccie-financial:')) {
+    if (alarm.name === ABW_PO_ALARM) {
+      await pollAutomaticPoChecks();
+    } else if (alarm.name.startsWith('ops-reccie-financial:')) {
       await runReccieAlarm(alarm);
     } else if (alarm.name === FINANCE_TIMING_ALARM) {
       await pollFinanceTimings(isFeatureModeActive);
@@ -157,6 +161,8 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     console.error(`Error handling alarm "${alarm.name}":`, error);
   }
 });
+
+void startAutomaticPoPolling().catch(() => {});
 
 chrome.notifications.onButtonClicked.addListener(async (notificationId, buttonIndex) => {
   await featureModeReady;
@@ -268,6 +274,22 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             }
 
             const { action } = request;
+            if (action === 'queryAbwPoFromPrismaTab') {
+                respondOnce(await queryAbwPoFromPrismaTab(request, sender, chrome.tabs, chrome.scripting));
+                return;
+            }
+            if (action === 'queryAbwPoFromWorker') {
+                respondOnce(await queryAbwPoFromWorker(request, sender, chrome.tabs));
+                return;
+            }
+            if (action === 'takeAbwPoHandoff') {
+                respondOnce(await takeAbwPoHandoff(sender, chrome.storage.session));
+                return;
+            }
+            if (action === 'getAbwPoPrismaContext') {
+                respondOnce(await getAbwPoPrismaContext(request, sender, chrome.tabs));
+                return;
+            }
             if (action === 'clearTimesheetActivity' && sender?.url === chrome.runtime.getURL('timesheet-helper.html')) {
                 await clearTimesheetActivity(request.days);
                 respondOnce({ status: 'ok' });
@@ -465,6 +487,7 @@ async function maybeBlockAppLearnPopup(tabId, url, openerTabId) {
 }
 
 chrome.tabs.onCreated.addListener(tab => {
+    void rememberAbwPoHandoff(tab.id, tab.pendingUrl || tab.url, chrome.storage.session);
     if (!isFeatureModeActive()) return;
     if (isMediaoceanUrl(tab.pendingUrl || tab.url)) {
         rememberLoadingMediaoceanTab(tab.id, tab.windowId);
@@ -475,7 +498,11 @@ chrome.tabs.onCreated.addListener(tab => {
         .catch(error => console.error('Unexpected AppLearn popup check failure:', error));
 });
 
+chrome.webNavigation?.onBeforeNavigate.addListener(({ tabId, frameId, url }) => {
+    if (frameId === 0) void rememberAbwPoHandoff(tabId, url, chrome.storage.session);
+}, { url: [{ schemes: ['https'], hostEquals: 'go.mediaocean.com', pathEquals: '/robots.txt' }] });
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    void rememberAbwPoHandoff(tabId, tab.pendingUrl || changeInfo.url, chrome.storage.session);
     const currentUrl = changeInfo.url || tab.url;
     const prismaRedirect = changeInfo.url && getLegacyPrismaRedirect(changeInfo.url);
     if (prismaRedirect) {
@@ -521,6 +548,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 chrome.tabs.onRemoved.addListener(tabId => {
     loadingMediaoceanTabs.delete(tabId);
+    void clearAbwPoHandoff(tabId, chrome.storage.session).catch(() => {});
 });
 
 async function closeFeatureSurfaces() {
