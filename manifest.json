@@ -14,7 +14,9 @@
     "scripting",
     "clipboardRead",
     "clipboardWrite",
-    "sidePanel"
+    "sidePanel",
+    "webNavigation",
+    "nativeMessaging"
   ],
   "host_permissions": [
     "https://*.mediaocean.com/*",
@@ -27,7 +29,8 @@
   },
   "content_scripts": [{
     "matches": ["https://go.mediaocean.com/robots.txt"],
-    "js": ["features/abw-po-check.js"],
+    "css": ["features/abw-po-check.css"],
+    "js": ["features/abw-po-verdict.js", "features/abw-po-check.js"],
     "run_at": "document_idle"
   }, {
     "matches": ["https://chatgpt.com/*", "https://x.com/*", "https://claude.ai/*", "https://gemini.google.com/*"],
