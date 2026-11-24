@@ -27,6 +27,16 @@ test('returns sign-in or incomplete input states without opening a tab', async (
     await expect(checkAutomaticPo(booking, 'context', fetchRows)).resolves.toBe('signin');
 });
 
+test('checks client-wide allocations with or without a briefed product', async () => {
+    const clientWide = { ...row, productCode: null };
+    const fetchRows = jest.fn().mockResolvedValue({ ok: true, json: async () => [clientWide] });
+    await expect(checkAutomaticPo({ ...booking, product: '' }, 'context', fetchRows)).resolves.toBe('checked');
+    expect(JSON.parse(fetchRows.mock.calls[0][1].body).productCode).toBe('');
+    fetchRows.mockResolvedValueOnce({ ok: true, json: async () => [] });
+    await expect(checkAutomaticPo(booking, 'context', fetchRows)).resolves.toBe('checked');
+    expect(JSON.parse(fetchRows.mock.calls.at(-1)[1].body).productCode).toBe('');
+});
+
 test('returns the job verdict through the native host without opening a tab', async () => {
     const previousChrome = global.chrome;
     const previousFetch = global.fetch;

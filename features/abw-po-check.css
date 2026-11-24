@@ -8,7 +8,7 @@
 }
 
 .abw-po-check h1 { margin: 0; font-size: 28px; }
-.abw-po-check > p { margin: 4px 0 20px; color: #4b5563; }
+.abw-po-entry > p { margin: 4px 0 20px; color: #4b5563; }
 .abw-po-check form {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -106,6 +106,28 @@
 .abw-po-balance { margin-top: 12px; padding: 9px 12px; border-radius: 7px; color: #654525; background: #fff8eb; }
 .abw-po-balance p { margin: 2px 0 0; }
 .abw-po-allocation { color: #465671; }
+@media (min-width: 900px) {
+    .abw-po-check.abw-po-has-result {
+        max-width: 1280px;
+        display: grid;
+        grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+        align-items: start;
+        gap: 24px;
+        margin-block: clamp(12px, 3vh, 32px);
+    }
+    .abw-po-has-result > section { margin-top: 0; min-width: 0; }
+    .abw-po-has-result .abw-po-result { margin-top: 10px; padding: 18px; }
+    .abw-po-has-result .abw-po-result section { margin-top: 12px; padding-top: 10px; }
+    .abw-po-has-result .abw-po-result :is(th, td) { padding-block: 5px; }
+    .abw-po-has-result .abw-po-amounts dd { font-size: clamp(16px, 2vw, 21px); }
+    @media (prefers-reduced-motion: no-preference) {
+        .abw-po-has-result > section { animation: abw-po-reveal .3s ease-out both; }
+    }
+}
+@keyframes abw-po-reveal {
+    from { opacity: 0; transform: translateX(-12px); }
+    to { opacity: 1; transform: translateX(0); }
+}
 @media (max-width: 480px) {
     .abw-po-amounts { grid-template-columns: minmax(0, 1fr); }
     .abw-po-amounts div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }

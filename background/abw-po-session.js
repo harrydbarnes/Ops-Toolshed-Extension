@@ -1,4 +1,5 @@
 import { PRISMA_DASHBOARD_URL, PRISMA_ORIGIN } from './prisma-url.js';
+import '../features/abw-po-verdict.js';
 
 const HANDOFF_PREFIX = '#abw-check-po?';
 const handoffKey = tabId => 'abwPoHandoff:' + tabId;
@@ -62,13 +63,14 @@ async function readPurchaseOrders(origin, context, body) {
 export async function queryAbwPoFromPrismaTab(request, sender, tabs, scripting) {
     if (sender.frameId !== 0 || !sender.tab || !checkerUrl(sender.url)) return {};
     const { media, client, product, start, end } = request.lookup || {};
-    if (![media, client, product].every(code => typeof code === 'string' && /^[A-Z0-9]{1,20}$/.test(code)) ||
+    if (![media, client].every(code => typeof code === 'string' && /^[A-Z0-9]{1,20}$/.test(code)) ||
+        (product !== '' && (typeof product !== 'string' || !/^[A-Z0-9]{1,20}$/.test(product))) ||
         ![start, end].every(date => typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) || start > end) return {};
     const candidates = (await tabs.query({})).filter(tab => tab.incognito === sender.tab.incognito && campaignContext(tab));
     candidates.sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0));
     const tab = candidates[0];
     if (!tab) return {};
-    const body = JSON.stringify({ clientBusinessKey: ['UK', 'A1', media, client].join('|'), mediaCode: media, productCode: product, startDate: start, endDate: end });
+    const body = globalThis.abwPoVerdict.lookupBody(request.lookup);
     try {
         const [result] = await scripting.executeScript({
             target: { tabId: tab.id },
@@ -84,7 +86,8 @@ export async function queryAbwPoFromPrismaTab(request, sender, tabs, scripting) 
 export async function queryAbwPoFromWorker(request, sender, tabs, fetchRows = fetch) {
     if (sender.frameId !== 0 || !sender.tab || !checkerUrl(sender.url)) return {};
     const { media, client, product, start, end } = request.lookup || {};
-    if (![media, client, product].every(code => typeof code === 'string' && /^[A-Z0-9]{1,20}$/.test(code)) ||
+    if (![media, client].every(code => typeof code === 'string' && /^[A-Z0-9]{1,20}$/.test(code)) ||
+        (product !== '' && (typeof product !== 'string' || !/^[A-Z0-9]{1,20}$/.test(product))) ||
         ![start, end].every(date => typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) || start > end) return {};
     const { context } = await getAbwPoPrismaContext({}, sender, tabs);
     if (!context) return {};
@@ -95,7 +98,7 @@ export async function queryAbwPoFromWorker(request, sender, tabs, fetchRows = fe
             redirect: 'error',
             signal: AbortSignal.timeout(8000),
             headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'x-mo-context': context },
-            body: JSON.stringify({ clientBusinessKey: ['UK', 'A1', media, client].join('|'), mediaCode: media, productCode: product, startDate: start, endDate: end }),
+            body: globalThis.abwPoVerdict.lookupBody(request.lookup),
         });
         if (!response.ok) return {};
         const rows = await response.json();

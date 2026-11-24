@@ -19,7 +19,8 @@ function parseBooking(raw) {
         booking[key] = /^\d+,\d{1,2}$/.test(amount) ? amount.replace(',', '.') :
             /^(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d{1,2})?$/.test(amount) ? amount.replace(/,/g, '') : '';
     }
-    if (![booking.media, booking.client, booking.product].every(code => /^[A-Z0-9]{1,20}$/.test(code)) ||
+    if (![booking.media, booking.client].every(code => /^[A-Z0-9]{1,20}$/.test(code)) ||
+        (booking.product && !/^[A-Z0-9]{1,20}$/.test(booking.product)) ||
         !booking.po || booking.po.length > 100 || !booking.total || !booking.plan ||
         ![booking.start, booking.end].every(date => /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(Date.parse(date))) ||
         booking.start > booking.end) return null;
@@ -30,17 +31,23 @@ export async function checkAutomaticPo(raw, context, fetchRows = fetch) {
     const booking = parseBooking(raw);
     if (!booking) return 'unavailable';
     if (!context) return 'signin';
-    const { media, client, product, start, end } = booking;
+    const query = product => fetchRows(PRISMA_ORIGIN + '/campaign-service/secure/purchaseOrder/list', {
+        method: 'PUT', credentials: 'include', redirect: 'manual', signal: AbortSignal.timeout(8000),
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'x-mo-context': context },
+        body: globalThis.abwPoVerdict.lookupBody({ ...booking, product }),
+    });
     try {
-        const response = await fetchRows(PRISMA_ORIGIN + '/campaign-service/secure/purchaseOrder/list', {
-            method: 'PUT', credentials: 'include', redirect: 'manual', signal: AbortSignal.timeout(8000),
-            headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'x-mo-context': context },
-            body: JSON.stringify({ clientBusinessKey: ['UK', 'A1', media, client].join('|'), mediaCode: media, productCode: product, startDate: start, endDate: end }),
-        });
+        const response = await query(booking.product);
         if (response.type === 'opaqueredirect' || [401, 403].includes(response.status)) return 'signin';
         if (!response.ok) return 'unavailable';
         const rows = await response.json();
-        return Array.isArray(rows) ? globalThis.abwPoVerdict.compare(rows, booking).status : 'unavailable';
+        if (!Array.isArray(rows)) return 'unavailable';
+        const verdict = globalThis.abwPoVerdict.compare(rows, booking);
+        if (!booking.product || verdict.productEligible) return verdict.status;
+        const broader = await query('').catch(() => null);
+        if (!broader?.ok) return verdict.status;
+        const broaderRows = await broader.json();
+        return Array.isArray(broaderRows) ? globalThis.abwPoVerdict.compare([...rows, ...broaderRows], booking).status : verdict.status;
     } catch {
         return 'unavailable';
     }

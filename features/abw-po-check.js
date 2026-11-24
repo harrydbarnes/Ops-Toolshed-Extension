@@ -21,15 +21,18 @@
         parent.append(element);
         return element;
     }
-    add(main,'h1','Check PO');
-    add(main,'p','Check your booking details in MX. Amounts are in GBP.');
-    const form = add(main,'form','');
+    const entry = add(main, 'div', '');
+    entry.className = 'abw-po-entry';
+    add(entry,'h1','Check PO');
+    add(entry,'p','Check your booking details in MX. Amounts are in GBP.');
+    const form = add(entry,'form','');
     const fields = {};
     function field(key, label, value, type = 'text') {
         const wrapper = add(form,'label',label);
         const input = add(wrapper,'input','');
         input.type = type;
-        input.required = true;
+        input.required = key !== 'product';
+        if (key === 'product') input.placeholder = 'Optional';
         if (type === 'number') {input.step='0.01'; input.min='0';}
         input.value = value || '';
         fields[key] = input;
@@ -56,6 +59,19 @@
     const submit = add(form,'button','Check on MX');
     const result = add(main,'section','');
     result.setAttribute('aria-live','polite');
+    function revealResult() {
+        if (main.classList.contains('abw-po-has-result')) return;
+        const before = entry.getBoundingClientRect();
+        main.classList.add('abw-po-has-result');
+        const after = entry.getBoundingClientRect();
+        const x = before.left - after.left;
+        const y = before.top - after.top;
+        if ((x || y) && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            entry.animate([{ transform: 'translate(' + x + 'px, ' + y + 'px)' }, { transform: 'none' }], {
+                duration: 300, easing: 'ease-out',
+            });
+        }
+    }
     function showProgress(message) {
         result.replaceChildren();
         add(result, 'p', message).className = 'abw-po-progress';
@@ -68,7 +84,7 @@
         status.className = passed ? 'abw-po-pass' : 'abw-po-warning';
     }
 
-    function renderPurchaseOrder(row, booking, estimates) {
+    function renderPurchaseOrder(row, booking, campaignCodes) {
         const card = add(result, 'article', '');
         card.className = 'abw-po-result';
         const header = add(card, 'header', '');
@@ -119,21 +135,21 @@
                 checkStatus(amounts, 'MX amount matches the Wrike total and media plan budget.', true);
             } else {
                 checkStatus(amounts, difference === 0 ? 'MX amount matches Wrike total' : gbp(Math.abs(difference) / 100) + (difference < 0 ? ' below' : ' above') + ' Wrike total', difference === 0);
-                checkStatus(amounts, room < 0 ? 'Plan exceeds MX amount by ' + gbp(-room / 100) : room === 0 ? 'Plan equals MX amount' : 'MX amount covers plan by ' + gbp(room / 100), room >= 0);
+                checkStatus(amounts, room < 0 ? 'Plan exceeds MX PO amount by ' + gbp(-room / 100) : room === 0 ? 'Plan equals MX PO amount' : 'PO amount is ' + gbp(room / 100) + ' above plan budget', room >= 0);
             }
         }
         const balance = add(amounts, 'aside', '');
         balance.className = 'abw-po-balance';
         add(balance, 'strong', 'Available balance unverified');
-        add(balance, 'p', 'MX did not return spend or remaining balance.');
+        add(balance, 'p', 'The plan comparison uses the original PO amount. MX spend and available balance were not returned.');
 
         const allocation = add(card, 'section', '');
         add(allocation, 'h3', 'Allocation');
         add(allocation, 'p', [
             row.mediaCode === 'D' ? 'Digital (D)' : 'Media ' + row.mediaCode,
             'Client ' + row.clientCode,
-            'Product ' + row.productCode,
-            estimates.size ? 'Estimate ' + [...estimates].join(', ') : 'Estimate unavailable',
+            globalThis.abwPoVerdict.productCode(row) ? 'Product ' + row.productCode : 'Any product (client-wide)',
+            campaignCodes.size ? 'Campaign ' + [...campaignCodes].join(', ') : 'No campaign booking returned for this allocation',
             row.isMultiline == null ? 'PO line count unknown' : row.isMultiline ? 'Multi-line PO · verify the applicable line in MX' : 'Single-line PO',
         ].join(' · ')).className = 'abw-po-allocation';
     }
@@ -184,38 +200,51 @@
             if (!context) return;
             showProgress('Checking MX…');
             const media=f.media.toUpperCase(), client=f.client.toUpperCase(), product=f.product.toUpperCase();
-            const lookup = { media, client, product, start: f.start, end: f.end };
-            const worker = await chrome.runtime.sendMessage({
-                action: 'queryAbwPoFromWorker',
-                lookup,
-            }).catch(() => null);
-            let rows = worker?.rows;
-            let lookupSource = 'the extension background';
-            if (!Array.isArray(rows)) {
-                const prisma = await chrome.runtime.sendMessage({ action: 'queryAbwPoFromPrismaTab', lookup }).catch(() => null);
-                rows = prisma?.rows;
-                lookupSource = 'the open Prisma tab';
-            }
-            if (!Array.isArray(rows)) {
-                lookupSource = 'the Check PO tab';
-                const response=await fetch('/campaign-service/secure/purchaseOrder/list',{
-                    method:'PUT',credentials:'same-origin',redirect:'error',signal:AbortSignal.timeout(30000),
-                    headers:{Accept:'application/json','Content-Type':'application/json','X-Requested-With':'XMLHttpRequest','x-mo-context':context},
-                    body:JSON.stringify({clientBusinessKey:['UK','A1',media,client].join('|'),mediaCode:media,productCode:product,startDate:f.start,endDate:f.end})
-                });
-                if (response.status === 401 || response.status === 403) {
-                    result.textContent = 'MX denied the lookup (HTTP ' + response.status + ').';
-                    if (!signInAgain) {
-                        const reconnect = add(result, 'button', 'Reconnect to Prisma');
-                        reconnect.onclick = () => { if (form.reportValidity()) void check(true); };
-                    }
-                    return;
+            const booking = { ...f, media, client, product };
+            async function loadRows(productCode, supplemental = false) {
+                const lookup = { media, client, product: productCode, start: f.start, end: f.end };
+                const worker = await chrome.runtime.sendMessage({
+                    action: 'queryAbwPoFromWorker',
+                    lookup,
+                }).catch(() => null);
+                let rows = worker?.rows;
+                if (!Array.isArray(rows)) {
+                    const prisma = await chrome.runtime.sendMessage({ action: 'queryAbwPoFromPrismaTab', lookup }).catch(() => null);
+                    rows = prisma?.rows;
                 }
-                if (!response.ok) throw new Error('HTTP '+response.status);
-                rows=await response.json();
+                if (!Array.isArray(rows)) {
+                    const response=await fetch('/campaign-service/secure/purchaseOrder/list',{
+                        method:'PUT',credentials:'same-origin',redirect:'error',signal:AbortSignal.timeout(30000),
+                        headers:{Accept:'application/json','Content-Type':'application/json','X-Requested-With':'XMLHttpRequest','x-mo-context':context},
+                        body:globalThis.abwPoVerdict.lookupBody(lookup)
+                    });
+                    if (response.status === 401 || response.status === 403) {
+                        if (supplemental) return null;
+                        result.textContent = 'MX denied the lookup (HTTP ' + response.status + ').';
+                        if (!signInAgain) {
+                            const reconnect = add(result, 'button', 'Reconnect to Prisma');
+                            reconnect.onclick = () => { if (form.reportValidity()) void check(true); };
+                        }
+                        return null;
+                    }
+                    if (!response.ok) {
+                        if (!productCode && [400, 422].includes(response.status)) {
+                            throw new Error('MX rejected the lookup without a product code. Enter a product code and try again.');
+                        }
+                        throw new Error('HTTP ' + response.status);
+                    }
+                    rows=await response.json();
+                }
+                if (!Array.isArray(rows)) throw new Error('Unexpected MX response');
+                return rows;
             }
-            if (!Array.isArray(rows)) throw new Error('Unexpected MX response');
-            const verdict = globalThis.abwPoVerdict.compare(rows, { ...f, media, client, product });
+            const rows = await loadRows(product);
+            if (!rows) return;
+            let verdict = globalThis.abwPoVerdict.compare(rows, booking);
+            if (product && !verdict.productEligible) {
+                const clientRows = await loadRows('', true).catch(() => null);
+                if (clientRows) verdict = globalThis.abwPoVerdict.compare([...rows, ...clientRows], booking);
+            }
             const { matches, alternateReference } = verdict;
             result.replaceChildren();
             if (!matches.length) {
@@ -226,14 +255,19 @@
                 add(result, 'p', 'Matched MX reference ' + alternateReference + ' for Wrike PO ' + f.po + ' using the leading-zero variant.');
             }
             checkStatus(result, verdict.status === 'checked' ? 'PO Checked' : 'Review PO', verdict.status === 'checked');
+            if (verdict.anyProduct) {
+                checkStatus(result, product ? 'Any product can be used. Brief says to book against ' + product + '.' : 'Any product can be used. The brief has no product code.', true);
+            } else if (!verdict.productEligible) {
+                checkStatus(result, 'Eligible product codes: ' + verdict.allowedProducts.join(', ') + (product ? '. Brief specifies ' + product + '.' : '.'), false);
+            }
             const purchases = new Map();
             for (const r of matches) {
-                const identity=JSON.stringify([r.serial,r.startDate,r.endDate,r.amount,r.currencyCode,r.status,r.isMultiline,r.name]);
-                if (!purchases.has(identity)) purchases.set(identity, { row: r, estimates: new Set() });
-                if (r.estimateCode != null && r.estimateCode !== '') purchases.get(identity).estimates.add(r.estimateCode);
+                const identity=JSON.stringify([r.serial,r.startDate,r.endDate,r.amount,r.currencyCode,r.status,r.isMultiline,r.name,globalThis.abwPoVerdict.productCode(r)]);
+                if (!purchases.has(identity)) purchases.set(identity, { row: r, campaignCodes: new Set() });
+                if (r.estimateCode != null && r.estimateCode !== '') purchases.get(identity).campaignCodes.add(r.estimateCode);
             }
-            for (const { row, estimates } of purchases.values()) renderPurchaseOrder(row, f, estimates);
-            add(result, 'p', 'Lookup ran in ' + lookupSource + '.');
+            for (const { row, campaignCodes } of purchases.values()) renderPurchaseOrder(row, f, campaignCodes);
+            revealResult();
         } catch (error) {
             result.textContent='Lookup unavailable. '+error.message;
         } finally {
