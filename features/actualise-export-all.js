@@ -18,6 +18,11 @@
     const MENU_OPEN_TIMEOUT_MS = timing.menuOpenTimeoutMs || 3000;
     const STATUS_DURATION_MS = timing.statusDurationMs || 6000;
     const COMBINE_STATUS_DURATION_MS = timing.combineStatusDurationMs || 30000;
+    const CAPTURE_SETTLE_TIMEOUT_MS = timing.captureSettleTimeoutMs ?? 2000;
+    const BRIDGE_SOURCE = 'ops-toolshed-actualise-month-bridge';
+    const EXPORT_CAPTURE_START = 'ops-toolshed-actualise-export-capture-start';
+    const EXPORT_CAPTURE_STOP = 'ops-toolshed-actualise-export-capture-stop';
+    const EXPORT_CAPTURED = 'ops-toolshed-actualise-export-captured';
     const MAX_COMBINE_FILES = 36;
     const MAX_CSV_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -261,6 +266,10 @@
         return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
     }
 
+    const D_NUMBER_MONTH_HEADER = 'D Number Month';
+    const D_NUMBER_HEADER_PATTERN = /^d[\s_-]*(?:number|no\.?|#|id)$/i;
+    const D_NUMBER_VALUE_PATTERN = /^D(?=.*\d)[A-Z0-9]{3,}$/i;
+
     function parseActualizationFilename(name) {
         const match = String(name || '').match(
             /^(Actualization-.+)-(\d{4})-(0[1-9]|1[0-2])(?: \(\d+\))?\.csv$/i
@@ -270,6 +279,21 @@
             prefix: match[1],
             month: `${match[2]}-${match[3]}`
         };
+    }
+
+    function findDNumberColumnIndex(header, rows) {
+        const headerIndex = header.findIndex(name =>
+            D_NUMBER_HEADER_PATTERN.test(String(name || '').trim())
+        );
+        if (headerIndex !== -1) return headerIndex;
+
+        for (let columnIndex = 0; columnIndex < header.length; columnIndex += 1) {
+            const hasDNumberValue = rows.some(row =>
+                D_NUMBER_VALUE_PATTERN.test(String(row[columnIndex] ?? '').trim())
+            );
+            if (hasDNumberValue) return columnIndex;
+        }
+        return -1;
     }
 
     async function mergeActualizationCsvFiles(files, expectedCount = 0) {
@@ -310,7 +334,7 @@
         describedFiles.sort((left, right) => left.month.localeCompare(right.month));
 
         let header = null;
-        const combinedRows = [];
+        const combinedEntries = [];
         for (const item of describedFiles) {
             const rows = parseCsvRows(await item.file.text());
             if (rows.length === 0) throw new Error(`${item.file.name} is empty.`);
@@ -332,11 +356,44 @@
                 if (normalizedRow.length !== header.length) {
                     throw new Error(`${item.file.name} row ${rowIndex + 2} has a different column count.`);
                 }
-                combinedRows.push(normalizedRow);
+                combinedEntries.push({ row: normalizedRow, month: item.month });
             });
         }
 
-        const allRows = [header, ...combinedRows];
+        const existingMonthIndex = header.findIndex(
+            name => String(name || '').trim().toLowerCase() === D_NUMBER_MONTH_HEADER.toLowerCase()
+        );
+
+        let outputHeader;
+        let outputRows;
+        if (existingMonthIndex !== -1) {
+            outputHeader = [...header];
+            outputRows = combinedEntries.map(({ row, month }) => {
+                const nextRow = [...row];
+                if (String(nextRow[existingMonthIndex] ?? '').trim() === '') {
+                    nextRow[existingMonthIndex] = month;
+                }
+                return nextRow;
+            });
+        } else {
+            const dNumberIndex = findDNumberColumnIndex(
+                header,
+                combinedEntries.map(entry => entry.row)
+            );
+            const insertIndex = dNumberIndex === -1 ? 0 : dNumberIndex + 1;
+            outputHeader = [
+                ...header.slice(0, insertIndex),
+                D_NUMBER_MONTH_HEADER,
+                ...header.slice(insertIndex)
+            ];
+            outputRows = combinedEntries.map(({ row, month }) => [
+                ...row.slice(0, insertIndex),
+                month,
+                ...row.slice(insertIndex)
+            ]);
+        }
+
+        const allRows = [outputHeader, ...outputRows];
         const csv = `\uFEFF${allRows
             .map(row => row.map(escapeCsvField).join(','))
             .join('\r\n')}\r\n`;
@@ -346,7 +403,7 @@
             csv,
             filename: `${describedFiles[0].prefix}-${firstMonth}-to-${lastMonth}.csv`,
             fileCount: describedFiles.length,
-            rowCount: combinedRows.length
+            rowCount: outputRows.length
         };
     }
 
@@ -520,7 +577,44 @@
 
         const originalMonth = getActiveMonth();
         const campaignId = getCampaignId();
+        const captureToken = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        const capturedFiles = [];
+        let captureStopped = false;
         let completed = 0;
+
+        const handleCapturedMessage = event => {
+            if (event.source !== window || event.origin !== window.location.origin ||
+                event.data?.source !== BRIDGE_SOURCE || event.data?.type !== EXPORT_CAPTURED) {
+                return;
+            }
+            const detail = event.data.detail;
+            if (!detail || detail.token !== captureToken) return;
+            const csvText = String(detail.text || '');
+            const fileName = String(detail.name || 'Actualization.csv');
+            capturedFiles.push({
+                name: fileName,
+                size: Number.isFinite(Number(detail.size)) ? Number(detail.size) : csvText.length,
+                text: async () => csvText
+            });
+        };
+
+        const stopCapture = () => {
+            if (captureStopped) return;
+            captureStopped = true;
+            window.removeEventListener('message', handleCapturedMessage);
+            window.postMessage({
+                source: BRIDGE_SOURCE,
+                type: EXPORT_CAPTURE_STOP,
+                detail: { token: captureToken }
+            }, window.location.origin);
+        };
+
+        window.addEventListener('message', handleCapturedMessage);
+        window.postMessage({
+            source: BRIDGE_SOURCE,
+            type: EXPORT_CAPTURE_START,
+            detail: { token: captureToken }
+        }, window.location.origin);
 
         try {
             for (let index = 0; index < months.length; index += 1) {
@@ -531,7 +625,7 @@
 
                 const month = months[index];
                 showStatus(
-                    `Exporting ${index + 1} of ${months.length}: ${month}. Keep this tab open; Chrome may ask to allow multiple downloads.`
+                    `Exporting ${index + 1} of ${months.length}: ${month}. Keep this tab open.`
                 );
                 await selectMonth(month);
                 if (cancelRequested) break;
@@ -539,9 +633,31 @@
                 completed += 1;
             }
 
+            if (!cancelRequested && completed >= 2 && capturedFiles.length < completed &&
+                CAPTURE_SETTLE_TIMEOUT_MS > 0) {
+                try {
+                    await waitForCondition(
+                        () => capturedFiles.length >= completed,
+                        CAPTURE_SETTLE_TIMEOUT_MS,
+                        'exported CSVs'
+                    );
+                } catch (error) {
+                    // Fall back to the manual Combine CSVs picker when downloads were not intercepted.
+                }
+            }
+
+            stopCapture();
             await restoreMonth(originalMonth, campaignId);
             if (cancelRequested) {
                 showStatus(`Stopped after starting ${completed} of ${months.length} exports.`, 'info', 'none');
+            } else if (capturedFiles.length === completed && completed >= 2) {
+                const result = await mergeActualizationCsvFiles(capturedFiles, completed);
+                downloadCombinedCsv(result);
+                showStatus(
+                    `Combined ${result.fileCount} months and ${result.rowCount} data rows into ${result.filename}.`,
+                    'success',
+                    'none'
+                );
             } else {
                 lastExportedMonthCount = months.length;
                 showStatus(
@@ -551,10 +667,12 @@
                 );
             }
         } catch (error) {
+            stopCapture();
             await restoreMonth(originalMonth, campaignId);
             console.error('[Ops Toolshed] Export every month failed:', error);
             showStatus(`Bulk export stopped: ${error.message}`, 'error', 'none');
         } finally {
+            stopCapture();
             running = false;
             cancelRequested = false;
             updateMenuItems();

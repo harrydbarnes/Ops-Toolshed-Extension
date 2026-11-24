@@ -58,7 +58,8 @@ describe('Actualise export every month', () => {
             readyStableMs: 1,
             exportTriggerGapMs: 1,
             menuOpenTimeoutMs: 100,
-            statusDurationMs: 100
+            statusDurationMs: 100,
+            captureSettleTimeoutMs: 5
         };
         dom.window.utils = {
             findVisibleLoadingSpinners: jest.fn(() => [])
@@ -211,6 +212,81 @@ describe('Actualise export every month', () => {
         dom.window.close();
     });
 
+    test('automatically combines captured monthly exports into a single download with D Number Month', async () => {
+        const { dom, window } = createFeature({ months: ['Jan 26', 'Feb 26'], activeMonth: 'Jan 26' });
+        const monthToCsv = {
+            'Jan 26': {
+                name: 'Actualization-CP37TC2-HBARN-2026-01.csv',
+                text: 'Supplier,D Number,Start Date\r\nMeta,D123456,2026-01-01\r\n'
+            },
+            'Feb 26': {
+                name: 'Actualization-CP37TC2-HBARN-2026-02.csv',
+                text: 'Supplier,D Number,Start Date\r\nMeta,D123456,2026-01-01\r\n'
+            }
+        };
+
+        let activeCaptureToken = '';
+        window.addEventListener('message', event => {
+            if (event.data?.source !== 'ops-toolshed-actualise-month-bridge') return;
+            if (event.data.type === 'ops-toolshed-actualise-export-capture-start') {
+                activeCaptureToken = event.data.detail.token;
+            } else if (event.data.type === 'ops-toolshed-actualise-export-capture-stop') {
+                activeCaptureToken = '';
+            }
+        });
+
+        window.document.querySelector('#btn-2 a').addEventListener('click', () => {
+            const activeMonth = window.document.querySelector('#mos-paginator li.active a').textContent.trim();
+            const payload = monthToCsv[activeMonth];
+            if (!activeCaptureToken || !payload) return;
+            window.dispatchEvent(new window.MessageEvent('message', {
+                source: window,
+                origin: window.location.origin,
+                data: {
+                    source: 'ops-toolshed-actualise-month-bridge',
+                    type: 'ops-toolshed-actualise-export-captured',
+                    detail: {
+                        token: activeCaptureToken,
+                        name: payload.name,
+                        size: payload.text.length,
+                        text: payload.text
+                    }
+                }
+            }));
+        });
+
+        const downloadedBlobs = [];
+        window.URL.createObjectURL = jest.fn(blob => {
+            downloadedBlobs.push(blob);
+            return 'blob:combined';
+        });
+        window.URL.revokeObjectURL = jest.fn();
+        const downloadedAnchorNames = [];
+        const originalAnchorClick = window.HTMLAnchorElement.prototype.click;
+        window.HTMLAnchorElement.prototype.click = function() {
+            if (this.download) downloadedAnchorNames.push(this.download);
+            return originalAnchorClick.apply(this, arguments);
+        };
+
+        window.actualiseExportAllFeature.initialize();
+        await window.actualiseExportAllFeature.exportAllMonths();
+
+        expect(downloadedAnchorNames).toEqual(['Actualization-CP37TC2-HBARN-2026-01-to-2026-02.csv']);
+        expect(downloadedBlobs).toHaveLength(1);
+        const combinedText = await downloadedBlobs[0].text();
+        expect(window.actualiseExportAllFeature.parseCsvRows(combinedText)).toEqual([
+            ['Supplier', 'D Number', 'D Number Month', 'Start Date'],
+            ['Meta', 'D123456', '2026-01', '2026-01-01'],
+            ['Meta', 'D123456', '2026-02', '2026-01-01']
+        ]);
+        const status = window.document.getElementById('toolshed-export-all-actuals-status');
+        expect(status.textContent).toContain(
+            'Combined 2 months and 2 data rows into Actualization-CP37TC2-HBARN-2026-01-to-2026-02.csv.'
+        );
+        expect(window.document.querySelector('.toolshed-export-all-actuals-combine').hidden).toBe(true);
+        dom.window.close();
+    });
+
     test('supports the modern Actualise month controls and dynamically opened menu', async () => {
         const { dom, window, exports } = createFeature();
         const doc = window.document;
@@ -295,12 +371,84 @@ describe('Actualise export every month', () => {
             .toBe('Actualization-CP37TC2-HBARN-2026-01-to-2026-02.csv');
         expect(result).toEqual(expect.objectContaining({ fileCount: 2, rowCount: 2 }));
         expect(rows).toEqual([
-            ['Month', 'Name', 'Notes'],
-            ['2026-01', 'First', 'Hello, world'],
-            ['2026-02', 'Second', 'Line one\r\nLine two']
+            ['D Number Month', 'Month', 'Name', 'Notes'],
+            ['2026-01', '2026-01', 'First', 'Hello, world'],
+            ['2026-02', '2026-02', 'Second', 'Line one\r\nLine two']
         ]);
-        expect(result.csv.match(/Month,Name,Notes/g)).toHaveLength(1);
+        expect(result.csv.match(/D Number Month,Month,Name,Notes/g)).toHaveLength(1);
         expect(result.csv.startsWith('\uFEFF')).toBe(true);
+        dom.window.close();
+    });
+
+    test('inserts D Number Month immediately after a D Number column', async () => {
+        const { dom, window } = createFeature();
+        const files = [
+            {
+                name: 'Actualization-CP37TC2-HBARN-2026-02.csv',
+                size: 100,
+                text: jest.fn(async () => 'Supplier,D Number,Start Date,End Date\r\nMeta,D123456,2026-01-01,2026-03-31\r\n')
+            },
+            {
+                name: 'Actualization-CP37TC2-HBARN-2026-01.csv',
+                size: 100,
+                text: jest.fn(async () => 'Supplier,D Number,Start Date,End Date\r\nMeta,D123456,2026-01-01,2026-03-31\r\n')
+            }
+        ];
+
+        const result = await window.actualiseExportAllFeature.mergeActualizationCsvFiles(files);
+        expect(window.actualiseExportAllFeature.parseCsvRows(result.csv)).toEqual([
+            ['Supplier', 'D Number', 'D Number Month', 'Start Date', 'End Date'],
+            ['Meta', 'D123456', '2026-01', '2026-01-01', '2026-03-31'],
+            ['Meta', 'D123456', '2026-02', '2026-01-01', '2026-03-31']
+        ]);
+        dom.window.close();
+    });
+
+    test('detects a D number column by its values when the header name differs', async () => {
+        const { dom, window } = createFeature();
+        const files = [
+            {
+                name: 'Actualization-CP37TC2-HBARN-2026-02.csv',
+                size: 100,
+                text: jest.fn(async () => 'Placement ID,Start Date,End Date\r\nD987654,2026-01-01,2026-02-28\r\n')
+            },
+            {
+                name: 'Actualization-CP37TC2-HBARN-2026-01.csv',
+                size: 100,
+                text: jest.fn(async () => 'Placement ID,Start Date,End Date\r\nD987654,2026-01-01,2026-02-28\r\n')
+            }
+        ];
+
+        const result = await window.actualiseExportAllFeature.mergeActualizationCsvFiles(files);
+        expect(window.actualiseExportAllFeature.parseCsvRows(result.csv)).toEqual([
+            ['Placement ID', 'D Number Month', 'Start Date', 'End Date'],
+            ['D987654', '2026-01', '2026-01-01', '2026-02-28'],
+            ['D987654', '2026-02', '2026-01-01', '2026-02-28']
+        ]);
+        dom.window.close();
+    });
+
+    test('reuses an existing D Number Month column and fills blank cells with the file month', async () => {
+        const { dom, window } = createFeature();
+        const files = [
+            {
+                name: 'Actualization-CP37TC2-HBARN-2026-02.csv',
+                size: 100,
+                text: jest.fn(async () => 'D Number,D Number Month,Amount\r\nD123456,,200\r\n')
+            },
+            {
+                name: 'Actualization-CP37TC2-HBARN-2026-01.csv',
+                size: 100,
+                text: jest.fn(async () => 'D Number,D Number Month,Amount\r\nD123456,2026-01,100\r\n')
+            }
+        ];
+
+        const result = await window.actualiseExportAllFeature.mergeActualizationCsvFiles(files);
+        expect(window.actualiseExportAllFeature.parseCsvRows(result.csv)).toEqual([
+            ['D Number', 'D Number Month', 'Amount'],
+            ['D123456', '2026-01', '100'],
+            ['D123456', '2026-02', '200']
+        ]);
         dom.window.close();
     });
 
@@ -339,9 +487,9 @@ describe('Actualise export every month', () => {
         ]);
 
         expect(window.actualiseExportAllFeature.parseCsvRows(result.csv)).toEqual([
-            ['Month', 'Formula', 'Negative', 'Positive', 'At'],
-            ['2026-01', "'=1+1", '-123.45', '+42', "'@SUM(A1:A2)"],
-            ['2026-02', "'+CMD", "'-SUM(A1,A2)", '0', 'Safe']
+            ['D Number Month', 'Month', 'Formula', 'Negative', 'Positive', 'At'],
+            ['2026-01', '2026-01', "'=1+1", '-123.45', '+42', "'@SUM(A1:A2)"],
+            ['2026-02', '2026-02', "'+CMD", "'-SUM(A1,A2)", '0', 'Safe']
         ]);
         dom.window.close();
     });

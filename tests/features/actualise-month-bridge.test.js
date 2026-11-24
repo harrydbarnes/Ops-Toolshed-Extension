@@ -186,4 +186,79 @@ describe('Actualise month bridge', () => {
         expect(unhandled.defaultPrevented).toBe(true);
         dom.window.close();
     });
+
+    test('captures Blob CSV downloads when export capture is active and restores originals on stop', async () => {
+        const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+            runScripts: 'dangerously',
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP37TC2&ptb-ctx=actualize&route=actualize&mos=2026-01-01'
+        });
+        try {
+            dom.window.document.documentElement.setAttribute('data-ops-toolshed-features-active', 'true');
+            const originalAnchorClick = jest.fn();
+            dom.window.HTMLAnchorElement.prototype.click = originalAnchorClick;
+            const fakeBlobUrl = 'blob:https://groupmuk-prisma.mediaocean.com/11111111';
+            const originalCreateObjectURL = jest.fn(() => fakeBlobUrl);
+            dom.window.URL.createObjectURL = originalCreateObjectURL;
+
+            const capturedMessages = [];
+            dom.window.addEventListener('message', event => {
+                if (event.data?.type === 'ops-toolshed-actualise-export-captured') {
+                    capturedMessages.push(event.data);
+                }
+            });
+
+            dom.window.eval(bridgeCode);
+
+            dom.window.dispatchEvent(new dom.window.MessageEvent('message', {
+                source: dom.window,
+                origin: dom.window.location.origin,
+                data: {
+                    source: 'ops-toolshed-actualise-month-bridge',
+                    type: 'ops-toolshed-actualise-export-capture-start',
+                    detail: { token: 'run-1' }
+                }
+            }));
+
+            const csvBlob = new dom.window.Blob(
+                ['D Number,Start Date\r\nD123456,2026-01-01\r\n'],
+                { type: 'text/csv' }
+            );
+            const blobUrl = dom.window.URL.createObjectURL(csvBlob);
+            const link = dom.window.document.createElement('a');
+            link.href = blobUrl;
+            link.download = 'Actualization-CP37TC2-HBARN-2026-01.csv';
+            link.click();
+
+            await new Promise(resolve => dom.window.setTimeout(resolve, 25));
+
+            expect(originalAnchorClick).not.toHaveBeenCalled();
+            expect(capturedMessages).toEqual([{
+                source: 'ops-toolshed-actualise-month-bridge',
+                type: 'ops-toolshed-actualise-export-captured',
+                detail: expect.objectContaining({
+                    token: 'run-1',
+                    name: 'Actualization-CP37TC2-HBARN-2026-01.csv',
+                    text: 'D Number,Start Date\r\nD123456,2026-01-01\r\n'
+                })
+            }]);
+
+            dom.window.dispatchEvent(new dom.window.MessageEvent('message', {
+                source: dom.window,
+                origin: dom.window.location.origin,
+                data: {
+                    source: 'ops-toolshed-actualise-month-bridge',
+                    type: 'ops-toolshed-actualise-export-capture-stop',
+                    detail: { token: 'run-1' }
+                }
+            }));
+
+            expect(dom.window.HTMLAnchorElement.prototype.click).toBe(originalAnchorClick);
+            expect(dom.window.URL.createObjectURL).toBe(originalCreateObjectURL);
+
+            link.click();
+            expect(originalAnchorClick).toHaveBeenCalledTimes(1);
+        } finally {
+            dom.window.close();
+        }
+    });
 });
