@@ -46,6 +46,7 @@ async function prisma(path, body, requests, attempt, deadline, method, activity)
         timing.httpStatus = response.status ?? null;
         if (!response.ok) {
             const error = new Error(`Prisma HTTP ${response.status}. Check your signed-in session and campaign access.`);
+            error.httpStatus = response.status;
             error.retryable = [500, 502, 503, 504].includes(response.status);
             throw error;
         }
@@ -57,8 +58,14 @@ async function prisma(path, body, requests, attempt, deadline, method, activity)
         timing.errorName = error.name;
         timing.timedOut = ['TimeoutError', 'AbortError'].includes(error.name);
         if (timing.timedOut) timing.timeoutPhase = timing.headersMs === null ? 'awaiting-headers' : 'reading-body';
-        const failure = timing.timedOut ? new Error(`Prisma request timed out after ${(timeoutMs / 1000).toFixed(1)} seconds. Verify these rows again if the retry also fails.`) : error;
+        const fullGridHeaderTimeout = Boolean(body && timing.timedOut && timing.timeoutPhase === 'awaiting-headers' && timeoutMs >= method.requestTimeoutMs);
+        const failure = timing.timedOut
+            ? new Error(fullGridHeaderTimeout
+                ? `Prisma request timed out after ${(timeoutMs / 1000).toFixed(1)} seconds awaiting response headers. Retry this campaign to check again.`
+                : `Prisma request timed out after ${(timeoutMs / 1000).toFixed(1)} seconds. Verify these rows again if the retry also fails.`)
+            : error;
         if (timing.timedOut) failure.name = error.name;
+        if (fullGridHeaderTimeout) failure.fullGridHeaderTimeout = true;
         if (timing.timedOut || error instanceof TypeError) failure.retryable = true;
         throw failure;
     } finally { timing.totalMs = Math.round(performance.now() - started); activity.active--; if (body) activity.grids--; }
@@ -184,7 +191,8 @@ async function runGroups(groups, method, options, started = performance.now()) {
                 } catch (error) {
                     campaignTiming.errorName = error.name;
                     campaignTiming.message = error.message;
-                    if (task.attempt <= method.retryLimit && error.retryable && performance.now() + 1000 < deadline) {
+                    const canRetry = error.retryable && !(options.skipFullGridHeaderTimeoutRetry && error.fullGridHeaderTimeout);
+                    if (task.attempt <= method.retryLimit && canRetry && performance.now() + 1000 < deadline) {
                         task.attempt++;
                         task.readyAt = performance.now() + 1000;
                         queue.push(task);
@@ -206,7 +214,9 @@ async function checkRows(request) {
         const method = core.verificationMethod(request.method);
         const placementIds=request.placementIds?new Set(request.placementIds):null;
         const key = core.trackerKey(request.mode, request.month);
-        const tracker = (await chrome.storage.local.get(key))[key];
+        const stored = await chrome.storage.local.get([key, 'opsToolshed_bannerUsername']);
+        const tracker = stored[key];
+        const currentLocation = core.prismaLocationFromUsername(stored.opsToolshed_bannerUsername);
         if (!tracker || tracker.revision !== request.revision) throw new Error('The report changed. Reload Reccies and check again.');
         if (!Array.isArray(request.rowIds) || !request.rowIds.length || request.rowIds.length > method.maxRows) throw new Error(`Choose up to ${method.maxRows} rows per check.`);
         const ids = new Set(request.rowIds);
@@ -223,6 +233,7 @@ async function checkRows(request) {
         if (groups.size > method.maxCampaigns) throw new Error(`Check up to ${method.maxCampaigns} campaigns per batch.`);
         const timing = await runGroups(groups, method, {
             rows: rows.length, skippedRows: Object.keys(results).length,
+            skipFullGridHeaderTimeoutRetry: true,
             onRecords: (group, records, checkedAt) => {
                 if (placementIds) {
                     searchedPlacements = true;
@@ -230,7 +241,22 @@ async function checkRows(request) {
                 }
                 group.forEach(row => { if(placementIds&&!records.some(record=>record.buySerialNumber===row.dNumber&&record.month===row.month&&placementIds.has(record.placementNumber)))return; results[row.sourceRow] = { ...core.evaluateRow(row, records), checkedAt }; });
             },
-            onError: (group, error, checkedAt) => { group.forEach(row => { results[row.sourceRow] = {state:'error',message:error.message,checkedAt}; }); }
+            onError: (group, error, checkedAt) => {
+                group.forEach(row => {
+                    const expectedLocation = core.agencyToPrismaLocation(row.agency);
+                    if (error.httpStatus === 403 && currentLocation && expectedLocation && expectedLocation !== currentLocation) {
+                        results[row.sourceRow] = {
+                            state: 'other_location',
+                            expectedLocation,
+                            currentLocation,
+                            message: `Prisma HTTP 403. Check your signed-in session and campaign access. Check you're on the right location (${expectedLocation}; currently ${currentLocation}).`,
+                            checkedAt
+                        };
+                        return;
+                    }
+                    results[row.sourceRow] = { state: 'error', message: error.message, checkedAt };
+                });
+            }
         }, started);
         assertActive();
         const updated = await queueWrite(async () => {

@@ -53,6 +53,7 @@
             sourceRow: index + 2, dNumber: get(row, 'serial number').toUpperCase(),
             campaignId: get(row, 'campaign id mediaocean').toUpperCase(), month,
             buyer: get(row, 'buyer name'), ops: get(row, 'ops assigned'), group: get(row, 'group'),
+            agency: get(row, 'agency'),
             client: get(row, 'client name'), campaignName: get(row, 'campaign description'),
             supplier: get(row, 'supplier name'), order: get(row, 'order'), gross: get(row, 'gross'),
             bookingEndDate: get(row, 'booking end date'), comments: get(row, 'comments'), reccied: get(row, 'reccied')
@@ -179,5 +180,19 @@
         if (!/^CP[A-Z0-9]{3,20}$/.test(row.campaignId) || !validMonth(row.month)) return '';
         return `https://go.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=prsm-cm-plan-to-buy&campaign-id=${row.campaignId}&ptb-mod=buy&ptb-ctx=actualize&route=actualize&mos=${row.month}-01`;
     }
-    return { validMonth, parseCsv, importCsv, sheetSource, extractResults, evaluateRow, campaignUrl, missingDMessage, verificationMethod, currentMonth, trackerKey, bookingMonth, earlyRows };
+    function prismaLocationFromUsername(username) {
+        const match = clean(username).toUpperCase().match(/@([A-Z0-9]{3,20})$/);
+        return match ? match[1] : '';
+    }
+    function agencyToPrismaLocation(agency) {
+        const normalized = clean(agency).toUpperCase().replace(/\s+/g, ' ');
+        if (!normalized) return '';
+        if (normalized === 'WPP MEDIA OPENMIND' || normalized.includes('OPENMIND')) return 'NGOPEN';
+        if (normalized === 'MEDIACOM LONDON') return 'NGMCLON';
+        if (normalized === 'MEDIACOM INTERNATIONAL') return 'NGMCINT';
+        if (normalized === 'MEDIACOM SCOTLAND') return 'NGMCSCO';
+        if (normalized === 'MEDIACOM NORTH') return 'NGMCNOR';
+        return '';
+    }
+    return { validMonth, parseCsv, importCsv, sheetSource, extractResults, evaluateRow, campaignUrl, missingDMessage, verificationMethod, currentMonth, trackerKey, bookingMonth, earlyRows, prismaLocationFromUsername, agencyToPrismaLocation };
 });

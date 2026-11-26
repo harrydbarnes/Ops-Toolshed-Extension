@@ -276,7 +276,7 @@ describe('Reccies background reads', () => {
         expect(state.reccieTracker.lastCheckTiming).toMatchObject({campaigns:46,retries:0});
         expect(Object.values(state.reccieTracker.checks).filter(item=>item.state==='ready')).toHaveLength(372);
     });
-    test.each(['timeout','network','server'])('defers one %s retry, reusing a successful lookup and recording both attempts',async kind=>{
+    test.each(['network','server'])('defers one %s retry, reusing a successful lookup and recording both attempts',async kind=>{
         await call(handleReccies,sender,{operation:'import',csv,month:'2026-09'});
         const row=state.reccieTracker.rows[0];
         state.reccieTracker.rows=Array.from({length:4},(_,index)=>({...row,sourceRow:index+2,campaignId:index ? `CPTEST${index}` : row.campaignId}));
@@ -290,8 +290,7 @@ describe('Reccies background reads', () => {
             if(url.includes('/100/') && !failed) {
                 failed=true;
                 if(kind==='server') return {ok:false,status:500};
-                if(kind==='network') throw new TypeError('Failed to fetch');
-                throw new DOMException('timed out','TimeoutError');
+                throw new TypeError('Failed to fetch');
             }
             events.push(url.includes('/100/') ? 'retried' : 'grid');
             return {ok:true,status:200,json:async()=>({status:0,total:1,nodes:[fieldNode()]})};
@@ -305,7 +304,42 @@ describe('Reccies background reads', () => {
             expect(fetchMock.mock.calls.filter(([url])=>url.endsWith(`publicforui/${row.campaignId}`))).toHaveLength(1);
             const detail=state.reccieTracker.lastCheckTiming.campaignsDetail.find(item=>item.campaign===row.campaignId);
             expect(detail).toMatchObject({attempts:2,outcome:'success',requests:[{phase:'lookup',attempt:1,ok:true},{phase:'grid',attempt:1,ok:false},{phase:'grid',attempt:2,ok:true}]});
-            if(kind==='timeout') expect(detail.requests[1].timeoutPhase).toBe('awaiting-headers');
+            expect(state.reccieTracker.lastCheckTiming.retries).toBe(1);
+            expect(state.reccieTracker.checks[2].state).toBe('ready');
+        } finally { jest.useRealTimers(); }
+    });
+    test('skips retry when a verification grid hits the full awaiting-headers timeout and preserves successful campaigns',async()=>{
+        await call(handleReccies,sender,{operation:'import',csv,month:'2026-09'});
+        const row=state.reccieTracker.rows[0];
+        state.reccieTracker.rows=[{...row,sourceRow:2},{...row,sourceRow:3,campaignId:'CPTEST1',dNumber:'D03120201'}];
+        fetchMock.mockImplementation(async url=>{
+            if(url.includes('publicforui')) {
+                const publicId=url.split('/').pop();
+                return {ok:true,status:200,json:async()=>({publicId,id:publicId===row.campaignId ? 100 : 101})};
+            }
+            if(url.includes('/100/')) throw new DOMException('timed out','TimeoutError');
+            return {ok:true,status:200,json:async()=>({status:0,total:1,nodes:[fieldNode('D03120201')]})};
+        });
+        await call(handleReccies,sender,{operation:'check',method:'workers-3',revision:state.reccieTracker.revision,rowIds:[2,3]});
+        const detail=state.reccieTracker.lastCheckTiming.campaignsDetail.find(item=>item.campaign===row.campaignId);
+        expect(detail).toMatchObject({attempts:1,outcome:'error',requests:[{phase:'lookup',attempt:1,ok:true},{phase:'grid',attempt:1,ok:false,timeoutPhase:'awaiting-headers'}]});
+        expect(state.reccieTracker.lastCheckTiming.retries).toBe(0);
+        expect(state.reccieTracker.checks[2]).toMatchObject({state:'error',message:expect.stringContaining('awaiting response headers')});
+        expect(state.reccieTracker.checks[3].state).toBe('ready');
+    });
+    test('still retries once when a campaign lookup times out',async()=>{
+        await call(handleReccies,sender,{operation:'import',csv,month:'2026-09'});
+        let failed=false;
+        fetchMock.mockImplementation(async url=>{
+            if(url.includes('publicforui') && !failed) { failed=true; throw new DOMException('timed out','TimeoutError'); }
+            if(url.includes('publicforui')) return {ok:true,status:200,json:async()=>({publicId:'CP3G9KS',id:100})};
+            return {ok:true,status:200,json:async()=>({status:0,total:1,nodes:[fieldNode()]})};
+        });
+        jest.useFakeTimers();
+        try {
+            const pending=call(handleReccies,sender,{operation:'check',method:'workers-3',revision:state.reccieTracker.revision,rowIds:[2]});
+            await jest.advanceTimersByTimeAsync(1100);
+            await pending;
             expect(state.reccieTracker.lastCheckTiming.retries).toBe(1);
             expect(state.reccieTracker.checks[2].state).toBe('ready');
         } finally { jest.useRealTimers(); }
@@ -427,5 +461,23 @@ describe('Reccies background reads', () => {
         await prepareReccies({windowId:7},sender,reply);
         expect(reply).toHaveBeenCalledWith(expect.objectContaining({status:'error',code:'FEATURES_DISABLED'}));
         expect(chrome.sidePanel.setOptions).not.toHaveBeenCalled();
+    });
+    test('parses Agency and buckets HTTP 403 into other_location when Prisma location differs',async()=>{
+        expect(core.prismaLocationFromUsername('HBARN@NGMCLON')).toBe('NGMCLON');
+        expect(core.agencyToPrismaLocation('WPP MEDIA OPENMIND')).toBe('NGOPEN');
+        expect(core.agencyToPrismaLocation('MEDIACOM LONDON')).toBe('NGMCLON');
+        const agencyCsv='Serial Number,Campaign ID Mediaocean,Agency,Buyer Name,Ops Assigned,Group,Client Name,Campaign Description,Supplier Name,Order,Gross,Booking End Date,Comments,Reccied\nD03100737,CP3FCQ0,WPP MEDIA OPENMIND,Buyer,Harry,Harry,Nestle,Nestle Campaign,Acast,O-1,10,01/10/2026,,No\nD03100738,CP3FCQ1,MEDIACOM LONDON,Buyer,Harry,Harry,Client,London Campaign,Acast,O-2,10,01/10/2026,,No';
+        const imported=await call(handleReccies,sender,{operation:'import',csv:agencyCsv,month:'2026-10'});
+        expect(imported.tracker.rows[0].agency).toBe('WPP MEDIA OPENMIND');
+        state.opsToolshed_bannerUsername='HBARN@NGMCLON';
+        fetchMock.mockResolvedValue({ok:false,status:403,json:async()=>({})});
+        const checked=await call(handleReccies,sender,{operation:'check',revision:imported.tracker.revision,rowIds:[2,3]});
+        expect(checked.tracker.checks[2]).toMatchObject({
+            state:'other_location',
+            expectedLocation:'NGOPEN',
+            currentLocation:'NGMCLON',
+            message:expect.stringContaining("Check you're on the right location")
+        });
+        expect(checked.tracker.checks[3].state).toBe('error');
     });
 });

@@ -220,8 +220,16 @@
             const dialog=node('dialog');dialog.className='tracker-write-dialog';dialog.setAttribute('aria-labelledby','tracker-write-title');
             const title=node('h2',statusOnly?'Tracker save result':'Update Tracker Status');title.id='tracker-write-title';
             const intro=node('p',edits?'This updates tracker comments and the selected Yes/No values only. It does not change Prisma. Non-empty notes highlight matching rows yellow.':'This updates the tracker only. It does not change Prisma. Campaign updates include only D numbers matching your current filters.');
-            const status=node('p');const showStatus=(value,active=false)=>window.reccieStatus.render(status,value,active);showStatus('Reading live tracker values and matching D numbers. Google may take up to 25 seconds to respond.',true);status.setAttribute('role','status');status.setAttribute('aria-live','polite');
+            intro.className='tracker-write-intro';
+            const status=node('p');status.className='tracker-write-status';const showStatus=(value,active=false)=>window.reccieStatus.render(status,value,active);showStatus('Reading live tracker values and matching D numbers. Google may take up to 25 seconds to respond.',true);status.setAttribute('role','status');status.setAttribute('aria-live','polite');
             const list=node('ul');list.className='tracker-write-rows';
+            if(!statusOnly&&Array.isArray(rows)&&rows.length){
+                const editMap=Array.isArray(edits)?new Map(edits.map(edit=>[edit.sourceRow,edit])):null;
+                list.replaceChildren(...rows.map(row=>{
+                    const edit=editMap?.get(row.sourceRow);
+                    return node('li',edit?`${row.dNumber}: ${row.reccied||'Blank'} → ${edit.reccied}${edit.comments?' · '+edit.comments:''}`:`${row.dNumber}: ${row.reccied||'Blank'} → Yes`);
+                }));
+            }
             const label=node('label');const confirm=node('input');confirm.type='checkbox';label.append(confirm,document.createTextNode(edits?' I have reviewed these comments and tracker statuses.':rows?.length===1?' I have reconciled this placement and want to mark it Yes.':' I have reconciled these placements and want to mark them Yes.'));
             const removeLabel=node('label'),removeComments=node('input');removeComments.type='checkbox';removeComments.checked=clearComments;removeComments.setAttribute('aria-label','Remove existing comments when marking Yes');removeLabel.append(removeComments,document.createTextNode(' Remove existing comments when marking Yes'));removeLabel.hidden=true;
             const save=node('button',rows?.length===1?'Confirm update':'Confirm updates'),check=node('button','Check save result'),close=node('button','Cancel');
@@ -250,10 +258,10 @@
                 removeLabel.hidden=true;
                 clearTimeout(pollTimer);
                 refresh.hidden=true;
-                const result=response.write;display(result.results);label.hidden=save.hidden=true;check.hidden=false;close.textContent='Close';
+                const result=response.write;display(result.results);label.hidden=save.hidden=true;check.hidden=result.state==='complete';close.textContent='Close';
                 if(response.tracker)options.updated(response.tracker,context);
                 if(result.state==='complete'){
-                    completed=true;check.hidden=true;
+                    completed=true;
                     const saved=result.results.filter(r=>r.state==='updated'&&r.confirmed).length,already=result.results.filter(r=>r.state==='already_yes'&&r.confirmed).length,other=result.results.length-saved-already;
                     showStatus(result.results.some(r=>typeof r.commentsAfter==='string')?`${result.results.filter(r=>r.confirmed).length} confirmed update${result.results.filter(r=>r.confirmed).length===1?'':'s'} · ${result.results.filter(r=>!r.confirmed).length} skipped or not confirmed.`:`${saved} saved Yes · ${already} already Yes · ${other} skipped or not confirmed.`);
                     options.message(status.textContent,other>0);
@@ -267,16 +275,17 @@
             confirm.addEventListener('change',()=>work(false));check.addEventListener('click',checkResult);
             save.addEventListener('click',async()=>{
                 if(working||!confirm.checked||!preview)return;
-                work(true);requestId=preview.requestId;remember(requestId,context);removeLabel.hidden=true;refresh.hidden=true;check.hidden=false;showStatus('Saving to the tracker',true);
+                work(true);requestId=preview.requestId;remember(requestId,context);label.hidden=save.hidden=removeLabel.hidden=refresh.hidden=check.hidden=true;showStatus('Saving to the tracker',true);
                 try{receipt(await request('commitTrackerWrite',{requestId},context));}
                 catch(error){
                     label.hidden=save.hidden=true;close.textContent='Close';
                     if(error.code==='TRANSPORT_UNCERTAIN'){
+                        check.hidden=false;
                         showStatus('Google is taking longer than expected. Checking the save receipt',true);
                         work(false);await checkResult();
-                    }else if(error.code==='BUSY_TRY_AGAIN'||/preview expired/i.test(error.message)){showStatus(`${error.message} Use Refresh preview when ready.`);refresh.hidden=false;}
-                    else if(accessErrors.has(error.code)){showStatus(error.message);}
-                    else {showStatus(`${error.message} Checking the save result automatically.`,true);scheduleCheck();}
+                    }else if(error.code==='BUSY_TRY_AGAIN'||/preview expired/i.test(error.message)){check.hidden=true;showStatus(`${error.message} Use Refresh preview when ready.`);refresh.hidden=false;}
+                    else if(accessErrors.has(error.code)){check.hidden=true;showStatus(error.message);}
+                    else {check.hidden=false;showStatus(`${error.message} Checking the save result automatically.`,true);scheduleCheck();}
                 }
                 finally{preview=null;work(false);}
             });
@@ -334,6 +343,20 @@
         recover.addEventListener('click',()=>{if(latest)open(null,true);});
         return {
             available:()=>available(options.context()),
+            markYes(rows){
+                const context=options.context();if(!available(context)||options.busy())return;
+                const selected=(rows||[]).filter(r=>!r.issue&&r.reccied.trim().toLowerCase()!=='yes');
+                if(!selected.length)return;
+                if(selected.length>100){options.message('Select at most 100 D numbers for one update.',true);return;}
+                open(selected,false);
+            },
+            editNotes(rows){
+                const context=options.context();if(!available(context)||options.busy())return;
+                const selected=(rows||[]).filter(r=>!r.issue);
+                if(!selected.length)return;
+                if(selected.length>100){options.message('Select at most 100 D numbers before editing notes.',true);return;}
+                editNotes(selected);
+            },
             button(rows,grouped){
                 const context=options.context();if(!available(context))return null;
                 const selected=rows.filter(r=>!r.issue&&r.reccied.trim().toLowerCase()!=='yes');if(!selected.length)return null;

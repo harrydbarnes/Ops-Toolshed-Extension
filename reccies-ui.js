@@ -147,8 +147,10 @@
     function refreshLayout() { tracks.forEach((_, track) => updateSegments(track)); updateFilters(); }
     function apply(value) {
         root.dataset.recciesUi = value === false ? 'v1' : 'v2';
-        if (enabled()) resultsMeta.append($('summary'), $('reccie-results-asof'));
-        else { summaryHome.after($('summary')); resultsMeta.after($('reccie-results-asof')); }
+        const ms = $('multi-select-controls');
+        const refresh = $('refresh-tracker');
+        if (enabled()) resultsMeta.append($('summary'), $('reccie-results-asof'), ...(refresh ? [refresh] : []), ...(ms ? [ms] : []));
+        else { summaryHome.after($('summary')); resultsMeta.after($('reccie-results-asof'), ...(refresh ? [refresh] : []), ...(ms ? [ms] : [])); }
         setFiltersHidden(filtersHidden);
         if (enabled()) {
             if (!joined.isConnected) { url.before(joined); joined.append(url, read); }

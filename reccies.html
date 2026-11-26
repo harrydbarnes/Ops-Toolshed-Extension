@@ -123,12 +123,34 @@
             <label><input type="checkbox" data-status="mismatch">Yes in sheet, not in Prisma</label>
             <label><input type="checkbox" data-status="ready">Reconciled in Prisma</label>
             <label><input type="checkbox" data-status="review">Needs attention</label>
+            <label><input type="checkbox" data-status="other_location">Other location</label>
         </div><p id="filter-hint" class="hint">Matches the tracker status AND any selected Prisma status. Nothing ticked means any Prisma status, including not checked. Uses your latest checks.</p>
         <button id="clear-filters" type="button" class="filter-clear" hidden>Clear filters</button></fieldset></div>
     </section>
     <div class="checkbar"><p id="summary" role="status" aria-live="polite">Connect a tracker to get started.</p><button id="check-rows" type="button" class="primary" disabled>Verify Reccie Status</button></div>
+    <div id="post-verify-banner" class="post-verify-banner" hidden>
+        <div class="post-verify-banner-inner">
+            <div class="post-verify-copy">
+                <strong id="post-verify-title"></strong>
+                <span class="post-verify-sub">Only includes rows marked No in the tracker and verified Reconciled in Prisma.</span>
+            </div>
+            <div class="post-verify-actions">
+                <button id="post-verify-mark" type="button"></button>
+                <button id="post-verify-dismiss" type="button" aria-label="Dismiss ready banner">×</button>
+            </div>
+        </div>
+    </div>
+    <div id="retry-failed-banner" class="retry-failed-banner" hidden>
+        <span id="retry-failed-summary"></span>
+        <button id="retry-failed-rows" type="button">Retry failed</button>
+    </div>
     <p id="message" role="status" aria-live="polite"></p>
     <p id="reccie-results-asof" class="reccie-asof" hidden></p>
+    <button id="refresh-tracker" type="button" class="refresh-tracker-inline" hidden>Refresh</button>
+    <div id="multi-select-controls" class="multi-select-controls" hidden>
+        <button id="select-ready-rows" type="button" class="multi-select-ready" hidden>Select ready</button>
+        <button id="toggle-multi-select" type="button" class="multi-select-toggle" aria-pressed="false">Multi-select</button>
+    </div>
     <div id="rows" aria-label="Reccie rows"></div>
         <button id="last-tracker-save" type="button" hidden>Check last tracker save</button>
     <details id="debug"><summary>Debug</summary>
@@ -145,8 +167,18 @@
         <details id="timing-details" hidden><summary>Verification timings</summary><p class="hint">Local diagnostics for the latest run. Request durations overlap when campaigns run concurrently. No timing data is sent elsewhere.</p><button id="download-timings" type="button" disabled>Download timings (.md)</button><pre id="timing-report"></pre></details>
     </details>
 </main>
+<div id="multi-select-bar" class="multi-select-bar" hidden>
+    <div class="multi-select-bar-info">
+        <strong id="multi-select-count">0 selected</strong>
+        <button id="multi-select-clear" type="button" class="multi-select-clear">Clear</button>
+    </div>
+    <div class="multi-select-bar-actions">
+        <button id="multi-select-note" type="button">Note</button>
+        <button id="multi-select-mark" type="button" class="primary"></button>
+    </div>
+</div>
 <div id="status-option-tooltip" class="reccie-verification-tooltip" role="tooltip" hidden></div>
-<div id="verification-scope" class="reccie-verification-tooltip" role="tooltip" hidden>Checks filtered rows first, including rows below “Show more”, then the rest of your assigned rows. Additional checks do not update the tracker.</div>
+<div id="verification-scope" class="reccie-verification-tooltip" role="tooltip" hidden>Checks rows matching your current filters, including rows below “Show more”.</div>
 <div id="reccies-toast" class="reccies-toast" role="status" aria-live="polite" hidden></div>
 <script src="extension-page-gate.js" data-scripts="reccie-writer-mode.js,search-highlight.js,reccie-core.js,reccie-status.js,reccies-ui.js,reccie-writes-ui.js,reccies.js"></script>
 </body>

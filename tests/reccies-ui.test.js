@@ -423,11 +423,13 @@ describe('Reccies sidebar',()=>{
             expect(win.document.querySelector('.status-lines').textContent).toContain('Tracker Reccied: No');
             expect(win.document.querySelector('dialog .reccie-status-dot')).not.toBeNull();
             expect(win.document.querySelector('dialog').textContent).toContain('Saving to the tracker');
+            expect([...win.document.querySelectorAll('dialog button')].find(button=>button.textContent==='Check save result').hidden).toBe(true);
             finish();await flush();expect(win.document.getElementById('summary').textContent).toContain('0 D numbers shown');
             expect([...win.document.querySelectorAll('dialog button')].find(button=>button.textContent==='Check save result').hidden).toBe(true);
             expect(win.document.querySelector('dialog [aria-label="Close dialog"]')).not.toBeNull();
             expect(win.document.querySelector('dialog').textContent).toContain('1 saved Yes');
             clickDialog(win,'Close');expect(win.document.querySelector('dialog')).toBeNull();
+            expect(win.chrome.runtime.sendMessage.mock.calls.some(([r])=>r.operation==='refresh')).toBe(false);
         }finally{dom.window.close();}
     });
     test('campaign preview includes only matching unreconciled D numbers and cancel never commits',async()=>{
@@ -494,6 +496,16 @@ describe('Reccies sidebar',()=>{
             });
             doc.getElementById('check-rows').click();await flush();await flush();
             expect(doc.getElementById('reccie-tracker-progress-label').textContent).toContain('2 / 2 marked Yes');
+        }finally{dom.window.close();}
+    });
+    test('verification skips Google Sheet refresh when the cached report was synced recently',async()=>{
+        const {dom,win,getData}=create({},liveSource);
+        try{
+            await flush();
+            getData().reccieTracker.importedAt=new Date().toISOString();
+            win.document.getElementById('check-rows').click();await flush();await flush();
+            expect(win.chrome.runtime.sendMessage.mock.calls.some(([r])=>r.operation==='refresh')).toBe(false);
+            expect(win.chrome.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({operation:'check',rowIds:[2]}));
         }finally{dom.window.close();}
     });
     test('status options and chips display helpful tooltips on hover and clean up on Escape',async()=>{
@@ -610,15 +622,14 @@ describe('Reccies sidebar',()=>{
             expect(win.chrome.runtime.sendMessage.mock.calls.filter(([r])=>r.operation==='commitTrackerWrite')).toHaveLength(1);
         }finally{dom.window.close();}
     });
-    test('checks filtered rows first, then remaining assigned rows without automatic writes',async()=>{
+    test('checks only rows matching current filters without sweeping remaining assigned rows',async()=>{
         const {dom,win}=create();
         try{
             await flush();const doc=win.document;
             doc.getElementById('search').value='D03120200';doc.getElementById('search').dispatchEvent(new win.Event('input'));
             doc.getElementById('check-rows').click();await flush();
             const calls=win.chrome.runtime.sendMessage.mock.calls.map(([r])=>r).filter(r=>r.operation==='check');
-            expect(calls.map(r=>r.rowIds)).toEqual([[2],[3]]);
-            expect(calls[1].readOnly).toBe(true);
+            expect(calls.map(r=>r.rowIds)).toEqual([[2]]);
         }finally{dom.window.close();}
     });
     test('report reading animates and scrolls its status into view, then clears activity',async()=>{
@@ -819,7 +830,7 @@ describe('Reccies sidebar',()=>{
             expect(doc.querySelectorAll('.campaign-card')).toHaveLength(3);expect(doc.getElementById('clear-filters').hidden).toBe(true);
             setStatuses(win,'mismatch');doc.getElementById('check-rows').click();await flush();await flush();
             expect(win.chrome.runtime.sendMessage).toHaveBeenCalledWith({action:'reccies',operation:'check',revision:'test',rowIds:[4],method:'workers-8'});
-            expect(doc.getElementById('message').textContent).toContain('1 campaign · 1 D number matching filters, then 4 other assigned checked');
+            expect(doc.getElementById('message').textContent).toContain('1 campaign · 1 D number checked');
         } finally {dom.window.close();}
     });
     test('migrates old mixed OR filters with an explanation and treats opposite tracker filters as Any',async()=>{
@@ -893,7 +904,7 @@ describe('Reccies sidebar',()=>{
             await flush();const doc=win.document;
             doc.getElementById('debug-workers').value='1';doc.getElementById('debug-run').click();await flush();await flush();
             doc.getElementById('check-rows').click();await flush();await flush();
-            expect(win.chrome.runtime.sendMessage.mock.calls.map(([request])=>request.method)).toEqual(['workers-1','workers-8','workers-8']);
+            expect(win.chrome.runtime.sendMessage.mock.calls.map(([request])=>request.method)).toEqual(['workers-1','workers-8']);
         } finally { dom.window.close(); }
     });
     test('verification animations have a static reduced-motion alternative',()=>{
@@ -1042,7 +1053,7 @@ describe('Reccies sidebar',()=>{
         try {
             const doc=dom.window.document;
             expect([...doc.querySelectorAll('#show-by option')].map(option=>option.textContent)).toEqual(['D number','Campaign']);
-            expect([...doc.querySelectorAll('[data-status]')].map(input=>input.parentElement.textContent.trim())).toEqual(['Yes in sheet, not in Prisma','Reconciled in Prisma','Needs attention']);
+            expect([...doc.querySelectorAll('[data-status]')].map(input=>input.parentElement.textContent.trim())).toEqual(['Yes in sheet, not in Prisma','Reconciled in Prisma','Needs attention','Other location']);
             expect(doc.querySelectorAll('[data-status]:checked')).toHaveLength(0);
             expect(doc.getElementById('show-by').value).toBe('dnumber');
             expect(doc.getElementById('view')).toBeNull();
@@ -1211,7 +1222,7 @@ describe('Reccies sidebar',()=>{
             expect(button.hasAttribute('aria-describedby')).toBe(false);
             const tooltip=dom.window.document.getElementById('verification-scope');
             expect(tooltip.hidden).toBe(true);expect(tooltip.getAttribute('role')).toBe('tooltip');
-            expect(tooltip.textContent).toContain('filtered rows first');
+            expect(tooltip.textContent).toContain('matching your current filters');
         } finally { dom.window.close(); }
     });
 });
@@ -1247,5 +1258,119 @@ test('notes show actual mixed campaign statuses and chips preserve existing comm
  fields[0].querySelector('select').value='Yes';[...win.document.querySelectorAll('dialog button')].find(button=>button.textContent==='Preview Update(s)').click();await flush();
  expect(win.chrome.runtime.sendMessage).toHaveBeenLastCalledWith(expect.objectContaining({operation:'previewTrackerEdit',rowIds:[2,3],edits:[{sourceRow:2,reccied:'Yes',comments:'Existing note\nWaiting on Supplier Spend'},{sourceRow:3,reccied:'Yes',comments:''}]}));
  expect(win.document.querySelector('dialog').textContent).toContain('No → Yes');expect(win.chrome.runtime.sendMessage.mock.calls.some(([r])=>r.operation==='commitTrackerWrite')).toBe(false);
+ }finally{dom.window.close();}
+});
+
+test('post-verify banner offers batched Mark Yes only for verified-ready rows',async()=>{
+ const liveSource={type:'google',url:'https://docs.google.com/spreadsheets/d/1QxX7yZvfh75ENyvPG7xD_5ldLuoLwUsTZ6z0edkpORU/edit?gid=405487495'},writeId='01234567-89ab-cdef-0123-456789abcdef';
+ const {dom,win,getData}=create({trackerStatus:'any'},liveSource,true);
+ try{
+  await flush();
+  const doc=win.document,tracker=getData().reccieTracker;
+  tracker.importedAt=new Date().toISOString();
+  tracker.rows[2].ops='Harry';
+  tracker.rows[2].dNumber='D03120201';
+  win.chrome.runtime.sendMessage.mockImplementation(async request=>{
+   if(request.operation==='check'){
+    tracker.checks[2]={state:'ready',reconciled:'1',buyStatus:'SUCCESSFUL',checkedAt:'2026-10-20T13:00:00Z'};
+    tracker.checks[3]={state:'ready',reconciled:'1',buyStatus:'SUCCESSFUL',checkedAt:'2026-10-20T13:00:00Z'};
+    tracker.checks[4]={state:'outstanding',reconciled:'0',buyStatus:'SUCCESSFUL',checkedAt:'2026-10-20T13:00:00Z'};
+    const method=core.verificationMethod(request.method);
+    tracker.lastCheckTiming={method,concurrency:method.concurrency,campaignsDetail:[],retries:0};
+    return {status:'success',tracker};
+   }
+   if(request.operation==='previewTrackerWrite'){
+    return {status:'success',write:{requestId:writeId,results:[{dNumber:'D03120200',state:'eligible',before:'No'}]}};
+   }
+   return {status:'success',tracker};
+  });
+  doc.getElementById('search').dispatchEvent(new win.Event('input'));
+  doc.getElementById('check-rows').click();await flush();await flush();
+  expect(doc.getElementById('post-verify-banner').hidden).toBe(false);
+  expect(doc.getElementById('post-verify-title').textContent).toBe('1 verified ready in Prisma');
+  expect(doc.getElementById('post-verify-mark').textContent).toBe('Mark 1 as Yes');
+  doc.getElementById('post-verify-mark').click();await flush();
+  expect(win.chrome.runtime.sendMessage).toHaveBeenLastCalledWith(expect.objectContaining({operation:'previewTrackerWrite',rowIds:[2]}));
+  expect(doc.getElementById('tracker-write-title').textContent).toBe('Update Tracker Status');
+ }finally{dom.window.close();}
+});
+
+test('Multi-select supports batching across both D number and Campaign views',async()=>{
+ const liveSource={type:'google',url:'https://docs.google.com/spreadsheets/d/1QxX7yZvfh75ENyvPG7xD_5ldLuoLwUsTZ6z0edkpORU/edit?gid=405487495'},writeId='01234567-89ab-cdef-0123-456789abcdef';
+ const {dom,win,getData}=create({trackerStatus:'any'},liveSource,true);
+ try{
+  await flush();
+  const doc=win.document,tracker=getData().reccieTracker;
+  tracker.rows[2].ops='Harry';
+  tracker.rows[2].dNumber='D03120201';
+  tracker.rows[2].campaignId='CPOTHER';
+  tracker.rows[2].campaignName='Other Campaign';
+  tracker.checks[2]={state:'ready',reconciled:'1',buyStatus:'SUCCESSFUL'};
+  doc.getElementById('search').dispatchEvent(new win.Event('input'));
+  doc.getElementById('toggle-multi-select').click();
+  expect(doc.getElementById('toggle-multi-select').textContent).toBe('Cancel');
+  expect(doc.getElementById('select-ready-rows').textContent).toBe('Select ready (1)');
+  const selectable=[...doc.querySelectorAll('.reccie-card.is-selectable')];
+  expect(selectable).toHaveLength(2);
+  expect(selectable[0].querySelector('.card-bottom').hidden).toBe(true);
+  selectable[0].click();
+  doc.querySelectorAll('.reccie-card.is-selectable')[1].click();
+  expect(doc.getElementById('multi-select-bar').hidden).toBe(false);
+  expect(doc.getElementById('multi-select-count').textContent).toBe('2 selected · 1 not verified');
+  expect(doc.getElementById('multi-select-mark').textContent).toBe('Mark 2 as Yes');
+  setGrouping(win,'campaign');
+  expect(doc.querySelectorAll('.campaign-card.is-selectable')).toHaveLength(2);
+  win.chrome.runtime.sendMessage.mockResolvedValue({status:'success',write:{requestId:writeId,results:[{dNumber:'D03120200',state:'eligible',before:'No'},{dNumber:'D03120201',state:'eligible',before:'No'}]}});
+  doc.getElementById('multi-select-mark').click();await flush();
+  expect(win.chrome.runtime.sendMessage).toHaveBeenLastCalledWith(expect.objectContaining({operation:'previewTrackerWrite',rowIds:[2,4]}));
+  expect(doc.getElementById('tracker-write-title').textContent).toBe('Update Tracker Status');
+ }finally{dom.window.close();}
+});
+
+test('Other location badge and filter chip isolate cross-location 403 checks from Needs attention',async()=>{
+ const {dom,win,getData}=create({trackerStatus:'any'},undefined,true);
+ try{
+  await flush();
+  const doc=win.document,tracker=getData().reccieTracker;
+  tracker.checks={
+   2:{state:'other_location',expectedLocation:'NGOPEN',currentLocation:'NGMCLON',message:"Prisma HTTP 403. Check your signed-in session and campaign access. Check you're on the right location (NGOPEN; currently NGMCLON)."},
+   3:{state:'error',message:'Prisma HTTP 403. Check your signed-in session and campaign access.'}
+  };
+  doc.getElementById('search').dispatchEvent(new win.Event('input'));
+  expect(doc.querySelector('.badge.other_location').textContent).toBe('Other location');
+  setStatuses(win,'other_location');
+  expect(doc.querySelectorAll('.reccie-card')).toHaveLength(1);
+  expect(doc.querySelector('.reccie-card').textContent).toContain('D03120200');
+  setStatuses(win,'review');
+  expect(doc.querySelectorAll('.reccie-card')).toHaveLength(1);
+  expect(doc.querySelector('.reccie-card').textContent).toContain('D03144023');
+ }finally{dom.window.close();}
+});
+
+test('Retry failed banner retries only failed rows, Refresh triggers Google sync, and timing records sheetSync',async()=>{
+ const liveSource={type:'google',url:'https://docs.google.com/spreadsheets/d/1QxX7yZvfh75ENyvPG7xD_5ldLuoLwUsTZ6z0edkpORU/edit?gid=405487495'};
+ const {dom,win,getData}=create({trackerStatus:'any'},liveSource,true);
+ try{
+  await flush();
+  const doc=win.document,tracker=getData().reccieTracker;
+  tracker.checks={
+   2:{state:'error',message:'Prisma request timed out after 30.0 seconds awaiting response headers.'},
+   3:{state:'ready',reconciled:'1',buyStatus:'SUCCESSFUL'}
+  };
+  doc.getElementById('search').dispatchEvent(new win.Event('input'));
+  expect(doc.getElementById('retry-failed-banner').hidden).toBe(false);
+  expect(doc.getElementById('retry-failed-rows').textContent).toBe('Retry failed (1)');
+  expect(doc.getElementById('refresh-tracker').hidden).toBe(false);
+  doc.getElementById('retry-failed-rows').click();await flush();await flush();
+  const calls=win.chrome.runtime.sendMessage.mock.calls.map(([r])=>r);
+  expect(calls.find(r=>r.operation==='refresh')).toBeTruthy();
+  expect(calls.find(r=>r.operation==='check').rowIds).toEqual([2]);
+  const timing=JSON.parse(doc.getElementById('timing-report').textContent);
+  expect(timing.sheetSync).toMatchObject({attempted:true,ok:true});
+  expect(typeof timing.sheetSync.durationMs).toBe('number');
+  expect(typeof timing.totalWithSheetSyncMs).toBe('number');
+  win.chrome.runtime.sendMessage.mockClear();
+  doc.getElementById('refresh-tracker').click();await flush();
+  expect(win.chrome.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({operation:'refresh',url:liveSource.url}));
  }finally{dom.window.close();}
 });
