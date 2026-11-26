@@ -1286,6 +1286,15 @@ body.reminder-theme-black #confirmation-popup {
     pointer-events: none;
 }
 
+/* Keep Prisma's Orders dock from repeatedly remeasuring the Dashboards column. */
+mo-dock-layout:has(> .mods-wc-dock-center #dashboard-orders-grid):has(> .mods-wc-dock-west > mo-sidebar[header="Dashboards"]) {
+    grid-template-columns: 32px minmax(0, 1fr) auto !important;
+}
+
+mo-dock-layout:has(> .mods-wc-dock-center #dashboard-orders-grid):has(> .mods-wc-dock-west > mo-sidebar[header="Dashboards"].expanded) {
+    grid-template-columns: 210px minmax(0, 1fr) auto !important;
+}
+
 .order-view-toggle {
     display: inline-flex;
     align-items: center;
@@ -1335,75 +1344,6 @@ body.reminder-theme-black #confirmation-popup {
 }
 /* --- End order version segmented control --- */
 
-/* --- Media / Production app switcher segmented control --- */
-mo-banner .banner .left.app-switcher-toggle-active {
-    display: flex;
-    align-items: center;
-}
-
-mo-banner .banner .left.app-switcher-toggle-active > mo-menu.main-menu {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    opacity: 0;
-    pointer-events: none;
-}
-
-.app-switcher-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    height: 28px;
-    padding: 3px;
-    margin-left: 8px;
-    box-sizing: border-box;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    border-radius: 6px;
-    background: rgba(255, 255, 255, 0.08);
-    white-space: nowrap;
-}
-
-.app-switcher-toggle button {
-    height: 20px;
-    padding: 0 10px;
-    border: 0;
-    border-radius: 4px;
-    background: transparent;
-    color: rgba(240, 241, 244, 0.78);
-    font: 600 11px/20px Montserrat, Arial, sans-serif;
-    letter-spacing: 0.01em;
-    cursor: pointer;
-    transition: background-color 140ms ease, color 140ms ease;
-}
-
-.app-switcher-toggle button[aria-pressed="true"] {
-    background: #286ce9;
-    color: #ffffff;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
-}
-
-.app-switcher-toggle button:hover:not([aria-pressed="true"]):not(:disabled) {
-    background: rgba(255, 255, 255, 0.14);
-    color: #ffffff;
-}
-
-.app-switcher-toggle button:focus-visible {
-    outline: 2px solid #60a5fa;
-    outline-offset: 1px;
-}
-
-.app-switcher-toggle button:disabled {
-    cursor: wait;
-    opacity: 0.75;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .app-switcher-toggle button {
-        transition: none;
-    }
-}
-/* --- End Media / Production app switcher segmented control --- */
 /* --- End of Order ID Copy Button Styles --- */
 
 /* --- Campaign Navigation Style Optimisation --- */

@@ -2,12 +2,10 @@
  * @jest-environment node
  */
 const { JSDOM } = require('jsdom');
-const fs = require('fs');
 const path = require('path');
 const { readScript } = require('../helpers/read-script');
 
 const featureScript = readScript(path.resolve(__dirname, '../../features/app-switcher-toggle.js'));
-const contentStyles = fs.readFileSync(path.resolve(__dirname, '../../content.css'), 'utf8');
 
 function createPage({
     enabled = true,
@@ -69,12 +67,23 @@ function createPage({
 const flushAsync = () => new Promise(resolve => setTimeout(resolve, 0));
 
 describe('Media / Production app switcher toggle', () => {
-    test('defines dark-navy segmented toggle styles and hides native mo-menu.main-menu', () => {
-        expect(contentStyles).toMatch(
-            /mo-banner \.banner \.left\.app-switcher-toggle-active\s*>\s*mo-menu\.main-menu/
-        );
-        expect(contentStyles).toMatch(/\.app-switcher-toggle\s*\{/);
-        expect(contentStyles).toMatch(/\.app-switcher-toggle button\[aria-pressed="true"\]/);
+    test('mounts and styles the toggle in a hydrated shadow banner and restores the native menu on disable', async () => {
+        const page = createPage();
+        const banner = page.dom.window.document.querySelector('mo-banner');
+        const markup = banner.innerHTML;
+        banner.replaceChildren();
+        const root = banner.attachShadow({ mode: 'open' });
+        await page.dom.window.appSwitcherToggleFeature.initialize();
+
+        root.innerHTML = markup;
+        await flushAsync();
+
+        expect(root.querySelector('.app-switcher-toggle button[aria-pressed="true"]').textContent).toBe('Media');
+        expect(root.querySelector('style[data-app-switcher-styles]').textContent).toContain('display: none');
+        page.setEnabled(false);
+        expect(root.querySelector('.app-switcher-toggle, style[data-app-switcher-styles], .app-switcher-toggle-active')).toBeNull();
+        expect(root.querySelector('mo-menu.main-menu')).not.toBeNull();
+        page.dom.window.close();
     });
 
     test('renders on Media (Prisma) with Media pressed', async () => {
