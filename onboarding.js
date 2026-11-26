@@ -1,9 +1,12 @@
 (async function() {
     'use strict';
 
+    const popupShortcutSettings = globalThis.OpsToolshedPopupShortcuts;
+
     if (window.opsToolshedPageGate && !(await window.opsToolshedPageGate.allow())) return;
 
     const PRISMA_HOME = 'https://go.mediaocean.com/campaign-management/#osAppId=prsm-cm-spa&osPspId=cm-dashboard&route=campaigns';
+    const recciesDefaults = Object.fromEntries(Object.keys(globalThis.OpsToolshedFeatureSettings?.BOOLEAN_DEFAULTS || {}).map(key => [key, ['recciesV2Enabled', 'campaignHistoryLoggingEnabled'].includes(key)]));
     const defaults = {
         uiTheme: 'pink',
         bannerUsernameEnabled: true,
@@ -14,14 +17,19 @@
         swapAccountsEnabled: true,
         rememberAccountSwitchUrlEnabled: true,
         loadingFactsEnabled: true,
+        loadingFactsUI: 'new',
         prismaReminderFrequency: 'daily',
         metaReminderEnabled: true,
         iasReminderEnabled: true,
-        timesheetReminderEnabled: true
+        timesheetReminderEnabled: true,
+        popupShortcuts: popupShortcutSettings?.DEFAULT_ENABLED_KEYS || [],
+        popupCustomShortcuts: []
     };
+    defaults.popupShortcuts = ['reccies'];
     const stepCopy = [
         ['Choose your defaults', 'Start with the tools you’ll notice every day.', 'We’ve picked a practical starting set for navigating campaigns, keeping account context visible, and finding help without leaving Prisma.'],
         ['Fine-tune your workflow', 'Choose the shortcuts that fit your day.', 'Set up useful copy actions, reminders and account switching before you open Prisma.'],
+        ['Loading facts', 'Choose how loading facts look.', 'Preview both styles and pick the one you prefer. You can change this later in Settings.'],
         ['See it in Prisma', 'Your setup is ready.', 'Open Prisma and follow the focused side-panel guide to see the most useful areas in context.']
     ];
     let activeStep = 0;
@@ -253,6 +261,21 @@
     elements.previous.addEventListener('click', () => renderStep(activeStep - 1, true));
     elements.next.addEventListener('click', () => renderStep(activeStep + 1, true));
     elements.start.addEventListener('click', startGuidedTour);
+    document.getElementById('choose-reccies').addEventListener('click', async () => {
+        try {
+            await storageSet(chrome.storage?.sync, { ...recciesDefaults, onboardingAudience: 'prisma', allFeaturesDisabled: false, popupShortcuts: ['reccies'] });
+            elements.audienceChoice.hidden = true;
+            document.getElementById('reccies-intro').hidden = false;
+            elements.title.textContent = 'Verify your Reccies, step by step.';
+            elements.description.textContent = 'Use the sidebar alongside Prisma to check your report and review tracker updates.';
+        } catch { elements.status.textContent = 'Could not save your Reccies setup. Try again.'; }
+    });
+    document.getElementById('finish-reccies').addEventListener('click', async () => {
+        try {
+            await markComplete({ onboardingTourActive: false, onboardingSkipped: false });
+            chrome.tabs.update({url:PRISMA_HOME});
+        } catch { elements.status.textContent = 'Could not finish setup. Try again.'; }
+    });
     document.getElementById('choose-prisma').addEventListener('click', () => void chooseAudience('prisma'));
     document.getElementById('choose-non-prisma').addEventListener('click', () => void chooseAudience('non-prisma'));
     document.getElementById('change-audience').addEventListener('click', renderAudienceChoice);
@@ -273,6 +296,14 @@
     storageGet(chrome.storage?.sync, defaults).then(settings => {
         currentSettings = settings;
         syncControls();
+        const popupShortcutEditor = document.getElementById('onboarding-popup-shortcut-editor');
+        if (popupShortcutSettings && popupShortcutEditor) {
+            popupShortcutSettings.renderEditor(
+                popupShortcutEditor,
+                currentSettings,
+                values => popupShortcutSettings.writeSync(chrome.storage?.sync, values)
+            );
+        }
         renderAudienceChoice();
     });
 })();

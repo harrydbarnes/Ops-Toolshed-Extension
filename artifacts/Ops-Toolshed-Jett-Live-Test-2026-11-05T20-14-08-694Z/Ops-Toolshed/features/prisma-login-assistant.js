@@ -1,0 +1,587 @@
+(function() {
+    'use strict';
+
+    const SETTINGS = Object.freeze({
+        enabled: 'prismaLoginAssistantEnabled',
+        enabledLocal: 'prismaLoginAssistantEnabledLocal',
+        email: 'prismaLoginAssistantEmail',
+        organisation: 'prismaLoginAssistantOrganisation',
+        promptStartedAt: 'prismaLoginAssistantPromptStartedAt',
+        promptDismissed: 'prismaLoginAssistantPromptDismissed'
+    });
+    const DEFAULT_ORGANISATION = 'WPP Media UK Agency Owner United Kingdom';
+    const PROMPT_DURATION_MS = 2 * 24 * 60 * 60 * 1000;
+    const TOAST_ID = 'ops-toolshed-prisma-login-toast';
+    const TOAST_STYLE_ID = 'ops-toolshed-prisma-login-toast-style';
+    const TIMEOUT_BAR_ID = 'ops-toolshed-session-timeout-bar';
+    const TIMEOUT_BAR_CONTAINER_CLASS = 'ops-toolshed-timeout-bar-container';
+    let timeoutTimerId = null;
+    let timeoutLinkProcessed = false;
+    let settings = {
+        enabled: false,
+        email: '',
+        organisation: DEFAULT_ORGANISATION,
+        promptStartedAt: 0,
+        promptDismissed: false
+    };
+    let observer;
+    let reconcileQueued = false;
+    let usernameSubmitted = false;
+    let organisationSubmitted = false;
+    let organisationOptionChosen = false;
+    let suppressAutomationForCurrentPage = false;
+    let promptVisible = false;
+    let settingsLoaded = false;
+    let currentSignInStage = '';
+
+    function isActiveDocument() {
+        return document.visibilityState === 'visible' && document.hasFocus();
+    }
+
+    function normalise(value) {
+        return String(value || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function isEmail(value) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalise(value));
+    }
+
+    function pageText() {
+        return normalise(document.body?.textContent).toLowerCase();
+    }
+
+    function hasPrismaSignInPage() {
+        const text = pageText();
+        return text.includes('enter username to continue') ||
+            text.includes('select your organisation to sign in') ||
+            isSignInRestartPage();
+    }
+
+    function isSignInRestartPage() {
+        const text = pageText();
+        const matchesInactiveTimeout = text.includes('signed out because your session was inactive') ||
+            (text.includes('signed out') && text.includes('session was inactive'));
+        const matchesSuccessfulSignOff = text.includes('successfully signed off') && text.includes('sign in again');
+        return matchesInactiveTimeout || matchesSuccessfulSignOff;
+    }
+
+    function findTimeoutSignInLink() {
+        const anchors = Array.from(document.querySelectorAll('a'));
+        return anchors.find(a => {
+            const label = normalise(a.textContent).toLowerCase();
+            return (label === 'sign in' || label.startsWith('sign in')) && isVisible(a);
+        }) || null;
+    }
+
+    function cleanupTimeoutProgress() {
+        if (timeoutTimerId !== null) {
+            clearTimeout(timeoutTimerId);
+            timeoutTimerId = null;
+        }
+        document.getElementById(TIMEOUT_BAR_ID)?.closest(`.${TIMEOUT_BAR_CONTAINER_CLASS}`)?.remove();
+    }
+
+    function showTimeoutProgressBar(link) {
+        if (document.getElementById(TIMEOUT_BAR_ID)) return;
+        injectToastStyles();
+        const container = document.createElement('div');
+        container.className = TIMEOUT_BAR_CONTAINER_CLASS;
+        const status = document.createElement('div');
+        status.className = 'ops-toolshed-timeout-status';
+        status.setAttribute('role', 'status');
+        status.setAttribute('aria-label', 'Logging you back in');
+        status.append('Logging you back in');
+        const dots = document.createElement('span');
+        dots.className = 'ops-toolshed-timeout-dots';
+        dots.setAttribute('aria-hidden', 'true');
+        dots.textContent = '...';
+        status.appendChild(dots);
+        container.appendChild(status);
+        const track = document.createElement('div');
+        track.className = 'ops-toolshed-timeout-track';
+        track.setAttribute('aria-hidden', 'true');
+        const bar = document.createElement('div');
+        bar.id = TIMEOUT_BAR_ID;
+        track.appendChild(bar);
+        container.appendChild(track);
+
+        // Insert container right after the link's enclosing paragraph or block container
+        const parentBlock = link.closest('p, div') || link.parentElement;
+        if (parentBlock && parentBlock.parentNode) {
+            parentBlock.parentNode.insertBefore(container, parentBlock.nextSibling);
+        } else if (link.parentNode) {
+            link.parentNode.insertBefore(container, link.nextSibling);
+        }
+
+        // Trigger CSS transition animation from 0% to 100% across 2000ms
+        const scheduleAnim = typeof window.requestAnimationFrame === 'function'
+            ? cb => window.requestAnimationFrame(cb)
+            : cb => setTimeout(cb, 16);
+        scheduleAnim(() => {
+            scheduleAnim(() => {
+                bar.style.width = '100%';
+            });
+        });
+    }
+
+    function trySignInRestartStage() {
+        if (!isActiveDocument() || !settings.enabled) {
+            cleanupTimeoutProgress();
+            return;
+        }
+        if (timeoutLinkProcessed) return;
+        const link = findTimeoutSignInLink();
+        if (!link) return;
+
+        showTimeoutProgressBar(link);
+
+        if (timeoutTimerId !== null) return;
+        timeoutTimerId = setTimeout(() => {
+            timeoutTimerId = null;
+            if (timeoutLinkProcessed) return;
+            if (!settings.enabled || !isActiveDocument() || !isSignInRestartPage() || !link.isConnected) {
+                cleanupTimeoutProgress();
+                return;
+            }
+            timeoutLinkProcessed = true;
+            link.click();
+        }, 2000);
+    }
+
+    function isUsernameStage() {
+        return pageText().includes('enter username to continue');
+    }
+
+    function isOrganisationStage() {
+        return pageText().includes('select your organisation to sign in');
+    }
+
+    function isButtonEnabled(element) {
+        return Boolean(element) &&
+            !element.disabled &&
+            element.getAttribute('aria-disabled') !== 'true' &&
+            isVisible(element);
+    }
+
+    function queryButton(label) {
+        const target = label.toLowerCase();
+        return Array.from(document.querySelectorAll('button, input[type="submit"]')).find(element =>
+            normalise(element.textContent || element.value).toLowerCase() === target &&
+            isButtonEnabled(element)
+        ) || null;
+    }
+
+    function getUsernameInput() {
+        return document.querySelector(
+            'input[type="email"], input[name*="username" i], input[id*="username" i], input[autocomplete="username"]'
+        );
+    }
+
+    function getRememberMeInput() {
+        return document.querySelector(
+            'input[type="checkbox"][name*="remember" i], input[type="checkbox"][id*="remember" i], input[type="checkbox"]'
+        );
+    }
+
+    function setInputValue(input, value) {
+        const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+        descriptor?.set?.call(input, value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    function injectToastStyles() {
+        if (document.getElementById(TOAST_STYLE_ID)) return;
+        const style = document.createElement('style');
+        style.id = TOAST_STYLE_ID;
+        style.textContent = `
+            #${TOAST_ID} {
+                position: fixed;
+                z-index: 2147483647;
+                right: 20px;
+                bottom: 20px;
+                max-width: min(360px, calc(100vw - 40px));
+                padding: 14px 16px;
+                border-radius: 10px;
+                background: #102c72;
+                color: #fff;
+                box-shadow: 0 10px 26px rgba(0, 0, 0, .24);
+                font: 500 14px/1.4 Arial, sans-serif;
+            }
+            #${TOAST_ID} strong { display: block; margin-bottom: 4px; }
+            #${TOAST_ID} p { margin: 0; }
+            #${TOAST_ID} .ops-toolshed-login-actions { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+            #${TOAST_ID} button { border: 0; border-radius: 5px; padding: 7px 12px; background: #fff; color: #102c72; font: inherit; font-weight: 700; cursor: pointer; }
+            #${TOAST_ID} button.ops-toolshed-login-dismiss { margin-left: auto; padding: 2px 7px; background: transparent; color: #fff; font-size: 20px; line-height: 1; }
+
+            .${TIMEOUT_BAR_CONTAINER_CLASS} { margin: 12px 0 6px; }
+            .ops-toolshed-timeout-status { color: #102c72; font-size: 13px; font-weight: 700; margin-bottom: 6px; text-align: center; }
+            .ops-toolshed-timeout-dots { display: inline-block; overflow: hidden; vertical-align: bottom; width: 3ch; animation: ops-toolshed-timeout-dots 1.2s steps(1, end) infinite; }
+            @keyframes ops-toolshed-timeout-dots {
+                0% { clip-path: inset(0 66.666% 0 0); }
+                33.333% { clip-path: inset(0 33.333% 0 0); }
+                66.666% { clip-path: inset(0); }
+            }
+            @media (prefers-reduced-motion: reduce) {
+                .ops-toolshed-timeout-dots { animation: none; width: 3ch; }
+            }
+            .ops-toolshed-timeout-track {
+                display: block;
+                width: 100%;
+                max-width: 100%;
+                height: 4px;
+                background: rgba(16, 44, 114, 0.12);
+                border-radius: 2px;
+                overflow: hidden;
+                position: relative;
+            }
+            #${TIMEOUT_BAR_ID} {
+                display: block;
+                height: 100%;
+                width: 0%;
+                background: #102c72;
+                border-radius: 2px;
+                transition: width 2000ms linear;
+            }
+        `;
+        document.documentElement.appendChild(style);
+    }
+
+    function showToast(message) {
+        injectToastStyles();
+        let toast = document.getElementById(TOAST_ID);
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = TOAST_ID;
+            toast.setAttribute('role', 'status');
+            document.body.appendChild(toast);
+        }
+        toast.replaceChildren();
+        const title = document.createElement('strong');
+        title.textContent = 'Prisma sign-in';
+        const text = document.createElement('span');
+        text.textContent = message;
+        toast.append(title, text);
+    }
+
+    function removeToast() {
+        document.getElementById(TOAST_ID)?.remove();
+        promptVisible = false;
+    }
+
+    function showSignInPrompt(input) {
+        promptVisible = true;
+        injectToastStyles();
+        let toast = document.getElementById(TOAST_ID);
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = TOAST_ID;
+            toast.setAttribute('role', 'status');
+            document.body.appendChild(toast);
+        }
+        toast.replaceChildren();
+        const title = document.createElement('strong');
+        title.textContent = 'Prisma sign-in';
+        const text = document.createElement('p');
+        text.textContent = "Enter your work email, tick 'Remember me', then click 'Next'. Then select your organisation from the drop down. Would you like this to be done automatically next time for you?";
+        const actions = document.createElement('div');
+        actions.className = 'ops-toolshed-login-actions';
+        const accept = document.createElement('button');
+        accept.type = 'button';
+        accept.textContent = 'Yes';
+        accept.addEventListener('click', () => {
+            const email = normalise(input.value);
+            if (isEmail(email)) {
+                settings.email = email;
+                chrome.storage.local.set({ [SETTINGS.email]: email });
+            }
+            settings.enabled = true;
+            suppressAutomationForCurrentPage = true;
+            chrome.storage.sync.set({ [SETTINGS.enabled]: true });
+            chrome.storage.local.set({ [SETTINGS.enabledLocal]: true });
+            removeToast();
+        });
+        const dismiss = document.createElement('button');
+        dismiss.type = 'button';
+        dismiss.className = 'ops-toolshed-login-dismiss';
+        dismiss.setAttribute('aria-label', 'Do not show this sign-in prompt again');
+        dismiss.textContent = '×';
+        dismiss.addEventListener('click', () => {
+            settings.promptDismissed = true;
+            chrome.storage.local.set({ [SETTINGS.promptDismissed]: true });
+            showToast('You can enable Prisma sign-in assistant at any time in Settings.');
+        });
+        actions.append(accept, dismiss);
+        toast.append(title, text, actions);
+    }
+
+    function shouldShowSignInPrompt() {
+        if (settings.enabled || settings.promptDismissed) return false;
+        if (!settings.promptStartedAt) {
+            settings.promptStartedAt = Date.now();
+            chrome.storage.local.set({ [SETTINGS.promptStartedAt]: settings.promptStartedAt });
+        }
+        return Date.now() - settings.promptStartedAt < PROMPT_DURATION_MS;
+    }
+
+    function getOrganisationLabel(element) {
+        if (!element) return '';
+        const name = element.querySelector?.('.org-name-single-value')?.textContent;
+        const country = element.querySelector?.('.mo-caption')?.textContent;
+        return normalise([name, country].filter(Boolean).join(' ')) || normalise(element.textContent);
+    }
+
+    function organisationMatches(actual, expected) {
+        // Prisma renamed this organisation; preserve existing saved settings.
+        const canonicalLabel = value => normalise(value).toLowerCase()
+            .replace(/^wpp media uk agency owner(?= united kingdom$|$)/, 'wpp media uk');
+        const candidate = canonicalLabel(actual);
+        const target = canonicalLabel(expected);
+        if (!candidate || !target) return false;
+        return candidate === target || candidate.startsWith(`${target} `) || target.startsWith(`${candidate} `);
+    }
+
+    function getSelectedOrganisation() {
+        return document.querySelector(
+            '#organisation-selection-list .mo-select__single-value, .organisation-selection .mo-select__single-value'
+        );
+    }
+
+    function getOrganisationPicker() {
+        const pickerContainer = document.querySelector('#organisation-selection-list, .organisation-selection');
+        return pickerContainer?.querySelector(
+            '.mo-select__control, [role="combobox"], [aria-haspopup="listbox"]'
+        ) || document.querySelector(
+            '[role="combobox"], [aria-haspopup="listbox"], input[aria-autocomplete="list"]'
+        );
+    }
+
+    function openOrganisationPicker() {
+        const picker = getOrganisationPicker();
+        if (!picker) return false;
+        const input = picker.matches?.('input[aria-autocomplete="list"]')
+            ? picker
+            : picker.querySelector?.('input[aria-autocomplete="list"]');
+        input?.focus?.();
+        const control = picker.matches?.('.mo-select__control')
+            ? picker
+            : picker.closest?.('.mo-select__control') || picker;
+        control.dispatchEvent(new MouseEvent('mousedown', {
+            bubbles: true,
+            cancelable: true,
+            view: window
+        }));
+        control.click?.();
+        return true;
+    }
+
+    function isVisible(element) {
+        if (!element || element.hidden || element.getAttribute('aria-hidden') === 'true') return false;
+        const style = window.getComputedStyle?.(element);
+        return !style || (style.display !== 'none' && style.visibility !== 'hidden');
+    }
+
+    function isOrganisationPickerOpen() {
+        return Boolean(document.querySelector(
+            '[role="listbox"], [class*="menu-is-open"], [class*="__menu"]'
+        ));
+    }
+
+    function storageGet(area, defaults) {
+        return new Promise((resolve, reject) => {
+            let settled = false;
+            const finish = value => {
+                if (settled) return;
+                settled = true;
+                if (chrome.runtime?.lastError) {
+                    reject(new Error(chrome.runtime.lastError.message));
+                    return;
+                }
+                resolve({ ...defaults, ...(value || {}) });
+            };
+            try {
+                const result = area.get(defaults, finish);
+                result?.then?.(finish, reject);
+            } catch (error) {
+                reject(error);
+            }
+        });
+    }
+
+    function selectNativeOrganisation(select, organisation) {
+        const option = Array.from(select.options).find(candidate =>
+            organisationMatches(getOrganisationLabel(candidate), organisation)
+        );
+        if (!option) return false;
+        if (select.value !== option.value) {
+            select.value = option.value;
+            select.dispatchEvent(new Event('input', { bubbles: true }));
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        return true;
+    }
+
+    function findOrganisationOption(organisation) {
+        return Array.from(document.querySelectorAll('[role="option"], li, button, [class*="option"]')).find(element =>
+            isVisible(element) && organisationMatches(getOrganisationLabel(element), organisation)
+        ) || null;
+    }
+
+    function tryOrganisationStage() {
+        if (!isActiveDocument() || !settings.enabled || !settings.organisation) return;
+        const nativeSelect = document.querySelector('select');
+        if (nativeSelect && !selectNativeOrganisation(nativeSelect, settings.organisation)) return;
+
+        if (!nativeSelect) {
+            const selected = getSelectedOrganisation();
+            if (!selected || !organisationMatches(getOrganisationLabel(selected), settings.organisation)) {
+                const option = findOrganisationOption(settings.organisation);
+                if (option && !organisationOptionChosen) {
+                    organisationOptionChosen = true;
+                    option.dispatchEvent(new MouseEvent('mousedown', {
+                        bubbles: true,
+                        cancelable: true,
+                        view: window
+                    }));
+                    option.click();
+                    window.setTimeout(() => {
+                        organisationOptionChosen = false;
+                        scheduleReconcile();
+                    }, 0);
+                    return;
+                }
+                if (!option && !isOrganisationPickerOpen()) {
+                    openOrganisationPicker();
+                }
+                return;
+            }
+        }
+
+        const submit = queryButton('submit');
+        if (submit && isActiveDocument() && !organisationSubmitted) {
+            // Moving focus out of React Select closes its menu before submission.
+            submit.focus();
+            organisationSubmitted = true;
+            submit.click();
+        }
+    }
+
+    function tryUsernameStage() {
+        if (!isActiveDocument()) return;
+        const input = getUsernameInput();
+        if (!input) return;
+
+        if (shouldShowSignInPrompt() && !promptVisible) showSignInPrompt(input);
+
+        if (!settings.enabled || suppressAutomationForCurrentPage || !isEmail(settings.email)) return;
+        if (input.value !== settings.email) setInputValue(input, settings.email);
+        const rememberMe = getRememberMeInput();
+        if (rememberMe && !rememberMe.checked && isActiveDocument()) rememberMe.click();
+        const next = queryButton('next');
+        if (next && isActiveDocument() && !usernameSubmitted) {
+            usernameSubmitted = true;
+            next.click();
+        }
+    }
+
+    function reconcile() {
+        reconcileQueued = false;
+        if (!settingsLoaded) return;
+        if (!hasPrismaSignInPage()) return;
+        const stage = isUsernameStage() ? 'username' : isOrganisationStage() ? 'organisation' : isSignInRestartPage() ? 'restart' : '';
+        if (stage !== currentSignInStage) {
+            currentSignInStage = stage;
+            if (stage === 'username') usernameSubmitted = false;
+            if (stage === 'organisation') {
+                organisationSubmitted = false;
+                organisationOptionChosen = false;
+            }
+            if (stage === 'restart') {
+                timeoutLinkProcessed = false;
+            }
+        }
+        if (stage === 'username') tryUsernameStage();
+        if (stage === 'organisation') tryOrganisationStage();
+        if (stage === 'restart') trySignInRestartStage();
+    }
+
+    function scheduleReconcile() {
+        if (reconcileQueued) return;
+        reconcileQueued = true;
+        queueMicrotask(reconcile);
+    }
+
+    function captureManualEmail(event) {
+        if (!settings.enabled || !isActiveDocument()) return;
+        const input = event.target;
+        if (!(input instanceof HTMLInputElement) || input !== getUsernameInput()) return;
+        const email = normalise(input.value);
+        if (!isEmail(email)) return;
+        settings.email = email;
+        chrome.storage.local.set({ [SETTINGS.email]: email });
+    }
+
+    function initialize() {
+        if (observer || !chrome.storage?.sync || !chrome.storage?.local) return;
+        Promise.all([
+            storageGet(chrome.storage.sync, { [SETTINGS.enabled]: false }),
+            storageGet(chrome.storage.local, {
+                [SETTINGS.enabledLocal]: null,
+                [SETTINGS.email]: '',
+                [SETTINGS.organisation]: DEFAULT_ORGANISATION,
+                [SETTINGS.promptStartedAt]: 0,
+                [SETTINGS.promptDismissed]: false
+            })
+        ]).then(([sync, local]) => {
+            settings = {
+                enabled: local[SETTINGS.enabledLocal] === null
+                    ? sync[SETTINGS.enabled] === true
+                    : local[SETTINGS.enabledLocal] === true,
+                email: normalise(local[SETTINGS.email]),
+                organisation: normalise(local[SETTINGS.organisation]) || DEFAULT_ORGANISATION,
+                promptStartedAt: Number(local[SETTINGS.promptStartedAt]) || 0,
+                promptDismissed: local[SETTINGS.promptDismissed] === true
+            };
+            settingsLoaded = true;
+            scheduleReconcile();
+        }).catch(() => undefined);
+
+        chrome.storage.onChanged.addListener((changes, areaName) => {
+            if (areaName === 'sync' && changes[SETTINGS.enabled]) settings.enabled = changes[SETTINGS.enabled].newValue === true;
+            if (areaName === 'local') {
+                if (changes[SETTINGS.email]) settings.email = normalise(changes[SETTINGS.email].newValue);
+                if (changes[SETTINGS.organisation]) settings.organisation = normalise(changes[SETTINGS.organisation].newValue) || DEFAULT_ORGANISATION;
+                if (changes[SETTINGS.enabledLocal]) settings.enabled = changes[SETTINGS.enabledLocal].newValue === true;
+                if (changes[SETTINGS.promptDismissed]) settings.promptDismissed = changes[SETTINGS.promptDismissed].newValue === true;
+            }
+            scheduleReconcile();
+        });
+
+        document.addEventListener('input', captureManualEmail, true);
+        window.addEventListener('focus', scheduleReconcile);
+        document.addEventListener('visibilitychange', scheduleReconcile);
+        window.addEventListener('pagehide', dispose, { once: true });
+        observer = new MutationObserver(scheduleReconcile);
+        observer.observe(document.documentElement, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['aria-disabled', 'aria-expanded', 'aria-hidden', 'class', 'disabled', 'hidden', 'style', 'value']
+        });
+        scheduleReconcile();
+    }
+
+    function dispose() {
+        observer?.disconnect();
+        observer = null;
+        cleanupTimeoutProgress();
+        timeoutLinkProcessed = false;
+        settingsLoaded = false;
+        currentSignInStage = '';
+    }
+
+    window.prismaLoginAssistantFeature = { initialize, isActiveDocument, reconcile, dispose };
+    window.opsToolshedExtensionState?.subscribe?.(active => {
+        if (active) initialize();
+    });
+})();

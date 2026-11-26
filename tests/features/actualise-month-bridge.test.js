@@ -11,9 +11,15 @@ describe('Actualise month bridge', () => {
                 { id: 'month', key: 'Nov 25', hidden: true }
             ],
             nodes: [{
-                fields: [
-                    { id: 'month', value: '2025-11', key: 'Nov 25' }
-                ]
+                fields: [{ id: 'month', value: '2025-11', key: 'Nov 25' }],
+                nodes: [{
+                    fields: [
+                        { id: 'month', value: '2025-11', key: 'Nov 25' },
+                        { id: 'placementNumber', value: 'P123' },
+                        { id: 'buyStatus', value: 'SUCCESSFUL' },
+                        { id: 'buySerialNumber', value: 'D123' }
+                    ]
+                }]
             }]
         };
         const dom = new JSDOM('<!doctype html><html><body></body></html>', {
@@ -78,7 +84,8 @@ describe('Actualise month bridge', () => {
                 detail: expect.objectContaining({
                     campaignId: 'CP123',
                     requestMonth: '2025-11',
-                    responseMonths: ['2025-11']
+                    responseMonths: ['2025-11'],
+                    buyStatusRows: [{ placementNumber: 'P123', buyStatus: 'SUCCESSFUL' }]
                 })
             }));
 
@@ -148,5 +155,110 @@ describe('Actualise month bridge', () => {
         expect(send).toHaveBeenCalledWith(payload);
         expect(parseSpy).not.toHaveBeenCalled();
         dom.window.close();
+    });
+
+    test('prevents unhandled rejection errors from non-Actualise host page fetch failures', async () => {
+        const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+            runScripts: 'dangerously',
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP123&ptb-ctx=actualize&route=actualize&mos=2025-11-01'
+        });
+        dom.window.document.documentElement.setAttribute('data-ops-toolshed-features-active', 'true');
+        const originalFetch = jest.fn(() => {
+            const err = new dom.window.TypeError('Failed to fetch');
+            err.stack = 'TypeError: Failed to fetch\n    at wrappedFetch (features/actualise-month-bridge.js:235:36)';
+            return Promise.reject(err);
+        });
+        dom.window.fetch = originalFetch;
+
+        dom.window.eval(bridgeCode);
+
+        // Call a non-Actualise fetch that rejects
+        const promise = dom.window.fetch('https://some-telemetry.mediaocean.com/ping');
+        await expect(promise).rejects.toThrow('Failed to fetch');
+
+        // Dispatch unhandledrejection event to verify bridge cancels it
+        const unhandled = new dom.window.Event('unhandledrejection', { cancelable: true });
+        const err = new dom.window.TypeError('Failed to fetch');
+        err.stack = 'TypeError: Failed to fetch\n    at wrappedFetch (features/actualise-month-bridge.js:235:36)';
+        unhandled.reason = err;
+        dom.window.dispatchEvent(unhandled);
+
+        expect(unhandled.defaultPrevented).toBe(true);
+        dom.window.close();
+    });
+
+    test('captures Blob CSV downloads when export capture is active and restores originals on stop', async () => {
+        const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+            runScripts: 'dangerously',
+            url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP37TC2&ptb-ctx=actualize&route=actualize&mos=2026-01-01'
+        });
+        try {
+            dom.window.document.documentElement.setAttribute('data-ops-toolshed-features-active', 'true');
+            const originalAnchorClick = jest.fn();
+            dom.window.HTMLAnchorElement.prototype.click = originalAnchorClick;
+            const fakeBlobUrl = 'blob:https://groupmuk-prisma.mediaocean.com/11111111';
+            const originalCreateObjectURL = jest.fn(() => fakeBlobUrl);
+            dom.window.URL.createObjectURL = originalCreateObjectURL;
+
+            const capturedMessages = [];
+            dom.window.addEventListener('message', event => {
+                if (event.data?.type === 'ops-toolshed-actualise-export-captured') {
+                    capturedMessages.push(event.data);
+                }
+            });
+
+            dom.window.eval(bridgeCode);
+
+            dom.window.dispatchEvent(new dom.window.MessageEvent('message', {
+                source: dom.window,
+                origin: dom.window.location.origin,
+                data: {
+                    source: 'ops-toolshed-actualise-month-bridge',
+                    type: 'ops-toolshed-actualise-export-capture-start',
+                    detail: { token: 'run-1' }
+                }
+            }));
+
+            const csvBlob = new dom.window.Blob(
+                ['D Number,Start Date\r\nD123456,2026-01-01\r\n'],
+                { type: 'text/csv' }
+            );
+            const blobUrl = dom.window.URL.createObjectURL(csvBlob);
+            const link = dom.window.document.createElement('a');
+            link.href = blobUrl;
+            link.download = 'Actualization-CP37TC2-HBARN-2026-01.csv';
+            link.click();
+
+            await new Promise(resolve => dom.window.setTimeout(resolve, 25));
+
+            expect(originalAnchorClick).not.toHaveBeenCalled();
+            expect(capturedMessages).toEqual([{
+                source: 'ops-toolshed-actualise-month-bridge',
+                type: 'ops-toolshed-actualise-export-captured',
+                detail: expect.objectContaining({
+                    token: 'run-1',
+                    name: 'Actualization-CP37TC2-HBARN-2026-01.csv',
+                    text: 'D Number,Start Date\r\nD123456,2026-01-01\r\n'
+                })
+            }]);
+
+            dom.window.dispatchEvent(new dom.window.MessageEvent('message', {
+                source: dom.window,
+                origin: dom.window.location.origin,
+                data: {
+                    source: 'ops-toolshed-actualise-month-bridge',
+                    type: 'ops-toolshed-actualise-export-capture-stop',
+                    detail: { token: 'run-1' }
+                }
+            }));
+
+            expect(dom.window.HTMLAnchorElement.prototype.click).toBe(originalAnchorClick);
+            expect(dom.window.URL.createObjectURL).toBe(originalCreateObjectURL);
+
+            link.click();
+            expect(originalAnchorClick).toHaveBeenCalledTimes(1);
+        } finally {
+            dom.window.close();
+        }
     });
 });

@@ -1,14 +1,17 @@
 /* V2 changes presentation only. V1 retains reccies.css and the same controls. */
 @font-face{font-family:Reccies Outfit;src:url('assets/fonts/outfit-latin.woff2') format('woff2');font-style:normal;font-weight:100 900;font-display:swap}
 html[data-reccies-ui=v2]{--rec-ink:#17191c;--rec-muted:#62666d;--rec-line:#e5e7e9;--rec-pink:#b61459;--rec-pink-soft:#fff1f6;--rec-pink-edge:#e8a5c1;font:14px/1.5 'Reccies Outfit',system-ui,sans-serif;color:var(--rec-ink);background:#f6f6fa}
-html[data-reccies-ui=v2] main{max-width:820px;min-height:100vh;padding:24px;background:#f6f6fa}
+html[data-reccies-ui=v2] main{max-width:820px;min-height:100vh;padding:20px 16px 28px;background:#f6f6fa}
+html[data-reccies-ui=v2] .titleline{display:flex;align-items:center;justify-content:space-between;gap:8px}
 html[data-reccies-ui=v2] header{margin-bottom:16px}
-html[data-reccies-ui=v2] h1{font-size:24px;font-weight:500;margin:0;letter-spacing:-.025em}
+html[data-reccies-ui=v2] h1{font-size:20px;font-weight:500;margin:0;letter-spacing:-.02em;line-height:1.25}
 html[data-reccies-ui=v2] .intro{display:none}
-html[data-reccies-ui=v2] .readonly{background:transparent;color:var(--rec-muted);font-size:12px;padding:0;white-space:normal;text-align:right}
+html[data-reccies-ui=v2] .readonly{background:#f0f1f2;color:#555962;font-size:11px;font-weight:500;padding:3px 8px;border-radius:999px;white-space:nowrap;display:inline-flex;align-items:center;flex-shrink:0;text-align:center;margin-top:3px}
+html[data-reccies-ui=v2] .readonly.is-automatic{background:#e5f4eb;color:#216545;font-weight:600}
 html[data-reccies-ui=v2] .hint,html[data-reccies-ui=v2] .rule{font-size:13px;color:var(--rec-muted)}
 html[data-reccies-ui=v2] a{color:var(--rec-ink)}
-html[data-reccies-ui=v2] button,html[data-reccies-ui=v2] input,html[data-reccies-ui=v2] select{border-color:#cfd2d6;border-radius:6px;font-weight:400;color:var(--rec-ink);min-height:36px}
+html[data-reccies-ui=v2] button,html[data-reccies-ui=v2] input:not([type=checkbox]):not([type=radio]),html[data-reccies-ui=v2] select{border-color:#cfd2d6;border-radius:6px;font-weight:400;color:var(--rec-ink);min-height:36px}
+html[data-reccies-ui=v2] input[type=checkbox]{width:16px;height:16px;min-height:16px;max-height:16px;flex:0 0 16px;margin:0;padding:0;accent-color:var(--rec-pink);cursor:pointer;vertical-align:middle}
 html[data-reccies-ui=v2] label{font-size:13px;font-weight:400}
 html[data-reccies-ui=v2] button.primary{background:var(--rec-pink);border-color:var(--rec-pink);color:#fff;font-weight:500}
 html[data-reccies-ui=v2] button.primary:hover:not(:disabled){background:#971047}
@@ -16,20 +19,55 @@ html[data-reccies-ui=v2] :is(button,input,select,a,summary):focus-visible{outlin
 html[data-reccies-ui=v2] :is(input[type=checkbox],input[type=range]){accent-color:var(--rec-pink)}
 html[data-reccies-ui=v2] :is(details,.filters){padding:0;border:0;border-radius:0;background:transparent}
 html[data-reccies-ui=v2] details{padding-bottom:12px;border-bottom:1px solid var(--rec-line)}
-html[data-reccies-ui=v2] summary{min-height:36px;font-size:14px;font-weight:400;gap:10px;border-radius:6px}
+html[data-reccies-ui=v2] summary{min-height:36px;font-size:14px;font-weight:400;gap:10px;border-radius:6px;padding:4px 4px}
 html[data-reccies-ui=v2] summary:hover{background:#f5f6f7}
-html[data-reccies-ui=v2] .report-loaded-badge{background:transparent;padding:0;font-size:13px;font-weight:400}
+html[data-reccies-ui=v2] .report-loaded-badge{display:none !important}
 html[data-reccies-ui=v2] .reccies-sheet-input{display:flex;align-items:stretch;border:1px solid #cfd2d6;border-radius:6px;overflow:hidden;margin:5px 0 10px}
 html[data-reccies-ui=v2] .reccies-sheet-input:focus-within{outline:2px solid var(--rec-pink);outline-offset:2px}
 html[data-reccies-ui=v2] .reccies-sheet-input input{flex:1;min-width:0;width:0;border:0;border-radius:0;margin:0;outline:0}
 html[data-reccies-ui=v2] .reccies-sheet-input button{min-width:62px;border:0;border-left:1px solid var(--rec-line);border-radius:0;background:#f5f6f7;color:var(--rec-pink)}
-html[data-reccies-ui=v2] .import-row{border:0;margin-top:12px}
-html[data-reccies-ui=v2] input[type=file]{font-size:13px}
-html[data-reccies-ui=v2] .automation-settings{border-color:var(--rec-line)}
-html[data-reccies-ui=v2] .automation-settings label{display:grid;grid-template-columns:16px minmax(0,1fr);align-items:start;gap:10px;font-size:14px}
-html[data-reccies-ui=v2] .automation-settings input[type=checkbox]{display:block;width:16px;height:16px;min-height:16px;padding:0;margin:3px 0 0}
+html[data-reccies-ui=v2] .import-row{border:0;margin-top:14px;padding-top:0}
+html[data-reccies-ui=v2] .csv-drop-label{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:16px 12px;border:1.5px dashed var(--rec-line);border-radius:8px;background:#ffffff;cursor:pointer;text-align:center;transition:border-color .15s ease,background-color .15s ease,box-shadow .15s ease}
+html[data-reccies-ui=v2] .csv-drop-label:hover{border-color:var(--rec-pink-edge);background:#fffcfd}
+html[data-reccies-ui=v2] .csv-drop-label:focus-within{outline:2px solid var(--rec-pink);outline-offset:2px}
+html[data-reccies-ui=v2] .is-dragover .csv-drop-label{border-color:var(--rec-pink);background:var(--rec-pink-soft);border-style:solid;transform:scale(1.005)}
+html[data-reccies-ui=v2] input[type=file]#csv-file{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+html[data-reccies-ui=v2] .csv-drop-icon{font-size:22px;line-height:1}
+html[data-reccies-ui=v2] .csv-drop-text{font-size:13px;color:var(--rec-ink)}
+html[data-reccies-ui=v2] .csv-drop-text strong{font-weight:500}
+html[data-reccies-ui=v2] .csv-browse-link{color:var(--rec-pink);text-decoration:underline;text-underline-offset:2px}
+html[data-reccies-ui=v2] .automation-settings{border-color:var(--rec-line);border-top:1px solid var(--rec-line);margin-top:16px;padding-top:14px}
+html[data-reccies-ui=v2] .automation-title{font-size:14px;font-weight:600;color:var(--rec-ink);margin:0 0 10px}
+html[data-reccies-ui=v2] .automation-card{background:#ffffff;border:1px solid var(--rec-line);border-radius:8px;padding:12px 14px;margin-bottom:8px;transition:border-color .15s ease,box-shadow .15s ease}
+html[data-reccies-ui=v2] .automation-card:hover{border-color:#cfd2d6}
+html[data-reccies-ui=v2] .automation-card label{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:500;color:var(--rec-ink);cursor:pointer;margin:0;user-select:none}
+html[data-reccies-ui=v2] .automation-card input[type=checkbox]{display:block;width:16px;height:16px;min-height:16px;max-height:16px;padding:0;margin:0;flex:0 0 16px;accent-color:var(--rec-pink);cursor:pointer}
+html[data-reccies-ui=v2] .automation-card .hint{margin:6px 0 0 26px;font-size:12.5px;line-height:1.45;color:var(--rec-muted)}
+html[data-reccies-ui=v2] .automation-card-sub{position:relative;margin-left:22px;background:#fafbfc;border:1px solid var(--rec-line)}
+html[data-reccies-ui=v2] .automation-card-sub::before{content:"";position:absolute;left:-14px;top:-12px;height:32px;width:14px;border-left:2px solid var(--rec-pink);border-bottom:2px solid var(--rec-pink);border-bottom-left-radius:6px;pointer-events:none;box-sizing:border-box}
+html[data-reccies-ui=v2] .reccies-progress-setting{border:1px solid var(--rec-line);border-radius:8px;background:#ffffff;margin:4px 0 14px;padding:12px 14px;transition:border-color .15s ease,box-shadow .15s ease}
+html[data-reccies-ui=v2] .reccies-progress-setting:hover{border-color:#cfd2d6}
+html[data-reccies-ui=v2] .reccies-progress-setting label{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:500;line-height:1.4;color:var(--rec-ink);cursor:pointer;user-select:none;margin:0}
+html[data-reccies-ui=v2] .reccies-progress-setting input[type=checkbox]{display:block;width:16px;height:16px;min-height:16px;max-height:16px;flex:0 0 16px;padding:0;margin:0;accent-color:var(--rec-pink);cursor:pointer}
+html[data-reccies-ui=v2] .reccie-progress{padding:0}
+html[data-reccies-ui=v2] .reccie-progress-label{font-size:13px;color:var(--rec-muted)}
+html[data-reccies-ui=v2] .reccie-overview{background:#fff;border:1px solid #d8dadd;border-radius:12px;box-shadow:0 3px 8px rgb(25 28 35 / 9%);margin-bottom:18px;overflow:hidden}
+html[data-reccies-ui=v2] .reccie-overview header{padding:18px 18px 0;margin:0}
+html[data-reccies-ui=v2] .reccie-overview h1{font-size:21px;font-weight:650;overflow-wrap:anywhere}
+html[data-reccies-ui=v2] #reccie-progress-month{margin:4px 0 0;text-align:left;font-size:14px;color:var(--rec-muted)}
+html[data-reccies-ui=v2] .reccie-overview .readonly{margin:0;min-height:30px;padding:4px 10px}
+html[data-reccies-ui=v2] .reccie-overview .readonly.is-automatic::before{content:'';width:8px;height:8px;border-radius:50%;background:#1caf67;margin-right:6px;flex:none}
+html[data-reccies-ui=v2] .reccie-progress{gap:14px;padding:18px 18px 0;margin:0}
+html[data-reccies-ui=v2] .reccie-progress-label{font-size:13px;align-items:baseline}
+html[data-reccies-ui=v2] .reccie-progress-label span:last-child{color:var(--rec-ink);white-space:normal;text-align:right}
+html[data-reccies-ui=v2] .reccie-progress progress{height:8px;border-radius:8px}
+html[data-reccies-ui=v2] #reccie-time-progress::-webkit-progress-value{background:#89909a}
+html[data-reccies-ui=v2] #reccie-time-progress::-moz-progress-bar{background:#89909a}
+html[data-reccies-ui=v2] .reccie-progress-context{border-top:1px solid var(--rec-line);margin:2px -18px 0;padding:10px 18px;font-size:12px}
+html[data-reccies-ui=v2] .reccie-progress-context p{margin:0}
+html[data-reccies-ui=v2] #reccie-progress-asof{font-style:normal}
+html[data-reccies-ui=v2] .reccie-overview:has(#reccie-progress[hidden]) header{padding-bottom:18px}
 html[data-reccies-ui=v2] .filters{margin:16px 0 0}
-html[data-reccies-ui=v2] #assignment-fields label:first-child{order:2}
 html[data-reccies-ui=v2] #search{background:#f8f9fa}
 html[data-reccies-ui=v2] .mode-switch{margin:16px 0 8px}
 html[data-reccies-ui=v2] .mode-switch legend{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
@@ -42,13 +80,17 @@ html[data-reccies-ui=v2] .view-controls{grid-template-columns:minmax(0,1fr) minm
 html[data-reccies-ui=v2] .view-controls:has(#tracker-status-control[hidden]){grid-template-columns:minmax(0,200px)}
 html[data-reccies-ui=v2] .control-label{font-size:13px;font-weight:400;color:var(--rec-muted)}
 html[data-reccies-ui=v2] .status-chips{gap:6px;align-items:center}
-html[data-reccies-ui=v2] .status-chips label{position:relative;flex:none;min-height:32px;padding:5px 8px;border:1px solid #cfd2d6;border-radius:5px;font-size:13px;white-space:nowrap;font-weight:400}
+html[data-reccies-ui=v2] .status-chips label{position:relative;flex:none;min-height:32px;padding:5px 8px;border:1px solid #cfd2d6;border-radius:5px;font-size:13px;white-space:nowrap;font-weight:400;transition:background-color .14s ease,border-color .14s ease,color .14s ease}
+html[data-reccies-ui=v2] .status-chips label:hover{background:#f5f6f8;border-color:#aeb3ba}
 html[data-reccies-ui=v2] .status-chips label:focus-within{outline:2px solid var(--rec-pink);outline-offset:2px}
 html[data-reccies-ui=v2] .status-chips label input{position:absolute;width:1px;height:1px;min-height:0;overflow:hidden;clip-path:inset(50%);padding:0}
 html[data-reccies-ui=v2] .status-chips label.is-selected{background:var(--rec-pink-soft);border-color:var(--rec-pink-edge);color:var(--rec-pink)}
+html[data-reccies-ui=v2] .status-chips label.is-selected:hover{background:#fbe2ed;border-color:var(--rec-pink)}
 html[data-reccies-ui=v2] .prisma-filter-clear{width:30px;min-width:30px;min-height:30px;height:30px;flex:none;margin-left:auto;padding:0;border:0;background:transparent;font-size:22px;line-height:1}
 html[data-reccies-ui=v2] .checkbar{flex-direction:column-reverse;align-items:stretch;margin:16px 0 8px}
 html[data-reccies-ui=v2] #check-rows{font-size:14px;width:100%}
+html[data-reccies-ui=v2] #check-rows.is-verifying{opacity:1 !important;cursor:wait !important;display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--rec-pink);border-color:var(--rec-pink);color:#fff}
+html[data-reccies-ui=v2] #message.is-verifying{display:none}
 html[data-reccies-ui=v2] #summary{margin-top:8px}
 html[data-reccies-ui=v2] #verification-scope{font-size:13px;margin:0 0 12px}
 html[data-reccies-ui=v2] #message{color:var(--rec-muted)}
@@ -61,13 +103,17 @@ html[data-reccies-ui=v2] .campaign-name{font-size:14px;color:var(--rec-ink)}
 html[data-reccies-ui=v2] .badge{background:transparent;border-radius:0;padding:0;font-size:13px;font-weight:400;white-space:normal}
 html[data-reccies-ui=v2] .badge.ready{color:#236340}
 html[data-reccies-ui=v2] :is(.badge.outstanding,.badge.mismatch){color:#835410;background:transparent}
+html[data-reccies-ui=v2] .badge.other_location{color:#30508a;background:transparent}
 html[data-reccies-ui=v2] .mismatch-warning{max-width:100%}
 html[data-reccies-ui=v2] .mismatch-detail{font-size:13px;color:#835410}
 html[data-reccies-ui=v2] .status-lines{font-size:13px;color:var(--rec-muted);margin:6px 0}
 .v2-evidence,.v2-placements{display:none}
 .v2-source-metadata,.v2-entity-meta{display:none}
-html[data-reccies-ui=v2] .v2-source-metadata,html[data-reccies-ui=v2] .v2-entity-meta{display:block;font-size:13px;color:var(--rec-muted)}
-html[data-reccies-ui=v2] :is(#source-status,#filter-hint,.v2-original-entity,.ready-guidance){display:none}
+html[data-reccies-ui=v2] .v2-entity-meta{display:block;font-size:13px;color:var(--rec-muted)}
+html[data-reccies-ui=v2] #source-status{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--rec-muted);background:#ffffff;border:1px solid var(--rec-line);border-radius:6px;padding:8px 12px;margin:10px 0 0;line-height:1.4}
+html[data-reccies-ui=v2] #source-status.has-tracker{background:#f0f7f2;border-color:#c9e3d1;color:#1b5336}
+html[data-reccies-ui=v2] #source-status.has-tracker::before{content:"✓";font-weight:700;color:#216545}
+html[data-reccies-ui=v2] :is(#filter-hint,.v2-original-entity,.ready-guidance){display:none}
 html[data-reccies-ui=v2] .v2-evidence{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--rec-muted);margin:10px 0 6px}
 html[data-reccies-ui=v2] .v2-evidence span{white-space:nowrap}
 html[data-reccies-ui=v2] .v2-evidence strong{color:var(--rec-ink);font-weight:500}
@@ -79,13 +125,26 @@ html[data-reccies-ui=v2] .card-bottom{display:flex;flex-wrap:wrap;align-items:ce
 html[data-reccies-ui=v2] .card-bottom>span{flex-basis:100%;color:var(--rec-muted);font-size:13px;white-space:pre-line}
 html[data-reccies-ui=v2] .card-bottom a{font-size:13px;padding:4px 0;margin:0}
 html[data-reccies-ui=v2] .tracker-mark-yes{margin-left:auto;font-size:13px;padding:5px 8px;min-height:32px}
-html[data-reccies-ui=v2] #background-progress:not([hidden]){padding:12px;background:#f5f6f7;border-radius:6px}
-html[data-reccies-ui=v2] .tracker-write-dialog{width:min(430px,calc(100vw - 32px));padding:20px;border:1px solid var(--rec-line);border-radius:8px;color:var(--rec-ink);transform-origin:center;animation:reccies-dialog-in 160ms cubic-bezier(.2,.8,.2,1) both}
+html[data-reccies-ui=v2] #background-progress:not([hidden]){position:relative;padding:10px 32px 10px 14px;background:#f5f6f8;border:1px solid var(--rec-line);border-radius:8px;white-space:pre-line;line-height:1.45;font-size:13px;margin:10px 0 12px}
+html[data-reccies-ui=v2] #background-progress[data-state="attention"]{background:#fff8f0;border-color:#fbd6a6;color:#7c4800}
+html[data-reccies-ui=v2] #background-progress[data-state="error"]{background:#fff5f5;border-color:#f8c8c8;color:#a43139}
+html[data-reccies-ui=v2] .background-progress-dismiss{position:absolute;top:6px;right:8px;background:transparent;border:0;font-size:18px;line-height:1;color:var(--rec-muted);cursor:pointer;padding:2px 6px;border-radius:4px}
+html[data-reccies-ui=v2] .background-progress-dismiss:hover{background:rgba(0,0,0,0.06);color:var(--rec-ink)}
+html[data-reccies-ui=v2] .background-progress-forget{margin-left:6px;padding:4px 8px;min-height:28px;font-size:12px}
+html[data-reccies-ui=v2] #background-progress.is-reminder-prompt:not([hidden]){padding-right:14px}
+html[data-reccies-ui=v2] #automation-status{font-size:12.5px;color:var(--rec-muted);margin:8px 2px 0}
+html[data-reccies-ui=v2] .tracker-write-dialog{width:min(430px,calc(100vw - 32px));padding:20px;border:1px solid var(--rec-line);border-radius:8px;color:var(--rec-ink);font-size:13px;line-height:1.5;transform-origin:center;animation:reccies-dialog-in 160ms cubic-bezier(.2,.8,.2,1) both}
 html[data-reccies-ui=v2] .tracker-write-dialog::backdrop{background:rgb(24 27 34 / 35%);animation:reccies-backdrop-in 160ms ease-out both}
-html[data-reccies-ui=v2] .tracker-write-dialog h2{font-size:20px;font-weight:500}
-html[data-reccies-ui=v2] .tracker-write-dialog label{font-size:14px;font-weight:400;gap:10px}
-html[data-reccies-ui=v2] .tracker-write-dialog label input{height:16px;width:16px;min-height:16px;padding:0;margin:3px 0 0}
-html[data-reccies-ui=v2] .tracker-write-controls{justify-content:flex-end}
+html[data-reccies-ui=v2] .tracker-write-dialog h2{font-size:18px;font-weight:600;margin:0 0 8px;padding-right:32px}
+html[data-reccies-ui=v2] .tracker-write-dialog p{font-size:13px;line-height:1.45;margin:8px 0}
+html[data-reccies-ui=v2] .tracker-write-dialog .tracker-write-intro{color:var(--rec-muted);margin-top:0}
+html[data-reccies-ui=v2] .tracker-write-dialog .tracker-write-status{font-size:13px;margin:10px 0}
+html[data-reccies-ui=v2] .tracker-write-dialog .tracker-write-rows{font-size:13px;line-height:1.45;margin:10px 0;padding:8px 12px 8px 24px;background:#f8f9fa;border:1px solid var(--rec-line);border-radius:6px;max-height:220px;overflow:auto}
+html[data-reccies-ui=v2] .tracker-write-dialog .tracker-write-rows:empty{display:none}
+html[data-reccies-ui=v2] .tracker-write-dialog label{display:flex;align-items:flex-start;gap:8px;font-size:13px;font-weight:400;line-height:1.45;margin:12px 0 0;cursor:pointer}
+html[data-reccies-ui=v2] .tracker-write-dialog label input[type=checkbox]{flex:0 0 16px;width:16px;height:16px;min-height:16px;max-height:16px;padding:0;margin:2px 0 0}
+html[data-reccies-ui=v2] .tracker-write-controls{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:8px;margin-top:16px}
+html[data-reccies-ui=v2] .tracker-write-controls button{font-size:13px;min-height:34px;padding:6px 12px}
 html[data-reccies-ui=v2] .tracker-write-controls button:first-child{order:0}
 html[data-reccies-ui=v2] .tracker-write-controls button:last-child{background:var(--rec-pink);border-color:var(--rec-pink);color:#fff}
 html[data-reccies-ui=v2] .tracker-write-dialog.is-closing{animation:reccies-dialog-out 120ms ease-out both;pointer-events:none}
@@ -94,18 +153,12 @@ html[data-reccies-ui=v2] .tracker-write-dialog.is-closing::backdrop{animation:re
 @keyframes reccies-dialog-out{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(.96)}}
 @keyframes reccies-backdrop-in{from{background:rgb(24 27 34 / 0%)}to{background:rgb(24 27 34 / 35%)}}
 @keyframes reccies-backdrop-out{from{background:rgb(24 27 34 / 35%)}to{background:rgb(24 27 34 / 0%)}}
-@media(max-width:360px){html[data-reccies-ui=v2] main{padding:16px}html[data-reccies-ui=v2] .view-controls{grid-template-columns:1fr}html[data-reccies-ui=v2] .segmented-control button{font-size:12px}}
+@media(max-width:360px){html[data-reccies-ui=v2] main{padding:16px 12px 24px}html[data-reccies-ui=v2] h1{font-size:18px}html[data-reccies-ui=v2] .view-controls{grid-template-columns:1fr}html[data-reccies-ui=v2] .segmented-control button{font-size:12px}}
 @media(prefers-reduced-motion:reduce){html[data-reccies-ui=v2] .reccies-segment-indicator,html[data-reccies-ui=v2] .tracker-write-dialog,html[data-reccies-ui=v2] .tracker-write-dialog::backdrop,html[data-reccies-ui=v2] .tracker-write-dialog.is-closing,html[data-reccies-ui=v2] .tracker-write-dialog.is-closing::backdrop{transition:none;animation:none}}
 
 /* Keep the list transition scoped; controls remain immediately usable. */
-#reccies-controls{display:contents}
-.reccies-focus-controls{display:none}
 html[data-reccies-ui=v2]{view-transition-name:none}
-html[data-reccies-ui=v2] #reccies-controls{display:flow-root;overflow:hidden}
 html[data-reccies-ui=v2] #rows{view-transition-name:reccies-results}
-html[data-reccies-ui=v2] .reccies-focus-controls{display:flex;justify-content:flex-end;margin:4px 0 12px}
-html[data-reccies-ui=v2] #reccies-focus-toggle{padding:4px 8px;min-height:32px;border:0;background:transparent;color:var(--rec-muted);font-size:13px}
-html[data-reccies-ui=v2] #reccies-focus-toggle:hover{color:var(--rec-pink);background:var(--rec-pink-soft)}
 html[data-reccies-ui=v2] .v2-campaign-metadata{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 16px;margin:8px 0 12px;color:var(--rec-muted);font-size:14px}
 html[data-reccies-ui=v2] .v2-campaign-identity{display:flex;align-items:center;gap:8px;margin:0;flex-wrap:wrap}
 html[data-reccies-ui=v2] .v2-campaign-identity p{display:inline;margin:0;font-size:14px}
@@ -117,3 +170,116 @@ html[data-reccies-ui=v2] .v2-campaign-metadata a{margin-left:auto;white-space:no
 @keyframes reccies-content-out{to{opacity:0}}
 @keyframes reccies-content-in{from{opacity:0}to{opacity:1}}
 @media(prefers-reduced-motion:reduce){::view-transition-group(reccies-results),::view-transition-old(reccies-results),::view-transition-new(reccies-results){animation:none}}
+
+html[data-reccies-ui=v2] .tracker-dialog-close{min-height:32px;color:#b42332;border:0;background:transparent}
+html[data-reccies-ui=v2] .reccies-filter-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+html[data-reccies-ui=v2] .reccies-filter-heading strong{font-size:14px}
+html[data-reccies-ui=v2] :is(#reccies-filter-toggle,.reccies-filter-summary button){border:0;background:transparent;color:var(--rec-pink);font-size:13px;padding:4px 6px;min-height:32px}
+html[data-reccies-ui=v2] #reccies-filter-toggle[aria-expanded=true]::after{content:' ↑'}
+html[data-reccies-ui=v2] #reccies-filter-toggle[aria-expanded=false]::after{content:' ↓'}
+html[data-reccies-ui=v2] .reccies-filter-summary:not([hidden]){display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;background:#f5f6f7;border:1px solid var(--rec-line);border-radius:6px;padding:8px 10px;font-size:13px;overflow-wrap:anywhere}
+html[data-reccies-ui=v2] .reccies-filter-summary span{flex:1 1 180px;min-width:0}
+/* Balanced section cards, keeping filter controls in their existing disclosure. */
+html[data-reccies-ui=v2] :is(.reccies-source-card,.reccies-settings-card,.reccies-filter-heading,.reccies-filter-identity,.view-controls>.filter-column,.status-filter-card){background:#fff;border:1px solid #d8dadd;border-radius:10px;box-shadow:0 3px 8px rgb(25 28 35 / 9%)}
+html[data-reccies-ui=v2] .reccies-source-card,html[data-reccies-ui=v2] .reccies-settings-card{padding:13px 14px;margin:9px 0}
+html[data-reccies-ui=v2] .reccies-source-card .mode-switch{margin:0;border:0;padding:0;min-width:0}
+html[data-reccies-ui=v2] .mode-switch legend{position:static;width:auto;height:auto;overflow:visible;clip-path:none;font-size:13px;font-weight:600;margin-bottom:8px}
+html[data-reccies-ui=v2] .reccies-source-card #mode-description{margin:8px 0 0;font-size:12px}
+html[data-reccies-ui=v2] .reccies-settings-card #source-details{margin:0;padding:0;border:0}
+html[data-reccies-ui=v2] .reccies-settings-card #source-status{margin:8px 0 0}
+html[data-reccies-ui=v2] .filters{margin:9px 0}
+html[data-reccies-ui=v2] .filters .reccies-filter-heading{margin:0;padding:10px 14px;border-radius:10px 10px 0 0;border-bottom:0;box-shadow:0 -2px 5px rgb(25 28 35 / 4%)}
+html[data-reccies-ui=v2] .filters .reccies-filter-identity{padding:0 14px 13px;border-radius:0 0 10px 10px;border-top:0;margin-bottom:9px}
+html[data-reccies-ui=v2] .filters:has(#reccies-filter-body[hidden]) .reccies-filter-heading{border-radius:10px 10px 0 0}
+html[data-reccies-ui=v2] .reccies-filter-summary:not([hidden]){margin:0 0 9px;background:#fff;border-color:#d8dadd;border-top:0;border-radius:0 0 10px 10px;padding:8px 14px}
+html[data-reccies-ui=v2] .view-controls{gap:9px;margin:0 0 9px}
+html[data-reccies-ui=v2] .view-controls>.filter-column{min-width:0;padding:13px 14px}
+html[data-reccies-ui=v2] .view-controls .control-label{display:block;margin-bottom:8px;color:var(--rec-ink);font-weight:600}
+html[data-reccies-ui=v2] .status-filter-card{position:relative;padding:13px 14px;min-width:0}
+html[data-reccies-ui=v2] .status-filter{min-width:0;margin:0;padding:0;border:0}
+html[data-reccies-ui=v2] .status-filter legend{padding:0;font-size:14px;font-weight:600;margin-bottom:8px;max-width:calc(100% - 100px)}
+html[data-reccies-ui=v2] .status-filter-card #clear-filters{position:absolute;top:4px;right:10px;min-height:32px;padding:4px;color:var(--rec-pink);text-decoration:none}
+html[data-reccies-ui=v2] .reccies-results-meta{border-top:1px solid #d8dadd;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:8px 0 10px;padding:10px 2px 0;color:var(--rec-muted);font-size:12px}
+html[data-reccies-ui=v2] .reccies-results-meta :is(#summary,#reccie-results-asof){margin:0;font-size:12px;font-style:normal}
+html[data-reccies-ui=v2] .post-verify-banner{margin:0 0 10px}
+html[data-reccies-ui=v2] .post-verify-banner-inner{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#eef8f2;border:1px solid #b9e1ca;border-radius:8px;padding:9px 12px}
+html[data-reccies-ui=v2] .post-verify-copy{display:grid;gap:2px;min-width:0}
+html[data-reccies-ui=v2] .post-verify-copy strong{font-size:12.5px;font-weight:600;color:#1b5336}
+html[data-reccies-ui=v2] .post-verify-sub{font-size:12px;color:#2d6a49}
+html[data-reccies-ui=v2] .post-verify-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+html[data-reccies-ui=v2] #post-verify-mark{background:#216545;border-color:#216545;color:#fff;font-size:12px;font-weight:500;min-height:32px;padding:5px 10px;white-space:nowrap}
+html[data-reccies-ui=v2] #post-verify-mark:hover:not(:disabled){background:#194e35;border-color:#194e35}
+html[data-reccies-ui=v2] #post-verify-dismiss{border:0;background:transparent;color:#2d6a49;min-height:28px;padding:2px 6px;font-size:16px;line-height:1}
+html[data-reccies-ui=v2] #post-verify-dismiss:hover:not(:disabled){background:#d8f0e2}
+html[data-reccies-ui=v2] .retry-failed-banner{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#fff5f5;border:1px solid #f4c7c9;border-radius:8px;padding:8px 12px;margin:0 0 10px;font-size:12.5px;color:#8c2830}
+html[data-reccies-ui=v2] #retry-failed-rows{border-color:#e5a7ab;background:#fff;color:#8c2830;font-size:12px;font-weight:500;min-height:30px;padding:4px 10px;white-space:nowrap}
+html[data-reccies-ui=v2] #retry-failed-rows:hover:not(:disabled){background:#fdebec;border-color:#d88086}
+html[data-reccies-ui=v2] .refresh-tracker-inline{border:0;background:transparent;color:var(--rec-pink);font-size:12px;font-weight:500;min-height:24px;padding:2px 6px;border-radius:4px}
+html[data-reccies-ui=v2] .refresh-tracker-inline:hover:not(:disabled){background:var(--rec-pink-soft);text-decoration:underline}
+html[data-reccies-ui=v2] .multi-select-controls{display:inline-flex;align-items:center;gap:6px;margin-left:auto}
+html[data-reccies-ui=v2] .multi-select-toggle{border:1px solid transparent;background:transparent;color:var(--rec-pink);font-size:12px;font-weight:500;min-height:28px;padding:4px 8px}
+html[data-reccies-ui=v2] .multi-select-toggle:hover:not(:disabled){background:var(--rec-pink-soft);border-color:var(--rec-pink-edge)}
+html[data-reccies-ui=v2] .multi-select-ready{border:1px solid #c2e5d1;background:#e5f4eb;color:#216545;font-size:12px;font-weight:500;min-height:28px;padding:4px 8px}
+html[data-reccies-ui=v2] .multi-select-ready:hover:not(:disabled){background:#d4ebd9}
+html[data-reccies-ui=v2] .reccie-card.is-selectable{cursor:pointer;transition:border-color .14s ease,background-color .14s ease,box-shadow .14s ease,transform .14s ease}
+html[data-reccies-ui=v2] .reccie-card.is-selectable:hover{border-color:var(--rec-pink);background:#fff5f9;box-shadow:0 4px 14px rgb(182 20 89 / 14%);transform:translateY(-1px)}
+html[data-reccies-ui=v2] .reccie-card.is-selected{border-color:var(--rec-pink);background:#fff9fb;box-shadow:0 0 0 1px var(--rec-pink)}
+html[data-reccies-ui=v2] .reccie-card.is-selected:hover{background:#ffedf4}
+html[data-reccies-ui=v2] .reccie-card.is-not-selectable{opacity:.6}
+html[data-reccies-ui=v2] .card-top-lead{display:inline-flex;align-items:center;min-width:0}
+html[data-reccies-ui=v2] .multi-select-slot{display:inline-flex;align-items:center;flex:0 0 auto;width:0;margin-right:0;opacity:0;overflow:hidden;pointer-events:none;transform:translateX(-6px);transition:width 180ms cubic-bezier(.22,1,.36,1),margin-right 180ms cubic-bezier(.22,1,.36,1),opacity 140ms ease,transform 180ms cubic-bezier(.22,1,.36,1)}
+html[data-reccies-ui=v2] #rows.is-multi-select .multi-select-slot{width:16px;margin-right:8px;opacity:1;pointer-events:auto;transform:translateX(0)}
+html[data-reccies-ui=v2] .multi-select-checkbox{flex:0 0 16px;width:16px;height:16px;min-height:16px;max-height:16px;margin:0;padding:0;accent-color:var(--rec-pink);cursor:pointer}
+html[data-reccies-ui=v2] .reccie-card .card-top{justify-content:flex-start;align-items:center}
+html[data-reccies-ui=v2] .reccie-card .card-top>:last-child{margin-left:auto}
+html[data-reccies-ui=v2] .multi-select-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(820px,100%);box-sizing:border-box;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;background:rgba(255,255,255,.96);backdrop-filter:blur(6px);border-top:1px solid #d8dadd;padding:10px 16px;box-shadow:0 -4px 14px rgba(23,25,28,.08)}
+html[data-reccies-ui=v2] .multi-select-bar-info{display:flex;align-items:center;gap:8px;font-size:12.5px}
+html[data-reccies-ui=v2] .multi-select-clear{border:0;background:transparent;color:var(--rec-muted);text-decoration:underline;font-size:12px;min-height:28px;padding:2px 4px}
+html[data-reccies-ui=v2] .multi-select-bar-actions{display:flex;align-items:center;gap:6px;margin-left:auto}
+html[data-reccies-ui=v2] .multi-select-bar-actions button{font-size:12.5px;min-height:34px;padding:6px 12px}
+@media(prefers-reduced-motion:reduce){html[data-reccies-ui=v2] .reccie-card.is-selectable,html[data-reccies-ui=v2] .multi-select-slot,html[data-reccies-ui=v2] .status-chips label{transition:none}html[data-reccies-ui=v2] .reccie-card.is-selectable:hover{transform:none}}
+html[data-reccies-ui=v2] #reccies-filter-body{overflow:hidden;transition:height 200ms cubic-bezier(.22,1,.36,1),opacity 180ms ease-out}
+@media(prefers-reduced-motion:reduce){html[data-reccies-ui=v2] #reccies-filter-body{transition:none}}
+
+html[data-reccies-ui=v2] .reccies-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(24px);background:#1e2024;color:#ffffff;padding:9px 18px;border-radius:999px;font-size:13px;font-weight:500;line-height:1.4;letter-spacing:-.01em;white-space:nowrap;box-shadow:0 4px 18px rgba(0,0,0,.22),0 1px 3px rgba(0,0,0,.12);z-index:2147483647;pointer-events:none;opacity:0;transition:transform 260ms cubic-bezier(.16,1,.3,1),opacity 200ms ease}
+html[data-reccies-ui=v2] .reccies-toast.is-visible{transform:translateX(-50%) translateY(0);opacity:1;pointer-events:auto}
+html[data-reccies-ui=v2] .reccies-toast.is-hiding{transform:translateX(-50%) translateY(24px);opacity:0;pointer-events:none;transition:transform 240ms ease-in,opacity 200ms ease-in}
+/* Result cards: compact evidence and consistent action footer. */
+html[data-reccies-ui=v2] .reccie-card{background:#fff;border-color:#d8dadd;border-radius:10px;box-shadow:0 3px 8px rgb(25 28 35 / 6%);overflow:hidden}
+html[data-reccies-ui=v2] .reccie-card .v2-evidence{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 8px;max-width:82%;margin:10px 0 5px;padding:8px 0 0;border-top:1px solid var(--rec-line);font-size:12px}
+html[data-reccies-ui=v2] .reccie-card .v2-evidence span{white-space:normal;overflow-wrap:anywhere;min-width:0}
+html[data-reccies-ui=v2] .v2-card-timing{display:block;color:var(--rec-muted);font-size:12px;white-space:pre-line}
+html[data-reccies-ui=v2] .campaign-card .v2-campaign-metadata{margin:6px 0 10px;font-size:12px;overflow-wrap:anywhere}
+html[data-reccies-ui=v2] .campaign-card .v2-placements{display:block;margin:0}
+html[data-reccies-ui=v2] .v2-supplier-heading{display:flex;justify-content:space-between;align-items:baseline;gap:8px;background:#f6f7f8;border-block:1px solid var(--rec-line);padding:8px 10px;margin:0 -14px;color:var(--rec-muted);font-size:12px}
+html[data-reccies-ui=v2] .v2-supplier-heading strong{color:var(--rec-ink);overflow-wrap:anywhere;min-width:0}
+html[data-reccies-ui=v2] .v2-supplier-heading span{white-space:nowrap}
+html[data-reccies-ui=v2] .v2-placement{padding:9px 0;border-top:1px solid var(--rec-line)}
+html[data-reccies-ui=v2] .v2-supplier-heading+.v2-placement{border-top:0}
+html[data-reccies-ui=v2] .v2-placement .v2-evidence{border:0;padding:0;margin:5px 0 0}
+html[data-reccies-ui=v2] .reccie-card .card-bottom{background:#fafbfc;border-top:1px solid var(--rec-line);margin:10px -14px -14px;padding:10px 14px;gap:8px}
+html[data-reccies-ui=v2] .reccie-card .card-bottom a{display:inline-flex;align-items:center;justify-content:center;min-height:38px;border:1px solid #cfd2d6;border-radius:7px;padding:7px 10px;text-decoration:none;margin-right:auto;transition:background-color .14s ease,border-color .14s ease}
+html[data-reccies-ui=v2] .reccie-card .card-bottom a:hover{background:#f0f1f4;border-color:#aeb3ba}
+html[data-reccies-ui=v2] .reccie-card .card-bottom button{min-height:38px;padding:7px 10px;font-size:12px}
+html[data-reccies-ui=v2] .reccie-card .card-bottom .tracker-note{transition:background-color .14s ease,border-color .14s ease}
+html[data-reccies-ui=v2] .reccie-card .card-bottom .tracker-note:hover:not(:disabled){background:#f0f1f4;border-color:#aeb3ba}
+html[data-reccies-ui=v2] .reccie-card .tracker-mark-yes{margin-left:auto;background:var(--rec-pink-soft);border-color:var(--rec-pink-edge);color:#a10d4d}
+html[data-reccies-ui=v2] .reccie-card .tracker-mark-yes:hover:not(:disabled){background:#fbe2ed}
+@media(max-width:360px){html[data-reccies-ui=v2] .reccie-card .v2-evidence{max-width:100%}html[data-reccies-ui=v2] .reccie-card .card-bottom>*{flex:1 1 auto}}
+html[data-reccies-ui=v2] .reccies-toast.is-error{background:#b42332;color:#ffffff}
+@media (prefers-reduced-motion:reduce){html[data-reccies-ui=v2] .reccies-toast{transition:opacity 120ms ease;transform:translateX(-50%)}html[data-reccies-ui=v2] .reccies-toast.is-hiding{transform:translateX(-50%)}}
+html[data-reccies-ui=v2] #writer-connection.is-writer-step-one,html[data-reccies-ui=v2] #writer-connection.is-writer-alert{background:#fff;border:1px solid #d8dadd;border-radius:10px;box-shadow:0 3px 8px rgb(25 28 35 / 9%);padding:14px 16px;margin:0 0 12px}
+html[data-reccies-ui=v2] #writer-connection.is-writer-alert{border-color:#e8a5c1;background:#fffafd}
+html[data-reccies-ui=v2] #writer-connection.is-writer-step-one>summary,html[data-reccies-ui=v2] #writer-connection.is-writer-alert>summary{font-weight:600;color:var(--rec-ink)}
+html[data-reccies-ui=v2] #writer-connection.is-writer-tucked{border-top:1px solid var(--rec-line);border-bottom:0;border-left:0;border-right:0;border-radius:0;background:transparent;padding:12px 0 0;margin:14px 0 0}
+html[data-reccies-ui=v2] #writer-connection.is-writer-tucked>summary{font-size:13px;font-weight:500;color:#216545}
+html[data-reccies-ui=v2] .writer-authorise-link{min-height:36px;padding:7px 14px;border-radius:6px;border-color:var(--rec-pink);background:var(--rec-pink);color:#fff;font-weight:500}
+html[data-reccies-ui=v2] .writer-authorise-link:hover{background:#971047;border-color:#971047;filter:none}
+html[data-reccies-ui=v2] .writer-authorise-link.is-secondary{background:#fff;border-color:#cfd2d6;color:var(--rec-ink);font-weight:400}
+html[data-reccies-ui=v2] .writer-authorise-link.is-secondary:hover{background:#f5f6f7;border-color:#b5bac0}
+html[data-reccies-ui=v2] #writer-check-access:not(.primary):hover:not(:disabled){background:#f5f6f7;border-color:#b5bac0}
+html[data-reccies-ui=v2] .writer-connection-footer a{color:var(--rec-pink);font-size:12.5px}
+html[data-reccies-ui=v2] .writer-connection-footer a:hover{background:var(--rec-pink-soft);color:#971047}
+html[data-reccies-ui=v2] .writer-connection-footer .quiet{min-height:auto;padding:4px 7px;font-size:12.5px;color:var(--rec-muted)}
+html[data-reccies-ui=v2] .writer-connection-footer .quiet:hover:not(:disabled){background:#f0f1f2;color:var(--rec-ink)}
+html[data-reccies-ui=v2] #writer-reset-account:hover:not(:disabled){background:#fff0f1;color:#b42332}

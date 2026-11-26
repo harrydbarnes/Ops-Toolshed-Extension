@@ -1,0 +1,532 @@
+/* Approval Tracking Banner Button (Transparent Status Notice) */
+.toolshed-approval-banner-button {
+    background: transparent !important;
+    color: rgba(255, 255, 255, 0.9) !important;
+    border: none !important;
+    border-radius: 4px !important;
+    padding: 4px 8px !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    transition: background-color 0.15s ease, color 0.15s ease !important;
+    margin-right: 10px !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    position: relative !important;
+    user-select: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    line-height: 1 !important;
+    transform: none !important;
+}
+
+.toolshed-approval-banner-button:hover,
+.toolshed-approval-banner-button:focus-visible {
+    background-color: rgba(255, 255, 255, 0.09) !important;
+    color: #ffffff !important;
+}
+
+.toolshed-approval-banner-button.is-all-approved:hover {
+    background-color: rgba(34, 197, 94, 0.14) !important;
+}
+.toolshed-approval-banner-button.is-all-approved .toolshed-approval-banner-icon {
+    color: #22c55e !important;
+}
+
+.toolshed-approval-banner-button.is-partially-approved:hover {
+    background-color: rgba(45, 212, 191, 0.14) !important;
+}
+.toolshed-approval-banner-button.is-partially-approved .toolshed-approval-banner-icon {
+    color: #2dd4bf !important;
+}
+
+.toolshed-approval-banner-button.is-pending-only:hover {
+    background-color: rgba(56, 189, 248, 0.14) !important;
+}
+.toolshed-approval-banner-button.is-pending-only .toolshed-approval-banner-icon {
+    color: #38bdf8 !important;
+}
+
+.toolshed-approval-banner-button.is-none-tracked {
+    color: rgba(255, 255, 255, 0.75) !important;
+}
+.toolshed-approval-banner-button.is-none-tracked .toolshed-approval-banner-icon {
+    color: rgba(255, 255, 255, 0.6) !important;
+}
+.toolshed-approval-banner-button.is-none-tracked:hover,
+.toolshed-approval-banner-button.is-none-tracked:focus-visible {
+    background-color: rgba(255, 255, 255, 0.09) !important;
+    color: #ffffff !important;
+}
+.toolshed-approval-banner-button.is-none-tracked:hover .toolshed-approval-banner-icon,
+.toolshed-approval-banner-button.is-none-tracked:focus-visible .toolshed-approval-banner-icon {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.toolshed-approval-banner-button.is-hidden,
+.toolshed-approval-banner-button[hidden] {
+    display: none !important;
+}
+
+.toolshed-approval-banner-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.toolshed-approval-banner-icon svg {
+    width: 15px;
+    height: 15px;
+    fill: currentColor;
+    display: block;
+}
+
+.toolshed-approval-banner-text {
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    transform: translateY(-1px);
+}
+
+/* Floating Approved Campaigns Panel */
+.toolshed-approval-panel {
+    position: fixed;
+    z-index: 2147483640;
+    width: 440px;
+    max-width: calc(100vw - 32px);
+    max-height: calc(100vh - 80px);
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.22), 0 2px 8px rgba(15, 23, 42, 0.08);
+    border: 1px solid #e2e8f0;
+    color: #0f172a;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    padding: 16px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    opacity: 0;
+    transform: translateY(-8px) scale(0.985);
+    transform-origin: top right;
+    transition:
+        opacity 180ms ease-out,
+        transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: opacity, transform;
+}
+
+.toolshed-approval-panel.is-open {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+.toolshed-approval-panel.is-closing {
+    pointer-events: none;
+}
+
+/* Panel Header */
+.toolshed-approval-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #edf2f7;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+    flex-shrink: 0;
+}
+
+.toolshed-approval-panel-title-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.toolshed-approval-panel-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+    line-height: 1.2;
+}
+
+.toolshed-approval-panel-badge {
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 9999px;
+}
+
+.toolshed-approval-panel-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.toolshed-approval-header-btn {
+    min-width: 104px;
+    min-height: 32px;
+    background: #e8f1f8;
+    border: 1px solid transparent;
+    color: #0875ca;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0 11px;
+    border-radius: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    line-height: 1;
+    white-space: nowrap;
+    transition: color 0.15s, background-color 0.15s, box-shadow 0.15s;
+}
+
+.toolshed-approval-header-btn svg {
+    display: block;
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+}
+
+.toolshed-approval-header-btn:hover {
+    color: #065f9f;
+    background: #d9eaf6;
+}
+
+.toolshed-approval-header-btn:focus-visible {
+    outline: 2px solid #0875ca;
+    outline-offset: 2px;
+}
+
+.toolshed-approval-header-btn:disabled {
+    cursor: wait;
+    opacity: 0.82;
+}
+
+.toolshed-approval-header-btn.is-error {
+    color: #b42318;
+    background: #feeceb;
+}
+
+.toolshed-approval-header-btn.is-checking svg {
+    animation: toolshedApprovalSpin 0.8s linear infinite;
+}
+
+@keyframes toolshedApprovalSpin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .toolshed-approval-panel {
+        transition: none;
+    }
+
+    .toolshed-approval-header-btn.is-checking svg {
+        animation: none;
+    }
+}
+
+.toolshed-approval-header-close {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 15px;
+    line-height: 1;
+    padding: 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+}
+
+.toolshed-approval-header-close:hover {
+    color: #0f172a;
+    background: #f1f5f9;
+}
+
+/* Panel Body & Sections */
+.toolshed-approval-panel-body {
+    overflow-y: auto;
+    max-height: 480px;
+    flex-grow: 1;
+    padding-right: 2px;
+}
+
+.toolshed-approval-section {
+    margin-bottom: 16px;
+}
+
+.toolshed-approval-section:last-child {
+    margin-bottom: 0;
+}
+
+.toolshed-approval-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.toolshed-approval-section-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0;
+}
+
+.toolshed-approval-clear-all-btn {
+    background: transparent;
+    border: none;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+}
+
+.toolshed-approval-clear-all-btn:hover {
+    color: #ef4444;
+    background: #fee2e2;
+}
+
+/* Card Lists & Items */
+.toolshed-approval-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.toolshed-approval-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 6px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+    box-sizing: border-box;
+}
+
+.toolshed-approval-item:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+/* Strict Link Style Overrides (Removes Prisma Underline & Blue Text) */
+a.toolshed-approval-item-link,
+a.toolshed-approval-item-link:link,
+a.toolshed-approval-item-link:visited,
+a.toolshed-approval-item-link:hover,
+a.toolshed-approval-item-link:active {
+    text-decoration: none !important;
+    color: inherit !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex-grow: 1 !important;
+    min-width: 0 !important;
+    cursor: pointer !important;
+    outline: none !important;
+}
+
+a.toolshed-approval-item-link * {
+    text-decoration: none !important;
+}
+
+.toolshed-approval-item-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.35;
+}
+
+.toolshed-approval-item-meta {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+}
+
+.toolshed-approval-item-cpid {
+    background: #f1f5f9;
+    color: #334155;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
+    font-family: monospace;
+}
+
+.toolshed-approval-item-time {
+    color: #64748b;
+    font-size: 11px;
+}
+
+.toolshed-approval-item-link-hint {
+    color: #94a3b8;
+    font-size: 12px;
+    margin-left: 2px;
+    transition: color 0.15s, transform 0.15s;
+}
+
+.toolshed-approval-item:hover .toolshed-approval-item-link-hint {
+    color: #0288d1;
+    transform: translate(1px, -1px);
+}
+
+/* Status Column (Dedicated Right Column - NEVER Cut Off) */
+.toolshed-approval-item-status-col {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.toolshed-approval-badge-approved {
+    font-size: 10px;
+    font-weight: 700;
+    color: #15803d;
+    background: #dcfce7;
+    border: 1px solid rgba(22, 163, 74, 0.25);
+    padding: 2px 7px;
+    border-radius: 9999px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+}
+
+.toolshed-approval-badge-pending {
+    font-size: 10px;
+    font-weight: 700;
+    color: #0369a1;
+    background: #e0f2fe;
+    border: 1px solid rgba(2, 132, 199, 0.25);
+    padding: 2px 7px;
+    border-radius: 9999px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+}
+
+.toolshed-approval-item-dismiss {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 13px;
+    line-height: 1;
+    padding: 5px;
+    border-radius: 4px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 0.15s, background 0.15s;
+}
+
+.toolshed-approval-item-dismiss:hover {
+    color: #ef4444;
+    background: #fee2e2;
+}
+
+/* Empty States */
+.toolshed-approval-empty-state {
+    text-align: center;
+    padding: 16px 12px;
+    color: #64748b;
+    font-size: 12px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px dashed #cbd5e1;
+}
+
+/* Quick Track Footer */
+.toolshed-approval-panel-footer {
+    border-top: 1px solid #edf2f7;
+    padding-top: 10px;
+    margin-top: 12px;
+    flex-shrink: 0;
+}
+
+.toolshed-approval-track-current-btn {
+    width: 100%;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    color: #1e293b;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 7px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.toolshed-approval-track-current-btn:hover {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+}
+
+.toolshed-approval-already-tracked-note {
+    font-size: 11px;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-weight: 500;
+    padding: 4px;
+}
+
+.toolshed-approval-already-tracked-note.is-approved {
+    color: #16a34a;
+}
+
+/* Toast Notification (Reusing #ops-toolshed-toast) */
+#ops-toolshed-toast.toolshed-approval-toast {
+    position: fixed !important;
+    top: 54px !important;
+    right: 20px !important;
+    z-index: 2147483647 !important;
+    background-color: #333668 !important;
+    color: #ffffff !important;
+    border-radius: 10px !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    padding: 12px 16px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    font-size: 13px !important;
+    max-width: 440px !important;
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out !important;
+}
+
+#ops-toolshed-toast.toolshed-approval-toast:hover {
+    background-color: #2b2e59 !important;
+}

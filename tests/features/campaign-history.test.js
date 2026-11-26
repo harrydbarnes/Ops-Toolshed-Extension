@@ -236,6 +236,23 @@ function createPage({
 }
 
 describe('campaign history feature', () => {
+    test('campaign metadata survives an inaccessible embedded frame', async () => {
+        const { dom } = createPage();
+        let frame;
+        try {
+            await flushPromises();
+            frame = dom.window.document.createElement('iframe');
+            dom.window.document.body.append(frame);
+            const inaccessible = jest.fn(() => { throw new dom.window.DOMException('Blocked cross-origin frame', 'SecurityError'); });
+            Object.defineProperty(frame, 'contentDocument', { configurable: true, get: inaccessible });
+            const snapshot = dom.window.campaignHistoryFeature.getCampaignSnapshot();
+            expect(snapshot.campaignName).toBe('TCCC ZeroZero July Burst');
+            expect(inaccessible).toHaveBeenCalled();
+        } finally {
+            if (frame) delete frame.contentDocument;
+            dom.window.close();
+        }
+    });
     test.each(['throw', 'promise', 'callback'])('stops quietly after extension invalidation via %s', async mode => {
         const { dom } = createPage({ settings: { campaignHistoryLoggingEnabled: false } });
         try {
@@ -333,6 +350,10 @@ describe('campaign history feature', () => {
             .toMatch(/top:\s*max\(56px,\s*5vh\)/i);
         expect(cssRule(contentCss, '#toolshed-campaign-history-panel.is-expanded'))
             .toMatch(/left:\s*5vw/i);
+        expect(cssRule(contentCss, '#toolshed-campaign-history-panel.is-expanded .toolshed-campaign-history-result'))
+            .toMatch(/content-visibility:\s*auto/i);
+        expect(cssRule(contentCss, '.toolshed-campaign-history-result'))
+            .not.toMatch(/content-visibility:\s*auto/i);
         expect(cssRule(contentCss, '.toolshed-campaign-history-match'))
             .toMatch(/background:\s*var\(--toolshed-history-highlight,\s*#f3e7ad\)/i);
         expect(cssRule(contentCss, '.toolshed-campaign-history-result button'))
@@ -452,8 +473,12 @@ describe('campaign history feature', () => {
         });
         expandButton.dispatchEvent(pointerDown);
         expect(pointerDown.defaultPrevented).toBe(true);
-        expandButton.click();
+        await wait(20); // Install the outside-click listener before clicking the icon.
+        expandButton.querySelector('svg path').dispatchEvent(new dom.window.MouseEvent('click', {
+            bubbles: true
+        }));
         expect(panel.classList).toContain('is-expanded');
+        expect(panel.classList).not.toContain('is-closing');
         expect(panel.getAttribute('aria-modal')).toBe('true');
         expect(expandButton.getAttribute('aria-label')).toBe('Minimise campaign history');
         expect(expandButton.querySelector('.toolshed-campaign-history-button-label').textContent)
@@ -495,6 +520,8 @@ describe('campaign history feature', () => {
         expect(panel.style.left).toBe(`${collapsedRect.left}px`);
         expect(panel.style.width).toBe(`${collapsedRect.width}px`);
         expect(panel.style.right).toBe('auto');
+        expect(panel.style.height).toBe('');
+        expect(panel.style.maxHeight).toBe('');
 
         document.querySelector('.toolshed-campaign-history-close').click();
         expect(panel.hidden).toBe(false);
@@ -586,7 +613,19 @@ describe('campaign history feature', () => {
         ]);
         expect(resultList.classList).toContain('is-page-transitioning-previous');
 
+        const expansionLayouts = [];
+        Object.defineProperty(panel, 'offsetWidth', {
+            configurable: true,
+            get() {
+                if (panel.classList.contains('is-expanded')) {
+                    expansionLayouts.push({ count: getCampaignNames().length, transition: panel.style.transition });
+                }
+                return 640;
+            }
+        });
         panel.querySelector('.toolshed-campaign-history-expand').click();
+        expect(expansionLayouts[0]).toEqual({ count: 7, transition: 'none' });
+        expect(panel.style.transition).toBe('');
         expect(panel.classList).toContain('is-expanded');
         expect(pagination.hidden).toBe(true);
         expect(getCampaignNames()).toHaveLength(7);
@@ -1353,6 +1392,60 @@ describe('campaign history feature', () => {
         dom.window.close();
     });
 
+    test('captures Traffic supplier groups without collecting placement names', async () => {
+        const { dom } = createPage({
+            url: campaignUrl.replace('ptb-mod=buy&route=online', 'ptb-mod=traffic'),
+            fieldMarkup: `<div id="prisma-traffic-layout-container"><div class="ht_master"><table class="htCore"><tbody>
+                <tr><td id="name-0" class="group-cell hierarchical-level-group-0 indent-0">WPP MS INT CROSS CHANNEL (GBP)</td></tr>
+                <tr><td id="name-1" class="hierarchical-level-group-1 indent-1">WPP MS INT CROSS CHANNEL (GBP)_Awareness_Advanced Audio_CPM</td></tr>
+                <tr><td id="name-2" class="group-cell hierarchical-level-group-1 indent-1">WPP MS INT CROSS CHANNEL (GBP)_Awareness_Advanced Display_CPM</td></tr>
+            </tbody></table></div></div>`
+        });
+        try { await flushPromises(); expect(dom.window.campaignHistoryFeature.getCampaignSnapshot().supplier).toBe('WPP MS INT CROSS CHANNEL'); }
+        finally { dom.window.close(); }
+    });
+
+    test('formats supplier names for display without rewriting saved values', async () => {
+        const value='SAMSUNG ELECTRONICS - | CAMPAIGN MANAGER:CM360 | CAMPAIGN MANAGER | INTEGRAL AD SCIENCE:IAS | TIMEOUT | TIMEOUT:Timeout | TIMEOUT:Production Fee | WPP MS INT CROSS CHANNEL | TIKTOK INFORMATION TECHNOLOGIE';
+        const {dom,localStore}=createPage({settings:{campaignHistoryLoggingEnabled:false},entries:[{
+            key:'campaign:format',campaignId:'CPFORMAT',campaignName:'Formatting example',supplier:value,firstVisitedAt:1,lastVisitedAt:1,visitCount:1
+        }]});
+        try {
+            await flushPromises();clickHistoryMenuItem(dom.window.document);await flushPromises();
+            const items=[...dom.window.document.querySelectorAll('.toolshed-campaign-history-supplier-list .toolshed-campaign-history-metadata-value')].map(item=>item.textContent);
+            expect(items).toEqual(['Samsung Electronics','Campaign Manager (CM360)','Integral Ad Science (IAS)','Timeout','Timeout (Production Fee)','WPP MS INT Cross Channel','TikTok']);
+            expect(localStore.campaignHistoryEntries[0].supplier).toContain('CAMPAIGN MANAGER:CM360');
+        } finally {dom.window.close();}
+    });
+
+    test('does not pick a client name from Campaign History or show an unconfirmed client on the current campaign', async () => {
+        const {dom,localStore}=createPage({settings:{campaignHistoryLoggingEnabled:false},entries:[{
+            key:'campaign:cp3fmrk',campaignId:'CP3FMRK',campaignName:'Current campaign',clientName:'NUFFIELD',supplier:'CAMPAIGN MANAGER',firstVisitedAt:1,lastVisitedAt:1,visitCount:1
+        }]});
+        try {
+            await flushPromises();clickHistoryMenuItem(dom.window.document);await flushPromises();
+            const result=dom.window.document.querySelector('.toolshed-campaign-history-result');
+            expect(result.textContent).not.toContain('NUFFIELD');
+            expect(result.textContent).toContain('Campaign Manager (CM360)');
+            expect(dom.window.campaignHistoryFeature.getCampaignSnapshot().clientName).toBe('');
+            expect(localStore.campaignHistoryEntries[0].clientName).toBe('NUFFIELD');
+        } finally {dom.window.close();}
+    });
+
+    test('renders distinct suppliers and omits old placement-shaped values without deleting them', async () => {
+        const value = 'Meta | WPP MS INT CROSS CHANNEL _Awareness_Advanced Audio_CPM_RICH | Reddit';
+        const {dom, localStore} = createPage({settings:{campaignHistoryLoggingEnabled:false},entries:[{
+            key:'campaign:multi',campaignId:'CPMULTI',campaignName:'Multi supplier campaign',
+            supplier:value,firstVisitedAt:1,lastVisitedAt:1,visitCount:1
+        }]});
+        try {
+            await flushPromises(); clickHistoryMenuItem(dom.window.document); await flushPromises();
+            const items=[...dom.window.document.querySelectorAll('.toolshed-campaign-history-supplier-list .toolshed-campaign-history-metadata-value')];
+            expect(items.map(item=>item.textContent)).toEqual(['Meta','Reddit']);
+            expect(localStore.campaignHistoryEntries[0].supplier).toContain('_Awareness_Advanced Audio_CPM_RICH');
+        } finally { dom.window.close(); }
+    });
+
     test('normalizes common supplier names before logging and migrating history', async () => {
         const { dom, localStore } = createPage({
             settings: { campaignHistoryLoggingEnabled: false },
@@ -1428,7 +1521,7 @@ describe('campaign history feature', () => {
                                 <td class="group-cell table-row-total hierarchical-name">Media total</td>
                             </tr>
                             <tr role="row">
-                                <td class="group-cell hierarchical-level-group-0 mo-row-expandcollapse"></td>
+                                <td class="group-cell hierarchical-level-group-0 hierarchical-name mo-row-expandcollapse"></td>
                                 <td class="group-cell hierarchical-level-group-0 hierarchical-name">GUARDIAN | 000010</td>
                                 <td class="hierarchical-level-group-1 redistribute-btn-col">
                                     <button>Redistribute</button>
@@ -1484,8 +1577,11 @@ describe('campaign history feature', () => {
         expect(localStore.campaignHistoryEntries.find(entry => entry.campaignId === 'CPLEGACY').supplier)
             .toBe('');
         expect(legacyResult.textContent).not.toContain('Redistribute');
-        expect(manyResult.querySelector('.toolshed-campaign-history-metadata-label').textContent)
+        expect(manyResult.querySelector('.toolshed-campaign-history-suppliers .toolshed-campaign-history-metadata-label').textContent)
             .toBe('Suppliers');
+        const metadataItems = [...manyResult.querySelectorAll('.toolshed-campaign-history-metadata-item')];
+        expect(metadataItems.at(-1).classList.contains('toolshed-campaign-history-suppliers')).toBe(true);
+        expect(manyResult.querySelector('button').getAttribute('aria-label')).toContain('Many suppliers');
         dom.window.close();
     });
 
@@ -1655,6 +1751,12 @@ describe('campaign history feature', () => {
             .find(el => el.textContent.includes('Copy campaign name'));
         trustedClick(copyNameItem);
         expect(window.chrome.runtime.sendMessage).toHaveBeenCalledWith({ action: 'copyCampaignHeaderToClipboard', text: 'Test Target Campaign' });
+        await flushPromises();
+        expect(copyNameItem.textContent).toContain('Copied name!');
+        window.chrome.runtime.sendMessage.mockRejectedValueOnce(new Error('Extension context invalidated'));
+        trustedClick(copyNameItem);
+        await flushPromises();
+        expect(copyNameItem.textContent).toContain('Failed to copy');
 
         // 7. Test dismissal via Escape key
         card.dispatchEvent(new window.MouseEvent('contextmenu', {

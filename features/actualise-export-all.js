@@ -6,8 +6,8 @@
     const SETTING_KEY = 'actualiseBulkExportEnabled';
     const STATUS_ID = 'toolshed-export-all-actuals-status';
     const FILE_INPUT_ID = 'toolshed-combine-actuals-input';
-    const MONTH_SELECTOR = '#mos-paginator li > a';
-    const ACTIVE_MONTH_SELECTOR = '#mos-paginator li.active > a';
+    const MONTH_SELECTOR = '#mos-paginator li > a, .actual-months-group mo-button-group-item';
+    const ACTIVE_MONTH_SELECTOR = '#mos-paginator li.active > a, .actual-months-group mo-button-group-item[aria-pressed="true"], .actual-months-group mo-button-group-item[selected="true"]';
     const IMPORT_EXPORT_BUTTON_SELECTOR = '#btn-importExportPlacements';
     const IMPORT_EXPORT_CONTAINER_SELECTOR = '#btn-importExportPlacements-container';
     const NATIVE_EXPORT_ITEM_SELECTOR = '#btn-2';
@@ -18,6 +18,11 @@
     const MENU_OPEN_TIMEOUT_MS = timing.menuOpenTimeoutMs || 3000;
     const STATUS_DURATION_MS = timing.statusDurationMs || 6000;
     const COMBINE_STATUS_DURATION_MS = timing.combineStatusDurationMs || 30000;
+    const CAPTURE_SETTLE_TIMEOUT_MS = timing.captureSettleTimeoutMs ?? 2000;
+    const BRIDGE_SOURCE = 'ops-toolshed-actualise-month-bridge';
+    const EXPORT_CAPTURE_START = 'ops-toolshed-actualise-export-capture-start';
+    const EXPORT_CAPTURE_STOP = 'ops-toolshed-actualise-export-capture-stop';
+    const EXPORT_CAPTURED = 'ops-toolshed-actualise-export-captured';
     const MAX_COMBINE_FILES = 36;
     const MAX_CSV_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -43,12 +48,17 @@
     }
 
     function getVisibleMonths() {
-        const links = Array.from(document.querySelectorAll(MONTH_SELECTOR));
+        const links = getMonthLinks();
         const layoutIsAvailable = links.some(link => link.getClientRects().length > 0);
         return links
             .filter(link => !layoutIsAvailable || link.getClientRects().length > 0)
             .map(link => link.textContent.trim())
             .filter((label, index, labels) => label && labels.indexOf(label) === index);
+    }
+
+    function getMonthLinks() {
+        const expanded = Array.from(document.querySelectorAll('#toolshed-actualise-month-selector .toolshed-actualise-month-button'));
+        return expanded.length ? expanded : Array.from(document.querySelectorAll(MONTH_SELECTOR));
     }
 
     function getActiveMonth() {
@@ -67,6 +77,9 @@
         }
         const link = item.querySelector('a');
         if (link && link.textContent !== desiredText) link.textContent = desiredText;
+        if (item.localName === 'mo-menu-item' && item.getAttribute('label') !== desiredText) {
+            item.setAttribute('label', desiredText);
+        }
     }
 
     function updateMenuItems() {
@@ -96,9 +109,14 @@
         if (!running) chooseCsvFiles();
     }
 
-    function createMenuItem(id, handler) {
-        const item = document.createElement('li');
+    function createMenuItem(id, handler, nativeItem) {
+        const item = document.createElement(nativeItem.localName === 'mo-menu-item' ? 'mo-menu-item' : 'li');
         item.id = id;
+
+        if (item.localName === 'mo-menu-item') {
+            item.addEventListener('click', handler);
+            return item;
+        }
 
         const link = document.createElement('a');
         link.href = '#';
@@ -124,7 +142,7 @@
 
         let item = document.getElementById(MENU_ID);
         if (!item) {
-            item = createMenuItem(MENU_ID, handleMenuClick);
+            item = createMenuItem(MENU_ID, handleMenuClick, nativeExportItem);
             nativeExportItem.after(item);
         } else if (item.previousElementSibling !== nativeExportItem) {
             nativeExportItem.after(item);
@@ -132,7 +150,7 @@
 
         let combineItem = document.getElementById(COMBINE_MENU_ID);
         if (!combineItem) {
-            combineItem = createMenuItem(COMBINE_MENU_ID, handleCombineMenuClick);
+            combineItem = createMenuItem(COMBINE_MENU_ID, handleCombineMenuClick, nativeExportItem);
             item.after(combineItem);
         } else if (combineItem.previousElementSibling !== item) {
             item.after(combineItem);
@@ -248,6 +266,10 @@
         return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
     }
 
+    const D_NUMBER_MONTH_HEADER = 'D Number Month';
+    const D_NUMBER_HEADER_PATTERN = /^d[\s_-]*(?:number|no\.?|#|id)$/i;
+    const D_NUMBER_VALUE_PATTERN = /^D(?=.*\d)[A-Z0-9]{3,}$/i;
+
     function parseActualizationFilename(name) {
         const match = String(name || '').match(
             /^(Actualization-.+)-(\d{4})-(0[1-9]|1[0-2])(?: \(\d+\))?\.csv$/i
@@ -257,6 +279,21 @@
             prefix: match[1],
             month: `${match[2]}-${match[3]}`
         };
+    }
+
+    function findDNumberColumnIndex(header, rows) {
+        const headerIndex = header.findIndex(name =>
+            D_NUMBER_HEADER_PATTERN.test(String(name || '').trim())
+        );
+        if (headerIndex !== -1) return headerIndex;
+
+        for (let columnIndex = 0; columnIndex < header.length; columnIndex += 1) {
+            const hasDNumberValue = rows.some(row =>
+                D_NUMBER_VALUE_PATTERN.test(String(row[columnIndex] ?? '').trim())
+            );
+            if (hasDNumberValue) return columnIndex;
+        }
+        return -1;
     }
 
     async function mergeActualizationCsvFiles(files, expectedCount = 0) {
@@ -297,7 +334,7 @@
         describedFiles.sort((left, right) => left.month.localeCompare(right.month));
 
         let header = null;
-        const combinedRows = [];
+        const combinedEntries = [];
         for (const item of describedFiles) {
             const rows = parseCsvRows(await item.file.text());
             if (rows.length === 0) throw new Error(`${item.file.name} is empty.`);
@@ -319,11 +356,44 @@
                 if (normalizedRow.length !== header.length) {
                     throw new Error(`${item.file.name} row ${rowIndex + 2} has a different column count.`);
                 }
-                combinedRows.push(normalizedRow);
+                combinedEntries.push({ row: normalizedRow, month: item.month });
             });
         }
 
-        const allRows = [header, ...combinedRows];
+        const existingMonthIndex = header.findIndex(
+            name => String(name || '').trim().toLowerCase() === D_NUMBER_MONTH_HEADER.toLowerCase()
+        );
+
+        let outputHeader;
+        let outputRows;
+        if (existingMonthIndex !== -1) {
+            outputHeader = [...header];
+            outputRows = combinedEntries.map(({ row, month }) => {
+                const nextRow = [...row];
+                if (String(nextRow[existingMonthIndex] ?? '').trim() === '') {
+                    nextRow[existingMonthIndex] = month;
+                }
+                return nextRow;
+            });
+        } else {
+            const dNumberIndex = findDNumberColumnIndex(
+                header,
+                combinedEntries.map(entry => entry.row)
+            );
+            const insertIndex = dNumberIndex === -1 ? 0 : dNumberIndex + 1;
+            outputHeader = [
+                ...header.slice(0, insertIndex),
+                D_NUMBER_MONTH_HEADER,
+                ...header.slice(insertIndex)
+            ];
+            outputRows = combinedEntries.map(({ row, month }) => [
+                ...row.slice(0, insertIndex),
+                month,
+                ...row.slice(insertIndex)
+            ]);
+        }
+
+        const allRows = [outputHeader, ...outputRows];
         const csv = `\uFEFF${allRows
             .map(row => row.map(escapeCsvField).join(','))
             .join('\r\n')}\r\n`;
@@ -333,7 +403,7 @@
             csv,
             filename: `${describedFiles[0].prefix}-${firstMonth}-to-${lastMonth}.csv`,
             fileCount: describedFiles.length,
-            rowCount: combinedRows.length
+            rowCount: outputRows.length
         };
     }
 
@@ -409,7 +479,7 @@
     }
 
     function findMonthLink(label) {
-        return Array.from(document.querySelectorAll(MONTH_SELECTOR))
+        return getMonthLinks()
             .find(link => link.textContent.trim() === label) || null;
     }
 
@@ -422,10 +492,13 @@
         await waitForCondition(() => {
             const nativeExportItem = document.querySelector(NATIVE_EXPORT_ITEM_SELECTOR);
             const importExportButton = document.querySelector(IMPORT_EXPORT_BUTTON_SELECTOR);
+            const modern = Boolean(importExportButton?.shadowRoot?.querySelector('mo-menu'));
+            const assessment = window.actualiseMonthAssuranceFeature?.assessActualiseMonth?.();
             const ready =
                 getActiveMonth() === label &&
-                nativeExportItem &&
-                !nativeExportItem.classList.contains('mo-disabled') &&
+                (nativeExportItem ? !nativeExportItem.classList.contains('mo-disabled') && !nativeExportItem.hasAttribute('disabled') :
+                    modern) &&
+                (!modern || assessment?.status === 'correct') &&
                 importExportButton &&
                 !importExportButton.disabled &&
                 !hasVisibleLoadingSpinner();
@@ -453,17 +526,31 @@
         if (!importExportButton) throw new Error('Import/Export is unavailable.');
 
         const container = document.querySelector(IMPORT_EXPORT_CONTAINER_SELECTOR);
-        if (!container?.classList.contains('open')) importExportButton.click();
+        const modernMenu = importExportButton.shadowRoot?.querySelector('mo-menu');
+        if (modernMenu) {
+            for (let attempt = 0; !document.querySelector(NATIVE_EXPORT_ITEM_SELECTOR) && attempt < 2; attempt += 1) {
+                modernMenu.dispatchEvent(new MouseEvent('mousedown', {
+                    bubbles: true, composed: true, button: 0, buttons: 1
+                }));
+                try {
+                    await waitForCondition(() => document.querySelector(NATIVE_EXPORT_ITEM_SELECTOR),
+                        MENU_OPEN_TIMEOUT_MS / 2, 'the Export actuals view option');
+                } catch (error) {
+                    if (attempt === 1) throw error;
+                }
+            }
+        } else if (!container?.classList.contains('open')) importExportButton.click();
 
         await waitForCondition(() => {
             const exportItem = document.querySelector(NATIVE_EXPORT_ITEM_SELECTOR);
-            return document.querySelector(IMPORT_EXPORT_CONTAINER_SELECTOR)?.classList.contains('open') &&
+            return (modernMenu ? true :
+                document.querySelector(IMPORT_EXPORT_CONTAINER_SELECTOR)?.classList.contains('open')) &&
                 exportItem &&
-                !exportItem.classList.contains('mo-disabled');
+                !exportItem.classList.contains('mo-disabled') && !exportItem.hasAttribute('disabled');
         }, MENU_OPEN_TIMEOUT_MS, 'the Export actuals view option');
 
         const exportItem = document.querySelector(NATIVE_EXPORT_ITEM_SELECTOR);
-        const exportControl = exportItem.querySelector('a') || exportItem;
+        const exportControl = exportItem.shadowRoot?.querySelector('a') || exportItem.querySelector('a') || exportItem;
         exportControl.click();
         await wait(EXPORT_TRIGGER_GAP_MS);
     }
@@ -490,7 +577,44 @@
 
         const originalMonth = getActiveMonth();
         const campaignId = getCampaignId();
+        const captureToken = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        const capturedFiles = [];
+        let captureStopped = false;
         let completed = 0;
+
+        const handleCapturedMessage = event => {
+            if (event.source !== window || event.origin !== window.location.origin ||
+                event.data?.source !== BRIDGE_SOURCE || event.data?.type !== EXPORT_CAPTURED) {
+                return;
+            }
+            const detail = event.data.detail;
+            if (!detail || detail.token !== captureToken) return;
+            const csvText = String(detail.text || '');
+            const fileName = String(detail.name || 'Actualization.csv');
+            capturedFiles.push({
+                name: fileName,
+                size: Number.isFinite(Number(detail.size)) ? Number(detail.size) : csvText.length,
+                text: async () => csvText
+            });
+        };
+
+        const stopCapture = () => {
+            if (captureStopped) return;
+            captureStopped = true;
+            window.removeEventListener('message', handleCapturedMessage);
+            window.postMessage({
+                source: BRIDGE_SOURCE,
+                type: EXPORT_CAPTURE_STOP,
+                detail: { token: captureToken }
+            }, window.location.origin);
+        };
+
+        window.addEventListener('message', handleCapturedMessage);
+        window.postMessage({
+            source: BRIDGE_SOURCE,
+            type: EXPORT_CAPTURE_START,
+            detail: { token: captureToken }
+        }, window.location.origin);
 
         try {
             for (let index = 0; index < months.length; index += 1) {
@@ -501,7 +625,7 @@
 
                 const month = months[index];
                 showStatus(
-                    `Exporting ${index + 1} of ${months.length}: ${month}. Keep this tab open; Chrome may ask to allow multiple downloads.`
+                    `Exporting ${index + 1} of ${months.length}: ${month}. Keep this tab open.`
                 );
                 await selectMonth(month);
                 if (cancelRequested) break;
@@ -509,9 +633,31 @@
                 completed += 1;
             }
 
+            if (!cancelRequested && completed >= 2 && capturedFiles.length < completed &&
+                CAPTURE_SETTLE_TIMEOUT_MS > 0) {
+                try {
+                    await waitForCondition(
+                        () => capturedFiles.length >= completed,
+                        CAPTURE_SETTLE_TIMEOUT_MS,
+                        'exported CSVs'
+                    );
+                } catch (error) {
+                    // Fall back to the manual Combine CSVs picker when downloads were not intercepted.
+                }
+            }
+
+            stopCapture();
             await restoreMonth(originalMonth, campaignId);
             if (cancelRequested) {
                 showStatus(`Stopped after starting ${completed} of ${months.length} exports.`, 'info', 'none');
+            } else if (capturedFiles.length === completed && completed >= 2) {
+                const result = await mergeActualizationCsvFiles(capturedFiles, completed);
+                downloadCombinedCsv(result);
+                showStatus(
+                    `Combined ${result.fileCount} months and ${result.rowCount} data rows into ${result.filename}.`,
+                    'success',
+                    'none'
+                );
             } else {
                 lastExportedMonthCount = months.length;
                 showStatus(
@@ -521,10 +667,12 @@
                 );
             }
         } catch (error) {
+            stopCapture();
             await restoreMonth(originalMonth, campaignId);
             console.error('[Ops Toolshed] Export every month failed:', error);
             showStatus(`Bulk export stopped: ${error.message}`, 'error', 'none');
         } finally {
+            stopCapture();
             running = false;
             cancelRequested = false;
             updateMenuItems();
@@ -537,6 +685,13 @@
 
         window.addEventListener('hashchange', apply);
         window.addEventListener('pageshow', apply);
+        // Modern Prisma creates its menu in a detached overlay only when opened.
+        new MutationObserver(records => {
+            if (records.some(record => Array.from(record.addedNodes).some(node =>
+                node.nodeType === 1 && (node.matches?.(NATIVE_EXPORT_ITEM_SELECTOR) ||
+                    node.querySelector?.(NATIVE_EXPORT_ITEM_SELECTOR))
+            ))) apply();
+        }).observe(document.body, { childList: true, subtree: true });
         if (!chrome.storage?.sync) {
             settingsLoaded = true;
             apply();

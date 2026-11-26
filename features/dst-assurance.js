@@ -29,6 +29,11 @@
         { mediaSupplier: 'IMDB', feeSupplier: 'AMAZON REG. ADVERTISING FEE (GBP)' },
         { mediaSupplier: 'AMAZON (USD)', feeSupplier: 'AMAZON REG. ADVERTISING FEE (USD)' }
     ]);
+    const FEE_SUPPLIER_ALIASES = Object.freeze({
+        'AMAZON REG. ADVERTISING FEE (GBP)': ['AMAZON REG. ADVERTISING FEE (G'],
+        'AMAZON REG. ADVERTISING FEE (EUR)': ['AMAZON REG. ADVERTISING FEE (E'],
+        'AMAZON REG. ADVERTISING FEE (USD)': ['AMAZON REG. ADVERTISING FEE (U']
+    });
     const DST_RATE = 0.02;
     const AMOUNT_TOLERANCE = 0.01;
     const DST_START_MONTH = '2026-07';
@@ -364,20 +369,35 @@
         return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
+    function getSupplierCandidates(supplier) {
+        if (!supplier) return [];
+        const normalized = normalizeText(supplier);
+        const aliases = FEE_SUPPLIER_ALIASES[normalized] || [];
+        return [normalized, ...aliases];
+    }
+
     function matchesSupplierPrefix(name, supplier) {
-        const pattern = new RegExp(
-            `^${escapeRegExp(normalizeText(supplier))}(?:\\s|:|_|$)`,
-            'i'
-        );
-        return pattern.test(normalizeText(name));
+        const candidates = getSupplierCandidates(supplier);
+        const normalizedName = normalizeText(name);
+        return candidates.some(candidate => {
+            const pattern = new RegExp(
+                `^${escapeRegExp(candidate)}(?:\\s|:|_|$)`,
+                'i'
+            );
+            return pattern.test(normalizedName);
+        });
     }
 
     function containsSupplierDescription(name, supplier) {
-        const pattern = new RegExp(
-            `(?:^|:)\\s*${escapeRegExp(normalizeText(supplier))}(?:\\s|:|_|$)`,
-            'i'
-        );
-        return pattern.test(normalizeText(name));
+        const candidates = getSupplierCandidates(supplier);
+        const normalizedName = normalizeText(name);
+        return candidates.some(candidate => {
+            const pattern = new RegExp(
+                `(?:^|:)\\s*${escapeRegExp(candidate)}(?:\\s|:|_|$)`,
+                'i'
+            );
+            return pattern.test(normalizedName);
+        });
     }
 
     function getFacebookSupplierRows(rows, displayRange) {

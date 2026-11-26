@@ -4,6 +4,11 @@
     const SOURCE = 'ops-toolshed-actualise-month-bridge';
     const EVENT_TYPE = 'ops-toolshed-actualise-month-data';
     const REQUEST_TYPE = 'ops-toolshed-actualise-month-request-latest';
+    const EXPORT_CAPTURE_START = 'ops-toolshed-actualise-export-capture-start';
+    const EXPORT_CAPTURE_STOP = 'ops-toolshed-actualise-export-capture-stop';
+    const EXPORT_CAPTURED = 'ops-toolshed-actualise-export-captured';
+    const ACTUALIZATION_CSV_NAME_PATTERN =
+        /^Actualization-.+-\d{4}-(0[1-9]|1[0-2])(?: \(\d+\))?\.csv$/i;
     const INSTALL_FLAG = '__opsToolshedActualiseMonthBridgeInstalled';
     const MASTER_EVENT = 'ops-toolshed:master-feature-state';
     const ACTUALISE_ENDPOINT_PATTERN =
@@ -21,6 +26,9 @@
     let featureModeActive = document.documentElement?.getAttribute('data-ops-toolshed-features-active') === 'true';
     let xhrPatch = null;
     let fetchPatch = null;
+    let exportCaptureToken = null;
+    const trackedBlobUrls = new Map();
+    let exportCapturePatch = null;
 
     document.addEventListener(MASTER_EVENT, event => {
         featureModeActive = event.detail === true;
@@ -123,6 +131,25 @@
         return values;
     }
 
+    function getBuyStatusRows(payload) {
+        const rows = [];
+        const visitNodes = nodes => {
+            for (const node of nodes || []) {
+                const fields = Object.fromEntries((node.fields || []).map(field => [field.id, field.value]));
+                if (fields.placementNumber && fields.buyStatus) {
+                    rows.push({
+                        placementNumber: String(fields.placementNumber),
+                        buyStatus: String(fields.buyStatus)
+                    });
+                }
+                if (Array.isArray(node.nodes)) visitNodes(node.nodes);
+            }
+        };
+
+        visitNodes(payload?.nodes);
+        return rows;
+    }
+
     function publishEvidence(requestMonth, responseText) {
         if (!isBridgeActive()) return;
 
@@ -135,10 +162,12 @@
 
         const responseMonths = getResponseMonthValues(payload);
         latestEvidence = {
+            observedAt: Date.now(),
             campaignId: getCampaignId(),
             requestMonth,
             responseMonths,
-            rowCount: Number.isFinite(Number(payload?.total)) ? Number(payload.total) : null
+            rowCount: Number.isFinite(Number(payload?.total)) ? Number(payload.total) : null,
+            buyStatusRows: getBuyStatusRows(payload)
         };
         window.postMessage({
             source: SOURCE,
@@ -147,10 +176,160 @@
         }, window.location.origin);
     }
 
+    function readBlobText(blob) {
+        if (typeof blob?.text === 'function') return blob.text();
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result || ''));
+            reader.onerror = () => reject(reader.error || new Error('Failed to read exported CSV blob.'));
+            reader.readAsText(blob);
+        });
+    }
+
+    function readDataUrlText(href) {
+        const commaIndex = href.indexOf(',');
+        if (commaIndex === -1) return '';
+        const meta = href.slice(0, commaIndex);
+        const payload = href.slice(commaIndex + 1);
+        if (/;base64/i.test(meta)) {
+            const binary = window.atob(payload);
+            const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
+            return new TextDecoder('utf-8').decode(bytes);
+        }
+        return decodeURIComponent(payload);
+    }
+
+    function isCapturedCsvAnchor(anchor, href, downloadName, trackedBlob) {
+        if (ACTUALIZATION_CSV_NAME_PATTERN.test(downloadName)) return true;
+        if (trackedBlob && (/\.csv$/i.test(downloadName) || /csv/i.test(trackedBlob.type || ''))) {
+            return true;
+        }
+        if (/^data:text\/csv/i.test(href)) return true;
+        return false;
+    }
+
+    function installExportCapture() {
+        if (exportCapturePatch || !isBridgeActive() || !exportCaptureToken) return;
+        const anchorProto = window.HTMLAnchorElement?.prototype;
+        if (!anchorProto || typeof anchorProto.click !== 'function') return;
+
+        const originalCreateObjectURL = typeof window.URL?.createObjectURL === 'function'
+            ? window.URL.createObjectURL
+            : null;
+        const wrappedCreateObjectURL = originalCreateObjectURL
+            ? function(object) {
+                const url = originalCreateObjectURL.apply(this, arguments);
+                if (typeof url === 'string' && object instanceof window.Blob) {
+                    trackedBlobUrls.set(url, object);
+                }
+                return url;
+            }
+            : null;
+
+        if (wrappedCreateObjectURL) {
+            window.URL.createObjectURL = wrappedCreateObjectURL;
+        }
+
+        const originalClick = anchorProto.click;
+        const wrappedClick = function() {
+            const token = exportCaptureToken;
+            if (!token || !isBridgeActive()) {
+                return originalClick.apply(this, arguments);
+            }
+
+            const downloadName = String(this.getAttribute?.('download') || this.download || '').trim();
+            const href = String(this.getAttribute?.('href') || this.href || '').trim();
+            const trackedBlob = trackedBlobUrls.get(href) || null;
+            if (!isCapturedCsvAnchor(this, href, downloadName, trackedBlob)) {
+                return originalClick.apply(this, arguments);
+            }
+
+            const name = downloadName || 'Actualization.csv';
+            let textPromise;
+            if (trackedBlob) {
+                textPromise = readBlobText(trackedBlob);
+            } else if (/^data:/i.test(href)) {
+                textPromise = Promise.resolve().then(() => readDataUrlText(href));
+            } else {
+                const resolvedUrl = new URL(href, window.location.href);
+                if (resolvedUrl.origin !== window.location.origin) {
+                    return originalClick.apply(this, arguments);
+                }
+                textPromise = window.fetch(resolvedUrl.href, { credentials: 'include' })
+                    .then(response => {
+                        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                        return response.text();
+                    });
+            }
+
+            Promise.resolve(textPromise)
+                .then(text => {
+                    window.postMessage({
+                        source: SOURCE,
+                        type: EXPORT_CAPTURED,
+                        detail: {
+                            token,
+                            name,
+                            text,
+                            size: trackedBlob ? trackedBlob.size : text.length
+                        }
+                    }, window.location.origin);
+                })
+                .catch(() => {});
+            return undefined;
+        };
+
+        anchorProto.click = wrappedClick;
+        exportCapturePatch = {
+            anchorProto,
+            originalClick,
+            wrappedClick,
+            originalCreateObjectURL,
+            wrappedCreateObjectURL
+        };
+    }
+
+    function removeExportCapture() {
+        exportCaptureToken = null;
+        trackedBlobUrls.clear();
+        if (!exportCapturePatch) return;
+        const {
+            anchorProto,
+            originalClick,
+            wrappedClick,
+            originalCreateObjectURL,
+            wrappedCreateObjectURL
+        } = exportCapturePatch;
+        if (anchorProto.click === wrappedClick) {
+            anchorProto.click = originalClick;
+        }
+        if (wrappedCreateObjectURL && window.URL?.createObjectURL === wrappedCreateObjectURL) {
+            window.URL.createObjectURL = originalCreateObjectURL;
+        }
+        exportCapturePatch = null;
+    }
+
     window.addEventListener('message', event => {
         if (event.source !== window || event.origin !== window.location.origin ||
-            event.data?.source !== SOURCE || event.data.type !== REQUEST_TYPE ||
-            !isBridgeActive() || !latestEvidence) return;
+            event.data?.source !== SOURCE) return;
+
+        if (event.data.type === EXPORT_CAPTURE_START) {
+            const token = String(event.data?.detail?.token || '');
+            if (!token || !isBridgeActive()) return;
+            exportCaptureToken = token;
+            installExportCapture();
+            return;
+        }
+
+        if (event.data.type === EXPORT_CAPTURE_STOP) {
+            const token = String(event.data?.detail?.token || '');
+            if (!token || token === exportCaptureToken) {
+                removeExportCapture();
+            }
+            return;
+        }
+
+        if (event.data.type !== REQUEST_TYPE || !isBridgeActive() || !latestEvidence) return;
         window.postMessage({
             source: SOURCE,
             type: EVENT_TYPE,
@@ -220,6 +399,15 @@
         xhrPatch = null;
     }
 
+    function handleUnhandledRejection(event) {
+        if (event.reason instanceof TypeError && event.reason.message === 'Failed to fetch') {
+            const stack = String(event.reason?.stack || '');
+            if (stack.includes('actualise-month-bridge.js')) {
+                event.preventDefault();
+            }
+        }
+    }
+
     function installFetchBridge() {
         if (typeof window.fetch !== 'function') return;
         if (fetchPatch?.wrappedFetch === window.fetch) return;
@@ -227,9 +415,15 @@
 
         const originalFetch = window.fetch;
         const wrappedFetch = function(input, init) {
-            const url = typeof input === 'string' ? input : input?.url;
+            const url = typeof input === 'string'
+                ? input
+                : (input instanceof URL ? input.href : input?.url);
             if (!isBridgeActive() || !isActualiseRequest(url)) {
-                return originalFetch.apply(this, arguments);
+                const responsePromise = originalFetch.apply(this, arguments);
+                if (responsePromise && typeof responsePromise.catch === 'function') {
+                    responsePromise.catch(() => {});
+                }
+                return responsePromise;
             }
 
             const requestMonth = getRequestMonth(init?.body);
@@ -247,11 +441,13 @@
         };
 
         window.fetch = wrappedFetch;
+        window.addEventListener('unhandledrejection', handleUnhandledRejection);
         fetchPatch = { originalFetch, wrappedFetch };
     }
 
     function removeFetchBridge() {
         if (!fetchPatch) return;
+        window.removeEventListener('unhandledrejection', handleUnhandledRejection);
         if (window.fetch === fetchPatch.wrappedFetch) window.fetch = fetchPatch.originalFetch;
         fetchPatch = null;
     }
@@ -264,6 +460,7 @@
         }
 
         latestEvidence = null;
+        removeExportCapture();
         removeXhrBridge();
         removeFetchBridge();
     }

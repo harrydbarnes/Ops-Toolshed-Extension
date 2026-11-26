@@ -48,12 +48,13 @@ describe('Switch Accounts feature', () => {
         shadowRoot.appendChild(document.createElement('mo-menu'));
 
         waitForElementToDisappear = jest.fn().mockResolvedValue();
-        window.utils = {
+        window.eval(readScript(path.resolve(__dirname, '../../utils.js')));
+        Object.assign(window.utils, {
             waitForElementInShadow: jest.fn().mockResolvedValue(userMenu),
             waitForElement: jest.fn().mockResolvedValue(document.getElementById('saveButton')),
             waitForElementToDisappear,
             showToast: jest.fn()
-        };
+        });
         window.chrome = {
             runtime: {
                 getURL: jest.fn(() => 'switch-accounts.css'),

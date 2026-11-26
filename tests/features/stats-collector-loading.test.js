@@ -7,11 +7,12 @@ const statsCode = readScript(path.resolve(__dirname, '../../features/stats-colle
 
 describe('loading-time collection', () => {
     function createCollector(
-        url = 'https://groupmuk-prisma.mediaocean.com/campaign-management/',
+        url = 'https://groupmuk-prisma.mediaocean.com/campaign-management/#route=unknown',
         sendMessage = jest.fn().mockResolvedValue({ status: 'success' })
     ) {
         const dom = new JSDOM('<!doctype html><html><body></body></html>', {
             runScripts: 'dangerously',
+            pretendToBeVisual: true,
             url
         });
         const { window } = dom;
@@ -38,6 +39,112 @@ describe('loading-time collection', () => {
         element.getBoundingClientRect = () => ({ width: 40, height: 40, left: 0, top: 0, right: 40, bottom: 40 });
         return element;
     }
+
+    test.each(['time/display/myTimesheetApprovals/AwaitingMe', 'time/display/timesheet'])('timesheet samples pass background validation for %s', route => {
+        const { dom, window, setNow } = createCollector(`https://go.mediaocean.com/viewport-home/#osAppId=rod-time&osPspId=rod-time&route=${route}`);
+        setNow(Date.now());
+        let elapsed = 0;
+        window.performance.now = () => elapsed;
+        window.statsCollector.checkLoadingState({ visibleSpinners: [], pageVisibleSpinners: [{}] });
+        elapsed = 500;
+        window.statsCollector.checkLoadingState({ visibleSpinners: [], pageVisibleSpinners: [] });
+        const message = window.chrome.runtime.sendMessage.mock.calls.map(([value]) => value)
+            .find(value => value.type === 'PERFORMANCE_SAMPLE');
+        expect(message.value.area).toBe('unclassified');
+        expect(require('../../diagnostics').sanitize(message.value)).toEqual(message.value);
+        dom.window.close();
+    });
+
+    test('merges overlapping page indicators, separates side panels and discards disabled observations', () => {
+        const { dom, window } = createCollector();
+        let elapsed = 100;
+        window.performance.now = () => elapsed;
+        const state = { visibleSpinners: [], pageVisibleSpinners: [{}], pageVisibleSkeletons: [{}], sidePanelVisibleSpinners: [{}] };
+        window.statsCollector.checkLoadingState(state);
+        elapsed = 600;
+        window.statsCollector.checkLoadingState({ ...state, pageVisibleSpinners: [] });
+        elapsed = 1100;
+        window.statsCollector.checkLoadingState({ ...state, pageVisibleSpinners: [], pageVisibleSkeletons: [] });
+        elapsed = 2100;
+        window.statsCollector.checkLoadingState({ visibleSpinners: [], pageVisibleSpinners: [], pageVisibleSkeletons: [], sidePanelVisibleSpinners: [] });
+        const samples = () => window.chrome.runtime.sendMessage.mock.calls.filter(([m]) => m.type === 'PERFORMANCE_SAMPLE').map(([m]) => m.value);
+        expect(samples()).toEqual([
+            expect.objectContaining({ signal: 'page_indicator', duration: 1000, outcome: 'completed' }),
+            expect.objectContaining({ signal: 'side_panel_indicator', duration: 2000, outcome: 'completed' })
+        ]);
+        window.statsCollector.checkLoadingState(state);
+        const listener = window.chrome.storage.onChanged.addListener.mock.calls[0][0];
+        listener({ statsCollectorEnabled: { newValue: false } }, 'sync');
+        window.dispatchEvent(new window.Event('pagehide'));
+        expect(samples()).toHaveLength(2);
+        dom.window.close();
+    });
+
+    test('emits one timeout until indicators clear and interrupts same-area route changes', () => {
+        const { dom, window } = createCollector();
+        let elapsed = 0, timeout;
+        window.performance.now = () => elapsed;
+        window.setTimeout = jest.fn(callback => { timeout = callback; return 1; });
+        window.clearTimeout = jest.fn();
+        const active = { visibleSpinners: [], pageVisibleSpinners: [{}], pageVisibleSkeletons: [], sidePanelVisibleSpinners: [] };
+        const idle = { ...active, pageVisibleSpinners: [] };
+        const samples = () => window.chrome.runtime.sendMessage.mock.calls.filter(([m]) => m.type === 'PERFORMANCE_SAMPLE').map(([m]) => m.value);
+        window.statsCollector.checkLoadingState(active);
+        elapsed = 300001; timeout();
+        window.statsCollector.checkLoadingState(active);
+        window.statsCollector.checkLoadingState(idle);
+        expect(samples()).toEqual([expect.objectContaining({ outcome: 'timed_out', duration: 300000 })]);
+        window.statsCollector.checkLoadingState(active);
+        elapsed += 100;
+        window.history.replaceState({}, '', '#route=another');
+        window.statsCollector.checkLoadingState(active);
+        expect(samples().map(sample => sample.outcome)).toEqual(['timed_out', 'interrupted']);
+        window.dispatchEvent(new window.Event('pagehide'));
+        expect(samples().at(-1).outcome).toBe('interrupted');
+        dom.window.close();
+    });
+
+    test('tab switches interrupt timings once and do not turn a resumed load into a completion', () => {
+        const { dom, window } = createCollector();
+        let elapsed = 0, hidden = false;
+        window.performance.now = () => elapsed;
+        Object.defineProperty(window.document, 'hidden', { get: () => hidden });
+        const active = { visibleSpinners: [], pageVisibleSpinners: [{}], sidePanelVisibleSpinners: [{}] };
+        const idle = { visibleSpinners: [], pageVisibleSpinners: [], sidePanelVisibleSpinners: [] };
+        const samples = () => window.chrome.runtime.sendMessage.mock.calls.filter(([m]) => m.type === 'PERFORMANCE_SAMPLE').map(([m]) => m.value);
+        window.statsCollector.checkLoadingState(active);
+        elapsed = 1000; hidden = true;
+        window.document.dispatchEvent(new window.Event('visibilitychange'));
+        elapsed = 9000; window.statsCollector.checkLoadingState(active);
+        elapsed = 10000; hidden = false;
+        window.document.dispatchEvent(new window.Event('visibilitychange'));
+        window.statsCollector.checkLoadingState(active);
+        elapsed = 11000; window.statsCollector.checkLoadingState(idle);
+        expect(samples()).toEqual([
+            expect.objectContaining({ signal: 'page_indicator', duration: 1000, outcome: 'interrupted' }),
+            expect.objectContaining({ signal: 'side_panel_indicator', duration: 1000, outcome: 'interrupted' })
+        ]);
+        window.statsCollector.checkLoadingState(active);
+        elapsed = 12000; window.statsCollector.checkLoadingState(idle);
+        expect(samples().slice(2)).toEqual([
+            expect.objectContaining({ duration: 1000, outcome: 'completed' }),
+            expect.objectContaining({ duration: 1000, outcome: 'completed' })
+        ]);
+        dom.window.close();
+    });
+
+    test('a load first observed in a hidden tab supplies no timing when it finishes', () => {
+        const { dom, window } = createCollector();
+        let hidden = true;
+        Object.defineProperty(window.document, 'hidden', { get: () => hidden });
+        const active = { visibleSpinners: [], pageVisibleSpinners: [{}] };
+        window.statsCollector.checkLoadingState(active);
+        hidden = false; window.document.dispatchEvent(new window.Event('visibilitychange'));
+        window.statsCollector.checkLoadingState(active);
+        window.statsCollector.checkLoadingState({ visibleSpinners: [], pageVisibleSpinners: [] });
+        expect(window.chrome.runtime.sendMessage.mock.calls.filter(([m]) => m.type === 'PERFORMANCE_SAMPLE')).toHaveLength(0);
+        dom.window.close();
+    });
 
     test('captures exact GBP totals once, rejects rounded money and stale campaign headers', () => {
         const { dom, window } = createCollector('https://groupmuk-prisma.mediaocean.com/campaign-management/#campaign-id=CP123');
@@ -77,7 +184,7 @@ describe('loading-time collection', () => {
         expect(window.chrome.runtime.sendMessage).toHaveBeenCalledWith({
             action: 'TRACK_STAT',
             type: 'LOADING_TIME',
-            value: { seconds: 0.05, area: 'other' }
+            value: { seconds: 0.05, area: 'unclassified' }
         });
         dom.window.close();
     });
@@ -122,7 +229,7 @@ describe('loading-time collection', () => {
         expect(window.chrome.runtime.sendMessage).toHaveBeenCalledWith({
             action: 'TRACK_STAT',
             type: 'LOADING_TIME',
-            value: { seconds: 1.5, area: 'other' }
+            value: { seconds: 1.5, area: 'unclassified' }
         });
         dom.window.close();
     });
@@ -158,7 +265,7 @@ describe('loading-time collection', () => {
         expect(window.chrome.runtime.sendMessage).toHaveBeenCalledWith({
             action: 'TRACK_STAT',
             type: 'LOADING_TIME',
-            value: { seconds: 3.25, area: 'other' }
+            value: { seconds: 3.25, area: 'unclassified' }
         });
         dom.window.close();
     });
@@ -170,7 +277,13 @@ describe('loading-time collection', () => {
         ['https://groupmuk-prisma.mediaocean.com/campaign-management/#ptb-mod=buy&ptb-ctx=actualize&route=actualize', 'actualise'],
         ['https://groupmuk-prisma.mediaocean.com/campaign-management/#ptb-mod=traffic', 'traffic'],
         ['https://groupmuk-prisma.mediaocean.com/campaign-management/#ptb-mod=analyze', 'analyse'],
-        ['https://groupmuk-prisma.mediaocean.com/campaign-management/#ptb-mod=buy&ptb-ctx=orderSummary&showOrders=true', 'orders']
+        ['https://groupmuk-prisma.mediaocean.com/campaign-management/#ptb-mod=buy&ptb-ctx=orderSummary&showOrders=true', 'orders'],
+        ['https://go.mediaocean.com/campaign-management/#osPspId=prsm-cm-ord', 'orders'],
+        ['https://go.mediaocean.com/campaign-management/#osPspId=prsm-cm-ord&ptb-mod=buy', 'orders'],
+        ['https://go.mediaocean.com/mo-op-discovery/rp/tokens', 'session'],
+        ['https://go.mediaocean.com/campaign-management/', 'startup'],
+        ['https://go.mediaocean.com/campaign-management/#route=reports', 'unclassified'],
+        ['https://go.mediaocean.com/some-other-app/', 'unclassified']
     ])('classifies %s as %s', (url, expectedArea) => {
         const { dom, window } = createCollector(url);
         expect(window.statsCollector.getPrismaArea()).toBe(expectedArea);
@@ -206,9 +319,45 @@ describe('loading-time collection', () => {
         dom.window.close();
     });
 
+    test('distinguishes the first entry load, later navigation and genuine unknown sections', () => {
+        const { dom, window, setNow } = createCollector('https://go.mediaocean.com/campaign-management/');
+        const active = { visibleSpinners: [{}], pageVisibleSpinners: [{}] }, idle = { visibleSpinners: [], pageVisibleSpinners: [] };
+        setNow(0); window.statsCollector.checkLoadingState(active);
+        setNow(1000); window.statsCollector.checkLoadingState(idle);
+        expect(window.statsCollector.getPrismaArea()).toBe('unclassified');
+        window.history.replaceState({}, '', '#ptb-mod=buy'); window.statsCollector.checkLoadingState(idle);
+        window.history.replaceState({}, '', '/campaign-management/');
+        setNow(2000); window.statsCollector.checkLoadingState(idle);
+        setNow(3000); window.statsCollector.checkLoadingState(active);
+        expect(window.statsCollector.getPrismaArea()).toBe('navigation');
+        setNow(4000); window.statsCollector.checkLoadingState(idle);
+        expect(window.statsCollector.getPrismaArea()).toBe('unclassified');
+        window.history.replaceState({}, '', '#route=reports');
+        setNow(5000); window.statsCollector.checkLoadingState(active);
+        setNow(6000); window.statsCollector.checkLoadingState(idle);
+        expect(window.chrome.runtime.sendMessage.mock.calls.filter(([m]) => m.type === 'LOADING_TIME').map(([m]) => m.value)).toEqual([
+            { seconds: 1, area: 'startup' }, { seconds: 1, area: 'navigation' }, { seconds: 1, area: 'unclassified' }
+        ]);
+        dom.window.close();
+    });
+
+    test('area totals exclude background time and resume foreground waiting', () => {
+        const { dom, window, setNow } = createCollector(); let hidden = false;
+        Object.defineProperty(window.document, 'hidden', { get: () => hidden });
+        const active = { visibleSpinners: [{}], pageVisibleSpinners: [{}] }, idle = { visibleSpinners: [], pageVisibleSpinners: [] };
+        setNow(0); window.statsCollector.checkLoadingState(active);
+        setNow(1000); hidden = true; window.document.dispatchEvent(new window.Event('visibilitychange'));
+        setNow(9000); window.statsCollector.checkLoadingState(active);
+        setNow(10000); hidden = false; window.document.dispatchEvent(new window.Event('visibilitychange')); window.statsCollector.checkLoadingState(active);
+        setNow(11000); window.statsCollector.checkLoadingState(idle);
+        expect(window.chrome.runtime.sendMessage.mock.calls.filter(([m]) => m.type === 'LOADING_TIME').map(([m]) => m.value.seconds)).toEqual([1, 1]);
+        dom.window.close();
+    });
+
     test('records shared monitor transitions without a separate observer and resumes after pagehide', () => {
         const dom = new JSDOM('<!doctype html><html><body></body></html>', {
             runScripts: 'outside-only',
+            pretendToBeVisual: true,
             url: 'https://groupmuk-prisma.mediaocean.com/campaign-management/'
         });
         const { window } = dom;
@@ -243,13 +392,13 @@ describe('loading-time collection', () => {
         now = 1500;
         window.dispatchEvent(new window.Event('pagehide'));
         expect(window.chrome.runtime.sendMessage).toHaveBeenLastCalledWith({
-            action: 'TRACK_STAT', type: 'LOADING_TIME', value: { seconds: 0.5, area: 'other' }
+            action: 'TRACK_STAT', type: 'LOADING_TIME', value: { seconds: 0.5, area: 'startup' }
         });
         expect(subscribe).toHaveBeenCalledTimes(1);
         now = 2000;
         spinner.remove();
         window.loadingMonitor.refreshNow();
-        expect(window.chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
+        expect(window.chrome.runtime.sendMessage.mock.calls.filter(([message]) => message.type === 'LOADING_TIME')).toHaveLength(1);
         window.dispatchEvent(new window.Event('pageshow'));
         expect(subscribe).toHaveBeenCalledTimes(2);
         window.document.body.appendChild(spinner);
@@ -259,9 +408,11 @@ describe('loading-time collection', () => {
         spinner.remove();
         window.loadingMonitor.refreshNow();
         expect(window.chrome.runtime.sendMessage).toHaveBeenLastCalledWith({
-            action: 'TRACK_STAT', type: 'LOADING_TIME', value: { seconds: 0.25, area: 'other' }
+            action: 'TRACK_STAT', type: 'LOADING_TIME', value: { seconds: 0.25, area: 'unclassified' }
         });
-        expect(window.chrome.runtime.sendMessage).toHaveBeenCalledTimes(2);
+        expect(window.chrome.runtime.sendMessage.mock.calls.filter(([message]) => message.type === 'LOADING_TIME')).toHaveLength(2);
+        const samples = window.chrome.runtime.sendMessage.mock.calls.filter(([message]) => message.type === 'PERFORMANCE_SAMPLE').map(([message]) => message.value);
+        expect(samples.map(sample => sample.outcome)).toEqual(['interrupted', 'completed']);
         dom.window.close();
     });
 

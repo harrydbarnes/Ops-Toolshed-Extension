@@ -81,6 +81,27 @@ body.reminder-theme-black #confirmation-popup {
     cursor: not-allowed;
 }
 
+/* The countdown fills the button while the existing seconds remain visible. */
+.reminder-close-button.reminder-countdown:disabled {
+    background-image: linear-gradient(to right, #07009a 50%, #666666 50%);
+    background-size: 200% 100%;
+    background-position: right center;
+    color: #fff;
+    animation: reminder-button-fill var(--reminder-countdown-duration) linear forwards;
+}
+
+@keyframes reminder-button-fill {
+    to { background-position: left center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .reminder-close-button.reminder-countdown:disabled {
+        animation: none;
+        background-image: none;
+        color: #666;
+    }
+}
+
 /* Dimming Overlay */
 .reminder-overlay {
     position: fixed;
@@ -438,8 +459,6 @@ body.reminder-theme-black #confirmation-popup {
     /* 1. Force margin to zero */
     margin-bottom: 0 !important;
 
-    /* Keep the chat action clear of Prisma's workflow icon. */
-    margin-left: 6px !important;
 
     /* 2. Fix "Ghost" spacing caused by baseline alignment */
     vertical-align: middle !important;
@@ -509,6 +528,7 @@ body.reminder-theme-black #confirmation-popup {
     max-width: none;
     width: max-content;
     flex-shrink: 0;
+    gap: 6px;
 }
 
 /* Preserve native plan labels and status badges when injected controls widen
@@ -1266,6 +1286,15 @@ body.reminder-theme-black #confirmation-popup {
     pointer-events: none;
 }
 
+/* Keep Prisma's Orders dock from repeatedly remeasuring the Dashboards column. */
+mo-dock-layout:has(> .mods-wc-dock-center #dashboard-orders-grid):has(> .mods-wc-dock-west > mo-sidebar[header="Dashboards"]) {
+    grid-template-columns: 32px minmax(0, 1fr) auto !important;
+}
+
+mo-dock-layout:has(> .mods-wc-dock-center #dashboard-orders-grid):has(> .mods-wc-dock-west > mo-sidebar[header="Dashboards"].expanded) {
+    grid-template-columns: 210px minmax(0, 1fr) auto !important;
+}
+
 .order-view-toggle {
     display: inline-flex;
     align-items: center;
@@ -1314,6 +1343,7 @@ body.reminder-theme-black #confirmation-popup {
     }
 }
 /* --- End order version segmented control --- */
+
 /* --- End of Order ID Copy Button Styles --- */
 
 /* --- Campaign Navigation Style Optimisation --- */
@@ -1809,6 +1839,11 @@ div[slot="right"].ai-style-change-1 {
     border-bottom: 1px solid #e8edf2;
 }
 
+#toolshed-campaign-history-panel.is-expanded .toolshed-campaign-history-result {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 110px;
+}
+
 .toolshed-campaign-history-result:last-child {
     border-bottom: 0;
 }
@@ -1859,19 +1894,18 @@ div[slot="right"].ai-style-change-1 {
 
 .toolshed-campaign-history-result-title {
     display: block;
-    overflow: hidden;
     color: var(--toolshed-history-ink);
     font-size: 13px;
     font-weight: 600;
     line-height: 1.35;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
+    white-space: normal;
 }
 
 .toolshed-campaign-history-result-metadata {
     display: flex;
     flex-wrap: wrap;
-    gap: 5px 10px;
+    gap: 5px 14px;
     margin-top: 6px;
 }
 
@@ -1881,20 +1915,45 @@ div[slot="right"].ai-style-change-1 {
     max-width: 100%;
     gap: 4px;
     color: var(--toolshed-history-muted);
-    font-size: 10px;
-    line-height: 1.3;
+    font-size: 12px;
+    line-height: 1.4;
 }
 
 .toolshed-campaign-history-metadata-label {
     flex: 0 0 auto;
     color: #8493a0;
-    font-weight: 700;
+    font-weight: 400;
 }
 
 .toolshed-campaign-history-metadata-value {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.toolshed-campaign-history-suppliers {
+    flex-basis: 100%;
+    display: grid;
+    grid-template-columns: 62px minmax(0, 1fr);
+    gap: 6px;
+    margin-top: 3px;
+}
+
+.toolshed-campaign-history-supplier-list {
+    display: block;
+    min-width: 0;
+}
+
+.toolshed-campaign-history-suppliers .toolshed-campaign-history-metadata-value {
+    display: inline;
+    overflow: visible;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.toolshed-campaign-history-supplier-list .toolshed-campaign-history-metadata-value + .toolshed-campaign-history-metadata-value::before {
+    content: ' · ';
+    white-space: pre;
 }
 
 
@@ -1905,7 +1964,7 @@ div[slot="right"].ai-style-change-1 {
     gap: 8px;
     margin-top: 7px;
     color: #8795a1;
-    font-size: 10px;
+    font-size: 11px;
     line-height: 1.35;
 }
 

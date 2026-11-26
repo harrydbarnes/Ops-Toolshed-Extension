@@ -1,9 +1,11 @@
 const fs = require('fs');
 const path = require('path');
+const { JSDOM } = require('jsdom');
+const { readScript } = require('./helpers/read-script');
 
 const manifest = require('../manifest.json');
 const { CONTENT_SCRIPT_DEFINITIONS } = require('../background/content-script-definitions');
-const contentScript = fs.readFileSync(path.resolve(__dirname, '../content.js'), 'utf8');
+const contentScript = readScript(path.resolve(__dirname, '../content.js'));
 const campaignFeature = fs.readFileSync(path.resolve(__dirname, '../features/campaign.js'), 'utf8');
 
 describe('Mediaocean frame execution boundary', () => {
@@ -35,16 +37,29 @@ describe('Mediaocean frame execution boundary', () => {
         expect(campaignFeature).not.toContain("request?.action !== 'focusCampaignDetailsBasic'");
     });
 
-    test('stops page-level content orchestration before it starts in child frames', () => {
-        const frameGuard = 'if (window.top !== window.self) return;';
-        const routeListener = "window.addEventListener('hashchange', handleUrlChange);";
-
-        expect(contentScript).toContain(frameGuard);
-        expect(contentScript.indexOf(frameGuard)).toBeLessThan(
-            contentScript.indexOf(routeListener)
-        );
-        expect(contentScript.indexOf(frameGuard)).toBeLessThan(
-            contentScript.indexOf('new MutationObserver')
-        );
+    test('does not start page orchestration when executed in a child frame', async () => {
+        const dom = new JSDOM('<iframe></iframe>', {
+            url: 'https://agency.mediaocean.com/idesk/prisma-campaign-details/',
+            runScripts: 'dangerously'
+        });
+        try {
+            const child = dom.window.document.querySelector('iframe').contentWindow;
+            expect(child.top).not.toBe(child.self);
+            const subscribe = jest.fn();
+            child.opsToolshedExtensionState = { subscribe, ready: Promise.resolve(true) };
+            const observe = jest.spyOn(child, 'MutationObserver');
+            const listen = jest.spyOn(child, 'addEventListener');
+            const schedule = jest.spyOn(child, 'setTimeout');
+            child.eval(contentScript);
+            await Promise.resolve();
+            await Promise.resolve();
+            expect(subscribe).not.toHaveBeenCalled();
+            expect(observe).not.toHaveBeenCalled();
+            expect(listen).not.toHaveBeenCalled();
+            expect(schedule).not.toHaveBeenCalled();
+            expect(child.document.body.children).toHaveLength(0);
+        } finally {
+            dom.window.close();
+        }
     });
 });

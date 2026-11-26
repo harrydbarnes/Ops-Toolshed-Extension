@@ -90,18 +90,29 @@
     search.addEventListener('keydown', event => { if (event.key === 'Escape') { search.value = ''; filter(); } });
     updateStates();
     filter();
-    try {
-        settings = await new Promise((resolve, reject) => {
-            const result = chrome.storage.sync.get({ ...BOOLEAN_DEFAULTS, uiTheme: 'pink', autoCopyUrlMode: 'short', metaFinanceToolMode: 'social' }, value => {
-                if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-                else resolve(value);
+    async function loadSettings() {
+        try {
+            settings = await new Promise((resolve, reject) => {
+                const result = chrome.storage.sync.get({ ...BOOLEAN_DEFAULTS, uiTheme: 'pink', autoCopyUrlMode: 'short', metaFinanceToolMode: 'social' }, value => {
+                    if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+                    else resolve(value);
+                });
+                result?.then?.(resolve, reject);
             });
-            result?.then?.(resolve, reject);
-        });
-        updateStates();
-    } catch { /* Keep descriptions usable even if settings cannot be read. */ }
-    chrome.storage.onChanged.addListener((changes, area) => {
-        if (area !== 'sync' || !settings) return;
+            updateStates();
+        } catch {
+            // Descriptions stay usable; retry the full snapshot on the next settings change.
+            settings = null;
+            updateStates();
+        }
+    }
+    await loadSettings();
+    chrome.storage.onChanged.addListener(async (changes, area) => {
+        if (area !== 'sync') return;
+        if (!settings) {
+            await loadSettings();
+            return;
+        }
         Object.entries(changes).forEach(([key, value]) => { settings[key] = value.newValue ?? BOOLEAN_DEFAULTS[key]; });
         updateStates();
     });

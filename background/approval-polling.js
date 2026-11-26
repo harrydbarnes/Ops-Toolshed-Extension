@@ -97,7 +97,8 @@ async function broadcastApprovalEvent(campaign) {
                     campaign
                 });
             } catch (_err) {
-                // Tab might not be ready or active
+                // Tabs without a ready content script must not prevent delivery to other tabs.
+                console.debug('[Approval Polling] Approval notification was not delivered to tab:', tab.id);
             }
         }
     } catch (error) {

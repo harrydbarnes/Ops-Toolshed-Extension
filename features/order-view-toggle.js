@@ -61,17 +61,23 @@
         });
 
         try {
-            if (nativeMenu.getAttribute('aria-expanded') !== 'true') {
+            const isCurrent = () => featureEnabled && toggle?.isConnected &&
+                getNewOrderUiElements().nativeMenu === nativeMenu;
+            let option = document.getElementById(optionId);
+            for (let attempt = 0; !option && attempt < 2; attempt++) {
+                if (!isCurrent()) return false;
+                // Prisma can leave aria-expanded true after removing the overlay.
+                // Re-trigger the menu when its actual option is absent; a second
+                // trigger also recovers a menu whose internal state is still open.
                 nativeMenu.dispatchEvent(new MouseEvent('mousedown', {
                     bubbles: true,
                     composed: true,
                     button: 0,
                     buttons: 1
                 }));
+                option = await waitForNativeOption(optionId);
             }
-
-            const option = await waitForNativeOption(optionId);
-            if (!option) return false;
+            if (!option || !isCurrent()) return false;
 
             option.click();
             updateToggleState(toggle, view);
@@ -103,6 +109,12 @@
         document.querySelectorAll(`#${HEADER_ID}.order-view-toggle-active`).forEach(header => {
             header.classList.remove('order-view-toggle-active');
         });
+    }
+
+    function reconcile() {
+        if (isNewOrderUi() || document.querySelector(
+            `.${TOGGLE_CLASS}, #${HEADER_ID}.order-view-toggle-active`
+        )) handleOrderViewToggle();
     }
 
     function handleOrderViewToggle() {
@@ -141,10 +153,19 @@
     }
 
     function initialize() {
-        chrome.storage.sync.get([SETTING_KEY], data => {
-            featureEnabled = data[SETTING_KEY] !== false;
-            settingsLoaded = true;
-            handleOrderViewToggle();
+        return new Promise((resolve, reject) => {
+            chrome.storage.sync.get([SETTING_KEY], data => {
+                try {
+                    if (chrome.runtime?.lastError) throw new Error(chrome.runtime.lastError.message);
+                    featureEnabled = data[SETTING_KEY] !== false;
+                    settingsLoaded = true;
+                    handleOrderViewToggle();
+                    resolve();
+                } catch (error) {
+                    settingsLoaded = false;
+                    reject(error);
+                }
+            });
         });
     }
 
@@ -156,6 +177,7 @@
     });
 
     window.orderViewToggleFeature = {
+        reconcile,
         handleOrderViewToggle,
         initialize,
         isNewOrderUi,

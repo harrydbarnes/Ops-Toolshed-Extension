@@ -55,7 +55,7 @@ describe('Feature Settings search', () => {
         expect(v2.classList).not.toContain('settings-search-hidden');
         expect(defaults.classList).toContain('settings-search-hidden');
 
-        expect(filterFeatureSettings('', sections)).toBe(9);
+        expect(filterFeatureSettings('', sections)).toBe(10);
         expect(document.querySelectorAll('.settings-search-hidden')).toHaveLength(0);
         dom.window.close();
     });

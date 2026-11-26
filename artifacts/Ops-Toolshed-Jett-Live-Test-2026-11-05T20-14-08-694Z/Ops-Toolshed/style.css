@@ -1,0 +1,667 @@
+body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+    width: 320px; /* Increased from 300px */
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+/* Custom scrollbar styles */
+body::-webkit-scrollbar {
+    width: 8px;
+}
+
+body::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+body::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+body::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+}
+
+.header {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+}
+
+.header-actions {
+    display: flex;
+    align-items: flex-end;
+}
+
+.version {
+    font-size: 0.9em;
+    color: #666;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.version:hover {
+    text-decoration: underline;
+}
+
+.features-kill-switch {
+    position: absolute;
+    top: 31px;
+    right: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 24px;
+    padding: 4px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #374151;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.features-kill-switch:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+}
+
+.features-kill-switch:focus-visible {
+    outline: 2px solid #ff4087;
+    outline-offset: 2px;
+}
+
+.features-kill-switch.is-off {
+    background: #b42318;
+    border-color: #b42318;
+    color: #ffffff;
+}
+
+.features-kill-switch.is-off:hover {
+    background: #912018;
+    border-color: #912018;
+}
+
+.features-kill-switch:disabled {
+    cursor: wait;
+    opacity: 0.65;
+}
+
+.kill-switch-icon {
+    width: 12px;
+    height: 12px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .features-kill-switch {
+        transition: none;
+    }
+}
+
+.logo {
+    width: 33px;
+    height: 29px;
+    margin-right: 8px;
+    object-fit: contain;
+}
+
+@media (max-width: 400px) {
+    .notification {
+        max-width: 95%;
+    }
+}
+
+.title {
+    font-size: 1.5em;
+    margin: 0;
+}
+
+.subtitle {
+    font-size: 1em; /* Reduced from 1.1em */
+    margin: 0 0 12px 0; /* Reduced from 15px */
+    color: #666;
+}
+
+.subtitle em {
+    font-style: italic;
+}
+
+.button-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 5px; /* Default margin-bottom for button groups */
+}
+
+/* Specific button-group in the Switch Prisma Location section */
+.section .button-group {
+    margin-bottom: 0;
+}
+
+/* Removed specific styles for .button-group.timesheet-group */
+/* The general .button-group styles will now apply to the single group */
+
+.nav-button, .location-button {
+    flex: 1 0 calc(50% - 5px); /* Style to arrange buttons in pairs */
+    padding: 8px;
+    font-size: 12px;
+    cursor: pointer;
+    background-color: #f0f0f0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+.nav-button:hover, .location-button:hover {
+    background-color: #fafafa;
+    animation: vibrate 0.3s ease-in-out;
+}
+
+.nav-button:active, .location-button:active {
+    transform: translateY(2px);
+}
+
+.input-group {
+    margin-bottom: 10px;
+    width: 100%;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 8px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+#campaignId::placeholder,
+#dNumber::placeholder,
+#campaignDate::placeholder {
+    font-size: 12px;
+}
+
+.campaign-actions-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 5px;
+}
+
+.campaign-actions-grid > .input-group {
+    margin-bottom: 0;
+}
+
+.campaign-actions-grid > .primary-button {
+    margin-bottom: 0;
+}
+
+.error-message {
+    color: red;
+    font-size: 12px;
+    margin: 0;
+    padding: 0;
+    min-height: 1.2em; /* Reserve space for one line of text */
+}
+
+.primary-button {
+    width: 100%;
+    padding: 10px;
+    font-size: 14px;
+    cursor: pointer;
+    background-color: #ff4087;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    transition: transform 0.1s;
+}
+
+.primary-button:hover {
+    animation: vibrate 0.3s ease-in-out;
+}
+
+.primary-button:active {
+    transform: translateY(2px);
+}
+
+.section {
+    margin-top: 5px;
+}
+
+#settingsContent {
+    padding-top: 5px;
+}
+
+.section h3 {
+    margin: 5px 0;
+    font-size: 0.9em;
+    color: #666;
+}
+
+.toggle-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 10px;
+    margin-bottom: 15px;
+}
+
+/* Updated toggle switch styles */
+.toggle {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+}
+
+.toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 24px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: #ff4087;
+}
+
+input:checked + .slider:before {
+    transform: translateX(26px);
+}
+
+#campaignDate::placeholder {
+    font-style: italic;
+}
+
+.reminder-text {
+    font-size: 0.9em;
+    color: #666;
+    font-style: italic;
+    margin-bottom: 5px;
+}
+
+#reminderUpdateMessage {
+    font-size: 0.9em;
+    color: #28a745;
+    margin-top: 5px;
+}
+
+.select-container {
+    margin-bottom: 10px;
+}
+
+select {
+    width: 100%;
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    background-color: #fff;
+    font-size: 14px;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url('data:image/svg+xml;utf8,<svg fill="black" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/><path d="M0 0h24v24H0z" fill="none"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 8px top 50%;
+    background-size: 16px;
+}
+
+select:focus {
+    outline: none;
+    border-color: #ff4087;
+}
+
+.feedback {
+    margin-top: 10px;
+    margin-top: 10px;
+    text-align: center;
+    font-size: 11px;
+}
+
+.feedback a {
+    color: #0066cc;
+    text-decoration: none;
+}
+
+.feedback a:hover {
+    text-decoration: underline;
+}
+
+.hidden {
+    display: none;
+}
+
+.separator {
+    margin: 0 5px;
+    color: #666;
+}
+
+@keyframes vibrate {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-2px); }
+    40% { transform: translateX(2px); }
+    60% { transform: translateX(-1px); }
+    80% { transform: translateX(1px); }
+}
+
+/* Toast Notification */
+.toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background-color: #fff;
+    color: #333;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #e7e7e7;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    z-index: 1000;
+    visibility: hidden;
+    opacity: 0;
+}
+
+.toast.show {
+    visibility: visible;
+    animation: slide-in-up 0.5s forwards;
+}
+
+.toast.hide {
+    visibility: visible; /* Keep it visible during the hide animation */
+    animation: slide-out-right 0.5s forwards;
+}
+
+@keyframes slide-in-up {
+    from {
+        transform: translateY(100px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slide-out-right {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+.toast-message {
+    font-size: 16px;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 500;
+}
+
+#prismaApproversButton {
+    font-size: 12px;
+}
+
+/* --- Bottom Menu Styles --- */
+.menu-container {
+    margin-top: 10px; /* Reduced from 20px */
+    background-color: rgba(249, 250, 251, 0.8);
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.menu-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px; /* Reduced vertical padding from 16px */
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.menu-row:last-child {
+    border-bottom: none;
+}
+
+/* Center content for feedback menu row */
+#menu-feedback {
+    justify-content: center;
+    position: relative;
+}
+
+#menu-feedback .menu-row-left {
+    justify-content: center;
+    position: relative;
+    gap: 0;
+    flex-grow: 0;
+    width: auto;
+}
+
+#menu-feedback .menu-icon {
+    font-size: 13px;
+    position: absolute;
+    right: 100%;
+    margin-right: 12px;
+    left: auto;
+    transform: none;
+}
+
+.popup-page #menu-feedback img.menu-icon {
+    width: 13px;
+    height: 13px;
+}
+
+/* Position chevron absolutely so it doesn't affect centering */
+#menu-feedback .menu-chevron {
+    position: absolute;
+    right: 16px;
+}
+
+.menu-row:hover {
+    background-color: #f0f2f5;
+}
+
+.menu-row:active {
+    background-color: #e5e7eb;
+}
+
+.menu-row-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.menu-icon {
+    width: 20px;
+    font-size: 18px;
+    color: #ec4899; /* Pink-500 */
+    text-align: center;
+}
+
+.popup-page svg.menu-icon,
+.popup-page img.menu-icon {
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex: 0 0 auto;
+}
+
+.menu-label {
+    color: #111827;
+    font-weight: 500;
+    font-size: 11px; /* Changed from 14px to match split items */
+}
+
+.menu-chevron {
+    font-size: 14px;
+    color: #ec4899;
+}
+
+.popup-page svg.menu-chevron {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* --- Split Menu Styles --- */
+
+.split-menu-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0; /* Clear padding so inner items handle click area */
+    cursor: default;
+}
+
+.split-menu-row:hover {
+    background-color: transparent; /* Remove hover from the container row */
+}
+
+/* Specific adjustments for split layout */
+.split-menu-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 4px; /* Reduced vertical padding from 14px */
+    cursor: pointer;
+    gap: 6px;
+    transition: background-color 0.2s ease;
+}
+
+/* Keep Settings compact so the combined Toolshed label stays on one line */
+#menu-settings {
+    flex: 0.6; /* Takes up 30% of width */
+}
+
+#menu-roadmap {
+    flex: 1.4; /* Takes up 70% of width */
+}
+
+.split-menu-item:hover {
+    background-color: #f0f2f5;
+}
+
+.split-menu-item:active {
+    background-color: #e5e7eb;
+}
+
+/* Adjust font size for split items to fit on one line */
+.split-menu-item .menu-label {
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.split-menu-item .menu-icon {
+    font-size: 13px;
+    width: auto;
+}
+
+.popup-page .split-menu-item svg.menu-icon,
+.popup-page .split-menu-item img.menu-icon {
+    width: 13px;
+    height: 13px;
+}
+
+.menu-separator {
+    width: 1px;
+    height: 20px;
+    background-color: #e5e7eb;
+}
+
+/* Matches the Waiting time by area breakdown tooltip in Stats. */
+.campaign-month-tooltip {
+    position: fixed;
+    z-index: 1000;
+    width: min(200px, calc(100vw - 32px));
+    box-sizing: border-box;
+    padding: 10px 11px;
+    color: #fff;
+    background: #06088d;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 7px;
+    box-shadow: 0 8px 24px rgba(6, 8, 80, 0.22);
+    font-size: 0.68rem;
+    line-height: 1.35;
+    pointer-events: none;
+    animation: campaign-tooltip-appear 140ms ease both;
+}
+.campaign-month-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 18px;
+    border: 6px solid transparent;
+    border-top-color: #06088d;
+}
+.campaign-month-tooltip strong {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.72rem;
+    letter-spacing: 0.01em;
+}
+.campaign-month-tooltip span { color: rgba(255, 255, 255, 0.78); }
+@keyframes campaign-tooltip-appear {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .campaign-month-tooltip { animation: none; }
+}

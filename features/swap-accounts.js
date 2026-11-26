@@ -71,68 +71,12 @@
     }
 
     function waitForDeepElement(predicate, timeout = 5000, description = 'element') {
-        return new Promise((resolve, reject) => {
-            const intervalTime = 100;
-            const startedAt = Date.now();
-
-            const interval = setInterval(() => {
-                const element = queryAllDeep().find(predicate);
-                if (element) {
-                    clearInterval(interval);
-                    resolve(element);
-                    return;
-                }
-
-                if (Date.now() - startedAt >= timeout) {
-                    clearInterval(interval);
-                    reject(new Error(`${description} not found within ${timeout}ms`));
-                }
-            }, intervalTime);
+        return window.utils.waitForResult(() => queryAllDeep().find(predicate), {
+            timeout,
+            timeoutMessage: `${description} not found within ${timeout}ms`
         });
     }
 
-    function clickElement(element) {
-        if (!element) return;
-
-        const rect = element.getBoundingClientRect();
-        const view = element.ownerDocument?.defaultView || window;
-        const clientX = rect.left + Math.min(Math.max(rect.width / 2, 8), rect.width - 1);
-        const clientY = rect.top + Math.min(Math.max(rect.height / 2, 8), rect.height - 1);
-        const baseOptions = {
-            bubbles: true,
-            cancelable: true,
-            composed: true,
-            clientX,
-            clientY,
-            button: 0,
-            view
-        };
-
-        if (view.PointerEvent) {
-            element.dispatchEvent(new view.PointerEvent('pointerdown', {
-                ...baseOptions,
-                buttons: 1,
-                pointerId: 1,
-                pointerType: 'mouse',
-                isPrimary: true
-            }));
-        }
-
-        element.dispatchEvent(new view.MouseEvent('mousedown', { ...baseOptions, buttons: 1 }));
-
-        if (view.PointerEvent) {
-            element.dispatchEvent(new view.PointerEvent('pointerup', {
-                ...baseOptions,
-                buttons: 0,
-                pointerId: 1,
-                pointerType: 'mouse',
-                isPrimary: true
-            }));
-        }
-
-        element.dispatchEvent(new view.MouseEvent('mouseup', { ...baseOptions, buttons: 0 }));
-        element.dispatchEvent(new view.MouseEvent('click', { ...baseOptions, buttons: 0 }));
-    }
 
     function getHashParams(url) {
         return new URLSearchParams(url.hash.replace(/^#/, ''));
@@ -289,14 +233,14 @@
         );
         if (!accountMenu) throw new Error('Account menu trigger not found');
 
-        clickElement(accountMenu);
+        window.utils.clickElement(accountMenu);
 
         const userProfileItem = await waitForDeepElement(
             element => element.tagName === 'MO-MENU-ITEM' && /^User profile$/i.test(getText(element)),
             5000,
             'User profile menu option'
         );
-        clickElement(userProfileItem);
+        window.utils.clickElement(userProfileItem);
     }
 
     async function selectAlternativePid() {
@@ -315,7 +259,7 @@
         );
 
         if (!inactiveButton) throw new Error('Could not find an alternative PID to swap to.');
-        clickElement(inactiveButton);
+        window.utils.clickElement(inactiveButton);
     }
 
     async function handleSwap(swapButton) {
@@ -332,7 +276,7 @@
             const saveButton = await utils.waitForElement('#saveButton');
             if (!saveButton) throw new Error('Save button not found.');
             await rememberAndArmRestore();
-            clickElement(saveButton);
+            window.utils.clickElement(saveButton);
 
             utils.showToast('Accounts swapped! Page will reload.', 'success');
 
@@ -350,7 +294,7 @@
 
     async function addSwapAccountsButton() {
         try {
-            const userMenu = await utils.waitForElementInShadow('mo-banner-user-menu', document, 15000);
+            const userMenu = await utils.waitForElementInShadow('mo-banner-user-menu', 15000);
 
             const parentContainer = userMenu.parentElement;
             if (!parentContainer) return;

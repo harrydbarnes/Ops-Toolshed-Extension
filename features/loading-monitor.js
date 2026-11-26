@@ -27,7 +27,8 @@
         visibleSpinners: Object.freeze([]),
         pageVisibleSpinners: Object.freeze([]),
         pageVisibleSkeletons: Object.freeze([]),
-        sidePanelVisibleSpinners: Object.freeze([])
+        sidePanelVisibleSpinners: Object.freeze([]),
+        sidePanelVisibleSkeletons: Object.freeze([])
     });
 
     function isInsideSidePanel(element) {
@@ -113,6 +114,7 @@
         const pageVisibleSpinners = [];
         const pageVisibleSkeletons = [];
         const sidePanelVisibleSpinners = [];
+        const sidePanelVisibleSkeletons = [];
         candidates.forEach(candidate => {
             if (!candidate.isConnected || !candidate.matches(LOADING_SELECTOR)) {
                 candidates.delete(candidate);
@@ -121,6 +123,7 @@
             if (!window.utils.isElementVisible(candidate)) return;
             if (candidate.matches(SKELETON_SELECTOR)) {
                 if (!isInsideSidePanel(candidate)) pageVisibleSkeletons.push(candidate);
+                else sidePanelVisibleSkeletons.push(candidate);
                 return;
             }
             visibleSpinners.push(candidate);
@@ -132,12 +135,13 @@
             visibleSpinners: Object.freeze(visibleSpinners),
             pageVisibleSpinners: Object.freeze(pageVisibleSpinners),
             pageVisibleSkeletons: Object.freeze(pageVisibleSkeletons),
-            sidePanelVisibleSpinners: Object.freeze(sidePanelVisibleSpinners)
+            sidePanelVisibleSpinners: Object.freeze(sidePanelVisibleSpinners),
+            sidePanelVisibleSkeletons: Object.freeze(sidePanelVisibleSkeletons)
         });
     }
 
     function getSignature(state) {
-        return [...state.visibleSpinners, ...state.pageVisibleSkeletons]
+        return [...state.visibleSpinners, ...state.pageVisibleSkeletons, ...state.sidePanelVisibleSkeletons]
             .map(spinner => `${candidateIds.get(spinner)}:${isInsideSidePanel(spinner) ? 'side' : 'page'}`)
             .join('|');
     }

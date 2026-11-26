@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ops Toolshed</title>
+    <style>html { visibility: hidden; }</style>
+    <link rel="stylesheet" href="assets/fonts/fonts.css">
+    <link rel="stylesheet" href="toolshed.css">
+    <link rel="stylesheet" href="features/feedback-modal.css">
+</head>
+<body>
+    <div class="container">
+        <header class="toolshed-header">
+            <h1>Ops Toolshed</h1>
+            <a href="settings.html" class="nav-link">Settings</a>
+        </header>
+
+        <div class="tab-container">
+            <button class="tab-button active" data-tab="release-notes">Release Notes</button>
+            <button class="tab-button" data-tab="roadmap">Roadmap</button>
+            <button class="tab-button" data-tab="stats">Stats</button>
+        </div>
+
+        <div id="release-notes" class="tab-content active">
+            <div class="release">
+                <h2>r1.9</h2>
+                <ul>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Prisma Diagnostics:</strong> Local loading and placement-save trends, manual observations and private JSON export, with a three-way signal selector and styled report controls.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>AI site banner:</strong> Shows the Harmonic advice banner on ChatGPT, X, Claude and Gemini until its guidance is acknowledged after a three-second countdown, then shows it again after seven days. If you dismiss it without ticking the acknowledgement, it returns on the next page load. Do not enter company or client data into unapproved public AI services; use WPP Open for that data.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Timesheet Helper:</strong> Keep a local weekly draft, optionally record active Prisma campaign time, map client codes to Production rows and review proportional estimates. Read visible rows from an open timesheet, add meetings and leave, and copy hours for entry in Production. The timesheet reminder opens the helper.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Annual Leave Calendar Helper:</strong> Set up titles and work invitees once, preview selected dates from Workday, choose full days or AM/PM, and follow three steps to prepare Outlook and personal files for Apple or Google Calendar. Copy an assistant prompt or download an optional ZIP.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>My Reccies:</strong> Check tracker assignments against Prisma from the sidebar using a Google Sheet, CSV, Early Recs or visited campaigns. Search and filter results, inspect mismatches, and review verification timings. Optional progress bars compare assigned rows marked Yes with time elapsed through the first five weekdays of the month. V2 is the default, with compact evidence cards, animated results, collapsible settings and a V1/V2 selector. Verification keeps the tracker unchanged unless automatic marking is enabled. Notes can be added per D number or filtered campaign, with suggested phrases, editable tracker Yes/No, yellow sheet highlighting and a live preview. Prisma success is labelled Reconciled in Prisma. Manual updates require a preview and confirmation; optional automatic checks and marking use assignment checks and save receipts, with recovery for uncertain responses.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Custom Popup Shortcuts:</strong> Match the toolbar popup with launch buttons you can click or drag between Shown and Turned off, use Reccies instead of myOffice Days by default, and add custom buttons with your own names and web addresses. Reset to the default setup at any time while keeping custom links saved in Turned off. Set shortcuts during onboarding or change them later in Settings.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Purchase Order Reference Autofill:</strong> Fills Reference ID and Client reference with selected PO numbers when adding a campaign, preserving manual edits. Control it in Settings or with the Features kill switch.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Order Email Copy:</strong> Copy all email addresses from a row’s Sent to cell in the new Orders UI with one button. Buttons appear as rows load and return after Prisma refreshes the table.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Live Meta Campaign Checks:</strong> Check Meta appears only when the current campaign has a Facebook media booking. Check it in a Prisma overlay with the same opening/closing animation and rounded corners as Campaign Approvals, or check visited campaigns and manage monitors from Social Booking Checker, without exporting reports. Review booked net media, informational package soft limits (Meta budget alerts use placement net costs), Meta lifetime budgets, side-by-side Prisma/Meta comparisons with neutral date shifts inside the booking flight, highlighted dates outside it and exact budget/spend differences, spend outside booking dates and changes since the last check. Compact expandable campaign rows keep one linked comparison in view, with refresh, monitoring and access actions always visible. Tightened spacing removes unnecessary scrolling in shorter desktop windows. Click the monitoring status to turn monitoring on or off directly. A borderless Meta monitoring button aligned beside Campaign Approvals flags only campaigns needing review; its overview shows opted-in campaigns, last successful checks and issues, with check-now, open-campaign and stop-monitoring controls. Verified pending upweights separate the full booking from trafficked costs and show projected totals before an increment, with possible duplicate increases highlighted. Review recent recorded delivery, traffic status and increment/replace actions; failed links show individual access messages while other results remain available. Package limits and technical sources sit in expandable booking details. Open each checked campaign in Meta Ads Manager with the list filtered to that campaign, remembering the chosen portfolio per ad account. Verify token access to the linked Meta ad account before checking, with clear account-assignment, campaign-access and expired-token feedback. Flag linked campaigns with no recorded delivery without assuming cancellation or replacement. Show spending candidates separately, using matching names/account or Meta source relationships, with their own comparisons and filtered Meta links. Review explicit Prisma booking origin and accessible Meta creation events in the data-source details. Identify Meta budget/date changes while Prisma stays unchanged. Preview verified untrafficked increments against the current Meta budget, flag possible duplicate upweights, and exclude unapplied increments from the current budget comparison. Renew Meta access directly without report uploads. Live checks and Meta access pages share the layout, typography and colours of Social Booking Checker. Overlay actions follow the currently open campaign after Prisma navigation. Browse campaigns in pages or search all matches, with clearer Meta access guidance and coordinated Meta/DST tooltips centred beneath their buttons. Choose monitoring separately for checks every 30 minutes, a header indicator and alerts when differences or access problems need review.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Campaign Approval Tracking:</strong> Monitors submitted campaigns in the background every 5 minutes, notifies users with an in-page toast alert when a campaign is marked as Approved, displays an approved campaigns counter and dropdown list next to Switch Accounts, and provides one-click navigation to open approved campaigns in a new tab.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Campaign History:</strong> Adds a global Prisma History search for visited campaigns by campaign name, client name, CP number, CL/PR/CA reference, supplier, or account location, with media- and fee-aware supplier capture, highlighted matches, clearer visit counts, separate settings for viewing and local visit logging, and a smooth expandable panel.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Diagnostics Mode:</strong> Temporarily records local feature timings, lifecycle outcomes, approval-monitoring health, coarse Prisma page area, and the current campaign ID for export, ending automatically after 24 hours or when Chrome restarts.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Prisma Link Migration:</strong> Opens old campaign links on the new Prisma address while keeping the campaign and workspace route.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Per-user writer pilot.</strong> The live-test build checks Google identity and access to both tracker and save records, then enables updates under the user’s account with no owner-run fallback for activated users.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Reminder countdowns:</strong> The Got it button fills as the countdown runs, including in Settings previews.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Reccies setup.</strong> Start with a Reccies introduction, confirm your first report month, and keep your search and source when reopening the sidebar. Verification checks filtered rows first, then other assigned rows.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Orders setting:</strong> Renamed the Latest / All toggle setting to make its purpose clearer.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Popup campaign search:</strong> Open a campaign using one field for a Campaign ID, D number or O number, with an optional month for Campaign IDs and example formats on hover or focus.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Reccies Sidebar Sections:</strong> Debug includes a private, read-only Google connection test for testing account identity from the extension background. Collapsible sections now open and close smoothly, with smaller chevrons that rotate to show their state. Opening Debug scrolls its controls into view.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Help Guide Library:</strong> Replaces temporary PDFs with all 26 AppLearn guides from SharePoint, including Amazon DST, Facebook Workflow 3 and MQS Invoice Queries. Guides load the current PDF when opened, with an Open in SharePoint fallback.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Loading Facts:</strong> Choose and preview the appearance during Prisma onboarding. Quieter rounded styling near the bottom of the page, appearing after a short wait, with feedback in a menu. Facts stay visible through the Campaigns homepage spinner-to-skeleton transition. Choose New UI or Old UI with previews in Settings.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Stats Insights:</strong> Filter activity by week or month with a compact Reccies-style selector. Monthly trends show confirmed placement saves, unique campaigns, reconciliation clicks and waiting time, with equal-day month comparisons. Placement logging waits for an explicit success message, separates creations, updates and unclassified saves, and deduplicates acknowledgements; historical save clicks remain separately labelled. Supplier rankings group common name variants, including Amazon RAF and Flashtalking. Weekly save comparisons show counts when the previous period has no confirmed saves. Top clients, suppliers and exact GBP budget/booked snapshots retain clear coverage details. The weekday heatmap keeps weekend activity in a dated strip, explanations are expandable and the productivity information icon matches Features settings.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Getting Started:</strong> Shorter setup with optional preferences and a searchable feature explorer. The guided tour resumes your progress, lets you skip chapters and keeps your current campaign open when finished.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Feature Previews:</strong> Settings previews now open on hover, click or keyboard focus, close with Escape, and show a wider Prisma screenshot below each feature description. Features awaiting a suitable capture are clearly labelled.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>New Prisma Address:</strong> Campaign enhancements and extension shortcuts now work on go.mediaocean.com.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Campaign History Browsing:</strong> Standard panel now shows four campaigns per page with animated pagination controls and a compact search area, supports middle-click and Ctrl/Cmd-click to open in new tabs, provides a right-click context menu for copying and tab management, smoothly animates closed when clicking outside the panel, keeps History beside Reports in the top banner, follows Reports into Prisma’s three-dot overflow menu on smaller screens, keeps the overflow count accurate, and places the three-dot control right beside Campaigns.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Campaign Approval Tracking:</strong> Managers can now watch a campaign before submission; it stays in a distinct Watching for Submission list and moves to Pending Approval when Prisma reports it submitted. The control also aligns with Prisma’s top navigation, appears promptly when the banner is ready, closes smoothly, and shows a clear Checking state. Tracking and watching statuses use a timer icon and slate text to distinguish them from approval.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Moe Chat Media Detection:</strong> Moe Chat can now detect the current Prisma campaign media, reconnect to delayed or replaced chat frames when it opens, select the matching option, and send the first prompt automatically when that media is available; the behaviour has its own Live Chat setting.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Features Off Control:</strong> Features Off pauses Prisma enhancements and background checks, closes active Help Guides panels, and reloads open Mediaocean tabs to remove injected UI. Timesheet Helper and other gated pages become inactive while Settings stays available. The Annual Leave page remains available for manual calendar preparation, while Workday capture pauses. Legacy Prisma link redirects can still run. Individual feature preferences are preserved for when Features is turned back on.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Company-wide setup:</strong> Colleagues who do not book on Prisma now have a dedicated setup path for shared tools and timesheet reminders. Setup now names the available tools and includes a visual data and permissions breakdown. Their profile pauses Prisma injection and approval polling; Settings lets them change profile later.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Reccies performance:</strong> Keeps campaign-header counts responsive with large trackers and speeds up duplicate checks before automatic tracker updates.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Popup startup:</strong> Removes the unused feature catalogue from popup startup and schedules the Reccies summary after an initial rendering opportunity.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Offline fonts:</strong> Extension pages now bundle Outfit and Montserrat locally, keeping their typography available without requests to Google Fonts. Approvers icons also load locally, removing its external stylesheet dependency.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Approver Finder:</strong> Select approvers and toggle favourites using keyboard-accessible buttons with clear focus and selection states.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Setup recovery:</strong> Annual Leave explains invalid saved calendar settings, and Feature Explorer recovers its current settings after a temporary storage failure.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Prisma Sign-in Assistant:</strong> Shows a clear status message while signing you back in after inactivity.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Comments when marking Yes.</strong> Review live tracker comments and choose whether to remove them. Automatic marking has a separate opt-in to clear comments, with checks for concurrent edits.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Reccies header and mode indicator:</strong> Names the selected person or group on a single line with adjusted sidebar font sizing and padding, and replaces static text with a grey Manual Mode pill badge that turns green for Automatic Updates. Chevron alignment in collapsible settings prevents arrow clipping.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Reccies progress and refreshing.</strong> Verification uses the latest saved report revision. A visible refresh action reloads Google Sheet values, and confirmed saves refresh the tracker when their result is closed.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Tracker save feedback.</strong> Pending saves check their result automatically, busy previews offer a retry, and confirmation shows preview expiry and the correct placement count.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Campaign Tab Title:</strong> Shortens long campaign titles to 99 characters, including an ellipsis, without repeatedly rewriting them if Prisma changes the title.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Campaign title and logo:</strong> Long campaign names now use a compact campaign-only tab title, and the replacement logo is found on large campaign pages.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Feature startup:</strong> A failing enhancement no longer interrupts the remaining features. Failures during page updates are isolated too, and native text and state changes trigger targeted updates. The Orders toggle and campaign title wait for settings before reporting successful startup, and transient startup failures retry automatically. Failed initialization can retry while successful instances are protected from duplicate initialization. Live Campaign Checks and Meta Access show reload guidance when their settings cannot be loaded.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Product Code Warnings:</strong> Checks can recover after a temporary request failure in both existing campaigns and Add Campaign.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Saved feedback and settings:</strong> Loading Fact feedback, Help Guides favourites and disablement, feature toggles, appearance choices, and finishing either onboarding tour confirm that their changes were saved before reporting success, with retry guidance when saving fails.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Social Booking Checker saves:</strong> Failed account-mapping or Wrike-reference saves retain the previous saved values for comparisons and exports. Rapid edits preserve the integration choice, and saved mappings and review decisions must load before comparison or editing.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Moe Chat recovery:</strong> Media selection can retry after a temporary error opening its dropdown without sending the first prompt twice.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Internal request checks:</strong> Diagnostics administration is restricted to Settings, and offscreen alarm playback accepts only internal requests for the bundled alarm.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Approver Finder actions:</strong> Copy controls remain visible after rapid reselection. Copy and favourite-save failures show clear feedback, and success is confirmed only after saving finishes.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Campaign month validation:</strong> Rejects months outside 1–12 instead of silently opening a different reporting period.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Reccies sidebar startup:</strong> Header and popup launchers prepare the sidebar before activation and distinguish startup from opening errors. If Chrome is still waking, the launcher returns to ready for a fresh click without replaying an expired click.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Help Guides:</strong> The Prisma launcher opens its side panel on the first click, including while its startup state is loading.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Approver paste and clipboard:</strong> Restores Order ID copying in affected Prisma tabs. Paste Approvers enters addresses through Prisma's recipient search instead of trying an unsupported OS paste. Favourites and campaign or Order copy actions reject synthetic page clicks.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Approval polling:</strong> A campaign submitted or resubmitted during a status check now remains tracked until its own latest check completes.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Prisma Sign-in Assistant:</strong> Recognises the renamed WPP Media UK organisation, selects it reliably from an empty dropdown, closes the picker before submitting, and clicks Sign In after two seconds on inactivity timeouts or successful sign-off pages when the tab is visible and focused.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Campaign Name Copy:</strong> Clicking the title works across Prisma header states and copies the full campaign name.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Plan Navigation:</strong> Clicking Prisma’s Plan tab on the new address now stays in Plan instead of returning to Buy.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Legacy Prisma Links:</strong> Old campaign links continue to redirect while Features is off. The redirect switch remains in Settings under Navigation.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Campaign Approval Tracking:</strong> No longer mistakes Prisma’s Not Submitted status for Submitted and automatically removes any stale pending entry created by the incorrect detection.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Campaign Approval Tracking:</strong> Immediately recognises an already-approved campaign when tracking starts from Orders, keeps an open approvals panel in sync with status changes, and removes the redundant count badge from the empty state.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Campaign Approval Tracking:</strong> Now returns to a clear idle state when approved campaigns are cleared or dismissed, keeping the top navigation and popup in sync.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Campaign History Expansion:</strong> Keeps History open when clicking the expand or minimise icon and prepares the expanded list before resizing, with off-screen rendering deferred for smoother expansion.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Campaign History Suppliers:</strong> Now captures the visible supplier group in Actualise, ignores the Redistribute action as supplier data, normalizes common supplier names such as Facebook, GOAT, and Adapted, uses Supplier or Suppliers correctly, and keeps result text aligned when metadata wraps.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Campaign History Navigation:</strong> Keeps History in the top banner while it fits, then moves History, Reports, and Campaigns into the three-dot menu in that order as space tightens, with an accurate item count. The menu opens after a brief hover delay, while clicking opens it immediately or keeps a hover-open menu available.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Actualise Month Recovery:</strong> Now stops cleanly when leaving Actualise for Buy and re-queries month controls after Prisma refreshes them.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Help Guides Placement:</strong> Now keeps Prisma’s permanent Moe chat bubble above the bottom-right launcher, with both controls right-aligned, the existing edge and gap protection preserved, and reloads settling without repeated movement.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Help Guides zoom:</strong> Ctrl + mouse wheel now zooms a guide while ordinary scrolling continues to move through its pages.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Loading Time Stats:</strong> Restores spinner duration tracking during page updates through the shared loading monitor.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Order Email Copy:</strong> Warns when Prisma hides recipients and the full list is unavailable, rather than reporting a partial copy as complete. Complete recipient lists still copy normally.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Orders Latest / All:</strong> Recovers when Prisma closes its menu without clearing its open state, so switching order views works again.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Settings:</strong> No longer shows retired Loading Fact Review, Scheduled Chat Launcher, or Direct Moe Chat controls; the remaining Moe launcher placement adjustments stay active. Loading Facts uses its dedicated tab instead of a redundant Fact stats button, and the sign-in fields now align.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Loading Facts:</strong> Keeps the New UI toast width stable while Prisma replaces or temporarily hides its loading indicator.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Social Booking Checker IDs:</strong> Block scientific-notation campaign and account IDs before comparisons or mapping, with guidance to use a fresh CSV and import IDs as text in Excel.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Features Startup:</strong> Fixes a script encoding error that could prevent Prisma features from starting.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Reccie tracker saves:</strong> The updated tracker service follows record identifiers when the complete table is sorted or rows are moved. Missing or changed identifiers stop the save, formula columns are preserved, and yellow note highlighting follows the comment.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Prisma performance diagnostics:</strong> New Orders routes are recognised, with separate session, startup, navigation and unclassified waiting-time categories. Latency estimates now use completed observations only. Switching tabs interrupts timing so background waits cannot inflate new completed measurements, while interruptions, errors and timeouts remain visible separately.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Other minor fixes, such as ...</strong> clearer Reccies settings and dialog close actions, preventing unstyled campaign action labels and loading facts from flashing during page loads, and retaining clean Prisma Media titles while campaigns load.</span></li>
+                </ul>
+            </div>
+            <div class="release">
+                <h2>r1.8</h2>
+                <ul>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Product Code Limit Warning:</strong> Highlights product and campaign code suffixes in campaign headers and Add Campaign, with reminders, dismiss options, and Settings controls.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Social Booking Reports:</strong> Added downloadable Excel workbooks for client and product account mapping, plus dedicated audit views for unintegrated Prisma bookings.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Approver Workflow:</strong> Displays captured recipient email addresses next to Submitted when submitting campaigns for approval, configurable via Settings.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Navigation Lifecycle:</strong> Unified route-aware lifecycle handling across campaign, Actualise, and Orders, preserving active enhancements across page navigation.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Social Booking Reconciliation:</strong> Enhanced rule validation for PO matching, cancel/rebooks, flight date alignments, and workflow statuses, with clearer coverage explanations and refined audit exports.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Toolbar Popup:</strong> Opens instantly using local styles and icons, removing external font service latency.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Page Performance:</strong> Coalesced rapid DOM updates into fast and deferred reconciliation passes for smoother page responsiveness.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Campaign Tab Title:</strong> Prevents Chrome from freezing on overlong campaign names, supporting names up to 99 characters before falling back cleanly.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Campaign Quick Access:</strong> Actions now remain anchored beside the campaign name rather than drifting across the header.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Add Campaign Details:</strong> Reliably hides Objective, Targeting, and Flighting sections inside Prisma's campaign-details frame when configured.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Approver Workflow:</strong> Restores hidden recipient emails upon pressing Enter and improves tooltip clarity on the remove control.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Quick Copy:</strong> Resolved messaging edge cases when copying campaign names and header values.</span></li>
+                </ul>
+            </div>
+
+            <div class="release">
+                <h2>r1.7</h2>
+                <ul>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Max Campaign Budget:</strong> Automatically calculates and populates Buy Cost or active Actualise Gross cells directly from Prisma's live response.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>DST Assurance:</strong> Displays a status badge next to approvers for Facebook, Google, or Amazon media, checking Meta Location Fees and flagging straddling flights.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Actualise Month Assurance:</strong> Verifies that URL, selected month, rendered grid, and response data match, with automatic recovery on discrepancy.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Actualise Bulk Export:</strong> Downloads every visible month of Actualise in one click and combines them into an Excel-ready file with a single header row.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>User Onboarding:</strong> First-run setup wizard guiding feature selection, complemented by a multi-chapter side-panel tour and live highlights.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Help Guides &amp; PDF Viewer:</strong> Draggable side-panel launcher with searchable guides, favourites, and an embedded SharePoint PDF viewer with zoom and search.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Plan-to-Buy Direct:</strong> Optional automatic redirect that opens the Buy workspace when navigating directly to a campaign Plan URL.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Social Booking Checker:</strong> Compares Meta and Prisma booking reports to detect unlinked campaigns, flight date issues, and spend discrepancies.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Optimised Navigation:</strong> Keeps primary navigation accessible while working in Actualise, with a direct shortcut to open the current month.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Order ID Copy:</strong> Click any Order ID in the Orders sidebar or Order Summary to copy it cleanly to the clipboard.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Stats Waiting Breakdown:</strong> Displays waiting times broken down by workspace area (Buy, Actualise, Traffic, Orders, and Home).</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Prisma Banner Username:</strong> Shows the signed-in Mediaocean username in the top banner in place of the default organisation label.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Approver Guidance:</strong> Prompt providing approval guidelines and one-click copying of the mandatory approver training link.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Account Switch Return:</strong> Restores the specific Prisma page and campaign being viewed after completing an account switch.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Performance &amp; Navigation:</strong> Replaced full-page DOM polling with route-aware SPA listeners, coalesced observer passes, and isolated child-frame scripts for faster transitions.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Social Booking Reconciliation:</strong> Added live Meta API refreshes with masked token storage, interactive client/product mapping, ranked suggestions for unmatched spend, and CSV audit exports.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Social Booking Data &amp; Layout:</strong> Validated required CSV columns on upload, added currency and timezone awareness, and provided resizable, filterable breakdown columns.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Settings &amp; Customisation:</strong> Added screenshot previews for the selected-placement counter, automatic Moe media selection and Order Summary alignment. Introduced live search, hover feature previews, grouped setting categories, and independent toggles for assurance badges and navigation helpers.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Loading Facts &amp; Waiting Time:</strong> Expanded trivia pool with media terms and WPP history, improved screen-edge positioning, and widened spinner detection across Prisma.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Campaign &amp; Tab Navigation:</strong> Preserves campaign names in browser tab titles across route changes, adds clickable date shortcuts, and maintains approver widgets during navigation.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Actualise Month Selection:</strong> Shows every month in the campaign date range in one selector, including months Prisma keeps behind its pager arrows, and keeps a distant selection highlighted while the native pager catches up.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Custom Reminders:</strong> Upgraded reminder manager with simple and advanced URL matching, dynamic page support, and instant rule application without reloads.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Help Guides &amp; Moe Chat:</strong> Streamlined hand-offs to Connect with Moe without intrusive popups, and improved launcher edge-snapping on multi-monitor setups.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>User Onboarding Flow:</strong> Simplified onboarding into a three-step path with 2-PID support, shortcut spotlights, and a test-replay action in Settings.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Approver Workflow:</strong> Added search clear controls, manageable recipient history, and cleaner widget placement with GMI Chat spacing.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Placement Counter:</strong> Separated packages and contained placements in selection counts, including full support for programmatic packages.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Campaign Navigation &amp; Clipboard:</strong> Preserved approver widgets and Order UI controls on Buy, with reliable clipboard routing for campaign details.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>DST Assurance:</strong> Correctly highlighted supplier/cost correction cells for Meta and DV360 service-charge rows without false Google cost warnings.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Actualise Month Assurance:</strong> Keeps a confirmed month green when horizontal scrolling moves identifying columns off screen, and tracks Prisma's native month buttons reliably.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Actualise Approver Placement:</strong> Centres workflow controls in the available Actualise space and keeps a small gap from the Media plan Actualise title when room is tight.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Print Campaign Navigation:</strong> Hid unsupported Traffic and Analyse tabs on print campaigns and standardized Orders button styling.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Placement Counter:</strong> Properly classified fee rows rather than counting them as placements, ignoring search and grouping header rows.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Moe Chat Hand-off:</strong> Prevented premature loading facts and suppressed unexpected introductory popups during Help widget hand-offs.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Help Guides Launcher:</strong> Eliminated click races during open/close transitions and kept position aligned beside live chat.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Order Summary Controls:</strong> Added missing Copy buttons beside Order IDs on legacy summary pages and kept column headers aligned during scroll.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Actualise Bulk Export:</strong> Prevented spreadsheet formula injection while preserving formatted text, negative numbers, and trailing blank fields.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Social Booking Checker:</strong> Fixed UK date format parsing, retained matched account totals on return, and saved unique client/product mappings.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>AppLearn &amp; Login Popups:</strong> Immediately blocked broken AppLearn popups and empty Okta bootstrap tabs before navigation.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Other minor fixes, such as ...</strong> centred approval header alignment, workflow label clearance and Check Meta spacing, and modal dropdown text.</span></li>
+                </ul>
+            </div>
+
+            <div class="release">
+                <h2>r1.5</h2>
+                <ul>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Campaign Name Copy:</strong> Click the campaign name to copy it directly to your clipboard.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Header Quick Copy:</strong> Click the Campaign ID or CL/PR/CA header values to copy them without changing the native Prisma header layout.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Campaign Date Edit:</strong> Click campaign dates in the header to jump straight to the Basic section for quick date amendments.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>AppLearn Popup Blocking:</strong> Block broken AppLearn and associated Okta login popups opened from Prisma or Aura.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Campaign URL Copy:</strong> Quick-copy either Prisma's short campaign link or the full URL without leaving the Page link panel open.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Order View:</strong> UI quirks in the new Campaign Order view.</span></li>
+                    <li><span class="release-badge release-badge--fixed" data-release-type="fixed">Fixed</span><span class="release-copy"><strong>Actualise Scroll:</strong> Horizontal scroll position being lost when actions soft-refresh the Actualise screen.</span></li>
+                </ul>
+            </div>
+            <div class="release">
+                <h2>r1.4</h2>
+                <ul>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Order ID Copy:</strong> Order ID Copy button on Campaign Order pages for quickly copying the clean Order ID without its version suffix.</span></li>
+                </ul>
+            </div>
+            <div class="release">
+                <h2>r1.3</h2>
+                <ul>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Placement Counter:</strong> Count the number of selected placements.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Locked Buys:</strong> View comments on locked buys.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Auto Copy Campaign URL:</strong> Automatically copy the URL when the link-copy button is clicked.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>GMI Chat:</strong> GMI Chat button.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Stats Dashboard:</strong> Prisma usage statistics.</span></li>
+                </ul>
+            </div>
+            <div class="release">
+                <h2>r1.2</h2>
+                <ul>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Prisma Approvers:</strong> Prisma Approvers tool.</span></li>
+                </ul>
+            </div>
+
+            <div class="release">
+                <h2>r1.1</h2>
+                <ul>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>D-Number Quick Jump:</strong> D-number open tool.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Prisma Logo:</strong> Replacement Prisma logo that shows when the extension is enabled.</span></li>
+                    <li><span class="release-badge release-badge--improved" data-release-type="improved">Improved</span><span class="release-copy"><strong>Campaign Navigation:</strong> Skips Quick Add and hides unused campaign setup settings.</span></li>
+                </ul>
+            </div>
+
+            <div class="release">
+                <h2>r1</h2>
+                <ul>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Initial Release:</strong> Initial release.</span></li>
+                </ul>
+            </div>
+        </div>
+
+        <div id="roadmap" class="tab-content">
+            <h2>Roadmap</h2>
+            <ul>
+                <li>Gross/Net Calculator</li>
+                <li>Update Prisma Approvers data</li>
+                <li>Integrate reminders based on senior Prisma users feedback</li>
+                <li>Stats logging improvements</li>
+                <li>Prisma Live Chat enhancements</li>
+                <li>Preventing wrongful setup of certain elements of Campaigns, Placements and Packages</li>
+                <li>Campaign history with the ability to search visited campaigns by supplier</li>
+                <li>Remove and automate certain supplier drop-downs (e.g., ad serving)</li>
+                <li>'Recently approved' badge for Prisma approvals</li>
+                <li>Tweaks to new Prisma campaign navigation, such as displaying full current booked budget</li>
+                <li>Options to remove or replace 'Plan' with campaign details</li>
+                <li>New Order view quirks</li>
+                <li>Meta Spend Check</li>
+                <li>Recy Sheet Campaign List</li>
+                <li>Move subscriptions back to right drop down</li>
+                <li>Download button for IOs</li>
+                <li>Further efficiency automation gains</li>
+            </ul>
+        </div>
+
+        <div id="stats" class="tab-content">
+            <div class="stats-header">
+                <h2>Statistics</h2>
+                <button id="refresh-stats-button" class="icon-button" title="Refresh Stats">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M23 4v6h-6"></path>
+                        <path d="M1 20v-6h6"></path>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Lifetime Totals -->
+            <div class="stats-period-control" role="group" aria-label="Stats date range">
+                <span class="stats-period-indicator" aria-hidden="true"></span>
+                <button type="button" data-stats-period="this-week" aria-pressed="false">This week</button>
+                <button type="button" data-stats-period="last-week" aria-pressed="false">Last week</button>
+                <button type="button" data-stats-period="this-month" aria-pressed="false">This month</button>
+                <button type="button" data-stats-period="last-month" aria-pressed="false">Last month</button>
+                <button type="button" data-stats-period="all" aria-pressed="true">All time</button>
+            </div>
+            <p id="stats-period-context" class="campaign-insights-summary" aria-live="polite"></p>
+            <div class="stats-overview">
+                <div class="stat-card-overview">
+                    <div class="stat-icon-wrapper">📂</div>
+                    <div class="stat-details">
+                        <span class="stat-value" id="campaigns-visited-stat">0</span>
+                        <span class="stat-label">Campaigns Visited</span>
+                    </div>
+                </div>
+
+                <div class="stat-card-overview">
+                    <div class="stat-icon-wrapper">⏳</div>
+                    <div class="stat-details">
+                        <span class="stat-value" id="loading-time-stat">0s</span>
+                        <span class="stat-label">Time Waiting</span>
+                        <span id="avg-loading-time-stat" class="stat-subtext"></span>
+                    </div>
+                </div>
+
+                <div class="stat-card-overview">
+                    <div class="stat-icon-wrapper">➕</div>
+                    <div class="stat-details">
+                        <span class="stat-value" id="placements-added-stat">0</span>
+                        <span class="stat-label">Placements Created</span>
+                        <span class="stat-subtext">Confirmed saves</span>
+                    </div>
+                </div>
+
+                <div class="stat-card-overview">
+                    <div class="stat-icon-wrapper">✅</div>
+                    <div class="stat-details">
+                        <span class="stat-value" id="reconciliations-stat">0</span>
+                        <span class="stat-label">Reconciliation Clicks</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="stats-save-summary">
+                <span><strong id="placements-updated-stat">0</strong> placements updated</span>
+                <span><strong id="placement-saves-other-stat">0</strong> other confirmed saves</span>
+                <details><summary>About these counts</summary><p id="stats-counts-note"></p></details>
+            </div>
+
+            <section class="loading-area-section" aria-labelledby="loading-area-title">
+                <div class="loading-area-header">
+                    <h3 id="loading-area-title">Waiting time by area</h3>
+                    <span id="loading-area-context">Area tracking starts with this update</span>
+                </div>
+                <div id="loading-area-breakdown" class="loading-area-grid" aria-live="polite"></div>
+            </section>
+
+            <section class="stats-section stats-monthly-section" aria-labelledby="stats-monthly-title">
+                <div class="stats-monthly-header">
+                    <h3 id="stats-monthly-title">Monthly Trends</h3>
+                    <label>Show <select id="stats-monthly-metric">
+                        <option value="saves">Confirmed saves</option>
+                        <option value="campaigns">Campaigns visited</option>
+                        <option value="reconciliations">Reconciliation clicks</option>
+                        <option value="waiting">Waiting time</option>
+                    </select></label>
+                </div>
+                <p id="stats-monthly-context" class="campaign-insights-summary"></p>
+                <div id="stats-monthly-chart" class="stats-monthly-chart" role="list" aria-label="Monthly totals"></div>
+                <p id="stats-monthly-comparison" class="campaign-insights-summary"></p>
+            </section>
+
+            <!-- Heatmap -->
+            <div class="stats-section">
+                <h3>Activity Heatmap</h3>
+                <div class="heatmap-wrapper">
+                    <div id="heatmap" class="heatmap-container"></div>
+                    <div id="heatmap-weekends" class="heatmap-weekends" aria-label="Weekend activity" hidden></div>
+                </div>
+            </div>
+
+            <section class="stats-section" aria-labelledby="diagnostics-title">
+                <h3 id="diagnostics-title">Prisma performance diagnostics</h3>
+                <p>Browser-observed durations, not server latency or full page-load time. No synthetic requests. Page and side-panel loading are measured separately.</p>
+                <div id="diagnostics-signal" class="diagnostics-segments" role="group" aria-label="Timing signal">
+                    <button type="button" data-diagnostics-signal="page_indicator" aria-pressed="true">Page indicators</button>
+                    <button type="button" data-diagnostics-signal="side_panel_indicator" aria-pressed="false">Side-panel indicators</button>
+                    <button type="button" data-diagnostics-signal="placement_save" aria-pressed="false">Placement saves</button>
+                </div>
+                <p id="diagnostics-summary" aria-live="polite"></p>
+                <svg id="diagnostics-chart" viewBox="0 0 800 200" role="img" aria-label="Daily estimated median in blue and p95 in orange, seconds" style="width:100%;max-height:240px"></svg>
+                <details><summary>Daily timings and outcomes</summary><div id="diagnostics-table"></div></details>
+                <p>Completed timings only: estimated median (blue) and p95 (orange). Slow completions take at least 10 seconds. Switching tabs interrupts timing; background activity is excluded. Errors, interruptions and timeouts remain separate counts. Older mixed histograms cannot supply completed timings; earlier completed-only history may include background time. Timeouts are 5 minutes for indicators and 20 seconds for placement acknowledgements, and do not prove failure.</p>
+                <p>Route readiness and financial Pending completion cannot currently be attributed reliably. Manual reports record an observation without a duration; they do not confirm a blank page or stuck update.</p>
+                <div class="diagnostics-report-controls">
+                <label class="diagnostics-field">Observation <select id="diagnostics-report"><option value="manual_slowness">Perceived slowness</option><option value="manual_incomplete">Slow or incomplete render</option><option value="manual_pending">Financial Pending observed</option></select></label>
+                <label class="diagnostics-field">Area <select id="diagnostics-area"><option value="unclassified">Unclassified</option><option value="session">Session / sign-in</option><option value="startup">Opening Prisma</option><option value="navigation">Navigation between views</option><option value="home">Home</option><option value="plan">Plan</option><option value="buy">Buy</option><option value="actualise">Actualise</option><option value="traffic">Traffic</option><option value="analyse">Analyse</option><option value="orders">Orders</option></select></label>
+                <button id="diagnostics-report-button" class="button-secondary">Record observation</button>
+                </div><p id="diagnostics-report-status" aria-live="polite"></p>
+                <button id="diagnostics-export" class="button-secondary">Export diagnostics JSON</button>
+                <p>Local only: up to 366 UTC days of histograms and 1,000 recent samples. Export includes sanitised diagnostics for the selected period and extension build/version, only when clicked. Nothing is uploaded. Reset Stats clears diagnostics. Stats Collector disables collection.</p>
+            </section>
+            <!-- Charts & Fun Stats -->
+            <div class="stats-grid">
+                <div class="stats-card">
+                    <h3>Weekly Productivity <button type="button" id="weekly-productivity-info" class="stats-info-button" aria-label="About Weekly Productivity">i</button></h3>
+                    <div id="day-of-week-chart" class="chart-container"></div>
+                    <p id="most-active-month" class="stat-summary"></p>
+                </div>
+                <div class="stats-card">
+                    <h3>Fun Metrics</h3>
+                    <div class="fun-stat">
+                        <span class="fun-icon">🫖</span>
+                        <div class="fun-content">
+                            <span id="kettle-index" class="fun-value">0</span>
+                            <span class="fun-label">Kettles Boiled (waiting time)</span>
+                        </div>
+                    </div>
+                    <div class="fun-stat">
+                        <span class="fun-icon">📈</span>
+                        <div class="fun-content">
+                            <span id="beat-your-week" class="fun-value">-</span>
+                            <span class="fun-label">Confirmed saves · last 7 days vs previous 7</span>
+                        </div>
+                    </div>
+                    <div class="fun-stat">
+                        <span class="fun-icon">🔥</span>
+                        <div class="fun-content">
+                            <span id="streak-counter" class="fun-value"></span>
+                            <span class="fun-label">Current confirmed-save streak · all time</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <section class="stats-section" aria-labelledby="campaign-insights-title">
+                <h3 id="campaign-insights-title">Campaign Insights</h3>
+                <p class="campaign-insights-summary">Top five by unique campaigns. Latest recorded figures · not filtered by period.</p>
+                <div class="stats-grid">
+                    <div class="stats-card"><h3>Top Clients</h3><ol id="top-clients" class="stats-ranking"></ol></div>
+                    <div class="stats-card"><h3>Top Suppliers</h3><ol id="top-suppliers" class="stats-ranking"></ol></div>
+                    <div class="stats-card"><h3>Average Campaign Budget</h3><span id="average-campaign-budget" class="fun-value">—</span></div>
+                    <div class="stats-card"><h3>Total Booked On</h3><span id="total-campaign-booked" class="fun-value">—</span></div>
+                </div>
+                <div class="campaign-insights-footer">
+                    <p id="campaign-insights-coverage"></p>
+                    <details class="campaign-insights-details">
+                        <summary>About these figures</summary>
+                        <p>Based on campaigns visited since this update. Open a campaign’s budget breakdown in Prisma to record its exact GBP Total client cost budget and booked amount. Figures use the latest amount recorded for each campaign, rather than lifetime booking transactions. Up to 2,000 campaigns are kept locally; repeat visits do not add to the totals.</p>
+                    </details>
+                </div>
+            </section>
+
+            <div class="fun-stat applearn-stat-row">
+                <span class="fun-icon">&#128737;&#65039;</span>
+                <div class="fun-content">
+                    <span id="applearn-popups-blocked-stat" class="fun-value">0</span>
+                    <span class="fun-label">AppLearn Popups Blocked · all time</span>
+                </div>
+            </div>
+
+            <button id="reset-stats-button" class="button-secondary">Reset Stats</button>
+        </div>
+
+        <div class="feedback">
+            <a href="#" id="open-feedback-modal">Have an idea? Let the chef know here!</a>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmation-modal-overlay" class="modal-overlay"></div>
+    <div id="confirmation-modal" class="modal">
+        <div class="modal-content">
+            <h3>Confirm Reset</h3>
+            <p>Are you sure you want to reset all your stats? This cannot be undone.</p>
+            <div class="modal-actions">
+                <button id="modal-confirm-button" class="button-danger">Yes, Reset</button>
+                <button id="modal-cancel-button" class="button-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="build-info" class="build-info"></div>
+    <script src="extension-page-gate.js" data-scripts="diagnostics.js,diagnostics-ui.js,features/confetti.js,build-info.js,utils.js,features/feedback-modal.js,toolshed.js"></script>
+</body>
+</html>

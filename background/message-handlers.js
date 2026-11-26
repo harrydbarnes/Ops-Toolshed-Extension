@@ -1,4 +1,5 @@
 import { approversData } from '../approvers-data.js';
+import { observeFinancePending } from './finance-timing.js';
 import { handleSocialCheck } from './social-campaign-check.js';
 import { handleReccies, openReccies, prepareReccies, scheduleFinancialVerification } from './reccies.js';
 import {
@@ -8,13 +9,20 @@ import {
     getDiagnosticReport,
     recordDiagnosticEvent
 } from './diagnostics-manager.js';
+import {
+    startNetworkCapture,
+    stopNetworkCapture,
+    getNetworkCaptureStatus,
+    getLastNetworkCapture,
+    clearLastNetworkCapture
+} from './network-capture.js';
 
 const openHelpGuideTabs = new Set();
 const OPEN_HELP_GUIDE_TABS_KEY = 'openHelpGuideTabIds';
 const ACCOUNT_SWITCH_RETURN_URLS_KEY = 'accountSwitchReturnUrlsByTab';
 const ACCOUNT_SWITCH_RETURN_TTL_MS = 2 * 60 * 1000;
 import { scrapeAndDownloadCsv } from './meta-billing-scraper.js';
-import { handleTrackStat } from './stats-manager.js';
+import { handleTrackStat, handleResetStats } from './stats-manager.js';
 import { PRISMA_DASHBOARD_URL } from './prisma-url.js';
 import {
     trackCampaignApproval,
@@ -54,7 +62,7 @@ function getVerifiedPrismaRequest(request, sender) {
     return { tabId, requestedUrl };
 }
 
-async function getAccountSwitchReturnUrls() {
+async function loadAndPruneAccountSwitchReturnUrls() {
     const stored = await chrome.storage.session.get({ [ACCOUNT_SWITCH_RETURN_URLS_KEY]: {} });
     const urlsByTab = { ...(stored[ACCOUNT_SWITCH_RETURN_URLS_KEY] || {}) };
     const now = Date.now();
@@ -76,7 +84,7 @@ async function rememberAccountSwitchUrl(request, sender, sendResponse) {
         sendResponse({ status: 'error', message: 'Invalid account-switch return URL.' });
         return;
     }
-    const urlsByTab = await getAccountSwitchReturnUrls();
+    const urlsByTab = await loadAndPruneAccountSwitchReturnUrls();
     urlsByTab[verified.tabId] = { url: verified.requestedUrl.href, createdAt: Date.now() };
     await chrome.storage.session.set({ [ACCOUNT_SWITCH_RETURN_URLS_KEY]: urlsByTab });
     sendResponse({ status: 'success' });
@@ -88,7 +96,7 @@ async function getAccountSwitchUrl(request, sender, sendResponse) {
         sendResponse({ status: 'error', message: 'Could not identify the Prisma tab.' });
         return;
     }
-    const urlsByTab = await getAccountSwitchReturnUrls();
+    const urlsByTab = await loadAndPruneAccountSwitchReturnUrls();
     sendResponse({ status: 'success', url: urlsByTab[verified.tabId]?.url || null });
 }
 
@@ -98,7 +106,7 @@ async function clearAccountSwitchUrl(request, sender, sendResponse) {
         sendResponse({ status: 'error', message: 'Could not identify the Prisma tab.' });
         return;
     }
-    const urlsByTab = await getAccountSwitchReturnUrls();
+    const urlsByTab = await loadAndPruneAccountSwitchReturnUrls();
     delete urlsByTab[verified.tabId];
     await chrome.storage.session.set({ [ACCOUNT_SWITCH_RETURN_URLS_KEY]: urlsByTab });
     sendResponse({ status: 'success' });
@@ -110,11 +118,13 @@ async function showTimesheetNotification(request, sender, sendResponse, context)
 }
 
 async function createTimesheetAlarm(request, sender, sendResponse, context) {
+    if (!requireSettingsSender(sender, sendResponse, 'timesheet reminders')) return;
     await context.createTimesheetAlarm(request.day, request.time);
     sendResponse({ status: "Alarm created" });
 }
 
 async function removeTimesheetAlarm(request, sender, sendResponse) {
+    if (!requireSettingsSender(sender, sendResponse, 'timesheet reminders')) return;
     await chrome.alarms.clear('timesheetReminder');
     sendResponse({ status: "Alarm removed" });
 }
@@ -370,7 +380,8 @@ async function setHelpGuidesPanelState(tabId, isOpen) {
     try {
         await chrome.tabs.sendMessage(tabId, { action: 'helpGuidesPanelState', open: isOpen });
     } catch {
-        // The page content script may be between route loads while the panel changes state.
+        // The persisted state remains authoritative while the content script reloads.
+        console.debug('[Help Guides] Panel state notification was not delivered to tab:', tabId);
     }
 }
 
@@ -440,7 +451,15 @@ async function handleTrackCampaignApproval(request, sender, sendResponse) {
     sendResponse(result);
 }
 
+function requireSettingsSender(sender, sendResponse, subject = 'diagnostics') {
+    if (sender?.id === chrome.runtime.id &&
+        sender.url?.split(/[?#]/)[0] === chrome.runtime.getURL('settings.html')) return true;
+    sendResponse({ status: 'error', message: `Manage ${subject} from Ops Toolshed Settings.` });
+    return false;
+}
+
 async function handleSetDiagnosticsMode(request, sender, sendResponse) {
+    if (!requireSettingsSender(sender, sendResponse)) return;
     const state = request.enabled === true
         ? await enableDiagnostics()
         : await disableDiagnostics();
@@ -452,11 +471,51 @@ async function handleRecordDiagnosticEvent(request, sender, sendResponse) {
 }
 
 async function handleGetDiagnosticReport(request, sender, sendResponse) {
+    if (!requireSettingsSender(sender, sendResponse)) return;
     sendResponse({ status: 'success', report: await getDiagnosticReport() });
 }
 
 async function handleClearDiagnosticEvents(request, sender, sendResponse) {
+    if (!requireSettingsSender(sender, sendResponse)) return;
     sendResponse(await clearDiagnosticEvents());
+}
+
+function requireNetworkCaptureSender(sender, sendResponse) {
+    const baseUrl = sender?.url?.split(/[?#]/)[0];
+    if (sender?.id === chrome.runtime.id && (
+        baseUrl === chrome.runtime.getURL('popup.html') ||
+        baseUrl === chrome.runtime.getURL('toolshed.html')
+    )) return true;
+    sendResponse({ status: 'error', message: 'Network capture can only be controlled from Ops Toolshed.' });
+    return false;
+}
+
+async function handleStartNetworkCapture(request, sender, sendResponse) {
+    if (!requireNetworkCaptureSender(sender, sendResponse)) return;
+    sendResponse(await startNetworkCapture({
+        tabId: request.tabId,
+        sanitize: request.sanitize !== false
+    }));
+}
+
+async function handleStopNetworkCapture(request, sender, sendResponse) {
+    if (!requireNetworkCaptureSender(sender, sendResponse)) return;
+    sendResponse(await stopNetworkCapture());
+}
+
+async function handleGetNetworkCaptureStatus(request, sender, sendResponse) {
+    if (!requireNetworkCaptureSender(sender, sendResponse)) return;
+    sendResponse({ status: 'success', captureStatus: getNetworkCaptureStatus() });
+}
+
+async function handleGetLastNetworkCapture(request, sender, sendResponse) {
+    if (!requireNetworkCaptureSender(sender, sendResponse)) return;
+    sendResponse(getLastNetworkCapture());
+}
+
+async function handleClearLastNetworkCapture(request, sender, sendResponse) {
+    if (!requireNetworkCaptureSender(sender, sendResponse)) return;
+    sendResponse(clearLastNetworkCapture());
 }
 
 async function handleDismissApprovedCampaign(request, sender, sendResponse) {
@@ -480,6 +539,10 @@ async function handleCheckApprovalStatusNow(request, sender, sendResponse) {
 }
 
 export const messageHandlers = {
+    financeTimingObserve: async (request, sender, sendResponse) => {
+        await observeFinancePending(request, sender);
+        sendResponse({ status: 'success' });
+    },
     socialCampaignCheck: handleSocialCheck,
     reccies: handleReccies,
     reccieFinancialUpdate: scheduleFinancialVerification,
@@ -513,8 +576,14 @@ export const messageHandlers = {
     clearAllApprovedCampaigns: handleClearAllApprovedCampaigns,
     checkApprovalStatusNow: handleCheckApprovalStatusNow,
     TRACK_STAT: handleTrackStat,
+    RESET_STATS: handleResetStats,
     SET_DIAGNOSTICS_MODE: handleSetDiagnosticsMode,
     RECORD_DIAGNOSTIC_EVENT: handleRecordDiagnosticEvent,
     GET_DIAGNOSTIC_REPORT: handleGetDiagnosticReport,
-    CLEAR_DIAGNOSTIC_EVENTS: handleClearDiagnosticEvents
+    CLEAR_DIAGNOSTIC_EVENTS: handleClearDiagnosticEvents,
+    START_NETWORK_CAPTURE: handleStartNetworkCapture,
+    STOP_NETWORK_CAPTURE: handleStopNetworkCapture,
+    GET_NETWORK_CAPTURE_STATUS: handleGetNetworkCaptureStatus,
+    GET_LAST_NETWORK_CAPTURE: handleGetLastNetworkCapture,
+    CLEAR_LAST_NETWORK_CAPTURE: handleClearLastNetworkCapture
 };

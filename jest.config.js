@@ -1,5 +1,6 @@
 module.exports = {
   testEnvironment: "node",
+  roots: ["<rootDir>/tests"],
   setupFiles: ["./tests/mocks/chrome.js", "./tests/mocks/document.js"],
   setupFilesAfterEnv: ["./tests/helpers/cleanup.js"],
   moduleNameMapper: { '^jsdom$': '<rootDir>/tests/helpers/jsdom.js' },

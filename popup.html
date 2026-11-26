@@ -11,10 +11,12 @@
         <div class="header">
             <div class="header-left">
                 <img src="icon.png" alt="Prisma Tools" class="logo">
-                <h1 id="prisma-tools" class="title">Ops Toolshed</h1>
+                <div class="header-title-group">
+                    <h1 id="prisma-tools" class="title">Ops Toolshed</h1>
+                    <div id="version-link" class="version"></div>
+                </div>
             </div>
             <div class="header-actions">
-                <div id="version-link" class="version"></div>
                 <button
                     id="featuresKillSwitch"
                     class="features-kill-switch"
@@ -26,6 +28,36 @@
                     <svg class="kill-switch-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 2v10M5.6 5.6a9 9 0 1 0 12.8 0"/></svg>
                     <span>Features on</span>
                 </button>
+                <div class="nc-header-control" data-network-capture-root>
+                    <button
+                        id="popupStartCaptureBtn"
+                        type="button"
+                        class="nc-header-btn"
+                        data-nc-start
+                        title="Capture Prisma network (.har) and console (.log) for support"
+                    >Log Capture</button>
+                    <button
+                        id="popupStopCaptureBtn"
+                        type="button"
+                        class="nc-header-btn nc-header-btn--recording"
+                        data-nc-stop
+                        hidden
+                        title="Stop capture and prepare support email"
+                    ><span class="nc-live-dot" aria-hidden="true"></span>Stop</button>
+                    <div class="nc-popover" data-nc-export hidden>
+                        <div class="nc-popover-header">
+                            <span class="nc-popover-title">Capture ready</span>
+                            <button type="button" class="nc-popover-close" data-nc-dismiss aria-label="Dismiss capture">×</button>
+                        </div>
+                        <p class="nc-meta" data-nc-meta></p>
+                        <p class="nc-status" data-nc-status aria-live="polite"></p>
+                        <div class="nc-actions-row">
+                            <button type="button" class="nav-button nc-btn-primary" data-nc-download-eml>Email Draft (.eml)</button>
+                            <button type="button" class="nav-button" data-nc-download-both>.har &amp; .log</button>
+                            <button type="button" class="nav-button" data-nc-copy-email>Copy</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -38,7 +70,8 @@
             <button id="timesheetHelperButton" class="nav-button">Timesheet Helper</button>
             <button id="annualLeaveButton" class="nav-button">Annual Leave</button>
             <button id="approvalsButton" class="nav-button">Timesheet Approvals</button>
-            <button id="officeHoursButton" class="nav-button">myOffice Days</button>
+            <button id="recciesButton" class="nav-button">Reccies</button>
+            <button id="officeHoursButton" class="nav-button" hidden>myOffice Days</button>
             <button id="tpoSharepointButton" class="nav-button">TPO Sharepoint</button>
             <button id="approversListButton" class="nav-button">Prisma Approvers List</button>
             <button id="addCampaignButton" class="nav-button">Add Campaign</button>
@@ -99,6 +132,8 @@
         <strong>Campaign month</strong>
         <span>Examples: 07/25, July 2025 or 2025-07. Leave blank for the current month.</span>
     </div>
+    <script src="popup-shortcuts.js"></script>
+    <script src="network-capture-ui.js"></script>
     <script src="popup.js"></script>
 </body>
 </html>

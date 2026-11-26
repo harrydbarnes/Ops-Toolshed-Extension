@@ -1,14 +1,89 @@
 (function() {
     'use strict';
     const core = window.reccieCore, $ = id => document.getElementById(id);
+    const SHEET_AUTO_SYNC_STALE_MS = 5 * 60 * 1000;
     let tracker = null, busy = false, limit = 40, latestTiming = null, mode = 'main', mainMonth = '';
+    let postVerifyBannerVisible = false, multiSelectMode = false;
+    const selectedSourceRows = new Set();
+    const exitMultiSelect = () => { multiSelectMode = false; selectedSourceRows.clear(); };
+    const readyToMarkRows = () => shownRows().filter(row => !row.issue && row.reccied.trim().toLowerCase() !== 'yes' && tracker?.checks?.[row.sourceRow]?.state === 'ready');
     const manualWrites = window.reccieManualWrites?.create({
         context:()=>({tracker,mode,month:$('report-month').value}),busy:()=>busy,setBusy,message,
         updated:(saved,context)=>{if(mode===context.mode&&$('report-month').value===context.month){tracker=saved;render();}}
     });
     const observed = () => tracker?.source?.type === 'automatic' || mode === 'automatic';
     const storageKey = suffix => mode === 'main' ? (suffix === 'preferences' ? 'recciePreferences' : 'reccieLastRunTiming') : `${core.trackerKey(mode, $('report-month').value)}:${suffix}`;
-    const labels = { ready: 'Verified ready', outstanding: 'Outstanding', review: 'Needs attention', error: 'Check failed' };
+    const verificationTooltip=$('verification-scope'),verificationButton=$('check-rows');
+    let verificationTooltipTimer=null;
+    function hideVerificationTooltip(){
+        clearTimeout(verificationTooltipTimer);verificationTooltipTimer=null;
+        verificationTooltip.hidden=true;verificationTooltip.classList.remove('is-visible');
+        verificationButton.removeAttribute('aria-describedby');
+    }
+    function showVerificationTooltip(){
+        hideVerificationTooltip();
+        verificationTooltipTimer=setTimeout(()=>{
+            if(!verificationButton.isConnected||document.hidden)return;
+            verificationTooltip.hidden=false;
+            verificationTooltip.style.maxWidth=`${Math.max(0,Math.min(320,window.innerWidth-16))}px`;
+            const rect=verificationButton.getBoundingClientRect(),tip=verificationTooltip.getBoundingClientRect();
+            const above=rect.top>=tip.height+18;
+            verificationTooltip.style.left=`${Math.max(8,Math.min(rect.left+(rect.width-tip.width)/2,window.innerWidth-tip.width-8))}px`;
+            verificationTooltip.style.top=`${above?rect.top-tip.height-10:Math.max(8,Math.min(rect.bottom+10,window.innerHeight-tip.height-8))}px`;
+            verificationButton.setAttribute('aria-describedby',verificationTooltip.id);
+            window.requestAnimationFrame(()=>{if(!verificationTooltip.hidden)verificationTooltip.classList.add('is-visible');});
+        },350);
+    }
+    verificationButton.addEventListener('mouseenter',showVerificationTooltip);
+    verificationButton.addEventListener('focus',showVerificationTooltip);
+    for(const event of ['mouseleave','blur','click'])verificationButton.addEventListener(event,hideVerificationTooltip);
+    document.addEventListener('keydown',event=>{if(event.key==='Escape')hideVerificationTooltip();});
+    document.addEventListener('scroll',hideVerificationTooltip,true);
+    document.addEventListener('visibilitychange',hideVerificationTooltip);
+    window.addEventListener('resize',hideVerificationTooltip);
+    const statusTooltip=$('status-option-tooltip');
+    let statusTooltipTimer=null,activeStatusTrigger=null;
+    function hideStatusTooltip(){
+        clearTimeout(statusTooltipTimer);statusTooltipTimer=null;
+        if(statusTooltip){statusTooltip.hidden=true;statusTooltip.classList.remove('is-visible');}
+        if(activeStatusTrigger){activeStatusTrigger.removeAttribute('aria-describedby');activeStatusTrigger=null;}
+    }
+    function attachStatusTooltip(element,text){
+        if(!element||!text||!statusTooltip)return;
+        function show(){
+            hideStatusTooltip();hideVerificationTooltip();
+            activeStatusTrigger=element;
+            statusTooltipTimer=setTimeout(()=>{
+                if(!element.isConnected||document.hidden)return;
+                statusTooltip.textContent=text;
+                statusTooltip.hidden=false;
+                statusTooltip.style.maxWidth=`${Math.max(0,Math.min(280,window.innerWidth-16))}px`;
+                const rect=element.getBoundingClientRect(),tip=statusTooltip.getBoundingClientRect();
+                const above=rect.top>=tip.height+14;
+                statusTooltip.style.left=`${Math.max(8,Math.min(rect.left+(rect.width-tip.width)/2,window.innerWidth-tip.width-8))}px`;
+                statusTooltip.style.top=`${above?rect.top-tip.height-8:Math.max(8,Math.min(rect.bottom+8,window.innerHeight-tip.height-8))}px`;
+                element.setAttribute('aria-describedby',statusTooltip.id);
+                window.requestAnimationFrame(()=>{if(!statusTooltip.hidden)statusTooltip.classList.add('is-visible');});
+            },300);
+        }
+        element.addEventListener('mouseenter',show);
+        element.addEventListener('focus',show);
+        for(const event of ['mouseleave','blur','click'])element.addEventListener(event,hideStatusTooltip);
+    }
+    document.addEventListener('keydown',event=>{if(event.key==='Escape')hideStatusTooltip();});
+    document.addEventListener('scroll',hideStatusTooltip,true);
+    document.addEventListener('visibilitychange',hideStatusTooltip);
+    window.addEventListener('resize',hideStatusTooltip);
+    function formatSyncTimestamp(importedAt){
+        if(!importedAt)return 'Report loaded';
+        const date=new Date(importedAt);
+        if(Number.isNaN(date.getTime()))return 'Report loaded';
+        const diffMinutes=Math.floor((Date.now()-date.getTime())/60000);
+        if(diffMinutes<1)return 'Report loaded · Synced just now';
+        if(diffMinutes<60)return `Report loaded · Synced ${diffMinutes}m ago`;
+        return `Report loaded · Synced ${date.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`;
+    }
+    const labels = { ready: 'Reconciled in Prisma', outstanding: 'Outstanding', review: 'Needs attention', error: 'Check failed', other_location: 'Other location' };
     // Keep existing filter values and persistence; visible pills drive their native change handlers.
     const segmentBindings = [];
     function bindSegments(container, options, read, choose, disabled) {
@@ -16,6 +91,7 @@
             const button = document.createElement('button');
             button.type='button'; button.dataset.value=option.value; button.textContent=option.label;
             button.addEventListener('click',()=>{ if (!disabled()) choose(option.value); });
+            if (option.tooltip) attachStatusTooltip(button, option.tooltip);
             container.append(button); return button;
         });
         buttons.forEach((button,index)=>button.addEventListener('keydown',event=>{
@@ -33,7 +109,8 @@
     }
     ['show-by','tracker-status'].forEach(id=>{
         const select=$(id);
-        bindSegments($(`${id}-segments`),[...select.options].map(option=>({value:option.value,label:option.textContent})),()=>select.value,value=>{
+        const trackerTooltips = { any: 'All rows regardless of sheet tracker status.', outstanding: 'Rows not marked Yes in the Google Sheet.', reconciled: 'Rows marked Yes in the Google Sheet.' };
+        bindSegments($(`${id}-segments`),[...select.options].map(option=>({value:option.value,label:option.textContent,tooltip:id==='tracker-status'?trackerTooltips[option.value]:undefined})),()=>select.value,value=>{
             select.value=value; select.dispatchEvent(new Event('change'));
         },()=>select.disabled);
     });
@@ -173,8 +250,10 @@
     });
     function setBusy(value) {
         busy = value;
-        ['refresh-sheet', 'csv-file', 'report-month', 'sheet-url', 'forget-report', 'assignment', 'person', 'search', 'show-by', 'tracker-status'].forEach(id => { $(id).disabled = value; });
+        ['refresh-sheet', 'csv-file', 'report-month', 'sheet-url', 'forget-report', 'assignment', 'person', 'search', 'show-by', 'tracker-status', 'show-progress-bars', 'post-verify-mark', 'post-verify-dismiss', 'retry-failed-rows', 'toggle-multi-select', 'select-ready-rows', 'multi-select-clear', 'multi-select-note'].forEach(id => { if ($(id)) $(id).disabled = value; });
+        if ($('multi-select-mark')) $('multi-select-mark').disabled = value || selectedSourceRows.size > 100;
         document.querySelectorAll('[name=mode]').forEach(input => { input.disabled = value; });
+        if ($('refresh-tracker')) $('refresh-tracker').disabled = value;
         $('discover-campaigns').disabled = value;
         $('forget-report').disabled = value || !tracker;
         $('report-month').disabled = value || mode !== 'main';
@@ -184,9 +263,14 @@
         $('clear-filters').disabled = value;
         $('debug-workers').disabled = value;
         $('debug-run').disabled = $('check-rows').disabled;
-        document.querySelectorAll('.tracker-mark-yes').forEach(button=>{button.disabled=value;});
+        document.querySelectorAll('.tracker-mark-yes,.tracker-note').forEach(button=>{button.disabled=value;});
         segmentBindings.forEach(sync=>sync());
         window.reccieUi?.updateFilters();
+        if(!value)void syncSavedTracker();
+    }
+    async function syncSavedTracker(){
+        const selectedMode=mode,month=$('report-month').value,key=core.trackerKey(mode,month),expectedRevision=tracker?.revision;
+        try{const saved=(await chrome.storage.local.get(key))[key];if(!busy&&mode===selectedMode&&$('report-month').value===month&&tracker?.revision===expectedRevision&&saved?.month===month&&saved.revision!==expectedRevision){tracker=saved;people();render();}}catch(_){/* Keep the current view if local storage is temporarily unavailable. */}
     }
     async function send(operation, args = {}) {
         const context = mode === 'main' ? {} : {mode, month:$('report-month').value};
@@ -199,7 +283,7 @@
         if (observed()) return tracker?.rows || [];
         const person = $('person').value.toLowerCase(), role = $('assignment').value;
         if (!person) return [];
-        return (tracker?.rows || []).filter(row => (role === 'any' ? ['ops','buyer','group'] : [role]).some(key => row[key]?.toLowerCase() === person));
+        return (tracker?.rows || []).filter(row => person === '__all__' ? !!row[role]?.trim() : row[role]?.toLowerCase() === person);
     }
     function campaignGroups(rows) {
         const groups = new Map();
@@ -217,6 +301,7 @@
         if (status === 'mismatch') return !!trackerMismatch(row, result);
         if (status === 'ready') return result?.state === 'ready';
         if (status === 'review') return !!row.issue || ['review','error'].includes(result?.state);
+        if (status === 'other_location') return result?.state === 'other_location';
         return false;
     }
     function shownRows() {
@@ -227,6 +312,49 @@
     const counted = (number, singular, plural = `${singular}s`) => `${number} ${number === 1 ? singular : plural}`;
     function rowCount(rows, grouped = $('show-by').value === 'campaign') {
         return `${grouped ? `${counted(campaignGroups(rows).length, 'campaign')} · ` : ''}${counted(rows.length, 'D number')}`;
+    }
+    function elapsedWorkingDays(month, now = new Date()) {
+        if (!core.validMonth(month)) return 0;
+        const [reportYear, reportMonth] = month.split('-').map(Number);
+        // Main reconciliation takes place in the month after the report.
+        const period = new Date(reportYear, reportMonth - 1 + (mode === 'main' ? 1 : 0), 1);
+        const year = period.getFullYear(), monthNumber = period.getMonth() + 1;
+        const selectedMonth = year * 12 + monthNumber - 1;
+        const currentMonth = now.getFullYear() * 12 + now.getMonth();
+        if (selectedMonth < currentMonth) return 5;
+        if (selectedMonth > currentMonth) return 0;
+
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const fractionOfDay = (now.getHours() * 3600000 + now.getMinutes() * 60000 + now.getSeconds() * 1000 + now.getMilliseconds()) / 86400000;
+        let elapsed = 0;
+        for (let day = 1; day <= new Date(year, monthNumber, 0).getDate() && elapsed < 5; day++) {
+            const date = new Date(year, monthNumber - 1, day);
+            if (date.getDay() === 0 || date.getDay() === 6) continue;
+            if (date < today) elapsed++;
+            else if (date.getTime() === today.getTime()) return Math.min(5, elapsed + fractionOfDay);
+            else return elapsed;
+        }
+        return Math.min(5, elapsed);
+    }
+    function renderProgressBars() {
+        const panel = $('reccie-progress');
+        const visible = $('show-progress-bars').checked && !!tracker && tracker.month === $('report-month').value && !observed() && !!$('person').value;
+        panel.hidden = !visible;
+        if (!visible) return;
+
+        const assigned = myRows();
+        const marked = assigned.filter(row => row.reccied.toLowerCase() === 'yes').length;
+        const elapsed = elapsedWorkingDays($('report-month').value);
+        const percent = assigned.length ? Math.round(marked / assigned.length * 100) : 0;
+        $('reccie-time-progress').value = elapsed;
+        $('reccie-time-progress-label').textContent = `${elapsed.toFixed(1).replace(/\.0$/, '')} / 5 working days · ${Math.round(elapsed/5*100)}%`;
+        $('reccie-time-progress').setAttribute('aria-valuetext', `${elapsed.toFixed(1).replace(/\.0$/, '')} of 5 working days elapsed`);
+        const trackerProgress = $('reccie-tracker-progress');
+        trackerProgress.max = Math.max(1, assigned.length);
+        trackerProgress.value = marked;
+        trackerProgress.setAttribute('aria-valuetext', assigned.length ? `${marked} of ${assigned.length} assigned rows marked Yes` : 'No assigned rows');
+        $('reccie-tracker-progress-label').textContent = assigned.length ? `${marked} / ${assigned.length} marked Yes · ${percent}%` : 'No assigned rows';
+        $('reccie-progress-remaining').textContent = `${(assigned.length - marked).toLocaleString()} remaining`;
     }
     function mismatchWarning(rows, grouped = false) {
         const mismatches = rows.filter(row => trackerMismatch(row, tracker.checks?.[row.sourceRow]));
@@ -242,12 +370,20 @@
     }
     function people(preferred = $('person').value) {
         const role = $('assignment').value;
-        const names = [...new Set((tracker?.rows || []).flatMap(row => (role === 'any' ? ['ops','buyer','group'] : [role]).map(key => row[key])).filter(Boolean))].sort((a,b) => a.localeCompare(b));
-        $('person').replaceChildren(new Option('Choose your name', ''), ...names.map(name => new Option(name, name)));
-        if (names.includes(preferred)) $('person').value = preferred;
+        const namesByKey = new Map();
+        for (const row of tracker?.rows || []) {
+            const raw = row[role]?.trim();
+            if (!raw) continue;
+            const name = role === 'buyer' ? raw.toLocaleLowerCase().replace(/(^|[\s'-])\p{L}/gu, letter => letter.toLocaleUpperCase()) : raw;
+            if (!namesByKey.has(raw.toLocaleLowerCase())) namesByKey.set(raw.toLocaleLowerCase(), name);
+        }
+        const names = [...namesByKey.values()].sort((a,b) => a.localeCompare(b));
+        $('person').replaceChildren(new Option('Choose your name', ''), new Option('All', '__all__'), ...names.map(name => new Option(name, name)));
+        const saved = names.find(name => name.toLocaleLowerCase() === preferred?.toLocaleLowerCase());
+        if (preferred === '__all__' || saved) $('person').value = saved || preferred;
     }
     async function savePreferences() {
-        await chrome.storage.local.set({ [storageKey('preferences')]: { person: $('person').value, assignment: $('assignment').value, showBy: $('show-by').value, trackerStatus: $('tracker-status').value, statuses: selectedStatuses() } });
+        await chrome.storage.local.set({ [storageKey('preferences')]: { person: $('person').value, assignment: $('assignment').value, showBy: $('show-by').value, trackerStatus: $('tracker-status').value, statuses: selectedStatuses(), search: $('search').value } });
     }
     function render() {
         const key = JSON.stringify([mode, $('report-month').value, $('show-by').value, $('tracker-status').value, selectedStatuses(), $('person').value, $('assignment').value]);
@@ -260,9 +396,41 @@
         const shown = shownRows(), mine = myRows();
         const grouped = $('show-by').value === 'campaign';
         const entries = grouped ? campaignGroups(shown) : shown;
+        const canWrite = Boolean(manualWrites?.available() && !observed());
+        if (!canWrite) { exitMultiSelect(); postVerifyBannerVisible = false; }
+        const eligibleSet = new Set(shown.filter(r => !r.issue && r.reccied.trim().toLowerCase() !== 'yes').map(r => r.sourceRow));
+        for (const id of [...selectedSourceRows]) { if (!eligibleSet.has(id)) selectedSourceRows.delete(id); }
+        const ready = canWrite ? readyToMarkRows() : [];
+        const showBanner = canWrite && postVerifyBannerVisible && ready.length > 0 && !$('auto-mark-tracker')?.checked;
+        if ($('post-verify-banner')) {
+            $('post-verify-banner').hidden = !showBanner;
+            $('post-verify-banner').classList.toggle('is-open', showBanner);
+            if (showBanner) {
+                $('post-verify-title').textContent = `${ready.length} verified ready in Prisma`;
+                $('post-verify-mark').textContent = ready.length > 100 ? 'Mark first 100 as Yes' : `Mark ${ready.length} as Yes`;
+            }
+        }
+        const failedRows = !observed() ? shown.filter(r => !r.issue && tracker?.checks?.[r.sourceRow]?.state === 'error') : [];
+        if ($('retry-failed-banner')) {
+            $('retry-failed-banner').hidden = failedRows.length === 0;
+            if (failedRows.length) {
+                $('retry-failed-summary').textContent = `${failedRows.length} ${failedRows.length === 1 ? 'D number' : 'D numbers'} failed to verify`;
+                $('retry-failed-rows').textContent = `Retry failed (${failedRows.length})`;
+            }
+        }
+        const hasEligible = canWrite && eligibleSet.size > 0;
+        if (!hasEligible && multiSelectMode) exitMultiSelect();
+        if ($('multi-select-controls')) {
+            $('multi-select-controls').hidden = !hasEligible;
+            $('toggle-multi-select').textContent = multiSelectMode ? 'Cancel' : 'Multi-select';
+            $('toggle-multi-select').setAttribute('aria-pressed', String(multiSelectMode));
+            $('select-ready-rows').hidden = !multiSelectMode || !ready.length;
+            if (ready.length) $('select-ready-rows').textContent = `Select ready (${ready.length})`;
+        }
+        renderProgressBars();
         $('source-status').textContent = tracker ? `${tracker.rows.length.toLocaleString()} rows · Report ${tracker.month} · Read ${dateLabel(tracker.importedAt)} · ${tracker.source.type === 'google' ? 'Google Sheet' : 'CSV snapshot'}` : 'No tracker loaded. Tracker data and check results are stored locally in this Chrome profile.';
         if (observed() && tracker) $('source-status').textContent = `Visited campaigns · ${tracker.month} · ${tracker.rows.length} placements · Read ${dateLabel(tracker.importedAt)}${tracker.source.fallback ? ' · Early Recs fallback' : ''}. Open Campaign coverage for limitations and failures.`;
-        $('summary').textContent = tracker ? (!$('person').value ? 'Choose your name to see your assignments.' : `${rowCount(shown, grouped)} shown · ${mine.length} assigned · ${mine.filter(row => row.reccied.toLowerCase() !== 'yes').length} not marked Yes`) : 'Connect a tracker to get started.';
+        $('summary').textContent = tracker ? (!$('person').value ? 'Filter by name, group or buyer to see reccies below' : `${rowCount(shown, grouped)} shown · ${mine.length} assigned · ${mine.filter(row => row.reccied.toLowerCase() !== 'yes').length} not marked Yes`) : 'Connect a tracker to get started.';
         if (observed()) $('summary').textContent = `${rowCount(shown, grouped)} shown · ${mine.length} discovered; assignment unknown`;
         const list = $('rows'); list.replaceChildren();
         $('clear-filters').hidden = $('tracker-status').value === 'any' && !selectedStatuses().length && !$('search').value.trim();
@@ -274,7 +442,30 @@
                 const card = text('article', '', 'reccie-card campaign-card');
                 const numbers = [...new Set(entry.map(item => item.dNumber))];
                 const top = text('div', '', 'card-top');
-                top.append(highlighted('h2', row.campaignId ? row.campaignName || row.campaignId : 'No campaign', 'campaign-title'));
+                const lead = text('div', '', 'card-top-lead');
+                const eligible = canWrite ? entry.filter(r => !r.issue && r.reccied.trim().toLowerCase() !== 'yes') : [];
+                if (eligible.length) {
+                    card._eligibleRows = eligible;
+                    const slot = text('span', '', 'multi-select-slot');
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox'; cb.className = 'multi-select-checkbox';
+                    cb.setAttribute('aria-label', `Select ${row.campaignName || row.campaignId || 'campaign'}`);
+                    const toggleCard = () => {
+                        if (!multiSelectMode || busy) return;
+                        const allSelected = eligible.every(r => selectedSourceRows.has(r.sourceRow));
+                        eligible.forEach(r => { if (allSelected) selectedSourceRows.delete(r.sourceRow); else selectedSourceRows.add(r.sourceRow); });
+                        syncMultiSelectUi();
+                    };
+                    cb.addEventListener('click', e => e.stopPropagation());
+                    cb.addEventListener('change', toggleCard);
+                    card.addEventListener('click', toggleCard);
+                    slot.append(cb);
+                    lead.append(slot);
+                } else if (canWrite) {
+                    card.dataset.ineligible = 'true';
+                }
+                lead.append(highlighted('h2', row.campaignId ? row.campaignName || row.campaignId : 'No campaign', 'campaign-title'));
+                top.append(lead);
                 const warning = mismatchWarning(entry, true);
                 card.append(top, text('p', counted(numbers.length, 'D number'), 'supplier'),
                     highlighted('p', numbers.join(', '), 'campaign-d-numbers'));
@@ -294,22 +485,46 @@
                 bottom.append(highlighted('span', `${row.campaignId} · ${row.month}`));
                 const url = core.campaignUrl(row);
                 if (url) { const link = text('a', 'Open in Prisma ↗'); link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer'; bottom.append(link); }
-                const mark=manualWrites?.button(entry,true);if(mark)bottom.append(mark);
-                card.append(bottom); window.reccieUi?.decorateCard(card,entry,tracker.checks,observed(),true); list.append(card); return;
+                const mark=manualWrites?.button(entry,true);if(mark)bottom.append(mark); const note=manualWrites?.noteButton(entry,true);if(note)bottom.append(note);
+                card.append(bottom); window.reccieUi?.decorateCard(card,entry,tracker.checks,observed(),true);
+                list.append(card); return;
             }
             const result = tracker.checks?.[row.sourceRow];
             const state = row.issue ? 'review' : result?.state;
             const warning = mismatchWarning([row]);
             const card = text('article', '', 'reccie-card');
             const top = text('div', '', 'card-top');
-            top.append(highlighted('strong', row.dNumber), warning || text('span', state ? labels[state] : 'Not checked', `badge ${state || ''}`));
+            const lead = text('div', '', 'card-top-lead');
+            const eligible = canWrite && !row.issue && row.reccied.trim().toLowerCase() !== 'yes';
+            if (eligible) {
+                card._eligibleRows = [row];
+                const slot = text('span', '', 'multi-select-slot');
+                const cb = document.createElement('input');
+                cb.type = 'checkbox'; cb.className = 'multi-select-checkbox';
+                cb.setAttribute('aria-label', `Select ${row.dNumber}`);
+                const toggleCard = () => {
+                    if (!multiSelectMode || busy) return;
+                    if (selectedSourceRows.has(row.sourceRow)) selectedSourceRows.delete(row.sourceRow);
+                    else selectedSourceRows.add(row.sourceRow);
+                    syncMultiSelectUi();
+                };
+                cb.addEventListener('click', e => e.stopPropagation());
+                cb.addEventListener('change', toggleCard);
+                card.addEventListener('click', toggleCard);
+                slot.append(cb);
+                lead.append(slot);
+            } else if (canWrite) {
+                card.dataset.ineligible = 'true';
+            }
+            lead.append(highlighted('strong', row.dNumber));
+            top.append(lead, warning || text('span', state ? labels[state] : 'Not checked', `badge ${state || ''}`));
             card.append(top, highlighted('p', row.client || row.campaignId, 'supplier'), highlighted('p', row.campaignName, 'campaign-name'), highlighted('p', row.supplier, 'supplier'));
             if (row.order) card.append(highlighted('p', row.order, 'campaign-name'));
             const statuses = text('div', '', 'status-lines');
             statuses.append(text('p', observed() ? 'Tracker status: unavailable for visited-campaign placements.' : `Tracker Reccied: ${row.reccied || 'Blank'}`, 'tracker-status-line'));
             if (result?.reconciled != null) statuses.append(text('p', `Prisma Reconciled: ${result.reconciled === '1' ? 'Yes' : result.reconciled === '0' ? 'No' : 'Unknown'} · Buy: ${result.buyStatus || 'Unknown'}`, 'prisma-status-line'));
             if (row.issue || result?.message) statuses.append(text('p', row.issue || (result.message === 'D number not found for this month' ? core.missingDMessage : result.message)));
-            if (result?.state === 'ready') statuses.append(text('p', observed() ? 'Meets the Prisma rule. Tracker assignment is unknown.' : row.reccied.toLowerCase() === 'yes' ? 'Matches the tracker’s Yes.' : 'Ready to mark manually in the tracker.', 'ready-guidance'));
+            if (result?.state === 'ready') statuses.append(text('p', observed() ? 'Meets the Prisma rule. Tracker assignment is unknown.' : row.reccied.toLowerCase() === 'yes' ? 'Matches the tracker’s Yes.' : 'Reconciled in Prisma. Mark Yes in the tracker.', 'ready-guidance'));
             if (result?.state === 'outstanding' && row.reccied.toLowerCase() === 'yes') statuses.append(text('p', 'Tracker says Yes, but Prisma does not meet the rule. Review manually.'));
             card.append(statuses);
             if (row.comments) card.append(text('p', row.comments, 'comment'));
@@ -317,17 +532,74 @@
             bottom.append(highlighted('span', `${row.campaignId} · ${row.month}\nChecked: ${dateLabel(result?.checkedAt)}`));
             const url = core.campaignUrl(row);
             if (url) { const link = text('a', 'Open in Prisma ↗'); link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer'; bottom.append(link); }
-            const mark=manualWrites?.button([row],false);if(mark)bottom.append(mark);
-            card.append(bottom); window.reccieUi?.decorateCard(card,[row],tracker.checks,observed(),false); list.append(card);
+            const mark=manualWrites?.button([row],false);if(mark)bottom.append(mark); const note=manualWrites?.noteButton([row],false);if(note)bottom.append(note);
+            card.append(bottom); window.reccieUi?.decorateCard(card,[row],tracker.checks,observed(),false);
+            list.append(card);
         });
         if (entries.length > limit) { const more = text('button', grouped ? 'Show more campaigns' : 'Show more rows', 'more'); more.type = 'button'; more.onclick = () => { limit += 40; render(); }; list.append(more); }
+        syncMultiSelectUi();
         setBusy(busy);
     }
+    function syncMultiSelectUi() {
+        const shown = shownRows();
+        const canWrite = Boolean(manualWrites?.available() && !observed());
+        if (!canWrite) { exitMultiSelect(); postVerifyBannerVisible = false; }
+        const eligibleSet = new Set(shown.filter(r => !r.issue && r.reccied.trim().toLowerCase() !== 'yes').map(r => r.sourceRow));
+        for (const id of [...selectedSourceRows]) { if (!eligibleSet.has(id)) selectedSourceRows.delete(id); }
+        const ready = canWrite ? readyToMarkRows() : [];
+        const hasEligible = canWrite && eligibleSet.size > 0;
+        if (!hasEligible && multiSelectMode) exitMultiSelect();
+        if ($('multi-select-controls')) {
+            $('multi-select-controls').hidden = !hasEligible;
+            $('toggle-multi-select').textContent = multiSelectMode ? 'Cancel' : 'Multi-select';
+            $('toggle-multi-select').setAttribute('aria-pressed', String(multiSelectMode));
+            $('select-ready-rows').hidden = !multiSelectMode || !ready.length;
+            if (ready.length) $('select-ready-rows').textContent = `Select ready (${ready.length})`;
+        }
+        const list = $('rows');
+        if (list) {
+            list.classList.toggle('is-multi-select', multiSelectMode);
+            for (const card of list.querySelectorAll(':scope > .reccie-card')) {
+                const bottom = card.querySelector(':scope > .card-bottom');
+                if (bottom) bottom.hidden = multiSelectMode;
+                const slot = card.querySelector('.multi-select-slot');
+                const cb = card.querySelector('.multi-select-checkbox');
+                if (card._eligibleRows?.length) {
+                    const isSelected = multiSelectMode && card._eligibleRows.every(r => selectedSourceRows.has(r.sourceRow));
+                    card.classList.toggle('is-selectable', multiSelectMode);
+                    card.classList.toggle('is-selected', isSelected);
+                    if (slot) slot.setAttribute('aria-hidden', String(!multiSelectMode));
+                    if (cb) { cb.checked = isSelected; cb.tabIndex = multiSelectMode ? 0 : -1; }
+                } else if (card.dataset.ineligible === 'true') {
+                    card.classList.toggle('is-not-selectable', multiSelectMode);
+                }
+            }
+        }
+        const selectedRows = shown.filter(r => selectedSourceRows.has(r.sourceRow));
+        const showBar = multiSelectMode && selectedRows.length > 0;
+        if ($('multi-select-bar')) {
+            $('multi-select-bar').hidden = !showBar;
+            $('multi-select-bar').classList.toggle('is-open', showBar);
+            if (showBar) {
+                const unverified = selectedRows.filter(r => tracker?.checks?.[r.sourceRow]?.state !== 'ready').length;
+                $('multi-select-count').textContent = unverified === 0
+                    ? `${selectedRows.length} selected · all verified`
+                    : `${selectedRows.length} selected · ${unverified} not verified`;
+                $('multi-select-mark').textContent = selectedRows.length > 100 ? 'Max 100 per save' : `Mark ${selectedRows.length} as Yes`;
+                $('multi-select-mark').disabled = busy || selectedRows.length > 100;
+            } else {
+                $('multi-select-mark').textContent = '';
+            }
+        }
+    }
     async function loadReport(operation, args) {
+        if (!core.validMonth($('report-month').value)) { message('Choose the report month first.', true); $('report-month').focus(); return; }
         setBusy(true); message('Reading report', false, true);
         $('message').scrollIntoView?.({behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'center'});
         try {
             await send(operation, { ...args, month: $('report-month').value });
+            await chrome.storage.local.set({reccieMonthConfirmed:true});
+            $('first-use-guide').hidden = true;
             showTiming(null);
             people(); render(); setDisclosureOpen($('source-details'), false);
             message(observed() ? 'Visited-campaign discovery finished. Review the coverage and results below.' : '');
@@ -335,6 +607,7 @@
         } catch (error) { message(error.message, true); }
         finally { setBusy(false); }
     }
+    if ($('refresh-tracker')) $('refresh-tracker').addEventListener('click',()=>{if(busy)return;$('sheet-url').value=tracker?.source?.url||$('sheet-url').value;$('refresh-sheet').click();});
     $('refresh-sheet').addEventListener('click', async () => {
         try {
             core.sheetSource($('sheet-url').value);
@@ -344,18 +617,73 @@
             await loadReport('refresh', { url: $('sheet-url').value });
         } catch (error) { message(error.message, true); }
     });
+    async function processCsvFile(file) {
+        try {
+            if (!file || busy) return;
+            if (!file.name.toLowerCase().endsWith('.csv')) {
+                message('Choose a CSV file to import.', true);
+                return;
+            }
+            if (file.size > 5000000) { message('Choose a CSV smaller than 5 MB.', true); return; }
+            setBusy(true);
+            try { await loadReport('import', { csv: await file.text(), name: file.name }); }
+            finally { setBusy(false); }
+        } catch (error) { message(error.message, true); }
+        finally { $('csv-file').value = ''; }
+    }
     $('csv-file').addEventListener('change', async () => {
-        const file = $('csv-file').files[0];
-        if (!file) return;
-        if (file.size > 5000000) { message('Choose a CSV smaller than 5 MB.', true); return; }
-        try { await loadReport('import', { csv: await file.text(), name: file.name }); }
-        catch (error) { message(error.message, true); }
-        $('csv-file').value = '';
+        await processCsvFile($('csv-file').files[0]);
     });
+    const dropZone = $('csv-drop-zone');
+    if (dropZone) {
+        ['dragenter', 'dragover'].forEach(name => {
+            dropZone.addEventListener(name, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!busy) dropZone.classList.add('is-dragover');
+            });
+        });
+        ['dragleave', 'drop'].forEach(name => {
+            dropZone.addEventListener(name, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.remove('is-dragover');
+            });
+        });
+        dropZone.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove('is-dragover');
+            const file = e.dataTransfer?.files?.[0];
+            if (file) await processCsvFile(file);
+        });
+    }
+    window.addEventListener('dragover', (e) => { if (e.dataTransfer?.types?.includes('Files')) e.preventDefault(); }, false);
+    window.addEventListener('drop', (e) => { if (e.dataTransfer?.types?.includes('Files')) e.preventDefault(); }, false);
+    $('tracker-mode-badge')?.addEventListener('click', () => {
+        const checkbox = $('auto-mark-tracker');
+        if (!checkbox || checkbox.disabled) return;
+        if (!checkbox.checked && !manualWrites?.available()) { message('Connect the live Ops Reccie Tracker to enable Automatic Updates.'); return; }
+        checkbox.checked = !checkbox.checked;
+        checkbox.dispatchEvent(new Event('change'));
+    });
+    if ($('tracker-mode-badge')) attachStatusTooltip($('tracker-mode-badge'), 'Click to toggle Automatic Updates (automatically marks Yes in Google Sheet upon verification).');
     $('assignment').addEventListener('change', () => { people(); limit = 40; render(); savePreferences().catch(error => message(error.message, true)); });
     ['person','show-by','tracker-status'].forEach(id => $(id).addEventListener('change', () => { limit = 40; render(); savePreferences().catch(error => message(error.message, true)); }));
-    $('search').addEventListener('input', () => { limit = 40; render(); });
-    statusInputs().forEach(input => input.addEventListener('change', () => { limit = 40; render(); savePreferences().catch(error => message(error.message, true)); }));
+    $('search').addEventListener('input', () => { limit = 40; render(); savePreferences().catch(error => message(error.message, true)); });
+    const prismaTooltips = {
+        mismatch: 'Marked Yes in the Google Sheet, but not reconciled or buy unsuccessful in Prisma.',
+        ready: 'Reconciled = Yes and Buy status = Successful in Prisma for the report month.',
+        review: 'Requires review (e.g. buy not successful, unmapped placements, or check errors).',
+        other_location: 'Prisma HTTP 403 because this row’s agency uses a different Prisma location login.'
+    };
+    statusInputs().forEach(input => {
+        const label = input.closest('label');
+        if (label && prismaTooltips[input.dataset.status]) {
+            attachStatusTooltip(label, prismaTooltips[input.dataset.status]);
+        }
+        input.addEventListener('change', () => { limit = 40; render(); savePreferences().catch(error => message(error.message, true)); });
+    });
     $('clear-filters').addEventListener('click', () => {
         statusInputs().forEach(input => { input.checked = false; });
         $('tracker-status').value = 'any'; $('search').value = ''; limit = 40; render(); savePreferences().catch(error => message(error.message, true));
@@ -363,42 +691,104 @@
     $('report-month').addEventListener('change', () => { render(); if (tracker && tracker.month !== $('report-month').value) message('Read or import the report again to use this month.'); });
     $('forget-report').addEventListener('click', async () => {
         setBusy(true);
-        try { await send('clear'); showTiming(null); people(); $('sheet-url').value = ''; render(); setDisclosureOpen($('source-details'), true); message('Local tracker data forgotten.'); }
+        try { await send('clear'); postVerifyBannerVisible = false; exitMultiSelect(); showTiming(null); people(); $('sheet-url').value = ''; render(); setDisclosureOpen($('source-details'), true); message('Local tracker data forgotten.'); }
         catch (error) { message(error.message, true); }
         finally { setBusy(false); }
     });
-    async function verifyRows(methodId) {
+    async function verifyRows(methodId, explicitRows) {
         if (busy || $('check-rows').disabled) return;
+        setBusy(true);
+        hideVerificationTooltip();
+        hideStatusTooltip();
+        const clickStarted = performance.now();
+        const sheetSync = { attempted: false, skippedReason: null, ok: null, durationMs: 0, error: null };
+        try {
+            const key = core.trackerKey(mode, $('report-month').value);
+            const saved = (await chrome.storage.local.get(key))[key];
+            if (saved?.month === $('report-month').value && saved.revision !== tracker?.revision) {
+                tracker = saved;
+                people();
+                render();
+            }
+            if (tracker?.source?.type === 'google' && tracker?.source?.url) {
+                const importedAtMs = Date.parse(tracker.importedAt || '');
+                const sheetStale = !Number.isFinite(importedAtMs) || (Date.now() - importedAtMs) >= SHEET_AUTO_SYNC_STALE_MS;
+                if (sheetStale) {
+                    sheetSync.attempted = true;
+                    const syncStarted = performance.now();
+                    $('check-rows').setAttribute('aria-busy', 'true');
+                    $('check-rows').classList.add('is-verifying');
+                    $('check-rows').innerHTML = '<span class="button-spinner" aria-hidden="true"></span><span>Syncing sheet…</span>';
+                    try {
+                        await send('refresh', { url: tracker.source.url, month: $('report-month').value, preserveChecks: true });
+                        sheetSync.ok = true;
+                        sheetSync.durationMs = Math.round(performance.now() - syncStarted);
+                        people();
+                        render();
+                    } catch (refreshError) {
+                        sheetSync.ok = false;
+                        sheetSync.durationMs = Math.round(performance.now() - syncStarted);
+                        sheetSync.error = refreshError.message;
+                        message(`Google Sheet sync failed: ${refreshError.message}. Checking cached rows…`, true);
+                    }
+                } else {
+                    sheetSync.skippedReason = 'fresh';
+                }
+            } else {
+                sheetSync.skippedReason = tracker?.source?.type || 'none';
+            }
+        } catch(error) {
+            setBusy(false);
+            $('check-rows').classList.remove('is-verifying');
+            $('check-rows').textContent = 'Verify Reccie Status';
+            $('check-rows').setAttribute('aria-busy', 'false');
+            message(error.message, true);
+            return;
+        }
+        const selected = Array.isArray(explicitRows) && explicitRows.length ? explicitRows : shownRows();
+        if(!selected.length){
+            setBusy(false);
+            $('check-rows').classList.remove('is-verifying');
+            $('check-rows').textContent = 'Verify Reccie Status';
+            $('check-rows').setAttribute('aria-busy', 'false');
+            message('The saved report is up to date. No rows currently match these filters. Clear filters to see your assignments.');
+            return;
+        }
         const method = core.verificationMethod(methodId);
-        const selected = shownRows(), revision = tracker?.revision;
+        const revision = tracker?.revision;
         const selectedCount = rowCount(selected);
+        const batches = [];
         const groups = new Map();
-        selected.forEach(row => { const key = `${row.campaignId}/${row.month}`; if (!groups.has(key)) groups.set(key, []); groups.get(key).push(row.sourceRow); });
-        const batches = [], entries = [...groups.values()];
-        // All comparison methods use the same queue and limits; only concurrency changes.
-        let batch = [], campaigns = 0;
-        for (const ids of entries) {
-            for (let offset = 0; offset < ids.length; offset += method.maxRows) {
-                const part = ids.slice(offset, offset + method.maxRows);
-                if (batch.length && (campaigns >= method.maxCampaigns || batch.length + part.length > method.maxRows)) { batches.push(batch); batch = []; campaigns = 0; }
-                batch.push(...part); campaigns++;
+        selected.forEach(row=>{const key=`${row.campaignId}/${row.month}`;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(row.sourceRow);});
+        let batch=[],campaigns=0;
+        function finishBatch(){if(!batch.length)return;batches.push(batch);batch=[];campaigns=0;}
+        for (const ids of groups.values()) {
+            for (let offset=0;offset<ids.length;offset+=method.maxRows) {
+                const part=ids.slice(offset,offset+method.maxRows);
+                if(batch.length&&(campaigns>=method.maxCampaigns||batch.length+part.length>method.maxRows))finishBatch();
+                batch.push(...part);campaigns++;
             }
         }
-        if (batch.length) batches.push(batch);
+        finishBatch();
         const started = performance.now();
         const timing = { method, methodConfirmed: false, selection: { mode, source: tracker?.source?.type, trackerRevision: revision, reportMonth: tracker?.month,
             person: $('person').value, assignment: $('assignment').value, showBy: $('show-by').value, trackerStatus: $('tracker-status').value, statuses: selectedStatuses(), search: $('search').value,
             rowIds: selected.map(row => row.sourceRow).sort((a,b) => a-b) },
-            startedAt: new Date().toISOString(), selectedRows: selected.length,
-            plannedBatches: batches.length, completedBatches: 0, totalMs: 0, requests: 0,
+            startedAt: new Date().toISOString(), sheetSync, selectedRows: selected.length,
+            plannedBatches: batches.length, completedBatches: 0, totalMs: 0, totalWithSheetSyncMs: 0, requests: 0,
             concurrency: method.concurrency, cacheHits: 0, retries: 0, outcome: 'running', batches: [], trackerUpdates: [] };
         showTiming(null);
         setBusy(true);
         $('check-rows').setAttribute('aria-busy', 'true');
         $('rows').setAttribute('aria-busy', 'true');
+        $('check-rows').classList.add('is-verifying');
         try {
             for (let i = 0; i < batches.length; i++) {
-                message(`Verifying reccie status · ${batches[i].length} ${batches[i].length === 1 ? 'row' : 'rows'} · ${method.concurrency} campaigns at once${batches.length > 1 ? ` · batch ${i + 1} of ${batches.length}` : ''}`, false, true);
+                const batchLabel = batches.length > 1
+                    ? `Verifying batch ${i + 1} of ${batches.length} (${batches[i].length} rows)…`
+                    : `Verifying ${batches[i].length} ${batches[i].length === 1 ? 'row' : 'rows'}…`;
+                $('check-rows').innerHTML = `<span class="button-spinner" aria-hidden="true"></span><span>${batchLabel}</span>`;
+                message(`Verifying filtered rows · ${batches[i].length} ${batches[i].length === 1 ? 'row' : 'rows'} · ${method.concurrency} campaigns at once${batches.length > 1 ? ` · batch ${i + 1} of ${batches.length}` : ''}`, false, true);
                 await send('check', { revision:tracker.revision, rowIds: batches[i], method: method.id }); render();
                 if(tracker.lastAutoUpdate)timing.trackerUpdates.push(tracker.lastAutoUpdate);
                 timing.completedBatches++;
@@ -412,17 +802,26 @@
                 if (!timing.methodConfirmed) throw new Error('The background did not confirm this method. Reload Ops Toolshed and reopen Reccies before comparing timings.');
             }
             timing.outcome = 'completed';
+            postVerifyBannerVisible = true;
+            renderContent();
             const automaticSaved=timing.trackerUpdates.reduce((sum,item)=>sum+item.saved,0);
             const automaticPending=timing.trackerUpdates.some(item=>item.pending);
             const automaticError=timing.trackerUpdates.find(item=>item.error)?.error;
             const failed = timing.batches.flatMap(item => item.campaignsDetail).filter(item => item.outcome === 'error').length;
             timing.failedCampaigns = failed;
-            message(`Check finished in ${((performance.now() - started) / 1000).toFixed(1)} seconds using ${method.label}. Checked ${selectedCount}; ${rowCount(shownRows())} now shown.${failed ? ` ${failed} campaign checks failed.` : ''} Review each row’s result and check time. ${timing.trackerUpdates.length ? `Automatic tracker updates: ${automaticSaved} saved Yes${automaticPending?' · save receipt pending':''}${automaticError?` · ${automaticError}`:''}.` : 'The tracker was not changed.'}`);
+            const duration = `${((performance.now() - started) / 1000).toFixed(1)}s`;
+            const checkedSummary = `${selectedCount} checked`;
+            const updatesSummary = timing.trackerUpdates.length && automaticSaved ? ` · ${automaticSaved} marked Yes` : '';
+            const failSummary = failed ? ` · ${failed} failed` : '';
+            message(`Check finished in ${duration} · ${checkedSummary}${updatesSummary}${failSummary}.`);
         } catch (error) { timing.outcome = 'interrupted'; message(error.message, true); }
         finally {
+            $('check-rows').classList.remove('is-verifying');
+            $('check-rows').textContent = 'Verify Reccie Status';
             $('check-rows').setAttribute('aria-busy', 'false');
             $('rows').setAttribute('aria-busy', 'false');
             timing.totalMs = Math.round(performance.now() - started);
+            timing.totalWithSheetSyncMs = Math.round(performance.now() - clickStarted);
             showTiming(timing);
             setBusy(false);
             try { await chrome.storage.local.set({ [storageKey('timing')]: { revision: tracker?.revision, report: timing } }); }
@@ -430,7 +829,8 @@
         }
     }
     function restorePreferences(prefs = {}) {
-            $('assignment').value = ['ops','buyer','group','any'].includes(prefs.assignment) ? prefs.assignment : 'ops';
+            $('search').value=typeof prefs.search==='string'?prefs.search:'';
+            $('assignment').value = ['ops','buyer','group'].includes(prefs.assignment) ? prefs.assignment : 'ops';
             const legacyStatuses = ['outstanding','reconciled','mismatch','ready','review'];
             $('show-by').value = ['dnumber','campaign'].includes(prefs.showBy) ? prefs.showBy : prefs.view === 'campaigns' ? 'campaign' : 'dnumber';
             const previousStatuses = Array.isArray(prefs.statuses) ? prefs.statuses : legacyStatuses.includes(prefs.view) ? [prefs.view] : [];
@@ -441,19 +841,63 @@
             statusInputs().forEach(input => { input.checked = statuses.includes(input.dataset.status); });
         if (observed()) { $('tracker-status').value='any'; statusInputs().find(input=>input.dataset.status==='mismatch').checked=false; }
     }
+    function updateModeBadge() {
+        const badge = document.querySelector('header .readonly');
+        if (!badge) return;
+        const available = manualWrites?.available();
+        const autoUpdates = $('auto-mark-tracker')?.checked === true;
+        if (!available) {
+            badge.textContent = 'Read only';
+            badge.classList.remove('is-automatic');
+        } else if (autoUpdates) {
+            badge.textContent = 'Automatic Updates';
+            badge.classList.add('is-automatic');
+        } else {
+            badge.textContent = 'Manual Mode';
+            badge.classList.remove('is-automatic');
+        }
+    }
     function renderMode() {
+        hideVerificationTooltip();
         const automatic = observed();
+        const person=$('person').value;
+        $('all-names-hint').hidden=automatic || person!=='__all__';
+        $('reccies-title').textContent=person==='__all__'&&!automatic?'All Reccies':person&&!automatic?`${person}’s ${$('assignment').value==='group'?'Group ':''}Reccies`:'My Reccies';
+        const asOf=tracker?.importedAt?`Tracker as of ${new Date(tracker.importedAt).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}`:'';
+        $('reccie-progress-asof').textContent=asOf;
+        $('reccie-results-asof').textContent=asOf;
+        $('reccie-results-asof').hidden=!asOf;
+        $('reccie-progress-month').textContent=tracker?.month?new Date(tracker.month+'-01T12:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'}):'';
         document.querySelector('header .intro').textContent = automatic ? 'Placements from visited campaigns, checked against Prisma. The spreadsheet stays unchanged.' : 'Your Reccie Tracker rows, checked against Prisma. Preview and confirm any tracker updates.';
-        document.querySelector('header .readonly').textContent = manualWrites?.available() ? 'Manual tracker updates' : 'Read only';
-        $('mode-description').textContent = mode === 'main' ? 'Monthly tracker assignments.' : mode === 'early' ? `Early Reccie report for ${core.currentMonth()}. Current-month dates determine whether the tab can be used.` : `Current-month placements from campaigns visited this month in this Chrome profile. Not proof of who booked them. Visit campaigns with History logging on, then discover.`;
+        updateModeBadge();
+        $('mode-description').textContent = mode === 'main' ? 'Monthly tracker assignments.' : mode === 'early' ? `Early Reccie report for ${core.currentMonth()}. Current-month dates determine whether the tab can be used.` : `Uses the same saved visits as Campaign History. Refresh queries Prisma for current-month D numbers in campaigns visited this month, even if you have not opened each placement. Keep campaign visit logging enabled. A visit does not establish who booked the placements.`;
+        if ($('refresh-tracker')) $('refresh-tracker').hidden = tracker?.source?.type!=='google'||automatic;
+        if ($('progress-scope')) $('progress-scope').hidden=automatic;
         $('sheet-connection').hidden = mode === 'automatic';
         $('source-details').hidden = mode === 'automatic';
         $('report-loaded-badge').hidden = !tracker || automatic;
+        const textSpan = $('report-loaded-text') || $('report-loaded-badge');
+        if (tracker && textSpan) {
+            if (tracker.source?.type === 'google' && tracker.importedAt) {
+                textSpan.textContent = formatSyncTimestamp(tracker.importedAt);
+            } else if (tracker.source?.type === 'csv') {
+                textSpan.textContent = 'Report loaded · CSV snapshot';
+            } else {
+                textSpan.textContent = 'Report loaded';
+            }
+        }
         $('forget-report').disabled = busy || !tracker;
         $('discover-campaigns').hidden = mode === 'main';
-        $('discover-campaigns').textContent = mode === 'early' ? 'Use visited campaigns fallback' : 'Discover / refresh visited campaigns';
+        $('discover-campaigns').textContent = mode === 'early' ? 'Use visited campaigns fallback' : 'Refresh placements from visited campaigns';
+        const hasLoaded = Boolean(tracker);
+        $('month-default-hint').hidden = hasLoaded || mode !== 'main';
+        $('first-use-guide').hidden = hasLoaded || mode !== 'main';
+        if ($('sheet-hint')) {
+            $('sheet-hint').hidden = hasLoaded;
+            $('sheet-hint').textContent = mode === 'early' ? 'Open the Early Reccie report tab before copying its URL.' : 'Open the Reccie report tab before copying its URL.';
+        }
+        $('verification-scope').textContent = `Checks Prisma for ${$('report-month').value || 'the report month you choose'} on rows matching your current filters, including rows below “Show more”.`;
         $('month-hint').textContent = mode === 'main' ? 'Applies to every row' : 'Current month only';
-        $('sheet-hint').textContent = mode === 'early' ? 'Reads the Early Reccie report tab from this spreadsheet. Booking End Date determines the month; stale reports fall back to visited campaigns.' : 'Uses your signed-in Google account. Open the Reccie report tab before copying its URL.';
         $('assignment-fields').hidden = automatic;
         $('tracker-status-control').hidden = automatic;
         statusInputs().find(input=>input.dataset.status==='mismatch').closest('label').hidden=automatic;
@@ -464,10 +908,12 @@
         const coverage=$('coverage-issues'); coverage.replaceChildren();
         if (source?.issues?.length || source?.limited || source?.fallback) setDisclosureOpen($('coverage-details'), true);
         if (source && automatic) {
-            coverage.append(text('p', `${source.fallback ? `Early Recs fallback: ${source.fallbackReason} ` : ''}${source.coverage || ''}`));
+            if (source.fallback) coverage.append(text('p', `Early Recs fallback: ${source.fallbackReason}`));
+            coverage.append(text('p', `${tracker.rows.length} current-month placements found.`));
+            if (!tracker.rows.length && source.successfulCampaigns) coverage.append(text('p', 'Prisma returned no eligible current-month D numbers from the successfully checked campaigns. Use Main Tracker for the previous month’s reconciliation report.'));
             coverage.append(text('p', `${source.successfulCampaigns || 0} campaigns checked of ${source.attemptedCampaigns || 0} attempted; ${source.eligibleCampaigns || 0} eligible visited campaigns.${source.limited ? ' Limited to the 50 most recently visited campaigns.' : ''}`));
             (source.issues || []).forEach(issue=>coverage.append(text('p', `${issue.campaignId}: ${issue.message}`)));
-            if (!source.eligibleCampaigns) coverage.append(text('p','No eligible visits recorded this month. Visit campaigns with History logging enabled, then discover again.'));
+            if (!source.eligibleCampaigns) coverage.append(text('p','No eligible visits recorded this month. Enable campaign visit logging in Settings, open a campaign in Prisma, then select Refresh placements from visited campaigns.'));
         } else if (source && mode === 'early') coverage.append(text('p', `${source.excludedRows || 0} rows excluded from other months; ${source.ambiguousRows || 0} dates need attention. Blank dates inherit the month only when dated rows consistently establish it.`));
     }
     document.querySelectorAll('[name=mode]').forEach(input=>input.addEventListener('change', async()=>{
@@ -479,13 +925,14 @@
             if (previousMode === 'main') mainMonth=$('report-month').value;
             const mainSource=tracker?.source?.url || $('sheet-url').value;
             mode=input.value;
+            await chrome.storage.local.set({reccieViewMode:mode});
             $('report-month').value=mode === 'main' ? mainMonth : core.currentMonth();
             await send('load',{mode,month:$('report-month').value});
             const stored=await chrome.storage.local.get([storageKey('preferences'),storageKey('timing')]);
             restorePreferences(stored[storageKey('preferences')]);
             people(stored[storageKey('preferences')]?.person);
             $('sheet-url').value=tracker?.source?.url || mainSource;
-            $('search').value=''; limit=40; showTiming(stored[storageKey('timing')]?.revision === tracker?.revision ? stored[storageKey('timing')]?.report : tracker?.lastCheckTiming);
+            limit=40; postVerifyBannerVisible = false; exitMultiSelect(); showTiming(stored[storageKey('timing')]?.revision === tracker?.revision ? stored[storageKey('timing')]?.report : tracker?.lastCheckTiming);
             render(); message('');
         } catch(error) { tracker=null; showTiming(null); render(); message(error.message,true); }
         finally { setBusy(false); }
@@ -497,6 +944,30 @@
         finally {setBusy(false);}
     });
     $('check-rows').addEventListener('click', () => verifyRows());
+    $('retry-failed-rows')?.addEventListener('click', () => {
+        const failed = shownRows().filter(r => !r.issue && tracker?.checks?.[r.sourceRow]?.state === 'error');
+        if (failed.length) void verifyRows(undefined, failed);
+    });
+    $('post-verify-mark')?.addEventListener('click', () => manualWrites?.markYes(readyToMarkRows().slice(0, 100)));
+    $('post-verify-dismiss')?.addEventListener('click', () => { postVerifyBannerVisible = false; renderContent(); });
+    $('toggle-multi-select')?.addEventListener('click', () => {
+        if (multiSelectMode) exitMultiSelect();
+        else multiSelectMode = true;
+        syncMultiSelectUi();
+    });
+    $('select-ready-rows')?.addEventListener('click', () => {
+        readyToMarkRows().slice(0, 100).forEach(r => selectedSourceRows.add(r.sourceRow));
+        syncMultiSelectUi();
+    });
+    $('multi-select-clear')?.addEventListener('click', () => { selectedSourceRows.clear(); syncMultiSelectUi(); });
+    $('multi-select-mark')?.addEventListener('click', () => manualWrites?.markYes(shownRows().filter(r => selectedSourceRows.has(r.sourceRow))));
+    $('multi-select-note')?.addEventListener('click', () => manualWrites?.editNotes(shownRows().filter(r => selectedSourceRows.has(r.sourceRow))));
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && multiSelectMode && !document.querySelector('dialog[open]')) {
+            exitMultiSelect();
+            syncMultiSelectUi();
+        }
+    });
     $('test-google-connection').addEventListener('click', async () => {
         const button = $('test-google-connection'), output = $('google-connection-result');
         button.disabled = true;
@@ -510,45 +981,164 @@
         } catch (error) { output.textContent = error.message; }
         finally { button.disabled = false; }
     });
-    for(const [id,key] of [['auto-mark-tracker','autoMark'],['verify-after-financial','afterFinancial']]){
+    let toastTimer = null, toastHideTimer = null;
+    function showToast(text, isError = false) {
+        let toast = $('reccies-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'reccies-toast';
+            toast.className = 'reccies-toast';
+            toast.setAttribute('role', 'status');
+            toast.setAttribute('aria-live', 'polite');
+            document.body.appendChild(toast);
+        }
+        clearTimeout(toastTimer);
+        clearTimeout(toastHideTimer);
+        toast.textContent = text;
+        toast.classList.toggle('is-error', isError);
+        toast.hidden = false;
+        void toast.offsetWidth;
+        toast.classList.remove('is-hiding');
+        toast.classList.add('is-visible');
+
+        toastTimer = setTimeout(() => {
+            toast.classList.remove('is-visible');
+            toast.classList.add('is-hiding');
+            toastHideTimer = setTimeout(() => {
+                toast.classList.remove('is-hiding');
+                toast.hidden = true;
+            }, 300);
+        }, 3000);
+    }
+    for(const [id,key] of [['auto-mark-tracker','autoMark'],['verify-after-financial','afterFinancial'],['auto-clear-comments','clearCommentsOnMarkYes']]){
         $(id).addEventListener('change',async()=>{
             const enabled=$(id).checked;$(id).disabled=true;
+            updateModeBadge();
             try{
-                if(enabled&&key==='autoMark'&&!await chrome.permissions.request({origins:['https://script.google.com/*','https://script.googleusercontent.com/*']}))throw Error('Google script access was not granted.');
+                if(enabled&&key==='autoMark'&&!await chrome.permissions.request({origins:['https://script.google.com/*','https://script.googleusercontent.com/*']})){ $(id).checked=false; updateModeBadge(); throw Error('Google script access was not granted.'); }
                 const settings=(await chrome.storage.local.get('reccieAutomation')).reccieAutomation||{};
                 settings[key]=enabled;await chrome.storage.local.set({reccieAutomation:settings});
-                $('automation-status').textContent=enabled?'Enabled for this Chrome profile.':'Setting switched off.';
-            }catch(error){$(id).checked=!enabled;$('automation-status').textContent=error.message;}
-            finally{$(id).disabled=false;}
+                const msg = enabled ? 'Enabled for this Chrome profile.' : 'Setting switched off.';
+                $('automation-status').textContent = msg;
+                showToast(msg);
+                setTimeout(() => {
+                    const el = $('automation-status');
+                    if (el && (el.textContent.includes('Chrome profile') || el.textContent.includes('switched off'))) el.textContent = '';
+                }, 4000);
+            }catch(error){$(id).checked=!enabled;$('automation-status').textContent=error.message;showToast(error.message, true);}
+            finally{$(id).disabled=false;updateModeBadge();}
         });
     }
+    $('show-progress-bars').addEventListener('change', async()=>{
+        const enabled=$('show-progress-bars').checked;
+        try { await chrome.storage.local.set({reccieProgressBarsEnabled:enabled}); renderProgressBars(); showToast(enabled ? 'Progress bars enabled.' : 'Progress bars hidden.'); }
+        catch(error) { $('show-progress-bars').checked=!enabled; renderProgressBars(); message(error.message,true); showToast(error.message, true); }
+    });
+    let dismissedAutomationResult = null, currentAutomationResult = null, automationResultVersion = 0, noticeTimer = null;
+    const automationResultKey = result => JSON.stringify(result);
     function showAutomationResult(result){
         if(!result)return;
+        clearTimeout(noticeTimer);
+        currentAutomationResult = result;
+        const resultKey = automationResultKey(result);
+        if (resultKey === dismissedAutomationResult) { $('background-progress').hidden = true; return; }
         const active=['checking','saving','recovering'].includes(result.state);
-        const text=`Background Reccies · ${result.campaignId||'tracker update'} · ${result.state}${result.message?` · ${result.message}`:''}${result.due?` · due ${new Date(result.due).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`:''}`;
-        $('automation-status').textContent=text;
-        const progress=$('background-progress');progress.hidden=false;window.reccieStatus.render(progress,text,active);
+        const header=`Background Reccies · ${result.campaignId||'tracker update'} · ${result.state}`;
+        const detail=[
+            result.message||'',
+            result.due?`due ${new Date(result.due).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`:''
+        ].filter(Boolean).join(' · ');
+        const text=detail?`${header}\n${detail}`:header;
+        const progress=$('background-progress');
+        if (progress) {
+            progress.classList.remove('is-reminder-prompt', 'is-fading');
+            progress.onmouseenter = progress.onmouseleave = progress.onfocusin = progress.onfocusout = null;
+            progress.hidden=false;
+            progress.dataset.state = result.state || '';
+            window.reccieStatus.render(progress,text,active);
+            if (!active && !progress.querySelector('.background-progress-dismiss')) {
+                const dismiss = document.createElement('button');
+                dismiss.type = 'button';
+                dismiss.className = 'background-progress-dismiss';
+                dismiss.setAttribute('aria-label', 'Dismiss notice');
+                dismiss.textContent = '×';
+                dismiss.addEventListener('click', () => {
+                    progress.classList.add('is-reminder-prompt');
+                    const label = document.createElement('span');
+                    label.textContent = "We'll remind you next time.";
+                    const forget = document.createElement('button');
+                    forget.type = 'button';
+                    forget.className = 'background-progress-forget';
+                    forget.textContent = "Don't Remind Me";
+                    const scheduleHide = () => {
+                        clearTimeout(noticeTimer);
+                        noticeTimer = setTimeout(() => {
+                            progress.classList.add('is-fading');
+                            noticeTimer = setTimeout(() => { progress.hidden = true; }, 250);
+                        }, 6000);
+                    };
+                    progress.onmouseenter = progress.onfocusin = () => clearTimeout(noticeTimer);
+                    progress.onmouseleave = progress.onfocusout = () => {
+                        if (!progress.matches(':hover') && !progress.contains(document.activeElement)) scheduleHide();
+                    };
+                    forget.addEventListener('click', async () => {
+                        clearTimeout(noticeTimer);
+                        forget.disabled = true;
+                        try {
+                            await chrome.storage.local.set({reccieDismissedAutomationResult: resultKey});
+                            dismissedAutomationResult = resultKey;
+                            if (automationResultKey(currentAutomationResult) === resultKey) progress.hidden = true;
+                        } catch (_) {
+                            forget.disabled = false;
+                            message('Could not save the reminder preference. Please try again.', true);
+                        }
+                    });
+                    progress.replaceChildren(label, forget);
+                    scheduleHide();
+                });
+                progress.append(dismiss);
+            }
+        }
     }
-    chrome.storage.local.get('reccieAutomationLastRun').then(data=>showAutomationResult(data.reccieAutomationLastRun)).catch(()=>{});
+    chrome.storage.local.get(['reccieAutomationLastRun','reccieDismissedAutomationResult']).then(data=>{
+        dismissedAutomationResult=data.reccieDismissedAutomationResult || null;
+        if (!automationResultVersion) showAutomationResult(data.reccieAutomationLastRun);
+        else if (currentAutomationResult && automationResultKey(currentAutomationResult) === dismissedAutomationResult) $('background-progress').hidden=true;
+    }).catch(()=>{});
     chrome.storage.onChanged?.addListener?.((changes,area)=>{
         if(area!=='local')return;
-        if(changes.reccieAutomationLastRun)showAutomationResult(changes.reccieAutomationLastRun.newValue);
+        if(changes.reccieAutomationLastRun){automationResultVersion++;showAutomationResult(changes.reccieAutomationLastRun.newValue);}
+        if(changes.reccieAutomation){const value=changes.reccieAutomation.newValue||{};for(const [id,key]of [['auto-mark-tracker','autoMark'],['verify-after-financial','afterFinancial'],['auto-clear-comments','clearCommentsOnMarkYes']])$(id).checked=value[key]===true;updateModeBadge();}
         const key=core.trackerKey(mode,$('report-month').value);
-        if(!busy&&changes[key]?.newValue?.month===$('report-month').value){tracker=changes[key].newValue;people();render();}
+        if(changes[key]?.newValue?.month===$('report-month').value&&!busy){tracker=changes[key].newValue;people();render();}
     });
-    chrome.storage.local.get('reccieAutomation').then(data=>{ $('auto-mark-tracker').checked=data.reccieAutomation?.autoMark===true;$('verify-after-financial').checked=data.reccieAutomation?.afterFinancial===true; }).catch(()=>{});
+    chrome.storage.local.get('reccieAutomation').then(data=>{ $('auto-mark-tracker').checked=data.reccieAutomation?.autoMark===true;$('verify-after-financial').checked=data.reccieAutomation?.afterFinancial===true;$('auto-clear-comments').checked=data.reccieAutomation?.clearCommentsOnMarkYes===true;updateModeBadge(); }).catch(()=>{});
     $('debug-workers').addEventListener('input', () => { $('debug-worker-count').value = $('debug-workers').value; });
     $('debug-run').addEventListener('click', () => verifyRows(`workers-${$('debug-workers').value}`));
     document.addEventListener('reccies-ui-change', () => render());
     (async () => {
         try {
-            const stored = await chrome.storage.local.get(['reccieTracker','recciePreferences','reccieLastRunTiming']);
+            const stored = await chrome.storage.local.get(['reccieTracker','recciePreferences','reccieLastRunTiming','reccieProgressBarsEnabled','reccieMonthConfirmed','reccieViewMode','reccieAutomation']);
+            if(stored.reccieAutomation){$('auto-mark-tracker').checked=stored.reccieAutomation.autoMark===true;$('verify-after-financial').checked=stored.reccieAutomation.afterFinancial===true;$('auto-clear-comments').checked=stored.reccieAutomation.clearCommentsOnMarkYes===true;}
             tracker = stored.reccieTracker || null;
-            const prefs = stored.recciePreferences || {};
-            restorePreferences(prefs);
+            $('show-progress-bars').checked = stored.reccieProgressBarsEnabled !== false;
+
             const previous = new Date(); previous.setDate(1); previous.setMonth(previous.getMonth() - 1);
-            $('report-month').value = tracker?.month || `${previous.getFullYear()}-${String(previous.getMonth() + 1).padStart(2, '0')}`;
+            mainMonth=tracker?.month || (stored.reccieMonthConfirmed?`${previous.getFullYear()}-${String(previous.getMonth() + 1).padStart(2, '0')}`:'');
+            let prefs = stored.recciePreferences || {};
+            if (['early','automatic'].includes(stored.reccieViewMode)) {
+                mode=stored.reccieViewMode;
+                document.querySelector(`input[name=mode][value=${mode}]`).checked=true;
+                $('report-month').value=core.currentMonth();
+                await send('load',{mode,month:core.currentMonth()});
+                const saved=await chrome.storage.local.get(storageKey('preferences'));
+                prefs=saved[storageKey('preferences')]||{};
+            }
+            restorePreferences(prefs);
+            $('report-month').value = mode==='main'?mainMonth:core.currentMonth();
             $('sheet-url').value = tracker?.source.url || '';
+            if (mode==='main' && !tracker && !stored.reccieMonthConfirmed) $('report-month').value = '';
+            $('first-use-guide').hidden = !!tracker;
             people(prefs.person); setDisclosureOpen($('source-details'), !tracker); render();
             if (typeof prefs.view === 'string' || !prefs.trackerStatus) {
                 await savePreferences();
@@ -557,4 +1147,5 @@
             if (tracker && stored.reccieLastRunTiming?.revision === tracker.revision) showTiming(stored.reccieLastRunTiming.report);
         } catch (error) { message(error.message, true); }
     })();
+    window.setInterval(renderProgressBars, 60000);
 })();

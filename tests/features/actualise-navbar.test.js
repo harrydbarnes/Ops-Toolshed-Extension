@@ -42,6 +42,59 @@ describe('Actualise navigation bar', () => {
         return { dom, window: dom.window, listeners };
     }
 
+    test.each([true, false])('owns Actualise header and Close restoration with navbar enabled=%s', enabled => {
+        const { dom } = createFeature({ enabled });
+        dom.window.actualiseNavbarFeature.initialize();
+        const { document } = dom.window;
+        const actualiseToolbar = document.createElement('div');
+        actualiseToolbar.id = 'actualize-toolbar';
+        actualiseToolbar.innerHTML = `
+            <div class="actual-header">
+                <mo-toolbar class="actualize-header">
+                    <mo-breadcrumb>Actualisation</mo-breadcrumb>
+                    <mo-button slot="right" icon-name="close"></mo-button>
+                </mo-toolbar>
+            </div>
+            <div slot="center" class="actual-months-group">
+                <mo-button-group>
+                    <mo-button-group-item>Aug 26</mo-button-group-item>
+                    <mo-button-group-item>Sep 26</mo-button-group-item>
+                </mo-button-group>
+            </div>
+        `;
+        document.body.appendChild(actualiseToolbar);
+
+        const nativeClose = actualiseToolbar.querySelector('mo-button[icon-name="close"]');
+        const nativeCloseHandler = jest.fn();
+        nativeClose.addEventListener('click', nativeCloseHandler);
+
+        dom.window.actualiseNavbarFeature.apply();
+
+        const header = actualiseToolbar.querySelector('.actual-header');
+        const monthsGroup = actualiseToolbar.querySelector('.actual-months-group');
+        const legacyClose = monthsGroup.querySelector('.toolshed-actualise-close-button');
+
+        expect(header.classList).toContain('toolshed-actualise-header-hidden');
+        expect(monthsGroup.classList).toContain('toolshed-actualise-months-group');
+        expect(monthsGroup.contains(nativeClose)).toBe(true);
+        expect(nativeClose.classList).toContain('toolshed-actualise-native-close');
+        expect(legacyClose).not.toBeNull();
+        expect(legacyClose.textContent).toBe('× Close');
+        expect(legacyClose.hasAttribute('title')).toBe(false);
+
+        legacyClose.click();
+        expect(nativeCloseHandler).toHaveBeenCalledTimes(1);
+
+        dom.window.history.replaceState({}, '', '#campaign-id=CP3FMRK&ptb-mod=buy&ptb-ctx=digital&route=online');
+        dom.window.actualiseNavbarFeature.apply();
+
+        expect(actualiseToolbar.querySelector('.toolshed-actualise-close-button')).toBeNull();
+        expect(header.classList).not.toContain('toolshed-actualise-header-hidden');
+        expect(header.querySelector('mo-button[icon-name="close"]')).toBe(nativeClose);
+        expect(nativeClose.getAttribute('slot')).toBe('right');
+        dom.window.close();
+    });
+
     test('recreates the native campaign navbar above the Actualise workspace', () => {
         const { dom, window } = createFeature();
         window.actualiseNavbarFeature.initialize();

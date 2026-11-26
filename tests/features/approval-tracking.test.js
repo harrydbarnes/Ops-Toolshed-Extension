@@ -196,6 +196,23 @@ describe('Approval Polling Service', () => {
         });
     });
 
+    test('a tab without a receiver does not block other approval notifications or persistence', async () => {
+        await trackCampaignApproval({ campaignId: 'CP1', campaignName: 'Approved campaign' });
+        global.fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ budgetApprovalStatus: 'APPROVED' }) });
+        chrome.tabs.sendMessage.mockRejectedValueOnce(new Error('Receiving end does not exist'));
+        const debug = jest.spyOn(console, 'debug').mockImplementation(() => {});
+        try {
+            await pollPendingApprovals();
+            expect(chrome.tabs.sendMessage).toHaveBeenCalledTimes(2);
+            expect(sentMessages[0].tabId).toBe(102);
+            expect(localStorageData[PENDING_APPROVAL_KEY].CP1).toBeUndefined();
+            expect(localStorageData[APPROVED_CAMPAIGNS_KEY]).toEqual([expect.objectContaining({ campaignId: 'CP1' })]);
+            expect(debug).toHaveBeenCalledWith(expect.stringContaining('not delivered'), 101);
+        } finally {
+            debug.mockRestore();
+        }
+    });
+
     test('pollPendingApprovals keeps campaign pending when API returns SUBMITTED', async () => {
         localStorageData[PENDING_APPROVAL_KEY] = {
             'CP3GQJ6': {
@@ -380,7 +397,7 @@ const { readScript } = require('../helpers/read-script');
         expect(inlineRule).toMatch(/transform:\s*none/i);
         for (const source of [approvalCss, scriptCode]) {
             const textRule = source.match(/\.toolshed-approval-banner-text\s*\{([^}]*)\}/)?.[1] || '';
-            expect(textRule).toMatch(/transform:\s*translateY\(-1px\)/i);
+            expect(textRule).toMatch(/transform:\s*translateY\(-2px\)/i);
         }
     });
 
@@ -516,6 +533,26 @@ const { readScript } = require('../helpers/read-script');
         expect(localData[PENDING_APPROVAL_KEY].CP3GQJ6).toBeUndefined();
     });
 
+    test.each(['pending', 'watching', 'approved'])('distinguishes the %s campaign footer from approval', async (state) => {
+        const campaign = { campaignId: 'CP3GQJ6', campaignName: 'Test', submittedAt: Date.now(), watchingSubmission: state === 'watching' };
+        localData[PENDING_APPROVAL_KEY] = state === 'approved' ? {} : { CP3GQJ6: campaign };
+        localData[APPROVED_CAMPAIGNS_KEY] = state === 'approved' ? [campaign] : [];
+        document.querySelector('.workflow-widget-wrapper').textContent = state === 'watching' ? 'NOT SUBMITTED' : 'SUBMITTED';
+        const style = document.createElement('style');
+        style.textContent = approvalCss;
+        document.head.appendChild(style);
+        window.approvalTrackingFeature.initialize();
+        await new Promise(r => setTimeout(r, 15));
+        document.querySelector('.toolshed-approval-banner-button').click();
+        await new Promise(r => setTimeout(r, 15));
+
+        const note = document.querySelector('.toolshed-approval-already-tracked-note');
+        expect(note.textContent).toBe(state === 'approved'
+            ? '✓ Campaign CP3GQJ6 is marked Approved'
+            : state === 'watching' ? '◷ Watching campaign CP3GQJ6 for submission' : '◷ Currently tracking campaign CP3GQJ6');
+        expect(window.getComputedStyle(note).color).toBe(state === 'approved' ? 'rgb(22, 163, 74)' : 'rgb(100, 116, 139)');
+    });
+
     test('keeps a manually watched draft visible when the workflow says NOT SUBMITTED', async () => {
         localData[PENDING_APPROVAL_KEY] = {
             CP3GQJ6: { campaignId: 'CP3GQJ6', campaignName: 'Draft', watchingSubmission: true, watchedAt: Date.now(), submittedAt: null }
@@ -649,6 +686,10 @@ const { readScript } = require('../helpers/read-script');
         expect(panel.textContent).toContain('Approved Campaigns (1)');
         expect(panel.textContent).toContain('Holiday Promo');
         expect(panel.textContent).toContain('Pending Approval (1)');
+        const pendingSection = Array.from(panel.querySelectorAll('.toolshed-approval-section'))
+            .find(section => section.textContent.includes('Pending Approval (1)'));
+        expect(pendingSection.querySelector('.toolshed-approval-section-header .toolshed-approval-check-interval').textContent).toBe('Checking every 5m');
+        expect(pendingSection.querySelector('.toolshed-approval-list').textContent).not.toContain('Checking every');
         expect(panel.textContent).toContain('Summer Launch');
         expect(panel.textContent).toContain('Check now');
         expect(panel.querySelector('.toolshed-approval-header-btn svg').getAttribute('viewBox')).toBe('0 0 24 24');

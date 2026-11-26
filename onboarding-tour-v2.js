@@ -12,9 +12,21 @@
     let retryTimer = null;
     let renderToken = 0;
     let finished = false;
+    let finishing = false;
 
     function storageGet(area, values) { return new Promise(resolve => { try { if (!area?.get) return resolve({ ...values }); const result = area.get(values, value => resolve({ ...values, ...(value || {}) })); result?.then?.(value => resolve({ ...values, ...(value || {}) }), () => resolve({ ...values })); } catch { resolve({ ...values }); } }); }
-    function storageSet(values) { try { chrome.storage?.local?.set?.(values)?.catch?.(() => {}); } catch { /* The tour remains usable without persistence. */ } }
+    function storageSet(values) {
+        return new Promise(resolve => {
+            if (!chrome.storage?.local?.set) return resolve(false);
+            const complete = () => resolve(!chrome.runtime?.lastError);
+            try {
+                const result = chrome.storage.local.set(values, complete);
+                result?.then?.(complete, () => resolve(false));
+            } catch {
+                resolve(false);
+            }
+        });
+    }
     function isEnabled(key) { return settings[key] !== false; }
     function isPrismaUrl(url = '') { return url.includes('mediaocean.com/campaign-management/'); }
     function isCampaignUrl(url = '') { return url.includes('mediaocean.com/campaign-management/') && /(?:#|&)campaign-id=[^&]+/i.test(url); }
@@ -77,7 +89,7 @@
     }
 
     function renderChapter(index, moveFocus = true) {
-        if (finished) return;
+        if (finished || finishing) return;
         clearTimeout(retryTimer);
         activeChapter = Math.max(0, Math.min(chapters.length - 1, index));
         renderToken += 1;
@@ -99,13 +111,29 @@
     }
 
     async function finishTour(skipped = false) {
-        finished = true;
+        if (finished || finishing) return;
+        finishing = true;
+        const controls = [elements.next, elements.back, elements.skip, document.getElementById('skip-chapter')];
+        const disabledStates = controls.map(control => control.disabled);
+        controls.forEach(control => { control.disabled = true; });
         renderToken += 1;
         clearTimeout(retryTimer);
-        const tab = await getActiveTab();
-        await sendToTab(tab?.id, { action: 'hideOnboardingHighlight' });
-        storageSet({ onboardingTourActive: false, onboardingTourCompleted: !skipped, onboardingTourSkipped: skipped, onboardingTourVersion: 'v2', onboardingTourCompletedAt: Date.now(), onboardingTourChapter: activeChapter });
-        try { await chrome.sidePanel?.close?.({ tabId: tab?.id }); } catch { /* Progress remains saved. */ }
+        try {
+            const saved = await storageSet({ onboardingTourActive: false, onboardingTourCompleted: !skipped, onboardingTourSkipped: skipped, onboardingTourVersion: 'v2', onboardingTourCompletedAt: Date.now(), onboardingTourChapter: activeChapter });
+            if (!saved) {
+                updateStatus('Could not save your tour progress. Try Finish or Skip again.', 'waiting');
+                return;
+            }
+            const tab = await getActiveTab();
+            await sendToTab(tab?.id, { action: 'hideOnboardingHighlight' });
+            await chrome.sidePanel?.close?.({ tabId: tab?.id });
+            finished = true;
+        } catch {
+            updateStatus('Could not close the tour. Try Finish or Skip again.', 'waiting');
+        } finally {
+            finishing = false;
+            controls.forEach((control, index) => { control.disabled = disabledStates[index]; });
+        }
     }
     document.getElementById('skip-chapter').addEventListener('click', () => renderChapter(activeChapter + 1));
 

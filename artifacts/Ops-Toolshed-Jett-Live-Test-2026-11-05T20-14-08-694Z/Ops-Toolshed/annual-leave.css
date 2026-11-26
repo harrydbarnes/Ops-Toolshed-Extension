@@ -1,0 +1,65 @@
+:root { color-scheme: light; font-family: 'Segoe UI', Arial, sans-serif; color: #242424; background: #f5f5f5; --accent: #a11652; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { max-width: 1000px; margin: 32px auto 64px; padding: 32px 40px; background: #fff; border-radius: 12px; }
+header { margin-bottom: 32px; }
+header a { color: var(--accent); text-underline-offset: 3px; }
+h1 { font-size: 24px; margin: 16px 0 8px; letter-spacing: -.02em; }
+h2 { font-size: 20px; margin: 0 0 12px; }
+h3 { font-size: 16px; margin: 0 0 6px; }
+p { line-height: 1.55; margin: 8px 0 16px; max-width: 75ch; }
+section { margin-top: 32px; padding-top: 28px; border-top: 1px solid #ddd; }
+.connection { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.connection p { margin-bottom: 0; }
+.hint { font-size: 13px; color: #555; }
+label { display: block; font-size: 14px; font-weight: 600; }
+input, textarea, select { display: block; width: 100%; border: 1px solid #999; border-radius: 6px; margin: 8px 0 12px; padding: 10px 12px; font: inherit; font-weight: 400; color: #242424; background: #fff; caret-color: var(--accent); }
+textarea { resize: vertical; line-height: 1.6; }
+input::placeholder, textarea::placeholder { color: #666; }
+button { padding: 10px 16px; border: 1px solid #b8bdc3; border-radius: 6px; background: #fff; color: #242424; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; line-height: 1.35; }
+button:hover { background: #f3f3f3; }
+#save { background: var(--accent); color: white; border-color: var(--accent); }
+#save:hover { background: #7d1040; }
+button:disabled { opacity: .55; cursor: default; }
+button.secondary, #add-range { background: #fff; color: var(--accent); }
+button.secondary:hover, #add-range:hover { background: #f9edf2; }
+:focus-visible { outline: 3px solid #3157b7; outline-offset: 3px; }
+::selection { background: #f2ccdd; color: #242424; }
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.titles { grid-template-columns: repeat(3, 1fr); }
+.date-range { display: flex; align-items: center; gap: 16px; }
+.date-range label { flex: 1; }
+.date-range button { margin-top: 8px; }
+.summary { font-variant-numeric: tabular-nums; font-weight: 600; }
+.review { padding: 22px 24px; background: #f8f8f8; border: 1px solid #e2e2e2; border-radius: 8px; }
+.review h2 { margin-top: 0; }
+.review-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.how-it-works { padding-left: 22px; line-height: 1.6; color: #444; }
+#day-parts { display: grid; gap: 8px; margin: 12px 0 20px; }
+.day-part { display: flex; align-items: center; justify-content: space-between; gap: 16px; max-width: 420px; font-variant-numeric: tabular-nums; }
+.day-part select { width: auto; min-width: 190px; margin: 0; }
+.download-checklist { margin-top: 22px; padding: 16px 20px; background: #f8f8f8; border: 1px solid #e2e2e2; border-radius: 8px; }
+.download-checklist ol { padding-left: 22px; line-height: 1.6; }
+.download-checklist p { margin-bottom: 0; }
+.export-row { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 22px 0; border-bottom: 1px solid #e5e5e5; }
+.export-row p { margin: 0; color: #555; font-size: 14px; }
+.actions { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+#save-status { margin-left: 12px; font-size: 14px; }
+#status { position: sticky; bottom: 12px; background: #fff; padding: 12px 0; margin-bottom: 0; font-weight: 600; }
+#status:empty { display: none; }
+#status.error { color: #a31919; }
+details { margin: 20px 0; }
+summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+#calendar-setup { padding: 18px 20px; background: #f6f6f6; border-radius: 8px; }
+#calendar-setup > summary { color: #242424; line-height: 1.6; }
+#setup-summary { margin-left: 16px; font-size: 13px; font-weight: 400; color: #555; }
+#calendar-setup section { border: 0; padding: 0; margin-top: 20px; }
+@media (max-width: 700px) {
+    main { margin: 0; border-radius: 0; padding: 24px 20px; }
+    .fields, .titles { grid-template-columns: 1fr; gap: 0; }
+    .connection, .export-row { align-items: stretch; flex-direction: column; gap: 12px; }
+    .date-range { flex-wrap: wrap; }
+    .date-range label { min-width: 130px; }
+    #calendar-setup { padding: 16px; }
+    #setup-summary { display: block; margin-left: 0; }
+}

@@ -6,8 +6,12 @@ describe('manual Reccies worker writes',()=>{
     const context={queueWrite:fn=>fn(),assertActive:()=>{}};
     const row=(id,d)=>({sourceRow:id,dNumber:d,campaignId:'CP3G9KS',month:'2026-09',reccied:'No',issue:''});
     const response=data=>({ok:true,url:'https://script.googleusercontent.com/echo',headers:{get:()=> 'application/json'},json:async()=>({ok:true,service:'ops-toolshed-reccies-writer',protocol:1,...data})});
-    beforeEach(()=>{
-        jest.resetModules();({manualTrackerWrite:manual}=require('../background/reccie-writes'));
+    const sessionKey='recciePerUserWriterIdentity', confirmedKey='reccieConfirmedWriterIdentity';
+    const workEmail='jett@example.com';
+    beforeEach(async()=>{
+        chrome.storage.session.__resetStore();
+        await chrome.storage.session.set({[sessionKey]:workEmail});
+        jest.resetModules();({dispatchTrackerWrite:manual}=require('../background/reccie-writes'));
         state={reccieTracker:{revision:'original',month:'2026-09',source:{type:'google',url},rows:[row(2,'D03120200'),row(3,'D03120201')],checks:{2:{state:'ready'}}}};
         chrome.permissions={contains:jest.fn(async()=>true)};
         chrome.storage.local.get=jest.fn(async()=>structuredClone(state));chrome.storage.local.set=jest.fn(async values=>Object.assign(state,structuredClone(values)));
@@ -16,6 +20,51 @@ describe('manual Reccies worker writes',()=>{
     afterEach(()=>{delete global.fetch;});
     const preview=()=>manual({operation:'previewTrackerWrite',mode:'main',month:'2026-09',revision:'original',rowIds:[2]},context);
     const commit=()=>manual({operation:'commitTrackerWrite',mode:'main',month:'2026-09',revision:'original',requestId},context);
+    test('per-user connection binds the real account and sends no owner fallback request',async()=>{
+        chrome.storage.session.__resetStore();
+        fetchMock.mockResolvedValue(response({email:'jett@example.com',effectiveEmail:'jett@example.com',perUser:true,ready:true,enforced:false}));
+        await manual({operation:'trackerWriteConnection',mode:'main',confirmAccount:true},context);
+        expect((await chrome.storage.session.get(sessionKey))[sessionKey]).toBe(workEmail);
+        expect(state[confirmedKey]).toBe(workEmail);
+        fetchMock.mockResolvedValue(response({email:'jett@example.com',effectiveEmail:'jett@example.com',perUser:true,ready:true,enforced:true}));
+        await manual({operation:'activatePerUserWriter',mode:'main'},context);
+        expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({operation:'activatePerUser',requirePerUser:true,expectedEmail:'jett@example.com'});
+        expect(fetchMock.mock.calls.every(([url])=>url==='https://script.google.com/a/macros/wppmedia.com/s/AKfycbygksrATahv4EdcHgA4_X0Tiwjhc9arrefwYZeoU2vz2IOghkxFo1J4WnMNPBktKVnn/exec')).toBe(true);
+    });
+    test('background writes require a checked session and a passive check only restores the confirmed account',async()=>{
+        state[confirmedKey]=workEmail;
+        chrome.storage.session.__resetStore();
+        await expect(manual({operation:'previewTrackerWrite',mode:'main',month:'2026-09',revision:'original',rowIds:[2]},{...context,automatic:true})).rejects.toMatchObject({code:'WRITER_ACCESS_CHECK_REQUIRED'});
+        expect(fetchMock).not.toHaveBeenCalled();
+        fetchMock.mockResolvedValueOnce(response({email:'other@example.com',effectiveEmail:'other@example.com',perUser:true,ready:true,enforced:true}));
+        await expect(manual({operation:'trackerWriteConnection',mode:'main'},context)).rejects.toMatchObject({code:'WRITER_ACCESS_CHECK_REQUIRED'});
+        expect((await chrome.storage.session.get(sessionKey))[sessionKey]).toBeUndefined();
+        fetchMock.mockResolvedValueOnce(response({email:workEmail,effectiveEmail:workEmail,perUser:true,ready:true,enforced:true}));
+        await manual({operation:'trackerWriteConnection',mode:'main'},context);
+        expect((await chrome.storage.session.get(sessionKey))[sessionKey]).toBe(workEmail);
+    });
+    test('comment clearing fails closed against a service without that capability',async()=>{
+        await expect(manual({operation:'previewTrackerWrite',mode:'main',month:'2026-09',revision:'original',rowIds:[2],clearComments:true},context)).rejects.toThrow('comment-removal update');
+        expect(JSON.parse(fetchMock.mock.calls[0][1].body).clearComments).toBe(true);
+        await expect(commit()).rejects.toThrow('expired');
+    });
+    test('preview survives a worker restart and uses the service expiry',async()=>{
+        const item={dNumber:'D03120200',campaignId:'CP3G9KS',month:'2026-09',state:'eligible',before:'No'};
+        fetchMock.mockResolvedValueOnce(response({requestId,mode:'main',month:'2026-09',token:'secret-token',expiresInSeconds:600,results:[item]}));
+        await preview();
+        const values=await chrome.storage.session.get('reccieWritePreview:'+requestId);
+        expect(values['reccieWritePreview:'+requestId].expires-Date.now()).toBeGreaterThan(580000);
+        jest.resetModules();({dispatchTrackerWrite:manual}=require('../background/reccie-writes'));
+        fetchMock.mockResolvedValue(response({requestId,mode:'main',month:'2026-09',state:'complete',results:[{...item,state:'updated',after:'Yes',confirmed:true}]}));
+        await commit();expect(state.reccieTracker.rows[0].reccied).toBe('Yes');
+        expect((await chrome.storage.session.get('reccieWritePreview:'+requestId))['reccieWritePreview:'+requestId]).toBeUndefined();
+    });
+    test('automatic opt-out at final send boundary prevents the network commit',async()=>{
+        await preview();
+        const beforeCommit=jest.fn(async()=>{throw Error('Automatic tracker updates were switched off.');});
+        await expect(manual({operation:'commitTrackerWrite',mode:'main',month:'2026-09',revision:'original',requestId},{...context,automatic:true,beforeCommit})).rejects.toThrow('switched off');
+        expect(beforeCommit).toHaveBeenCalledTimes(1);expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
     test('previews authoritative snapshot identities without exposing tokens to UI',async()=>{
         const result=await preview();expect(result.write).not.toHaveProperty('token');expect(state.reccieTracker.rows[0].reccied).toBe('No');
         expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({operation:'preview',mode:'main',month:'2026-09',rows:[{dNumber:'D03120200',campaignId:'CP3G9KS'}]});
@@ -57,7 +106,7 @@ describe('manual Reccies worker writes',()=>{
         await expect(manual({operation:'previewTrackerWrite',mode:'main',month:'2026-09',revision:'original',rowIds:[999]},context)).rejects.toThrow('Selection');expect(fetchMock).not.toHaveBeenCalled();
     });
     test('unknown network result never updates cache or retries commit automatically; status can recover',async()=>{
-        await preview();fetchMock.mockRejectedValueOnce(Error('Connection lost'));await expect(commit()).rejects.toThrow('lost');expect(state.reccieTracker.rows[0].reccied).toBe('No');expect(fetchMock).toHaveBeenCalledTimes(2);
+        await preview();fetchMock.mockRejectedValueOnce(Error('Connection lost'));await expect(commit()).rejects.toMatchObject({code:'TRANSPORT_UNCERTAIN'});expect(state.reccieTracker.rows[0].reccied).toBe('No');expect(fetchMock).toHaveBeenCalledTimes(2);
         fetchMock.mockResolvedValue(response({requestId,mode:'main',month:'2026-09',state:'complete',results:[{dNumber:'D03120200',campaignId:'CP3G9KS',month:'2026-09',state:'already_yes',after:'Yes',confirmed:true}]}));
         await manual({operation:'trackerWriteStatus',mode:'main',month:'2026-09',requestId},context);expect(state.reccieTracker.rows[0].reccied).toBe('Yes');expect(JSON.parse(fetchMock.mock.calls[2][1].body).operation).toBe('status');
     });
@@ -65,4 +114,20 @@ describe('manual Reccies worker writes',()=>{
         chrome.permissions.contains.mockResolvedValue(false);await expect(preview()).rejects.toThrow('Allow');expect(fetchMock).not.toHaveBeenCalled();chrome.permissions.contains.mockResolvedValue(true);
         fetchMock.mockResolvedValue({ok:true,url:'https://accounts.google.com/login',headers:{get:()=> 'text/html'}});await expect(preview()).rejects.toThrow('sign-in');
     });
+    test('manual notes send selected edits and apply confirmed No/comments from receipt',async()=>{
+        state.reccieTracker.rows[0].reccied='Yes';state.reccieTracker.rows[0].comments='Old';
+        const item={dNumber:'D03120200',campaignId:'CP3G9KS',month:'2026-09',state:'eligible',before:'Yes',after:'No',commentsAfter:'Waiting on Supplier Spend'};
+        fetchMock.mockResolvedValueOnce(response({kind:'edit',requestId,mode:'main',month:'2026-09',token:'secret-token',results:[item]}));
+        await manual({operation:'previewTrackerEdit',mode:'main',month:'2026-09',revision:'original',rowIds:[2],edits:[{sourceRow:2,reccied:'No',comments:item.commentsAfter}]},context);
+        expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({operation:'previewEdit',rows:[{before:'Yes',after:'No',commentsBefore:'Old',commentsAfter:item.commentsAfter}]});
+        fetchMock.mockResolvedValueOnce(response({requestId,mode:'main',month:'2026-09',state:'complete',results:[{...item,state:'updated',confirmed:true}]}));
+        const result=await commit();expect(result.tracker.rows[0]).toMatchObject({reccied:'No',comments:item.commentsAfter});
+    });
+    test('automatic callers cannot write notes or manual No',async()=>{
+        await expect(manual({operation:'previewTrackerEdit',mode:'main',month:'2026-09',revision:'original',rowIds:[2],edits:[{sourceRow:2,reccied:'No',comments:'test'}]},{...context,automatic:true})).rejects.toThrow('Invalid manual');expect(fetchMock).not.toHaveBeenCalled();
+    });
+    test('rejects old service and mismatched comment previews before commit',async()=>{
+        await expect(manual({operation:'previewTrackerEdit',mode:'main',month:'2026-09',revision:'original',rowIds:[2],edits:[{sourceRow:2,reccied:'No',comments:'test'}]},context)).rejects.toThrow('notes update');await expect(commit()).rejects.toThrow('expired');
+    });
+
 });

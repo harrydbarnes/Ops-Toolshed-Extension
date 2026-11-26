@@ -23,9 +23,9 @@ function createStorage(initial = {}) {
     };
 }
 
-function setup() {
+function setup(initial = {}) {
     const dom = new JSDOM(html, { runScripts: 'outside-only', url: 'chrome-extension://test/onboarding.html' });
-    const sync = createStorage();
+    const sync = createStorage(initial);
     const local = createStorage();
     dom.window.chrome = {
         runtime: { getURL: jest.fn(file => file === 'settings.html'
@@ -36,6 +36,9 @@ function setup() {
         tabs: { update: jest.fn() },
         windows: { WINDOW_ID_CURRENT: -2 }
     };
+    dom.window.eval(readScript(path.resolve(__dirname, '../feature-settings-registry.js')));
+    dom.window.eval(readScript(path.resolve(__dirname, '../popup-shortcuts.js')));
+    dom.window.eval(readScript(path.resolve(__dirname, '../loading-facts-preview.js')));
     dom.window.eval(script);
     return { dom, sync, local, chrome: dom.window.chrome };
 }
@@ -47,6 +50,53 @@ async function choosePrisma(dom) {
 }
 
 describe('First-run onboarding', () => {
+    test('Reccies setup enables only Reccies and its campaign logging dependency', async () => {
+        const {dom, sync, local} = setup();
+        await Promise.resolve();
+        dom.window.document.getElementById('choose-reccies').click();
+        await new Promise(resolve => setImmediate(resolve));
+        const saved = Object.assign({}, ...sync.set.mock.calls.map(call => call[0]));
+        expect(saved.recciesV2Enabled).toBe(true);
+        expect(saved.campaignHistoryLoggingEnabled).toBe(true);
+        expect(saved.approvalTrackingEnabled).toBe(false);
+        expect(saved.loadingFactsEnabled).toBe(false);
+        expect(saved.popupShortcuts).toEqual(['reccies']);
+        expect(dom.window.document.getElementById('reccies-intro').hidden).toBe(false);
+        expect(local.store.onboardingCompleted).toBeUndefined();
+        dom.window.document.getElementById('finish-reccies').click();
+        await new Promise(resolve=>setImmediate(resolve));
+        expect(local.store.onboardingCompleted).toBe(true);
+        expect(dom.window.chrome.tabs.update).toHaveBeenCalledWith(expect.objectContaining({url:expect.stringContaining('go.mediaocean.com')}));
+        dom.window.close();
+    });
+
+    test('lets people customise popup shortcuts during onboarding and explains Settings remains available', async () => {
+        const { dom, sync } = setup();
+        await Promise.resolve();
+        const doc = dom.window.document;
+        expect(doc.querySelector('#onboarding-popup-shortcuts summary').textContent).toContain('now');
+        expect(doc.querySelector('#onboarding-popup-shortcuts > p').textContent).toContain('later in Settings');
+        expect(doc.querySelector('#onboarding-popup-shortcut-editor .popup-shortcut-board')).not.toBeNull();
+        const reccies = doc.querySelector('[data-popup-shortcut-option="reccies"]');
+        const officeDays = doc.querySelector('[data-popup-shortcut-option="myOfficeDays"]');
+        expect(reccies.getAttribute('aria-pressed')).toBe('true');
+        expect(officeDays.getAttribute('aria-pressed')).toBe('false');
+
+        officeDays.click();
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(sync.store.popupShortcuts).toContain('myOfficeDays');
+
+        const editor = doc.getElementById('onboarding-popup-shortcut-editor');
+        editor.querySelector('[name="shortcutName"]').value = 'Team Hub';
+        editor.querySelector('[name="shortcutUrl"]').value = 'https://example.com/team';
+        editor.querySelector('form').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(sync.store.popupCustomShortcuts).toEqual([{ name: 'Team Hub', url: 'https://example.com/team', enabled: true }]);
+        dom.window.close();
+    });
+
     test('routes non-Prisma colleagues to shared tools without opening a Prisma tour', async () => {
         const { dom, sync, local, chrome } = setup();
         await Promise.resolve();
@@ -70,18 +120,18 @@ describe('First-run onboarding', () => {
         expect(dom.window.location.hash).toBe('#settings');
         dom.window.close();
     });
-    test('uses a three-step sequential flow and presents recommended settings first', async () => {
+    test('uses a four-step sequential flow and presents recommended settings first', async () => {
         const { dom } = setup();
         await Promise.resolve();
         await choosePrisma(dom);
 
-        expect(dom.window.document.getElementById('progress-count').textContent).toBe('1 of 3');
+        expect(dom.window.document.getElementById('progress-count').textContent).toBe('1 of 4');
         expect(dom.window.document.querySelector('[data-page="0"] [data-setting="helpGuidesEnabled"]')).not.toBeNull();
         expect(dom.window.document.querySelector('[data-setting="optimisedNewNavEnabled"]')).toBeNull();
         expect(dom.window.document.querySelectorAll('[role="tab"]')).toHaveLength(0);
 
         dom.window.document.getElementById('next-step').click();
-        expect(dom.window.document.getElementById('progress-count').textContent).toBe('2 of 3');
+        expect(dom.window.document.getElementById('progress-count').textContent).toBe('2 of 4');
         expect(dom.window.document.querySelector('[data-page="1"]').hidden).toBe(false);
         dom.window.close();
     });
@@ -122,6 +172,7 @@ describe('First-run onboarding', () => {
 
         dom.window.document.getElementById('next-step').click();
         dom.window.document.getElementById('next-step').click();
+        dom.window.document.getElementById('next-step').click();
         dom.window.document.getElementById('start-tour').click();
 
         expect(chrome.sidePanel.setOptions).toHaveBeenCalledWith({ path: 'onboarding-tour-v2.html', enabled: true });
@@ -156,10 +207,29 @@ test('keeps optional preferences collapsed and moves focus to each new heading',
     expect(doc.querySelector('.optional-preferences').open).toBe(false);
     expect(doc.querySelector('.pid-choice').closest('details')).toBeNull();
     expect(doc.querySelector('.reminder-frequency').closest('details')).toBeNull();
-    expect(doc.querySelector('[data-setting="loadingFactsEnabled"]').closest('details')).not.toBeNull();
+    expect(doc.querySelector('[data-setting="loadingFactsEnabled"]').closest('[data-page]').dataset.page).toBe('2');
     expect(doc.activeElement.id).toBe('stage-title');
     doc.getElementById('next-step').click();
     expect(doc.activeElement.id).toBe('stage-title');
     expect(doc.querySelector('a[href="feature-explorer.html"]')).not.toBeNull();
+    dom.window.close();
+});
+
+ test('shows previews, restores and saves the loading facts appearance', async () => {
+    const { dom, sync } = setup({ loadingFactsUI: 'old', loadingFactsEnabled: false });
+    await Promise.resolve();
+    await choosePrisma(dom);
+    const doc = dom.window.document;
+    doc.getElementById('next-step').click();
+    doc.getElementById('next-step').click();
+    expect(doc.querySelector('[data-page="2"]').hidden).toBe(false);
+    expect(doc.querySelector('[data-setting="loadingFactsEnabled"]').checked).toBe(false);
+    expect(doc.querySelector('[data-value="old"][data-setting-choice="loadingFactsUI"]').getAttribute('aria-pressed')).toBe('true');
+    expect(doc.querySelectorAll('.facts-preview')).toHaveLength(2);
+    doc.querySelector('[data-value="new"][data-setting-choice="loadingFactsUI"]').click();
+    await Promise.resolve();
+    expect(sync.store.loadingFactsUI).toBe('new');
+    expect(doc.querySelector('[data-value="new"][data-setting-choice="loadingFactsUI"]').getAttribute('aria-pressed')).toBe('true');
+    expect(sync.store.loadingFactsEnabled).toBe(false);
     dom.window.close();
 });

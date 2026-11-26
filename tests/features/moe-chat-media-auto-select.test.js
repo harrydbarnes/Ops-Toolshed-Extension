@@ -78,6 +78,26 @@ describe('Moe chat media auto-select', () => {
         jest.useRealTimers();
     });
 
+    test('retries opening a dropdown after a transient focus failure and sends only once', () => {
+        jest.useFakeTimers();
+        const page = createPage({ enabled: false });
+        try {
+            const trigger = page.chatDocument.getElementById('media-trigger');
+            jest.spyOn(trigger, 'focus').mockImplementationOnce(() => { throw new Error('Chat control temporarily unavailable'); });
+            page.storageListener({ moeChatMediaAutoSelectEnabled: { newValue: true } }, 'sync');
+            page.window.moeChatMediaAutoSelectFeature.scan();
+            jest.runAllTimers();
+            expect(page.chatDocument.getElementById('media-input').value).toBe('Digital');
+            expect(page.sendCount).toBe(1);
+            expect(trigger.focus.mock.calls.length).toBeGreaterThan(1);
+            page.window.moeChatMediaAutoSelectFeature.scan();
+            jest.runAllTimers();
+            expect(page.sendCount).toBe(1);
+        } finally {
+            page.dom.window.close();
+        }
+    });
+
     test('detects the campaign media icon, selects the matching custom option, and sends once', () => {
         jest.useFakeTimers();
         const page = createPage();

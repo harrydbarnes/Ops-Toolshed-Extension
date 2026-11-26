@@ -32,6 +32,7 @@ const EXPECTED_DEFAULTS = {
     swapAccountsEnabled: true,
     rememberAccountSwitchUrlEnabled: true,
     bannerUsernameEnabled: true,
+    appSwitcherToggleEnabled: true,
     alwaysShowCommentsEnabled: true,
     orderIdCopyEnabled: true,
     maxCampaignBudgetEnabled: true,
@@ -64,7 +65,9 @@ const EXPECTED_DEFAULTS = {
     timesheetReminderEnabled: true,
     reminderDay: 'Friday',
     reminderTime: '14:30',
-    customReminders: []
+    customReminders: [],
+    popupShortcuts: require('../popup-shortcuts').DEFAULT_ENABLED_KEYS,
+    popupCustomShortcuts: []
 };
 
 describe('batched Settings initialization', () => {

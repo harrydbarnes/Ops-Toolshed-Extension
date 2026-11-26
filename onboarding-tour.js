@@ -34,6 +34,7 @@
     let retryTimer = null;
     let renderToken = 0;
     let homeNavigationRequested = false;
+    let finishing = false;
     const guardedTabIds = new Set();
 
     const elements = {
@@ -68,8 +69,14 @@
         });
     }
 
-    function storageSet(values) {
-        try { chrome.storage?.local?.set?.(values); } catch { /* The tour remains usable without persistence. */ }
+    async function storageSet(values) {
+        try {
+            if (!chrome.storage?.local?.set) return false;
+            await chrome.storage.local.set(values);
+            return true;
+        } catch {
+            return false;
+        }
     }
 
     function isEnabled(key) {
@@ -406,22 +413,37 @@
     }
 
     async function finishTour(skipped = false) {
+        if (finishing) return;
+        finishing = true;
+        const controls = [elements.next, elements.back, elements.skip];
+        const disabledStates = controls.map(control => control.disabled);
+        controls.forEach(control => { control.disabled = true; });
         clearTimeout(retryTimer);
-        const tab = await getActiveTab();
-        await sendToTab(tab?.id, { action: 'hideOnboardingHighlight' });
-        await disablePageGuards();
-        storageSet({
-            onboardingTourActive: false,
-            onboardingTourCompleted: !skipped,
-            onboardingTourSkipped: skipped,
-            onboardingTourCompletedAt: Date.now()
-        });
-        if (!skipped && tab?.id && !isHomeUrl(tab.url)) {
-            try { await chrome.tabs.update(tab.id, { url: PRISMA_HOME }); } catch { /* Closing the tour still takes priority. */ }
-        }
+        renderToken += 1;
         try {
+            const saved = await storageSet({
+                onboardingTourActive: false,
+                onboardingTourCompleted: !skipped,
+                onboardingTourSkipped: skipped,
+                onboardingTourCompletedAt: Date.now()
+            });
+            if (!saved) {
+                updateStatus('Could not save your tour progress. Try Finish or Skip again.', 'waiting');
+                return;
+            }
+            const tab = await getActiveTab();
+            await sendToTab(tab?.id, { action: 'hideOnboardingHighlight' });
+            await disablePageGuards();
+            if (!skipped && tab?.id && !isHomeUrl(tab.url)) {
+                try { await chrome.tabs.update(tab.id, { url: PRISMA_HOME }); } catch { /* Closing the tour still takes priority. */ }
+            }
             if (tab?.id && chrome.sidePanel?.close) await chrome.sidePanel.close({ tabId: tab.id });
-        } catch { /* The completion state is already persisted. */ }
+        } catch {
+            updateStatus('Could not close the tour. Try Finish or Skip again.', 'waiting');
+        } finally {
+            finishing = false;
+            controls.forEach((control, index) => { control.disabled = disabledStates[index]; });
+        }
     }
 
     elements.back.addEventListener('click', () => renderStep(activeStep - 1));
