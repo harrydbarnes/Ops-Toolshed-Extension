@@ -219,3 +219,18 @@ html[data-reccies-ui=v2] .reccie-card .tracker-mark-yes:hover:not(:disabled){bac
 @media(max-width:360px){html[data-reccies-ui=v2] .reccie-card .v2-evidence{max-width:100%}html[data-reccies-ui=v2] .reccie-card .card-bottom>*{flex:1 1 auto}}
 html[data-reccies-ui=v2] .reccies-toast.is-error{background:#b42332;color:#ffffff}
 @media (prefers-reduced-motion:reduce){html[data-reccies-ui=v2] .reccies-toast{transition:opacity 120ms ease;transform:translateX(-50%)}html[data-reccies-ui=v2] .reccies-toast.is-hiding{transform:translateX(-50%)}}
+html[data-reccies-ui=v2] #writer-connection.is-writer-step-one,html[data-reccies-ui=v2] #writer-connection.is-writer-alert{background:#fff;border:1px solid #d8dadd;border-radius:10px;box-shadow:0 3px 8px rgb(25 28 35 / 9%);padding:14px 16px;margin:0 0 12px}
+html[data-reccies-ui=v2] #writer-connection.is-writer-alert{border-color:#e8a5c1;background:#fffafd}
+html[data-reccies-ui=v2] #writer-connection.is-writer-step-one>summary,html[data-reccies-ui=v2] #writer-connection.is-writer-alert>summary{font-weight:600;color:var(--rec-ink)}
+html[data-reccies-ui=v2] #writer-connection.is-writer-tucked{border-top:1px solid var(--rec-line);border-bottom:0;border-left:0;border-right:0;border-radius:0;background:transparent;padding:12px 0 0;margin:14px 0 0}
+html[data-reccies-ui=v2] #writer-connection.is-writer-tucked>summary{font-size:13px;font-weight:500;color:#216545}
+html[data-reccies-ui=v2] .writer-authorise-link{min-height:36px;padding:7px 14px;border-radius:6px;border-color:var(--rec-pink);background:var(--rec-pink);color:#fff;font-weight:500}
+html[data-reccies-ui=v2] .writer-authorise-link:hover{background:#971047;border-color:#971047;filter:none}
+html[data-reccies-ui=v2] .writer-authorise-link.is-secondary{background:#fff;border-color:#cfd2d6;color:var(--rec-ink);font-weight:400}
+html[data-reccies-ui=v2] .writer-authorise-link.is-secondary:hover{background:#f5f6f7;border-color:#b5bac0}
+html[data-reccies-ui=v2] #writer-check-access:not(.primary):hover:not(:disabled){background:#f5f6f7;border-color:#b5bac0}
+html[data-reccies-ui=v2] .writer-connection-footer a{color:var(--rec-pink);font-size:12.5px}
+html[data-reccies-ui=v2] .writer-connection-footer a:hover{background:var(--rec-pink-soft);color:#971047}
+html[data-reccies-ui=v2] .writer-connection-footer .quiet{min-height:auto;padding:4px 7px;font-size:12.5px;color:var(--rec-muted)}
+html[data-reccies-ui=v2] .writer-connection-footer .quiet:hover:not(:disabled){background:#f0f1f2;color:var(--rec-ink)}
+html[data-reccies-ui=v2] #writer-reset-account:hover:not(:disabled){background:#fff0f1;color:#b42332}

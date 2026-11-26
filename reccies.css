@@ -138,3 +138,18 @@ button.readonly{border:0;cursor:pointer;font-family:inherit;transition:filter 12
 .reccies-toast.is-visible{transform:translateX(-50%) translateY(0);opacity:1;pointer-events:auto}
 .reccies-toast.is-hiding{transform:translateX(-50%) translateY(24px);opacity:0;pointer-events:none}
 .reccies-toast.is-error{background:#a43139}
+main.is-writer-setup-gate>*:not(#writer-top-slot){display:none !important}
+.writer-connection-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 0 8px}
+.writer-authorise-link{display:inline-flex;align-items:center;justify-content:center;padding:8px 12px;border-radius:7px;border:1px solid #5b4ba8;background:#5b4ba8;color:#fff;font-size:13px;font-weight:600;text-decoration:none;transition:background-color 140ms ease,border-color 140ms ease,color 140ms ease}
+.writer-authorise-link:hover{filter:brightness(0.95)}
+.writer-authorise-link.is-secondary{background:#fff;color:#403b56;border-color:#d8d5e3}
+.writer-authorise-link.is-secondary:hover{background:#f5f4fa;border-color:#b8b3cc;filter:none}
+#writer-check-access{transition:background-color 140ms ease,border-color 140ms ease,color 140ms ease}
+#writer-check-access:not(.primary):hover:not(:disabled){background:#f5f4fa;border-color:#b8b3cc}
+.writer-connection-footer{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;margin-top:10px;font-size:12px}
+.writer-connection-footer a{padding:3px 6px;margin-left:-6px;border-radius:5px;transition:background-color 140ms ease,color 140ms ease}
+.writer-connection-footer a:hover{background:#f0edf9}
+.writer-connection-footer .quiet{margin-top:0;padding:3px 7px;border-radius:5px;transition:background-color 140ms ease,color 140ms ease}
+.writer-connection-footer .quiet:hover:not(:disabled){background:#f0eef4;color:#232333}
+#writer-reset-account:hover:not(:disabled){background:#fceced;color:#a43139}
+#writer-connection.is-writer-tucked{margin:14px 0 0;padding:10px 12px;border-radius:8px;background:#faf9fc;border:1px solid #eeecf2}

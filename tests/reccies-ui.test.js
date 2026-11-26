@@ -174,14 +174,65 @@ describe('Reccies sidebar',()=>{
                 return {status:'success',connection:{email:'jett@example.com',perUser:true,ready:true,enforced,problems:[]}};
             });
             await flush();await flush();const doc=win.document;
+            expect(doc.querySelector('main').classList.contains('is-writer-setup-gate')).toBe(true);
+            expect(doc.getElementById('writer-connection').parentElement.id).toBe('writer-top-slot');
+            expect(doc.getElementById('writer-skip-readonly').hidden).toBe(false);
             expect(doc.getElementById('writer-connection').hidden).toBe(false);
             expect(doc.getElementById('writer-connection-status').textContent).toContain('jett@example.com');
             expect(doc.querySelector('.tracker-mark-yes')).toBeNull();expect(doc.getElementById('writer-activate').hidden).toBe(false);
             doc.getElementById('writer-activate').click();await flush();await flush();
+            expect(doc.querySelector('main').classList.contains('is-writer-setup-gate')).toBe(false);
+            expect(doc.getElementById('writer-connection').parentElement.id).toBe('writer-settings-slot');
             expect(doc.getElementById('writer-connection').open).toBe(false);
+            expect(doc.getElementById('writer-skip-readonly').hidden).toBe(true);
             expect(doc.getElementById('writer-activation-hint').hidden).toBe(true);
             expect(doc.getElementById('writer-connection-status').textContent).toContain('Ready to update');expect(doc.querySelector('.tracker-mark-yes')).not.toBeNull();
             expect(getData().reccieAutomation).toMatchObject({autoMark:false,afterFinancial:false,clearCommentsOnMarkYes:false});
+        }finally{dom.window.close();}
+    });
+    test('first-time setup can continue in read-only mode and returning users see an inline alert on recheck',async()=>{
+        const firstRun=create({},liveSource,undefined,undefined,true);
+        try{
+            firstRun.win.chrome.runtime.sendMessage.mockResolvedValue({status:'error',code:'WRITER_ACCESS_CHECK_REQUIRED',message:'Choose Check access to confirm your work Google account.'});
+            await flush();await flush();
+            const doc=firstRun.win.document;
+            expect(doc.querySelector('main').classList.contains('is-writer-setup-gate')).toBe(true);
+            doc.getElementById('writer-skip-readonly').click();
+            expect(doc.querySelector('main').classList.contains('is-writer-setup-gate')).toBe(false);
+            expect(doc.getElementById('writer-connection').parentElement.id).toBe('writer-top-slot');
+            expect(doc.getElementById('writer-connection').classList.contains('is-writer-alert')).toBe(true);
+        }finally{firstRun.dom.window.close();}
+        const returning=create({},liveSource,undefined,undefined,true);
+        returning.getData().reccieConfirmedWriterIdentity='harry@example.com';
+        try{
+            returning.win.chrome.runtime.sendMessage.mockResolvedValue({status:'error',code:'WRITER_ACCESS_CHECK_REQUIRED',message:'Choose Check access to confirm your work Google account.'});
+            await flush();await flush();
+            const doc=returning.win.document;
+            expect(doc.querySelector('main').classList.contains('is-writer-setup-gate')).toBe(false);
+            expect(doc.getElementById('writer-connection').parentElement.id).toBe('writer-top-slot');
+            expect(doc.getElementById('writer-connection').classList.contains('is-writer-alert')).toBe(true);
+        }finally{returning.dom.window.close();}
+    });
+    test('Disconnect account confirms via dialog and resets to Step 1 setup',async()=>{
+        const {dom,win,getData}=create({},liveSource,undefined,undefined,true);
+        getData().reccieConfirmedWriterIdentity='harry@example.com';
+        win.chrome.storage.local.remove=jest.fn(async key=>{delete getData()[key];});
+        try{
+            win.chrome.runtime.sendMessage.mockResolvedValue({status:'success',connection:{email:'harry@example.com',perUser:true,ready:true,enforced:true,problems:[]}});
+            await flush();await flush();
+            const doc=win.document;
+            expect(doc.getElementById('writer-connection').parentElement.id).toBe('writer-settings-slot');
+            expect(doc.getElementById('writer-reset-account').hidden).toBe(false);
+            doc.getElementById('writer-reset-account').click();
+            const dialog=doc.querySelector('dialog');
+            expect(dialog).not.toBeNull();
+            expect(dialog.textContent).toContain('Disconnect Google account?');
+            clickDialog(win,'Disconnect');
+            await flush();await flush();
+            expect(doc.querySelector('dialog')).toBeNull();
+            expect(getData().reccieConfirmedWriterIdentity).toBeUndefined();
+            expect(doc.querySelector('main').classList.contains('is-writer-setup-gate')).toBe(true);
+            expect(doc.getElementById('writer-connection').parentElement.id).toBe('writer-top-slot');
         }finally{dom.window.close();}
     });
     test('live-test sidebar explains missing save-record access and keeps updates unavailable',async()=>{

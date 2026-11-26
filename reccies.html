@@ -30,16 +30,24 @@
         <div class="reccie-progress-context"><p id="reccie-progress-asof"></p><p id="reccie-progress-remaining"></p></div>
     </section>
     </div>
+    <div id="writer-top-slot">
     <details id="writer-connection" hidden open>
         <summary id="writer-connection-summary">Google account for tracker updates</summary>
         <p id="writer-connection-status" role="status" aria-live="polite">Checking your Google account and spreadsheet access…</p>
-        <a id="writer-authorise" target="_blank" rel="noopener">Connect my Google account</a>
-        <button id="writer-check-access" type="button">Check access</button>
-        <button id="writer-activate" type="button" hidden>Use my Google account for updates</button>
-        <p class="hint">This Google account appears in the sheet’s edit history. Your selected name in Reccies controls which rows you see.</p>
-        <p id="writer-activation-hint" class="hint" hidden>Enabling this requires your own Google account for future tracker updates, including on older builds. Automatic updates will pause until you turn them back on.</p>
-        <p><a href="reccie-user-test.html" target="_blank" rel="noopener">Google account setup help</a></p>
+        <div class="writer-connection-actions">
+            <a id="writer-authorise" class="writer-authorise-link" target="_blank" rel="noopener">Connect my Google account</a>
+            <button id="writer-check-access" type="button">Check access</button>
+            <button id="writer-activate" type="button" class="primary" hidden>Use my Google account for updates</button>
+        </div>
+        <p id="writer-activation-hint" class="hint" hidden>Once enabled, all future tracker updates from your account will use your Google account (including on older builds). Automatic updates will pause until you turn them back on.</p>
+        <p class="hint">After this is setup, updates to the Reccie Tracker made by this feature will be done under your Google Account, as if you had done it yourself manually in the sheet</p>
+        <div class="writer-connection-footer">
+            <a href="reccie-user-test.html" target="_blank" rel="noopener">Google account setup help</a>
+            <button id="writer-skip-readonly" type="button" class="quiet" hidden>Continue in read-only mode</button>
+            <button id="writer-reset-account" type="button" class="quiet" hidden>Disconnect account</button>
+        </div>
     </details>
+    </div>
     <div class="reccies-source-card"><fieldset class="mode-switch" id="mode-switch"><legend id="source-label">Reccie source</legend>
         <div class="segmented-control" id="source-segments" role="group" aria-labelledby="source-label"></div>
         <label hidden><input type="radio" name="mode" value="main" checked>Main Tracker</label>
@@ -87,6 +95,7 @@
             </div>
             <p id="automation-status" class="hint automation-status" role="status"></p>
         </div>
+        <div id="writer-settings-slot"></div>
     </details>
     <p id="source-status" class="hint"></p>
     </div>

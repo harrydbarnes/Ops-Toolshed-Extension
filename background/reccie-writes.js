@@ -49,7 +49,7 @@ async function checkConnection(mode, confirmAccount) {
     }
     const confirmed = (await chrome.storage.local.get(confirmedIdentityKey))[confirmedIdentityKey];
     if (!confirmAccount && connection.email !== confirmed) {
-        throw writerError('WRITER_ACCESS_CHECK_REQUIRED', 'Choose Check access to confirm the work Google account you want to use for tracker updates.');
+        throw writerError('WRITER_ACCESS_CHECK_REQUIRED', "1. Click 'Connect my Google account' and sign in with your work account. 2. Return here and click 'Check access'.");
     }
     if (confirmAccount) await chrome.storage.local.set({ [confirmedIdentityKey]: connection.email });
     await chrome.storage.session.set({ [sessionIdentityKey]: connection.email });

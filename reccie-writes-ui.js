@@ -11,39 +11,176 @@
         const recover=document.getElementById('last-tracker-save');
         let latest=null,lastKey='',opening=false;
         const writerMode=window.opsReccieWriterMode||{perUser:false},connectionPanel=document.getElementById('writer-connection');
-        let writerReady=!writerMode.perUser,connectionKey='',connectionSequence=0;
+        const main=document.querySelector('main');
+        const topSlot=document.getElementById('writer-top-slot');
+        const settingsSlot=document.getElementById('writer-settings-slot');
+        let writerReady=!writerMode.perUser,connectionKey='',connectionSequence=0,hasConfirmedAccount=false,skippedSetup=false,checkingSilently=false;
         const connectionStatus=document.getElementById('writer-connection-status');
         const connectionSummary=document.getElementById('writer-connection-summary');
         const activationHint=document.getElementById('writer-activation-hint');
         const check=document.getElementById('writer-check-access'),enable=document.getElementById('writer-activate');
+        const authoriseLink=document.getElementById('writer-authorise');
+        const skipReadOnly=document.getElementById('writer-skip-readonly');
+        const resetAccount=document.getElementById('writer-reset-account');
+        const setConnectionStatus=(value,active=false)=>{
+            if(window.reccieStatus?.render)window.reccieStatus.render(connectionStatus,value,active);
+            else connectionStatus.textContent=value;
+        };
+        function syncConnectionLayout(){
+            if(!writerMode.perUser||!connectionPanel)return;
+            const awaitingActivation=!enable.hidden&&!writerReady;
+            if(authoriseLink)authoriseLink.classList.toggle('is-secondary',awaitingActivation||writerReady);
+            if(writerReady||(hasConfirmedAccount&&checkingSilently)){
+                main?.classList.remove('is-writer-setup-gate');
+                connectionPanel.classList.remove('is-writer-step-one','is-writer-alert');
+                connectionPanel.classList.add('is-writer-tucked');
+                if(settingsSlot&&connectionPanel.parentElement!==settingsSlot)settingsSlot.append(connectionPanel);
+                connectionPanel.open=false;
+                connectionPanel.classList.remove('reccie-is-open');
+                connectionSummary.textContent=writerReady?'Google account connected':'Checking Google account…';
+                if(skipReadOnly)skipReadOnly.hidden=true;
+                if(resetAccount)resetAccount.hidden=!writerReady;
+            }else if(!hasConfirmedAccount&&!skippedSetup){
+                main?.classList.add('is-writer-setup-gate');
+                connectionPanel.classList.add('is-writer-step-one');
+                connectionPanel.classList.remove('is-writer-tucked','is-writer-alert');
+                if(topSlot&&connectionPanel.parentElement!==topSlot)topSlot.append(connectionPanel);
+                connectionPanel.open=true;
+                connectionPanel.classList.add('reccie-is-open');
+                connectionSummary.textContent='Step 1: Connect your Google account';
+                if(skipReadOnly)skipReadOnly.hidden=false;
+                if(resetAccount)resetAccount.hidden=true;
+            }else{
+                main?.classList.remove('is-writer-setup-gate');
+                connectionPanel.classList.add('is-writer-alert');
+                connectionPanel.classList.remove('is-writer-tucked','is-writer-step-one');
+                if(topSlot&&connectionPanel.parentElement!==topSlot)topSlot.append(connectionPanel);
+                connectionPanel.open=true;
+                connectionPanel.classList.add('reccie-is-open');
+                connectionSummary.textContent='Google account for tracker updates';
+                if(skipReadOnly)skipReadOnly.hidden=true;
+                if(resetAccount)resetAccount.hidden=!hasConfirmedAccount;
+            }
+        }
         function showAccessProblem(message){
             writerReady=false;
-            connectionPanel.open=true;
-            connectionStatus.textContent=message;
-            connectionSummary.textContent='Google account for tracker updates';
+            checkingSilently=false;
+            setConnectionStatus(message,false);
             enable.hidden=activationHint.hidden=true;
+            syncConnectionLayout();
         }
-        if(writerMode.perUser){connectionPanel.hidden=false;document.getElementById('writer-authorise').href=writerMode.endpoint+'?connect=1';}
+        function confirmDisconnect(){
+            if(opening)return;
+            opening=true;
+            const dialog=node('dialog');dialog.className='tracker-write-dialog';dialog.setAttribute('aria-labelledby','writer-disconnect-title');
+            const title=node('h2','Disconnect Google account?');title.id='writer-disconnect-title';
+            const intro=node('p','This disconnects your Google account from Reccies on this browser and returns to Step 1 setup. You can reconnect at any time.');
+            const cancel=node('button','Cancel'),confirmBtn=node('button','Disconnect');
+            cancel.type=confirmBtn.type='button';
+            const controls=node('div');controls.className='tracker-write-controls';controls.append(cancel,confirmBtn);
+            dialog.append(title,intro,controls);
+            const close=(afterClose)=>{
+                const finish=()=>{dialog.close?.();dialog.remove();opening=false;if(typeof afterClose==='function')afterClose();};
+                if(!window.reccieUi?.closeDialog(dialog,finish))finish();
+            };
+            addCloseButton(dialog,()=>close());
+            cancel.addEventListener('click',()=>close());
+            dialog.addEventListener('cancel',event=>{event.preventDefault();close();});
+            confirmBtn.addEventListener('click',()=>{
+                confirmBtn.disabled=cancel.disabled=true;
+                close(async()=>{
+                    connectionSequence++;
+                    writerReady=false;hasConfirmedAccount=false;skippedSetup=false;checkingSilently=false;
+                    try{await chrome.storage.local.remove('reccieConfirmedWriterIdentity');}catch(_){}
+                    try{await chrome.storage.session?.remove('recciePerUserWriterIdentity');}catch(_){}
+                    enable.hidden=activationHint.hidden=true;
+                    check.classList.remove('primary');
+                    if(authoriseLink)authoriseLink.classList.remove('is-secondary');
+                    setConnectionStatus("1. Click 'Connect my Google account' and sign in with your work account. 2. Return here and click 'Check access'.",false);
+                    syncConnectionLayout();
+                    if(!window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches&&typeof connectionPanel.animate==='function'){
+                        connectionPanel.animate([{opacity:0,transform:'translateY(6px)'},{opacity:1,transform:'translateY(0)'}],{duration:200,easing:'cubic-bezier(.22,1,.36,1)'});
+                    }
+                    options.updated(options.context().tracker,options.context());
+                });
+            });
+            document.body.append(dialog);
+            if(typeof dialog.showModal==='function')dialog.showModal();else dialog.setAttribute('open','');
+        }
+        if(writerMode.perUser){
+            connectionPanel.hidden=false;
+            if(authoriseLink){
+                authoriseLink.href=writerMode.endpoint+'?connect=1';
+                authoriseLink.addEventListener('click',async event=>{
+                    if(!chrome.tabs?.create)return;
+                    event.preventDefault();
+                    authoriseLink.classList.add('is-secondary');
+                    check.classList.add('primary');
+                    setConnectionStatus("Signing in with Google… This tab will close automatically once connected.",true);
+                    let permissionGranted=false;
+                    try{permissionGranted=await chrome.permissions.request({origins});}catch(_){}
+                    try{
+                        const tab=await chrome.tabs.create({url:writerMode.endpoint+'?connect=1',active:true});
+                        if(tab?.id!=null&&chrome.tabs.onUpdated){
+                            const cleanup=()=>{chrome.tabs.onUpdated.removeListener(onUpdated);chrome.tabs.onRemoved?.removeListener(onRemoved);};
+                            const onRemoved=closedId=>{if(closedId===tab.id){cleanup();setConnectionStatus("Sign-in tab closed. Click 'Connect my Google account' to try again, or 'Check access' if you finished.",false);}};
+                            const onUpdated=(updatedId,changeInfo,updatedTab)=>{
+                                if(updatedId!==tab.id)return;
+                                const currentUrl=changeInfo.url||updatedTab?.url||'';
+                                if(currentUrl.startsWith('https://script.googleusercontent.com/')&&changeInfo.status==='complete'){
+                                    cleanup();
+                                    chrome.tabs.remove(tab.id).catch(()=>{});
+                                    if(permissionGranted)void checkWriterAccess(false,true);
+                                    else setConnectionStatus("Google sign-in finished. Click 'Check access' below to continue.",false);
+                                }
+                            };
+                            chrome.tabs.onUpdated.addListener(onUpdated);
+                            chrome.tabs.onRemoved?.addListener(onRemoved);
+                        }
+                    }catch(_){
+                        setConnectionStatus("Finish signing in on the Google tab, then click 'Check access' below.",false);
+                        window.open(writerMode.endpoint+'?connect=1','_blank','noopener');
+                    }
+                });
+            }
+            if(skipReadOnly)skipReadOnly.addEventListener('click',()=>{skippedSetup=true;syncConnectionLayout();});
+            if(resetAccount)resetAccount.addEventListener('click',()=>confirmDisconnect());
+            Promise.resolve(chrome.storage.local.get('reccieConfirmedWriterIdentity')).then(stored=>{
+                if(stored?.reccieConfirmedWriterIdentity){hasConfirmedAccount=true;checkingSilently=true;}
+                syncConnectionLayout();
+            }).catch(()=>syncConnectionLayout());
+        }
         async function checkWriterAccess(activate=false,interactive=false){
             const context=options.context(),sequence=++connectionSequence;
             writerReady=false;
-            connectionStatus.textContent='Checking your Google account and access to both spreadsheets…';
+            checkingSilently=!interactive&&!activate&&hasConfirmedAccount;
+            setConnectionStatus(activate?'Enabling tracker updates for your Google account':'Checking your Google account and spreadsheet access',true);
             check.disabled=enable.disabled=true;
+            if(activate)enable.textContent='Enabling…';
+            else check.textContent='Checking…';
             try{
-                if(!await (interactive?chrome.permissions.request({origins}):chrome.permissions.contains({origins})))throw Error('Connect your Google account, then choose Check access to allow Google script access.');
+                const storedIdentity=await chrome.storage.local.get('reccieConfirmedWriterIdentity');
+                if(storedIdentity?.reccieConfirmedWriterIdentity){hasConfirmedAccount=true;if(!interactive&&!activate){checkingSilently=true;syncConnectionLayout();}}
+                if(!await (interactive?chrome.permissions.request({origins}):chrome.permissions.contains({origins})))throw Error("Click 'Connect my Google account' first, then click 'Check access' to allow Google script access.");
                 if(sequence!==connectionSequence)return;
                 if(activate){const stored=await chrome.storage.local.get('reccieAutomation');await chrome.storage.local.set({reccieAutomation:{...(stored.reccieAutomation||{}),autoMark:false,afterFinancial:false,clearCommentsOnMarkYes:false}});}
                 const response=await request(activate?'activatePerUserWriter':'trackerWriteConnection',{confirmAccount:interactive&&!activate},context),connection=response.connection;
                 if(sequence!==connectionSequence)return;
+                checkingSilently=false;
+                if(connection.enforced===true)hasConfirmedAccount=true;
                 writerReady=connection.ready===true&&connection.enforced===true&&connection.perUser===true;
-                connectionStatus.textContent=`Connected as ${connection.email}. ${writerReady?'Ready to update the tracker using your Google account.':connection.ready?'Both spreadsheets are accessible. Enable updates to continue.':connection.problems.join(' ')}`;
+                setConnectionStatus(`Connected as ${connection.email}. ${writerReady?'Ready to update the tracker using your Google account.':connection.ready?"Both spreadsheets are accessible. Click 'Use my Google account for updates' to finish setup.":connection.problems.join(' ')}`,false);
                 enable.hidden=!connection.ready||connection.enforced===true;
-                connectionPanel.open=!writerReady;
-                connectionSummary.textContent=writerReady?'Google account connected':'Google account for tracker updates';
                 activationHint.hidden=enable.hidden;
+                check.classList.remove('primary');
+                syncConnectionLayout();
+                if(activate&&writerReady)options.message(`Connected as ${connection.email}. Ready to update the tracker.`);
             }catch(error){if(sequence===connectionSequence)showAccessProblem(error.message);}
             finally{
                 if(sequence===connectionSequence){
+                    checkingSilently=false;
+                    check.textContent='Check access';
+                    enable.textContent='Use my Google account for updates';
                     check.disabled=enable.disabled=false;
                     options.updated(options.context().tracker,options.context());
                 }
