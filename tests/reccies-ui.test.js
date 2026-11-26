@@ -25,7 +25,7 @@ function create(preferences={},source,uiEnabled,now,perUser=false) {
     if(source)data.reccieTracker.source=source;
     if ('statuses' in preferences && !('trackerStatus' in preferences)) data.recciePreferences.trackerStatus='any';
     win.reccieCore=core;
-    if(perUser)win.opsReccieWriterMode={perUser:true,endpoint:'https://script.google.com/macros/s/per-user-test/exec'};
+    if(perUser)win.eval(readScript(path.resolve(__dirname,'../reccie-writer-mode.js')));
     win.chrome={storage:{local:{get:jest.fn(async()=>data),set:jest.fn(async values=>Object.assign(data,values))}},permissions:{request:jest.fn(async()=>true),contains:jest.fn(async()=>true)},runtime:{sendMessage:jest.fn(async request=>{
         if(request.operation==='check') {
             request.rowIds.forEach(id=>{data.reccieTracker.checks[id]={state:'ready',reconciled:'1',buyStatus:'SUCCESSFUL',checkedAt:'2026-10-20T13:00:00Z'};});
@@ -178,6 +178,8 @@ describe('Reccies sidebar',()=>{
             expect(doc.getElementById('writer-connection-status').textContent).toContain('jett@example.com');
             expect(doc.querySelector('.tracker-mark-yes')).toBeNull();expect(doc.getElementById('writer-activate').hidden).toBe(false);
             doc.getElementById('writer-activate').click();await flush();await flush();
+            expect(doc.getElementById('writer-connection').open).toBe(false);
+            expect(doc.getElementById('writer-activation-hint').hidden).toBe(true);
             expect(doc.getElementById('writer-connection-status').textContent).toContain('Ready to update');expect(doc.querySelector('.tracker-mark-yes')).not.toBeNull();
             expect(getData().reccieAutomation).toMatchObject({autoMark:false,afterFinancial:false,clearCommentsOnMarkYes:false});
         }finally{dom.window.close();}
@@ -187,6 +189,7 @@ describe('Reccies sidebar',()=>{
         try{
             win.chrome.runtime.sendMessage.mockResolvedValue({status:'success',connection:{email:'jett@example.com',perUser:true,ready:false,enforced:false,problems:['Ask Harry for Editor access to the separate save-record spreadsheet.']}});
             await flush();await flush();expect(win.document.getElementById('writer-connection-status').textContent).toContain('Editor access');
+            expect(win.document.getElementById('writer-connection').open).toBe(true);
             expect(win.document.querySelector('.tracker-mark-yes')).toBeNull();expect(win.document.getElementById('writer-activate').hidden).toBe(true);
         }finally{dom.window.close();}
     });
@@ -197,7 +200,7 @@ describe('Reccies sidebar',()=>{
             expect(doc.getElementById('reccie-progress-month').textContent).toBe('September 2026');
             expect(doc.getElementById('reccie-progress-asof').textContent).toMatch(/^Tracker as of /);
             expect(doc.getElementById('reccie-results-asof').textContent).toBe(doc.getElementById('reccie-progress-asof').textContent);
-            expect(doc.querySelector('.reccies-focus-controls #reccie-results-asof')).not.toBeNull();
+            expect(doc.querySelector('.reccies-results-meta #reccie-results-asof')).not.toBeNull();
             expect(doc.getElementById('reccie-progress-owner')).toBeNull();
         }finally{dom.window.close();}
     });
@@ -221,39 +224,117 @@ describe('Reccies sidebar',()=>{
             const doc=win.document,panel=doc.getElementById('reccie-progress'),toggle=doc.getElementById('show-progress-bars');
             expect(panel.hidden).toBe(false);
             expect(doc.getElementById('reccie-tracker-progress-label').textContent).toBe('1 / 2 marked Yes · 50%');
+            expect(doc.getElementById('reccie-progress-remaining').textContent).toBe('1 remaining');
+            expect(doc.getElementById('reccie-progress-month').closest('.reccie-overview')).not.toBeNull();
             expect(doc.getElementById('reccie-time-progress').max).toBe(5);
             expect(doc.getElementById('reccie-time-progress-label').textContent).toMatch(/\d+(?:\.\d)? \/ 5 working days/);
             doc.getElementById('search').value='D03120200';doc.getElementById('search').dispatchEvent(new win.Event('input'));
             expect(doc.getElementById('reccie-tracker-progress-label').textContent).toBe('1 / 2 marked Yes · 50%');
+            expect(doc.getElementById('reccie-progress-remaining').textContent).toBe('1 remaining');
             toggle.click();await flush();
             expect(panel.hidden).toBe(true);expect(getData().reccieProgressBarsEnabled).toBe(false);
             toggle.click();await flush();
             expect(panel.hidden).toBe(false);expect(getData().reccieProgressBarsEnabled).toBe(true);
         }finally{dom.window.close();}
     });
-    test('V2 focus hides only this sidebar controls and keeps filters, verification and results',async()=>{
+    test('V2 hides filters only, shows their summary and can clear them',async()=>{
         const {dom,win,getData}=create({trackerStatus:'any'},liveSource,true);
         try{
-            await flush();const doc=win.document,button=doc.getElementById('reccies-focus-toggle'),preferences=structuredClone(getData().recciePreferences);
-            const writes=win.chrome.storage.local.set.mock.calls.length;
-            button.click();expect(doc.getElementById('reccies-controls').hidden).toBe(true);
-            expect(button.getAttribute('aria-expanded')).toBe('false');expect(button.textContent).toBe('Show settings');
-            expect(doc.getElementById('check-rows').closest('#reccies-controls')).toBeNull();
+            await flush();const doc=win.document,button=doc.getElementById('reccies-filter-toggle');
+            win.matchMedia=()=>({matches:true});
+            doc.getElementById('search').value='Campaign';doc.getElementById('search').dispatchEvent(new win.Event('input'));
+            button.click();expect(doc.getElementById('reccies-filter-body').hidden).toBe(true);
+            expect(button.getAttribute('aria-expanded')).toBe('false');expect(button.textContent).toBe('Show filters');
+            expect(doc.getElementById('reccies-filter-summary-text').textContent).toContain('Search: Campaign');
+            expect(doc.getElementById('source-details').closest('[hidden]')).toBeNull();
+            expect(doc.getElementById('check-rows').closest('[hidden]')).toBeNull();
             expect(doc.querySelectorAll('.reccie-card')).toHaveLength(2);
-            expect(getData().recciePreferences).toEqual(preferences);expect(win.chrome.storage.local.set.mock.calls).toHaveLength(writes);
-            button.click();expect(doc.getElementById('reccies-controls').hidden).toBe(false);expect(button.getAttribute('aria-expanded')).toBe('true');
-            const fresh=create({},liveSource,true);try{await flush();expect(fresh.win.document.getElementById('reccies-controls').hidden).toBe(false);}finally{fresh.dom.window.close();}
+            doc.querySelector('.reccies-filter-summary button').click();await flush();
+            expect(doc.getElementById('search').value).toBe('');expect(getData().recciePreferences.search).toBe('');
+            button.click();expect(doc.getElementById('reccies-filter-body').hidden).toBe(false);expect(button.getAttribute('aria-expanded')).toBe('true');
+            const fresh=create({},liveSource,true);try{await flush();expect(fresh.win.document.getElementById('reccies-filter-body').hidden).toBe(false);}finally{fresh.dom.window.close();}
         }finally{dom.window.close();}
     });
-    test('V2 campaign header places campaign ID beside count and Prisma link without the report month',async()=>{
+    test('balanced cards group source, filters and results without moving controls in V1',async()=>{
+        for (const ui of [true,false]) {
+            const {dom,win}=create({},undefined,ui);
+            try {
+                await flush(); await flush();
+                const doc=win.document;
+                expect(doc.querySelector('.reccies-source-card #source-segments')).not.toBeNull();
+                expect(doc.querySelector('.reccies-settings-card #source-status')).not.toBeNull();
+                expect(doc.querySelector('.reccies-filter-identity #search')).not.toBeNull();
+                expect(doc.querySelector('#reccies-filter-body .view-controls #tracker-status')).not.toBeNull();
+                expect(doc.querySelector('.status-filter-card fieldset.status-filter > legend').textContent).toBe('Prisma status');
+                expect(doc.getElementById('check-rows').closest('#reccies-filter-body')).toBeNull();
+                expect(doc.getElementById('summary').parentElement.className).toBe(ui?'reccies-results-meta':'checkbar');
+            } finally { dom.window.close(); }
+        }
+    });
+    test('filter animation handles rapid reversals and finishes in the latest state',async()=>{
+        const {dom,win}=create({},undefined,true);
+        try {
+            await flush();
+            const frames=[],timers=[];
+            win.requestAnimationFrame=jest.fn(callback=>{frames.push(callback);return frames.length;});
+            win.cancelAnimationFrame=jest.fn();
+            win.setTimeout=jest.fn((callback,delay)=>{if(delay===280)timers.push(callback);return 1;});
+            win.clearTimeout=jest.fn();
+            const button=win.document.getElementById('reccies-filter-toggle'),body=win.document.getElementById('reccies-filter-body');
+            button.click(); frames[0](); expect(body.style.height).toBe('0px');
+            button.click(); frames[1](); timers[0]();
+            expect(body.hidden).toBe(false); expect(button.getAttribute('aria-expanded')).toBe('true');
+            timers[1](); expect(body.hidden).toBe(false); expect(body.style.height).toBe('');
+        } finally { dom.window.close(); }
+    });
+    test('collapsed filter summary animates into view after the fields close',async()=>{
+        const {dom,win}=create({},undefined,true);
+        try {
+            await flush();
+            let frame,finish;
+            win.requestAnimationFrame=jest.fn(callback=>{frame=callback;return 1;});
+            win.setTimeout=jest.fn((callback,delay)=>{if(delay===280)finish=callback;return 1;});
+            const summary=win.document.querySelector('.reccies-filter-summary');
+            summary.animate=jest.fn(()=>({cancel:jest.fn()}));
+            win.document.getElementById('reccies-filter-toggle').click();
+            expect(summary.hidden).toBe(true); frame(); finish();
+            expect(summary.hidden).toBe(false);
+            expect(summary.animate).toHaveBeenCalledWith(expect.any(Array),expect.objectContaining({duration:200}));
+        } finally { dom.window.close(); }
+    });
+    test('V2 campaign groups matching rows by supplier and keeps the Prisma action',async()=>{
         const {dom,win}=create({trackerStatus:'any',showBy:'campaign'},liveSource,true);
         try{
             await flush();const card=win.document.querySelector('.campaign-card'),meta=card.querySelector('.v2-campaign-metadata');
-            expect(meta.textContent).toContain('CP3G9KS · 2 D numbers');expect(meta.querySelector('a').textContent).toContain('Open in Prisma');
-            expect(meta.querySelector('a').href).toContain('mos=2026-09-01');
-            expect(card.querySelector('.card-bottom a')).toBeNull();expect(card.textContent).not.toContain('2026-09');
+            expect(meta.textContent).toContain('CP3G9KS · Supplier');
+            expect(card.querySelector('.card-bottom a').href).toContain('mos=2026-09-01');
+            expect(card.querySelectorAll('.v2-supplier-heading')).toHaveLength(2);
+            expect(card.querySelector('.v2-supplier-heading').textContent).toContain('1 D number');
+            expect(card.querySelector('.v2-campaign-metadata img')).toBeNull();
             expect(card.querySelectorAll('.v2-placement')).toHaveLength(2);
         }finally{dom.window.close();}
+    });
+    test('V2 groups supplier name variants and labels missing suppliers',async()=>{
+        const {dom,win,getData}=create({trackerStatus:'any',showBy:'campaign'},liveSource,true);
+        try {
+            getData().reccieTracker.rows[1].supplier=' supplier ';
+            getData().reccieTracker.rows.push({...base,sourceRow:5,dNumber:'D03144022',supplier:''});
+            await flush(); await flush();
+            const card=win.document.querySelector('.campaign-card');
+            const groups=[...card.querySelectorAll('.v2-supplier-heading')].map(el=>el.textContent);
+            expect(groups).toEqual(['Supplier2 D numbers','Supplier not specified1 D number']);
+            expect(card.querySelectorAll('.v2-placement')).toHaveLength(3);
+        } finally {dom.window.close();}
+    });
+    test('V2 omits the unchecked badge while retaining evidence and check timing',async()=>{
+        const {dom,win}=create({trackerStatus:'any'},liveSource,true);
+        try {
+            await flush();
+            const card=win.document.querySelector('.reccie-card');
+            expect(card.querySelector('.card-top').textContent).not.toContain('Not checked');
+            expect(card.querySelector('.v2-evidence').textContent).toContain('Tracker No');
+            expect(card.querySelector('.v2-card-timing').textContent).toContain('Checked: Never');
+        } finally {dom.window.close();}
     });
     test('V2 crossfades changed result views and respects reduced motion',async()=>{
         const {dom,win}=create({trackerStatus:'any'},undefined,true);

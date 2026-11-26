@@ -6,30 +6,74 @@
     const enabled = () => root.dataset.recciesUi === 'v2';
     const tracks = new Map();
     let contentKey = '', contentTransition = null, listAnimation = null;
-    let focused = false, focusAnimation = null;
-    const controls = document.createElement('div'); controls.id = 'reccies-controls';
-    document.querySelector('.mode-switch').before(controls);
-    for (const selector of ['.mode-switch','#mode-description','#discover-campaigns','#coverage-details','#source-details','#source-status','.filters']) {
-        const el = document.querySelector(selector);
-        if (el) controls.append(el);
+    let filtersHidden = false, filterFrame = 0, filterTimer = 0, filterToken = 0, summaryAnimation = null;
+    const filters = document.querySelector('.filters');
+    const filterBody = document.createElement('div'); filterBody.id = 'reccies-filter-body';
+    filterBody.append(...filters.childNodes); filters.append(filterBody);
+    const identity = document.createElement('div'); identity.className = 'reccies-filter-identity';
+    for (const node of [...filterBody.childNodes]) {
+        if (node.nodeType === Node.ELEMENT_NODE && node.classList.contains('view-controls')) break;
+        identity.append(node);
     }
-    const focusBar = document.createElement('div'); focusBar.className = 'reccies-focus-controls';
-    const focusButton = document.createElement('button'); focusButton.id = 'reccies-focus-toggle'; focusButton.type = 'button';
-    focusButton.setAttribute('aria-controls', controls.id); focusBar.append($('reccie-results-asof'),focusButton); $('rows').before(focusBar);
-    function setFocused(value, animate = true) {
-        const start = controls.hidden ? 0 : controls.getBoundingClientRect().height;
-        focusAnimation?.cancel(); focusAnimation = null; controls.style.overflow = "";
-        focused = enabled() && value;
-        focusButton.textContent = focused ? 'Show settings' : 'Collapse settings';
-        focusButton.setAttribute('aria-expanded', String(!focused));
-        controls.hidden = false; controls.inert = focused;
-        if (!enabled() || reduced() || !animate || typeof controls.animate !== 'function') { controls.hidden = focused; return; }
-        controls.style.overflow = "hidden";
-        const animation = controls.animate([{height:start+'px',opacity:focused?1:0},{height:focused?'0px':controls.scrollHeight+'px',opacity:focused?0:1}], {duration:160,easing:'ease-out'});
-        focusAnimation = animation;
-        animation.onfinish = () => { if(focusAnimation!==animation)return;controls.hidden=focused;focusAnimation=null;controls.style.overflow="";animation.cancel(); };
+    filterBody.prepend(identity);
+    const filterHeader = document.createElement('div'); filterHeader.className = 'reccies-filter-heading';
+    const heading = document.createElement('strong'); heading.textContent = 'Find and filter recs';
+    const filterToggle = document.createElement('button'); filterToggle.id = 'reccies-filter-toggle'; filterToggle.type = 'button';
+    filterToggle.setAttribute('aria-controls', filterBody.id); filterHeader.append(heading, filterToggle); filters.prepend(filterHeader);
+    const filterSummary = document.createElement('div'); filterSummary.className = 'reccies-filter-summary';
+    const summaryText = document.createElement('span'); summaryText.id = 'reccies-filter-summary-text';
+    const summaryClear = document.createElement('button'); summaryClear.type = 'button'; summaryClear.textContent = 'Clear filters';
+    summaryClear.addEventListener('click', () => $('clear-filters').click());
+    filterSummary.append(summaryText, summaryClear); filterHeader.after(filterSummary);
+    const resultsMeta = document.createElement('div'); resultsMeta.className = 'reccies-results-meta';
+    const summaryHome = document.createComment('Original summary position');
+    $('summary').before(summaryHome);
+    $('reccie-results-asof').before(resultsMeta);
+    resultsMeta.append($('summary'), $('reccie-results-asof'));
+    function setFiltersHidden(value, animate = false) {
+        if (filterFrame) window.cancelAnimationFrame(filterFrame);
+        if (filterTimer) window.clearTimeout(filterTimer);
+        summaryAnimation?.cancel(); summaryAnimation = null;
+        const token = ++filterToken;
+        const start = filterBody.hidden ? 0 : filterBody.getBoundingClientRect().height;
+        const opacity = filterBody.hidden ? '0' : window.getComputedStyle(filterBody).opacity;
+        filtersHidden = enabled() && value;
+        filterHeader.hidden = !enabled();
+        filterToggle.textContent = filtersHidden ? 'Show filters' : 'Hide filters';
+        filterToggle.setAttribute('aria-expanded', String(!filtersHidden));
+        filterBody.inert = filtersHidden;
+        filterSummary.hidden = true;
+        const finish = () => {
+            if (token !== filterToken) return;
+            filterBody.hidden = filtersHidden;
+            filterBody.style.height = '';
+            filterBody.style.opacity = '';
+            filterSummary.hidden = !filtersHidden;
+            if (filtersHidden && animate && !reduced() && typeof filterSummary.animate === 'function') {
+                const height = filterSummary.getBoundingClientRect().height;
+                summaryAnimation = filterSummary.animate(
+                    [{height:'0px',opacity:0,overflow:'hidden',paddingTop:'0px',paddingBottom:'0px'},
+                        {height:`${height}px`,opacity:1,overflow:'hidden'}],
+                    {duration:200,easing:'cubic-bezier(.22,1,.36,1)'}
+                );
+                summaryAnimation.onfinish = () => { summaryAnimation = null; };
+            }
+            filterFrame = filterTimer = 0;
+        };
+        if (!animate || reduced()) { finish(); updateFilters(); return; }
+        filterBody.hidden = false;
+        filterBody.style.height = `${start}px`;
+        filterBody.style.opacity = opacity;
+        void filterBody.offsetHeight;
+        filterFrame = window.requestAnimationFrame(() => {
+            if (token !== filterToken) return;
+            filterBody.style.height = filtersHidden ? '0px' : `${filterBody.scrollHeight}px`;
+            filterBody.style.opacity = filtersHidden ? '0' : '1';
+            filterTimer = window.setTimeout(finish, 280);
+        });
+        updateFilters();
     }
-    focusButton.addEventListener('click', () => setFocused(!focused));
+    filterToggle.addEventListener('click', () => setFiltersHidden(!filtersHidden, true));
     function transitionContent(update, key) {
         const changed = contentKey && key !== contentKey;
         contentKey = key;
@@ -73,6 +117,14 @@
         const sourceMetadata = $('source-status');
         sourceMetadata.classList.toggle('has-tracker', Boolean(sourceMetadata.textContent && !sourceMetadata.textContent.startsWith('No tracker')));
         const inputs = [...chips.querySelectorAll('[data-status]')];
+        const person = $('person').selectedOptions[0]?.textContent || 'Choose your name';
+        const role = $('assignment').selectedOptions[0]?.textContent || 'Assignment';
+        const status = $('tracker-status').selectedOptions[0]?.textContent || 'Any';
+        const selected = inputs.filter(input => input.checked).length;
+        const query = $('search').value.trim();
+        summaryText.textContent = [role, person, `Tracker: ${status}`, selected ? `${selected} Prisma filter${selected === 1 ? '' : 's'}` : 'Any Prisma status', query ? `Search: ${query}` : ''].filter(Boolean).join(' · ');
+        summaryClear.hidden = $('clear-filters').hidden;
+        summaryClear.disabled = $('clear-filters').disabled;
         const labels = [...chips.querySelectorAll('label')].filter(label => !label.hidden);
         const gap = parseFloat(window.getComputedStyle(chips).gap) || 7;
         const width = chips.clientWidth;
@@ -95,8 +147,9 @@
     function refreshLayout() { tracks.forEach((_, track) => updateSegments(track)); updateFilters(); }
     function apply(value) {
         root.dataset.recciesUi = value === false ? 'v1' : 'v2';
-        focusButton.hidden = !enabled();
-        setFocused(focused, false);
+        if (enabled()) resultsMeta.append($('summary'), $('reccie-results-asof'));
+        else { summaryHome.after($('summary')); resultsMeta.after($('reccie-results-asof')); }
+        setFiltersHidden(filtersHidden);
         if (enabled()) {
             if (!joined.isConnected) { url.before(joined); joined.append(url, read); }
             read.textContent = 'Read'; read.setAttribute('aria-label', 'Read Google Sheet');
@@ -130,19 +183,32 @@
         const bottom = card.querySelector('.card-bottom');
         if (grouped) {
             const metadata = document.createElement('div'); metadata.className = 'v2-campaign-metadata';
-            const identity = document.createElement('div'); identity.className = 'v2-campaign-identity';
-            const count = card.querySelector(':scope > .supplier');
-            const reference = document.createElement('span'); reference.textContent = rows[0].campaignId || 'No campaign ID';
-            identity.append(reference, ' · ', count); metadata.append(identity);
-            const link = bottom.querySelector('a'); if (link) metadata.append(link);
+            const suppliers = new Map();
+            rows.forEach(row => {
+                const name = row.supplier?.trim() || 'Supplier not specified';
+                const key = name.toLocaleLowerCase();
+                if (!suppliers.has(key)) suppliers.set(key, {name, rows:[]});
+                suppliers.get(key).rows.push(row);
+            });
+            metadata.textContent = `${rows[0].campaignId || 'No campaign ID'} · ${[...suppliers.values()].map(group => group.name).join(', ')}`;
+            card.querySelector(':scope > .supplier')?.remove();
+            card.querySelector(':scope > .campaign-d-numbers')?.remove();
             card.querySelector('.card-top').after(metadata);
             bottom.querySelector(':scope > span')?.remove();
-            if (!bottom.childElementCount) bottom.hidden = true;
             const placements = document.createElement('div'); placements.className = 'v2-placements';
-            rows.forEach(row => {
-                const item = document.createElement('div'); item.className = 'v2-placement';
-                const id = document.createElement('p'); id.className = 'v2-placement-id'; id.textContent = row.dNumber;
-                item.append(id, evidence(row, checks?.[row.sourceRow], observed)); if(row.comments){const note=document.createElement('p');note.className='comment';note.textContent=row.comments;item.append(note);} placements.append(item);
+            suppliers.forEach(group => {
+                const section = document.createElement('section'); section.className = 'v2-supplier-group';
+                const heading = document.createElement('div'); heading.className = 'v2-supplier-heading';
+                const name = document.createElement('strong'); name.textContent = group.name;
+                const count = document.createElement('span'); const total = new Set(group.rows.map(row => row.dNumber)).size;
+                count.textContent = `${total} D number${total === 1 ? '' : 's'}`;
+                heading.append(name, count); section.append(heading);
+                group.rows.forEach(row => {
+                    const item = document.createElement('div'); item.className = 'v2-placement';
+                    const id = document.createElement('p'); id.className = 'v2-placement-id'; id.textContent = row.dNumber;
+                    item.append(id, evidence(row, checks?.[row.sourceRow], observed)); if(row.comments){const note=document.createElement('p');note.className='comment';note.textContent=row.comments;item.append(note);} section.append(item);
+                });
+                placements.append(section);
             });
             bottom.before(placements);
         } else {
@@ -152,7 +218,10 @@
             card.querySelectorAll(':scope > .supplier').forEach(node => node.classList.add('v2-original-entity'));
             card.querySelector('.campaign-name').after(metadata);
             card.querySelector('.status-lines').before(evidence(row, result, observed));
+            const timing = bottom.querySelector(':scope > span');
+            if (timing) { timing.classList.add('v2-card-timing'); bottom.before(timing); }
             const badge = card.querySelector('.card-top > .badge');
+            if (badge && !row.issue && !result?.state) badge.remove();
             if (badge && !row.issue && result?.state === 'ready') badge.textContent = 'Reconciled in Prisma';
             if (badge && !row.issue && result?.state === 'outstanding') badge.textContent = result.reconciled === '0' ? 'Not reconciled in Prisma' : `Buy status: ${human(result.buyStatus)}`;
         }

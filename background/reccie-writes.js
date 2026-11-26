@@ -8,12 +8,20 @@ const trackerId='1QxX7yZvfh75ENyvPG7xD_5ldLuoLwUsTZ6z0edkpORU';
 const origins=['https://script.google.com/*','https://script.googleusercontent.com/*'];
 const previewPrefix='reccieWritePreview:';
 const receiptKey=(mode,month)=>`reccieManualSave:${mode}:${month}`;
+const sessionIdentityKey = 'recciePerUserWriterIdentity';
+const confirmedIdentityKey = 'reccieConfirmedWriterIdentity';
+function writerError(code, message) {
+    return Object.assign(new Error(message), { code });
+}
 async function api(operation,body,beforeSend){
     if(!endpoint||!endpoint.startsWith('https://script.google.com/'))throw Error('The per-user writer service is not configured.');
-    if(!await chrome.permissions.contains({origins}))throw Error('Allow Google script access to update the tracker.');
+    if(!await chrome.permissions.contains({origins}))throw writerError('WRITER_PERMISSION_REQUIRED','Allow Google script access to update the tracker.');
     if(beforeSend)await beforeSend();
     let expectedEmail;
-    if(writerMode.perUser&&operation!=='connection'){expectedEmail=(await chrome.storage.session.get('recciePerUserWriterIdentity')).recciePerUserWriterIdentity;if(!expectedEmail)throw Error('Check access using your Google account before continuing.');}
+    if(writerMode.perUser&&operation!=='connection'){
+        expectedEmail=(await chrome.storage.session.get(sessionIdentityKey))[sessionIdentityKey];
+        if(!expectedEmail)throw writerError('WRITER_ACCESS_CHECK_REQUIRED','Open Reccies and use Check access to verify your Google account before continuing.');
+    }
     let response;
     try {
         response=await fetch(endpoint,{method:'POST',credentials:'include',redirect:'follow',cache:'no-store',signal:AbortSignal.timeout(25000),headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify({operation,...body,...(writerMode.perUser?{requirePerUser:true,...(expectedEmail?{expectedEmail}:{})}:{})})});
@@ -22,7 +30,7 @@ async function api(operation,body,beforeSend){
         error.code = 'TRANSPORT_UNCERTAIN';
         throw error;
     }
-    if(!response.ok||!['https://script.google.com','https://script.googleusercontent.com'].includes(new URL(response.url).origin)||!(response.headers.get('content-type')||'').includes('application/json'))throw Error('Google returned a sign-in or access page. Open the tracker in your work Google account and try again.');
+    if(!response.ok||!['https://script.google.com','https://script.googleusercontent.com'].includes(new URL(response.url).origin)||!(response.headers.get('content-type')||'').includes('application/json'))throw writerError('WRITER_SIGN_IN_REQUIRED','Google returned a sign-in or access page. Connect your work Google account in Reccies, then choose Check access.');
     const data=await response.json();
     if(data.service!=='ops-toolshed-reccies-writer'||data.protocol!==1)throw Error('The tracker update service is not ready. No confirmed update is available.');
     if(!data.ok){
@@ -31,9 +39,21 @@ async function api(operation,body,beforeSend){
         error.code=data.error;
         throw error;
     }
-    if(writerMode.perUser&&data.effectiveEmail&&data.effectiveEmail!==data.email)throw Error('The writer is not executing as the connected user.');
-    if(writerMode.perUser&&operation==='connection'&&data.perUser===true&&typeof data.email==='string')await chrome.storage.session.set({recciePerUserWriterIdentity:data.email});
+    if(writerMode.perUser&&data.effectiveEmail&&data.effectiveEmail!==data.email)throw writerError('PER_USER_REQUIRED','The writer is not executing as the connected user.');
     return data;
+}
+async function checkConnection(mode, confirmAccount) {
+    const connection = await api('connection', { mode });
+    if (connection.perUser !== true || !connection.email || connection.email !== connection.effectiveEmail) {
+        throw writerError('PER_USER_REQUIRED', 'Connect your own work Google account to update the tracker.');
+    }
+    const confirmed = (await chrome.storage.local.get(confirmedIdentityKey))[confirmedIdentityKey];
+    if (!confirmAccount && connection.email !== confirmed) {
+        throw writerError('WRITER_ACCESS_CHECK_REQUIRED', 'Choose Check access to confirm the work Google account you want to use for tracker updates.');
+    }
+    if (confirmAccount) await chrome.storage.local.set({ [confirmedIdentityKey]: connection.email });
+    await chrome.storage.session.set({ [sessionIdentityKey]: connection.email });
+    return connection;
 }
 function liveTracker(tracker,month){
     if(!tracker||tracker.month!==month||tracker.source?.type!=='google')return false;
@@ -61,14 +81,18 @@ async function applyReceipt(result,key,mode,month,queueWrite){
 }
 export async function dispatchTrackerWrite(request,{queueWrite,assertActive,automatic=false,beforeCommit}){
     if(['trackerWriteConnection','activatePerUserWriter'].includes(request.operation)){
-        if(!writerMode.perUser||automatic)throw Error('Per-user setup is available only in the live-test build.');
-        return {connection:await api(request.operation==='trackerWriteConnection'?'connection':'activatePerUser',{mode:request.mode||'main'})};
+        if(!writerMode.perUser||automatic)throw Error('Google account setup is unavailable.');
+        const mode=request.mode==='early'?'early':'main';
+        const connection=request.operation==='trackerWriteConnection'
+            ? await checkConnection(mode,request.confirmAccount===true)
+            : await api('activatePerUser',{mode});
+        return {connection};
     }
     const mode=request.mode||'main',month=request.month,key=core.trackerKey(mode,month);
     if(!['main','early'].includes(mode)||!core.validMonth(month))throw Error('Manual updates need a Main Tracker or Early Recs report month.');
     if(request.operation==='trackerWriteStatus'){
         if(typeof request.requestId!=='string'||!/^[a-zA-Z0-9-]{20,80}$/.test(request.requestId))throw Error('Invalid save request.');
-        const result=await api('status',{requestId:request.requestId});
+        const result=await api('status',{requestId:request.requestId,mode});
         if(result.requestId!==request.requestId)throw Error('Unexpected save receipt. Refresh the tracker before retrying.');
         const tracker=await applyReceipt(result,key,mode,month,queueWrite);
         return {write:result,tracker};

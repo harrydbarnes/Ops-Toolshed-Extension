@@ -1,9 +1,14 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Live per-user writer test · Ops Toolshed</title><link rel="stylesheet" href="reccies.css"></head>
-<body><main><h1>Live per-user writer test</h1>
-<p>This pilot uses the live Reccie Tracker and its existing save records. Choose one placement you have genuinely reconciled for the first test.</p>
-<ol><li>Open Reccies and expand Reccie tracking settings.</li><li>Choose Connect my Google account, select your own work account and review Google’s requested permissions. Return to Reccies after Google authorisation finishes.</li><li>Choose Check access. Check the email shown and the access results for the tracker and save-record spreadsheet.</li><li>When both sheets are accessible, choose Use my Google account for updates. This pauses automatic updates for your first test and requires your own account for future writer requests, including requests from older builds.</li><li>Verify one genuinely reconciled placement. Use Mark Yes, review the preview and confirm the save.</li><li>Check the saved value and its Google Sheets cell edit history. The new edit should show your email.</li></ol>
-<p>If access is missing, ask Harry to share the save-record spreadsheet with your work account as an Editor. Editors can read and change the records directly in Google Sheets.</p>
-<p>Record the connected email, access result, D number, save confirmation and cell edit history for Harry. Share these internally.</p>
-<p><a href="reccies.html">Open Reccies setup</a></p>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Google account setup for Reccies · Ops Toolshed</title><link rel="stylesheet" href="reccies.css"></head>
+<body><main><h1>Google account setup for Reccies</h1>
+<p>Tracker updates appear under your work Google account in Google Sheets’ edit history. The name you select in Reccies controls which assignments you see.</p>
+<ol>
+    <li>In Reccies, open <strong>Google account for tracker updates</strong> and choose <strong>Connect my Google account</strong>.</li>
+    <li>Select your work Google account and review Google’s email and Sheets permissions. The service uses those permissions for the Reccie Tracker and its save records.</li>
+    <li>Return to Reccies and choose <strong>Check access</strong>. If prompted by Chrome, allow the extension to reach the Google script service. Check that the displayed email is yours.</li>
+    <li>If the sidebar lists a missing permission, ask Harry to check your writer access and Editor access to both spreadsheets. Then choose <strong>Check access</strong> again.</li>
+    <li>Choose <strong>Use my Google account for updates</strong> if offered. This pauses automatic updates until you turn them back on. Once ready, the panel collapses to <strong>Google account connected</strong>. Expand it whenever you need to check the account again.</li>
+</ol>
+<p>If a background update asks you to verify access after Chrome restarts, reopen Reccies so it can verify the same account again. Use <strong>Check access</strong> if prompted.</p>
+<p><a href="reccies.html">Open Reccies</a></p>
 </main></body></html>

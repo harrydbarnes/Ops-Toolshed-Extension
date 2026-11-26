@@ -348,6 +348,7 @@
         trackerProgress.value = marked;
         trackerProgress.setAttribute('aria-valuetext', assigned.length ? `${marked} of ${assigned.length} assigned rows marked Yes` : 'No assigned rows');
         $('reccie-tracker-progress-label').textContent = assigned.length ? `${marked} / ${assigned.length} marked Yes · ${percent}%` : 'No assigned rows';
+        $('reccie-progress-remaining').textContent = `${(assigned.length - marked).toLocaleString()} remaining`;
     }
     function mismatchWarning(rows, grouped = false) {
         const mismatches = rows.filter(row => trackerMismatch(row, tracker.checks?.[row.sourceRow]));

@@ -2,6 +2,7 @@
     'use strict';
     const origins=['https://script.google.com/*','https://script.googleusercontent.com/*'];
     const trackerId='1QxX7yZvfh75ENyvPG7xD_5ldLuoLwUsTZ6z0edkpORU';
+    const accessErrors=new Set(['ACCOUNT_CHANGED','ACCESS_DENIED','IDENTITY_UNAVAILABLE','PER_USER_REQUIRED','PER_USER_SETUP_REQUIRED','PER_USER_ACCESS_REQUIRED','WRITER_ACCESS_CHECK_REQUIRED','WRITER_PERMISSION_REQUIRED','WRITER_SIGN_IN_REQUIRED','MANUAL_WRITES_DISABLED']);
     const node=(tag,value)=>{const el=document.createElement(tag);if(value)el.textContent=value;return el;};
     function addCloseButton(dialog,close){
         const button=node('button');button.type='button';button.className='tracker-dialog-close';button.setAttribute('aria-label','Close dialog');button.addEventListener('click',close);dialog.append(button);return button;
@@ -10,24 +11,43 @@
         const recover=document.getElementById('last-tracker-save');
         let latest=null,lastKey='',opening=false;
         const writerMode=window.opsReccieWriterMode||{perUser:false},connectionPanel=document.getElementById('writer-connection');
-        let writerReady=!writerMode.perUser,connectionKey='';
-        document.getElementById('per-user-writer-test').hidden=!writerMode.perUser;
+        let writerReady=!writerMode.perUser,connectionKey='',connectionSequence=0;
+        const connectionStatus=document.getElementById('writer-connection-status');
+        const connectionSummary=document.getElementById('writer-connection-summary');
+        const activationHint=document.getElementById('writer-activation-hint');
+        const check=document.getElementById('writer-check-access'),enable=document.getElementById('writer-activate');
+        function showAccessProblem(message){
+            writerReady=false;
+            connectionPanel.open=true;
+            connectionStatus.textContent=message;
+            connectionSummary.textContent='Google account for tracker updates';
+            enable.hidden=activationHint.hidden=true;
+        }
         if(writerMode.perUser){connectionPanel.hidden=false;document.getElementById('writer-authorise').href=writerMode.endpoint+'?connect=1';}
         async function checkWriterAccess(activate=false,interactive=false){
-            const context=options.context(),key=context.mode+'/'+context.month,status=document.getElementById('writer-connection-status');
+            const context=options.context(),sequence=++connectionSequence;
             writerReady=false;
-            status.textContent='Checking your Google account and access to both spreadsheets…';
-            const check=document.getElementById('writer-check-access'),enable=document.getElementById('writer-activate');check.disabled=enable.disabled=true;
+            connectionStatus.textContent='Checking your Google account and access to both spreadsheets…';
+            check.disabled=enable.disabled=true;
             try{
                 if(!await (interactive?chrome.permissions.request({origins}):chrome.permissions.contains({origins})))throw Error('Connect your Google account, then choose Check access to allow Google script access.');
+                if(sequence!==connectionSequence)return;
                 if(activate){const stored=await chrome.storage.local.get('reccieAutomation');await chrome.storage.local.set({reccieAutomation:{...(stored.reccieAutomation||{}),autoMark:false,afterFinancial:false,clearCommentsOnMarkYes:false}});}
-                const response=await request(activate?'activatePerUserWriter':'trackerWriteConnection',{},context),connection=response.connection;
-                if(options.context().mode+'/'+options.context().month!==key)return;
+                const response=await request(activate?'activatePerUserWriter':'trackerWriteConnection',{confirmAccount:interactive&&!activate},context),connection=response.connection;
+                if(sequence!==connectionSequence)return;
                 writerReady=connection.ready===true&&connection.enforced===true&&connection.perUser===true;
-                status.textContent=`Connected as ${connection.email}. ${writerReady?'Ready to update the tracker using your Google account.':connection.ready?'Both spreadsheets are accessible. Enable per-user updates to continue.':connection.problems.join(' ')}`;
+                connectionStatus.textContent=`Connected as ${connection.email}. ${writerReady?'Ready to update the tracker using your Google account.':connection.ready?'Both spreadsheets are accessible. Enable updates to continue.':connection.problems.join(' ')}`;
                 enable.hidden=!connection.ready||connection.enforced===true;
-            }catch(error){status.textContent=error.message;enable.hidden=true;}
-            finally{check.disabled=enable.disabled=false;options.updated(options.context().tracker,options.context());}
+                connectionPanel.open=!writerReady;
+                connectionSummary.textContent=writerReady?'Google account connected':'Google account for tracker updates';
+                activationHint.hidden=enable.hidden;
+            }catch(error){if(sequence===connectionSequence)showAccessProblem(error.message);}
+            finally{
+                if(sequence===connectionSequence){
+                    check.disabled=enable.disabled=false;
+                    options.updated(options.context().tracker,options.context());
+                }
+            }
         }
         if(writerMode.perUser){
             document.getElementById('writer-check-access').addEventListener('click',()=>void checkWriterAccess(false,true));
@@ -47,6 +67,10 @@
             if(response?.status!=='success'){
                 const error=Error(response?.message||'Could not reach tracker update service.');
                 if(response?.code)error.code=response.code;
+                if(writerMode.perUser&&opening&&accessErrors.has(error.code)){
+                    showAccessProblem(error.message);
+                    options.updated(options.context().tracker,options.context());
+                }
                 throw error;
             }
             return response;
@@ -99,7 +123,7 @@
                 }else if(result.state==='pending'){showStatus('Save is still in progress. Checking automatically every five seconds. You can close this window and use Check last tracker save later.',true);scheduleCheck();}
                 else {showStatus('No save receipt is available yet. Checking automatically before another update can be started.',true);scheduleCheck();}
             }
-            async function checkResult(){if(closed||working)return;clearTimeout(pollTimer);work(true);showStatus('Checking save result',true);try{receipt(await request('trackerWriteStatus',{requestId},context));}catch(error){showStatus(`${error.message} Checking again automatically.`,true);scheduleCheck();}finally{work(false);}}
+            async function checkResult(){if(closed||working)return;clearTimeout(pollTimer);work(true);showStatus('Checking save result',true);try{receipt(await request('trackerWriteStatus',{requestId},context));}catch(error){if(accessErrors.has(error.code)){showStatus(error.message);close.textContent='Close';}else{showStatus(`${error.message} Checking again automatically.`,true);scheduleCheck();}}finally{work(false);}}
             refresh.addEventListener('click',()=>{if(working)return;closeDialog(()=>void open(rows,false,edits,clearComments));});
             removeComments.addEventListener('change',()=>{if(working)return;const selected=removeComments.checked;closeDialog(()=>void open(rows,false,edits,selected));});
             close.addEventListener('click',closeDialog);dialog.addEventListener('cancel',event=>{event.preventDefault();closeDialog();});
@@ -114,6 +138,7 @@
                         showStatus('Google is taking longer than expected. Checking the save receipt',true);
                         work(false);await checkResult();
                     }else if(error.code==='BUSY_TRY_AGAIN'||/preview expired/i.test(error.message)){showStatus(`${error.message} Use Refresh preview when ready.`);refresh.hidden=false;}
+                    else if(accessErrors.has(error.code)){showStatus(error.message);}
                     else {showStatus(`${error.message} Checking the save result automatically.`,true);scheduleCheck();}
                 }
                 finally{preview=null;work(false);}
@@ -135,7 +160,7 @@
                     showStatus(`${edits?'Review the live comments and Yes/No changes below.':count?`${count} D number${count===1?'':'s'} will be marked Yes.`:'No new changes are needed. Confirm to sync already-Yes values.'} Confirm before ${expiresAt}, or refresh the preview.`);
                     refresh.hidden=false;
                 }
-            }catch(error){showStatus(error.code==='BUSY_TRY_AGAIN'?`${error.message} Use Refresh preview to retry.`:error.message);label.hidden=save.hidden=true;refresh.hidden=!!statusOnly;}
+            }catch(error){showStatus(error.code==='BUSY_TRY_AGAIN'?`${error.message} Use Refresh preview to retry.`:error.message);label.hidden=save.hidden=true;refresh.hidden=!!statusOnly||accessErrors.has(error.code);}
             finally{work(false);}
         }
         function editNotes(rows){

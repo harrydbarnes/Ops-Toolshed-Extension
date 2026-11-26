@@ -12,38 +12,45 @@
 </head>
 <body>
 <main>
+    <div class="reccie-overview">
     <header>
         <div class="titleline"><h1 id="reccies-title">My Reccies</h1><button type="button" class="readonly" id="tracker-mode-badge" aria-label="Toggle between Manual Mode and Automatic Updates">Manual Mode</button></div>
+        <p id="reccie-progress-month"></p>
         <p class="intro">Your Reccie Tracker rows, checked against Prisma. Preview and confirm any tracker updates.</p>
     </header>
-        <section id="writer-connection" hidden aria-label="Google account for tracker updates">
-            <p id="writer-connection-status" role="status" aria-live="polite">Checking your Google account and spreadsheet access…</p>
-            <a id="writer-authorise" target="_blank" rel="noopener">Connect my Google account</a>
-            <button id="writer-check-access" type="button">Check access</button>
-            <button id="writer-activate" type="button" hidden>Use my Google account for updates</button>
-            <p class="hint">Enabling this requires your own Google account for future updates, including in older extension versions. Automatic updates are paused for your first live test.</p>
-        </section>
     <section id="reccie-progress" class="reccie-progress" aria-label="Monthly Reccie progress" hidden>
         <div class="reccie-progress-metric">
-            <div class="reccie-progress-label"><span>Time gone</span><span id="reccie-time-progress-label"></span></div>
+            <div class="reccie-progress-label"><span>Time elapsed</span><span id="reccie-time-progress-label"></span></div>
             <progress id="reccie-time-progress" max="5" value="0" aria-label="Time gone in the first five working days"></progress>
         </div>
         <div class="reccie-progress-metric">
             <div class="reccie-progress-label"><span>Tracker progress</span><span id="reccie-tracker-progress-label"></span></div>
             <progress id="reccie-tracker-progress" max="1" value="0" aria-label="Assigned tracker rows marked Yes"></progress>
-            <div class="reccie-progress-context"><p id="reccie-progress-asof"></p><p id="reccie-progress-month"></p></div>
         </div>
+        <div class="reccie-progress-context"><p id="reccie-progress-asof"></p><p id="reccie-progress-remaining"></p></div>
     </section>
-    <fieldset class="mode-switch" id="mode-switch"><legend id="source-label">Reccie source</legend>
+    </div>
+    <details id="writer-connection" hidden open>
+        <summary id="writer-connection-summary">Google account for tracker updates</summary>
+        <p id="writer-connection-status" role="status" aria-live="polite">Checking your Google account and spreadsheet access…</p>
+        <a id="writer-authorise" target="_blank" rel="noopener">Connect my Google account</a>
+        <button id="writer-check-access" type="button">Check access</button>
+        <button id="writer-activate" type="button" hidden>Use my Google account for updates</button>
+        <p class="hint">This Google account appears in the sheet’s edit history. Your selected name in Reccies controls which rows you see.</p>
+        <p id="writer-activation-hint" class="hint" hidden>Enabling this requires your own Google account for future tracker updates, including on older builds. Automatic updates will pause until you turn them back on.</p>
+        <p><a href="reccie-user-test.html" target="_blank" rel="noopener">Google account setup help</a></p>
+    </details>
+    <div class="reccies-source-card"><fieldset class="mode-switch" id="mode-switch"><legend id="source-label">Reccie source</legend>
         <div class="segmented-control" id="source-segments" role="group" aria-labelledby="source-label"></div>
         <label hidden><input type="radio" name="mode" value="main" checked>Main Tracker</label>
         <label hidden><input type="radio" name="mode" value="early">Early Recs</label>
         <label hidden><input type="radio" name="mode" value="automatic">Automatic</label>
     </fieldset>
     <p id="mode-description" class="hint"></p>
+    </div>
     <button id="discover-campaigns" type="button" hidden>Discover visited campaigns</button>
     <details id="coverage-details" hidden><summary>Campaign coverage</summary><div id="coverage-issues"></div></details>
-    <details id="source-details" open>
+    <div class="reccies-settings-card"><details id="source-details" open>
         <summary id="source-summary"><span>Reccie tracking settings</span><span id="report-loaded-badge" class="report-loaded-badge" hidden><span aria-hidden="true">✓</span> <span id="report-loaded-text">Report loaded</span></span></summary>
         <div class="reccies-progress-setting automation-card"><label for="show-progress-bars"><input id="show-progress-bars" type="checkbox" checked> Show progress bars above the tracker</label></div>
         <div id="sheet-connection">
@@ -82,6 +89,7 @@
         </div>
     </details>
     <p id="source-status" class="hint"></p>
+    </div>
 
 
     <p id="background-progress" class="hint" role="status" aria-live="polite" hidden></p>
@@ -102,12 +110,12 @@
                 <select id="tracker-status" hidden><option value="any">Any</option><option value="outstanding">No</option><option value="reconciled">Yes</option></select>
             </div>
         </div>
-        <fieldset class="status-filter"><legend>Prisma status</legend><div class="status-chips">
+        <div class="status-filter-card"><fieldset class="status-filter"><legend>Prisma status</legend><div class="status-chips">
             <label><input type="checkbox" data-status="mismatch">Yes in sheet, not in Prisma</label>
             <label><input type="checkbox" data-status="ready">Reconciled in Prisma</label>
             <label><input type="checkbox" data-status="review">Needs attention</label>
         </div><p id="filter-hint" class="hint">Matches the tracker status AND any selected Prisma status. Nothing ticked means any Prisma status, including not checked. Uses your latest checks.</p>
-        <button id="clear-filters" type="button" class="filter-clear" hidden>Clear filters</button></fieldset>
+        <button id="clear-filters" type="button" class="filter-clear" hidden>Clear filters</button></fieldset></div>
     </section>
     <div class="checkbar"><p id="summary" role="status" aria-live="polite">Connect a tracker to get started.</p><button id="check-rows" type="button" class="primary" disabled>Verify Reccie Status</button></div>
     <p id="message" role="status" aria-live="polite"></p>
@@ -117,7 +125,6 @@
     <details id="debug"><summary>Debug</summary>
         <button id="test-google-connection" type="button">Test Google connection</button>
         <p class="hint">Private read-only test for Harry’s account. Checks Google identity from the extension background; does not read or update the tracker.</p>
-        <p><a id="per-user-writer-test" hidden href="reccie-user-test.html" target="_blank" rel="noopener">Live per-user writer test instructions</a></p>
         <pre id="google-connection-result" role="status" aria-live="polite"></pre>
         <button id="forget-report" type="button" class="quiet" aria-describedby="forget-hint">Clear saved report data</button>
         <p id="forget-hint" class="hint">Clears this report’s saved rows, Prisma results, filters and timings from this Chrome profile. The Google Sheet, Prisma and Campaign History stay unchanged.</p>

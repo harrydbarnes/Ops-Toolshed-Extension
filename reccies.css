@@ -56,6 +56,7 @@ details > summary::before {
     transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 details.reccie-is-open > summary::before { transform: rotate(45deg); }
+#writer-connection[open] > summary::before { transform: rotate(45deg); }
 .reccie-details-content {
     height: auto;
     overflow: hidden;

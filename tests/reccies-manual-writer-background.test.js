@@ -6,27 +6,42 @@ describe('manual Reccies worker writes',()=>{
     const context={queueWrite:fn=>fn(),assertActive:()=>{}};
     const row=(id,d)=>({sourceRow:id,dNumber:d,campaignId:'CP3G9KS',month:'2026-09',reccied:'No',issue:''});
     const response=data=>({ok:true,url:'https://script.googleusercontent.com/echo',headers:{get:()=> 'application/json'},json:async()=>({ok:true,service:'ops-toolshed-reccies-writer',protocol:1,...data})});
-    beforeEach(()=>{
+    const sessionKey='recciePerUserWriterIdentity', confirmedKey='reccieConfirmedWriterIdentity';
+    const workEmail='jett@example.com';
+    beforeEach(async()=>{
         chrome.storage.session.__resetStore();
+        await chrome.storage.session.set({[sessionKey]:workEmail});
         jest.resetModules();({dispatchTrackerWrite:manual}=require('../background/reccie-writes'));
         state={reccieTracker:{revision:'original',month:'2026-09',source:{type:'google',url},rows:[row(2,'D03120200'),row(3,'D03120201')],checks:{2:{state:'ready'}}}};
         chrome.permissions={contains:jest.fn(async()=>true)};
         chrome.storage.local.get=jest.fn(async()=>structuredClone(state));chrome.storage.local.set=jest.fn(async values=>Object.assign(state,structuredClone(values)));
         fetchMock=jest.fn(async()=>response({requestId,mode:'main',month:'2026-09',token:'secret-token',results:[{dNumber:'D03120200',campaignId:'CP3G9KS',month:'2026-09',state:'eligible',before:'No'}]}));global.fetch=fetchMock;
     });
-    afterEach(()=>{delete global.fetch;jest.dontMock('../reccie-writer-mode');});
+    afterEach(()=>{delete global.fetch;});
     const preview=()=>manual({operation:'previewTrackerWrite',mode:'main',month:'2026-09',revision:'original',rowIds:[2]},context);
     const commit=()=>manual({operation:'commitTrackerWrite',mode:'main',month:'2026-09',revision:'original',requestId},context);
     test('per-user connection binds the real account and sends no owner fallback request',async()=>{
-        jest.resetModules();jest.doMock('../reccie-writer-mode',()=>{globalThis.opsReccieWriterMode={perUser:true,endpoint:'https://script.google.com/macros/s/per-user-test/exec'};});
-        ({dispatchTrackerWrite:manual}=require('../background/reccie-writes'));
+        chrome.storage.session.__resetStore();
         fetchMock.mockResolvedValue(response({email:'jett@example.com',effectiveEmail:'jett@example.com',perUser:true,ready:true,enforced:false}));
-        await manual({operation:'trackerWriteConnection',mode:'main'},context);
-        expect((await chrome.storage.session.get('recciePerUserWriterIdentity')).recciePerUserWriterIdentity).toBe('jett@example.com');
+        await manual({operation:'trackerWriteConnection',mode:'main',confirmAccount:true},context);
+        expect((await chrome.storage.session.get(sessionKey))[sessionKey]).toBe(workEmail);
+        expect(state[confirmedKey]).toBe(workEmail);
         fetchMock.mockResolvedValue(response({email:'jett@example.com',effectiveEmail:'jett@example.com',perUser:true,ready:true,enforced:true}));
         await manual({operation:'activatePerUserWriter',mode:'main'},context);
         expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({operation:'activatePerUser',requirePerUser:true,expectedEmail:'jett@example.com'});
-        expect(fetchMock.mock.calls.every(([url])=>url==='https://script.google.com/macros/s/per-user-test/exec')).toBe(true);
+        expect(fetchMock.mock.calls.every(([url])=>url==='https://script.google.com/a/macros/wppmedia.com/s/AKfycbygksrATahv4EdcHgA4_X0Tiwjhc9arrefwYZeoU2vz2IOghkxFo1J4WnMNPBktKVnn/exec')).toBe(true);
+    });
+    test('background writes require a checked session and a passive check only restores the confirmed account',async()=>{
+        state[confirmedKey]=workEmail;
+        chrome.storage.session.__resetStore();
+        await expect(manual({operation:'previewTrackerWrite',mode:'main',month:'2026-09',revision:'original',rowIds:[2]},{...context,automatic:true})).rejects.toMatchObject({code:'WRITER_ACCESS_CHECK_REQUIRED'});
+        expect(fetchMock).not.toHaveBeenCalled();
+        fetchMock.mockResolvedValueOnce(response({email:'other@example.com',effectiveEmail:'other@example.com',perUser:true,ready:true,enforced:true}));
+        await expect(manual({operation:'trackerWriteConnection',mode:'main'},context)).rejects.toMatchObject({code:'WRITER_ACCESS_CHECK_REQUIRED'});
+        expect((await chrome.storage.session.get(sessionKey))[sessionKey]).toBeUndefined();
+        fetchMock.mockResolvedValueOnce(response({email:workEmail,effectiveEmail:workEmail,perUser:true,ready:true,enforced:true}));
+        await manual({operation:'trackerWriteConnection',mode:'main'},context);
+        expect((await chrome.storage.session.get(sessionKey))[sessionKey]).toBe(workEmail);
     });
     test('comment clearing fails closed against a service without that capability',async()=>{
         await expect(manual({operation:'previewTrackerWrite',mode:'main',month:'2026-09',revision:'original',rowIds:[2],clearComments:true},context)).rejects.toThrow('comment-removal update');
