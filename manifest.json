@@ -14,7 +14,8 @@
     "scripting",
     "clipboardRead",
     "clipboardWrite",
-    "sidePanel"
+    "sidePanel",
+    "debugger"
   ],
   "host_permissions": [
     "https://*.mediaocean.com/*",

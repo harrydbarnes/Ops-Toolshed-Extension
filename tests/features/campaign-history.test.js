@@ -1392,6 +1392,60 @@ describe('campaign history feature', () => {
         dom.window.close();
     });
 
+    test('captures Traffic supplier groups without collecting placement names', async () => {
+        const { dom } = createPage({
+            url: campaignUrl.replace('ptb-mod=buy&route=online', 'ptb-mod=traffic'),
+            fieldMarkup: `<div id="prisma-traffic-layout-container"><div class="ht_master"><table class="htCore"><tbody>
+                <tr><td id="name-0" class="group-cell hierarchical-level-group-0 indent-0">WPP MS INT CROSS CHANNEL (GBP)</td></tr>
+                <tr><td id="name-1" class="hierarchical-level-group-1 indent-1">WPP MS INT CROSS CHANNEL (GBP)_Awareness_Advanced Audio_CPM</td></tr>
+                <tr><td id="name-2" class="group-cell hierarchical-level-group-1 indent-1">WPP MS INT CROSS CHANNEL (GBP)_Awareness_Advanced Display_CPM</td></tr>
+            </tbody></table></div></div>`
+        });
+        try { await flushPromises(); expect(dom.window.campaignHistoryFeature.getCampaignSnapshot().supplier).toBe('WPP MS INT CROSS CHANNEL'); }
+        finally { dom.window.close(); }
+    });
+
+    test('formats supplier names for display without rewriting saved values', async () => {
+        const value='SAMSUNG ELECTRONICS - | CAMPAIGN MANAGER:CM360 | CAMPAIGN MANAGER | INTEGRAL AD SCIENCE:IAS | TIMEOUT | TIMEOUT:Timeout | TIMEOUT:Production Fee | WPP MS INT CROSS CHANNEL | TIKTOK INFORMATION TECHNOLOGIE';
+        const {dom,localStore}=createPage({settings:{campaignHistoryLoggingEnabled:false},entries:[{
+            key:'campaign:format',campaignId:'CPFORMAT',campaignName:'Formatting example',supplier:value,firstVisitedAt:1,lastVisitedAt:1,visitCount:1
+        }]});
+        try {
+            await flushPromises();clickHistoryMenuItem(dom.window.document);await flushPromises();
+            const items=[...dom.window.document.querySelectorAll('.toolshed-campaign-history-supplier-list .toolshed-campaign-history-metadata-value')].map(item=>item.textContent);
+            expect(items).toEqual(['Samsung Electronics','Campaign Manager (CM360)','Integral Ad Science (IAS)','Timeout','Timeout (Production Fee)','WPP MS INT Cross Channel','TikTok']);
+            expect(localStore.campaignHistoryEntries[0].supplier).toContain('CAMPAIGN MANAGER:CM360');
+        } finally {dom.window.close();}
+    });
+
+    test('does not pick a client name from Campaign History or show an unconfirmed client on the current campaign', async () => {
+        const {dom,localStore}=createPage({settings:{campaignHistoryLoggingEnabled:false},entries:[{
+            key:'campaign:cp3fmrk',campaignId:'CP3FMRK',campaignName:'Current campaign',clientName:'NUFFIELD',supplier:'CAMPAIGN MANAGER',firstVisitedAt:1,lastVisitedAt:1,visitCount:1
+        }]});
+        try {
+            await flushPromises();clickHistoryMenuItem(dom.window.document);await flushPromises();
+            const result=dom.window.document.querySelector('.toolshed-campaign-history-result');
+            expect(result.textContent).not.toContain('NUFFIELD');
+            expect(result.textContent).toContain('Campaign Manager (CM360)');
+            expect(dom.window.campaignHistoryFeature.getCampaignSnapshot().clientName).toBe('');
+            expect(localStore.campaignHistoryEntries[0].clientName).toBe('NUFFIELD');
+        } finally {dom.window.close();}
+    });
+
+    test('renders distinct suppliers and omits old placement-shaped values without deleting them', async () => {
+        const value = 'Meta | WPP MS INT CROSS CHANNEL _Awareness_Advanced Audio_CPM_RICH | Reddit';
+        const {dom, localStore} = createPage({settings:{campaignHistoryLoggingEnabled:false},entries:[{
+            key:'campaign:multi',campaignId:'CPMULTI',campaignName:'Multi supplier campaign',
+            supplier:value,firstVisitedAt:1,lastVisitedAt:1,visitCount:1
+        }]});
+        try {
+            await flushPromises(); clickHistoryMenuItem(dom.window.document); await flushPromises();
+            const items=[...dom.window.document.querySelectorAll('.toolshed-campaign-history-supplier-list .toolshed-campaign-history-metadata-value')];
+            expect(items.map(item=>item.textContent)).toEqual(['Meta','Reddit']);
+            expect(localStore.campaignHistoryEntries[0].supplier).toContain('_Awareness_Advanced Audio_CPM_RICH');
+        } finally { dom.window.close(); }
+    });
+
     test('normalizes common supplier names before logging and migrating history', async () => {
         const { dom, localStore } = createPage({
             settings: { campaignHistoryLoggingEnabled: false },
@@ -1523,8 +1577,11 @@ describe('campaign history feature', () => {
         expect(localStore.campaignHistoryEntries.find(entry => entry.campaignId === 'CPLEGACY').supplier)
             .toBe('');
         expect(legacyResult.textContent).not.toContain('Redistribute');
-        expect(manyResult.querySelector('.toolshed-campaign-history-metadata-label').textContent)
+        expect(manyResult.querySelector('.toolshed-campaign-history-suppliers .toolshed-campaign-history-metadata-label').textContent)
             .toBe('Suppliers');
+        const metadataItems = [...manyResult.querySelectorAll('.toolshed-campaign-history-metadata-item')];
+        expect(metadataItems.at(-1).classList.contains('toolshed-campaign-history-suppliers')).toBe(true);
+        expect(manyResult.querySelector('button').getAttribute('aria-label')).toContain('Many suppliers');
         dom.window.close();
     });
 

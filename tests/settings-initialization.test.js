@@ -32,6 +32,7 @@ const EXPECTED_DEFAULTS = {
     swapAccountsEnabled: true,
     rememberAccountSwitchUrlEnabled: true,
     bannerUsernameEnabled: true,
+    appSwitcherToggleEnabled: true,
     alwaysShowCommentsEnabled: true,
     orderIdCopyEnabled: true,
     maxCampaignBudgetEnabled: true,

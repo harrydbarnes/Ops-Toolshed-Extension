@@ -78,6 +78,7 @@ export const CONTENT_SCRIPT_DEFINITIONS = Object.freeze([
             'features/order-id-copy.js',
             'features/order-grid-scroll-sync.js',
             'features/order-view-toggle.js',
+            'features/app-switcher-toggle.js',
             'features/actualise-navbar.js',
             'features/actualise-shortcut.js',
             'features/actualise-export-all.js',

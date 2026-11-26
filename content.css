@@ -1334,6 +1334,76 @@ body.reminder-theme-black #confirmation-popup {
     }
 }
 /* --- End order version segmented control --- */
+
+/* --- Media / Production app switcher segmented control --- */
+mo-banner .banner .left.app-switcher-toggle-active {
+    display: flex;
+    align-items: center;
+}
+
+mo-banner .banner .left.app-switcher-toggle-active > mo-menu.main-menu {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.app-switcher-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    height: 28px;
+    padding: 3px;
+    margin-left: 8px;
+    box-sizing: border-box;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    white-space: nowrap;
+}
+
+.app-switcher-toggle button {
+    height: 20px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: rgba(240, 241, 244, 0.78);
+    font: 600 11px/20px Montserrat, Arial, sans-serif;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    transition: background-color 140ms ease, color 140ms ease;
+}
+
+.app-switcher-toggle button[aria-pressed="true"] {
+    background: #286ce9;
+    color: #ffffff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.app-switcher-toggle button:hover:not([aria-pressed="true"]):not(:disabled) {
+    background: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+}
+
+.app-switcher-toggle button:focus-visible {
+    outline: 2px solid #60a5fa;
+    outline-offset: 1px;
+}
+
+.app-switcher-toggle button:disabled {
+    cursor: wait;
+    opacity: 0.75;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .app-switcher-toggle button {
+        transition: none;
+    }
+}
+/* --- End Media / Production app switcher segmented control --- */
 /* --- End of Order ID Copy Button Styles --- */
 
 /* --- Campaign Navigation Style Optimisation --- */
@@ -1884,19 +1954,18 @@ div[slot="right"].ai-style-change-1 {
 
 .toolshed-campaign-history-result-title {
     display: block;
-    overflow: hidden;
     color: var(--toolshed-history-ink);
     font-size: 13px;
     font-weight: 600;
     line-height: 1.35;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
+    white-space: normal;
 }
 
 .toolshed-campaign-history-result-metadata {
     display: flex;
     flex-wrap: wrap;
-    gap: 5px 10px;
+    gap: 5px 14px;
     margin-top: 6px;
 }
 
@@ -1906,20 +1975,45 @@ div[slot="right"].ai-style-change-1 {
     max-width: 100%;
     gap: 4px;
     color: var(--toolshed-history-muted);
-    font-size: 10px;
-    line-height: 1.3;
+    font-size: 12px;
+    line-height: 1.4;
 }
 
 .toolshed-campaign-history-metadata-label {
     flex: 0 0 auto;
     color: #8493a0;
-    font-weight: 700;
+    font-weight: 400;
 }
 
 .toolshed-campaign-history-metadata-value {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.toolshed-campaign-history-suppliers {
+    flex-basis: 100%;
+    display: grid;
+    grid-template-columns: 62px minmax(0, 1fr);
+    gap: 6px;
+    margin-top: 3px;
+}
+
+.toolshed-campaign-history-supplier-list {
+    display: block;
+    min-width: 0;
+}
+
+.toolshed-campaign-history-suppliers .toolshed-campaign-history-metadata-value {
+    display: inline;
+    overflow: visible;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.toolshed-campaign-history-supplier-list .toolshed-campaign-history-metadata-value + .toolshed-campaign-history-metadata-value::before {
+    content: ' · ';
+    white-space: pre;
 }
 
 
@@ -1930,7 +2024,7 @@ div[slot="right"].ai-style-change-1 {
     gap: 8px;
     margin-top: 7px;
     color: #8795a1;
-    font-size: 10px;
+    font-size: 11px;
     line-height: 1.35;
 }
 

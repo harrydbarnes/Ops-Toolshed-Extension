@@ -9,6 +9,13 @@ import {
     getDiagnosticReport,
     recordDiagnosticEvent
 } from './diagnostics-manager.js';
+import {
+    startNetworkCapture,
+    stopNetworkCapture,
+    getNetworkCaptureStatus,
+    getLastNetworkCapture,
+    clearLastNetworkCapture
+} from './network-capture.js';
 
 const openHelpGuideTabs = new Set();
 const OPEN_HELP_GUIDE_TABS_KEY = 'openHelpGuideTabIds';
@@ -473,6 +480,44 @@ async function handleClearDiagnosticEvents(request, sender, sendResponse) {
     sendResponse(await clearDiagnosticEvents());
 }
 
+function requireNetworkCaptureSender(sender, sendResponse) {
+    const baseUrl = sender?.url?.split(/[?#]/)[0];
+    if (sender?.id === chrome.runtime.id && (
+        baseUrl === chrome.runtime.getURL('popup.html') ||
+        baseUrl === chrome.runtime.getURL('toolshed.html')
+    )) return true;
+    sendResponse({ status: 'error', message: 'Network capture can only be controlled from Ops Toolshed.' });
+    return false;
+}
+
+async function handleStartNetworkCapture(request, sender, sendResponse) {
+    if (!requireNetworkCaptureSender(sender, sendResponse)) return;
+    sendResponse(await startNetworkCapture({
+        tabId: request.tabId,
+        sanitize: request.sanitize !== false
+    }));
+}
+
+async function handleStopNetworkCapture(request, sender, sendResponse) {
+    if (!requireNetworkCaptureSender(sender, sendResponse)) return;
+    sendResponse(await stopNetworkCapture());
+}
+
+async function handleGetNetworkCaptureStatus(request, sender, sendResponse) {
+    if (!requireNetworkCaptureSender(sender, sendResponse)) return;
+    sendResponse({ status: 'success', captureStatus: getNetworkCaptureStatus() });
+}
+
+async function handleGetLastNetworkCapture(request, sender, sendResponse) {
+    if (!requireNetworkCaptureSender(sender, sendResponse)) return;
+    sendResponse(getLastNetworkCapture());
+}
+
+async function handleClearLastNetworkCapture(request, sender, sendResponse) {
+    if (!requireNetworkCaptureSender(sender, sendResponse)) return;
+    sendResponse(clearLastNetworkCapture());
+}
+
 async function handleDismissApprovedCampaign(request, sender, sendResponse) {
     const result = await dismissApprovedCampaign(request.campaignId);
     sendResponse(result);
@@ -535,5 +580,10 @@ export const messageHandlers = {
     SET_DIAGNOSTICS_MODE: handleSetDiagnosticsMode,
     RECORD_DIAGNOSTIC_EVENT: handleRecordDiagnosticEvent,
     GET_DIAGNOSTIC_REPORT: handleGetDiagnosticReport,
-    CLEAR_DIAGNOSTIC_EVENTS: handleClearDiagnosticEvents
+    CLEAR_DIAGNOSTIC_EVENTS: handleClearDiagnosticEvents,
+    START_NETWORK_CAPTURE: handleStartNetworkCapture,
+    STOP_NETWORK_CAPTURE: handleStopNetworkCapture,
+    GET_NETWORK_CAPTURE_STATUS: handleGetNetworkCaptureStatus,
+    GET_LAST_NETWORK_CAPTURE: handleGetLastNetworkCapture,
+    CLEAR_LAST_NETWORK_CAPTURE: handleClearLastNetworkCapture
 };

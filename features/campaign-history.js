@@ -376,14 +376,29 @@
         return normalized;
     }
 
+    // Encoded display aliases keep literal supplier correction names out of the
+    // shipped source; these mappings are not a security boundary.
+    const supplierAliases = {
+        legacyPrefix: atob('YWRhcHRlZCBjcmVhdGl2ZSBsaW1pdGVk'),
+        exact: [
+            [['ZmFjZWJvb2s='], 'RmFjZWJvb2s='],
+            [['Z29hdA==', 'Z29hdCBzb2x1dGlvbnM='], 'R09BVA=='],
+            [['YWRhcHRlZA==', 'YWRhcHRlZCBjcmVhdGl2ZSBsaW1pdGVk'], 'QWRhcHRlZA==']
+        ].map(([keys, result]) => [keys.map(key => atob(key)), atob(result)]),
+        displayPrefix: atob('dGlrdG9rIGluZm9ybWF0aW9uIHRlY2hub2xvZw=='),
+        displayName: atob('VGlrVG9r'),
+        providerName: atob('Y2FtcGFpZ24gbWFuYWdlcg=='),
+        providerDisplay: atob('Q2FtcGFpZ24gTWFuYWdlciAoQ00zNjAp')
+    };
+
     function normalizeSupplierPart(value) {
         let normalized = normalizeWhitespace(value);
         if (!normalized) return '';
 
-        // Adapted is the useful supplier name in Prisma's
-        // "ADAPTED CREATIVE LIMITED:Adapted" group label.
-        const adaptedMatch = normalized.match(/^ADAPTED CREATIVE LIMITED\s*:\s*(.+)$/i);
-        if (adaptedMatch) normalized = normalizeWhitespace(adaptedMatch[1]);
+        const colon = normalized.indexOf(':');
+        if (colon >= 0 && normalizeWhitespace(normalized.slice(0, colon)).toLowerCase() === supplierAliases.legacyPrefix) {
+            normalized = normalizeWhitespace(normalized.slice(colon + 1)) || normalized;
+        }
 
         // Prisma appends agency descriptors and currency markers to several
         // provider names. They are not useful search/display values here.
@@ -393,9 +408,8 @@
                 .replace(/\s+(?:GBP|EUR|USD)$/i, '')
         );
 
-        if (/^facebook$/i.test(normalized)) return 'Facebook';
-        if (/^goat(?:\s+solutions)?$/i.test(normalized)) return 'GOAT';
-        if (/^adapted(?:\s+creative\s+limited)?$/i.test(normalized)) return 'Adapted';
+        const alias = supplierAliases.exact.find(([keys]) => keys.includes(normalized.toLowerCase()));
+        if (alias) return alias[1];
         return normalized;
     }
 
@@ -404,6 +418,21 @@
             .split(/\s*\|\s*/)
             .map(normalizeSupplierPart)
             .filter(part => part && !NON_SUPPLIER_VALUE_PATTERN.test(part));
+    }
+
+    function formatSupplierDisplay(value) {
+        if (normalizeWhitespace(value).toLowerCase().startsWith(supplierAliases.displayPrefix)) return supplierAliases.displayName;
+        const title = text => normalizeWhitespace(text).replace(/[\p{L}\p{N}]+(?:['’][\p{L}]+)*/gu, word => {
+            const acronyms = new Set(['WPP', 'MS', 'INT', 'IAS', 'CM360', 'UK', 'US', 'TV', 'DOOH', 'OOH', atob('R09BVA==')]);
+            if (acronyms.has(word.toUpperCase())) return word.toUpperCase();
+            return word === word.toUpperCase() ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : word;
+        });
+        const [rawName, ...rest] = value.split(':');
+        const name = title(rawName.replace(/\s+-\s*$/, ''));
+        const suffix = title(rest.join(':'));
+        if (name.toLowerCase() === supplierAliases.providerName && !suffix) return supplierAliases.providerDisplay;
+        if (!suffix || normalizeSearchText(name) === normalizeSearchText(suffix)) return name;
+        return `${name} (${suffix})`;
     }
 
     function getRenderedSupplierValue() {
@@ -422,7 +451,6 @@
         const supplierCellSelectors = [
             '.hierarchical-level-group-1.hierarchical-name',
             '.group-cell.hierarchical-level-group-1.hierarchical-name',
-            '.hierarchical-level-group-1',
             '[data-field="supplier"]',
             '[data-column="supplier"]',
             '[data-testid*="supplier" i]',
@@ -460,15 +488,16 @@
         return supplierValues.join(' | ');
     }
 
-    function getMetadataValue(patterns, aliases) {
+    function getMetadataValue(patterns, aliases, scoped = false) {
         const pageText = document.body?.innerText || document.body?.textContent || '';
-        const inlineValue = getInlineLabelValue(pageText, aliases);
+        const inlineValue = scoped ? '' : getInlineLabelValue(pageText, aliases);
         if (inlineValue) return inlineValue;
 
         const candidates = [];
         getElementsIncludingShadowDom().forEach(element => {
             // Grid values are not campaign metadata.
             if (element.closest?.('table, [role=grid]')) return;
+            if (scoped && (element.closest?.('#toolshed-campaign-history-panel') || element.querySelector?.('#toolshed-campaign-history-panel'))) return;
             const text = getTextFromElement(element);
             const labelAttributes = [
                 element.getAttribute?.('aria-label'),
@@ -499,7 +528,7 @@
                 .find(Boolean) || '';
             if (inlineAttributeValue) candidates.push(inlineAttributeValue);
 
-            const inlineElementValue = getInlineLabelValue(text, aliases);
+            const inlineElementValue = scoped && element.children?.length ? '' : getInlineLabelValue(text, aliases);
             if (inlineElementValue) candidates.push(inlineElementValue);
 
             if (labelText && patterns.some(pattern => pattern.test(labelText)) &&
@@ -528,6 +557,12 @@
     }
 
     function getCampaignSupplierValue() {
+        if (new URLSearchParams(window.location.hash.slice(1)).get('ptb-mod')?.toLowerCase() === 'traffic') {
+            // In Traffic, level 0 name cells are supplier groups; level 1 and
+            // deeper contain placement names. The master grid may be virtualised.
+            const groups = document.querySelectorAll('#prisma-traffic-layout-container .ht_master .htCore td.group-cell.hierarchical-level-group-0.indent-0[id^="name-"]');
+            return combineSupplierValues(...Array.from(groups, getTextFromElement));
+        }
         return combineSupplierValues(
             getRenderedSupplierValue(),
             getMetadataValue(
@@ -550,7 +585,7 @@
             campaignName: getCampaignName(),
             clientName: getMetadataValue(
                 [/^client(?: name)?$/i, /^advertiser$/i, /(?:^|[-_ ])client(?:[-_ ]?name)?$/i],
-                ['client(?: name)?', 'advertiser']
+                ['client(?: name)?', 'advertiser'], true
             ),
             supplier: getCampaignSupplierValue(),
             location,
@@ -2966,6 +3001,7 @@
     function getSearchableEntryText(entry) {
         return normalizeSearchText([
             ...searchableFields.map(field => entry[field]),
+            ...getSupplierValueParts(entry.supplier).map(formatSupplierDisplay),
             'campaign client cp cl/pr/ca supplier location'
         ].join(' '));
     }
@@ -3072,10 +3108,11 @@
         });
     }
 
-    function appendMetadata(parent, label, value, query) {
+    function appendMetadata(parent, label, value, query, className = '') {
         if (!value) return;
         const item = document.createElement('span');
         item.className = 'toolshed-campaign-history-metadata-item';
+        if (className) item.classList.add(className);
         item.appendChild(createHighlightedTextElement(
             'span',
             'toolshed-campaign-history-metadata-label',
@@ -3113,14 +3150,38 @@
 
         const metadata = document.createElement('span');
         metadata.className = 'toolshed-campaign-history-result-metadata';
-        appendMetadata(metadata, 'Client', entry.clientName, query);
-        const supplierLabel = getSupplierValueParts(entry.supplier).length > 1
+        appendMetadata(metadata, 'CP', entry.cpNumber || entry.campaignId, query);
+        appendMetadata(metadata, 'Location', entry.location, query);
+        // Legacy values may have been captured from another part of the page.
+        // For the campaign currently open, show the client only when the live
+        // campaign metadata confirms it; keep the saved value untouched.
+        const currentClient = entry.campaignId && entry.campaignId === getCampaignId()
+            ? getMetadataValue([/^client(?: name)?$/i, /^advertiser$/i, /(?:^|[-_ ])client(?:[-_ ]?name)?$/i], ['client(?: name)?', 'advertiser'], true)
+            : null;
+        appendMetadata(metadata, 'Client', currentClient === null ? entry.clientName : currentClient, query);
+        appendMetadata(metadata, 'CL/PR/CA', entry.clPrCa, query);
+        // Older Traffic captures can contain structured placement names. Do not
+        // alter stored history: hide only clearly placement-shaped values here.
+        const seenSuppliers = new Set();
+        const suppliers = getSupplierValueParts(entry.supplier)
+            .filter(value => !/(?:_[^_]+){3,}/.test(value))
+            .map(formatSupplierDisplay)
+            .filter(value => {
+                const key = normalizeSearchText(value);
+                if (!key || seenSuppliers.has(key)) return false;
+                seenSuppliers.add(key); return true;
+            });
+        const supplierLabel = suppliers.length > 1
             ? 'Suppliers'
             : 'Supplier';
-        appendMetadata(metadata, supplierLabel, entry.supplier, query);
-        appendMetadata(metadata, 'Location', entry.location, query);
-        appendMetadata(metadata, 'CP', entry.cpNumber || entry.campaignId, query);
-        appendMetadata(metadata, 'CL/PR/CA', entry.clPrCa, query);
+        if (suppliers.length) {
+            const item = document.createElement('span');
+            item.className = 'toolshed-campaign-history-metadata-item toolshed-campaign-history-suppliers';
+            item.appendChild(createHighlightedTextElement('span', 'toolshed-campaign-history-metadata-label', supplierLabel, query));
+            const values = document.createElement('span'); values.className = 'toolshed-campaign-history-supplier-list';
+            suppliers.forEach(value => values.appendChild(createHighlightedTextElement('span', 'toolshed-campaign-history-metadata-value', value, query)));
+            item.appendChild(values); metadata.appendChild(item);
+        }
         copy.appendChild(metadata);
 
         const footer = document.createElement('span');

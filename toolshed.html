@@ -27,6 +27,8 @@
                 <h2>r1.9</h2>
                 <ul>
                     <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>ABW Check PO:</strong> Compare a Wrike booking with its MX purchase order, including flight dates, PO value and media plan budget.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Media / Production Banner Toggle:</strong> Replaces the top-left Media / Production dropdown in Prisma and Production with a one-click segmented toggle styled to match the top banner.</span></li>
+                    <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Prisma Support Capture (HAR &amp; Console Logs):</strong> Start and stop a one-click DevTools-grade network (.har, preserving logs across navigations) and console (.log) capture directly from the popup or Prisma Diagnostics, with optional cookie/auth redaction, file downloads, and a ready-to-send email summary.</span></li>
                     <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Finance update log:</strong> Tracks Pending statuses first seen in Actualise and checks for their result in the background. Stats shows observed timing and unsuccessful checks.</span></li>
                     <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>Prisma Diagnostics:</strong> Local loading and placement-save trends, manual observations and private JSON export, with a three-way signal selector and styled report controls.</span></li>
                     <li><span class="release-badge release-badge--new" data-release-type="new">New</span><span class="release-copy"><strong>AI site banner:</strong> Shows the Harmonic advice banner on ChatGPT, X, Claude and Gemini until its guidance is acknowledged after a three-second countdown, then shows it again after seven days. If you dismiss it without ticking the acknowledgement, it returns on the next page load. Do not enter company or client data into unapproved public AI services; use WPP Open for that data.</span></li>
@@ -370,6 +372,37 @@
                 </div><p id="diagnostics-report-status" aria-live="polite"></p>
                 <button id="diagnostics-export" class="button-secondary">Export diagnostics JSON</button>
                 <p>Local only: up to 366 UTC days of histograms and 1,000 recent samples. Export includes sanitised diagnostics for the selected period and extension build/version, only when clicked. Nothing is uploaded. Reset Stats clears diagnostics. Stats Collector disables collection.</p>
+
+                <div class="nc-toolshed-card" data-network-capture-root>
+                    <div class="nc-toolshed-header">
+                        <h4>Quick Network &amp; Console Capture (HAR + .log for Support)</h4>
+                        <span class="nc-live-badge" data-nc-live hidden><span class="nc-live-dot" aria-hidden="true"></span>Recording</span>
+                    </div>
+                    <p>Captures a DevTools-grade <code>.har</code> network trace (preserving logs across navigations, like &ldquo;Keep log&rdquo;) and console <code>.log</code> from your active Prisma tab without opening DevTools.</p>
+                    <label class="nc-sanitize-toggle">
+                        <input type="checkbox" data-nc-sanitize checked>
+                        Redact cookies &amp; auth headers (recommended)
+                    </label>
+                    <div class="nc-toolshed-actions">
+                        <button id="toolshedStartCaptureBtn" type="button" class="button-secondary" data-nc-start>Start Capture</button>
+                        <button id="toolshedStopCaptureBtn" type="button" class="button-secondary nc-btn-danger" data-nc-stop hidden>Stop &amp; Prepare Email</button>
+                    </div>
+                    <p class="nc-status" data-nc-status aria-live="polite"></p>
+                    <div class="nc-export-panel" data-nc-export hidden>
+                        <p class="nc-meta" data-nc-meta></p>
+                        <div class="nc-toolshed-actions">
+                            <button type="button" class="button-secondary" data-nc-download-eml>Download Email Draft (.eml with attachments)</button>
+                            <button type="button" class="button-secondary" data-nc-download-both>Download .har &amp; .log</button>
+                            <button type="button" class="button-secondary" data-nc-download-har>Download .har</button>
+                            <button type="button" class="button-secondary" data-nc-download-log>Download .log</button>
+                            <button type="button" class="button-secondary" data-nc-copy-email>Copy Email Summary</button>
+                        </div>
+                        <details class="nc-preview-details">
+                            <summary>Preview email summary</summary>
+                            <pre class="nc-preview-pre" data-nc-preview></pre>
+                        </details>
+                    </div>
+                </div>
             </section>
             <section class="stats-section" aria-labelledby="finance-timing-title">
                 <h3 id="finance-timing-title">Finance update log</h3>
@@ -457,6 +490,6 @@
     </div>
 
     <div id="build-info" class="build-info"></div>
-    <script src="extension-page-gate.js" data-scripts="diagnostics.js,diagnostics-ui.js,features/confetti.js,build-info.js,utils.js,features/feedback-modal.js,toolshed-finance-log.js,toolshed.js"></script>
+    <script src="extension-page-gate.js" data-scripts="diagnostics.js,diagnostics-ui.js,network-capture-ui.js,features/confetti.js,build-info.js,utils.js,features/feedback-modal.js,toolshed-finance-log.js,toolshed.js"></script>
 </body>
 </html>

@@ -849,3 +849,21 @@ li {
 #diagnostics-table table { width: 100%; border-collapse: collapse; font-size: 12px; }
 #diagnostics-table th, #diagnostics-table td { padding: 9px 8px; border-bottom: 1px solid #e5e7eb; text-align: left; }
 @media (max-width: 480px) { .diagnostics-segments button { padding: 7px 4px; font-size: 12px; } .diagnostics-report-controls .button-secondary { width: 100%; } }
+
+/* Quick Network & Console Capture (HAR + .log) */
+.nc-toolshed-card { margin-top: 20px; padding: 16px; border: 1px solid #e2e6f0; border-radius: 10px; background: #f9fafc; }
+.nc-toolshed-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.nc-toolshed-header h4 { margin: 0; font-size: 15px; color: #242830; }
+.nc-live-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #b91c1c; background: #fee2e2; padding: 3px 9px; border-radius: 999px; }
+.nc-live-dot { width: 8px; height: 8px; border-radius: 50%; background: #dc2626; animation: nc-pulse 1.2s ease-in-out infinite; }
+@keyframes nc-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+.nc-sanitize-toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #374151; margin: 6px 0 12px; cursor: pointer; }
+.nc-toolshed-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.nc-btn-danger { background: #dc2626 !important; color: #fff !important; border-color: #b91c1c !important; }
+.nc-status { margin: 8px 0 0; font-size: 13px; color: #374151; }
+.nc-status:empty { display: none; }
+.nc-status-error { color: #b91c1c; }
+.nc-export-panel { margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb; }
+.nc-meta { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: #242830; }
+.nc-preview-details { margin-top: 10px; }
+.nc-preview-pre { margin: 8px 0 0; padding: 10px; background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 12px; white-space: pre-wrap; max-height: 260px; overflow-y: auto; }

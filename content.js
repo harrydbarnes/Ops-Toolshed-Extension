@@ -51,6 +51,7 @@ const EXTENSION_OWNED_SELECTOR = [
     '.order-id-copy-btn',
     '.order-id-copy-toast',
     '.order-view-toggle',
+    '.app-switcher-toggle',
     '.placement-toast',
     '.reminder-overlay',
     '.loading-fact-toast',
@@ -99,7 +100,7 @@ const DIRTY_FEATURE_HINTS = [
         selector: '.select2-choices, .select2-drop-active'
     },
     {
-        groups: ['chat'],
+        groups: ['shell', 'chat'],
         selector: 'mo-banner, mo-banner-help-menu, mo-menu'
     },
     {
@@ -382,6 +383,7 @@ async function mainContentScriptInit() {
         { name: 'switch-accounts', getFeature: () => window.swapAccountsFeature, when: () => isPrismaLike || isAura },
         { name: 'order-id-copy', getFeature: () => window.orderIdCopyFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
         { name: 'order-view-toggle', getFeature: () => window.orderViewToggleFeature, when: route => isPrismaLike && route.isCampaignWorkspace },
+        { name: 'app-switcher-toggle', getFeature: () => window.appSwitcherToggleFeature, when: () => isPrismaLike || isAura },
         { name: 'order-grid-scroll', getFeature: () => window.orderGridScrollSyncFeature, when: route => isPrismaLike && route.isOrderSummary },
         { name: 'actualise-scroll', getFeature: () => window.actualiseScrollRestoreFeature, when: route => isPrismaLike && route.isActualise },
         { name: 'actualise-navbar', getFeature: () => window.actualiseNavbarFeature, when: route => isPrismaLike && route.isActualise },
@@ -503,6 +505,7 @@ async function mainContentScriptInit() {
             runFeatureOperation('appLearnFeature', () => window.appLearnFeature?.applyTransparency?.());
             runFeatureOperation('helpGuidesLauncherFeature', () => window.helpGuidesLauncherFeature?.ensureLauncher?.());
             runFeatureOperation('approvalTrackingFeature', () => window.approvalTrackingFeature?.injectBannerButton?.());
+            runFeatureOperation('appSwitcherToggleFeature', () => window.appSwitcherToggleFeature?.reconcile?.());
         }
         window.opsDiagnostics?.recordRateLimited?.('reconcile-fast', {
             source: 'content-lifecycle',

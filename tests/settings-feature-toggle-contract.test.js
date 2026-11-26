@@ -15,6 +15,7 @@ const FEATURE_TOGGLE_KEYS = {
     logoToggle: 'logoReplaceEnabled',
     appLearnReplaceToggle: 'appLearnReplaceEnabled',
     bannerUsernameToggle: 'bannerUsernameEnabled',
+    appSwitcherToggleToggle: 'appSwitcherToggleEnabled',
     loadingFactsToggle: 'loadingFactsEnabled',
     helpGuidesToggle: 'helpGuidesEnabled',
     prismaLoginAssistantToggle: 'prismaLoginAssistantEnabled',
