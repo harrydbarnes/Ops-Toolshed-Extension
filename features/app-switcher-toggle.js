@@ -15,6 +15,7 @@
 
     const SWITCHER_STYLES = `
 .banner .left.app-switcher-toggle-active {
+    min-inline-size: max-content;
     display: flex;
     align-items: center;
 }
@@ -29,7 +30,7 @@
     gap: 2px;
     height: 28px;
     padding: 3px;
-    margin-left: 8px;
+    margin-inline: 8px;
     box-sizing: border-box;
     border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: 6px;
